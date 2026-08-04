@@ -19,6 +19,7 @@ from django.conf import settings
 from django.contrib.auth import authenticate, password_validation
 from django.contrib.auth.forms import SetPasswordForm as DjangoSetPasswordForm
 from django.db import transaction
+from django.forms import Script
 from django.middleware.csrf import rotate_token
 from django.utils.functional import cached_property
 from django.utils.html import escape, format_html
@@ -235,33 +236,8 @@ class CommitForm(ProfileBaseForm):
         super().__init__(*args, **kwargs)
         instance = self.instance
 
-        commit_emails = get_all_user_mails(instance.user, filter_deliverable=False)
-        site_commit_email = instance.get_site_commit_email()
-        if site_commit_email:
-            if not settings.PRIVATE_COMMIT_EMAIL_OPT_IN:
-                self.fields["commit_email"].choices = [("", site_commit_email)]
-            else:
-                commit_emails.add(site_commit_email)
-
-        self.fields["commit_email"].choices += [(x, x) for x in sorted(commit_emails)]
-
-        site_name = instance.get_site_commit_name()
-        visible_name = instance.user.get_visible_name()
-
-        if not settings.PRIVATE_COMMIT_NAME_OPT_IN and site_name:
-            default_label = gettext_lazy("Use anonymous account name")
-        else:
-            default_label = gettext_lazy("Use account name")
-
-        name_choices = [
-            (Profile.CommitNameChoices.DEFAULT, default_label),
-            (Profile.CommitNameChoices.PUBLIC, visible_name),
-        ]
-
-        if site_name:
-            name_choices.append((Profile.CommitNameChoices.PRIVATE, site_name))
-
-        self.fields["commit_name"].choices = name_choices
+        self.fields["commit_email"].choices = instance.get_commit_email_choices()
+        self.fields["commit_name"].choices = instance.get_commit_name_choices()
 
         self.helper = FormHelper(self)
         self.helper.disable_csrf = True
@@ -295,10 +271,7 @@ class ProfileForm(ProfileBaseForm):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        emails = get_all_user_mails(self.instance.user)
-
-        self.fields["public_email"].choices += [(x, x) for x in sorted(emails)]
-
+        self.fields["public_email"].choices = self.instance.get_public_email_choices()
         self.helper = FormHelper(self)
         self.helper.disable_csrf = True
         self.helper.form_tag = False
@@ -347,6 +320,7 @@ class UserSettingsForm(ProfileBaseForm):
             "nearby_strings",
             "secondary_in_zen",
             "hide_source_secondary",
+            "wide_tables",
             "editor_link",
             "special_chars",
             "contribute_personal_tm",
@@ -469,6 +443,14 @@ class UserForm(forms.ModelForm):
 
 class CaptchaWidget(forms.TextInput):
     challenge: Challenge | None = None
+
+    class Media:
+        js: ClassVar = [
+            Script(
+                "js/vendor/altcha.js",
+                defer=True,
+            )
+        ]
 
     @staticmethod
     def serialize_challenge(challenge: Challenge) -> str:

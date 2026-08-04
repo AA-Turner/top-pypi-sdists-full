@@ -127,6 +127,7 @@ from chalk._gen.chalk.server.v1.offline_queries_pb2 import (
     GetOfflineQueryRequest,
 )
 from chalk._gen.chalk.server.v1.offline_queries_pb2_grpc import OfflineQueryMetadataServiceStub
+from chalk._gen.chalk.server.v1.offline_wide_tables_pb2_grpc import OfflineWideTablesServiceStub
 from chalk._gen.chalk.server.v1.queries_pb2 import GetMetaQueryRequest, GetQueryRunRequest
 from chalk._gen.chalk.server.v1.queries_pb2_grpc import QueriesServiceStub
 from chalk._gen.chalk.server.v1.scheduled_query_pb2_grpc import ScheduledQueryServiceStub
@@ -479,6 +480,12 @@ class StubProvider:
         return OfflineStoreServiceStub(self._server_channel)
 
     @cached_property
+    def offline_wide_tables_stub(self) -> OfflineWideTablesServiceStub:
+        if self._server_channel is None:
+            raise RuntimeError("Unable to connect to API server.")
+        return OfflineWideTablesServiceStub(self._server_channel)
+
+    @cached_property
     def queries_stub(self) -> QueriesServiceStub:
         if self._server_channel is None:
             raise RuntimeError("Unable to connect to API server.")
@@ -811,6 +818,9 @@ class StubRefresher:
 
     def call_offline_store_stub(self, fn: Callable[[OfflineStoreServiceStub], T]):
         return self._retry_callable(fn, lambda: self._stub.offline_store_stub)
+
+    def call_offline_wide_tables_stub(self, fn: Callable[[OfflineWideTablesServiceStub], T]):
+        return self._retry_callable(fn, lambda: self._stub.offline_wide_tables_stub)
 
     def call_queries_stub(self, fn: Callable[[QueriesServiceStub], T]):
         return self._retry_callable(fn, lambda: self._stub.queries_stub)

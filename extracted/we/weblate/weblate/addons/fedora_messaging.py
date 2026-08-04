@@ -81,13 +81,13 @@ class BrokerParameters(Protocol):
 
 
 class BrokerTLSContextFactory(Protocol):
-    def clientConnectionForTLS(  # noqa: N802
+    def clientConnectionForTLS(  # ruff: ignore[invalid-function-name]
         self, tls_protocol: object
     ) -> SSL.Connection: ...
 
 
 class BrokerTLSProbeFactory:
-    wrappedFactory = object()  # noqa: N815
+    wrappedFactory = object()  # ruff: ignore[mixed-case-variable-in-class-scope]
 
 
 class BrokerTLSProbeProtocol:
@@ -97,10 +97,10 @@ class BrokerTLSProbeProtocol:
         self.verification_failure: object | None = None
         self.aborted = False
 
-    def failVerification(self, failure: object) -> None:  # noqa: N802
+    def failVerification(self, failure: object) -> None:  # ruff: ignore[invalid-function-name]
         self.verification_failure = failure
 
-    def abortConnection(self) -> None:  # noqa: N802
+    def abortConnection(self) -> None:  # ruff: ignore[invalid-function-name]
         self.aborted = True
 
 
@@ -248,7 +248,7 @@ class FedoraMessagingAddon(ChangeBaseAddon):
         crochet.setup()
 
         if FedoraMessagingAddon._is_fedora_messaging_service_stale(
-            fedora_messaging.api._twisted_service  # noqa: SLF001
+            fedora_messaging.api._twisted_service  # ruff: ignore[private-member-access]
         ):
             LOGGER.warning("Resetting stale Fedora Messaging publisher service")
             add_breadcrumb(
@@ -357,7 +357,7 @@ class FedoraMessagingAddon(ChangeBaseAddon):
                 stop_service
             ) and not FedoraMessagingAddon._stop_fedora_messaging_service(stop_service):
                 return False
-            fedora_messaging.api._twisted_service = None  # noqa: SLF001
+            fedora_messaging.api._twisted_service = None  # ruff: ignore[private-member-access]
             return True
 
     @staticmethod
@@ -794,7 +794,7 @@ class FedoraMessagingAddon(ChangeBaseAddon):
                 parameters.host,
                 FedoraMessagingAddon._get_socket_peer_ip(connection),
                 allow_private_targets=not settings.WEBHOOK_RESTRICT_PRIVATE,
-                allowed_domains=settings.WEBHOOK_PRIVATE_ALLOWLIST,
+                private_allowlist=settings.WEBHOOK_PRIVATE_ALLOWLIST,
             )
             FedoraMessagingAddon._perform_broker_tls_handshake(
                 connection, tls_context_factory, timeout

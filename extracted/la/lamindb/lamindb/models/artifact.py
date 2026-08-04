@@ -76,6 +76,7 @@ from .sqlrecord import (
     Space,
     SQLRecord,
     _get_record_kwargs,
+    check_key,
 )
 from .storage import Storage
 from .ulabel import ULabel
@@ -3301,6 +3302,17 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         ):
             logger.warning("you are saving to a non-latest version of the artifact")
 
+        schema = self.schema
+        if (
+            schema is not None
+            and schema.suffix is not None
+            and self.suffix != schema.suffix
+        ):
+            raise ValidationError(
+                "Artifact not validated. Artifact suffix "
+                f"'{self.suffix}' does not match schema suffix '{schema.suffix}'."
+            )
+
         access_token = kwargs.pop("access_token", None)
 
         current_instance_uid = setup_settings.instance.uid
@@ -3315,6 +3327,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             new_key = self.key
             if new_key is None:
                 raise InvalidArgument("Cannot update an artifact key to None.")
+            check_key(new_key)
             new_key_raw_suffix = CanonicalSuffix.extract_from_path(
                 PurePosixPath(new_key)
             )[1]
@@ -3415,10 +3428,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         else:
             kwargs["transfer"] = transfer
         state_was_adding = self._state.adding
-        print_progress = kwargs.pop("print_progress", True)
         store_kwargs = kwargs.pop(
             "store_kwargs", {}
         )  # kwargs for .upload_from in the end
+        # prefer top-level print_progress; fall back to store_kwargs (popped to avoid double-pass).
+        print_progress = kwargs.pop(
+            "print_progress", store_kwargs.pop("print_progress", True)
+        )
         local_path = None
         if upload and setup_settings.instance.keep_artifacts_local:
             # switch local storage location to cloud
@@ -3699,7 +3715,18 @@ class ArtifactUser(BaseSQLRecord, IsLink, TracksRun):
         # can have the same label linked to the same artifact if the feature is
         # different
         app_label = "lamindb"
-        unique_together = ("artifact", "user", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["artifact", "user", "feature"],
+                condition=models.Q(feature__isnull=False),
+                name="unique_artifactuser",
+            ),
+            models.UniqueConstraint(
+                fields=["artifact", "user"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_artifactuser_null_feature",
+            ),
+        ]
 
 
 class ArtifactRun(BaseSQLRecord, IsLink, TracksRun):
@@ -3715,7 +3742,18 @@ class ArtifactRun(BaseSQLRecord, IsLink, TracksRun):
         # can have the same label linked to the same artifact if the feature is
         # different
         app_label = "lamindb"
-        unique_together = ("artifact", "run", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["artifact", "run", "feature"],
+                condition=models.Q(feature__isnull=False),
+                name="unique_artifactrun",
+            ),
+            models.UniqueConstraint(
+                fields=["artifact", "run"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_artifactrun_null_feature",
+            ),
+        ]
 
 
 class ArtifactArtifact(BaseSQLRecord, IsLink, TracksRun):
@@ -3731,7 +3769,18 @@ class ArtifactArtifact(BaseSQLRecord, IsLink, TracksRun):
         # can have the same label linked to the same artifact if the feature is
         # different
         app_label = "lamindb"
-        unique_together = ("artifact", "value", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["artifact", "value", "feature"],
+                condition=models.Q(feature__isnull=False),
+                name="unique_artifactartifact",
+            ),
+            models.UniqueConstraint(
+                fields=["artifact", "value"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_artifactartifact_null_feature",
+            ),
+        ]
 
 
 def track_run_input(

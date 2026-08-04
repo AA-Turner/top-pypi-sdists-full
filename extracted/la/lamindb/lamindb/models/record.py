@@ -640,7 +640,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     You can edit records like spreadsheets in the UI:
 
-    .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0002.png
+    .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0003.png
         :width: 800px
 
     .. dropdown:: An index feature maps onto the name field of a record.
@@ -1340,7 +1340,18 @@ class RunRecord(BaseSQLRecord, IsLink):
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("run", "record", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["run", "record", "feature"],
+                condition=models.Q(feature__isnull=False),
+                name="unique_runrecord",
+            ),
+            models.UniqueConstraint(
+                fields=["run", "record"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_runrecord_null_feature",
+            ),
+        ]
 
 
 # for storing artifact-like values in records
@@ -1366,7 +1377,18 @@ class ArtifactRecord(BaseSQLRecord, IsLink, TracksRun):
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("artifact", "record", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["artifact", "record", "feature"],
+                condition=models.Q(feature__isnull=False),
+                name="unique_artifactrecord",
+            ),
+            models.UniqueConstraint(
+                fields=["artifact", "record"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_artifactrecord_null_feature",
+            ),
+        ]
 
 
 # for storing collection-like values in records
@@ -1396,7 +1418,18 @@ class CollectionRecord(BaseSQLRecord, IsLink, TracksRun):
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("collection", "record", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["collection", "record", "feature"],
+                condition=models.Q(feature__isnull=False),
+                name="unique_collectionrecord",
+            ),
+            models.UniqueConstraint(
+                fields=["collection", "record"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_collectionrecord_null_feature",
+            ),
+        ]
 
 
 # for storing transform-like values in records
@@ -1430,4 +1463,15 @@ class TransformRecord(BaseSQLRecord, IsLink, TracksRun):
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("transform", "record", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["transform", "record", "feature"],
+                condition=models.Q(feature__isnull=False),
+                name="unique_transformrecord",
+            ),
+            models.UniqueConstraint(
+                fields=["transform", "record"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_transformrecord_null_feature",
+            ),
+        ]

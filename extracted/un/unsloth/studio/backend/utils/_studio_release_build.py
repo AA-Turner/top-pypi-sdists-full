@@ -3,4 +3,4 @@
 
 """Build-stamped Unsloth release metadata."""
 
-STUDIO_RELEASE_VERSION = 'v0.1.511-beta'
+STUDIO_RELEASE_VERSION = 'v0.1.512-beta'

@@ -19,11 +19,23 @@ from datamodel_code_generator.types import (
     get_optional_type,
     get_subscript_args,
     get_type_base_name,
+    is_data_model_field,
     normalize_integer_constraint,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+
+def test_is_data_model_field_uses_structural_contract() -> None:
+    """Recognize only parents exposing the writable data_type contract."""
+    from types import SimpleNamespace
+
+    data_type = DataType(type="str")
+
+    assert is_data_model_field(SimpleNamespace(data_type=data_type))
+    assert not is_data_model_field(SimpleNamespace(data_type=object()))
+    assert not is_data_model_field(data_type)
 
 
 @pytest.mark.parametrize(
@@ -77,6 +89,23 @@ def test_get_optional_type_cache_clear_preserves_value() -> None:
 def test_chain_as_tuple_chains_multiple_iterables() -> None:
     """Test chain_as_tuple handles the general path for more than two iterables."""
     assert chain_as_tuple((1,), (2,), (3,)) == (1, 2, 3)
+
+
+def test_is_data_model_field_matches_structural_type_contract() -> None:
+    """The runtime predicate must accept exactly field-like DataType owners."""
+
+    class FieldLike:
+        data_type = DataType(type="str")
+
+    class InvalidFieldLike:
+        data_type = object()
+
+    candidate: object = FieldLike()
+
+    assert is_data_model_field(candidate)
+    assert candidate.data_type.type == "str"
+    assert not is_data_model_field(InvalidFieldLike())
+    assert not is_data_model_field(object())
 
 
 @pytest.mark.parametrize(
@@ -635,6 +664,8 @@ def test_datatype_deepcopy_memo_cache_hit() -> None:
         # Subscripted with qualified names
         ("type[foo.bar.Baz]", "type"),
         ("List[foo.Bar]", "List"),
+        # Preserve the legacy first-generic fallback for a union root
+        ("my.custom.Iterable[str] | None", "Iterable"),
         # Invalid syntax (fallback to string parsing)
         ("List[", "List"),
         ("[invalid", ""),  # splits on "[" giving empty string
@@ -663,12 +694,16 @@ def test_get_type_base_name(type_str: str, expected: str) -> None:
         ("str | int", ["str", "int"]),
         ("str | int | None", ["str", "int", "None"]),
         ("List[str] | None", ["List[str]", "None"]),
+        ("tuple[()] | None", ["tuple[()]", "None"]),
         # Complex nested types
         ("Dict[str, List[int]]", ["str", "List[int]"]),
         ("Union[List[str], Dict[str, int]]", ["List[str]", "Dict[str, int]"]),
         # Qualified names in arguments
         ("type[foo.bar.Baz]", ["foo.bar.Baz"]),
         ("Dict[a.B, c.D]", ["a.B", "c.D"]),
+        # Variadics and canonicalized non-finite numeric literals
+        ("tuple[*Ts]", ["*Ts"]),
+        ("Literal[1e309, -1e309]", ["1e309", "-1e309"]),
         # Invalid syntax
         ("List[", []),
         ("[invalid", []),

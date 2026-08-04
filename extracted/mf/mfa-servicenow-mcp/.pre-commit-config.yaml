@@ -8,10 +8,15 @@ repos:
         language: system
         types: [python]
 
-      # Fast structural test gate for skill content changes
+      # Fast structural test gate for skill content changes.
+      # --no-cov: the coverage gate in pyproject addopts measures the WHOLE
+      # package, so a 76-test file scores ~18% and fails a threshold that has
+      # nothing to say about it. That failure blocked pushes while the full suite
+      # was green, and the way past it was --no-verify — which also switches off
+      # the identity guard. A gate that has to be bypassed is a hole.
       - id: pytest-skills
         name: pytest-skills
-        entry: ./.venv/bin/pytest tests/test_skills.py -q
+        entry: ./.venv/bin/pytest tests/test_skills.py -q --no-cov
         language: system
         pass_filenames: false
 
@@ -47,6 +52,19 @@ repos:
       - id: pytest-all
         name: pytest-all
         entry: ./.venv/bin/pytest tests/ -q
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+      # The SAME command CI runs. The mypy hook below is scoped to changed files
+      # with --follow-imports=skip, which types every imported symbol as Any — so
+      # it cannot see an error that depends on another module's signature. v1.22.27
+      # was green locally and failed CI on exactly that (a variable bound to both
+      # an int and an Optional[int] return). A local gate weaker than the remote
+      # one does not fail safe: it reports clean and lets the break through.
+      - id: mypy-all
+        name: mypy-all
+        entry: ./.venv/bin/mypy src/
         language: system
         pass_filenames: false
         stages: [pre-push]

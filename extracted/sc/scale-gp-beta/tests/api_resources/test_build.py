@@ -36,6 +36,12 @@ class TestBuild:
             build_args="build_args",
             image_tag="image_tag",
             platform="linux/amd64",
+            source_commit="2fdcD1DcDdf3a671d0Afae4a0D1cFaADcCcbdaDac3CccFB21EceaaA012Aa1C26",
+            source_dirty=True,
+            source_ref="source_ref",
+            source_repo="source_repo",
+            source_subpath="source_subpath",
+            working_tree_hash="E1CB97d8EBbDbaAae6d9B1ca0D1cFaADcCcbdaDac3CccFB21EceaaA012Aa1C26",
         )
         assert_matches_type(AgentexCloudBuild, build, path=["response"])
 
@@ -116,7 +122,9 @@ class TestBuild:
             limit=1,
             sort_by="sort_by",
             sort_order="asc",
+            source_commit="2fdcD1DcDdf3a671d0Afae4a0D1cFaADcCcbdaDac3CccFB21EceaaA012Aa1C26",
             starting_after="starting_after",
+            working_tree_hash="E1CB97d8EBbDbaAae6d9B1ca0D1cFaADcCcbdaDac3CccFB21EceaaA012Aa1C26",
         )
         assert_matches_type(SyncCursorPage[AgentexCloudBuild], build, path=["response"])
 
@@ -264,6 +272,12 @@ class TestAsyncBuild:
             build_args="build_args",
             image_tag="image_tag",
             platform="linux/amd64",
+            source_commit="2fdcD1DcDdf3a671d0Afae4a0D1cFaADcCcbdaDac3CccFB21EceaaA012Aa1C26",
+            source_dirty=True,
+            source_ref="source_ref",
+            source_repo="source_repo",
+            source_subpath="source_subpath",
+            working_tree_hash="E1CB97d8EBbDbaAae6d9B1ca0D1cFaADcCcbdaDac3CccFB21EceaaA012Aa1C26",
         )
         assert_matches_type(AgentexCloudBuild, build, path=["response"])
 
@@ -344,7 +358,9 @@ class TestAsyncBuild:
             limit=1,
             sort_by="sort_by",
             sort_order="asc",
+            source_commit="2fdcD1DcDdf3a671d0Afae4a0D1cFaADcCcbdaDac3CccFB21EceaaA012Aa1C26",
             starting_after="starting_after",
+            working_tree_hash="E1CB97d8EBbDbaAae6d9B1ca0D1cFaADcCcbdaDac3CccFB21EceaaA012Aa1C26",
         )
         assert_matches_type(AsyncCursorPage[AgentexCloudBuild], build, path=["response"])
 

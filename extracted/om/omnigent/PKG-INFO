@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: omnigent
-Version: 0.7.0
+Version: 0.8.1
 Summary: Omnigent: declarative agent authoring and runtime framework
 Author: Databricks, Inc.
 Keywords: agents,llm,ai,databricks,cli
@@ -14,9 +14,10 @@ Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: omnigent-client==0.7.0
-Requires-Dist: omnigent-ui-sdk==0.7.0
+Requires-Dist: omnigent-client==0.8.1
+Requires-Dist: omnigent-ui-sdk==0.8.1
 Requires-Dist: pyyaml<7,>=6.0
+Requires-Dist: json5<1,>=0.10
 Requires-Dist: openai<2.45,>=1.0
 Requires-Dist: rich<15,>=14
 Requires-Dist: prompt_toolkit<4,>=3.0
@@ -51,6 +52,7 @@ Requires-Dist: openai-agents>=0.0.17
 Requires-Dist: PyJWT[crypto]<3,>=2.8
 Requires-Dist: argon2-cffi<24,>=23.1
 Requires-Dist: packaging<26,>=23
+Requires-Dist: certifi>=2023.7
 Requires-Dist: protobuf<7,>=6
 Requires-Dist: python-dateutil<3,>=2.8
 Provides-Extra: claude-sdk
@@ -78,7 +80,7 @@ Requires-Dist: e2b<3,>=2.26; extra == "e2b"
 Provides-Extra: islo
 Requires-Dist: islo<0.4,>=0.3.5; extra == "islo"
 Provides-Extra: openshell
-Requires-Dist: openshell<1,>=0.0.7; extra == "openshell"
+Requires-Dist: openshell<1,>=0.0.88; extra == "openshell"
 Provides-Extra: kubernetes
 Requires-Dist: kubernetes<37,>=36; extra == "kubernetes"
 Provides-Extra: tracing
@@ -100,7 +102,7 @@ Requires-Dist: hindsight-client>=0.4.0; extra == "hindsight"
 Provides-Extra: memory
 Requires-Dist: hindsight-client>=0.4.0; extra == "memory"
 Provides-Extra: slack
-Requires-Dist: omnigent-slack==0.7.0; extra == "slack"
+Requires-Dist: omnigent-slack==0.8.1; extra == "slack"
 Provides-Extra: databricks
 Requires-Dist: databricks-sdk<1,>=0.56.0; extra == "databricks"
 Requires-Dist: opentelemetry-distro<1,>=0; extra == "databricks"
@@ -108,6 +110,8 @@ Requires-Dist: psycopg[binary]<4,>=3.1; extra == "databricks"
 Requires-Dist: pymysql<2,>=1.1; extra == "databricks"
 Requires-Dist: databricks-mcp>=0.9.0; extra == "databricks"
 Requires-Dist: databricks-ai-bridge>=0.19; extra == "databricks"
+Provides-Extra: loadtest
+Requires-Dist: locust<3,>=2.30; extra == "loadtest"
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0; extra == "dev"
 Requires-Dist: hindsight-client>=0.4.0; extra == "dev"
@@ -122,6 +126,7 @@ Requires-Dist: pytest-rerunfailures==16.3; extra == "dev"
 Requires-Dist: filelock>=3.0; extra == "dev"
 Requires-Dist: ruff>=0.6; extra == "dev"
 Requires-Dist: mypy>=1.10; extra == "dev"
+Requires-Dist: pyrefly==1.1.1; extra == "dev"
 Requires-Dist: pre-commit>=3.5; extra == "dev"
 Requires-Dist: types-PyYAML>=6.0; extra == "dev"
 Requires-Dist: filelock>=3.0; extra == "dev"
@@ -257,10 +262,10 @@ uv tool install -q --python 3.12 git+https://github.com/omnigent-ai/omnigent.git
 - **`uv`** (required). https://docs.astral.sh/uv/getting-started/installation/
   The installer offers to set this up for you.
 - **`git`** (required).
-- **Node.js 22 LTS or newer** with **`npm`**, for the npm-installed coding
-  harnesses (Claude, Codex, OpenCode, Pi). `omnigent run` installs the
-  harness CLI you pick.
-  https://docs.npmjs.com/downloading-and-installing-node-js-and-npm
+- **Node.js 22 LTS or newer** with **`npm`** (for the coding-harness CLIs
+  installed by `omnigent run`) and **`pnpm`** (for the web UI). You can get
+  both from a single Node install; pnpm is available via
+  `corepack enable` or `npm install -g pnpm`.
 - **Kiro CLI** (optional), for `omnigent kiro`: install with
   `curl -fsSL https://cli.kiro.dev/install | bash`, then sign in with Kiro.
   Kiro tool approvals stay answerable in the embedded Terminal; supported
@@ -401,6 +406,9 @@ omnigent opencode                    # OpenCode
 omnigent hermes                      # Hermes Agent (Nous Research)
 omnigent pi                          # Pi
 ```
+
+Using OpenClaw? See the [OpenClaw integration guide](docs/openclaw.md) to import
+its coding agents or drive a live OpenClaw Gateway session over ACP.
 
 #### 🐙 Polly and 🟠🔵 Debby
 
@@ -548,6 +556,11 @@ and they're in. Signup is invite-only.
   ```bash
   omnigent run --fork <session_id>
   ```
+
+Shared sessions identify model-visible messages with `[account]:` labels by
+default. Set `OMNIGENT_SHARED_MESSAGE_ATTRIBUTION_ENABLED=0` to hide those
+labels. This does not change stored authors, UI avatars, or who may approve or
+run privileged actions.
 
 > [!TIP]
 > Want your team to sign in with the logins they already have (**Google,

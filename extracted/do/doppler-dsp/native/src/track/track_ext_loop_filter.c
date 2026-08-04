@@ -303,13 +303,19 @@ LoopFilter_getprop_t (LoopFilterObject *self, void *Py_UNUSED (closure))
 }
 
 static PyGetSetDef LoopFilter_getset[]
-    = { { "kp", (getter)LoopFilter_getprop_kp, NULL, "Kp.\n", NULL },
-        { "ki", (getter)LoopFilter_getprop_ki, NULL, "Ki.\n", NULL },
+    = { { "kp", (getter)LoopFilter_getprop_kp, NULL,
+          "proportional gain (derived from bn, zeta, t).\n", NULL },
+        { "ki", (getter)LoopFilter_getprop_ki, NULL,
+          "integral gain (derived from bn, zeta, t).\n", NULL },
         { "integ", (getter)LoopFilter_getprop_integ,
-          (setter)LoopFilter_setprop_integ, "Integ.\n", NULL },
-        { "bn", (getter)LoopFilter_getprop_bn, NULL, "Bn.\n", NULL },
-        { "zeta", (getter)LoopFilter_getprop_zeta, NULL, "Zeta.\n", NULL },
-        { "t", (getter)LoopFilter_getprop_t, NULL, "T.\n", NULL },
+          (setter)LoopFilter_setprop_integ,
+          "integrator memory = running rate/freq estimate.\n", NULL },
+        { "bn", (getter)LoopFilter_getprop_bn, NULL,
+          "loop noise bandwidth, normalized cycles/sample.\n", NULL },
+        { "zeta", (getter)LoopFilter_getprop_zeta, NULL,
+          "damping factor (0.707 = critically damped).\n", NULL },
+        { "t", (getter)LoopFilter_getprop_t, NULL,
+          "update period in samples.\n", NULL },
         { NULL } };
 
 static PyObject *
@@ -342,61 +348,175 @@ LoopFilterObj_exit (LoopFilterObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
-static PyMethodDef LoopFilterObj_methods[]
-    = { { "step", (PyCFunction)LoopFilter_step, METH_VARARGS,
-          "step(x) -> double\n"
-          "\n"
-          "Advance the loop one update with error x; return the control.\n"
-          "\n"
-          "    >>> from doppler import LoopFilter\n"
-          "    >>> obj = LoopFilter(0.01, 0.707, 1.0)\n"
-          "    >>> obj.step(1.0)\n"
-          "    0.0\n" },
-        { "steps", (PyCFunction)(void *)LoopFilter_steps,
-          METH_VARARGS | METH_KEYWORDS,
-          "steps(x[, out]) -> ndarray\n"
-          "\n"
-          "Run a block of errors through the loop.\n"
-          "\n"
-          "    >>> import numpy as np\n"
-          "    >>> from doppler import LoopFilter\n"
-          "    >>> obj = LoopFilter(0.01, 0.707, 1.0)\n"
-          "    >>> y = obj.steps(np.zeros(4, dtype=np.float64))\n"
-          "    >>> y.shape\n"
-          "    (4,)\n"
-          "    >>> y.dtype\n"
-          "    dtype('float64')\n" },
+static PyMethodDef LoopFilterObj_methods[] = {
+  { "step", (PyCFunction)LoopFilter_step, METH_VARARGS,
+    "step(x) -> double\n"
+    "\n"
+    "Advance the loop one update with error x; return the control.\n"
+    "\n"
+    "    >>> from doppler import LoopFilter\n"
+    "    >>> obj = LoopFilter(0.01, 0.707, 1.0)\n"
+    "    >>> obj.step(1.0)\n"
+    "    0.0\n" },
+  { "steps", (PyCFunction)(void *)LoopFilter_steps,
+    METH_VARARGS | METH_KEYWORDS,
+    "steps(x[, out]) -> ndarray\n"
+    "\n"
+    "Run a block of errors through the loop.\n"
+    "\n"
+    "    >>> import numpy as np\n"
+    "    >>> from doppler import LoopFilter\n"
+    "    >>> obj = LoopFilter(0.01, 0.707, 1.0)\n"
+    "    >>> y = obj.steps(np.zeros(4, dtype=np.float64))\n"
+    "    >>> y.shape\n"
+    "    (4,)\n"
+    "    >>> y.dtype\n"
+    "    dtype('float64')\n" },
 
-        { "configure", (PyCFunction)(void *)LoopFilterObj_configure,
-          METH_VARARGS | METH_KEYWORDS,
-          "configure(bn, zeta, t) -> None\n"
-          "\n"
-          "Recompute the loop gains for a new (bn, zeta, t); preserves the "
-          "integrator.\n"
-          "\n"
-          "    >>> import numpy as np\n"
-          "    >>> from doppler import LoopFilter\n"
-          "    >>> obj = LoopFilter(0.01, 0.707, 1.0)\n"
-          "    >>> obj.configure(0.0, 0.0, 0.0)\n" },
-        { "reset", (PyCFunction)LoopFilterObj_reset, METH_NOARGS,
-          "reset() -> None\n"
-          "\n"
-          "Zero the integrator; keep the configured gains.\n"
-          "\n"
-          "    >>> from doppler import LoopFilter\n"
-          "    >>> obj = LoopFilter(0.01, 0.707, 1.0)\n"
-          "    >>> obj.reset()\n" },
-        { "state_bytes", (PyCFunction)LoopFilterObj_state_bytes, METH_NOARGS,
-          "Serialized state size in bytes." },
-        { "get_state", (PyCFunction)LoopFilterObj_get_state, METH_NOARGS,
-          "Serialize the engine's mutable state to bytes." },
-        { "set_state", (PyCFunction)LoopFilterObj_set_state, METH_O,
-          "Restore mutable state from a get_state() blob." },
-        { "destroy", (PyCFunction)LoopFilterObj_destroy, METH_NOARGS,
-          "Release resources." },
-        { "__enter__", (PyCFunction)LoopFilterObj_enter, METH_NOARGS, NULL },
-        { "__exit__", (PyCFunction)LoopFilterObj_exit, METH_VARARGS, NULL },
-        { NULL } };
+  { "configure", (PyCFunction)(void *)LoopFilterObj_configure,
+    METH_VARARGS | METH_KEYWORDS,
+    "configure(bn, zeta, t) -> None\n"
+    "\n"
+    "Recompute the loop gains for a new (bn, zeta, t); preserves the "
+    "integrator.\n"
+    "\n"
+    "Recomputes the proportional and integral gains from the standard\n"
+    "2nd-order form but leaves integ untouched, so a loop can be widened for\n"
+    "fast acquisition and then narrowed for steady-state tracking while\n"
+    "holding its accumulated frequency/rate estimate — the retune preserves\n"
+    "lock.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "bn : float\n"
+    "    Loop noise bandwidth, normalized cycles/sample (>= 0).\n"
+    "zeta : float\n"
+    "    Damping factor (typically 0.707).\n"
+    "t : float\n"
+    "    Update period in samples (> 0).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.track import LoopFilter\n"
+    ">>> lf = LoopFilter(bn=0.01, zeta=0.707, t=1.0)\n"
+    ">>> _ = lf.step(1.0)\n"
+    ">>> before = round(lf.integ, 6)\n"
+    ">>> lf.configure(0.05, 0.707, 1.0)   # widen the loop, keep lock\n"
+    ">>> round(lf.integ, 6) == before     # integrator preserved\n"
+    "True\n"
+    ">>> round(lf.kp, 6)                  # proportional gain rose\n"
+    "0.124728\n" },
+  { "reset", (PyCFunction)LoopFilterObj_reset, METH_NOARGS,
+    "reset() -> None\n"
+    "\n"
+    "Zero the integrator; keep the configured gains.\n"
+    "\n"
+    "Clears the accumulated frequency/rate estimate (integ) back to zero but\n"
+    "leaves kp / ki as configured, so the loop reacquires from a clean slate\n"
+    "at its current bandwidth — the right thing when a tracker drops lock "
+    "and\n"
+    "must restart, without re-deriving gains.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.track import LoopFilter\n"
+    ">>> lf = LoopFilter(bn=0.02, zeta=0.707, t=1.0)\n"
+    ">>> for _ in range(10):\n"
+    "...     _ = lf.step(1.0)             # ramp the integrator\n"
+    ">>> round(lf.integ, 6)\n"
+    "0.013849\n"
+    ">>> lf.reset()\n"
+    ">>> lf.integ                          # integrator cleared, gains kept\n"
+    "0.0\n" },
+  { "state_bytes", (PyCFunction)LoopFilterObj_state_bytes, METH_NOARGS,
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the LoopFilterObj has already been "
+    "destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
+  { "get_state", (PyCFunction)LoopFilterObj_get_state, METH_NOARGS,
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the LoopFilterObj has already been "
+    "destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
+  { "set_state", (PyCFunction)LoopFilterObj_set_state, METH_O,
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the LoopFilterObj has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
+  { "destroy", (PyCFunction)LoopFilterObj_destroy, METH_NOARGS,
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)LoopFilterObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a LoopFilter be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "LoopFilter\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)LoopFilterObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the LoopFilter.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
+  { NULL }
+};
 
 static PyTypeObject LoopFilterObjType = {
   PyVarObject_HEAD_INIT (NULL, 0).tp_name = "track.LoopFilter",

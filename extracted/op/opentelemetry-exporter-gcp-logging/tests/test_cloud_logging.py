@@ -26,6 +26,7 @@ tox -e py310-ci-test-cloudlogging -- --snapshot-update
 Be sure to review the changes.
 """
 
+import logging
 import re
 from io import StringIO
 from textwrap import dedent
@@ -452,3 +453,15 @@ def test_deprecation_warning():
     buf = StringIO()
     with pytest.deprecated_call():
         CloudLoggingExporter(project_id=PROJECT_ID, structured_json_file=buf)
+
+
+def test_force_flush(caplog):
+    buf = StringIO()
+    with pytest.deprecated_call():
+        exporter = CloudLoggingExporter(
+            project_id=PROJECT_ID, structured_json_file=buf
+        )
+    with caplog.at_level(logging.DEBUG):
+        assert exporter.force_flush() is True
+        assert exporter.force_flush(timeout_millis=1000) is True
+    assert "force_flush does nothing for CloudLoggingExporter" in caplog.text

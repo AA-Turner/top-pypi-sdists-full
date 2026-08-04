@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Iterable
 from typing_extensions import Literal
 
 import httpx
@@ -22,6 +22,7 @@ from ..pagination import SyncCursorPage, AsyncCursorPage
 from ..types.chat import SortOrder
 from .._base_client import AsyncPaginator, make_request_options
 from ..types.chat.sort_order import SortOrder
+from ..types.repo_spec_param import RepoSpecParam
 from ..types.agent_config_list_response import AgentConfigListResponse
 from ..types.agent_config_create_response import AgentConfigCreateResponse
 from ..types.agent_config_delete_response import AgentConfigDeleteResponse
@@ -84,10 +85,26 @@ class AgentConfigsResource(SyncAPIResource):
                 "Salesforce",
                 "Figma",
                 "Granola",
+                "Jira",
+                "Gmail",
+                "GoogleCalendar",
+                "GoogleDrive",
+                "GoogleDocs",
+                "GoogleSheets",
+                "GoogleSlides",
+                "Snowflake",
+                "Redash",
+                "Tableau",
+                "Metabase",
+                "Gong",
+                "ZoomInfo",
+                "Clay",
             ]
         ]
         | Omit = omit,
         description: str | Omit = omit,
+        persistent_workspace: bool | Omit = omit,
+        repos: Iterable[RepoSpecParam] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -95,14 +112,32 @@ class AgentConfigsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentConfigCreateResponse:
-        """Create Agent Config
+        """
+        Create a reusable agent configuration (system prompt, harness, model, allowed
+        tools) under the caller's account.
+
+        The config is a template that a chat session or a non-chat trigger later turns
+        into task params; creating one does not start any task. `persistent_workspace`
+        opts tasks made from this config into a durable `/workspace` that survives
+        sandbox death (off by default, and fixed once a task starts), and `repos`
+        overrides which repositories provisioning clones into that workspace — omit it
+        (null) to use the deployment default, or pass an empty list to clone nothing. A
+        `repos` override is rejected with a 422 on the model-agnostic (litellm) harness
+        unless `persistent_workspace` is also true, because non-persistent litellm tasks
+        run in a pre-cloned warm-pool sandbox where the override would be ignored.
+        `allowed_tools` may name MCP servers (Slack, Linear, GitHub, ...) alongside
+        harness tools, and granting an MCP server name authorizes every tool it exposes.
 
         Args:
-          harness: Harness strategy.
-
-        See Harness enum for supported values.
+          harness: Harness strategy. See Harness enum for supported values.
 
           allowed_tools: Tools enabled for this config. See AllowedTool enum for the catalogue.
+
+          persistent_workspace: Give tasks a persistent /workspace that survives sandbox death. Fixed for a
+              task's life; defaults off.
+
+          repos: Per-config repo override. None uses the deployment default; an empty list clones
+              nothing.
 
           extra_headers: Send extra headers
 
@@ -122,6 +157,8 @@ class AgentConfigsResource(SyncAPIResource):
                     "system_prompt": system_prompt,
                     "allowed_tools": allowed_tools,
                     "description": description,
+                    "persistent_workspace": persistent_workspace,
+                    "repos": repos,
                 },
                 agent_config_create_params.AgentConfigCreateParams,
             ),
@@ -143,7 +180,14 @@ class AgentConfigsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentConfigRetrieveResponse:
         """
-        Get Agent Config
+        Fetch a single stored agent configuration by id, including its
+        `persistent_workspace` flag and any `repos` override.
+
+        This returns the saved record as-is and does not compute task params; use
+        `{agent_config_id}/resolve` when you need the config projected into the params a
+        task would run with. A user caller can only read a config they created unless
+        fine-grained access control grants access, while a service account can read any
+        config under the account; a missing or out-of-scope id returns a 404.
 
         Args:
           extra_headers: Send extra headers
@@ -194,6 +238,20 @@ class AgentConfigsResource(SyncAPIResource):
                 "Salesforce",
                 "Figma",
                 "Granola",
+                "Jira",
+                "Gmail",
+                "GoogleCalendar",
+                "GoogleDrive",
+                "GoogleDocs",
+                "GoogleSheets",
+                "GoogleSlides",
+                "Snowflake",
+                "Redash",
+                "Tableau",
+                "Metabase",
+                "Gong",
+                "ZoomInfo",
+                "Clay",
             ]
         ]
         | Omit = omit,
@@ -201,6 +259,8 @@ class AgentConfigsResource(SyncAPIResource):
         harness: Literal["claude-code", "codex", "litellm"] | Omit = omit,
         model: str | Omit = omit,
         name: str | Omit = omit,
+        persistent_workspace: bool | Omit = omit,
+        repos: Iterable[RepoSpecParam] | Omit = omit,
         system_prompt: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -210,7 +270,24 @@ class AgentConfigsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentConfigUpdateResponse:
         """
-        Update Agent Config
+        Partially update a stored agent config; only fields present in the request body
+        are changed.
+
+        `persistent_workspace` and `repos` are both patchable — an explicit null on
+        `repos` clears the override back to the deployment default, while the
+        always-present fields (name, system_prompt, harness, allowed_tools, model, and
+        persistent_workspace) reject an explicit null. Because `persistent_workspace`
+        and `repos` are read when a task is created and are fixed for a task's life,
+        changing them affects only tasks created afterward, not one already running. The
+        optional `task_id` query parameter opts into a live-config side effect: after
+        the row is persisted, the changed pass-through fields (system_prompt, model,
+        harness, and allowed_tools split into harness tools versus MCP servers) are
+        shallow-merged into that running task's params on Agentex in a background task
+        so the worker picks them up on its next turn; `persistent_workspace` and `repos`
+        are intentionally not forwarded to a running task. That side effect runs after
+        the response is sent, is best-effort, and no-ops if the task does not exist or
+        the caller does not own it. A user caller can only update a config they created
+        unless fine-grained access control grants access.
 
         Args:
           task_id: If set, after persisting the patch we shallow-merge the changed fields into this
@@ -241,6 +318,8 @@ class AgentConfigsResource(SyncAPIResource):
                     "harness": harness,
                     "model": model,
                     "name": name,
+                    "persistent_workspace": persistent_workspace,
+                    "repos": repos,
                     "system_prompt": system_prompt,
                 },
                 agent_config_update_params.AgentConfigUpdateParams,
@@ -271,7 +350,14 @@ class AgentConfigsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPage[AgentConfigListResponse]:
         """
-        List Agent Configs
+        List agent configurations visible to the caller, with cursor-based pagination.
+
+        A user caller sees only the configs they created unless fine-grained access
+        control (FGAC) grants them access to others; a service-account caller sees every
+        config under the account. This returns the stored config records as-is — use
+        `{agent_config_id}/resolve` instead when you need a config projected into the
+        params a task would run with. Because deleting a config removes it outright
+        rather than archiving it, there are no archived configs to page through here.
 
         Args:
           extra_headers: Send extra headers
@@ -316,7 +402,13 @@ class AgentConfigsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentConfigDeleteResponse:
         """
-        Delete Agent Config
+        Permanently delete an agent config; this is a hard delete, not an archive, so
+        the row is removed and cannot be restored.
+
+        Because a config is only a template, deleting it does not stop or alter any task
+        already created from it. A user caller can only delete a config they created
+        unless fine-grained access control grants access. The response echoes the
+        deleted id.
 
         Args:
           extra_headers: Send extra headers
@@ -348,9 +440,15 @@ class AgentConfigsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentConfigListMcpToolsResponse:
         """
-        AllowedTool values that route to MCP servers (vs harness-provided tools).
-        Exposed primarily so the generated SDK includes the `McpTool` enum type — the
-        frontend asserts its own MCP-tool classifier against this enum to prevent drift.
+        Return the fixed set of tool names that route to MCP servers rather than
+        harness-provided tools.
+
+        These are the subset of `allowed_tools` values (Slack, Linear, GitHub, ...) the
+        platform treats as MCP servers; the list is a static enum, not account data, so
+        it is identical for every caller. It is exposed mainly so the generated SDK
+        carries the `McpTool` type and the frontend can assert its own
+        MCP-versus-harness tool classifier against the backend to prevent drift. It does
+        not list configs or the tools actually granted to any particular config.
         """
         return self._get(
             "/v5/agent_configs/mcp_tools",
@@ -413,10 +511,26 @@ class AsyncAgentConfigsResource(AsyncAPIResource):
                 "Salesforce",
                 "Figma",
                 "Granola",
+                "Jira",
+                "Gmail",
+                "GoogleCalendar",
+                "GoogleDrive",
+                "GoogleDocs",
+                "GoogleSheets",
+                "GoogleSlides",
+                "Snowflake",
+                "Redash",
+                "Tableau",
+                "Metabase",
+                "Gong",
+                "ZoomInfo",
+                "Clay",
             ]
         ]
         | Omit = omit,
         description: str | Omit = omit,
+        persistent_workspace: bool | Omit = omit,
+        repos: Iterable[RepoSpecParam] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -424,14 +538,32 @@ class AsyncAgentConfigsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentConfigCreateResponse:
-        """Create Agent Config
+        """
+        Create a reusable agent configuration (system prompt, harness, model, allowed
+        tools) under the caller's account.
+
+        The config is a template that a chat session or a non-chat trigger later turns
+        into task params; creating one does not start any task. `persistent_workspace`
+        opts tasks made from this config into a durable `/workspace` that survives
+        sandbox death (off by default, and fixed once a task starts), and `repos`
+        overrides which repositories provisioning clones into that workspace — omit it
+        (null) to use the deployment default, or pass an empty list to clone nothing. A
+        `repos` override is rejected with a 422 on the model-agnostic (litellm) harness
+        unless `persistent_workspace` is also true, because non-persistent litellm tasks
+        run in a pre-cloned warm-pool sandbox where the override would be ignored.
+        `allowed_tools` may name MCP servers (Slack, Linear, GitHub, ...) alongside
+        harness tools, and granting an MCP server name authorizes every tool it exposes.
 
         Args:
-          harness: Harness strategy.
-
-        See Harness enum for supported values.
+          harness: Harness strategy. See Harness enum for supported values.
 
           allowed_tools: Tools enabled for this config. See AllowedTool enum for the catalogue.
+
+          persistent_workspace: Give tasks a persistent /workspace that survives sandbox death. Fixed for a
+              task's life; defaults off.
+
+          repos: Per-config repo override. None uses the deployment default; an empty list clones
+              nothing.
 
           extra_headers: Send extra headers
 
@@ -451,6 +583,8 @@ class AsyncAgentConfigsResource(AsyncAPIResource):
                     "system_prompt": system_prompt,
                     "allowed_tools": allowed_tools,
                     "description": description,
+                    "persistent_workspace": persistent_workspace,
+                    "repos": repos,
                 },
                 agent_config_create_params.AgentConfigCreateParams,
             ),
@@ -472,7 +606,14 @@ class AsyncAgentConfigsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentConfigRetrieveResponse:
         """
-        Get Agent Config
+        Fetch a single stored agent configuration by id, including its
+        `persistent_workspace` flag and any `repos` override.
+
+        This returns the saved record as-is and does not compute task params; use
+        `{agent_config_id}/resolve` when you need the config projected into the params a
+        task would run with. A user caller can only read a config they created unless
+        fine-grained access control grants access, while a service account can read any
+        config under the account; a missing or out-of-scope id returns a 404.
 
         Args:
           extra_headers: Send extra headers
@@ -523,6 +664,20 @@ class AsyncAgentConfigsResource(AsyncAPIResource):
                 "Salesforce",
                 "Figma",
                 "Granola",
+                "Jira",
+                "Gmail",
+                "GoogleCalendar",
+                "GoogleDrive",
+                "GoogleDocs",
+                "GoogleSheets",
+                "GoogleSlides",
+                "Snowflake",
+                "Redash",
+                "Tableau",
+                "Metabase",
+                "Gong",
+                "ZoomInfo",
+                "Clay",
             ]
         ]
         | Omit = omit,
@@ -530,6 +685,8 @@ class AsyncAgentConfigsResource(AsyncAPIResource):
         harness: Literal["claude-code", "codex", "litellm"] | Omit = omit,
         model: str | Omit = omit,
         name: str | Omit = omit,
+        persistent_workspace: bool | Omit = omit,
+        repos: Iterable[RepoSpecParam] | Omit = omit,
         system_prompt: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -539,7 +696,24 @@ class AsyncAgentConfigsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentConfigUpdateResponse:
         """
-        Update Agent Config
+        Partially update a stored agent config; only fields present in the request body
+        are changed.
+
+        `persistent_workspace` and `repos` are both patchable — an explicit null on
+        `repos` clears the override back to the deployment default, while the
+        always-present fields (name, system_prompt, harness, allowed_tools, model, and
+        persistent_workspace) reject an explicit null. Because `persistent_workspace`
+        and `repos` are read when a task is created and are fixed for a task's life,
+        changing them affects only tasks created afterward, not one already running. The
+        optional `task_id` query parameter opts into a live-config side effect: after
+        the row is persisted, the changed pass-through fields (system_prompt, model,
+        harness, and allowed_tools split into harness tools versus MCP servers) are
+        shallow-merged into that running task's params on Agentex in a background task
+        so the worker picks them up on its next turn; `persistent_workspace` and `repos`
+        are intentionally not forwarded to a running task. That side effect runs after
+        the response is sent, is best-effort, and no-ops if the task does not exist or
+        the caller does not own it. A user caller can only update a config they created
+        unless fine-grained access control grants access.
 
         Args:
           task_id: If set, after persisting the patch we shallow-merge the changed fields into this
@@ -570,6 +744,8 @@ class AsyncAgentConfigsResource(AsyncAPIResource):
                     "harness": harness,
                     "model": model,
                     "name": name,
+                    "persistent_workspace": persistent_workspace,
+                    "repos": repos,
                     "system_prompt": system_prompt,
                 },
                 agent_config_update_params.AgentConfigUpdateParams,
@@ -602,7 +778,14 @@ class AsyncAgentConfigsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[AgentConfigListResponse, AsyncCursorPage[AgentConfigListResponse]]:
         """
-        List Agent Configs
+        List agent configurations visible to the caller, with cursor-based pagination.
+
+        A user caller sees only the configs they created unless fine-grained access
+        control (FGAC) grants them access to others; a service-account caller sees every
+        config under the account. This returns the stored config records as-is — use
+        `{agent_config_id}/resolve` instead when you need a config projected into the
+        params a task would run with. Because deleting a config removes it outright
+        rather than archiving it, there are no archived configs to page through here.
 
         Args:
           extra_headers: Send extra headers
@@ -647,7 +830,13 @@ class AsyncAgentConfigsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentConfigDeleteResponse:
         """
-        Delete Agent Config
+        Permanently delete an agent config; this is a hard delete, not an archive, so
+        the row is removed and cannot be restored.
+
+        Because a config is only a template, deleting it does not stop or alter any task
+        already created from it. A user caller can only delete a config they created
+        unless fine-grained access control grants access. The response echoes the
+        deleted id.
 
         Args:
           extra_headers: Send extra headers
@@ -679,9 +868,15 @@ class AsyncAgentConfigsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentConfigListMcpToolsResponse:
         """
-        AllowedTool values that route to MCP servers (vs harness-provided tools).
-        Exposed primarily so the generated SDK includes the `McpTool` enum type — the
-        frontend asserts its own MCP-tool classifier against this enum to prevent drift.
+        Return the fixed set of tool names that route to MCP servers rather than
+        harness-provided tools.
+
+        These are the subset of `allowed_tools` values (Slack, Linear, GitHub, ...) the
+        platform treats as MCP servers; the list is a static enum, not account data, so
+        it is identical for every caller. It is exposed mainly so the generated SDK
+        carries the `McpTool` type and the frontend can assert its own
+        MCP-versus-harness tool classifier against the backend to prevent drift. It does
+        not list configs or the tools actually granted to any particular config.
         """
         return await self._get(
             "/v5/agent_configs/mcp_tools",

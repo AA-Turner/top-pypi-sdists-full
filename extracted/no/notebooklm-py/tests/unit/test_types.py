@@ -1,7 +1,10 @@
 """Unit tests for types module dataclasses and parsing."""
 
+import os
 import pickle
+import time
 import warnings
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
@@ -57,6 +60,59 @@ class TestTimestampParsing:
         assert parsed is not None
         assert parsed.timestamp() == ts
 
+    def test_datetime_from_timestamp_is_tz_aware_utc(self):
+        """Decoded datetimes are tz-aware UTC, not naive host-local time (#1519).
+
+        The bug: a naive ``datetime.fromtimestamp(value)`` rendered the epoch in
+        the host's local zone, so the public ``created_at`` mis-stated the absolute
+        instant and serialized differently per box. The decoder must return a
+        tz-aware value pinned to UTC and equal to the correct absolute instant.
+
+        Red-first: against the unfixed (naive) decoder ``parsed.tzinfo`` is ``None``,
+        so the ``tzinfo is not None`` assertion fails (and the offset-aware equality
+        would compare unequal — a naive value never ``==`` an aware one).
+        """
+        from notebooklm.types import _datetime_from_timestamp
+
+        # 1768311605 == 2026-01-13T13:40:05+00:00 (the issue's illustrative instant).
+        parsed = _datetime_from_timestamp(1768311605)
+
+        assert parsed is not None
+        assert parsed.tzinfo is not None
+        assert parsed.utcoffset() == timedelta(0)
+        assert parsed == datetime(2026, 1, 13, 13, 40, 5, tzinfo=timezone.utc)
+
+    @pytest.mark.parametrize("tz_name", ["UTC", "America/New_York", "Asia/Kolkata"])
+    def test_datetime_from_timestamp_host_independent(self, tz_name):
+        """The decoded instant is identical regardless of the host timezone (#1519).
+
+        Exercises the original failure mode directly: under ``America/New_York`` a
+        notebook created 13:40:05 UTC used to serialize as the offset-less
+        ``08:40:05``. With the fix every host yields the same tz-aware UTC value.
+        ``time.tzset`` only honours ``$TZ`` on POSIX, so skip elsewhere.
+        """
+        if not hasattr(time, "tzset"):
+            pytest.skip("time.tzset is POSIX-only; cannot exercise host-TZ swap")
+
+        from notebooklm.types import _datetime_from_timestamp
+
+        # Swap the process-wide zone, then restore the host's real $TZ + tz table
+        # in ``finally`` so the swap never leaks into later tests in this process.
+        original_tz = os.environ.get("TZ")
+        os.environ["TZ"] = tz_name
+        time.tzset()
+        try:
+            parsed = _datetime_from_timestamp(1768311605)
+        finally:
+            if original_tz is None:
+                os.environ.pop("TZ", None)
+            else:
+                os.environ["TZ"] = original_tz
+            time.tzset()
+
+        assert parsed == datetime(2026, 1, 13, 13, 40, 5, tzinfo=timezone.utc)
+        assert parsed.isoformat() == "2026-01-13T13:40:05+00:00"
+
     def test_datetime_from_timestamp_oserror(self, monkeypatch):
         """Platform-specific timestamp errors should normalize to None."""
         from unittest.mock import MagicMock
@@ -71,7 +127,8 @@ class TestTimestampParsing:
         parsed = _datetime_from_timestamp(1704067200)
 
         assert parsed is None
-        mock_datetime.fromtimestamp.assert_called_once_with(1704067200)
+        # Pinned to UTC so the rendered instant is host-independent (#1519).
+        mock_datetime.fromtimestamp.assert_called_once_with(1704067200, tz=timezone.utc)
 
     @pytest.mark.parametrize("value", ["bad", None, float("inf"), float("-inf")])
     def test_datetime_from_timestamp_invalid_value(self, value):
@@ -83,7 +140,6 @@ class TestTimestampParsing:
 
 _PUBLIC_MOVABLE_CLASSES = [
     "AccountLimits",
-    "AccountTier",
     "Artifact",
     "ArtifactType",
     "AskResult",
@@ -93,6 +149,7 @@ _PUBLIC_MOVABLE_CLASSES = [
     "ClientMetricsSnapshot",
     "ConnectionLimits",
     "ConversationTurn",
+    "GenerationState",
     "GenerationStatus",
     "MindMap",
     "MindMapKind",
@@ -127,6 +184,7 @@ def test_artifact_note_chat_and_sharing_types_are_facade_reexports():
 
     assert public_types.Artifact is artifacts.Artifact
     assert public_types.ArtifactType is artifacts.ArtifactType
+    assert public_types.GenerationState is artifacts.GenerationState
     assert public_types.GenerationStatus is artifacts.GenerationStatus
     assert public_types.ReportSuggestion is artifacts.ReportSuggestion
     assert public_types.Note is notes.Note
@@ -161,7 +219,6 @@ def test_representative_public_dataclasses_pickle_round_trip():
     from notebooklm.rpc.types import ArtifactStatus, ArtifactTypeCode
     from notebooklm.types import (
         AccountLimits,
-        AccountTier,
         Artifact,
         AskResult,
         ChatReference,
@@ -169,6 +226,7 @@ def test_representative_public_dataclasses_pickle_round_trip():
         ClientMetricsSnapshot,
         ConnectionLimits,
         ConversationTurn,
+        GenerationState,
         GenerationStatus,
         Notebook,
         NotebookDescription,
@@ -193,8 +251,7 @@ def test_representative_public_dataclasses_pickle_round_trip():
     chat_reference = ChatReference(source_id="src_1", citation_number=1, cited_text="quoted")
     shared_user = SharedUser(email="reader@example.com", permission=SharePermission.VIEWER)
     instances = [
-        AccountLimits(notebook_limit=10, source_limit=50, raw_limits=("raw",)),
-        AccountTier(tier="plus", plan_name="Plus"),
+        AccountLimits(notebook_limit=10, source_limit=50, raw_limits=("raw",), tier=2),
         Artifact(
             id="artifact_1",
             title="Audio",
@@ -256,7 +313,12 @@ def test_representative_public_dataclasses_pickle_round_trip():
     for instance in instances:
         assert pickle.loads(pickle.dumps(instance)) == instance
 
-    for enum_member in [SourceType.PDF, ArtifactType.AUDIO, ChatMode.DEFAULT]:
+    for enum_member in [
+        SourceType.PDF,
+        ArtifactType.AUDIO,
+        ChatMode.DEFAULT,
+        GenerationState.COMPLETED,
+    ]:
         assert pickle.loads(pickle.dumps(enum_member)) is enum_member
 
 
@@ -286,22 +348,110 @@ class TestNotebook:
         assert notebook.sources_count == 0
 
     def test_from_api_response_with_timestamp(self):
-        """Test parsing notebook with timestamp."""
-        ts = 1704067200  # 2024-01-01 00:00:00 UTC
+        """Test parsing notebook with timestamp.
+
+        ``created_at`` is read from ``meta[8]`` (the creation slot), so the
+        creation epoch is placed there. ``meta[5]`` carries the now-distinct
+        last-modified slot.
+        """
+        created_ts = 1704067200  # 2024-01-01 00:00:00 UTC
+        modified_ts = 1704153600  # 2024-01-02 00:00:00 UTC
         data = [
             "Timestamped Notebook",
             [],
             "nb_456",
             "📘",
             None,
-            [None, None, None, None, None, [ts, 0]],
+            # meta[5] = modified slot, meta[8] = creation slot
+            [None, None, None, None, None, [modified_ts, 0], None, None, [created_ts, 0]],
         ]
         notebook = Notebook.from_api_response(data)
 
         assert notebook.id == "nb_456"
         assert notebook.created_at is not None
         # Check timestamp value rather than year (timezone-independent)
-        assert notebook.created_at.timestamp() == ts
+        assert notebook.created_at.timestamp() == created_ts
+        assert notebook.modified_at is not None
+        assert notebook.modified_at.timestamp() == modified_ts
+
+    def test_from_api_response_created_modified_not_swapped(self):
+        """``created_at`` is ``meta[8]`` and ``modified_at`` is ``meta[5]``.
+
+        Regression pin for the swapped-slots bug: the metadata block exposes the
+        creation instant at ``data[5][8][0]`` (pinned across edits) and the
+        last-modified instant at ``data[5][5][0]`` (advances on each edit). The
+        pre-fix code read ``meta[5]`` for ``created_at`` and so surfaced the
+        last-modified time as the creation time.
+        """
+        created_ts = 1767921609  # 2026-01-09 — earlier (true creation)
+        modified_ts = 1768963937  # 2026-01-21 — later (last edit)
+        data = [
+            "Swap Probe Notebook",
+            [],
+            "nb_swap",
+            "📓",
+            None,
+            [None, None, None, None, None, [modified_ts, 1], None, None, [created_ts, 2]],
+        ]
+        notebook = Notebook.from_api_response(data)
+
+        # created_at == the meta[8] instant (NOT meta[5])
+        assert notebook.created_at is not None
+        assert notebook.created_at.timestamp() == created_ts
+        # modified_at == the meta[5] instant
+        assert notebook.modified_at is not None
+        assert notebook.modified_at.timestamp() == modified_ts
+        # The two are distinct and ordered created < modified (sanity).
+        assert notebook.created_at < notebook.modified_at
+
+    def test_from_api_response_short_meta_leaves_both_timestamps_none(self):
+        """A ``meta`` block too short to carry the slots soft-degrades to None.
+
+        ``meta[8]`` is absent (len 6) so ``created_at`` is None; ``meta[5]`` is
+        also degraded here (None payload) so ``modified_at`` is None too.
+        """
+        data = [
+            "Short Meta Notebook",
+            [],
+            "nb_short",
+            "📓",
+            None,
+            [None, None, None, None, None, None],  # len 6: meta[8] absent, meta[5] None
+        ]
+        notebook = Notebook.from_api_response(data)
+
+        assert notebook.created_at is None
+        assert notebook.modified_at is None
+
+    def test_from_api_response_short_meta_keeps_modified_but_not_created(self):
+        """A ``meta`` block carrying ``meta[5]`` but too short for ``meta[8]``.
+
+        Locks the length-guard policy: ``created_at`` (``meta[8]``) soft-degrades
+        to None rather than falling back to ``meta[5]`` (which would re-introduce
+        the swap bug), while ``modified_at`` (``meta[5]``) is still populated.
+        """
+        modified_ts = 1768311605
+        data = [
+            "Modified-Only Notebook",
+            [],
+            "nb_modonly",
+            "📓",
+            None,
+            [None, None, None, None, None, [modified_ts, 0]],  # len 6: meta[5] set, meta[8] absent
+        ]
+        notebook = Notebook.from_api_response(data)
+
+        assert notebook.created_at is None
+        assert notebook.modified_at is not None
+        assert notebook.modified_at.timestamp() == modified_ts
+
+    def test_from_api_response_missing_meta_leaves_both_timestamps_none(self):
+        """No metadata block at all → both timestamps None."""
+        data = ["No Meta Notebook", [], "nb_nometa", "📓"]
+        notebook = Notebook.from_api_response(data)
+
+        assert notebook.created_at is None
+        assert notebook.modified_at is None
 
     def test_from_api_response_strips_thought_prefix(self):
         """Test that 'thought\\n' prefix is stripped from title."""
@@ -334,18 +484,23 @@ class TestNotebook:
         assert notebook.is_owner is True
 
     def test_from_api_response_invalid_timestamp(self):
-        """Test parsing with invalid timestamp data."""
+        """Test parsing with invalid timestamp data.
+
+        ``created_at`` reads ``meta[8]`` and ``modified_at`` reads ``meta[5]``;
+        both invalid payloads soft-degrade to ``None``.
+        """
         data = [
             "Notebook",
             [],
             "nb_123",
             "📓",
             None,
-            [None, None, None, None, None, ["invalid", 0]],
+            [None, None, None, None, None, ["invalid", 0], None, None, ["invalid", 0]],
         ]
         notebook = Notebook.from_api_response(data)
 
         assert notebook.created_at is None
+        assert notebook.modified_at is None
 
     def test_from_api_response_out_of_range_timestamp(self):
         """Platform timestamp range errors should not escape notebook parsing."""
@@ -355,13 +510,16 @@ class TestNotebook:
             "nb_123",
             "📓",
             None,
-            [None, None, None, None, None, [1704067200, 0]],
+            [None, None, None, None, None, [1704067200, 0], None, None, [1704067200, 0]],
         ]
 
+        # Both the creation slot (meta[8]) and modified slot (meta[5]) overflow.
+        data[5][8][0] = float("inf")
         data[5][5][0] = float("inf")
         notebook = Notebook.from_api_response(data)
 
         assert notebook.created_at is None
+        assert notebook.modified_at is None
 
     def test_from_api_response_non_string_title(self):
         """Test parsing when title is not a string."""
@@ -369,6 +527,46 @@ class TestNotebook:
         notebook = Notebook.from_api_response(data)
 
         assert notebook.title == ""
+
+    def test_from_api_response_malformed_id_slot_warns(self, caplog):
+        """A present-but-non-str id slot fabricates ``""`` LOUDLY (#1485).
+
+        The degrade itself is kept (a raising row parser would abort
+        whole-list parsing), but the fabrication now leaves a WARNING with a
+        bounded payload preview instead of being silent.
+        """
+        import logging
+
+        data = ["My Notebook", [], 12345, "📓"]
+        with caplog.at_level(logging.WARNING, logger="notebooklm"):
+            notebook = Notebook.from_api_response(data)
+
+        assert notebook.id == ""
+        assert any(
+            r.levelno == logging.WARNING and "id slot malformed" in r.message
+            for r in caplog.records
+        )
+
+    def test_from_api_response_null_id_slot_is_silent(self, caplog):
+        """A ``None`` id slot is absence, not drift — silent ``""`` degrade."""
+        import logging
+
+        data = ["My Notebook", [], None, "📓"]
+        with caplog.at_level(logging.WARNING, logger="notebooklm"):
+            notebook = Notebook.from_api_response(data)
+
+        assert notebook.id == ""
+        assert [r for r in caplog.records if r.levelno == logging.WARNING] == []
+
+    def test_from_api_response_short_row_is_silent(self, caplog):
+        """Rows too short to carry the id slot keep the silent degrade."""
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="notebooklm"):
+            notebook = Notebook.from_api_response(["Title only"])
+
+        assert notebook.id == ""
+        assert [r for r in caplog.records if r.levelno == logging.WARNING] == []
 
 
 class TestSource:
@@ -734,6 +932,134 @@ class TestSource:
         # type code lives at metadata[4] (== 5 → WEB_PAGE) for both paths.
         assert api_source.kind == listing_source.kind == SourceType.WEB_PAGE
 
+    def test_pdf_url_title_derives_basename(self):
+        """A direct-PDF URL used as the title falls back to the path basename.
+
+        Regression for #1850: Google leaves the raw request URL in the title
+        slot for a link that points straight at a ``.pdf`` (HTML pages get an
+        extracted ``<title>``). ``from_row`` derives a display title from the
+        URL path basename while leaving ``url`` untouched.
+        """
+        url = "https://example.com/papers/SomePaper.pdf"
+        # Medium-nested entry, type_code 3 (PDF), title == the raw URL.
+        entry = [["src_pdf"], url, [None, None, None, None, 3, None, None, [url]]]
+        source = Source.from_api_response([entry])
+
+        assert source.title == "SomePaper"
+        assert source.url == url
+        assert source.kind == SourceType.PDF
+
+    def test_pdf_url_title_derives_on_both_funnels(self):
+        """The fallback fires identically on the add and list construction paths."""
+        from notebooklm._row_adapters.sources import SourceRow
+        from notebooklm.rpc import RPCMethod
+
+        url = "https://example.com/reports/Q3%20Report.pdf"
+        entry = [["src_pdf2"], url, [None, None, None, None, 3, None, None, [url]]]
+
+        listing_source = Source.from_row(
+            SourceRow.from_entry(entry, method_id=RPCMethod.GET_NOTEBOOK.value)
+        )
+        api_source = Source.from_api_response([entry])
+
+        assert api_source == listing_source
+        assert api_source.title == listing_source.title == "Q3 Report"
+
+    def test_pdf_real_title_untouched(self):
+        """A PDF whose title is a real string (not a URL) is left alone."""
+        entry = [
+            ["src_pdf3"],
+            "Quarterly Earnings",
+            [None, None, None, None, 3, None, None, ["https://example.com/q.pdf"]],
+        ]
+        source = Source.from_api_response([entry])
+        assert source.title == "Quarterly Earnings"
+
+    def test_non_pdf_url_title_untouched(self):
+        """The fallback is PDF-only: a web_page whose title is a URL is untouched."""
+        url = "https://example.com/page.pdf"
+        # type_code 5 == WEB_PAGE, even though the title looks like a .pdf URL.
+        entry = [["src_web"], url, [None, None, None, None, 5, None, None, [url]]]
+        source = Source.from_api_response([entry])
+        assert source.title == url
+        assert source.kind == SourceType.WEB_PAGE
+
+    def test_drive_pdf_title_untouched(self):
+        """A Drive-hosted PDF (type_code 14 → PDF by MIME) keeps its filename title.
+
+        Drive sources carry no URL and a filename title, so the URL-shape gate
+        in the fallback never fires — the #1832 disambiguation and the #1850
+        fallback do not collide.
+        """
+        metadata = [None] * 20
+        metadata[4] = 14  # ambiguous native-Sheet / Drive-binary code
+        metadata[19] = "application/pdf"  # MIME disambiguates 14 → PDF
+        entry = [["src_drive"], "MyReport.pdf", metadata]
+        source = Source.from_api_response([entry])
+
+        assert source.kind == SourceType.PDF
+        assert source.title == "MyReport.pdf"
+
+    def test_pdf_url_title_is_idempotent(self):
+        """Re-parsing an already-derived title (not the source URL) is a no-op."""
+        entry = [
+            ["src_pdf4"],
+            "SomePaper",
+            [None, None, None, None, 3, None, None, ["https://example.com/SomePaper.pdf"]],
+        ]
+        source = Source.from_api_response([entry])
+        assert source.title == "SomePaper"
+
+    def test_pdf_explicit_url_shaped_title_preserved(self):
+        """A PDF title that is a URL but NOT the source URL is left intact.
+
+        Only the server degradation (title == the source ``url``) is corrected;
+        an explicit title set via rename/upload that merely looks like a ``.pdf``
+        URL must survive (#1850 review — codex).
+        """
+        entry = [
+            ["src_renamed"],
+            "https://example.com/LegalName.pdf",  # deliberate title, a URL string
+            [
+                None,
+                None,
+                None,
+                None,
+                3,
+                None,
+                None,
+                ["https://example.com/actual-source.pdf"],  # different source url
+            ],
+        ]
+        source = Source.from_api_response([entry])
+        assert source.title == "https://example.com/LegalName.pdf"
+
+    def test_unknown_type_code_does_not_warn_at_construction(self):
+        """Parsing an unknown-typed source must not emit ``UnknownTypeWarning``.
+
+        The PDF title fallback uses a plain type-code lookup (not
+        ``_safe_source_type``), so warnings-as-error environments can still
+        ``list()``/``get()`` an unknown source; the warning stays at ``.kind``
+        access (#1850 review — codex).
+        """
+        import warnings
+
+        from notebooklm._types.common import UnknownTypeWarning
+
+        # type_code 999 is unmapped, and a title is present so the fallback runs.
+        entry = [
+            ["src_unknown"],
+            "Some Title",
+            [None, None, None, None, 999, None, None, ["https://example.com/x"]],
+        ]
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UnknownTypeWarning)
+            source = Source.from_api_response([entry])  # must not raise
+        assert source.title == "Some Title"
+        # ``.kind`` remains the documented warning point.
+        with pytest.warns(UnknownTypeWarning):
+            _ = source.kind
+
     def test_from_api_response_forwards_method_id_to_row(self):
         """``method_id`` threads through to the constructed ``SourceRow`` so
         drift diagnostics name the originating RPC (issue #1242).
@@ -963,6 +1289,36 @@ class TestArtifact:
 
         assert artifact is not None
         assert artifact.created_at is None
+
+    def test_from_mind_map_deleted_tombstone_is_silent_none(self, caplog):
+        """The recognised ``[id, None, 2]`` tombstone filters silently."""
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="notebooklm"):
+            assert Artifact.from_mind_map(["mm_gone", None, 2]) is None
+
+        assert [r for r in caplog.records if r.levelno == logging.WARNING] == []
+
+    def test_from_mind_map_unrecognized_tombstone_warns_and_stays_live(self, caplog):
+        """A null content slot WITHOUT the soft-delete sentinel WARNS (#1485).
+
+        This is the deleted-map-leaking-as-live bug class: were Google to
+        rotate the sentinel value, every deleted mind map would flow through
+        as a live artifact. The historical treat-as-live fallthrough is kept
+        (conservative), but it is no longer silent.
+        """
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="notebooklm"):
+            artifact = Artifact.from_mind_map(["mm_drift", None, 7])
+
+        assert artifact is not None
+        assert artifact.id == "mm_drift"
+        assert artifact.title == ""
+        assert any(
+            r.levelno == logging.WARNING and "soft-delete sentinel" in r.message
+            for r in caplog.records
+        )
 
     def test_from_api_response_audio_url(self):
         """Completed audio artifacts expose their download URL."""
@@ -1436,7 +1792,7 @@ class TestGenerationStatus:
         other_failure = GenerationStatus(
             task_id="",
             status="failed",
-            error="Generation failed - no artifact_id returned",
+            error="Some unrelated generation error",
         )
         assert other_failure.is_rate_limited is False
 
@@ -1845,6 +2201,7 @@ class TestNotebookMetadata:
             title="Test Notebook",
             created_at=datetime(2024, 1, 1, 12, 0),
             is_owner=True,
+            modified_at=datetime(2024, 1, 2, 9, 30),
         )
         metadata = NotebookMetadata(
             notebook=notebook,
@@ -1859,6 +2216,7 @@ class TestNotebookMetadata:
             "id": "nb_123",
             "title": "Test Notebook",
             "created_at": "2024-01-01T12:00:00",
+            "modified_at": "2024-01-02T09:30:00",
             "is_owner": True,
             "sources": [
                 {"type": "pdf", "title": "test.pdf", "url": None},
@@ -1877,12 +2235,14 @@ class TestNotebookMetadata:
             title="Proxy Test",
             created_at=datetime(2024, 2, 1),
             is_owner=False,
+            modified_at=datetime(2024, 3, 1),
         )
         metadata = NotebookMetadata(notebook=notebook)
 
         assert metadata.id == "nb_456"
         assert metadata.title == "Proxy Test"
         assert metadata.created_at == datetime(2024, 2, 1)
+        assert metadata.modified_at == datetime(2024, 3, 1)
         assert metadata.is_owner is False
 
     def test_to_dict_with_none_created_at(self):

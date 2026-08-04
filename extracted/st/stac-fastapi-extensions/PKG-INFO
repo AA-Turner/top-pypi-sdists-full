@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stac-fastapi-extensions
-Version: 6.4.1
+Version: 6.5.0
 Summary: Extensions for stac-fastapi apis.
 Project-URL: Homepage, https://github.com/stac-utils/stac-fastapi
 Author-email: ArturoAI <engineering@arturo.ai>

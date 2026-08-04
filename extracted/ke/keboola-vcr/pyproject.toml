@@ -1,9 +1,8 @@
 [project]
 name = "keboola.vcr"
-version = "0.7.0"
+version = "0.7.1"
 description = "VCR recording, sanitization, and validation for Keboola component HTTP interactions"
 readme = "README.md"
-license = {text = "MIT"}
 requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -16,9 +15,17 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "vcrpy>=8.3.0,<9",  # floor 8.3.0: 8.2.1 safe-YAML security fix (GHSA-rpj2-4hq8-938g); cassette._save/append are private API we depend on
+    "vcrpy>=8.3.0,<9",
     "freezegun>=1.5.5,<2",
+    "typing-extensions>=4; python_version < '3.11'",
 ]
+
+[project.license]
+text = "MIT"
+
+[project.urls]
+Homepage = "https://github.com/keboola/python-vcr-tests"
+Repository = "https://github.com/keboola/python-vcr-tests"
 
 [build-system]
 requires = ["uv_build >= 0.10.0, <0.11.0"]
@@ -26,17 +33,6 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-name = "keboola.vcr"
-
-[dependency-groups]
-dev = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
-    "ruff>=0.15.0"
-]
-
-[project.urls]
-Homepage = "https://github.com/keboola/python-vcr-tests"
-Repository = "https://github.com/keboola/python-vcr-tests"
 
 [[tool.uv.index]]
 name = "testpypi"
@@ -49,10 +45,22 @@ line-length = 120
 target-version = "py310"
 
 [tool.ruff.lint]
-extend-select = ["I", "UP"]
+extend-select = [
+    "I",
+    "UP",
+]
 
+[tool.ruff.format]
+exclude = ["*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-v"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.16.1",
+]

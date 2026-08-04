@@ -10,7 +10,7 @@ from django.db import models, transaction
 from django.db.models import Q
 from django.utils.functional import cached_property
 
-from treebeard.deprecation import RemovedInTreebeard7Warning, get_moved_manager_classmethod, get_moved_manager_method
+from treebeard.deprecation import RemovedInTreebeard8Warning, get_moved_manager_classmethod, get_moved_manager_method
 from treebeard.exceptions import InvalidPosition, MissingNodeOrderBy
 from treebeard.utils import prepare_dumpdata_for_loading, save_m2m
 
@@ -59,7 +59,7 @@ class Node(models.Model):
     def add_root(cls, **kwargs):
         warnings.warn(
             f"Using {cls.__name__}.add_root() is deprecated. Use {cls.__name__}.objects.add_root() instead.",
-            RemovedInTreebeard7Warning,
+            RemovedInTreebeard8Warning,
             stacklevel=2,
         )
         instance = kwargs.pop("instance", None)
@@ -69,7 +69,7 @@ class Node(models.Model):
         cls = self.__class__
         warnings.warn(
             f"Using {cls.__name__}.add_child() is deprecated. Use {cls.__name__}.objects.add_child(target) instead.",
-            RemovedInTreebeard7Warning,
+            RemovedInTreebeard8Warning,
             stacklevel=2,
         )
         instance = kwargs.pop("instance", None)
@@ -79,7 +79,7 @@ class Node(models.Model):
         cls = self.__class__
         warnings.warn(
             f"Using {cls.__name__}.add_sibling() is deprecated. Use {cls.__name__}.objects.add_sibling() instead.",
-            RemovedInTreebeard7Warning,
+            RemovedInTreebeard8Warning,
             stacklevel=2,
         )
         instance = kwargs.pop("instance", None)
@@ -89,7 +89,7 @@ class Node(models.Model):
         cls = self.__class__
         warnings.warn(
             f"Using {cls.__name__}.move() is deprecated. Use {cls.__name__}.objects.move() instead.",
-            RemovedInTreebeard7Warning,
+            RemovedInTreebeard8Warning,
             stacklevel=2,
         )
         return cls.objects.move(self, target, pos)
@@ -133,7 +133,7 @@ class Node(models.Model):
         abstract = True
 
 
-# Deprecated class methods that have moved to the model manager. Will be removed in Treebeard 7
+# Deprecated class methods that have moved to the model manager. Will be removed in Treebeard 8
 def _inject_moved_method_back_compat():
     moved_classmethods = [
         "load_bulk",
@@ -202,12 +202,15 @@ class NodeManager(models.Manager):
 
         return base_class
 
-    def get_tree(self, parent=None):  # pragma: no cover
+    def get_tree(self, parent=None, max_depth: int | None = None):  # pragma: no cover
         """
         :returns:
 
-            A list of nodes ordered as DFS, including the parent. If
+            A queryset of nodes ordered as DFS, including the parent. If
             no parent is given, the entire tree is returned.
+
+            If max_depth is set then the tree is limited to the specified depth, relative
+            to the parent (or the root if no parent is specified).
         """
         raise NotImplementedError
 
@@ -519,18 +522,25 @@ class NodeManager(models.Manager):
         """
         raise NotImplementedError
 
-    def get_descendants(self, node, include_self=False):
+    def get_descendants(self, node, include_self=False, max_depth: int | None = None):
         """
         :returns:
 
             A queryset of all the node's descendants, doesn't
             include the node itself if include_self is False.
+
+            If max_depth is set then the tree is limited to the specified depth relative
+            to the node.
         """
         raise NotImplementedError
 
-    def get_descendant_count(self, node):
-        """:returns: the number of descendants of a node."""
-        return self.get_descendants(node).count()
+    def get_descendant_count(self, node, max_depth: int | None = None):
+        """:returns: the number of descendants of a node
+
+        If max_depth is set then the count is limited to the specified depth relative
+        to the node.
+        """
+        return self.get_descendants(node, max_depth=max_depth).count()
 
     def get_first_child(self, node):
         """

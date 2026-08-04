@@ -114,7 +114,7 @@ class TextClient:
             Specifies the tone or style of the translation.
 
             **Model Support:**
-            - **mayura:v1**: Supports formal, classic-colloquial, and modern-colloquial modes
+            - **mayura:v1**: Supports formal, classic-colloquial, modern-colloquial, and code-mixed modes
             - **sarvam-translate:v1**: Only formal mode is supported
 
             **Default:** formal
@@ -169,9 +169,9 @@ class TextClient:
             api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
         )
         client.text.translate(
-            input="input",
-            source_language_code="auto",
-            target_language_code="bn-IN",
+            input="Hello, how are you?",
+            source_language_code="en-IN",
+            target_language_code="hi-IN",
         )
         """
         _response = self._raw_client.translate(
@@ -214,7 +214,7 @@ class TextClient:
             api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
         )
         client.text.identify_language(
-            input="input",
+            input="नमस्ते आप कैसे हैं",
         )
         """
         _response = self._raw_client.identify_language(input=input, request_options=request_options)
@@ -324,9 +324,9 @@ class TextClient:
             api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
         )
         client.text.transliterate(
-            input="input",
-            source_language_code="auto",
-            target_language_code="bn-IN",
+            input="namaste",
+            source_language_code="en-IN",
+            target_language_code="hi-IN",
         )
         """
         _response = self._raw_client.transliterate(
@@ -432,7 +432,7 @@ class AsyncTextClient:
             Specifies the tone or style of the translation.
 
             **Model Support:**
-            - **mayura:v1**: Supports formal, classic-colloquial, and modern-colloquial modes
+            - **mayura:v1**: Supports formal, classic-colloquial, modern-colloquial, and code-mixed modes
             - **sarvam-translate:v1**: Only formal mode is supported
 
             **Default:** formal
@@ -492,9 +492,9 @@ class AsyncTextClient:
 
         async def main() -> None:
             await client.text.translate(
-                input="input",
-                source_language_code="auto",
-                target_language_code="bn-IN",
+                input="Hello, how are you?",
+                source_language_code="en-IN",
+                target_language_code="hi-IN",
             )
 
 
@@ -545,7 +545,7 @@ class AsyncTextClient:
 
         async def main() -> None:
             await client.text.identify_language(
-                input="input",
+                input="नमस्ते आप कैसे हैं",
             )
 
 
@@ -663,9 +663,9 @@ class AsyncTextClient:
 
         async def main() -> None:
             await client.text.transliterate(
-                input="input",
-                source_language_code="auto",
-                target_language_code="bn-IN",
+                input="namaste",
+                source_language_code="en-IN",
+                target_language_code="hi-IN",
             )
 
 

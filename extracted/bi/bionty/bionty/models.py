@@ -38,6 +38,19 @@ from lamindb.models import (
     TracksUpdates,
 )
 
+try:
+    from lamindb.models import HasAbbr, HasSynonyms
+except ImportError:
+    # Backward compatibility with lamindb versions prior to 2.9 where
+    # CanCurate still bundles synonym/abbreviation instance methods and
+    # dedicated HasAbbr/HasSynonyms mixins are not exported yet.
+    class HasAbbr:  # type: ignore[no-redef]
+        pass
+
+    class HasSynonyms:  # type: ignore[no-redef]
+        pass
+
+
 import bionty.base as bt_base
 from bionty.base.dev._doc_util import _doc_params
 
@@ -197,7 +210,7 @@ class HasOntologyId(models.Model, HasParents):
 class HasSource(models.Model):
     """HasSource - base class for records with a source foreign key.
 
-    Provides :meth:`~bionty.core.BioRecord.public` and :meth:`~bionty.core.BioRecord.from_source`.
+    Provides `.public()` and `.from_source()` methods for `BioRecord`.
     """
 
     class Meta:
@@ -540,7 +553,7 @@ class HasSource(models.Model):
         Notes:
             For more info, see tutorial :doc:`docs:bionty`
 
-            Bulk create records via :meth:`.from_values`.
+            Bulk create records via `.from_values()`.
 
         Example::
 
@@ -615,7 +628,7 @@ class HasSource(models.Model):
             return results
 
 
-class BioRecord(SQLRecord, HasSource, CanCurate):
+class BioRecord(SQLRecord, HasSource, CanCurate, HasAbbr, HasSynonyms):
     """Base SQLRecord of bionty.
 
     BioRecord inherits all methods from :class:`~lamindb.models.SQLRecord` and :meth:`~lamindb.models.CanCurate`.

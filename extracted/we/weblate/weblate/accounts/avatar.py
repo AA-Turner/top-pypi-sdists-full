@@ -4,12 +4,12 @@
 from __future__ import annotations
 
 import hashlib
-import os.path
 from pathlib import Path
 from ssl import CertificateError
 from typing import TYPE_CHECKING, Literal, cast
 from urllib.parse import urlencode
 
+import httpx2
 from django.conf import settings
 from django.contrib.staticfiles import finders
 from django.core.cache import InvalidCacheBackendError, caches
@@ -37,9 +37,11 @@ def avatar_for_email(email: str, size: int = 80) -> str:
     return f"{settings.AVATAR_URL_PREFIX}avatar/{mail_hash}?{querystring}"
 
 
-def get_fallback_avatar_url(size: int, name: Literal["weblate", "api"] = "weblate"):
+def get_fallback_avatar_url(
+    size: int, name: Literal["weblate", "api"] = "weblate"
+) -> str:
     """Return URL of fallback avatar."""
-    return os.path.join(settings.STATIC_URL, f"{name}-{size}.png")
+    return f"{settings.STATIC_URL.rstrip('/')}/{name}-{size}.png"
 
 
 def get_fallback_avatar(size: int) -> bytes:
@@ -67,7 +69,7 @@ def get_avatar_image(user: User, size: int) -> bytes:
         try:
             image = download_avatar_image(user.email, size)
             cache.set(cache_key, image)
-        except (OSError, CertificateError):
+        except (OSError, CertificateError, httpx2.HTTPError):
             report_error(f"Could not fetch avatar for {username}")
             return get_fallback_avatar(size)
 

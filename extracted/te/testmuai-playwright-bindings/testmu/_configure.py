@@ -35,6 +35,11 @@ _config_data = {
     # Version selector for the heal cascade. Default "v4" preserves the existing autoheal path;
     # generated tests override via configure(kane_version="v3").
     "kane_version": "v4",
+    # Locator auto-heal version gate. Default "" keeps the flat autoheal path;
+    # generated tests set configure(auto_heal_version="AH2") to route failed
+    # actions through the AX-tree locator heal. Read by _default_heal (mirrors
+    # kane_version's global gate — set once, read via _configure.get).
+    "auto_heal_version": "",
     # Instance-view cap opt-in: generated V3 tests set this so _capability.py emits
     # the kaneRunV3 LT:Options marker (parallel to V4's kane_run_v4).
     "kane_run_v3": False,
@@ -98,6 +103,7 @@ _DEFAULTS = {
     "default_navigation_timeout_ms": 30000,
     "kane_run_v4": False,
     "kane_version": "v4",
+    "auto_heal_version": "",
     "kane_run_v3": False,
     "automind_url": "", "code_export_id": "", "commit_id": "", "test_id": "",
     "org_id": "", "username": "", "accesskey": "", "session_id": "",

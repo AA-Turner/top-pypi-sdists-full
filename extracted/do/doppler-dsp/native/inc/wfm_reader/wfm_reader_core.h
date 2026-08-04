@@ -138,6 +138,30 @@ extern "C"
    *                       raw uses; `"le"` or `"be"` from Python, 0 or 1
    *                       from C.
    * @return a reader, or NULL on open/parse failure.
+   *
+   * @code
+   * >>> import pathlib, tempfile
+   * >>> from doppler.wfm import Composer, Reader, Segment, Writer
+   * >>> tmp = tempfile.TemporaryDirectory()
+   * >>> p = pathlib.Path(tmp.name) / "capture.blue"
+   * >>> x = Composer([Segment("qpsk", sps=8, num_samples=1024)]).compose()
+   * >>> w = Writer(p, file_type="blue", sample_type="ci16", fs=2.4e6)
+   * >>> w.add_keyword("NAME", "A", "demo")   # tag the header
+   * >>> _ = w.write(x)
+   * >>> w.close()
+   * >>> r = Reader(p)                         # file type auto-detected
+   * >>> r.file_type, r.sample_type, r.fs
+   * ('blue', 'ci16', 2400000.0)
+   * >>> r.keywords["NAME"]                    # keyword round-trips
+   * 'demo'
+   * >>> total = 0
+   * >>> while len(block := r.read(256)):      # read returns 0 at EOF
+   * ...     total += len(block)
+   * >>> total == r.num_samples == 1024
+   * True
+   * >>> r.close()
+   * >>> tmp.cleanup()
+   * @endcode
    */
 wfm_reader_state_t *wfm_reader_create(const char *path, int sample_type, int endian);
 
@@ -187,12 +211,12 @@ wfm_reader_state_t *wfm_reader_create(const char *path, int sample_type, int end
 size_t wfm_reader_read(wfm_reader_state_t *state, size_t n,
                        float complex *out, size_t max_out);
 
-  /** @brief Upper bound on one read()'s output, or 0 for "unbounded".
+  /** @brief Maximum samples one read(n) yields: n (fewer at EOF).
    *
-   *  A reader streams, so it declares no bound and the generated binding sizes
-   *  its buffer from the caller's request instead of pre-allocating the whole
-   *  capture at construction. */
-size_t wfm_reader_read_max_out(wfm_reader_state_t *state);
+   *  A reader streams, so a read of n produces at most n samples; the binding
+   *  sizes its buffer to this per-call bound (gh-607) and resizes down to the
+   *  actual count, never pre-allocating the whole capture. */
+size_t wfm_reader_read_max_out(wfm_reader_state_t *state, size_t n);
 
   /**
    * @brief Number of extended-header keywords recovered from the capture.

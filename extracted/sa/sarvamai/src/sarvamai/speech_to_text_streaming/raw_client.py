@@ -68,7 +68,7 @@ class RawSpeechToTextStreamingClient:
         language_code : SpeechToTextStreamingLanguageCode
             Specifies the language of the input audio in BCP-47 format.
 
-            **Available Options (saarika:v2.5, legacy):**
+            **Available Options:**
             - `unknown` (default): Use when the language is not known; the API will auto-detect.
             - `hi-IN`: Hindi
             - `bn-IN`: Bengali
@@ -81,8 +81,6 @@ class RawSpeechToTextStreamingClient:
             - `ta-IN`: Tamil
             - `te-IN`: Telugu
             - `en-IN`: English
-
-            **Additional Options (saaras:v3, recommended):**
             - `as-IN`: Assamese
             - `ur-IN`: Urdu
             - `ne-IN`: Nepali
@@ -101,10 +99,10 @@ class RawSpeechToTextStreamingClient:
 
             - **saaras:v3** (default, recommended): State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
 
-            - **saarika:v2.5** (legacy): Transcribes audio in the spoken language. Kept for backward compatibility.
+            - **saaras:v4** (latest): Flexible output formats across all modes (transcribe, translate, verbatim, translit, codemix), supporting Global + Indian English and 22 Indic languages.
 
         mode : typing.Optional[SpeechToTextStreamingMode]
-            Mode of operation. **Only applicable when using saaras:v3 model.**
+            Mode of operation. **Only applicable when using saaras:v3 or saaras:v4 models.**
 
             Example audio: 'मेरा फोन नंबर है 9840950950'
 
@@ -289,7 +287,7 @@ class AsyncRawSpeechToTextStreamingClient:
         language_code : SpeechToTextStreamingLanguageCode
             Specifies the language of the input audio in BCP-47 format.
 
-            **Available Options (saarika:v2.5, legacy):**
+            **Available Options:**
             - `unknown` (default): Use when the language is not known; the API will auto-detect.
             - `hi-IN`: Hindi
             - `bn-IN`: Bengali
@@ -302,8 +300,6 @@ class AsyncRawSpeechToTextStreamingClient:
             - `ta-IN`: Tamil
             - `te-IN`: Telugu
             - `en-IN`: English
-
-            **Additional Options (saaras:v3, recommended):**
             - `as-IN`: Assamese
             - `ur-IN`: Urdu
             - `ne-IN`: Nepali
@@ -322,10 +318,10 @@ class AsyncRawSpeechToTextStreamingClient:
 
             - **saaras:v3** (default, recommended): State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
 
-            - **saarika:v2.5** (legacy): Transcribes audio in the spoken language. Kept for backward compatibility.
+            - **saaras:v4** (latest): Flexible output formats across all modes (transcribe, translate, verbatim, translit, codemix), supporting Global + Indian English and 22 Indic languages.
 
         mode : typing.Optional[SpeechToTextStreamingMode]
-            Mode of operation. **Only applicable when using saaras:v3 model.**
+            Mode of operation. **Only applicable when using saaras:v3 or saaras:v4 models.**
 
             Example audio: 'मेरा फोन नंबर है 9840950950'
 

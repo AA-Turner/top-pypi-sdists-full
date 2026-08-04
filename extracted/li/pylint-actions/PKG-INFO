@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylint-actions
-Version: 0.6.0
+Version: 0.7.0
 Summary: Pylint plugin for GitHub Actions
 Author-email: skhomuti <skhomuti@gmail.com>
 License-Expression: MIT
@@ -18,10 +18,10 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.9
-Requires-Dist: pylint<4,>=3.0.3
+Requires-Python: >=3.10
+Requires-Dist: pylint<5,>=3.0.3
 Provides-Extra: dev
-Requires-Dist: pylint<4,>=3.0.3; extra == 'dev'
+Requires-Dist: pylint<5,>=3.0.3; extra == 'dev'
 Description-Content-Type: text/markdown
 
 ![](https://img.shields.io/pypi/v/pylint-actions)

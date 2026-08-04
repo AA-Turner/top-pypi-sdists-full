@@ -1,13 +1,17 @@
-use std::{cmp::Ordering, collections::HashSet};
+use std::{
+    cmp::Ordering,
+    collections::{hash_map::DefaultHasher, HashSet},
+    hash::{Hash, Hasher},
+};
 
 use jsonschema::{
-    canonical::{options, CanonicalKind, CanonicalSchema, CanonicalView},
+    canonical::{options, CanonicalKind, CanonicalSchema, CanonicalView, OperandMismatch},
     canonicalize, CanonicalizationError, Draft, JsonType, PatternOptions, Registry,
 };
 use serde_json::{json, Map, Number, Value};
 use test_case::test_case;
 
-#[test_case(&json!({"anyOf": [{}], "unevaluatedProperties": false}); "unevaluated properties beside an applicator")]
+#[test_case(&json!({"if": {}, "unevaluatedProperties": false}); "unevaluated properties beside an applicator")]
 fn unmodeled_document_round_trips_verbatim(schema: &Value) {
     let canonical = canonicalize(schema).expect("canonicalizes");
     assert_eq!(&canonical.to_json_schema(), schema);
@@ -489,7 +493,7 @@ fn a_definition_name_spelling_a_canonical_uri_does_not_alias_a_registry_resource
 fn unsupported_reference_target_keeps_the_whole_document_raw() {
     let schema = json!({
         "$ref": "#/$defs/value",
-        "$defs": {"value": {"anyOf": [{}], "unevaluatedProperties": false}}
+        "$defs": {"value": {"if": {}, "unevaluatedProperties": false}}
     });
     let canonical = canonicalize(&schema).expect("canonicalizes");
 
@@ -717,10 +721,10 @@ fn unmodeled_documents_hash_by_document_identity() {
             .expect("canonicalizes")
     };
     let integer = canonical(
-        r#"{"anyOf": [{}], "unevaluatedProperties": {"enum": [1, null, true, "x", [2], {"b": 3}]}}"#,
+        r#"{"if": {}, "unevaluatedProperties": {"enum": [1, null, true, "x", [2], {"b": 3}]}}"#,
     );
     let float = canonical(
-        r#"{"anyOf": [{}], "unevaluatedProperties": {"enum": [1.0, null, true, "x", [2], {"b": 3}]}}"#,
+        r#"{"if": {}, "unevaluatedProperties": {"enum": [1.0, null, true, "x", [2], {"b": 3}]}}"#,
     );
     assert_eq!(integer.kind(), CanonicalKind::Raw);
     let distinct: HashSet<CanonicalSchema> =
@@ -876,7 +880,7 @@ fn error_display(schema: &Value, message: &str) {
 #[test_case(&json!(false), CanonicalKind::False, "false"; "boolean false")]
 #[test_case(&json!({"type": "integer", "minimum": 0}), CanonicalKind::Integer, "integer"; "integer_leaf")]
 #[test_case(&json!({"type": "number", "minimum": 0}), CanonicalKind::Number, "number"; "number_leaf")]
-#[test_case(&json!({"anyOf": [{}], "unevaluatedProperties": false}), CanonicalKind::Raw, "raw"; "raw")]
+#[test_case(&json!({"if": {}, "unevaluatedProperties": false}), CanonicalKind::Raw, "raw"; "raw")]
 fn kind_reports_its_label(schema: &Value, kind: CanonicalKind, label: &str) {
     let canonical = canonicalize(schema).expect("canonicalizes");
     assert_eq!(canonical.kind(), kind);
@@ -997,7 +1001,7 @@ fn deeply_nested_document_round_trips() {
     let mut schema = json!({"type": "string"});
     for _ in 0..300 {
         let mut map = Map::new();
-        map.insert("anyOf".to_string(), json!([{}]));
+        map.insert("if".to_string(), json!({}));
         map.insert("unevaluatedProperties".to_string(), schema);
         schema = Value::Object(map);
     }
@@ -1131,15 +1135,15 @@ fn canonical_schema_ordering() {
     assert!(two > one);
 
     let raw = |text: &str| canonicalize(&serde_json::from_str(text).unwrap()).unwrap();
-    let raw_one = raw(r#"{"anyOf":[{}],"unevaluatedProperties":{"const":1}}"#);
-    let raw_two = raw(r#"{"anyOf":[{}],"unevaluatedProperties":{"const":2}}"#);
+    let raw_one = raw(r#"{"if":{},"unevaluatedProperties":{"const":1}}"#);
+    let raw_two = raw(r#"{"if":{},"unevaluatedProperties":{"const":2}}"#);
     assert_eq!(raw_one.partial_cmp(&raw_two), Some(Ordering::Less));
     assert!(raw_one < raw_two);
 
     #[cfg(feature = "arbitrary-precision")]
     assert!(
-        raw(r#"{"anyOf":[{}],"unevaluatedProperties":{"const":1e400}}"#)
-            < raw(r#"{"anyOf":[{}],"unevaluatedProperties":{"const":2e400}}"#)
+        raw(r#"{"if":{},"unevaluatedProperties":{"const":1e400}}"#)
+            < raw(r#"{"if":{},"unevaluatedProperties":{"const":2e400}}"#)
     );
 }
 
@@ -1393,4 +1397,424 @@ fn bundled_metaschemas_are_modeled() {
         }
     }
     assert!(raw.is_empty(), "these metaschemas stayed raw: {raw:#?}");
+}
+
+// A registry resource never passes metaschema validation - only the referring document does. A
+// reference into a malformed one must degrade to `Raw` rather than error or panic.
+#[test_case(&json!({"type": 5}); "type is not a name")]
+#[test_case(&json!({"if": 5}); "subschema is not a schema")]
+#[test_case(&json!({"dependencies": {"a": 5}}); "dependency is neither schema nor name list")]
+#[test_case(&json!({"dependentRequired": {"a": ["x", 1]}}); "dependent requirement is not a name")]
+#[test_case(&json!({"dependentSchemas": {"a": 5}}); "dependent schema is not a schema")]
+#[test_case(&json!({"items": [true]}); "2020-12 items is not a tuple")]
+#[test_case(
+    &json!({"contains": 5, "unevaluatedItems": false});
+    "contains beside unevaluated items is not a schema"
+)]
+#[test_case(
+    &json!({"allOf": [5], "unevaluatedProperties": false});
+    "property cover branch is not a schema"
+)]
+#[test_case(
+    &json!({"allOf": [5], "unevaluatedItems": false});
+    "item cover branch is not a schema"
+)]
+#[test_case(
+    &json!({"allOf": [{"properties": {"a": true}}], "properties": 5, "unevaluatedProperties": false});
+    "hoisted properties is not an object"
+)]
+#[test_case(
+    &json!({"allOf": [{"prefixItems": [true]}], "prefixItems": 5, "unevaluatedItems": false});
+    "padded tuple is not an array"
+)]
+#[test_case(
+    &json!({"$schema": "http://json-schema.org/draft-07/schema#", "type": "integer"});
+    "target declares another draft"
+)]
+fn unvalidated_registry_target_keeps_the_document_raw(target: &Value) {
+    let registry = Registry::new()
+        .add("https://example.com/target", target)
+        .expect("resource URI is valid")
+        .prepare()
+        .expect("registry prepares");
+    let document = json!({"$ref": "https://example.com/target"});
+    let canonical = options()
+        .with_draft(Draft::Draft202012)
+        .with_registry(&registry)
+        .canonicalize(&document)
+        .expect("canonicalizes");
+
+    assert_eq!(canonical.kind(), CanonicalKind::Raw);
+    assert_eq!(canonical.to_json_schema(), document);
+}
+
+// The suite pins the error variant; these pin what a caller reads off it.
+#[test]
+fn a_resolution_error_carries_its_cause() {
+    let error = canonicalize(&json!({"$ref": "#/$defs/%FF", "$defs": {"a": true}}))
+        .expect_err("the pointer does not decode");
+
+    assert!(error.to_string().contains("valid UTF-8"), "{error}");
+    assert!(std::error::Error::source(&error).is_some());
+}
+
+#[test]
+fn an_invalid_schema_type_error_has_no_cause() {
+    let error = canonicalize(&json!([])).expect_err("an array is not a schema");
+
+    assert!(std::error::Error::source(&error).is_none());
+}
+
+#[test]
+fn definition_looks_up_one_target() {
+    let schema = canonicalize(&json!({
+        "$defs": {"A": {"type": "string"}},
+        "$ref": "#/$defs/A"
+    }))
+    .expect("canonicalizes");
+    let (uri, expected) = schema.definitions().next().expect("one definition");
+    assert_eq!(schema.definition(&uri), Some(expected));
+    assert_eq!(schema.definition("#/$defs/absent"), None);
+}
+
+// Same `Reference` root, different targets: unequal handles the hash no longer separates.
+#[test]
+fn hash_ignores_the_definition_map() {
+    fn digest(schema: &jsonschema::canonical::CanonicalSchema) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        schema.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    let string_target = canonicalize(&json!({
+        "$id": "https://example.com/s",
+        "$defs": {"A": {"type": "string"}},
+        "$ref": "#/$defs/A"
+    }))
+    .expect("canonicalizes");
+    let integer_target = canonicalize(&json!({
+        "$id": "https://example.com/s",
+        "$defs": {"A": {"type": "integer"}},
+        "$ref": "#/$defs/A"
+    }))
+    .expect("canonicalizes");
+
+    assert_ne!(string_target, integer_target);
+    assert_eq!(digest(&string_target), digest(&integer_target));
+}
+
+#[test_case(&json!({"type": "string"}), &json!({"minLength": 4}), &json!({"type": "string", "minLength": 4}); "bound folds into the string leaf")]
+#[test_case(&json!({"const": "A"}), &json!({"pattern": "^A$"}), &json!({"const": "A"}); "matching pattern keeps the constant")]
+#[test_case(&json!({"const": "A"}), &json!({"const": "B"}), &json!({"not": {}}); "disjoint constants fold to false")]
+fn intersect_folds(left: &Value, right: &Value, expected: &Value) {
+    let left = canonicalize(left).expect("canonicalizes");
+    let right = canonicalize(right).expect("canonicalizes");
+    let mut expected = expected.as_object().expect("object").clone();
+    expected.insert(
+        "$schema".into(),
+        json!("https://json-schema.org/draft/2020-12/schema"),
+    );
+    assert_eq!(
+        left.intersect(&right).expect("intersects").to_json_schema(),
+        Value::Object(expected)
+    );
+}
+
+// A pattern the canonical form does not model keeps the whole document raw.
+fn unmodeled() -> Value {
+    json!({"if": {}, "unevaluatedProperties": false})
+}
+
+#[test]
+fn intersect_rejects_a_raw_root() {
+    let raw = canonicalize(&unmodeled()).expect("canonicalizes");
+    let modeled = canonicalize(&json!({"type": "string"})).expect("canonicalizes");
+    let error = raw.intersect(&modeled).expect_err("the left side is raw");
+    assert!(matches!(error, CanonicalizationError::UnmodeledOperand));
+    assert_eq!(
+        error.to_string(),
+        "operand is not modeled in canonical form"
+    );
+    assert!(matches!(
+        modeled.intersect(&raw),
+        Err(CanonicalizationError::UnmodeledOperand)
+    ));
+}
+
+// An unmodeled `$ref` target takes the whole document raw rather than leaving a raw entry beside a
+// modeled root, so the handle a consumer resolves from carries no definitions at all.
+#[test]
+fn intersect_rejects_a_raw_reference_target() {
+    let document = json!({
+        "properties": {"a": {"$ref": "#/$defs/A"}},
+        "$defs": {"A": unmodeled()}
+    });
+    let raw = canonicalize(&document).expect("canonicalizes");
+    assert_eq!(raw.kind(), CanonicalKind::Raw);
+    assert_eq!(raw.definitions().next(), None);
+    let modeled = canonicalize(&json!({"type": "string"})).expect("canonicalizes");
+    assert!(matches!(
+        raw.intersect(&modeled),
+        Err(CanonicalizationError::UnmodeledOperand)
+    ));
+}
+
+// Two children of one root share the map, so both references resolve through the result.
+#[test]
+fn intersect_keeps_references_resolvable_within_one_document() {
+    let root = canonicalize(&json!({
+        "type": "object",
+        "$defs": {"A": {"type": "string"}, "B": {"minLength": 2}},
+        "properties": {"a": {"$ref": "#/$defs/A"}, "b": {"$ref": "#/$defs/B"}}
+    }))
+    .expect("canonicalizes");
+    let CanonicalView::Object(view) = root.view() else {
+        panic!("expected an Object view");
+    };
+    let left = view.properties.get("a").expect("property a").clone();
+    let right = view.properties.get("b").expect("property b").clone();
+    let merged = left.intersect(&right).expect("intersects");
+    assert!(merged.definition("#/$defs/A").is_some());
+    assert!(merged.definition("#/$defs/B").is_some());
+}
+
+#[test]
+fn intersect_rejects_operands_from_different_drafts() {
+    let draft7 = options()
+        .with_draft(Draft::Draft7)
+        .canonicalize(&json!({"type": "string"}))
+        .expect("canonicalizes");
+    let latest = canonicalize(&json!({"type": "string"})).expect("canonicalizes");
+    let error = draft7.intersect(&latest).expect_err("the drafts differ");
+    assert!(matches!(
+        error,
+        CanonicalizationError::IncompatibleOperands(OperandMismatch::Drafts {
+            left: Draft::Draft7,
+            right: Draft::Draft202012
+        })
+    ));
+    assert_eq!(
+        error.to_string(),
+        "operands canonicalized under Draft7 and Draft202012"
+    );
+}
+
+// 2020-12 annotates formats by default, so asserting them is the deliberate mismatch.
+#[test]
+fn intersect_rejects_operands_with_different_format_assertion_policy() {
+    let asserting = options()
+        .should_validate_formats(true)
+        .canonicalize(&json!({"type": "string"}))
+        .expect("canonicalizes");
+    let annotating = canonicalize(&json!({"type": "string"})).expect("canonicalizes");
+    let error = asserting
+        .intersect(&annotating)
+        .expect_err("the format policies differ");
+    assert!(matches!(
+        error,
+        CanonicalizationError::IncompatibleOperands(OperandMismatch::FormatAssertions)
+    ));
+    assert_eq!(
+        error.to_string(),
+        "operands disagree on whether `format` asserts"
+    );
+}
+
+// `regex` is the deliberate mismatch against the default `fancy-regex` engine.
+#[test]
+fn intersect_rejects_operands_with_different_pattern_engines() {
+    let regex_engine = options()
+        .with_pattern_options(PatternOptions::regex())
+        .canonicalize(&json!({"type": "string"}))
+        .expect("canonicalizes");
+    let fancy_engine = canonicalize(&json!({"type": "string"})).expect("canonicalizes");
+    let error = regex_engine
+        .intersect(&fancy_engine)
+        .expect_err("the pattern engines differ");
+    assert!(matches!(
+        error,
+        CanonicalizationError::IncompatibleOperands(OperandMismatch::PatternEngine)
+    ));
+    assert_eq!(
+        error.to_string(),
+        "operands canonicalized with different pattern engines"
+    );
+}
+
+// A side with no definitions of its own adopts the other's map, whichever side it is.
+#[test_case(false; "empty map on the right")]
+#[test_case(true; "empty map on the left")]
+fn intersect_adopts_the_only_definition_map(swap: bool) {
+    let referencing = canonicalize(&json!({
+        "$defs": {"A": {"type": "string"}},
+        "$ref": "#/$defs/A"
+    }))
+    .expect("canonicalizes");
+    let plain = canonicalize(&json!({"minLength": 4})).expect("canonicalizes");
+    let merged = if swap {
+        plain.intersect(&referencing)
+    } else {
+        referencing.intersect(&plain)
+    }
+    .expect("intersects");
+    assert!(merged.definition("#/$defs/A").is_some());
+}
+
+#[test]
+fn intersect_rejects_operands_with_distinct_definition_maps() {
+    let left = canonicalize(&json!({
+        "$defs": {"A": {"type": "string"}},
+        "$ref": "#/$defs/A"
+    }))
+    .expect("canonicalizes");
+    let right = canonicalize(&json!({
+        "$defs": {"B": {"minLength": 4}},
+        "$ref": "#/$defs/B"
+    }))
+    .expect("canonicalizes");
+    let error = left.intersect(&right).expect_err("the maps differ");
+    assert!(matches!(
+        error,
+        CanonicalizationError::IncompatibleOperands(OperandMismatch::Definitions)
+    ));
+    assert_eq!(
+        error.to_string(),
+        "operands carry different definition maps"
+    );
+}
+
+#[test_case(
+    &json!({"type": "string", "minLength": 5}),
+    &json!({"anyOf": [
+        {"type": ["null", "boolean", "number", "array", "object"]},
+        {"type": "string", "maxLength": 4}
+    ]});
+    "string leaf"
+)]
+#[test_case(
+    &json!({"type": "number", "minimum": 5}),
+    &json!({"anyOf": [
+        {"type": ["null", "boolean", "string", "array", "object"]},
+        {"type": "number", "exclusiveMaximum": 5}
+    ]});
+    "number leaf"
+)]
+#[test_case(
+    &json!({"type": "object", "required": ["a"]}),
+    &json!({"anyOf": [
+        {"type": ["null", "boolean", "number", "string", "array"]},
+        {"type": "object", "properties": {"a": false}}
+    ]});
+    "object leaf"
+)]
+fn negate_spells_the_complement(schema: &Value, expected: &Value) {
+    let canonical = canonicalize(schema).expect("canonicalizes");
+    let mut expected = expected.as_object().expect("object").clone();
+    expected.insert(
+        "$schema".into(),
+        json!("https://json-schema.org/draft/2020-12/schema"),
+    );
+    assert_eq!(
+        canonical.negate().expect("negates").to_json_schema(),
+        Value::Object(expected)
+    );
+}
+
+#[test_case(&json!({"type": "string", "minLength": 5}); "string leaf")]
+#[test_case(&json!({"type": "number", "minimum": 5}); "number leaf")]
+#[test_case(&json!({"type": "object", "required": ["a"]}); "object leaf")]
+#[test_case(&json!({"const": 1.5}); "numeric constant")]
+#[test_case(&json!({"type": "array", "items": {"type": "string"}}); "array element schema")]
+#[test_case(&json!({"type": "array", "maxItems": 2, "items": {"type": "string"}}); "array element schema beside a size bound")]
+#[test_case(&json!({"const": "a"}); "string constant")]
+#[test_case(&json!({"enum": ["a", "b"]}); "string value set")]
+#[test_case(&json!({"type": "string", "minLength": 2}); "excluded value under a window")]
+#[test_case(&json!({"type": "array", "contains": {"type": "string"}}); "array existential demand")]
+#[test_case(&json!({"type": "array", "contains": {"const": "a"}}); "array existential demand on a value")]
+#[test_case(
+    &json!({"type": "array", "minItems": 1, "contains": {"type": "string"}});
+    "array existential demand beside a size bound"
+)]
+#[test_case(
+    &json!({"type": "array", "items": {"type": "string"}, "contains": {"const": "a"}});
+    "array existential demand beside an element schema"
+)]
+fn negate_admits_exactly_what_the_source_rejects(schema: &Value) {
+    let complement = canonicalize(schema)
+        .expect("canonicalizes")
+        .negate()
+        .expect("negates")
+        .to_json_schema();
+    let source = jsonschema::validator_for(schema).expect("source builds");
+    let complement = jsonschema::validator_for(&complement).expect("complement builds");
+    for instance in [
+        json!(null),
+        json!(true),
+        json!(4),
+        json!(5),
+        json!(1.5),
+        json!("abcd"),
+        json!("abcde"),
+        json!([]),
+        json!(["a"]),
+        json!(["a", "b", "c"]),
+        json!(["a", 1]),
+        json!([1]),
+        json!({}),
+        json!({"a": 1}),
+    ] {
+        assert_ne!(
+            source.is_valid(&instance),
+            complement.is_valid(&instance),
+            "{instance} lands on the same side of both"
+        );
+    }
+}
+
+// The decline set is contract: a caller sizes its fallback on it, so widening it is a visible change.
+#[test_case(&json!({"type": "integer"}); "integer leaf")]
+#[test_case(&json!({"type": "integer", "minimum": 0}); "bounded integer leaf")]
+#[test_case(
+    &json!({"$schema": "http://json-schema.org/draft-04/schema#", "type": "integer", "enum": [1, 2]});
+    "typed group"
+)]
+#[test_case(&json!({"if": {}, "unevaluatedProperties": false}); "raw document")]
+#[test_case(
+    &json!({"$schema": "http://json-schema.org/draft-04/schema#", "type": "array", "items": {"type": "string"}});
+    "draft 4 array element schema"
+)]
+#[test_case(
+    &json!({"type": "array", "contains": {"type": "string"}, "minContains": 2});
+    "counted array existential demand"
+)]
+fn negate_declines(schema: &Value) {
+    assert_eq!(canonicalize(schema).expect("canonicalizes").negate(), None);
+}
+
+#[test]
+fn negate_keeps_a_reference_symbolic() {
+    let schema = canonicalize(&json!({
+        "$defs": {"A": {"type": "string"}},
+        "$ref": "#/$defs/A"
+    }))
+    .expect("canonicalizes");
+    let complement = schema.negate().expect("negates");
+    assert_eq!(complement.kind(), CanonicalKind::Not);
+    assert_eq!(
+        complement.definition("#/$defs/A"),
+        schema.definition("#/$defs/A")
+    );
+}
+
+#[test_case(&json!({"const": "a"}); "string constant")]
+#[test_case(&json!({"enum": ["a", "b"]}); "string value set")]
+#[test_case(&json!({"type": "string", "minLength": 2}); "string window")]
+fn negate_is_an_involution(schema: &Value) {
+    let canonical = canonicalize(schema).expect("canonicalizes");
+    let doubled = canonical
+        .negate()
+        .expect("negates")
+        .negate()
+        .expect("negates back");
+    assert_eq!(doubled, canonical);
 }

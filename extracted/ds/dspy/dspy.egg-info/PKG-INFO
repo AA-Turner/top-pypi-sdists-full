@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dspy
-Version: 3.2.1
+Version: 3.3.0
 Summary: DSPy
 Author-email: Omar Khattab <okhattab@stanford.edu>
 License: MIT License
@@ -33,51 +33,54 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: openai>=0.28.1
+Requires-Dist: openai>=1.66.2
 Requires-Dist: regex>=2023.10.3
 Requires-Dist: orjson>=3.9.0
 Requires-Dist: tqdm>=4.66.1
 Requires-Dist: requests>=2.31.0
 Requires-Dist: pydantic>=2.0
-Requires-Dist: litellm>=1.64.0
+Requires-Dist: litellm>=1.65.8
 Requires-Dist: diskcache>=5.6.0
 Requires-Dist: json-repair>=0.54.2
 Requires-Dist: tenacity>=8.2.3
 Requires-Dist: anyio
-Requires-Dist: asyncer==0.0.8
 Requires-Dist: cachetools>=5.5.0
 Requires-Dist: cloudpickle>=3.1.2
-Requires-Dist: numpy>=1.26.0
-Requires-Dist: xxhash>=3.5.0
-Requires-Dist: gepa[dspy]==0.0.27
-Requires-Dist: typeguard==4.4.3
+Requires-Dist: gepa[dspy]==0.1.1
 Provides-Extra: anthropic
 Requires-Dist: anthropic<1.0.0,>=0.18.0; extra == "anthropic"
 Provides-Extra: weaviate
-Requires-Dist: weaviate-client~=4.5.4; extra == "weaviate"
+Requires-Dist: weaviate-client<4.22.0,>=4.5.4; extra == "weaviate"
 Provides-Extra: mcp
 Requires-Dist: mcp; python_version >= "3.10" and extra == "mcp"
 Provides-Extra: langchain
-Requires-Dist: langchain_core; extra == "langchain"
+Requires-Dist: langchain_core>=0.3.0; extra == "langchain"
 Provides-Extra: optuna
 Requires-Dist: optuna>=3.4.0; extra == "optuna"
+Provides-Extra: numpy
+Requires-Dist: numpy>=1.26.0; extra == "numpy"
+Provides-Extra: litellm
+Requires-Dist: litellm>=1.65.8; extra == "litellm"
 Provides-Extra: dev
 Requires-Dist: pytest>=6.2.5; extra == "dev"
 Requires-Dist: pytest-mock>=3.12.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.26.0; extra == "dev"
+Requires-Dist: pytest-xdist>=3.5.0; extra == "dev"
 Requires-Dist: ruff>=0.3.0; extra == "dev"
 Requires-Dist: pre-commit>=3.7.0; extra == "dev"
 Requires-Dist: pillow>=10.1.0; extra == "dev"
 Requires-Dist: datamodel_code_generator>=0.26.3; extra == "dev"
 Requires-Dist: build>=1.0.3; extra == "dev"
-Requires-Dist: litellm>=1.64.0; (sys_platform == "win32" or python_version == "3.14") and extra == "dev"
-Requires-Dist: litellm[proxy]>=1.64.0; (sys_platform != "win32" and python_version < "3.14") and extra == "dev"
+Requires-Dist: numpy>=1.26.0; extra == "dev"
+Requires-Dist: litellm>=1.65.8; (sys_platform == "win32" or python_version == "3.14") and extra == "dev"
+Requires-Dist: litellm[proxy]>=1.65.8; (sys_platform != "win32" and python_version < "3.14") and extra == "dev"
 Provides-Extra: test-extras
 Requires-Dist: mcp; python_version >= "3.10" and extra == "test-extras"
 Requires-Dist: datasets>=2.14.6; extra == "test-extras"
 Requires-Dist: pandas>=2.1.1; extra == "test-extras"
 Requires-Dist: optuna>=3.4.0; extra == "test-extras"
-Requires-Dist: langchain_core; extra == "test-extras"
+Requires-Dist: langchain_core>=0.3.0; extra == "test-extras"
+Requires-Dist: numpy>=1.26.0; extra == "test-extras"
 Dynamic: license-file
 
 <p align="center">
@@ -117,7 +120,7 @@ To install the very latest from `main`:
 
 ```bash
 pip install git+https://github.com/stanfordnlp/dspy.git
-````
+```
 
 
 

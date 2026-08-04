@@ -1,4 +1,4 @@
-    def listAllSnapshots(self, flags: int = 0) -> List['virDomainSnapshot']:
+    def listAllSnapshots(self, flags: Optional[int] = 0) -> list['virDomainSnapshot']:
         """List all snapshots and returns a list of snapshot objects"""
         ret = libvirtmod.virDomainListAllSnapshots(self._o, flags)
         if ret is None:
@@ -6,7 +6,7 @@
 
         return [virDomainSnapshot(self, _obj=snapptr) for snapptr in ret]
 
-    def listAllCheckpoints(self, flags: int = 0) -> List['virDomainCheckpoint']:
+    def listAllCheckpoints(self, flags: Optional[int] = 0) -> list['virDomainCheckpoint']:
         """List all checkpoints and returns a list of checkpoint objects"""
         ret = libvirtmod.virDomainListAllCheckpoints(self._o, flags)
         if ret is None:
@@ -14,7 +14,7 @@
 
         return [virDomainCheckpoint(self, _obj=chkptr) for chkptr in ret]
 
-    def createWithFiles(self, files: List[int], flags: int = 0) -> 'virDomain':
+    def createWithFiles(self, files: list[int], flags: Optional[int] = 0) -> 'virDomain':
         """Launch a defined domain. If the call succeeds the domain moves from the
         defined to the running domains pools.
 
@@ -52,28 +52,28 @@
             raise libvirtError('virDomainCreateWithFiles() failed')
         return ret
 
-    def fsFreeze(self, mountpoints: List[str] = None, flags: int = 0) -> int:
+    def fsFreeze(self, mountpoints: Optional[list[str]] = None, flags: Optional[int] = 0) -> int:
         """Freeze specified filesystems within the guest """
         ret = libvirtmod.virDomainFSFreeze(self._o, mountpoints, flags)
         if ret == -1:
             raise libvirtError('virDomainFSFreeze() failed')
         return ret
 
-    def fsThaw(self, mountpoints: List[str] = None, flags: int = 0) -> int:
+    def fsThaw(self, mountpoints: Optional[list[str]] = None, flags: Optional[int] = 0) -> int:
         """Thaw specified filesystems within the guest """
         ret = libvirtmod.virDomainFSThaw(self._o, mountpoints, flags)
         if ret == -1:
             raise libvirtError('virDomainFSThaw() failed')
         return ret
 
-    def getTime(self, flags: int = 0) -> int:
+    def getTime(self, flags: Optional[int] = 0) -> int:
         """Extract information about guest time """
         ret = libvirtmod.virDomainGetTime(self._o, flags)
         if ret is None:
             raise libvirtError('virDomainGetTime() failed')
         return ret
 
-    def setTime(self, time: int = None, flags: int = 0) -> int:
+    def setTime(self, time: Optional[int] = None, flags: Optional[int] = 0) -> int:
         """Set guest time to the given value. @time is a dict containing
         'seconds' field for seconds and 'nseconds' field for nanoseconds """
         ret = libvirtmod.virDomainSetTime(self._o, time, flags)
@@ -81,7 +81,7 @@
             raise libvirtError('virDomainSetTime() failed')
         return ret
 
-    def FDAssociate(self, name: str, files: List[int], flags: int = 0) -> int:
+    def FDAssociate(self, name: str, files: list[int], flags: Optional[int] = 0) -> int:
         """Associate the array of FDs passed as @fds with the domain object
         under @name. The FDs are associated as long as the connection used to
         associated exists and are disposed of afterwards. FD may still be kept

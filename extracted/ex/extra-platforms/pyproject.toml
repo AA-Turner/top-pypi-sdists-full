@@ -4,12 +4,13 @@ requires = ["uv-build>=0.8"]
 
 [project]
 name = "extra-platforms"
-version = "13.5.3"
+version = "13.6.0"
 description = "🔎 Detect architectures, platforms, shells, terminals, CI systems and agents, grouped by family"
 readme = "readme.md"
 keywords = [
     "Agent detection",
     "Alacritty",
+    "AlmaLinux",
     "Almquist Shell",
     "Alpine Linux",
     "ALT Linux",
@@ -52,6 +53,7 @@ keywords = [
     "Debian",
     "Distro detection",
     "DragonFly BSD",
+    "EndeavourOS",
     "Exherbo Linux",
     "Fedora",
     "Fish",
@@ -246,7 +248,7 @@ pytest = ["pytest>=8.2.1"]
 [project.urls]
 Changelog = "https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md"
 Documentation = "https://kdeldycke.github.io/extra-platforms"
-Download = "https://github.com/kdeldycke/extra-platforms/releases/tag/v13.5.3"
+Download = "https://github.com/kdeldycke/extra-platforms/releases/tag/v13.6.0"
 Funding = "https://github.com/sponsors/kdeldycke"
 Homepage = "https://github.com/kdeldycke/extra-platforms"
 Issues = "https://github.com/kdeldycke/extra-platforms/issues"
@@ -378,7 +380,7 @@ source = ["extra_platforms"]
 precision = 2
 
 [tool.bumpversion]
-current_version = "13.5.3"
+current_version = "13.6.0"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.dev(?P<dev>\d+))?'
 serialize = [
     "{major}.{minor}.{patch}.dev{dev}",

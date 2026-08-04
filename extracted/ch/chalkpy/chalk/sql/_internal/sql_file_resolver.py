@@ -18,6 +18,7 @@ from typing import (
     List,
     Literal,
     Mapping,
+    NoReturn,
     Optional,
     ParamSpec,
     Sequence,
@@ -121,6 +122,14 @@ _RESOLVER_TYPES = {
 }
 
 CHALK_SQL_FILE_RESOLVER_FILENAME_SUFFIX = ".chalk.sql"
+
+CHALK_SQL_SOURCE_NAME = "chalksql"
+"""Reserved value for the `-- source:` comment. Instead of naming an integration, it declares that
+the query is written in ChalkSQL and is compiled into a logical plan by the Chalk engine itself,
+so no external datasource is bound to the resolver."""
+
+CHALK_SQL_SQLGLOT_DIALECT = "duckdb"
+"""ChalkSQL follows DuckDB's dialect, so that is what `source: chalksql` queries are validated as."""
 
 
 class IncrementalSettingsSQLFileResolver(BaseModel):
@@ -278,6 +287,8 @@ class GlotResult:
     docstring: Optional[str]
     errors: List[ResolverError]
     source: Union[BaseSQLSource, StreamSource, SQLSourceGroup, None]
+    is_chalk_sql: bool = False
+    """Whether the resolver declared `source: chalksql`, in which case `source` is always None."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -294,6 +305,8 @@ class ParseResult:
 
     # data_lineage is stored as a map { data_source: { table: { column: feature } } }
     data_lineage: Optional[Dict[str, Dict[str, Dict[str, List[str]]]]] = None
+    is_chalk_sql: bool = False
+    """Whether the resolver declared `source: chalksql`, in which case `source` is always None."""
 
 
 _filepath_to_sql_string: dict[str, str] = {}
@@ -581,39 +594,82 @@ def get_sql_file_resolver(
         resolver_type = _RESOLVER_TYPES[resolver_type_str]
 
         if resolver_type == StreamResolver:
+            if parsed.is_chalk_sql:
+                message = (
+                    f"SQL file resolvers with 'source: {CHALK_SQL_SOURCE_NAME}' cannot be stream resolvers. "
+                    f"Remove the 'type: stream' comment, or point 'source' at a stream integration."
+                )
+                error_builder.add_diagnostic(
+                    message=message,
+                    code="156",
+                    label="chalksql resolvers cannot be streams",
+                    range=error_builder.comment_range_by_key("type"),
+                )
+                return ResolverResult(
+                    resolver=None,
+                    errors=[*errors, ResolverError(display=message, path=path, parameter=None)],
+                    db=None,
+                    fields=parsed.fields,
+                    args=glot_result.args,
+                )
             return _get_stream_resolver(path, glot_result, parsed, outputs, error_builder)
 
         incremental_dict = parsed.comment_dict.incremental.dict() if parsed.comment_dict.incremental else None
         finalizer = parse_finalizer(parsed.comment_dict.count)
         source = parsed.source
 
-        if not isinstance(source, (BaseSQLSource, SQLSourceGroup)):
-            raise ValueError(f"Datasource '{source}' is not configured. Is the driver installed?")
-
-        # function for online resolver to process
-        def fn(
-            *input_values: Any,
-            database: BaseSQLSource | SQLSourceGroup = source,
-            sql_query: str = parsed.sql_string,
-            field_dict: Dict[str, str] = query_fields,
-            args_dict: Dict[str, str] = glot_result.args,
-            incremental: Optional[Dict[str, Any]] = incremental_dict,
-        ):
-            arg_dict = {arg: input_value for input_value, arg in zip(input_values, args_dict.keys())}
-            func = database.query_string(
-                query=sql_query,
-                fields=field_dict,
-                args=arg_dict,
+        resolver_fn: Callable[..., Any]
+        if parsed.is_chalk_sql:
+            errors.extend(
+                _validate_chalk_sql_resolver(
+                    path=path,
+                    args=glot_result.args,
+                    finalizer=finalizer,
+                    incremental_dict=incremental_dict,
+                    error_builder=error_builder,
+                )
             )
-            if incremental:
-                func = func.incremental(**incremental)
-            elif finalizer == Finalizer.ONE:
-                func = func.one()
-            elif finalizer == Finalizer.ONE_OR_NONE:
-                func = func.one_or_none()
-            elif finalizer == Finalizer.ALL:
-                func = func.all()
-            return func
+
+            # The query never runs through a Python datasource client: the engine compiles it into a
+            # logical plan at plan time. The function exists only because Resolver requires one.
+            def query_chalk_sql(*input_values: Any) -> NoReturn:
+                del input_values  # unused
+                raise RuntimeError(
+                    f"The SQL file resolver at '{path}' declares 'source: {CHALK_SQL_SOURCE_NAME}', "
+                    + "so it can only be executed by the Chalk engine, not locally."
+                )
+
+            resolver_fn = query_chalk_sql
+        else:
+            if not isinstance(source, (BaseSQLSource, SQLSourceGroup)):
+                raise ValueError(f"Datasource '{source}' is not configured. Is the driver installed?")
+
+            # function for online resolver to process
+            def query_datasource(
+                *input_values: Any,
+                database: BaseSQLSource | SQLSourceGroup = source,
+                sql_query: str = parsed.sql_string,
+                field_dict: Dict[str, str] = query_fields,
+                args_dict: Dict[str, str] = glot_result.args,
+                incremental: Optional[Dict[str, Any]] = incremental_dict,
+            ):
+                arg_dict = {arg: input_value for input_value, arg in zip(input_values, args_dict.keys())}
+                func = database.query_string(
+                    query=sql_query,
+                    fields=field_dict,
+                    args=arg_dict,
+                )
+                if incremental:
+                    func = func.incremental(**incremental)
+                elif finalizer == Finalizer.ONE:
+                    func = func.one()
+                elif finalizer == Finalizer.ONE_OR_NONE:
+                    func = func.one_or_none()
+                elif finalizer == Finalizer.ALL:
+                    func = func.all()
+                return func
+
+            resolver_fn = query_datasource
 
         if errors:
             return ResolverResult(
@@ -664,8 +720,12 @@ def get_sql_file_resolver(
         try:
             if resolver_type not in (OnlineResolver, OfflineResolver):
                 raise ValueError(f"Resolver type '{resolver_type}' is not supported for .chalk.sql resolvers")
-            if not isinstance(parsed.source, (BaseSQLSource, SQLSourceGroup)):
-                raise ValueError(f"Datasource '{parsed.source}' is not configured. Is the driver installed")
+            # A ChalkSQL resolver binds no datasource; every other kind must have resolved one.
+            resolver_data_sources: List[Union[BaseSQLSource, SQLSourceGroup]] = []
+            if not parsed.is_chalk_sql:
+                if not isinstance(parsed.source, (BaseSQLSource, SQLSourceGroup)):
+                    raise ValueError(f"Datasource '{parsed.source}' is not configured. Is the driver installed")
+                resolver_data_sources = [parsed.source]
             if sql_string_result.autogenerated:
                 """Autogenerated resolvers are expected to have a name passed in through make_sql_file_resolver"""
                 assert (
@@ -683,7 +743,7 @@ def get_sql_file_resolver(
                 doc=parsed.docstring,
                 inputs=inputs,
                 output=output,
-                fn=fn,
+                fn=resolver_fn,
                 environment=parsed.comment_dict.environment,
                 tags=parsed.comment_dict.tags,
                 cron=parsed.comment_dict.cron,
@@ -693,9 +753,9 @@ def get_sql_file_resolver(
                 owner=parsed.comment_dict.owner,
                 timeout=parsed.comment_dict.timeout,
                 is_sql_file_resolver=True,
-                data_sources=[parsed.source],
+                data_sources=resolver_data_sources,
                 source_line=None,
-                lsp_builder=get_resolver_error_builder(fn),
+                lsp_builder=get_resolver_error_builder(resolver_fn),
                 static=False,
                 parse=None,
                 resource_hint=None,
@@ -711,6 +771,7 @@ def get_sql_file_resolver(
                     params_to_root_fqn=glot_result.args,
                     field_types=parsed.comment_dict.field_types or {},
                     use_native_sql=parsed.comment_dict.use_native_sql,
+                    is_chalk_sql_source=parsed.is_chalk_sql,
                 ),
                 postprocessing=sql_string_result.postprocessing_expr,
                 handle_duplicate_outputs=parsed.comment_dict.handle_duplicate_outputs,
@@ -743,6 +804,67 @@ def get_sql_file_resolver(
             args=glot_result.args,
             data_lineage=parsed.data_lineage,
         )
+
+
+def _validate_chalk_sql_resolver(
+    *,
+    path: str,
+    args: Dict[str, str],
+    finalizer: Optional[Finalizer],
+    incremental_dict: Optional[Dict[str, Any]],
+    error_builder: SQLFileResolverErrorBuilder,
+) -> List[ResolverError]:
+    """Reject the parts of the SQL file resolver surface that `source: chalksql` does not support yet.
+
+    A ChalkSQL resolver is compiled into a logical plan by the engine before any rows exist, so it
+    can only be a root (parameterless) resolver that returns every row it selects. Features that
+    depend on executing the query per input row -- bound parameters, `one`/`one_or_none` finalizers
+    -- or on the datasource-side incrementalization path are rejected here rather than silently
+    ignored downstream.
+    """
+    errors: List[ResolverError] = []
+
+    if args:
+        message = (
+            f"SQL file resolvers with 'source: {CHALK_SQL_SOURCE_NAME}' cannot take input parameters, but this "
+            f"resolver references {sorted(args.values())}. ChalkSQL resolvers are compiled into a query plan "
+            f"without any bound inputs, so they must select their rows directly."
+        )
+        error_builder.add_diagnostic(
+            message=message,
+            code="156",
+            label="chalksql resolvers cannot take parameters",
+            range=error_builder.sql_range(),
+        )
+        errors.append(ResolverError(display=message, path=path, parameter=None))
+
+    if finalizer is not None and finalizer != Finalizer.ALL:
+        message = (
+            f"SQL file resolvers with 'source: {CHALK_SQL_SOURCE_NAME}' must return all matching rows, so the "
+            f"only supported finalizer is 'count: all'. Remove the 'count' comment."
+        )
+        error_builder.add_diagnostic(
+            message=message,
+            code="156",
+            label="chalksql resolvers must return all rows",
+            range=error_builder.comment_range_by_key("count"),
+        )
+        errors.append(ResolverError(display=message, path=path, parameter=None))
+
+    if incremental_dict is not None:
+        message = (
+            f"SQL file resolvers with 'source: {CHALK_SQL_SOURCE_NAME}' do not support 'incremental' yet. "
+            f"Remove the 'incremental' comment."
+        )
+        error_builder.add_diagnostic(
+            message=message,
+            code="156",
+            label="chalksql resolvers do not support incremental",
+            range=error_builder.comment_range_by_key("incremental"),
+        )
+        errors.append(ResolverError(display=message, path=path, parameter=None))
+
+    return errors
 
 
 def _get_sql_string(path: str) -> SQLStringResult:
@@ -1267,7 +1389,12 @@ def _get_sql_glot(
 
     source_name = comment_dict_object.source
     source = None
-    if source_name not in _SOURCES:  # actual name of source
+    is_chalk_sql = source_name is not None and source_name.strip().lower() == CHALK_SQL_SOURCE_NAME
+    if is_chalk_sql:
+        # `source: chalksql` has no external datasource to bind: the query is compiled by Chalk's
+        # own SQL engine at plan time, so there is nothing to look up in `sources`.
+        pass
+    elif source_name not in _SOURCES:  # actual name of source
         for possible_source in sources:
             if possible_source.name == source_name:
                 source = possible_source
@@ -1298,7 +1425,7 @@ def _get_sql_glot(
                         )
                     )
                 source = possible_source
-    if source is None:
+    if source is None and not is_chalk_sql:
         message = (
             f"SQL file resolver refers to unrecognized source '{source_name}'. "
             f"Please refer to your source via its name on your Chalk dashboard, "
@@ -1329,8 +1456,9 @@ def _get_sql_glot(
             docstring=docstring,
             errors=errors,
             source=None,
+            is_chalk_sql=is_chalk_sql,
         )
-    assert source is not None, "unrecognized source should be handled by now"
+    assert source is not None or is_chalk_sql, "unrecognized source should be handled by now"
 
     # Skip SQL validation if the flag is set
     if comment_dict_object.skip_sql_validation:
@@ -1343,9 +1471,10 @@ def _get_sql_glot(
             docstring=docstring,
             errors=errors,
             source=source,
+            is_chalk_sql=is_chalk_sql,
         )
 
-    source_dialect_string = source.get_sqlglot_dialect()
+    source_dialect_string = CHALK_SQL_SQLGLOT_DIALECT if source is None else source.get_sqlglot_dialect()
     try:
         glots = sqlglot.parse(sql=sql_string, read=source_dialect_string)
     except Exception as e:
@@ -1372,6 +1501,7 @@ def _get_sql_glot(
             docstring=docstring,
             errors=errors,
             source=source,
+            is_chalk_sql=is_chalk_sql,
         )
     if len(glots) > 1:
         message = f"SQL file resolver query {sql_string} has more than one 'SELECT' statements. Only one is permitted."
@@ -1391,6 +1521,7 @@ def _get_sql_glot(
             docstring=docstring,
             errors=errors,
             source=source,
+            is_chalk_sql=is_chalk_sql,
         )
     glot = glots[0]
     if not isinstance(glot, (sqlglot.expressions.Select, sqlglot.expressions.Union)):
@@ -1411,6 +1542,7 @@ def _get_sql_glot(
             docstring=docstring,
             errors=errors,
             source=source,
+            is_chalk_sql=is_chalk_sql,
         )
     if len(glot.selects) > len(glot.named_selects):
         for select in glot.selects:
@@ -1448,6 +1580,7 @@ def _get_sql_glot(
         docstring=docstring,
         errors=errors,
         source=source,
+        is_chalk_sql=is_chalk_sql,
     )
 
 
@@ -1506,6 +1639,7 @@ def _parse_glot(
             source=source,
             docstring=docstring,
             data_lineage=data_lineage_with_source,
+            is_chalk_sql=glot_result.is_chalk_sql,
             errors=errors,
         )
 
@@ -1535,6 +1669,7 @@ def _parse_glot(
         source=source,
         docstring=docstring,
         data_lineage=data_lineage_with_source,
+        is_chalk_sql=glot_result.is_chalk_sql,
         errors=errors,
     )
 
@@ -2071,6 +2206,8 @@ def make_sql_file_resolver(
         first scanning for a source with the same name, then inferring
         the source if it is a type, e.g. `snowflake` if there is only
         one database of that type. Optional if `source` is specified in `sql`.
+        The reserved name `"chalksql"` binds no integration at all: the query is
+        written in ChalkSQL and compiled into the query plan by the Chalk engine.
     resolves
         Describes the feature namespace to which the outputs belong.
         Optional if `resolves` is specified in `sql`.
@@ -2255,7 +2392,9 @@ def make_sql_file_resolver(
             *BaseSQLSource.registry,
             *SQLSourceGroup.registry,
         ]
-        if isinstance(source, str):
+        # `chalksql` names no integration -- the engine compiles the query itself -- so there is
+        # nothing to look for among the loaded sources.
+        if isinstance(source, str) and source.strip().lower() != CHALK_SQL_SOURCE_NAME:
             source_names = {s.name for s in current_sql_sources}
             if source not in _SOURCES:
                 if source not in source_names:

@@ -272,3 +272,64 @@ fn analysis_round_trips_through_json() {
     let back: ScriptAnalysis = serde_json::from_str(&json).expect("deserialize");
     assert_eq!(back, analysis);
 }
+
+/// A command substitution whose body is a syntax error must not be dropped:
+/// dropping it splices the surrounding literals into a command name that
+/// appears nowhere in the source (`a$(|)b` -> `ab`), which would then be shown
+/// to a host permission gate. Real bash rejects the script outright, so
+/// `analyze` must fail rather than invent a name.
+#[test]
+fn malformed_syntax_never_invents_a_command_name() {
+    for script in [
+        "a$(|)b",
+        "a$(&&)b",
+        "x$(;)y",
+        "echo a$(|)b",
+        "<<\u{1c}<~ \u{1c}& \u{1c}{{",
+    ] {
+        match Bash::new().analyze(script) {
+            Err(_) => {}
+            Ok(analysis) => {
+                for command in &analysis.commands {
+                    if let Some(name) = command.name.as_deref() {
+                        assert!(
+                            script.contains(name),
+                            "`{script}` produced command name `{name}`, absent from the source"
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn malformed_literal_boundaries_are_rejected_by_analysis() {
+    for script in [
+        "\u{3}\0J",
+        "$\0$",
+        "x\u{1}y",
+        "x\u{2}y",
+        "\r\u{1e}e",
+        "J\u{1f}J\u{1f}",
+        "0\u{1f}\u{8}",
+        "z'A",
+        "z\"A",
+        "z$'A",
+        "z$\"A",
+    ] {
+        assert!(
+            Bash::new().analyze(script).is_err(),
+            "malformed input unexpectedly analyzed: {script:?}"
+        );
+    }
+}
+
+#[test]
+fn valid_quote_and_escape_removal_can_join_command_name_spans() {
+    for (script, expected) in [("u\"3\"", "u3"), ("'#'g", "#g"), (r"!\[[", "![[")] {
+        let analysis = Bash::new().analyze(script).expect("valid script");
+        assert_eq!(analysis.command_names(), [expected]);
+        assert!(!script.contains(expected));
+    }
+}

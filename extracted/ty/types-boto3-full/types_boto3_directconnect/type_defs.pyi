@@ -22,6 +22,7 @@ from datetime import datetime
 
 from .literals import (
     AddressFamilyType,
+    AsPathTypeType,
     BGPPeerStateType,
     BGPStatusType,
     ConnectionStateType,
@@ -35,6 +36,7 @@ from .literals import (
     InterconnectStateType,
     LagStateType,
     NniPartnerTypeType,
+    RouteDirectionType,
     VirtualInterfaceStateType,
 )
 
@@ -52,6 +54,7 @@ __all__ = (
     "AllocatePublicVirtualInterfaceRequestTypeDef",
     "AllocateTransitVirtualInterfaceRequestTypeDef",
     "AllocateTransitVirtualInterfaceResultTypeDef",
+    "AsPathSegmentTypeDef",
     "AssociateConnectionWithLagRequestTypeDef",
     "AssociateHostedConnectionRequestTypeDef",
     "AssociateMacSecKeyRequestTypeDef",
@@ -143,6 +146,8 @@ __all__ = (
     "LagResponseTypeDef",
     "LagTypeDef",
     "LagsTypeDef",
+    "ListVirtualInterfaceRoutesRequestTypeDef",
+    "ListVirtualInterfaceRoutesResponseTypeDef",
     "ListVirtualInterfaceTestHistoryRequestTypeDef",
     "ListVirtualInterfaceTestHistoryResponseTypeDef",
     "LoaResponseTypeDef",
@@ -162,6 +167,8 @@ __all__ = (
     "ResourceTagTypeDef",
     "ResponseMetadataTypeDef",
     "RouteFilterPrefixTypeDef",
+    "RouteFiltersTypeDef",
+    "RouteTypeDef",
     "RouterTypeTypeDef",
     "StartBgpFailoverTestRequestTypeDef",
     "StartBgpFailoverTestResponseTypeDef",
@@ -205,6 +212,10 @@ class AllocateConnectionOnInterconnectRequestTypeDef(TypedDict):
 class TagTypeDef(TypedDict):
     key: str
     value: NotRequired[str]
+
+class AsPathSegmentTypeDef(TypedDict):
+    pathType: NotRequired[AsPathTypeType]
+    path: NotRequired[list[int]]
 
 class AssociateConnectionWithLagRequestTypeDef(TypedDict):
     connectionId: str
@@ -437,6 +448,13 @@ class DisassociateConnectionFromLagRequestTypeDef(TypedDict):
 class DisassociateMacSecKeyRequestTypeDef(TypedDict):
     connectionId: str
     secretARN: str
+
+class RouteFiltersTypeDef(TypedDict):
+    routeDirection: NotRequired[RouteDirectionType]
+    addressFamily: NotRequired[AddressFamilyType]
+    cidrs: NotRequired[Sequence[str]]
+    asPath: NotRequired[Sequence[int]]
+    communities: NotRequired[Sequence[str]]
 
 class ListVirtualInterfaceTestHistoryRequestTypeDef(TypedDict):
     testId: NotRequired[str]
@@ -701,6 +719,15 @@ class TagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tags: Sequence[TagTypeDef]
 
+class RouteTypeDef(TypedDict):
+    cidr: NotRequired[str]
+    routeDirection: NotRequired[RouteDirectionType]
+    addressFamily: NotRequired[AddressFamilyType]
+    asPath: NotRequired[list[AsPathSegmentTypeDef]]
+    communities: NotRequired[list[str]]
+    awsLogicalDeviceId: NotRequired[str]
+    routeInstalledAt: NotRequired[datetime]
+
 class AssociateMacSecKeyResponseTypeDef(TypedDict):
     connectionId: str
     macSecKeys: list[MacSecKeyTypeDef]
@@ -935,6 +962,12 @@ class DescribeRouterConfigurationResponseTypeDef(TypedDict):
     virtualInterfaceName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ListVirtualInterfaceRoutesRequestTypeDef(TypedDict):
+    virtualInterfaceId: NotRequired[str]
+    filters: NotRequired[RouteFiltersTypeDef]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
 class ListVirtualInterfaceTestHistoryResponseTypeDef(TypedDict):
     virtualInterfaceTestHistory: list[VirtualInterfaceTestHistoryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1003,6 +1036,12 @@ class CreateTransitVirtualInterfaceRequestTypeDef(TypedDict):
 class DescribeTagsResponseTypeDef(TypedDict):
     resourceTags: list[ResourceTagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+class ListVirtualInterfaceRoutesResponseTypeDef(TypedDict):
+    virtualInterfaceId: str
+    routes: list[RouteTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class InterconnectsTypeDef(TypedDict):
     interconnects: list[InterconnectTypeDef]

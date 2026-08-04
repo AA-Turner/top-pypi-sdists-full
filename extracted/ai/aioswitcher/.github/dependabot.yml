@@ -1,0 +1,50 @@
+---
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /.github/workflows
+    schedule:
+      interval: weekly
+    labels:
+      - "type: dependencies"
+    commit-message:
+      prefix: "ci"
+    rebase-strategy: disabled
+    assignees:
+      - "TomerFi"
+      - "thecode"
+      - "YogevBokobza"
+
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: daily
+    labels:
+      - "type: dependencies"
+    commit-message:
+      prefix: "build"
+      include: "scope"
+    rebase-strategy: disabled
+    versioning-strategy: increase-if-necessary
+    assignees:
+      - "TomerFi"
+      - "thecode"
+      - "YogevBokobza"
+
+  - package-ecosystem: "pre-commit"
+    directory: "/"
+    schedule:
+      interval: weekly
+    labels:
+      - "type: dependencies"
+    commit-message:
+      prefix: "ci"
+    rebase-strategy: disabled
+    assignees:
+      - "TomerFi"
+      - "thecode"
+      - "YogevBokobza"
+    groups:
+      pre-commit-hooks:
+        patterns:
+          - "*"

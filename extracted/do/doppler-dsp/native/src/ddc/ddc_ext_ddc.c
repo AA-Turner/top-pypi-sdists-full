@@ -56,14 +56,17 @@ DDCObj_init (DDCObject *self, PyObject *args, PyObject *kwds)
 }
 
 static PyObject *
-DDCObj_execute_max_out (DDCObject *self, PyObject *Py_UNUSED (ignored))
+DDCObj_execute_max_out (DDCObject *self, PyObject *args)
 {
   if (!self->handle)
     {
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  return PyLong_FromSize_t (ddc_execute_max_out (self->handle));
+  Py_ssize_t x_len = 0;
+  if (!PyArg_ParseTuple (args, "n", &x_len))
+    return NULL;
+  return PyLong_FromSize_t (ddc_execute_max_out (self->handle, (size_t)x_len));
 }
 
 static PyObject *
@@ -108,11 +111,10 @@ DDCObj_execute (DDCObject *self, PyObject *args, PyObject *kwds)
           Py_DECREF (x_arr);
           return NULL;
         }
-      size_t _cap     = (size_t)PyArray_SIZE (out_arr);
-      size_t _omax    = ddc_execute_max_out (self->handle);
-      size_t _min_cap = _omax > (size_t)PyArray_SIZE (x_arr)
-                            ? _omax
-                            : ((size_t)PyArray_SIZE (x_arr));
+      size_t _cap = (size_t)PyArray_SIZE (out_arr);
+      size_t _omax
+          = ddc_execute_max_out (self->handle, (size_t)PyArray_SIZE (x_arr));
+      size_t _min_cap = _omax;
       if (_cap < _min_cap)
         {
           PyErr_Format (PyExc_ValueError, "out has %zu elements, need >= %zu",
@@ -145,9 +147,9 @@ DDCObj_execute (DDCObject *self, PyObject *args, PyObject *kwds)
       return _oview;
     }
   size_t _need = (size_t)PyArray_SIZE (x_arr);
-  size_t _cap  = ddc_execute_max_out (self->handle);
-  if (!_cap || _cap < _need)
-    _cap = _need;
+  size_t _cap
+      = ddc_execute_max_out (self->handle, (size_t)PyArray_SIZE (x_arr));
+  (void)_need;
   npy_intp  _adim = (npy_intp)_cap;
   PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_COMPLEX64);
   if (!arr0)
@@ -204,9 +206,9 @@ DDCObj_execute_ctrl (DDCObject *self, PyObject *args, PyObject *kwds)
   if (!x_arr)
     return NULL;
   size_t _need = (size_t)PyArray_SIZE (x_arr);
-  size_t _cap  = ddc_execute_ctrl_max_out (self->handle);
-  if (!_cap || _cap < _need)
-    _cap = _need;
+  size_t _cap
+      = ddc_execute_ctrl_max_out (self->handle, (size_t)PyArray_SIZE (x_arr));
+  (void)_need;
   npy_intp  _adim = (npy_intp)_cap;
   PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_COMPLEX64);
   if (!arr0)
@@ -261,8 +263,7 @@ DDCObj_execute_ctrl_push (DDCObject *self, PyObject *args, PyObject *kwds)
   float complex x     = (float)x_raw.real + (float)x_raw.imag * I;
   size_t        _need = ddc_execute_ctrl_push_max_out (self->handle);
   size_t        _cap  = ddc_execute_ctrl_push_max_out (self->handle);
-  if (!_cap || _cap < _need)
-    _cap = _need;
+  (void)_need;
   npy_intp  _adim = (npy_intp)_cap;
   PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_COMPLEX64);
   if (!arr0)
@@ -466,15 +467,33 @@ static PyMethodDef DDCObj_methods[] = {
     "\n"
     "Mix input block with LO, then rate-convert.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import DDC\n"
-    "    >>> obj = DDC(0.0, 0.25)\n"
-    "    >>> y = obj.execute(np.zeros(4))\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex64')\n" },
-  { "execute_max_out", (PyCFunction)DDCObj_execute_max_out, METH_NOARGS,
-    "execute_max_out() -> int\n\nMax output length execute() can produce for "
-    "the current state.\nUse to size the ``out=`` buffer." },
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.complex64]\n"
+    "    CF32 input block; accepted as float32 (auto-cast).\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex64]\n"
+    "    Number of output samples written (C-only).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.ddc import DDC\n"
+    ">>> import numpy as np\n"
+    ">>> ddc = DDC(norm_freq=-0.1, rate=0.25)\n"
+    ">>> t = np.arange(4096)\n"
+    ">>> x = np.exp(1j * 2 * np.pi * 0.1 * t).astype(np.complex64)\n"
+    ">>> y = ddc.execute(x)\n"
+    ">>> y.shape\n"
+    "(1024,)\n"
+    ">>> y.dtype\n"
+    "dtype('complex64')\n"
+    ">>> round(float(abs(y[500])), 2)   # shifted to DC; amplitude ≈ 1\n"
+    "1.0\n" },
+  { "execute_max_out", (PyCFunction)DDCObj_execute_max_out, METH_VARARGS,
+    "execute_max_out(x_len) -> int\n\nMax output length execute() can produce "
+    "for x_len.\nUse to size the ``out=`` buffer." },
   { "execute_ctrl", (PyCFunction)(void *)DDCObj_execute_ctrl,
     METH_VARARGS | METH_KEYWORDS,
     "execute_ctrl(x) -> ndarray\n"
@@ -483,7 +502,7 @@ static PyMethodDef DDCObj_methods[] = {
     "\n"
     "    >>> import numpy as np\n"
     "    >>> from doppler import DDC\n"
-    "    >>> obj = DDC(0.0, 0.25)\n"
+    "    >>> obj = DDC(norm_freq=0.0, rate=0.25)\n"
     "    >>> y = obj.execute_ctrl(np.zeros(4))\n"
     "    >>> y.dtype\n"
     "    dtype('complex64')\n" },
@@ -495,7 +514,7 @@ static PyMethodDef DDCObj_methods[] = {
     "\n"
     "    >>> import numpy as np\n"
     "    >>> from doppler import DDC\n"
-    "    >>> obj = DDC(0.0, 0.25)\n"
+    "    >>> obj = DDC(norm_freq=0.0, rate=0.25)\n"
     "    >>> y = obj.execute_ctrl_push(np.zeros(4))\n"
     "    >>> y.dtype\n"
     "    dtype('complex64')\n" },
@@ -504,19 +523,103 @@ static PyMethodDef DDCObj_methods[] = {
     "\n"
     "Zero LO phase and filter history.\n"
     "\n"
-    "    >>> from doppler import DDC\n"
-    "    >>> obj = DDC(0.0, 0.25)\n"
-    "    >>> obj.reset()\n" },
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.ddc import DDC\n"
+    ">>> import numpy as np\n"
+    ">>> ddc = DDC(norm_freq=0.0, rate=0.25)\n"
+    ">>> x = np.ones(64, dtype=np.complex64)\n"
+    ">>> y1 = ddc.execute(x)\n"
+    ">>> ddc.reset()\n"
+    ">>> y2 = ddc.execute(x)\n"
+    ">>> bool(np.array_equal(y1, y2))\n"
+    "True\n" },
   { "state_bytes", (PyCFunction)DDCObj_state_bytes, METH_NOARGS,
-    "Serialized state size in bytes." },
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the DDCObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
   { "get_state", (PyCFunction)DDCObj_get_state, METH_NOARGS,
-    "Serialize the engine's mutable state to bytes." },
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the DDCObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
   { "set_state", (PyCFunction)DDCObj_set_state, METH_O,
-    "Restore mutable state from a get_state() blob." },
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the DDCObj has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
   { "destroy", (PyCFunction)DDCObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)DDCObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)DDCObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)DDCObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a Ddc be used in a `with` statement so its C resources are "
+    "released\n"
+    "deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "Ddc\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)DDCObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the Ddc.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

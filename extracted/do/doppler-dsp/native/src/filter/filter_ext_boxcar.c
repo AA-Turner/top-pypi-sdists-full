@@ -251,7 +251,8 @@ MovingAverage_setprop_gain (MovingAverageObject *self, PyObject *value,
 }
 
 static PyGetSetDef MovingAverage_getset[]
-    = { { "len", (getter)MovingAverage_getprop_len, NULL, "Len.\n", NULL },
+    = { { "len", (getter)MovingAverage_getprop_len, NULL,
+          "window length (1 .. BOXCAR_MAX_LEN).\n", NULL },
         { "gain", (getter)MovingAverage_getprop_gain,
           (setter)MovingAverage_setprop_gain, "Current output gain.\n", NULL },
         { NULL } };
@@ -288,52 +289,178 @@ MovingAverageObj_exit (MovingAverageObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
-static PyMethodDef MovingAverageObj_methods[]
-    = { { "step", (PyCFunction)MovingAverage_step, METH_VARARGS,
-          "step(x) -> float complex\n"
-          "\n"
-          "Slide the window by one sample; return the gained moving average.\n"
-          "\n"
-          "    >>> from doppler import MovingAverage\n"
-          "    >>> obj = MovingAverage(4, 1.0)\n"
-          "    >>> obj.step(1.0 + 0.0j)\n"
-          "    0j\n" },
-        { "steps", (PyCFunction)(void *)MovingAverage_steps,
-          METH_VARARGS | METH_KEYWORDS,
-          "steps(x[, out]) -> ndarray\n"
-          "\n"
-          "Filter a block: write the gained moving average of each sample.\n"
-          "\n"
-          "    >>> import numpy as np\n"
-          "    >>> from doppler import MovingAverage\n"
-          "    >>> obj = MovingAverage(4, 1.0)\n"
-          "    >>> y = obj.steps(np.zeros(4, dtype=np.complex64))\n"
-          "    >>> y.shape\n"
-          "    (4,)\n"
-          "    >>> y.dtype\n"
-          "    dtype('complex64')\n" },
+static PyMethodDef MovingAverageObj_methods[] = {
+  { "step", (PyCFunction)MovingAverage_step, METH_VARARGS,
+    "step(x) -> float complex\n"
+    "\n"
+    "Slide the window by one sample; return the gained moving average.\n"
+    "\n"
+    "O(1): add x, drop the sample leaving the window, return `acc · scale` "
+    "(=\n"
+    "`gain · acc / len`) — one multiply.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : complex\n"
+    "    One input sample.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "complex\n"
+    "    The gained window mean after admitting x.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.filter import MovingAverage\n"
+    ">>> ma = MovingAverage(2)   # 2-sample sliding window, unit gain\n"
+    ">>> [round(ma.step(v).real, 4) for v in (1 + 0j, 3 + 0j, 3 + 0j)]\n"
+    "[0.5, 2.0, 3.0]\n"
+    "\n" },
+  { "steps", (PyCFunction)(void *)MovingAverage_steps,
+    METH_VARARGS | METH_KEYWORDS,
+    "steps(x[, out]) -> ndarray\n"
+    "\n"
+    "Filter a block: write the gained moving average of each sample.\n"
+    "\n"
+    "Applies boxcar_step() to each input sample in turn, so the window sum\n"
+    "and ring carry across the block exactly as they would sample by sample "
+    "—\n"
+    "a stream can be processed in frames of any size with no seam.\n"
+    "Immediately after a reset the first len-1 outputs average over a "
+    "partial\n"
+    "(still filling) window and ramp in.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.complex64]\n"
+    "    Input samples.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex64]\n"
+    "    Output sample.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.filter import MovingAverage\n"
+    ">>> ma = MovingAverage(3)                          # 3-sample window\n"
+    ">>> x = np.ones(5, np.complex64)                   # unit step input\n"
+    ">>> [round(v, 4) for v in ma.steps(x).real.tolist()]\n"
+    "[0.3333, 0.6667, 1.0, 1.0, 1.0]\n"
+    "\n" },
 
-        { "reset", (PyCFunction)MovingAverageObj_reset, METH_NOARGS,
-          "reset() -> None\n"
-          "\n"
-          "Clear the window (zero the ring and the running sum); keep the "
-          "configured length and gain.\n"
-          "\n"
-          "    >>> from doppler import MovingAverage\n"
-          "    >>> obj = MovingAverage(4, 1.0)\n"
-          "    >>> obj.reset()\n" },
-        { "state_bytes", (PyCFunction)MovingAverageObj_state_bytes,
-          METH_NOARGS, "Serialized state size in bytes." },
-        { "get_state", (PyCFunction)MovingAverageObj_get_state, METH_NOARGS,
-          "Serialize the engine's mutable state to bytes." },
-        { "set_state", (PyCFunction)MovingAverageObj_set_state, METH_O,
-          "Restore mutable state from a get_state() blob." },
-        { "destroy", (PyCFunction)MovingAverageObj_destroy, METH_NOARGS,
-          "Release resources." },
-        { "__enter__", (PyCFunction)MovingAverageObj_enter, METH_NOARGS,
-          NULL },
-        { "__exit__", (PyCFunction)MovingAverageObj_exit, METH_VARARGS, NULL },
-        { NULL } };
+  { "reset", (PyCFunction)MovingAverageObj_reset, METH_NOARGS,
+    "reset() -> None\n"
+    "\n"
+    "Clear the window (zero the ring and the running sum); keep the "
+    "configured length and gain.\n"
+    "\n"
+    "Returns the filter to its just-constructed state: the delay ring and "
+    "the\n"
+    "running window sum are zeroed while len and gain are preserved, so the\n"
+    "next len-1 outputs ramp in over a partial window exactly as they did on\n"
+    "a fresh instance. Call it at a segment boundary so samples from one\n"
+    "capture do not average into an unrelated next one.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.filter import MovingAverage\n"
+    ">>> ma = MovingAverage(2)                         # 2-sample window\n"
+    ">>> _ = ma.steps(np.ones(4, np.complex64))        # fill the window\n"
+    ">>> ma.reset()                                    # clear it\n"
+    ">>> round(ma.step(1 + 0j).real, 4)                # ramps in from empty\n"
+    "0.5\n" },
+  { "state_bytes", (PyCFunction)MovingAverageObj_state_bytes, METH_NOARGS,
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the MovingAverageObj has already been\n"
+    "destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
+  { "get_state", (PyCFunction)MovingAverageObj_get_state, METH_NOARGS,
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the MovingAverageObj has already been\n"
+    "destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
+  { "set_state", (PyCFunction)MovingAverageObj_set_state, METH_O,
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the MovingAverageObj has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
+  { "destroy", (PyCFunction)MovingAverageObj_destroy, METH_NOARGS,
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)MovingAverageObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a Boxcar be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "Boxcar\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)MovingAverageObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the Boxcar.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
+  { NULL }
+};
 
 static PyTypeObject MovingAverageObjType = {
   PyVarObject_HEAD_INIT (NULL, 0).tp_name = "filter.MovingAverage",

@@ -664,11 +664,11 @@ class BasePyTreeCheckpointHandler(
       )
     else:
       device_host_byte_limiter = limits.get_byte_limiter(
-          device_host_concurrent_bytes
+          device_host_concurrent_bytes  # pyrefly: ignore[bad-argument-type]
       )
     param_infos = self._get_param_infos(
         item,
-        directory,
+        directory,  # pyrefly: ignore[bad-argument-type]
         use_ocdbt=self._use_ocdbt,
         ocdbt_target_data_file_size=ocdbt_target_data_file_size,
         byte_limiter=byte_limiter,
@@ -692,7 +692,7 @@ class BasePyTreeCheckpointHandler(
     batch_requests_ready_time = time.time()
     if args.partial_save_mode:
       requests_to_save = await self._async_partial_save(
-          directory, item, batch_requests
+          directory, item, batch_requests  # pyrefly: ignore[bad-argument-type]
       )
     else:
       requests_to_save = batch_requests
@@ -746,6 +746,14 @@ class BasePyTreeCheckpointHandler(
             ),
         )
     ]
+    jax.monitoring.record_event_duration_secs(
+        '/jax/orbax/write/async/tree_mapping_duration_secs',
+        batch_requests_ready_time - start_time,
+    )
+    jax.monitoring.record_event_duration_secs(
+        '/jax/orbax/write/async/d2h_duration_secs',
+        total_serialization_initiated_time - batch_requests_ready_time,
+    )
     async_save_end_time = time.time()
     logging.info(
         '[process=%s][thread=%s] Initiated Pytree async_save. Time taken:'
@@ -758,7 +766,7 @@ class BasePyTreeCheckpointHandler(
         total_serialization_initiated_time - batch_requests_ready_time,
         async_save_end_time - total_serialization_initiated_time,
     )
-    return chained_futures
+    return chained_futures  # pyrefly: ignore[bad-return]
 
   def save(self, directory: epath.Path, *args, **kwargs):
     """Saves the provided item.
@@ -1202,6 +1210,10 @@ class BasePyTreeCheckpointHandler(
           '/jax/checkpoint/write/async/metadata_write_duration_secs',
           time.time() - metadata_write_start_time,
       )
+      jax.monitoring.record_event_duration_secs(
+          '/jax/orbax/write/async/metadata_write_duration_secs',
+          time.time() - metadata_write_start_time,
+      )
 
   async def _write_metadata_after_commits(
       self,
@@ -1238,14 +1250,18 @@ class BasePyTreeCheckpointHandler(
           param_infos, checkpoint_dir, self._array_metadata_store
       )
 
-    await self._write_metadata_file(
-        checkpoint_dir,
-        param_infos=param_infos,
-        save_args=save_args,
-        custom_metadata=custom_metadata,
-        use_ocdbt=use_ocdbt,
-        use_zarr3=use_zarr3,
-    )
+    tasks = [
+        self._write_metadata_file(
+            checkpoint_dir,
+            param_infos=param_infos,
+            save_args=save_args,
+            custom_metadata=custom_metadata,
+            use_ocdbt=use_ocdbt,
+            use_zarr3=use_zarr3,
+        )
+    ]
+    await asyncio.gather(*tasks)
+
     end_time = time.time()
     logging.info(
         '[process=%s][thread=%s] Commit + Array metadata written. Time taken:'
@@ -1364,6 +1380,10 @@ class BasePyTreeCheckpointHandler(
       )
       jax.monitoring.record_event_duration_secs(
           '/jax/checkpoint/write/async/ocdbt_merge_duration_secs',
+          time.time() - merge_start_time,
+      )
+      jax.monitoring.record_event_duration_secs(
+          '/jax/orbax/write/async/ocdbt_merge_duration_secs',
           time.time() - merge_start_time,
       )
 

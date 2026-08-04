@@ -26,6 +26,7 @@ class SeeqNames:
         class Endpoints:
             consumption = '/data-lab-consumption'
             job = '/data-lab-job'
+            management = '/data-lab-management'
             management_internal = '/data-lab-management-internal'
         
     
@@ -604,9 +605,6 @@ class SeeqNames:
             request_monitors = 'appserver-requestmonitors'
             units = 'appserver-units'
             users = 'appserver-users'
-            class IntervalAnalysis:
-                fetch_critic = 'appserver-intervalanalysis-fetchcritic'
-            
         
     
     class RemoteDatasourceClasses:
@@ -974,6 +972,10 @@ class SeeqNames:
             warning_message = 'x-sq-warning-message'
             export_truncated = 'x-sq-export-truncated'
             source_job_key = 'x-sq-source-job-key'
+            m_l_service_compatibility_formula = 'x-ml-service-compatibility-formula'
+            m_l_service_compatibility_onnx_ir = 'x-ml-service-compatibility-onnx-ir'
+            m_l_service_compatibility_onnx_opset = 'x-ml-service-compatibility-onnx-target-opset'
+            m_l_service_compatibility_onnx_ml_opset = 'x-ml-service-compatibility-onnx-target-ml-opset'
             class Timings:
                 datasource = 'Datasource'
                 cache = 'Cache'
@@ -1318,6 +1320,8 @@ class SeeqNames:
         custom_agent_automation_enabled = 'customAgentAutomationEnabled'
         custom_agent_automation_schedule_cron = 'customAgentAutomationScheduleCron'
         custom_agent_automation_schedule_timezone = 'customAgentAutomationScheduleTimezone'
+        custom_agent_icon = 'customAgentIcon'
+        custom_agent_icon_color = 'customAgentIconColor'
         stale_metadata = 'Stale Metadata'
         interpolation_method = 'Interpolation Method'
         source_maximum_interpolation = 'Source Maximum Interpolation'

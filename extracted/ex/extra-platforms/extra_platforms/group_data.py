@@ -71,6 +71,7 @@ from .ci_data import (
 from .group import Group
 from .platform_data import (
     AIX,
+    ALMALINUX,
     ALPINE,
     ALTLINUX,
     AMZN,
@@ -85,6 +86,7 @@ from .platform_data import (
     CYGWIN,
     DEBIAN,
     DRAGONFLY_BSD,
+    ENDEAVOUROS,
     EXHERBO,
     FEDORA,
     FREEBSD,
@@ -399,6 +401,7 @@ ALL_PLATFORMS = Group(
     "⚙️",
     (
         AIX,
+        ALMALINUX,
         ALPINE,
         ALTLINUX,
         AMZN,
@@ -413,6 +416,7 @@ ALL_PLATFORMS = Group(
         CYGWIN,
         DEBIAN,
         DRAGONFLY_BSD,
+        ENDEAVOUROS,
         EXHERBO,
         FEDORA,
         FREEBSD,
@@ -537,6 +541,7 @@ LINUX = Group(
     "Linux distributions",
     "🐧",
     (
+        ALMALINUX,
         ALPINE,
         ALTLINUX,
         AMZN,
@@ -549,6 +554,7 @@ LINUX = Group(
         CLEARLINUX,
         CLOUDLINUX,
         DEBIAN,
+        ENDEAVOUROS,
         EXHERBO,
         FEDORA,
         GENERIC_LINUX,

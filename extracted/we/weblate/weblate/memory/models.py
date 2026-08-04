@@ -40,6 +40,7 @@ if TYPE_CHECKING:
 
     from weblate.auth.models import AuthenticatedHttpRequest, User
     from weblate.trans.models import Project
+    from weblate.workspaces.models import Workspace
 
 NON_WORD_RE = re.compile(r"\W")
 
@@ -130,6 +131,7 @@ class MemoryQuerySet(models.QuerySet["Memory", "Memory"]):
         *,
         user: User | None = None,
         project: Project | None = None,
+        workspace: Workspace | None = None,
         use_shared: bool = False,
         from_file: bool = False,
         use_workspace: bool = False,
@@ -154,6 +156,11 @@ class MemoryQuerySet(models.QuerySet["Memory", "Memory"]):
                     source_project__contribute_workspace_tm=True,
                     source_project__workspace__contribute_workspace_tm=True,
                 )
+        if workspace:
+            query |= Q(
+                scope=MemoryScope.SCOPE_WORKSPACE,
+                workspace=workspace,
+            )
         if user:
             query |= Q(scope=MemoryScope.SCOPE_USER, user=user)
             query |= Q(scope=MemoryScope.SCOPE_USER_FILE, user=user)
@@ -164,6 +171,7 @@ class MemoryQuerySet(models.QuerySet["Memory", "Memory"]):
         *,
         user: User | None = None,
         project: Project | None = None,
+        workspace: Workspace | None = None,
         use_shared: bool = False,
         from_file: bool = False,
         use_workspace: bool = False,
@@ -175,6 +183,7 @@ class MemoryQuerySet(models.QuerySet["Memory", "Memory"]):
             base.get_type_scope_query(
                 user=user,
                 project=project,
+                workspace=workspace,
                 use_shared=use_shared,
                 from_file=from_file,
                 use_workspace=use_workspace,
@@ -530,7 +539,7 @@ class MemoryManager(models.Manager["Memory"]):
         user: User | None = None,
         project: Project | None = None,
         from_file: bool = True,
-    ):
+    ) -> int:
         origin = os.path.basename(fileobj.name).lower()
         name, extension = os.path.splitext(origin)
 
@@ -828,7 +837,10 @@ class MemoryManager(models.Manager["Memory"]):
             "origin": origin,
             "context": context,
         }
-        existing = self.get_queryset().filter(**lookup)
+        write_queryset = self.get_queryset().using_write_db()
+        existing = write_queryset.filter(**lookup)
+        write_db = write_queryset.db
+        scope_manager = MemoryScope.objects.db_manager(write_db)
         scope = MemoryScope.objects.get_for_update_entry(
             user=user,
             project=project,
@@ -844,11 +856,11 @@ class MemoryManager(models.Manager["Memory"]):
             if memory is not None:
                 memory.normalize_legacy_owner()
                 scope.memory = memory
-                MemoryScope.objects.bulk_create([scope], ignore_conflicts=True)
+                scope_manager.bulk_create([scope], ignore_conflicts=True)
                 return
 
-        with transaction.atomic(using=self.db):
-            memory = self.create(
+        with transaction.atomic(using=write_db):
+            memory = write_queryset.create(
                 source=source,
                 target=target,
                 status=status,
@@ -859,7 +871,7 @@ class MemoryManager(models.Manager["Memory"]):
             )
             if scope is not None:
                 scope.memory = memory
-                MemoryScope.objects.bulk_create([scope], ignore_conflicts=True)
+                scope_manager.bulk_create([scope], ignore_conflicts=True)
 
 
 class Memory(models.Model):
@@ -926,6 +938,7 @@ class Memory(models.Model):
     objects = MemoryManager.from_queryset(MemoryQuerySet)()
 
     class Meta:
+        required_db_vendor = "postgresql"
         verbose_name = "Translation memory entry"
         verbose_name_plural = "Translation memory entries"
         # ruff: ignore[mutable-class-default]
@@ -970,11 +983,16 @@ class Memory(models.Model):
             MemoryScope.objects.create_for_memory(self)
 
     def normalize_legacy_owner(self) -> None:
-        Memory.objects.using(self._state.db or "default").filter(pk=self.pk).update(
-            legacy_project=None,
-            legacy_user=None,
-            legacy_shared=False,
-            legacy_from_file=False,
+        (
+            Memory.objects.using(self._state.db or "default")
+            .using_write_db()
+            .filter(pk=self.pk)
+            .update(
+                legacy_project=None,
+                legacy_user=None,
+                legacy_shared=False,
+                legacy_from_file=False,
+            )
         )
         self.legacy_project_id = None
         self.legacy_user_id = None
@@ -1116,7 +1134,7 @@ class MemoryScopeManager(models.Manager["MemoryScope"]):
     def get_write_db_for_memory(self, memory: Memory | None = None) -> str:
         if self._db is not None and self._db != "memory_db":
             return self._db
-        memory_db = None if memory is None else memory._state.db  # noqa: SLF001
+        memory_db = None if memory is None else memory._state.db  # ruff: ignore[private-member-access]
         if memory_db is not None and memory_db != "memory_db":
             return memory_db
         return router.db_for_write(self.model, instance=memory) or "default"
@@ -1302,6 +1320,7 @@ class MemoryScope(models.Model):
     objects = MemoryScopeManager()
 
     class Meta:
+        required_db_vendor = "postgresql"
         verbose_name = "Translation memory scope"
         verbose_name_plural = "Translation memory scopes"
         # ruff: ignore[mutable-class-default]
@@ -1399,6 +1418,7 @@ class MemoryScopeMigrationState(models.Model):
     updated = models.DateTimeField(default=timezone.now)
 
     class Meta:
+        required_db_vendor = "postgresql"
         verbose_name = "Translation memory scope migration state"
         verbose_name_plural = "Translation memory scope migration states"
 

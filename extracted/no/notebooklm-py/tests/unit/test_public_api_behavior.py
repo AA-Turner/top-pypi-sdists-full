@@ -8,34 +8,33 @@ reason-tagged exemption. But a static walk **never executes a method**, so it
 cannot catch the exact historical ``mind_maps`` bug — a ``get()`` correctly
 annotated ``MindMap | None`` that *forgot to warn* on a miss (#1358). That
 miss-behaviour is hand-duplicated across ``_sources`` / ``_artifacts`` /
-``_notes`` / ``_mind_maps_api`` as ``result = await self.get_or_none(...); if
-result is None: warn_get_returns_none("x"); return result`` — exactly the kind of
-copy that silently rots when one copy is dropped.
+``_notes`` / ``_mind_maps_api`` as each namespace moved off the old
+None-on-miss warning runway — exactly the kind of copy that silently rots when
+one copy is dropped.
 
 This module adds the **behavioural** half of the Tier-1 floor. For each lookup
 namespace it instantiates the backing API with a fake backend (reusing the
 constructor-injection substrate under ``tests/_fixtures/`` — no network, auth, or
 event loop beyond what those provide) arranged to yield a genuine MISS, then
-asserts today's *warn-contract*:
+asserts the not-found contract:
 
-* ``await get(<missing id>)`` emits a ``DeprecationWarning`` **and** returns
-  ``None`` (the warn-runway state #1247 will flip);
+* ``await get(<missing id>)`` raises its ``*NotFoundError`` (the v0.8.0 contract,
+  #1247 — now live for all five namespaces);
 * ``await get_or_none(<missing id>)`` emits **no** ``DeprecationWarning`` **and**
   returns ``None`` (the sanctioned silent optional-lookup).
 
 **Flip-durability (the load-bearing design choice).** The per-namespace table
 :data:`LOOKUP_CASES` carries, for each namespace, its API factory, a
 miss-arranger, the ``get`` arguments, the resource name, and the
-``*NotFoundError`` type. The ``get_warns`` flag marks the warn-runway state. When
-the v0.8.0 ``get()``→raise flip lands (#1247) a namespace migrates with a
-*single table-driven edit* — flip its ``get_warns`` to ``False`` — and the
-assertion automatically swaps from ``pytest.warns(DeprecationWarning)`` to
-``pytest.raises(<*NotFoundError>)``. ``notebooks`` is the already-flipped
-exemplar (``get_warns=False`` today: it raises ``NotebookNotFoundError`` now), so
-both sides of the flip are exercised continuously and the post-flip path can
-never bit-rot before #1247 arrives. This mirrors how the static
-``GET_OPTIONAL_EXEMPTIONS`` allowlist *shrinks*: the deferred behaviours live in
-one visible, reason-tagged table, never scattered.
+``*NotFoundError`` type. The ``get_warns`` flag selects the assertion:
+``get_warns=False`` → ``pytest.raises(<*NotFoundError>)``;
+``get_warns=True`` → ``pytest.warns(DeprecationWarning)`` + ``None``. The v0.8.0
+``get()``→raise flip (#1247) landed by flipping every namespace's ``get_warns``
+to ``False`` with a *single table-driven edit*; ``test_no_namespace_remains_on_the_warn_runway``
+now pins the warn branch unused (no row may regain ``get_warns=True``). The harness
+keeps both branches so the flip is exercised by construction and the table mirrors
+how the static ``GET_OPTIONAL_EXEMPTIONS`` allowlist drained to empty: the contract
+lives in one visible, reason-tagged table, never scattered.
 """
 
 from __future__ import annotations
@@ -48,6 +47,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from notebooklm._artifacts import ArtifactsAPI
+from notebooklm._labels import LabelsAPI
 from notebooklm._mind_map import NoteBackedMindMapService
 from notebooklm._mind_maps_api import MindMapsAPI
 from notebooklm._note_service import NoteService
@@ -56,6 +56,7 @@ from notebooklm._notes import NotesAPI
 from notebooklm._sources import SourcesAPI
 from notebooklm.exceptions import (
     ArtifactNotFoundError,
+    LabelNotFoundError,
     MindMapNotFoundError,
     NotebookNotFoundError,
     NoteNotFoundError,
@@ -63,7 +64,7 @@ from notebooklm.exceptions import (
 )
 
 # This behavioural table is the executable companion of the static
-# ``LOOKUP_NAMESPACES`` set in ``test_public_api_contract.py``: the same five
+# ``LOOKUP_NAMESPACES`` set in ``test_public_api_contract.py``: the same six
 # namespaces that expose the ``get`` / ``get_or_none`` pair.
 # ``test_table_covers_all_lookup_namespaces`` below pins the two in lock-step so
 # a namespace can never gain the lookup pair without also gaining behavioural
@@ -76,8 +77,7 @@ from notebooklm.exceptions import (
 # Each factory builds the backing API through constructor injection only
 # (``make_fake_core`` / ``MagicMock`` collaborators) so the behavioural walk
 # needs no auth, event loop, or network — mirroring the fixtures in
-# ``test_get_or_none.py`` / ``test_get_returns_none_deprecation.py`` but
-# consolidated behind one flip-durable table.
+# ``test_get_or_none.py`` but consolidated behind one post-#1247 table.
 # ---------------------------------------------------------------------------
 
 
@@ -89,7 +89,7 @@ def _make_sources_api() -> SourcesAPI:
 
 
 def _make_artifacts_api() -> ArtifactsAPI:
-    from _fixtures.fake_core import make_fake_core
+    from tests._fixtures.fake_core import make_fake_core
 
     core = make_fake_core(rpc_call=AsyncMock(), get_source_ids=AsyncMock(return_value=[]))
     mind_maps = MagicMock(spec=NoteBackedMindMapService)
@@ -107,9 +107,13 @@ def _make_artifacts_api() -> ArtifactsAPI:
 
 
 def _make_notes_api() -> NotesAPI:
-    from _fixtures.fake_core import make_fake_core
+    from tests._fixtures.fake_core import make_fake_core
 
-    core = make_fake_core(rpc_call=AsyncMock())
+    # ``None`` is the empty-notebook payload (a notebook with no notes); it is
+    # the realistic miss shape that ``fetch_note_rows`` resolves to ``[]``. A
+    # truthy non-list payload would now raise ``DecodingError`` as drift (#1344),
+    # so it can no longer stand in for "empty".
+    core = make_fake_core(rpc_call=AsyncMock(return_value=None))
     note_service = NoteService(core)
     mind_maps = NoteBackedMindMapService(note_service)
     return NotesAPI(notes=note_service, mind_maps=mind_maps)
@@ -129,8 +133,15 @@ def _make_mind_maps_api() -> MindMapsAPI:
     )
 
 
+def _make_labels_api() -> LabelsAPI:
+    # ``_arrange_list_miss`` overrides ``api.list`` before any RPC path is reached
+    # (``labels.get`` scans ``self.list``), so the rpc collaborator and
+    # ``list_sources`` are never called on the miss path.
+    return LabelsAPI(MagicMock(), list_sources=AsyncMock(return_value=[]))
+
+
 def _make_notebooks_api() -> NotebooksAPI:
-    from _fixtures.fake_core import make_fake_core
+    from tests._fixtures.fake_core import make_fake_core
 
     # An empty/degenerate GET_NOTEBOOK payload is the unknown-id shape that
     # ``notebooks.get`` post-validates into ``NotebookNotFoundError`` — so this
@@ -150,8 +161,8 @@ def _arrange_list_miss(api: object) -> None:
     ``_get_all_notes_and_mind_maps`` → ``fetch_note_rows``, **not** ``self.list``,
     so the assigned ``api.list`` stub is a harmless no-op for it. The notes miss
     comes from its factory (``_make_notes_api``) wiring a fake core whose
-    ``rpc_call`` returns a non-list ``MagicMock`` that ``fetch_note_rows``'
-    container-extraction treats as empty — so the ``get`` still misses. Keeping
+    ``rpc_call`` returns ``None`` — the empty-notebook payload that
+    ``fetch_note_rows`` resolves to ``[]`` — so the ``get`` still misses. Keeping
     one shared arranger across all four rows is deliberate: it stays a single
     table lever even though one namespace reaches the empty result by a different
     internal path.
@@ -222,7 +233,7 @@ LOOKUP_CASES: tuple[LookupCase, ...] = (
         get_args=("nb_1", "missing"),
         resource="source",
         not_found_error=SourceNotFoundError,
-        get_warns=True,  # flip to False with #1247
+        get_warns=False,  # flipped: raises *NotFoundError on a miss (#1247)
     ),
     LookupCase(
         namespace="artifacts",
@@ -231,7 +242,7 @@ LOOKUP_CASES: tuple[LookupCase, ...] = (
         get_args=("nb_1", "missing"),
         resource="artifact",
         not_found_error=ArtifactNotFoundError,
-        get_warns=True,  # flip to False with #1247
+        get_warns=False,  # flipped: raises *NotFoundError on a miss (#1247)
     ),
     LookupCase(
         namespace="notes",
@@ -240,7 +251,7 @@ LOOKUP_CASES: tuple[LookupCase, ...] = (
         get_args=("nb_1", "missing"),
         resource="note",
         not_found_error=NoteNotFoundError,
-        get_warns=True,  # flip to False with #1247
+        get_warns=False,  # flipped: raises *NotFoundError on a miss (#1247)
     ),
     LookupCase(
         namespace="mind_maps",
@@ -249,11 +260,30 @@ LOOKUP_CASES: tuple[LookupCase, ...] = (
         get_args=("nb_1", "missing"),
         resource="mind_map",
         not_found_error=MindMapNotFoundError,
-        get_warns=True,  # flip to False with #1247
+        get_warns=False,  # flipped: raises *NotFoundError on a miss (#1247)
+    ),
+    LookupCase(
+        namespace="labels",
+        factory=_make_labels_api,
+        arrange_miss=_arrange_list_miss,
+        get_args=("nb_1", "missing"),
+        resource="label",
+        not_found_error=LabelNotFoundError,
+        get_warns=False,  # v0.8.0: labels.get raises LabelNotFoundError on a miss
     ),
 )
 
 _CASES_BY_ID = [pytest.param(case, id=case.namespace) for case in LOOKUP_CASES]
+
+
+def test_no_namespace_remains_on_the_warn_runway() -> None:
+    """#1247 has landed: every namespace get() raises on a miss, so no
+    LookupCase may carry get_warns=True (flipping one back fails here)."""
+    warned = [c.namespace for c in LOOKUP_CASES if c.get_warns]
+    assert warned == [], (
+        f"These namespaces still claim the get()-warn runway (get_warns=True): "
+        f"{warned}. After #1247 every get() raises *NotFoundError on a miss."
+    )
 
 
 def _build_missing(case: LookupCase) -> object:
@@ -266,12 +296,9 @@ def _build_missing(case: LookupCase) -> object:
 # ---------------------------------------------------------------------------
 # The two error-contract modes the miss path is exercised under
 #
-# ``NOTEBOOKLM_FUTURE_ERRORS`` (v0.7.0 opt-in preview, default off) makes the
-# warn-runway namespaces adopt their v0.8.0 raise-target early (#1247). Both
-# ``get`` test methods run under both modes so the warn path (today's default)
-# and the raise path (the previewed flip, and v0.8.0's eventual default) are
-# pinned in lock-step — and the #1247 flip becomes a one-field edit
-# (``get_warns=False``) that keeps passing under both modes by construction.
+# ``NOTEBOOKLM_FUTURE_ERRORS`` is retired in v0.8.0 and ignored. Both ``get``
+# test methods still run under set/unset modes so the matrix verifies behavior
+# is identical with the compatibility env var present or absent.
 # ---------------------------------------------------------------------------
 
 _FUTURE_MODES = [
@@ -282,12 +309,7 @@ _FUTURE_MODES = [
 
 @pytest.fixture
 def _apply_future_errors(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> bool:
-    """Set/clear ``NOTEBOOKLM_FUTURE_ERRORS`` per the parametrized mode.
-
-    Returns the boolean mode so a test can compute whether a given ``get`` row
-    *raises* (future-on, or already-flipped) or *warns* (the warn-runway under
-    future-off).
-    """
+    """Set/clear the retired ``NOTEBOOKLM_FUTURE_ERRORS`` env var."""
     # Hermetic both ways: the future-off branch asserts a DeprecationWarning
     # fires, so a parent process exporting NOTEBOOKLM_QUIET_DEPRECATIONS=1 would
     # otherwise silence the warn path and fail the warn-runway rows. Clear it so
@@ -314,7 +336,7 @@ def test_table_covers_all_lookup_namespaces() -> None:
     contract being covered here too — the static and behavioural halves of the
     Tier-1 floor stay in lock-step.
     """
-    from test_public_api_contract import LOOKUP_NAMESPACES
+    from tests.unit.test_public_api_contract import LOOKUP_NAMESPACES
 
     covered = {case.namespace for case in LOOKUP_CASES}
     assert covered == set(LOOKUP_NAMESPACES), (
@@ -335,22 +357,7 @@ class TestGetMissContract:
     async def test_get_on_miss_warns_or_raises(
         self, case: LookupCase, _apply_future_errors: bool
     ) -> None:
-        """``get(<missing>)`` warns + returns ``None`` today; raises post-#1247-flip.
-
-        Run under both error-contract modes. The effective branch is "warns"
-        only when the namespace is still on its warn-runway (``get_warns``) AND
-        the future-errors preview is off; otherwise the miss must raise the
-        namespace's ``*NotFoundError``. So:
-
-        * future-off + ``get_warns`` → warn + return ``None`` (today's default);
-        * future-on + ``get_warns`` → raise (the ``NOTEBOOKLM_FUTURE_ERRORS``
-          preview of the v0.8.0 flip, #1247);
-        * ``get_warns=False`` (``notebooks``, and any namespace after the #1247
-          flip) → raise under both modes.
-
-        Flipping a namespace with #1247 is one table edit (``get_warns=False``)
-        and this test keeps passing under both modes by construction.
-        """
+        """``get(<missing>)`` raises after #1247, with the retired env var ignored."""
         future_on = _apply_future_errors
         api = _build_missing(case)
         if case.get_warns and not future_on:
@@ -401,10 +408,8 @@ class TestGetOrNoneMissContract:
         This contract is invariant across the #1247 flip — ``get_or_none`` is the
         sanctioned ``None``-on-miss path for every namespace, before and after
         ``get`` starts raising — so it is asserted unconditionally for all rows.
-        It is also invariant under ``NOTEBOOKLM_FUTURE_ERRORS``: the preview flag
-        only changes the *deprecated* ``get`` runway, never the sanctioned
-        optional-lookup, so ``get_or_none`` must stay silent-and-``None`` in both
-        modes (asserted by running under both ``_FUTURE_MODES``).
+        It is also invariant under the retired ``NOTEBOOKLM_FUTURE_ERRORS`` env
+        var, which is ignored in v0.8.0.
         """
         api = _build_missing(case)
         with warnings.catch_warnings():

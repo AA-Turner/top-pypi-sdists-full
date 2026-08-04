@@ -34,8 +34,9 @@ class PostgresqlHostConfig17_1C(google.protobuf.message.Message):
     class _BackslashQuoteEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[PostgresqlHostConfig17_1C._BackslashQuote.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         BACKSLASH_QUOTE_UNSPECIFIED: PostgresqlHostConfig17_1C._BackslashQuote.ValueType  # 0
+        """Not specified."""
         BACKSLASH_QUOTE: PostgresqlHostConfig17_1C._BackslashQuote.ValueType  # 1
-        """Quotation mark can be represented as \\' (same as on)."""
+        """Legacy invalid value. Do not use."""
         BACKSLASH_QUOTE_ON: PostgresqlHostConfig17_1C._BackslashQuote.ValueType  # 2
         """Quotation mark can be represented as \\'."""
         BACKSLASH_QUOTE_OFF: PostgresqlHostConfig17_1C._BackslashQuote.ValueType  # 3
@@ -45,8 +46,9 @@ class PostgresqlHostConfig17_1C(google.protobuf.message.Message):
 
     class BackslashQuote(_BackslashQuote, metaclass=_BackslashQuoteEnumTypeWrapper): ...
     BACKSLASH_QUOTE_UNSPECIFIED: PostgresqlHostConfig17_1C.BackslashQuote.ValueType  # 0
+    """Not specified."""
     BACKSLASH_QUOTE: PostgresqlHostConfig17_1C.BackslashQuote.ValueType  # 1
-    """Quotation mark can be represented as \\' (same as on)."""
+    """Legacy invalid value. Do not use."""
     BACKSLASH_QUOTE_ON: PostgresqlHostConfig17_1C.BackslashQuote.ValueType  # 2
     """Quotation mark can be represented as \\'."""
     BACKSLASH_QUOTE_OFF: PostgresqlHostConfig17_1C.BackslashQuote.ValueType  # 3
@@ -61,6 +63,7 @@ class PostgresqlHostConfig17_1C(google.protobuf.message.Message):
     class _ByteaOutputEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[PostgresqlHostConfig17_1C._ByteaOutput.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         BYTEA_OUTPUT_UNSPECIFIED: PostgresqlHostConfig17_1C._ByteaOutput.ValueType  # 0
+        """Not specified."""
         BYTEA_OUTPUT_HEX: PostgresqlHostConfig17_1C._ByteaOutput.ValueType  # 1
         """Each byte is represented by two hexadecimal characters, e.g., 'SELECT '\\xDEADBEEF';'."""
         BYTEA_OUTPUT_ESCAPED: PostgresqlHostConfig17_1C._ByteaOutput.ValueType  # 2
@@ -68,6 +71,7 @@ class PostgresqlHostConfig17_1C(google.protobuf.message.Message):
 
     class ByteaOutput(_ByteaOutput, metaclass=_ByteaOutputEnumTypeWrapper): ...
     BYTEA_OUTPUT_UNSPECIFIED: PostgresqlHostConfig17_1C.ByteaOutput.ValueType  # 0
+    """Not specified."""
     BYTEA_OUTPUT_HEX: PostgresqlHostConfig17_1C.ByteaOutput.ValueType  # 1
     """Each byte is represented by two hexadecimal characters, e.g., 'SELECT '\\xDEADBEEF';'."""
     BYTEA_OUTPUT_ESCAPED: PostgresqlHostConfig17_1C.ByteaOutput.ValueType  # 2
@@ -80,6 +84,7 @@ class PostgresqlHostConfig17_1C(google.protobuf.message.Message):
     class _ConstraintExclusionEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[PostgresqlHostConfig17_1C._ConstraintExclusion.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         CONSTRAINT_EXCLUSION_UNSPECIFIED: PostgresqlHostConfig17_1C._ConstraintExclusion.ValueType  # 0
+        """Not specified."""
         CONSTRAINT_EXCLUSION_ON: PostgresqlHostConfig17_1C._ConstraintExclusion.ValueType  # 1
         """Enable planner's use of constraints for all tables."""
         CONSTRAINT_EXCLUSION_OFF: PostgresqlHostConfig17_1C._ConstraintExclusion.ValueType  # 2
@@ -89,6 +94,7 @@ class PostgresqlHostConfig17_1C(google.protobuf.message.Message):
 
     class ConstraintExclusion(_ConstraintExclusion, metaclass=_ConstraintExclusionEnumTypeWrapper): ...
     CONSTRAINT_EXCLUSION_UNSPECIFIED: PostgresqlHostConfig17_1C.ConstraintExclusion.ValueType  # 0
+    """Not specified."""
     CONSTRAINT_EXCLUSION_ON: PostgresqlHostConfig17_1C.ConstraintExclusion.ValueType  # 1
     """Enable planner's use of constraints for all tables."""
     CONSTRAINT_EXCLUSION_OFF: PostgresqlHostConfig17_1C.ConstraintExclusion.ValueType  # 2
@@ -103,21 +109,27 @@ class PostgresqlHostConfig17_1C(google.protobuf.message.Message):
     class _DebugParallelQueryEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[PostgresqlHostConfig17_1C._DebugParallelQuery.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         DEBUG_PARALLEL_QUERY_UNSPECIFIED: PostgresqlHostConfig17_1C._DebugParallelQuery.ValueType  # 0
+        """Not specified."""
         DEBUG_PARALLEL_QUERY_ON: PostgresqlHostConfig17_1C._DebugParallelQuery.ValueType  # 1
-        """Force parallel query for all queries for which it is thought to be safe"""
+        """Forces parallel mode for queries considered safe, even when no performance benefit is expected."""
         DEBUG_PARALLEL_QUERY_OFF: PostgresqlHostConfig17_1C._DebugParallelQuery.ValueType  # 2
-        """Use parallel mode only when it is expected to improve performance"""
+        """Uses parallel mode only when the planner expects it to improve performance."""
         DEBUG_PARALLEL_QUERY_REGRESS: PostgresqlHostConfig17_1C._DebugParallelQuery.ValueType  # 3
-        """Like ON, but with additional changes for regression testing (suppresses context lines, hides Gather nodes in EXPLAIN)"""
+        """Behaves like ON, but hides added Gather nodes in EXPLAIN output and
+        suppresses parallel-worker context lines to stabilize regression-test output.
+        """
 
     class DebugParallelQuery(_DebugParallelQuery, metaclass=_DebugParallelQueryEnumTypeWrapper): ...
     DEBUG_PARALLEL_QUERY_UNSPECIFIED: PostgresqlHostConfig17_1C.DebugParallelQuery.ValueType  # 0
+    """Not specified."""
     DEBUG_PARALLEL_QUERY_ON: PostgresqlHostConfig17_1C.DebugParallelQuery.ValueType  # 1
-    """Force parallel query for all queries for which it is thought to be safe"""
+    """Forces parallel mode for queries considered safe, even when no performance benefit is expected."""
     DEBUG_PARALLEL_QUERY_OFF: PostgresqlHostConfig17_1C.DebugParallelQuery.ValueType  # 2
-    """Use parallel mode only when it is expected to improve performance"""
+    """Uses parallel mode only when the planner expects it to improve performance."""
     DEBUG_PARALLEL_QUERY_REGRESS: PostgresqlHostConfig17_1C.DebugParallelQuery.ValueType  # 3
-    """Like ON, but with additional changes for regression testing (suppresses context lines, hides Gather nodes in EXPLAIN)"""
+    """Behaves like ON, but hides added Gather nodes in EXPLAIN output and
+    suppresses parallel-worker context lines to stabilize regression-test output.
+    """
 
     class _ForceParallelMode:
         ValueType = typing.NewType("ValueType", builtins.int)
@@ -126,21 +138,27 @@ class PostgresqlHostConfig17_1C(google.protobuf.message.Message):
     class _ForceParallelModeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[PostgresqlHostConfig17_1C._ForceParallelMode.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         FORCE_PARALLEL_MODE_UNSPECIFIED: PostgresqlHostConfig17_1C._ForceParallelMode.ValueType  # 0
+        """Not specified."""
         FORCE_PARALLEL_MODE_ON: PostgresqlHostConfig17_1C._ForceParallelMode.ValueType  # 1
-        """Force parallel mode for all queries that can be executed safely in parallel."""
+        """Forces parallel mode for queries considered safe, even when no performance benefit is expected."""
         FORCE_PARALLEL_MODE_OFF: PostgresqlHostConfig17_1C._ForceParallelMode.ValueType  # 2
-        """Enable parallel mode only if it is expected to increase performance."""
+        """Uses parallel mode only when the planner expects it to improve performance."""
         FORCE_PARALLEL_MODE_REGRESS: PostgresqlHostConfig17_1C._ForceParallelMode.ValueType  # 3
-        """Equivalent to on, but generates output identical to the off state."""
+        """Behaves like ON, but hides added Gather nodes in EXPLAIN output and
+        suppresses parallel-worker context lines to stabilize regression-test output.
+        """
 
     class ForceParallelMode(_ForceParallelMode, metaclass=_ForceParallelModeEnumTypeWrapper): ...
     FORCE_PARALLEL_MODE_UNSPECIFIED: PostgresqlHostConfig17_1C.ForceParallelMode.ValueType  # 0
+    """Not specified."""
     FORCE_PARALLEL_MODE_ON: PostgresqlHostConfig17_1C.ForceParallelMode.ValueType  # 1
-    """Force parallel mode for all queries that can be executed safely in parallel."""
+    """Forces parallel mode for queries considered safe, even when no performance benefit is expected."""
     FORCE_PARALLEL_MODE_OFF: PostgresqlHostConfig17_1C.ForceParallelMode.ValueType  # 2
-    """Enable parallel mode only if it is expected to increase performance."""
+    """Uses parallel mode only when the planner expects it to improve performance."""
     FORCE_PARALLEL_MODE_REGRESS: PostgresqlHostConfig17_1C.ForceParallelMode.ValueType  # 3
-    """Equivalent to on, but generates output identical to the off state."""
+    """Behaves like ON, but hides added Gather nodes in EXPLAIN output and
+    suppresses parallel-worker context lines to stabilize regression-test output.
+    """
 
     class _LogErrorVerbosity:
         ValueType = typing.NewType("ValueType", builtins.int)
@@ -149,6 +167,7 @@ class PostgresqlHostConfig17_1C(google.protobuf.message.Message):
     class _LogErrorVerbosityEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[PostgresqlHostConfig17_1C._LogErrorVerbosity.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         LOG_ERROR_VERBOSITY_UNSPECIFIED: PostgresqlHostConfig17_1C._LogErrorVerbosity.ValueType  # 0
+        """Not specified."""
         LOG_ERROR_VERBOSITY_TERSE: PostgresqlHostConfig17_1C._LogErrorVerbosity.ValueType  # 1
         """DETAIL, HINT, QUERY, and CONTEXT fields are excluded from the error message."""
         LOG_ERROR_VERBOSITY_DEFAULT: PostgresqlHostConfig17_1C._LogErrorVerbosity.ValueType  # 2
@@ -158,6 +177,7 @@ class PostgresqlHostConfig17_1C(google.protobuf.message.Message):
 
     class LogErrorVerbosity(_LogErrorVerbosity, metaclass=_LogErrorVerbosityEnumTypeWrapper): ...
     LOG_ERROR_VERBOSITY_UNSPECIFIED: PostgresqlHostConfig17_1C.LogErrorVerbosity.ValueType  # 0
+    """Not specified."""
     LOG_ERROR_VERBOSITY_TERSE: PostgresqlHostConfig17_1C.LogErrorVerbosity.ValueType  # 1
     """DETAIL, HINT, QUERY, and CONTEXT fields are excluded from the error message."""
     LOG_ERROR_VERBOSITY_DEFAULT: PostgresqlHostConfig17_1C.LogErrorVerbosity.ValueType  # 2
@@ -172,57 +192,59 @@ class PostgresqlHostConfig17_1C(google.protobuf.message.Message):
     class _LogLevelEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[PostgresqlHostConfig17_1C._LogLevel.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         LOG_LEVEL_UNSPECIFIED: PostgresqlHostConfig17_1C._LogLevel.ValueType  # 0
+        """Not specified."""
         LOG_LEVEL_DEBUG5: PostgresqlHostConfig17_1C._LogLevel.ValueType  # 1
-        """Provides successively-more-detailed information for use by developers."""
+        """Provides the most detailed diagnostic information for developers."""
         LOG_LEVEL_DEBUG4: PostgresqlHostConfig17_1C._LogLevel.ValueType  # 2
-        """Provides successively-more-detailed information for use by developers."""
+        """Provides more detailed diagnostic information than DEBUG3."""
         LOG_LEVEL_DEBUG3: PostgresqlHostConfig17_1C._LogLevel.ValueType  # 3
-        """Provides successively-more-detailed information for use by developers."""
+        """Provides more detailed diagnostic information than DEBUG2."""
         LOG_LEVEL_DEBUG2: PostgresqlHostConfig17_1C._LogLevel.ValueType  # 4
-        """Provides successively-more-detailed information for use by developers."""
+        """Provides more detailed diagnostic information than DEBUG1."""
         LOG_LEVEL_DEBUG1: PostgresqlHostConfig17_1C._LogLevel.ValueType  # 5
-        """Provides successively-more-detailed information for use by developers."""
+        """Provides diagnostic information for developers."""
         LOG_LEVEL_INFO: PostgresqlHostConfig17_1C._LogLevel.ValueType  # 12
-        """Provides information implicitly requested by the user, e.g., output from VACUUM VERBOSE."""
+        """Reports information implicitly requested by the user."""
         LOG_LEVEL_LOG: PostgresqlHostConfig17_1C._LogLevel.ValueType  # 6
-        """Reports information of interest to administrators, e.g., checkpoint activity."""
+        """Reports information of interest to database administrators."""
         LOG_LEVEL_NOTICE: PostgresqlHostConfig17_1C._LogLevel.ValueType  # 7
-        """Provides information that might be helpful to users, e.g., notice of truncation of long identifiers."""
+        """Reports information that may be helpful to users."""
         LOG_LEVEL_WARNING: PostgresqlHostConfig17_1C._LogLevel.ValueType  # 8
-        """Provides warnings of likely problems, e.g., COMMIT outside a transaction block."""
+        """Reports a warning about a likely problem."""
         LOG_LEVEL_ERROR: PostgresqlHostConfig17_1C._LogLevel.ValueType  # 9
-        """Reports an error that caused the current command to abort."""
+        """Reports an error that aborts the current command."""
         LOG_LEVEL_FATAL: PostgresqlHostConfig17_1C._LogLevel.ValueType  # 10
-        """Reports an error that caused the current session to abort."""
+        """Reports an error that aborts the current session."""
         LOG_LEVEL_PANIC: PostgresqlHostConfig17_1C._LogLevel.ValueType  # 11
-        """Reports an error that caused all database sessions to abort."""
+        """Reports an error that aborts all database sessions."""
 
     class LogLevel(_LogLevel, metaclass=_LogLevelEnumTypeWrapper): ...
     LOG_LEVEL_UNSPECIFIED: PostgresqlHostConfig17_1C.LogLevel.ValueType  # 0
+    """Not specified."""
     LOG_LEVEL_DEBUG5: PostgresqlHostConfig17_1C.LogLevel.ValueType  # 1
-    """Provides successively-more-detailed information for use by developers."""
+    """Provides the most detailed diagnostic information for developers."""
     LOG_LEVEL_DEBUG4: PostgresqlHostConfig17_1C.LogLevel.ValueType  # 2
-    """Provides successively-more-detailed information for use by developers."""
+    """Provides more detailed diagnostic information than DEBUG3."""
     LOG_LEVEL_DEBUG3: PostgresqlHostConfig17_1C.LogLevel.ValueType  # 3
-    """Provides successively-more-detailed information for use by developers."""
+    """Provides more detailed diagnostic information than DEBUG2."""
     LOG_LEVEL_DEBUG2: PostgresqlHostConfig17_1C.LogLevel.ValueType  # 4
-    """Provides successively-more-detailed information for use by developers."""
+    """Provides more detailed diagnostic information than DEBUG1."""
     LOG_LEVEL_DEBUG1: PostgresqlHostConfig17_1C.LogLevel.ValueType  # 5
-    """Provides successively-more-detailed information for use by developers."""
+    """Provides diagnostic information for developers."""
     LOG_LEVEL_INFO: PostgresqlHostConfig17_1C.LogLevel.ValueType  # 12
-    """Provides information implicitly requested by the user, e.g., output from VACUUM VERBOSE."""
+    """Reports information implicitly requested by the user."""
     LOG_LEVEL_LOG: PostgresqlHostConfig17_1C.LogLevel.ValueType  # 6
-    """Reports information of interest to administrators, e.g., checkpoint activity."""
+    """Reports information of interest to database administrators."""
     LOG_LEVEL_NOTICE: PostgresqlHostConfig17_1C.LogLevel.ValueType  # 7
-    """Provides information that might be helpful to users, e.g., notice of truncation of long identifiers."""
+    """Reports information that may be helpful to users."""
     LOG_LEVEL_WARNING: PostgresqlHostConfig17_1C.LogLevel.ValueType  # 8
-    """Provides warnings of likely problems, e.g., COMMIT outside a transaction block."""
+    """Reports a warning about a likely problem."""
     LOG_LEVEL_ERROR: PostgresqlHostConfig17_1C.LogLevel.ValueType  # 9
-    """Reports an error that caused the current command to abort."""
+    """Reports an error that aborts the current command."""
     LOG_LEVEL_FATAL: PostgresqlHostConfig17_1C.LogLevel.ValueType  # 10
-    """Reports an error that caused the current session to abort."""
+    """Reports an error that aborts the current session."""
     LOG_LEVEL_PANIC: PostgresqlHostConfig17_1C.LogLevel.ValueType  # 11
-    """Reports an error that caused all database sessions to abort."""
+    """Reports an error that aborts all database sessions."""
 
     class _LogStatement:
         ValueType = typing.NewType("ValueType", builtins.int)
@@ -231,6 +253,7 @@ class PostgresqlHostConfig17_1C(google.protobuf.message.Message):
     class _LogStatementEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[PostgresqlHostConfig17_1C._LogStatement.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         LOG_STATEMENT_UNSPECIFIED: PostgresqlHostConfig17_1C._LogStatement.ValueType  # 0
+        """Not specified."""
         LOG_STATEMENT_NONE: PostgresqlHostConfig17_1C._LogStatement.ValueType  # 1
         """The filter is disabled, no SQL statements are logged."""
         LOG_STATEMENT_DDL: PostgresqlHostConfig17_1C._LogStatement.ValueType  # 2
@@ -242,6 +265,7 @@ class PostgresqlHostConfig17_1C(google.protobuf.message.Message):
 
     class LogStatement(_LogStatement, metaclass=_LogStatementEnumTypeWrapper): ...
     LOG_STATEMENT_UNSPECIFIED: PostgresqlHostConfig17_1C.LogStatement.ValueType  # 0
+    """Not specified."""
     LOG_STATEMENT_NONE: PostgresqlHostConfig17_1C.LogStatement.ValueType  # 1
     """The filter is disabled, no SQL statements are logged."""
     LOG_STATEMENT_DDL: PostgresqlHostConfig17_1C.LogStatement.ValueType  # 2
@@ -258,6 +282,7 @@ class PostgresqlHostConfig17_1C(google.protobuf.message.Message):
     class _TransactionIsolationEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[PostgresqlHostConfig17_1C._TransactionIsolation.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         TRANSACTION_ISOLATION_UNSPECIFIED: PostgresqlHostConfig17_1C._TransactionIsolation.ValueType  # 0
+        """Not specified."""
         TRANSACTION_ISOLATION_READ_UNCOMMITTED: PostgresqlHostConfig17_1C._TransactionIsolation.ValueType  # 1
         """This level behaves like `TRANSACTION_ISOLATION_READ_COMMITTED` in PostgreSQL."""
         TRANSACTION_ISOLATION_READ_COMMITTED: PostgresqlHostConfig17_1C._TransactionIsolation.ValueType  # 2
@@ -272,6 +297,7 @@ class PostgresqlHostConfig17_1C(google.protobuf.message.Message):
 
     class TransactionIsolation(_TransactionIsolation, metaclass=_TransactionIsolationEnumTypeWrapper): ...
     TRANSACTION_ISOLATION_UNSPECIFIED: PostgresqlHostConfig17_1C.TransactionIsolation.ValueType  # 0
+    """Not specified."""
     TRANSACTION_ISOLATION_READ_UNCOMMITTED: PostgresqlHostConfig17_1C.TransactionIsolation.ValueType  # 1
     """This level behaves like `TRANSACTION_ISOLATION_READ_COMMITTED` in PostgreSQL."""
     TRANSACTION_ISOLATION_READ_COMMITTED: PostgresqlHostConfig17_1C.TransactionIsolation.ValueType  # 2
@@ -291,17 +317,19 @@ class PostgresqlHostConfig17_1C(google.protobuf.message.Message):
     class _XmlBinaryEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[PostgresqlHostConfig17_1C._XmlBinary.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         XML_BINARY_UNSPECIFIED: PostgresqlHostConfig17_1C._XmlBinary.ValueType  # 0
+        """Not specified."""
         XML_BINARY_BASE64: PostgresqlHostConfig17_1C._XmlBinary.ValueType  # 1
-        """Base64 encoding."""
+        """Encodes binary values using Base64."""
         XML_BINARY_HEX: PostgresqlHostConfig17_1C._XmlBinary.ValueType  # 2
-        """Hexadecimal encoding."""
+        """Encodes binary values using hexadecimal notation."""
 
     class XmlBinary(_XmlBinary, metaclass=_XmlBinaryEnumTypeWrapper): ...
     XML_BINARY_UNSPECIFIED: PostgresqlHostConfig17_1C.XmlBinary.ValueType  # 0
+    """Not specified."""
     XML_BINARY_BASE64: PostgresqlHostConfig17_1C.XmlBinary.ValueType  # 1
-    """Base64 encoding."""
+    """Encodes binary values using Base64."""
     XML_BINARY_HEX: PostgresqlHostConfig17_1C.XmlBinary.ValueType  # 2
-    """Hexadecimal encoding."""
+    """Encodes binary values using hexadecimal notation."""
 
     class _XmlOption:
         ValueType = typing.NewType("ValueType", builtins.int)
@@ -310,17 +338,19 @@ class PostgresqlHostConfig17_1C(google.protobuf.message.Message):
     class _XmlOptionEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[PostgresqlHostConfig17_1C._XmlOption.ValueType], builtins.type):
         DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
         XML_OPTION_UNSPECIFIED: PostgresqlHostConfig17_1C._XmlOption.ValueType  # 0
+        """Not specified."""
         XML_OPTION_DOCUMENT: PostgresqlHostConfig17_1C._XmlOption.ValueType  # 1
-        """XML document."""
+        """Treats an XML value as a complete, well-formed document."""
         XML_OPTION_CONTENT: PostgresqlHostConfig17_1C._XmlOption.ValueType  # 2
-        """XML fragment."""
+        """Treats an XML value as a content fragment, which may contain multiple top-level elements or character nodes."""
 
     class XmlOption(_XmlOption, metaclass=_XmlOptionEnumTypeWrapper): ...
     XML_OPTION_UNSPECIFIED: PostgresqlHostConfig17_1C.XmlOption.ValueType  # 0
+    """Not specified."""
     XML_OPTION_DOCUMENT: PostgresqlHostConfig17_1C.XmlOption.ValueType  # 1
-    """XML document."""
+    """Treats an XML value as a complete, well-formed document."""
     XML_OPTION_CONTENT: PostgresqlHostConfig17_1C.XmlOption.ValueType  # 2
-    """XML fragment."""
+    """Treats an XML value as a content fragment, which may contain multiple top-level elements or character nodes."""
 
     RECOVERY_MIN_APPLY_DELAY_FIELD_NUMBER: builtins.int
     SHARED_BUFFERS_FIELD_NUMBER: builtins.int
@@ -389,148 +419,255 @@ class PostgresqlHostConfig17_1C(google.protobuf.message.Message):
     EFFECTIVE_CACHE_SIZE_FIELD_NUMBER: builtins.int
     IDLE_SESSION_TIMEOUT_FIELD_NUMBER: builtins.int
     constraint_exclusion: global___PostgresqlHostConfig17_1C.ConstraintExclusion.ValueType
+    """Enables the planner to use constraints to optimize queries."""
     debug_parallel_query: global___PostgresqlHostConfig17_1C.DebugParallelQuery.ValueType
+    """Forces the planner's use parallel query nodes."""
     client_min_messages: global___PostgresqlHostConfig17_1C.LogLevel.ValueType
+    """Sets the message levels that are sent to the client."""
     log_min_messages: global___PostgresqlHostConfig17_1C.LogLevel.ValueType
+    """Sets the message levels that are logged."""
     log_min_error_statement: global___PostgresqlHostConfig17_1C.LogLevel.ValueType
+    """Causes all statements generating error at or above this level to be logged."""
     log_error_verbosity: global___PostgresqlHostConfig17_1C.LogErrorVerbosity.ValueType
+    """Sets the verbosity of logged messages."""
     log_statement: global___PostgresqlHostConfig17_1C.LogStatement.ValueType
+    """Sets the type of statements logged."""
     search_path: builtins.str
+    """Sets the schema search order for names that are not schema-qualified."""
     default_transaction_isolation: global___PostgresqlHostConfig17_1C.TransactionIsolation.ValueType
+    """Sets the transaction isolation level of each new transaction."""
     bytea_output: global___PostgresqlHostConfig17_1C.ByteaOutput.ValueType
+    """Sets the output format for bytea."""
     xmlbinary: global___PostgresqlHostConfig17_1C.XmlBinary.ValueType
+    """Sets how binary values are to be encoded in XML."""
     xmloption: global___PostgresqlHostConfig17_1C.XmlOption.ValueType
+    """Sets whether XML data in implicit parsing and serialization operations is to be considered as documents or content fragments."""
     backslash_quote: global___PostgresqlHostConfig17_1C.BackslashQuote.ValueType
+    """Sets whether \\"\\\\'\\" is allowed in string literals."""
     timezone: builtins.str
+    """Sets the time zone for displaying and interpreting time stamps."""
     @property
     def recovery_min_apply_delay(self) -> google.protobuf.wrappers_pb2.Int64Value:
-        """in milliseconds."""
+        """Sets the minimum delay for applying changes during recovery. In milliseconds."""
 
     @property
     def shared_buffers(self) -> google.protobuf.wrappers_pb2.Int64Value:
-        """in bytes."""
+        """Sets the number of shared memory buffers used by the server. In bytes."""
 
     @property
     def temp_buffers(self) -> google.protobuf.wrappers_pb2.Int64Value:
-        """in bytes."""
+        """Sets the maximum number of temporary buffers used by each session. In bytes."""
 
     @property
     def work_mem(self) -> google.protobuf.wrappers_pb2.Int64Value:
-        """in bytes."""
+        """Sets the maximum memory to be used for query workspaces. This much memory can be used by each
+        internal sort operation and hash table before switching to temporary disk files. In bytes.
+        """
 
     @property
     def temp_file_limit(self) -> google.protobuf.wrappers_pb2.Int64Value:
-        """in bytes."""
+        """Limits the total size of all temporary files used by each process. -1 means no limit. In bytes."""
 
     @property
-    def backend_flush_after(self) -> google.protobuf.wrappers_pb2.Int64Value: ...
+    def backend_flush_after(self) -> google.protobuf.wrappers_pb2.Int64Value:
+        """Specifies how much data a backend can write before forcing the operating system to issue the writes. In bytes."""
+
     @property
     def max_standby_streaming_delay(self) -> google.protobuf.wrappers_pb2.Int64Value:
-        """in milliseconds."""
+        """Sets the maximum delay before canceling queries when a hot standby server is processing streamed WAL data. In milliseconds."""
 
     @property
-    def cursor_tuple_fraction(self) -> google.protobuf.wrappers_pb2.DoubleValue: ...
+    def cursor_tuple_fraction(self) -> google.protobuf.wrappers_pb2.DoubleValue:
+        """Sets the planner's estimate of the fraction of a cursor's rows that will be retrieved."""
+
     @property
-    def from_collapse_limit(self) -> google.protobuf.wrappers_pb2.Int64Value: ...
+    def from_collapse_limit(self) -> google.protobuf.wrappers_pb2.Int64Value:
+        """Sets the FROM-list size beyond which subqueries are not collapsed."""
+
     @property
-    def join_collapse_limit(self) -> google.protobuf.wrappers_pb2.Int64Value: ...
+    def join_collapse_limit(self) -> google.protobuf.wrappers_pb2.Int64Value:
+        """Sets the FROM-list size beyond which JOIN constructs are not flattened."""
+
     @property
     def log_min_duration_statement(self) -> google.protobuf.wrappers_pb2.Int64Value:
-        """in milliseconds."""
+        """Sets the minimum execution time above which all statements will be logged. In milliseconds."""
 
     @property
-    def log_checkpoints(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def log_checkpoints(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Logs each checkpoint."""
+
     @property
-    def log_connections(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def log_connections(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Logs each successful connection."""
+
     @property
-    def log_disconnections(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def log_disconnections(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Logs end of a session, including duration."""
+
     @property
-    def log_duration(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def log_duration(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Logs the duration of each completed SQL statement.
+        (-- api-linter: yc::1701::duration-required=disabled --)
+        """
+
     @property
-    def log_lock_waits(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def log_lock_waits(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Logs long lock waits."""
+
     @property
-    def log_temp_files(self) -> google.protobuf.wrappers_pb2.Int64Value: ...
+    def log_temp_files(self) -> google.protobuf.wrappers_pb2.Int64Value:
+        """Log the use of temporary files larger than this number of kilobytes."""
+
     @property
-    def row_security(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def row_security(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Enable row security."""
+
     @property
     def statement_timeout(self) -> google.protobuf.wrappers_pb2.Int64Value:
-        """in milliseconds."""
+        """Sets the maximum allowed duration of any statement. In milliseconds."""
 
     @property
     def lock_timeout(self) -> google.protobuf.wrappers_pb2.Int64Value:
-        """in milliseconds."""
+        """Sets the maximum allowed duration of any wait for a lock. In milliseconds."""
 
     @property
     def idle_in_transaction_session_timeout(self) -> google.protobuf.wrappers_pb2.Int64Value:
-        """in milliseconds."""
+        """Sets the maximum allowed idle time between queries, when in a transaction. In milliseconds."""
 
     @property
     def gin_pending_list_limit(self) -> google.protobuf.wrappers_pb2.Int64Value:
-        """in bytes."""
+        """Sets the maximum size of the pending list for GIN index. In bytes."""
 
     @property
     def deadlock_timeout(self) -> google.protobuf.wrappers_pb2.Int64Value:
-        """in milliseconds."""
+        """Sets the time to wait on a lock before checking for deadlock. In milliseconds."""
 
     @property
-    def max_locks_per_transaction(self) -> google.protobuf.wrappers_pb2.Int64Value: ...
+    def max_locks_per_transaction(self) -> google.protobuf.wrappers_pb2.Int64Value:
+        """Sets the maximum number of locks per transaction. The shared lock table is sized on the assumption that
+        at most max_locks_per_transaction * max_connections distinct objects will need to be locked at any one time.
+        """
+
     @property
-    def max_pred_locks_per_transaction(self) -> google.protobuf.wrappers_pb2.Int64Value: ...
+    def max_pred_locks_per_transaction(self) -> google.protobuf.wrappers_pb2.Int64Value:
+        """Sets the maximum number of predicate locks per transaction.The shared predicate lock table is sized on the assumption that
+        at most max_pred_locks_per_transaction * max_connections distinct objects will need to be locked at any one time.
+        """
+
     @property
-    def array_nulls(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def array_nulls(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Enable input of NULL elements in arrays. When turned on, unquoted NULL in an array input
+        value means a null value; otherwise it is taken literally.
+        """
+
     @property
-    def default_with_oids(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def default_with_oids(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """WITH OIDS is no longer supported; this can only be false."""
+
     @property
-    def escape_string_warning(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def escape_string_warning(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Warn about backslash escapes in ordinary string literals."""
+
     @property
-    def lo_compat_privileges(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def lo_compat_privileges(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Enables backward compatibility mode for privilege checks on large objects. Skips privilege checks
+        when reading or modifying large objects, for compatibility with PostgreSQL releases prior to 9.0.
+        """
+
     @property
-    def quote_all_identifiers(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def quote_all_identifiers(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """When generating SQL fragments, quote all identifiers."""
+
     @property
-    def standard_conforming_strings(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def standard_conforming_strings(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Causes '...' strings to treat backslashes literally."""
+
     @property
-    def synchronize_seqscans(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def synchronize_seqscans(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Enable synchronized sequential scans."""
+
     @property
-    def transform_null_equals(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def transform_null_equals(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Treats \\"expr=NULL\\" as \\"expr IS NULL\\". When turned on, expressions of the form expr = NULL
+        (or NULL = expr) are treated as expr IS NULL, that is, they return true if expr evaluates to the
+        null value, and false otherwise. The correct behavior of expr = NULL is to always return null (unknown).
+        """
+
     @property
-    def exit_on_error(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def exit_on_error(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Terminate session on any error."""
+
     @property
-    def seq_page_cost(self) -> google.protobuf.wrappers_pb2.DoubleValue: ...
+    def seq_page_cost(self) -> google.protobuf.wrappers_pb2.DoubleValue:
+        """Sets the planner's estimate of the cost of a sequentially fetched disk page."""
+
     @property
-    def random_page_cost(self) -> google.protobuf.wrappers_pb2.DoubleValue: ...
+    def random_page_cost(self) -> google.protobuf.wrappers_pb2.DoubleValue:
+        """Sets the planner's estimate of the cost of a nonsequentially fetched disk page."""
+
     @property
-    def enable_bitmapscan(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def enable_bitmapscan(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Enables the planner's use of bitmap-scan plans."""
+
     @property
-    def enable_hashagg(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def enable_hashagg(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Enables the planner's use of hashed aggregation plans."""
+
     @property
-    def enable_hashjoin(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def enable_hashjoin(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Enables the planner's use of hash join plans."""
+
     @property
-    def enable_indexscan(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def enable_indexscan(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Enables the planner's use of index-scan plans."""
+
     @property
-    def enable_indexonlyscan(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def enable_indexonlyscan(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Enables the planner's use of index-only-scan plans."""
+
     @property
-    def enable_material(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def enable_material(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Enables the planner's use of materialization."""
+
     @property
-    def enable_mergejoin(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def enable_mergejoin(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Enables the planner's use of merge join plans."""
+
     @property
-    def enable_nestloop(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def enable_nestloop(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Enables the planner's use of nested-loop join plans."""
+
     @property
-    def enable_seqscan(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def enable_seqscan(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Enables the planner's use of sequential-scan plans."""
+
     @property
-    def enable_sort(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def enable_sort(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Enables the planner's use of explicit sort steps."""
+
     @property
-    def enable_tidscan(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    def enable_tidscan(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Enables the planner's use of TID scan plans."""
+
     @property
-    def max_parallel_workers(self) -> google.protobuf.wrappers_pb2.Int64Value: ...
+    def max_parallel_workers(self) -> google.protobuf.wrappers_pb2.Int64Value:
+        """Sets the maximum number of parallel workers that can be active at one time."""
+
     @property
-    def max_parallel_workers_per_gather(self) -> google.protobuf.wrappers_pb2.Int64Value: ...
+    def max_parallel_workers_per_gather(self) -> google.protobuf.wrappers_pb2.Int64Value:
+        """Sets the maximum number of parallel processes per executor node."""
+
     @property
-    def effective_io_concurrency(self) -> google.protobuf.wrappers_pb2.Int64Value: ...
+    def effective_io_concurrency(self) -> google.protobuf.wrappers_pb2.Int64Value:
+        """Number of simultaneous requests that can be handled efficiently by the disk subsystem."""
+
     @property
-    def effective_cache_size(self) -> google.protobuf.wrappers_pb2.Int64Value: ...
+    def effective_cache_size(self) -> google.protobuf.wrappers_pb2.Int64Value:
+        """Sets the planner's assumption about the effective size of the disk cache available to a single query. In bytes."""
+
     @property
     def idle_session_timeout(self) -> google.protobuf.wrappers_pb2.Int64Value:
-        """in milliseconds."""
+        """Sets the maximum allowed idle time between queries, when not in a transaction. In milliseconds."""
 
     def __init__(
         self,

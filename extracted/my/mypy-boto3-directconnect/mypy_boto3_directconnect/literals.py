@@ -24,6 +24,7 @@ else:
 
 __all__ = (
     "AddressFamilyType",
+    "AsPathTypeType",
     "BGPPeerStateType",
     "BGPStatusType",
     "ConnectionStateType",
@@ -45,12 +46,14 @@ __all__ = (
     "PaginatorName",
     "RegionName",
     "ResourceServiceName",
+    "RouteDirectionType",
     "ServiceName",
     "VirtualInterfaceStateType",
 )
 
 
 AddressFamilyType = Literal["ipv4", "ipv6"]
+AsPathTypeType = Literal["seq", "set"]
 BGPPeerStateType = Literal["available", "deleted", "deleting", "pending", "verifying"]
 BGPStatusType = Literal["down", "unknown", "up"]
 ConnectionStateType = Literal[
@@ -90,6 +93,7 @@ LagStateType = Literal[
 ]
 LoaContentTypeType = Literal["application/pdf"]
 NniPartnerTypeType = Literal["nonPartner", "v1", "v2"]
+RouteDirectionType = Literal["accepted", "advertised"]
 VirtualInterfaceStateType = Literal[
     "available",
     "confirming",
@@ -296,8 +300,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -393,10 +395,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -414,6 +416,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -479,7 +482,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -500,6 +502,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

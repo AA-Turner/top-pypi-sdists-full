@@ -1,5 +1,5 @@
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional
 
 from dataclasses_json import DataClassJsonMixin, LetterCase
@@ -38,6 +38,16 @@ class ProjectConfig(DataClassJsonMixin):
 
 
 @dataclass
+class EstimatedCredits(DataClassJsonMixin):
+    dataclass_json_config = config(letter_case=LetterCase.CAMEL)["dataclasses_json"]
+
+    credits_per_day: float
+    scale: float
+    segment_count_source: str
+    warnings: List[str] = field(default_factory=list)
+
+
+@dataclass
 class ResourceModification(DataClassJsonMixin):
     dataclass_json_config = config(letter_case=LetterCase.CAMEL)["dataclasses_json"]
 
@@ -47,6 +57,9 @@ class ResourceModification(DataClassJsonMixin):
     diff_string: Optional[str] = None
     resource_type: Optional[str] = None
     resource_index: Optional[int] = None
+    # Present for CREATE/UPDATE modifications on CBP v2 accounts during a dry-run;
+    # None otherwise (DELETE, non-CBP2, monitor types without a credit model).
+    estimated_credits: Optional[EstimatedCredits] = None
 
 
 @dataclass

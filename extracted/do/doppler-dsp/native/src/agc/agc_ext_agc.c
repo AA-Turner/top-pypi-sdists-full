@@ -443,7 +443,7 @@ static PyGetSetDef AGC_getset[]
         { "alpha", (getter)AGC_getprop_alpha, (setter)AGC_setprop_alpha,
           "Alpha.\n", NULL },
         { "decim", (getter)AGC_getprop_decim, (setter)AGC_setprop_decim,
-          "Decim.\n", NULL },
+          "Emit every decim-th event, >= 1.\n", NULL },
         { "clip_db", (getter)AGC_getprop_clip_db, (setter)AGC_setprop_clip_db,
           "Clip db.\n", NULL },
         { "gain_update_period", (getter)AGC_getprop_gain_update_period,
@@ -483,7 +483,12 @@ AGCObj_exit (AGCObject *self, PyObject *args)
 
 static PyMethodDef AGCObj_methods[] = {
   { "reset", (PyCFunction)AGCObj_reset, METH_NOARGS,
-    "Reset state to post-create defaults." },
+    "Reset the AGC loop state to its post-create condition. Sets gain_db back "
+    "to 0 dB (unity), clears g_last, and re-seeds the power-detector EMA "
+    "p_avg from the current ref_db so that the first post-reset block "
+    "produces no transient.  All configuration fields (ref_db, loop_bw, "
+    "alpha, decim, clip_db) are left untouched.  Use this to process a new, "
+    "independent signal segment without re-allocating." },
   { "step", (PyCFunction)AGC_step, METH_VARARGS,
     "step(x) -> float complex\n"
     "\n"
@@ -501,10 +506,32 @@ static PyMethodDef AGCObj_methods[] = {
     "the P == 1 loop once decimated, but both converge to the same steady "
     "state.\n"
     "\n"
-    "    >>> from doppler import AGC\n"
-    "    >>> obj = AGC(0.0, 0.0025, 0.05)\n"
-    "    >>> obj.step(1.0 + 0.0j)\n"
-    "    0j\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : complex\n"
+    "    Complex input sample.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "complex\n"
+    "    Gained, clipped output sample x * 10^(gain_db/20) with each\n"
+    "    component independently clamped to +/-10^(clip_db/20).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.agc import AGC\n"
+    ">>> agc = AGC(ref_db=0.0, loop_bw=0.0025, alpha=0.05)\n"
+    ">>> agc.step(1.0+0.0j)   # unity gain at start, 0 dB in = 0 dB out\n"
+    "(1+0j)\n"
+    ">>> agc.gain_db           # loop already advanced from 0 dB\n"
+    "0.0\n"
+    ">>> agc2 = AGC(ref_db=0.0, loop_bw=0.0025, alpha=0.05)\n"
+    ">>> agc2.step(4.0+0.0j)  # 12 dB loud; first sample passes at unity "
+    "gain\n"
+    "(4+0j)\n"
+    ">>> round(agc2.gain_db, 6)  # loop starts driving gain negative\n"
+    "-0.024276\n"
+    "\n" },
   { "steps", (PyCFunction)(void *)AGC_steps, METH_VARARGS | METH_KEYWORDS,
     "steps(x[, out]) -> ndarray\n"
     "\n"
@@ -516,14 +543,31 @@ static PyMethodDef AGCObj_methods[] = {
     "chunk's mean power — O(n/decim) control-loop work versus O(n) for "
     "agc_step().  The output array may alias the input (in-place).\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import AGC\n"
-    "    >>> obj = AGC(0.0, 0.0025, 0.05)\n"
-    "    >>> y = obj.steps(np.zeros(4, dtype=np.complex64))\n"
-    "    >>> y.shape\n"
-    "    (4,)\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex64')\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.complex64]\n"
+    "    Input sample.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex64]\n"
+    "    Output sample.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.agc import AGC\n"
+    ">>> import numpy as np\n"
+    ">>> agc = AGC(ref_db=0.0, loop_bw=0.0025, alpha=0.05)\n"
+    ">>> _ = agc.steps(np.full(1000, 4.0+0.0j, dtype=np.complex64))\n"
+    ">>> round(agc.gain_db, 1)   # gain converged to -12 dB\n"
+    "-12.0\n"
+    ">>> x = np.full(8, 4.0+0.0j, dtype=np.complex64)\n"
+    ">>> y = agc.steps(x)\n"
+    ">>> y.shape, y.dtype\n"
+    "((8,), dtype('complex64'))\n"
+    ">>> [round(abs(v)**2, 2) for v in y.tolist()]  # output power ~1.0\n"
+    "[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]\n"
+    "\n" },
 
   { "set_telemetry", (PyCFunction)(void *)AGCObj_set_telemetry,
     METH_VARARGS | METH_KEYWORDS,
@@ -540,21 +584,119 @@ static PyMethodDef AGCObj_methods[] = {
     "telemetry/telemetry.h).  The context is borrowed, not owned: it must "
     "outlive the attachment.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import AGC\n"
-    "    >>> obj = AGC(0.0, 0.0025, 0.05)\n"
-    "    >>> obj.set_telemetry(0, 0, 0)\n"
-    "    0\n" },
+    "Parameters\n"
+    "----------\n"
+    "tlm : object | None\n"
+    "    Telemetry context to attach, or NULL to detach.\n"
+    "prefix : str\n"
+    "    Probe-name prefix, e.g. \"agc\" or \"rx.agc\".\n"
+    "decim : int\n"
+    "    Emit every decim-th gain update; >= 1.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.agc import AGC\n"
+    ">>> from doppler.telemetry import Telemetry\n"
+    ">>> tlm = Telemetry(1 << 12)\n"
+    ">>> agc = AGC(ref_db=0.0, loop_bw=0.0025, alpha=0.05)\n"
+    ">>> agc.set_telemetry(tlm, \"agc\")\n"
+    ">>> tlm.probe_names()\n"
+    "{'agc.gain_db': 0}\n"
+    ">>> x = (0.5 + 0j) * np.ones(256, dtype=np.complex64)\n"
+    ">>> _ = agc.steps(x)\n"
+    ">>> recs = tlm.read()          # one record per decim-chunk update\n"
+    ">>> len(recs) == 256 // agc.decim\n"
+    "True\n"
+    ">>> bool(recs[\"value\"][-1] > recs[\"value\"][0])  # gain rising toward "
+    "ref\n"
+    "True\n" },
   { "state_bytes", (PyCFunction)AGCObj_state_bytes, METH_NOARGS,
-    "Serialized state size in bytes." },
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the AGCObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
   { "get_state", (PyCFunction)AGCObj_get_state, METH_NOARGS,
-    "Serialize the engine's mutable state to bytes." },
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the AGCObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
   { "set_state", (PyCFunction)AGCObj_set_state, METH_O,
-    "Restore mutable state from a get_state() blob." },
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the AGCObj has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
   { "destroy", (PyCFunction)AGCObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)AGCObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)AGCObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)AGCObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a Agc be used in a `with` statement so its C resources are "
+    "released\n"
+    "deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "Agc\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)AGCObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the Agc.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

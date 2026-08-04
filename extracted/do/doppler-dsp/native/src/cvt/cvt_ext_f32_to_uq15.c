@@ -249,51 +249,163 @@ F32ToUQ15Obj_exit (F32ToUQ15Object *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
-static PyMethodDef F32ToUQ15Obj_methods[]
-    = { { "reset", (PyCFunction)F32ToUQ15Obj_reset, METH_NOARGS,
-          "Reset state to post-create defaults." },
-        { "step", (PyCFunction)F32ToUQ15_step, METH_VARARGS,
-          "step(x) -> uint16_t\n"
-          "\n"
-          "Process one input sample.\n"
-          "\n"
-          "    >>> from doppler import F32ToUQ15\n"
-          "    >>> obj = F32ToUQ15(32768.0)\n"
-          "    >>> obj.step(1.0)\n"
-          "    0\n" },
-        { "steps", (PyCFunction)(void *)F32ToUQ15_steps,
-          METH_VARARGS | METH_KEYWORDS,
-          "steps(x[, out]) -> ndarray\n"
-          "\n"
-          "Process a block of float samples to UQ15 uint16.\n"
-          "\n"
-          "    >>> import numpy as np\n"
-          "    >>> from doppler import F32ToUQ15\n"
-          "    >>> obj = F32ToUQ15(32768.0)\n"
-          "    >>> y = obj.steps(np.zeros(4, dtype=np.float32))\n"
-          "    >>> y.shape\n"
-          "    (4,)\n"
-          "    >>> y.dtype\n"
-          "    dtype('uint16')\n" },
+static PyMethodDef F32ToUQ15Obj_methods[] = {
+  { "reset", (PyCFunction)F32ToUQ15Obj_reset, METH_NOARGS,
+    "Clear the sticky clip flag, starting a fresh saturation history." },
+  { "step", (PyCFunction)F32ToUQ15_step, METH_VARARGS,
+    "step(x) -> uint16_t\n"
+    "\n"
+    "Scale one float sample to an offset-binary UQ15 uint16 code.\n"
+    "\n"
+    "Computes round(x * scale), clamps to `[-32768, 32767]`, then adds the\n"
+    "32768 offset-binary bias so the signed float domain maps onto the full\n"
+    "unsigned uint16 range. Latches the sticky clipped flag if the scaled\n"
+    "value saturated before clamping. Suits DAC and file formats that store\n"
+    "only unsigned integers.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : float\n"
+    "    Input sample, normally a normalised float in `[-1, +1]`.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Offset-binary uint16 in `[0, 65535]`: -1.0 -> 0, 0.0 -> 32768, +1.0\n"
+    "    -> 65535.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.cvt import F32ToUQ15\n"
+    ">>> c = F32ToUQ15(scale=32768.0)\n"
+    ">>> c.step(0.0)          # midscale maps to the offset-binary bias\n"
+    "32768\n"
+    ">>> c.step(-1.0)         # full-negative maps to code 0\n"
+    "0\n"
+    "\n" },
+  { "steps", (PyCFunction)(void *)F32ToUQ15_steps,
+    METH_VARARGS | METH_KEYWORDS,
+    "steps(x[, out]) -> ndarray\n"
+    "\n"
+    "Process a block of float samples to UQ15 uint16.\n"
+    "\n"
+    "Applies step() to every element. The clipped flag is updated\n"
+    "cumulatively across the block. Accepts an optional pre-allocated output\n"
+    "array; allocates a fresh one when output is NULL.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.float32]\n"
+    "    Input sample.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.uint16]\n"
+    "    Output sample.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.cvt import F32ToUQ15\n"
+    ">>> import numpy as np\n"
+    ">>> F32ToUQ15().steps(np.array([-1.0, 0.0, 0.999], "
+    "dtype=np.float32)).tolist()\n"
+    "[0, 32768, 65503]\n"
+    "\n" },
 
-        { "state_bytes", (PyCFunction)F32ToUQ15Obj_state_bytes, METH_NOARGS,
-          "Serialized state size in bytes." },
-        { "get_state", (PyCFunction)F32ToUQ15Obj_get_state, METH_NOARGS,
-          "Serialize the engine's mutable state to bytes." },
-        { "set_state", (PyCFunction)F32ToUQ15Obj_set_state, METH_O,
-          "Restore mutable state from a get_state() blob." },
-        { "destroy", (PyCFunction)F32ToUQ15Obj_destroy, METH_NOARGS,
-          "Release resources." },
-        { "__enter__", (PyCFunction)F32ToUQ15Obj_enter, METH_NOARGS, NULL },
-        { "__exit__", (PyCFunction)F32ToUQ15Obj_exit, METH_VARARGS, NULL },
-        { NULL } };
+  { "state_bytes", (PyCFunction)F32ToUQ15Obj_state_bytes, METH_NOARGS,
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the F32ToUQ15Obj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
+  { "get_state", (PyCFunction)F32ToUQ15Obj_get_state, METH_NOARGS,
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the F32ToUQ15Obj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
+  { "set_state", (PyCFunction)F32ToUQ15Obj_set_state, METH_O,
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the F32ToUQ15Obj has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
+  { "destroy", (PyCFunction)F32ToUQ15Obj_destroy, METH_NOARGS,
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)F32ToUQ15Obj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a F32ToUq15 be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "F32ToUq15\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)F32ToUQ15Obj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the F32ToUq15.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
+  { NULL }
+};
 
 static PyTypeObject F32ToUQ15ObjType = {
   PyVarObject_HEAD_INIT (NULL, 0).tp_name = "cvt.F32ToUQ15",
   .tp_basicsize                           = sizeof (F32ToUQ15Object),
   .tp_dealloc                             = (destructor)F32ToUQ15Obj_dealloc,
   .tp_flags                               = Py_TPFLAGS_DEFAULT,
-  .tp_doc                                 = "F32ToUQ15 type.\n",
+  .tp_doc                                 = "Create a f32_to_uq15 instance.\n",
   .tp_methods                             = F32ToUQ15Obj_methods,
   .tp_getset                              = F32ToUQ15_getset,
   .tp_new                                 = F32ToUQ15Obj_new,

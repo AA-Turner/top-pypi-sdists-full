@@ -14,6 +14,12 @@ styleCssHiddenPattern = re.compile(r"(.*[^\w]|^)display\s*:\s*none([^\w].*|$)")
 datetimePattern = lexicalPatterns["XBRLI_DATEUNION"]
 docTypeXhtmlPattern = re.compile(r"^<!(?:DOCTYPE\s+)\s*html(?:PUBLIC\s+)?(?:.*-//W3C//DTD\s+(X?HTML)\s)?.*>$", re.IGNORECASE)
 
+
+AUTHORITY_UKFRC = "UKFRC"
+
+TARGET_UKFRS = "UKFRS"
+
+
 FOOTNOTE_LINK_CHILDREN = frozenset((
     XbrlConst.qnLinkLoc,
     XbrlConst.qnLinkFootnoteArc,
@@ -117,8 +123,8 @@ filenameRegexes = {
     "ref": r"(.{1,})-[0-9]{4}-[0-9]{2}-[0-9]{2}_ref[.]xml$",
 }
 
-reportBasenamePattern = "{base}-{date}-{version}-{lang}"
-reportBasenameRegex = re.compile(r"(.{1,})-[0-9]{4}-[0-9]{2}-[0-9]{2}-[1-9]-[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$")
+reportDefaultFileNamePattern = "{base}-{date}-{version}-{lang}.[x]html"
+reportDefaultFileNameRegex = re.compile(r"(.{1,})-[0-9]{4}-[0-9]{2}-[0-9]{2}-[1-9]-[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*[.]x?html$")
 
 mandatory: set[QName] = set()  # mandatory element qnames
 

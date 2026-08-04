@@ -13,10 +13,10 @@
     def __enter__(self) -> 'virConnect':
         return self
 
-    def __exit__(self, exc_type_: Optional[Type[BaseException]], exc_value_: Optional[BaseException], traceback_: Optional[TracebackType]) -> None:
+    def __exit__(self, exc_type_: Optional[type[BaseException]], exc_value_: Optional[BaseException], traceback_: Optional[TracebackType]) -> None:
         self.close()
 
-    def domainEventDeregister(self, cb: _DomainCB[_T]) -> None:
+    def domainEventDeregister(self, cb: _DomainCB) -> None:
         """Removes a Domain Event Callback. De-registering for a
            domain callback will disable delivery of this event type """
         try:
@@ -29,13 +29,13 @@
         except AttributeError:
             pass
 
-    def domainEventRegister(self, cb: _DomainCB[_T], opaque: _T) -> None:
+    def domainEventRegister(self, cb: _DomainCB, opaque: _T) -> None:
         """Adds a Domain Event Callback. Registering for a domain
            callback will enable delivery of the events """
         try:
             self.domainEventCallbacks[cb] = opaque
         except AttributeError:
-            self.domainEventCallbacks = {cb: opaque}  # type: Dict[_DomainCB[_T], _T]
+            self.domainEventCallbacks = {cb: opaque}  # type: dict[_DomainCB, _T]
             ret = libvirtmod.virConnectDomainEventRegister(self._o, self)
             if ret == -1:
                 raise libvirtError('virConnectDomainEventRegister() failed')
@@ -49,7 +49,7 @@
         except AttributeError:
             pass
 
-    def _dispatchDomainEventLifecycleCallback(self, dom: 'virDomain', event: int, detail: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventLifecycleCallback(self, dom: 'virDomain', event: int, detail: int, cbData: dict[str, Any]) -> int:
         """Dispatches events to python user domain lifecycle event callbacks
         """
         cb = cbData["cb"]
@@ -58,7 +58,7 @@
         cb(self, virDomain(self, _obj=dom), event, detail, opaque)
         return 0
 
-    def _dispatchDomainEventGenericCallback(self, dom: 'virDomain', cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventGenericCallback(self, dom: 'virDomain', cbData: dict[str, Any]) -> int:
         """Dispatches events to python user domain generic event callbacks
         """
         cb = cbData["cb"]
@@ -67,7 +67,7 @@
         cb(self, virDomain(self, _obj=dom), opaque)
         return 0
 
-    def _dispatchDomainEventRTCChangeCallback(self, dom: 'virDomain', offset: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventRTCChangeCallback(self, dom: 'virDomain', offset: int, cbData: dict[str, Any]) -> int:
         """Dispatches events to python user domain RTC change event callbacks
         """
         cb = cbData["cb"]
@@ -76,7 +76,7 @@
         cb(self, virDomain(self, _obj=dom), offset, opaque)
         return 0
 
-    def _dispatchDomainEventWatchdogCallback(self, dom: 'virDomain', action: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventWatchdogCallback(self, dom: 'virDomain', action: int, cbData: dict[str, Any]) -> int:
         """Dispatches events to python user domain watchdog event callbacks
         """
         cb = cbData["cb"]
@@ -85,7 +85,7 @@
         cb(self, virDomain(self, _obj=dom), action, opaque)
         return 0
 
-    def _dispatchDomainEventIOErrorCallback(self, dom: 'virDomain', srcPath: str, devAlias: str, action: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventIOErrorCallback(self, dom: 'virDomain', srcPath: str, devAlias: str, action: int, cbData: dict[str, Any]) -> int:
         """Dispatches events to python user domain IO error event callbacks
         """
         cb = cbData["cb"]
@@ -94,7 +94,7 @@
         cb(self, virDomain(self, _obj=dom), srcPath, devAlias, action, opaque)
         return 0
 
-    def _dispatchDomainEventIOErrorReasonCallback(self, dom: 'virDomain', srcPath: str, devAlias: str, action: int, reason: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventIOErrorReasonCallback(self, dom: 'virDomain', srcPath: str, devAlias: str, action: int, reason: int, cbData: dict[str, Any]) -> int:
         """Dispatches events to python user domain IO error event callbacks
         """
         cb = cbData["cb"]
@@ -104,7 +104,7 @@
            reason, opaque)
         return 0
 
-    def _dispatchDomainEventGraphicsCallback(self, dom: 'virDomain', phase: int, localAddr: Any, remoteAddr: Any, authScheme: str, subject: Any, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventGraphicsCallback(self, dom: 'virDomain', phase: int, localAddr: Any, remoteAddr: Any, authScheme: str, subject: Any, cbData: dict[str, Any]) -> int:
         """Dispatches events to python user domain graphics event callbacks
         """
         cb = cbData["cb"]
@@ -114,7 +114,7 @@
            authScheme, subject, opaque)
         return 0
 
-    def _dispatchDomainEventBlockJobCallback(self, dom: 'virDomain', disk: str, type: int, status: int, cbData: Dict[str, Any]) -> None:
+    def _dispatchDomainEventBlockJobCallback(self, dom: 'virDomain', disk: str, type: int, status: int, cbData: dict[str, Any]) -> None:
         """Dispatches events to python user domain blockJob/blockJob2 event callbacks
         """
         try:
@@ -125,7 +125,7 @@
         except AttributeError:
             pass
 
-    def _dispatchDomainEventDiskChangeCallback(self, dom: 'virDomain', oldSrcPath: str, newSrcPath: str, devAlias: str, reason: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventDiskChangeCallback(self, dom: 'virDomain', oldSrcPath: str, newSrcPath: str, devAlias: str, reason: int, cbData: dict[str, Any]) -> int:
         """Dispatches event to python user domain diskChange event callbacks
         """
         cb = cbData["cb"]
@@ -134,7 +134,7 @@
         cb(self, virDomain(self, _obj=dom), oldSrcPath, newSrcPath, devAlias, reason, opaque)
         return 0
 
-    def _dispatchDomainEventTrayChangeCallback(self, dom: 'virDomain', devAlias: str, reason: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventTrayChangeCallback(self, dom: 'virDomain', devAlias: str, reason: int, cbData: dict[str, Any]) -> int:
         """Dispatches event to python user domain trayChange event callbacks
         """
         cb = cbData["cb"]
@@ -143,7 +143,7 @@
         cb(self, virDomain(self, _obj=dom), devAlias, reason, opaque)
         return 0
 
-    def _dispatchDomainEventPMWakeupCallback(self, dom: 'virDomain', reason: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventPMWakeupCallback(self, dom: 'virDomain', reason: int, cbData: dict[str, Any]) -> int:
         """Dispatches event to python user domain pmwakeup event callbacks
         """
         cb = cbData["cb"]
@@ -152,7 +152,7 @@
         cb(self, virDomain(self, _obj=dom), reason, opaque)
         return 0
 
-    def _dispatchDomainEventPMSuspendCallback(self, dom: 'virDomain', reason: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventPMSuspendCallback(self, dom: 'virDomain', reason: int, cbData: dict[str, Any]) -> int:
         """Dispatches event to python user domain pmsuspend event callbacks
         """
         cb = cbData["cb"]
@@ -161,7 +161,7 @@
         cb(self, virDomain(self, _obj=dom), reason, opaque)
         return 0
 
-    def _dispatchDomainEventBalloonChangeCallback(self, dom: 'virDomain', actual: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventBalloonChangeCallback(self, dom: 'virDomain', actual: int, cbData: dict[str, Any]) -> int:
         """Dispatches events to python user domain balloon change event callbacks
         """
         cb = cbData["cb"]
@@ -170,7 +170,7 @@
         cb(self, virDomain(self, _obj=dom), actual, opaque)
         return 0
 
-    def _dispatchDomainEventPMSuspendDiskCallback(self, dom: 'virDomain', reason: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventPMSuspendDiskCallback(self, dom: 'virDomain', reason: int, cbData: dict[str, Any]) -> int:
         """Dispatches event to python user domain pmsuspend-disk event callbacks
         """
         cb = cbData["cb"]
@@ -179,7 +179,7 @@
         cb(self, virDomain(self, _obj=dom), reason, opaque)
         return 0
 
-    def _dispatchDomainEventDeviceRemovedCallback(self, dom: 'virDomain', devAlias: str, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventDeviceRemovedCallback(self, dom: 'virDomain', devAlias: str, cbData: dict[str, Any]) -> int:
         """Dispatches event to python user domain device removed event callbacks
         """
         cb = cbData["cb"]
@@ -188,7 +188,7 @@
         cb(self, virDomain(self, _obj=dom), devAlias, opaque)
         return 0
 
-    def _dispatchDomainEventTunableCallback(self, dom: 'virDomain', params: Any, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventTunableCallback(self, dom: 'virDomain', params: Any, cbData: dict[str, Any]) -> int:
         """Dispatches event to python user domain tunable event callbacks
         """
         cb = cbData["cb"]
@@ -197,7 +197,7 @@
         cb(self, virDomain(self, _obj=dom), params, opaque)
         return 0
 
-    def _dispatchDomainEventAgentLifecycleCallback(self, dom: 'virDomain', state: int, reason: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventAgentLifecycleCallback(self, dom: 'virDomain', state: int, reason: int, cbData: dict[str, Any]) -> int:
         """Dispatches event to python user domain agent lifecycle event callback
         """
 
@@ -207,7 +207,7 @@
         cb(self, virDomain(self, _obj=dom), state, reason, opaque)
         return 0
 
-    def _dispatchDomainEventDeviceAddedCallback(self, dom: 'virDomain', devAlias: str, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventDeviceAddedCallback(self, dom: 'virDomain', devAlias: str, cbData: dict[str, Any]) -> int:
         """Dispatches event to python user domain device added event callbacks
         """
         cb = cbData["cb"]
@@ -216,7 +216,7 @@
         cb(self, virDomain(self, _obj=dom), devAlias, opaque)
         return 0
 
-    def _dispatchDomainEventMigrationIterationCallback(self, dom: 'virDomain', iteration: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventMigrationIterationCallback(self, dom: 'virDomain', iteration: int, cbData: dict[str, Any]) -> int:
         """Dispatches event to python user domain migration iteration event callbacks
         """
         cb = cbData["cb"]
@@ -225,7 +225,7 @@
         cb(self, virDomain(self, _obj=dom), iteration, opaque)
         return 0
 
-    def _dispatchDomainEventJobCompletedCallback(self, dom: 'virDomain', params: Dict[str, Any], cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventJobCompletedCallback(self, dom: 'virDomain', params: dict[str, Any], cbData: dict[str, Any]) -> int:
         """Dispatches event to python user domain job completed callbacks
         """
         cb = cbData["cb"]
@@ -234,7 +234,7 @@
         cb(self, virDomain(self, _obj=dom), params, opaque)
         return 0
 
-    def _dispatchDomainEventDeviceRemovalFailedCallback(self, dom: 'virDomain', devAlias: str, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventDeviceRemovalFailedCallback(self, dom: 'virDomain', devAlias: str, cbData: dict[str, Any]) -> int:
         """Dispatches event to python user domain device removal failed event callbacks
         """
         cb = cbData["cb"]
@@ -243,7 +243,7 @@
         cb(self, virDomain(self, _obj=dom), devAlias, opaque)
         return 0
 
-    def _dispatchDomainEventMetadataChangeCallback(self, dom: 'virDomain', mtype: int, nsuri: str, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventMetadataChangeCallback(self, dom: 'virDomain', mtype: int, nsuri: str, cbData: dict[str, Any]) -> int:
         """Dispatches event to python user domain metadata change event callbacks
         """
         cb = cbData["cb"]
@@ -252,7 +252,7 @@
         cb(self, virDomain(self, _obj=dom), mtype, nsuri, opaque)
         return 0
 
-    def _dispatchDomainEventBlockThresholdCallback(self, dom: 'virDomain', dev: str, path: str, threshold: int, excess: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventBlockThresholdCallback(self, dom: 'virDomain', dev: str, path: str, threshold: int, excess: int, cbData: dict[str, Any]) -> int:
         """Dispatches event to python user domain block device threshold event callbacks
         """
         cb = cbData["cb"]
@@ -261,7 +261,7 @@
         cb(self, virDomain(self, _obj=dom), dev, path, threshold, excess, opaque)
         return 0
 
-    def _dispatchDomainEventMemoryFailureCallback(self, dom: 'virDomain', recipient: int, action: int, flags: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventMemoryFailureCallback(self, dom: 'virDomain', recipient: int, action: int, flags: int, cbData: dict[str, Any]) -> int:
         """Dispatches event to python user domain memory failure event callbacks
         """
         cb = cbData["cb"]
@@ -270,7 +270,7 @@
         cb(self, virDomain(self, _obj=dom), recipient, action, flags, opaque)
         return 0
 
-    def _dispatchDomainEventMemoryDeviceSizeChangeCallback(self, dom: 'virDomain', alias: str, size: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventMemoryDeviceSizeChangeCallback(self, dom: 'virDomain', alias: str, size: int, cbData: dict[str, Any]) -> int:
         """Dispatches event to python user domain memory device size change event callbacks
         """
         cb = cbData["cb"]
@@ -279,7 +279,7 @@
         cb(self, virDomain(self, _obj=dom), alias, size, opaque)
         return 0
 
-    def _dispatchDomainEventNICMACChangeCallback(self, dom: 'virDomain', alias: str, oldMAC: str, newMAC: str, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventNICMACChangeCallback(self, dom: 'virDomain', alias: str, oldMAC: str, newMAC: str, cbData: dict[str, Any]) -> int:
         """Dispatches event to python user domain NIC MAC change event callbacks
         """
         cb = cbData["cb"]
@@ -288,7 +288,7 @@
         cb(self, virDomain(self, _obj=dom), alias, oldMAC, newMAC, opaque)
         return 0
 
-    def _dispatchDomainEventVcpuRemovedCallback(self, dom: 'virDomain', vcpuid: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventVcpuRemovedCallback(self, dom: 'virDomain', vcpuid: int, cbData: dict[str, Any]) -> int:
         """Dispatches event to python user domain vCPU removal  event callbacks
         """
         cb = cbData["cb"]
@@ -308,7 +308,7 @@
         except AttributeError:
             pass
 
-    def _dispatchNetworkEventLifecycleCallback(self, net: 'virNetwork', event: int, detail: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchNetworkEventLifecycleCallback(self, net: 'virNetwork', event: int, detail: int, cbData: dict[str, Any]) -> int:
         """Dispatches events to python user network lifecycle event callbacks
         """
         cb = cbData["cb"]
@@ -317,7 +317,7 @@
         cb(self, virNetwork(self, _obj=net), event, detail, opaque)
         return 0
 
-    def _dispatchNetworkEventMetadataChangeCallback(self, dom: 'virNetwork', mtype: int, nsuri: str, cbData: Dict[str, Any]) -> int:
+    def _dispatchNetworkEventMetadataChangeCallback(self, dom: 'virNetwork', mtype: int, nsuri: str, cbData: dict[str, Any]) -> int:
         """Dispatches event to python user network metadata change event callbacks
         """
         cb = cbData["cb"]
@@ -326,7 +326,7 @@
         cb(self, virNetwork(self, _obj=dom), mtype, nsuri, opaque)
         return 0
 
-    def _dispatchDomainEventChannelLifecycleCallback(self, dom: 'virDomain', state: int, reason: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchDomainEventChannelLifecycleCallback(self, dom: 'virDomain', state: int, reason: int, cbData: dict[str, Any]) -> int:
         """Dispatches event to python user domain channel lifecycle event callback
         """
 
@@ -351,7 +351,7 @@
         """Adds a Network Event Callback. Registering for a network
            callback will enable delivery of the events"""
         if not hasattr(self, 'networkEventCallbackID'):
-            self.networkEventCallbackID = {}  # type: Dict[int, _T]
+            self.networkEventCallbackID = {}  # type: dict[int, _T]
         cbData = {"cb": cb, "conn": self, "opaque": opaque}
         if net is None:
             ret = libvirtmod.virConnectNetworkEventRegisterAny(self._o, None, eventID, cbData)
@@ -366,7 +366,7 @@
         """Adds a Domain Event Callback. Registering for a domain
            callback will enable delivery of the events """
         if not hasattr(self, 'domainEventCallbackID'):
-            self.domainEventCallbackID = {}  # type: Dict[int, _T]
+            self.domainEventCallbackID = {}  # type: dict[int, _T]
         cbData = {"cb": cb, "conn": self, "opaque": opaque}
         if dom is None:
             ret = libvirtmod.virConnectDomainEventRegisterAny(self._o, None, eventID, cbData)
@@ -377,7 +377,7 @@
         self.domainEventCallbackID[ret] = opaque
         return ret
 
-    def _dispatchStoragePoolEventLifecycleCallback(self, pool: 'virStoragePool', event: int, detail: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchStoragePoolEventLifecycleCallback(self, pool: 'virStoragePool', event: int, detail: int, cbData: dict[str, Any]) -> int:
         """Dispatches events to python user storage pool
            lifecycle event callbacks
         """
@@ -387,7 +387,7 @@
         cb(self, virStoragePool(self, _obj=pool), event, detail, opaque)
         return 0
 
-    def _dispatchStoragePoolEventGenericCallback(self, pool: 'virStoragePool', cbData: Dict[str, Any]) -> int:
+    def _dispatchStoragePoolEventGenericCallback(self, pool: 'virStoragePool', cbData: dict[str, Any]) -> int:
         """Dispatches events to python user storage pool
            generic event callbacks
         """
@@ -412,7 +412,7 @@
         """Adds a Storage Pool Event Callback. Registering for a storage pool
            callback will enable delivery of the events"""
         if not hasattr(self, 'storagePoolEventCallbackID'):
-            self.storagePoolEventCallbackID = {}  # type: Dict[int, _T]
+            self.storagePoolEventCallbackID = {}  # type: dict[int, _T]
         cbData = {"cb": cb, "conn": self, "opaque": opaque}
         if pool is None:
             ret = libvirtmod.virConnectStoragePoolEventRegisterAny(self._o, None, eventID, cbData)
@@ -423,7 +423,7 @@
         self.storagePoolEventCallbackID[ret] = opaque
         return ret
 
-    def _dispatchNodeDeviceEventLifecycleCallback(self, dev: 'virNodeDevice', event: int, detail: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchNodeDeviceEventLifecycleCallback(self, dev: 'virNodeDevice', event: int, detail: int, cbData: dict[str, Any]) -> int:
         """Dispatches events to python user node device
            lifecycle event callbacks
         """
@@ -433,7 +433,7 @@
         cb(self, virNodeDevice(self, _obj=dev), event, detail, opaque)
         return 0
 
-    def _dispatchNodeDeviceEventGenericCallback(self, dev: 'virNodeDevice', cbData: Dict[str, Any]) -> int:
+    def _dispatchNodeDeviceEventGenericCallback(self, dev: 'virNodeDevice', cbData: dict[str, Any]) -> int:
         """Dispatches events to python user node device
            generic event callbacks
         """
@@ -458,7 +458,7 @@
         """Adds a Node Device Event Callback. Registering for a node device
            callback will enable delivery of the events"""
         if not hasattr(self, 'nodeDeviceEventCallbackID'):
-            self.nodeDeviceEventCallbackID = {}  # type: Dict[int, _T]
+            self.nodeDeviceEventCallbackID = {}  # type: dict[int, _T]
         cbData = {"cb": cb, "conn": self, "opaque": opaque}
         if dev is None:
             ret = libvirtmod.virConnectNodeDeviceEventRegisterAny(self._o, None, eventID, cbData)
@@ -469,7 +469,7 @@
         self.nodeDeviceEventCallbackID[ret] = opaque
         return ret
 
-    def _dispatchSecretEventLifecycleCallback(self, secret: 'virSecret', event: int, detail: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchSecretEventLifecycleCallback(self, secret: 'virSecret', event: int, detail: int, cbData: dict[str, Any]) -> int:
         """Dispatches events to python user secret lifecycle event callbacks
         """
         cb = cbData["cb"]
@@ -478,7 +478,7 @@
         cb(self, virSecret(self, _obj=secret), event, detail, opaque)
         return 0
 
-    def _dispatchSecretEventGenericCallback(self, secret: 'virSecret', cbData: Dict[str, Any]) -> int:
+    def _dispatchSecretEventGenericCallback(self, secret: 'virSecret', cbData: dict[str, Any]) -> int:
         """Dispatches events to python user secret generic event callbacks
         """
         cb = cbData["cb"]
@@ -502,7 +502,7 @@
         """Adds a Secret Event Callback. Registering for a secret
            callback will enable delivery of the events"""
         if not hasattr(self, 'secretEventCallbackID'):
-            self.secretEventCallbackID = {}  # type: Dict[int, _T]
+            self.secretEventCallbackID = {}  # type: dict[int, _T]
         cbData = {"cb": cb, "conn": self, "opaque": opaque}
         if secret is None:
             ret = libvirtmod.virConnectSecretEventRegisterAny(self._o, None, eventID, cbData)
@@ -513,7 +513,7 @@
         self.secretEventCallbackID[ret] = opaque
         return ret
 
-    def listAllDomains(self, flags: int = 0) -> List['virDomain']:
+    def listAllDomains(self, flags: Optional[int] = 0) -> list['virDomain']:
         """List all domains and returns a list of domain objects"""
         ret = libvirtmod.virConnectListAllDomains(self._o, flags)
         if ret is None:
@@ -521,7 +521,7 @@
 
         return [virDomain(self, _obj=domptr) for domptr in ret]
 
-    def listAllStoragePools(self, flags: int = 0) -> List['virStoragePool']:
+    def listAllStoragePools(self, flags: Optional[int] = 0) -> list['virStoragePool']:
         """Returns a list of storage pool objects"""
         ret = libvirtmod.virConnectListAllStoragePools(self._o, flags)
         if ret is None:
@@ -529,7 +529,7 @@
 
         return [virStoragePool(self, _obj=poolptr) for poolptr in ret]
 
-    def listAllNetworks(self, flags: int = 0) -> List['virNetwork']:
+    def listAllNetworks(self, flags: Optional[int] = 0) -> list['virNetwork']:
         """Returns a list of network objects"""
         ret = libvirtmod.virConnectListAllNetworks(self._o, flags)
         if ret is None:
@@ -537,7 +537,7 @@
 
         return [virNetwork(self, _obj=netptr) for netptr in ret]
 
-    def listAllInterfaces(self, flags: int = 0) -> List['virInterface']:
+    def listAllInterfaces(self, flags: Optional[int] = 0) -> list['virInterface']:
         """Returns a list of interface objects"""
         ret = libvirtmod.virConnectListAllInterfaces(self._o, flags)
         if ret is None:
@@ -545,7 +545,7 @@
 
         return [virInterface(self, _obj=ifaceptr) for ifaceptr in ret]
 
-    def listAllDevices(self, flags: int = 0) -> List['virNodeDevice']:
+    def listAllDevices(self, flags: Optional[int] = 0) -> list['virNodeDevice']:
         """Returns a list of host node device objects"""
         ret = libvirtmod.virConnectListAllNodeDevices(self._o, flags)
         if ret is None:
@@ -553,7 +553,7 @@
 
         return [virNodeDevice(self, _obj=devptr) for devptr in ret]
 
-    def listAllNWFilters(self, flags: int = 0) -> List['virNWFilter']:
+    def listAllNWFilters(self, flags: Optional[int] = 0) -> list['virNWFilter']:
         """Returns a list of network filter objects"""
         ret = libvirtmod.virConnectListAllNWFilters(self._o, flags)
         if ret is None:
@@ -561,7 +561,7 @@
 
         return [virNWFilter(self, _obj=filter_ptr) for filter_ptr in ret]
 
-    def listAllNWFilterBindings(self, flags: int = 0) -> List['virNWFilterBinding']:
+    def listAllNWFilterBindings(self, flags: Optional[int] = 0) -> list['virNWFilterBinding']:
         """Returns a list of network filter binding objects"""
         ret = libvirtmod.virConnectListAllNWFilterBindings(self._o, flags)
         if ret is None:
@@ -569,7 +569,7 @@
 
         return [virNWFilterBinding(self, _obj=filter_ptr) for filter_ptr in ret]
 
-    def listAllSecrets(self, flags: int = 0) -> List['virSecret']:
+    def listAllSecrets(self, flags: Optional[int] = 0) -> list['virSecret']:
         """Returns a list of secret objects"""
         ret = libvirtmod.virConnectListAllSecrets(self._o, flags)
         if ret is None:
@@ -577,7 +577,7 @@
 
         return [virSecret(self, _obj=secret_ptr) for secret_ptr in ret]
 
-    def _dispatchCloseCallback(self, reason: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchCloseCallback(self, reason: int, cbData: dict[str, Any]) -> int:
         """Dispatches events to python user close callback"""
         cb = cbData["cb"]
         opaque = cbData["opaque"]
@@ -600,7 +600,7 @@
             raise libvirtError('virConnectRegisterCloseCallback() failed')
         return ret
 
-    def createXMLWithFiles(self, xmlDesc: str, files: List[int], flags: int = 0) -> 'virDomain':
+    def createXMLWithFiles(self, xmlDesc: str, files: list[int], flags: Optional[int] = 0) -> 'virDomain':
         """Launch a new guest domain, based on an XML description similar
         to the one returned by virDomainGetXMLDesc()
         This function may require privileged access to the hypervisor.
@@ -631,7 +631,7 @@
         __tmp = virDomain(self, _obj=ret)
         return __tmp
 
-    def getAllDomainStats(self, stats: int = 0, flags: int = 0) -> List[Tuple['virDomain', Dict[str, Any]]]:
+    def getAllDomainStats(self, stats: Optional[int] = 0, flags: Optional[int] = 0) -> list[tuple['virDomain', dict[str, Any]]]:
         """Query statistics for all domains on a given connection.
 
         Report statistics of various parameters for a running VM according to @stats
@@ -679,7 +679,7 @@
 
         return [(virDomain(self, _obj=elem[0]), elem[1]) for elem in ret]
 
-    def domainListGetStats(self, doms: List['virDomain'], stats: int = 0, flags: int = 0) -> List[Tuple['virDomain', Dict[str, Any]]]:
+    def domainListGetStats(self, doms: list['virDomain'], stats: Optional[int] = 0, flags: Optional[int] = 0) -> list[tuple['virDomain', dict[str, Any]]]:
         """ Query statistics for given domains.
 
         Report statistics of various parameters for a running VM according to @stats

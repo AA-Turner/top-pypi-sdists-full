@@ -10,9 +10,6 @@ from ..core.request_options import RequestOptions
 from ..requests.doc_digitization_job_parameters import (
     DocDigitizationJobParametersParams,
 )
-from ..requests.doc_digitization_webhook_callback import (
-    DocDigitizationWebhookCallbackParams,
-)
 from ..types.doc_digitization_create_job_response import (
     DocDigitizationCreateJobResponse,
 )
@@ -273,7 +270,6 @@ class DocumentIntelligenceClient:
         *,
         language: str = "hi-IN",
         output_format: str = "html",
-        callback_url: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DocumentIntelligenceJob:
         """
@@ -292,9 +288,6 @@ class DocumentIntelligenceClient:
 
         output_format : str
             Output format: "html" or "md" (default: "html")
-
-        callback_url : str, optional
-            Webhook URL for completion notification
 
         request_options : RequestOptions, optional
             Request-specific configuration
@@ -328,15 +321,9 @@ class DocumentIntelligenceClient:
             "output_format": output_format,
         }
 
-        # Build callback if provided
-        callback: typing.Optional[DocDigitizationWebhookCallbackParams] = None
-        if callback_url is not None:
-            callback = {"url": callback_url}
-
         # Create the job via the API
         response = self.initialise(
             job_parameters=job_params,
-            callback=callback,
             request_options=request_options,
         )
 
@@ -352,7 +339,6 @@ class DocumentIntelligenceClient:
         self,
         *,
         job_parameters: typing.Optional[DocDigitizationJobParametersParams] = OMIT,
-        callback: typing.Optional[DocDigitizationWebhookCallbackParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DocDigitizationCreateJobResponse:
         """
@@ -398,16 +384,10 @@ class DocumentIntelligenceClient:
         - `caption_en`: Same as describe_image (English)
         - `caption_in`: Caption in document language
 
-        **Webhook Callback:**
-        Optionally provide a callback URL to receive notification when processing completes.
-
         Parameters
         ----------
         job_parameters : typing.Optional[DocDigitizationJobParametersParams]
             Job configuration parameters. Omit the request body to use defaults.
-
-        callback : typing.Optional[DocDigitizationWebhookCallbackParams]
-            Optional webhook for completion notification
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -428,7 +408,6 @@ class DocumentIntelligenceClient:
         """
         _response = self._raw_client.initialise(
             job_parameters=job_parameters,
-            callback=callback,
             request_options=request_options,
         )
         return _response.data
@@ -498,7 +477,7 @@ class DocumentIntelligenceClient:
         - User must have sufficient credits
 
         **Processing:**
-        Job runs asynchronously. Poll the status endpoint or use webhook callback for completion notification.
+        Job runs asynchronously. Poll the status endpoint for completion.
 
         Parameters
         ----------
@@ -854,7 +833,6 @@ class AsyncDocumentIntelligenceClient:
         *,
         language: str = "hi-IN",
         output_format: str = "html",
-        callback_url: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncDocumentIntelligenceJob:
         """
@@ -873,9 +851,6 @@ class AsyncDocumentIntelligenceClient:
 
         output_format : str
             Output format: "html" or "md" (default: "html")
-
-        callback_url : str, optional
-            Webhook URL for completion notification
 
         request_options : RequestOptions, optional
             Request-specific configuration
@@ -913,15 +888,9 @@ class AsyncDocumentIntelligenceClient:
             "output_format": output_format,
         }
 
-        # Build callback if provided
-        callback: typing.Optional[DocDigitizationWebhookCallbackParams] = None
-        if callback_url is not None:
-            callback = {"url": callback_url}
-
         # Create the job via the API
         response = await self.initialise(
             job_parameters=job_params,
-            callback=callback,
             request_options=request_options,
         )
 
@@ -937,7 +906,6 @@ class AsyncDocumentIntelligenceClient:
         self,
         *,
         job_parameters: typing.Optional[DocDigitizationJobParametersParams] = OMIT,
-        callback: typing.Optional[DocDigitizationWebhookCallbackParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DocDigitizationCreateJobResponse:
         """
@@ -983,16 +951,10 @@ class AsyncDocumentIntelligenceClient:
         - `caption_en`: Same as describe_image (English)
         - `caption_in`: Caption in document language
 
-        **Webhook Callback:**
-        Optionally provide a callback URL to receive notification when processing completes.
-
         Parameters
         ----------
         job_parameters : typing.Optional[DocDigitizationJobParametersParams]
             Job configuration parameters. Omit the request body to use defaults.
-
-        callback : typing.Optional[DocDigitizationWebhookCallbackParams]
-            Optional webhook for completion notification
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1021,7 +983,6 @@ class AsyncDocumentIntelligenceClient:
         """
         _response = await self._raw_client.initialise(
             job_parameters=job_parameters,
-            callback=callback,
             request_options=request_options,
         )
         return _response.data
@@ -1099,7 +1060,7 @@ class AsyncDocumentIntelligenceClient:
         - User must have sufficient credits
 
         **Processing:**
-        Job runs asynchronously. Poll the status endpoint or use webhook callback for completion notification.
+        Job runs asynchronously. Poll the status endpoint for completion.
 
         Parameters
         ----------

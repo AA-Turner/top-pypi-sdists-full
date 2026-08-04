@@ -28,12 +28,14 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from click.testing import CliRunner
 
+import notebooklm.auth as auth_module
+import notebooklm.cli.helpers as helpers_module
 from notebooklm.notebooklm_cli import cli
 from notebooklm.types import Artifact, Note, Notebook, Source
 
 from .conftest import (
     create_mock_client,
-    patch_main_cli_client,
+    inject_client,
 )
 
 
@@ -56,7 +58,7 @@ def _reset_notebooklm_logger():
 @pytest.fixture
 def mock_auth():
     """Auth fixture local to this file (mirrors the cli conftest pattern)."""
-    with patch("notebooklm.cli.helpers.load_auth_from_storage") as mock:
+    with patch.object(helpers_module, "load_auth_from_storage") as mock:
         mock.return_value = {
             "SID": "test",
             "__Secure-1PSIDTS": "test_1psidts",
@@ -71,8 +73,9 @@ def mock_auth():
 @pytest.fixture
 def fetch_tokens():
     """Mock ``fetch_tokens_with_domains`` so the auth path resolves cleanly."""
-    with patch(
-        "notebooklm.auth.fetch_tokens_with_domains",
+    with patch.object(
+        auth_module,
+        "fetch_tokens_with_domains",
         new_callable=AsyncMock,
         return_value=("csrf", "session"),
     ) as mock:
@@ -181,19 +184,18 @@ class TestQuietArtifactDelete:
         """``notebooklm --quiet artifact delete <id> --yes`` exits 0 with no
         stdout and no Rich-decorated output.
         """
-        with patch("notebooklm.cli.artifact_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[Artifact(id="art_123", title="Test", _artifact_type=4, status=3)]
-            )
-            mock_client.notes.list_mind_maps = AsyncMock(return_value=[])
-            mock_client.artifacts.delete = AsyncMock(return_value=None)
-            mock_client_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[Artifact(id="art_123", title="Test", _artifact_type=4, status=3)]
+        )
+        mock_client.mind_maps.list_note_backed = AsyncMock(return_value=[])
+        mock_client.artifacts.delete = AsyncMock(return_value=None)
 
-            result = runner.invoke(
-                cli,
-                ["--quiet", "artifact", "delete", "art_123", "-n", "nb_123", "-y"],
-            )
+        result = runner.invoke(
+            cli,
+            ["--quiet", "artifact", "delete", "art_123", "-n", "nb_123", "-y"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         # ``CliRunner.output`` is stdout+stderr mixed. Quiet must suppress the
@@ -211,28 +213,27 @@ class TestQuietArtifactDelete:
         JSON is the deliverable, not "status". Quiet suppresses prose; JSON
         is structured output.
         """
-        with patch("notebooklm.cli.artifact_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[Artifact(id="art_456", title="JsonTest", _artifact_type=4, status=3)]
-            )
-            mock_client.notes.list_mind_maps = AsyncMock(return_value=[])
-            mock_client.artifacts.delete = AsyncMock(return_value=None)
-            mock_client_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[Artifact(id="art_456", title="JsonTest", _artifact_type=4, status=3)]
+        )
+        mock_client.mind_maps.list_note_backed = AsyncMock(return_value=[])
+        mock_client.artifacts.delete = AsyncMock(return_value=None)
 
-            result = runner.invoke(
-                cli,
-                [
-                    "--quiet",
-                    "artifact",
-                    "delete",
-                    "art_456",
-                    "-n",
-                    "nb_123",
-                    "-y",
-                    "--json",
-                ],
-            )
+        result = runner.invoke(
+            cli,
+            [
+                "--quiet",
+                "artifact",
+                "delete",
+                "art_456",
+                "-n",
+                "nb_123",
+                "-y",
+                "--json",
+            ],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         data = json.loads(result.output)
@@ -243,16 +244,18 @@ class TestQuietArtifactDelete:
         stdout. Pinned so the quiet plumbing cannot accidentally suppress
         the default-mode UX.
         """
-        with patch("notebooklm.cli.artifact_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[Artifact(id="art_789", title="Loud", _artifact_type=4, status=3)]
-            )
-            mock_client.notes.list_mind_maps = AsyncMock(return_value=[])
-            mock_client.artifacts.delete = AsyncMock(return_value=None)
-            mock_client_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[Artifact(id="art_789", title="Loud", _artifact_type=4, status=3)]
+        )
+        mock_client.mind_maps.list_note_backed = AsyncMock(return_value=[])
+        mock_client.artifacts.delete = AsyncMock(return_value=None)
 
-            result = runner.invoke(cli, ["artifact", "delete", "art_789", "-n", "nb_123", "-y"])
+        result = runner.invoke(
+            cli,
+            ["artifact", "delete", "art_789", "-n", "nb_123", "-y"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         assert "Deleted artifact" in result.output
@@ -268,12 +271,14 @@ class TestQuietSourceClean:
         """``notebooklm --quiet source clean -y`` with no junk sources exits 0
         with no stdout — the "Notebook is already clean" line is status prose.
         """
-        with patch("notebooklm.cli.source_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            mock_client.sources.list = AsyncMock(return_value=[])
-            mock_client_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.sources.list = AsyncMock(return_value=[])
 
-            result = runner.invoke(cli, ["--quiet", "source", "clean", "-n", "nb_123", "-y"])
+        result = runner.invoke(
+            cli,
+            ["--quiet", "source", "clean", "-n", "nb_123", "-y"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         assert result.output == ""
@@ -285,13 +290,15 @@ class TestQuietSourceClean:
         """
         # A source with status=FAILED is treated as junk by the classifier.
         junk = Source(id="src_junk_1", title="Junk Source", status=5)  # 5 = FAILED
-        with patch("notebooklm.cli.source_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            mock_client.sources.list = AsyncMock(return_value=[junk])
-            mock_client.sources.delete = AsyncMock(return_value=None)
-            mock_client_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.sources.list = AsyncMock(return_value=[junk])
+        mock_client.sources.delete = AsyncMock(return_value=None)
 
-            result = runner.invoke(cli, ["--quiet", "source", "clean", "-n", "nb_123", "-y"])
+        result = runner.invoke(
+            cli,
+            ["--quiet", "source", "clean", "-n", "nb_123", "-y"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         # No candidate table or "Successfully cleaned" prose.
@@ -310,13 +317,15 @@ class TestQuietSourceClean:
         async def fail_delete(_notebook_id, _source_id):
             raise RuntimeError("delete failed")
 
-        with patch("notebooklm.cli.source_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            mock_client.sources.list = AsyncMock(return_value=[junk])
-            mock_client.sources.delete = AsyncMock(side_effect=fail_delete)
-            mock_client_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.sources.list = AsyncMock(return_value=[junk])
+        mock_client.sources.delete = AsyncMock(side_effect=fail_delete)
 
-            result = runner.invoke(cli, ["--quiet", "source", "clean", "-n", "nb_123", "-y"])
+        result = runner.invoke(
+            cli,
+            ["--quiet", "source", "clean", "-n", "nb_123", "-y"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code != 0, result.output
         assert "1 deletion(s) failed" in result.output
@@ -326,12 +335,12 @@ class TestQuietSourceClean:
     def test_non_quiet_source_clean_still_prints_success(self, runner, mock_auth, fetch_tokens):
         """Baseline: non-quiet ``source clean -y`` still emits the success
         line (or already-clean line)."""
-        with patch("notebooklm.cli.source_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            mock_client.sources.list = AsyncMock(return_value=[])
-            mock_client_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.sources.list = AsyncMock(return_value=[])
 
-            result = runner.invoke(cli, ["source", "clean", "-n", "nb_123", "-y"])
+        result = runner.invoke(
+            cli, ["source", "clean", "-n", "nb_123", "-y"], obj=inject_client(mock_client)
+        )
 
         assert result.exit_code == 0, result.output
         assert "already clean" in result.output.lower()
@@ -349,39 +358,39 @@ class TestQuietRepresentativeCommands:
     """
 
     def test_quiet_source_delete(self, runner, mock_auth, fetch_tokens):
-        with patch("notebooklm.cli.source_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            mock_client.sources.list = AsyncMock(return_value=[Source(id="src_1", title="Doomed")])
-            mock_client.sources.delete = AsyncMock(return_value=True)
-            mock_client_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.sources.list = AsyncMock(return_value=[Source(id="src_1", title="Doomed")])
+        mock_client.sources.delete = AsyncMock(return_value=True)
 
-            result = runner.invoke(
-                cli, ["--quiet", "source", "delete", "src_1", "-n", "nb_123", "-y"]
-            )
+        result = runner.invoke(
+            cli,
+            ["--quiet", "source", "delete", "src_1", "-n", "nb_123", "-y"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         assert "Deleted source" not in result.output
         assert result.output == ""
 
     def test_quiet_note_delete(self, runner, mock_auth, fetch_tokens):
-        with patch("notebooklm.cli.note_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            mock_client.notes.list = AsyncMock(
-                return_value=[
-                    Note(
-                        id="note_1",
-                        notebook_id="nb_123",
-                        title="Doomed Note",
-                        content="body",
-                    )
-                ]
-            )
-            mock_client.notes.delete = AsyncMock(return_value=None)
-            mock_client_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.notes.list = AsyncMock(
+            return_value=[
+                Note(
+                    id="note_1",
+                    notebook_id="nb_123",
+                    title="Doomed Note",
+                    content="body",
+                )
+            ]
+        )
+        mock_client.notes.delete = AsyncMock(return_value=None)
 
-            result = runner.invoke(
-                cli, ["--quiet", "note", "delete", "note_1", "-n", "nb_123", "-y"]
-            )
+        result = runner.invoke(
+            cli,
+            ["--quiet", "note", "delete", "note_1", "-n", "nb_123", "-y"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         assert "Deleted" not in result.output
@@ -390,15 +399,14 @@ class TestQuietRepresentativeCommands:
 
     def test_quiet_notebook_create(self, runner, mock_auth, fetch_tokens):
         """``notebooklm --quiet create "Title"`` exits 0 with no prose."""
-        with patch_main_cli_client() as mock_client_cls:
-            new_nb = Notebook(id="nb_new", title="My Notebook")
-            # ``create`` lives in cli/notebook.py; the multi-patcher covers it.
-            for m in mock_client_cls._mocks:  # type: ignore[attr-defined]
-                instance = create_mock_client()
-                instance.notebooks.create = AsyncMock(return_value=new_nb)
-                m.return_value = instance
+        new_nb = Notebook(id="nb_new", title="My Notebook")
+        # ``create`` lives in cli/notebook_cmd.py; the injected factory serves it.
+        mock_client = create_mock_client()
+        mock_client.notebooks.create = AsyncMock(return_value=new_nb)
 
-            result = runner.invoke(cli, ["--quiet", "create", "My Notebook"])
+        result = runner.invoke(
+            cli, ["--quiet", "create", "My Notebook"], obj=inject_client(mock_client)
+        )
 
         assert result.exit_code == 0, result.output
         # Non-quiet would emit "Created notebook: nb_new" — suppressed.
@@ -406,14 +414,11 @@ class TestQuietRepresentativeCommands:
 
     def test_non_quiet_notebook_create_still_prints(self, runner, mock_auth, fetch_tokens):
         """Baseline: ``create`` without ``--quiet`` still prints success."""
-        with patch_main_cli_client() as mock_client_cls:
-            new_nb = Notebook(id="nb_loud", title="Loud Notebook")
-            for m in mock_client_cls._mocks:  # type: ignore[attr-defined]
-                instance = create_mock_client()
-                instance.notebooks.create = AsyncMock(return_value=new_nb)
-                m.return_value = instance
+        new_nb = Notebook(id="nb_loud", title="Loud Notebook")
+        mock_client = create_mock_client()
+        mock_client.notebooks.create = AsyncMock(return_value=new_nb)
 
-            result = runner.invoke(cli, ["create", "Loud Notebook"])
+        result = runner.invoke(cli, ["create", "Loud Notebook"], obj=inject_client(mock_client))
 
         assert result.exit_code == 0, result.output
         # ``create`` emits some success prose. The exact phrasing varies; we

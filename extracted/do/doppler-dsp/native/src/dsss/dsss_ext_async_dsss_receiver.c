@@ -661,16 +661,27 @@ static PyGetSetDef AsyncDsssReceiver_getset[] = {
     "refining, the CarrierAcquisition-refined value once tracking.\n",
     NULL },
   { "cn0_dbhz_est", (getter)AsyncDsssReceiver_getprop_cn0_dbhz_est, NULL,
-    "Cn0 dbhz est.\n", NULL },
+    "Cached from the winning acquisition hit.\n", NULL },
   { "segments", (getter)AsyncDsssReceiver_getprop_segments, NULL,
-    "Segments.\n", NULL },
-  { "sps", (getter)AsyncDsssReceiver_getprop_sps, NULL, "Sps.\n", NULL },
-  { "n", (getter)AsyncDsssReceiver_getprop_n, NULL, "N.\n", NULL },
+    "Live-tracking Dll's own segments -- distinct from refine_segments above "
+    "(see the module docstring / dll_lookback_segments()'s own doc on the "
+    "WINDOWS vs TRACK_WINDOWS split).\n",
+    NULL },
+  { "sps", (getter)AsyncDsssReceiver_getprop_sps, NULL,
+    "MpskReceiver's own samples/symbol.\n", NULL },
+  { "n", (getter)AsyncDsssReceiver_getprop_n, NULL,
+    "MpskReceiver's own carrier-arm count.\n", NULL },
   { "chip_phase", (getter)AsyncDsssReceiver_getprop_chip_phase, NULL,
-    "Chip phase.\n", NULL },
+    "Chips, Dll's own instantaneous-phase convention (the mirror image of "
+    "acq_result_t::code_phase's correlation-lag convention -- see "
+    "acq_build_handoff()'s doc comment).\n",
+    NULL },
   { "code_rate", (getter)AsyncDsssReceiver_getprop_code_rate, NULL,
-    "Code rate.\n", NULL },
-  { "lock", (getter)AsyncDsssReceiver_getprop_lock, NULL, "Lock.\n", NULL },
+    "chips advanced per nominal chip (~1.0).\n", NULL },
+  { "lock", (getter)AsyncDsssReceiver_getprop_lock, NULL,
+    "decision rule on lock_metric: thresholds + verify counters, stepped per "
+    "symbol.\n",
+    NULL },
   { "norm_freq", (getter)AsyncDsssReceiver_getprop_norm_freq, NULL,
     "Smoothed carrier estimate (integrator only, cycles/sample of the "
     "MpskReceiver output rate); lags a Doppler ramp by the constant Type-II "
@@ -768,14 +779,66 @@ static PyMethodDef AsyncDsssReceiverObj_methods[] = {
     "symbols are returned from then on. Accepts any block size; state carries "
     "across calls.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import AsyncDsssReceiver\n"
-    "    >>> obj = AsyncDsssReceiver(np.zeros(1, dtype=np.uint8), 1000000.0, "
-    "1000.0, 2, 2, 55.0, 1e-3, 0.9, 100.0, 4, 8, 0, 0.5, 4, 14.0, 64, 8, "
-    "false, 100000, 0.0)\n"
-    "    >>> y = obj.steps(np.zeros(4))\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex64')\n" },
+    "Drives the search -> refine -> track state machine. While searching or\n"
+    "refining, nothing is emitted (an empty return is normal, not an error):\n"
+    "a hit seeds the frozen-carrier refine chain, `CarrierAcquisition`\n"
+    "sharpens the coarse Doppler estimate, and only once it is ready (or\n"
+    "gives up) is the live tracking chain built and demodulation begins.\n"
+    "Accepts any block size; state carries across calls, so a capture can be\n"
+    "fed in frames of any length with no seam. Under SPEC's coupled offset +\n"
+    "500 Hz/s Doppler ramp the pre-despread Costas removes the full carrier\n"
+    "dynamics before the code loop, so the recovered constellation lands\n"
+    "cleanly on the BPSK real axis.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.complex64]\n"
+    "    Input cf32 samples.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex64]\n"
+    "    Number of symbols written (0 while searching/refining, or while\n"
+    "    tracking with not yet a full symbol's worth of input).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.dsss import AsyncDsssReceiver\n"
+    ">>> from doppler.wfm import Gold\n"
+    ">>> sf, chip, sym, spc = 1023, 3.069e6, 2700.0, 2\n"
+    ">>> fs, te, tsym = chip * spc, sf * spc, chip * spc / sym\n"
+    ">>> code = np.asarray(Gold().generate(sf)).astype(np.uint8)\n"
+    ">>> csign = np.where(code & 1, -1.0, 1.0)\n"
+    ">>> rng = np.random.default_rng(21)\n"
+    ">>> n = int(600 * tsym) + 4 * te            # 600 async BPSK symbols\n"
+    ">>> idx = np.arange(n)\n"
+    ">>> data = (rng.integers(0, 2, 604) * 2 - 1).astype(float)\n"
+    ">>> si = np.clip((idx / tsym).astype(int), 0, 603)\n"
+    ">>> t = idx / fs\n"
+    ">>> sig = (data[si] * csign[(idx // spc) % sf]           # DSSS chips\n"
+    "...        * np.exp(1j * 2 * np.pi * 0.5 * 500.0 * t * t))  # 500 Hz/s "
+    "ramp\n"
+    ">>> cn0 = 20.0 + 10 * np.log10(sym)         # Es/N0 = 20 dB\n"
+    ">>> sigma = np.sqrt(fs / 10 ** (cn0 / 10))\n"
+    ">>> pre = 5 * te                            # noise-only lead-in\n"
+    ">>> noise = (sigma / np.sqrt(2)) * (rng.standard_normal(pre + n)\n"
+    "...          + 1j * rng.standard_normal(pre + n))\n"
+    ">>> x = (np.concatenate([np.zeros(pre), sig]).astype(np.complex64)\n"
+    "...      + noise.astype(np.complex64))\n"
+    ">>> rx = AsyncDsssReceiver(code, chip_rate=chip, symbol_rate=sym,\n"
+    "...                        spc=spc, cn0_dbhz=cn0, "
+    "doppler_uncertainty=500.0)\n"
+    ">>> syms = [rx.steps(x[p:p + te]) for p in range(0, len(x) - te, te)]\n"
+    ">>> syms = np.concatenate([s for s in syms if len(s)])\n"
+    ">>> rx.tracking                       # searched, refined, now tracking\n"
+    "1\n"
+    ">>> len(syms) > 300                    # symbols recovered under the "
+    "ramp\n"
+    "True\n"
+    ">>> bool(np.mean(syms.real**2) > 10 * np.mean(syms.imag**2))  # BPSK on "
+    "I\n"
+    "True\n" },
   { "steps_max_out", (PyCFunction)AsyncDsssReceiverObj_steps_max_out,
     METH_NOARGS,
     "steps_max_out() -> int\n\nMax output length steps() can produce for the "
@@ -788,13 +851,30 @@ static PyMethodDef AsyncDsssReceiverObj_methods[] = {
     "Pin the embedded Acquisition's search grid directly, bypassing the "
     "symbol_rate-driven auto-sizing. Only meaningful while searching.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import AsyncDsssReceiver\n"
-    "    >>> obj = AsyncDsssReceiver(np.zeros(1, dtype=np.uint8), 1000000.0, "
-    "1000.0, 2, 2, 55.0, 1e-3, 0.9, 100.0, 4, 8, 0, 0.5, 4, 14.0, 64, 8, "
-    "false, 100000, 0.0)\n"
-    "    >>> obj.configure_search_raw(0, 0)\n"
-    "    0\n" },
+    "Parameters\n"
+    "----------\n"
+    "doppler_bins : int\n"
+    "    Number of Doppler window tiles to search (>= 1); capped by the\n"
+    "    create-time `doppler_uncertainty` span (one tile per code-epoch\n"
+    "    Doppler bin width).\n"
+    "n_noncoh : int\n"
+    "    Non-coherent looks accumulated per grid cell (1..256); more looks\n"
+    "    buys sensitivity at the cost of dwell, replacing the auto-sized\n"
+    "    count.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.dsss import AsyncDsssReceiver\n"
+    ">>> from doppler.wfm import Gold\n"
+    ">>> code = np.asarray(Gold().generate(1023)).astype(np.uint8)\n"
+    ">>> rx = AsyncDsssReceiver(code, chip_rate=3.069e6, symbol_rate=2700.0,\n"
+    "...                        spc=2, doppler_uncertainty=500.0)\n"
+    ">>> rx.configure_search_raw(doppler_bins=1, n_noncoh=16)  # pin the "
+    "grid\n"
+    ">>> rx.refining                       # still searching, on the pinned "
+    "grid\n"
+    "0\n" },
   { "configure_lock_raw",
     (PyCFunction)(void *)AsyncDsssReceiverObj_configure_lock_raw,
     METH_VARARGS | METH_KEYWORDS,
@@ -805,12 +885,37 @@ static PyMethodDef AsyncDsssReceiverObj_methods[] = {
     "meaningful once tracking has begun; a no-op while searching or "
     "refining.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import AsyncDsssReceiver\n"
-    "    >>> obj = AsyncDsssReceiver(np.zeros(1, dtype=np.uint8), 1000000.0, "
-    "1000.0, 2, 2, 55.0, 1e-3, 0.9, 100.0, 4, 8, 0, 0.5, 4, 14.0, 64, 8, "
-    "false, 100000, 0.0)\n"
-    "    >>> obj.configure_lock_raw(0.0, 0.0, 0, 0.0, 0, 0)\n" },
+    "Parameters\n"
+    "----------\n"
+    "up_thresh : float\n"
+    "    CFAR-statistic level to declare code lock (hit when the statistic\n"
+    "    exceeds it).\n"
+    "down_thresh : float\n"
+    "    Level below which a look is a miss; choose <= up_thresh for level\n"
+    "    hysteresis.\n"
+    "n_looks : int\n"
+    "    Looks per decision — the DLL's non-coherent integration depth\n"
+    "    feeding one statistic.\n"
+    "alpha : float\n"
+    "    EMA smoothing coefficient on the lock statistic (0..1); smaller is\n"
+    "    smoother/slower.\n"
+    "n_up : int\n"
+    "    Consecutive hits required to declare lock.\n"
+    "n_down : int\n"
+    "    Consecutive misses required to drop lock.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.dsss import AsyncDsssReceiver\n"
+    ">>> from doppler.wfm import Gold\n"
+    ">>> code = np.asarray(Gold().generate(1023)).astype(np.uint8)\n"
+    ">>> rx = AsyncDsssReceiver(code, chip_rate=3.069e6, symbol_rate=2700.0,\n"
+    "...                        spc=2, doppler_uncertainty=500.0)\n"
+    ">>> rx.configure_lock_raw(up_thresh=0.4, down_thresh=0.2, n_looks=20,\n"
+    "...                       alpha=0.1, n_up=5, n_down=3)\n"
+    ">>> rx.tracking                       # a no-op until tracking begins\n"
+    "0\n" },
   { "configure_chain_raw",
     (PyCFunction)(void *)AsyncDsssReceiverObj_configure_chain_raw,
     METH_VARARGS | METH_KEYWORDS,
@@ -821,13 +926,26 @@ static PyMethodDef AsyncDsssReceiverObj_methods[] = {
     "rebuilds the chain with every replacement allocated first, so a failed "
     "pin leaves the receiver on its prior grid.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import AsyncDsssReceiver\n"
-    "    >>> obj = AsyncDsssReceiver(np.zeros(1, dtype=np.uint8), 1000000.0, "
-    "1000.0, 2, 2, 55.0, 1e-3, 0.9, 100.0, 4, 8, 0, 0.5, 4, 14.0, 64, 8, "
-    "false, 100000, 0.0)\n"
-    "    >>> obj.configure_chain_raw(0, 0, 0)\n"
-    "    0\n" },
+    "Parameters\n"
+    "----------\n"
+    "segments : int\n"
+    "    Live-tracking Dll segments per code period.\n"
+    "sps : int\n"
+    "    MpskReceiver samples per symbol (the resample target).\n"
+    "n : int\n"
+    "    MpskReceiver's carrier-arm count; must divide sps.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.dsss import AsyncDsssReceiver\n"
+    ">>> from doppler.wfm import Gold\n"
+    ">>> code = np.asarray(Gold().generate(1023)).astype(np.uint8)\n"
+    ">>> rx = AsyncDsssReceiver(code, chip_rate=3.069e6, symbol_rate=2700.0,\n"
+    "...                        spc=2, doppler_uncertainty=500.0)\n"
+    ">>> rx.configure_chain_raw(segments=6, sps=8, n=8)  # re-pin the chain\n"
+    ">>> rx.segments                       # tracking grid updated in place\n"
+    "6\n" },
   { "reset", (PyCFunction)AsyncDsssReceiverObj_reset, METH_NOARGS,
     "reset() -> None\n"
     "\n"
@@ -835,21 +953,107 @@ static PyMethodDef AsyncDsssReceiverObj_methods[] = {
     "every refine-stage/track-stage child (rebuilt from scratch on the next "
     "hit).\n"
     "\n"
-    "    >>> from doppler import AsyncDsssReceiver\n"
-    "    >>> obj = AsyncDsssReceiver(np.zeros(1, dtype=np.uint8), 1000000.0, "
-    "1000.0, 2, 2, 55.0, 1e-3, 0.9, 100.0, 4, 8, 0, 0.5, 4, 14.0, 64, 8, "
-    "false, 100000, 0.0)\n"
-    "    >>> obj.reset()\n" },
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.dsss import AsyncDsssReceiver\n"
+    ">>> from doppler.wfm import Gold\n"
+    ">>> code = np.asarray(Gold().generate(1023)).astype(np.uint8)\n"
+    ">>> rx = AsyncDsssReceiver(code, chip_rate=3.069e6, symbol_rate=2700.0,\n"
+    "...                        spc=2, doppler_uncertainty=500.0)\n"
+    ">>> rx.reset()                        # abort any lock, hunt from "
+    "scratch\n"
+    ">>> (rx.tracking, rx.refining, rx.chip_phase)   # all cleared\n"
+    "(0, 0, 0.0)\n" },
   { "state_bytes", (PyCFunction)AsyncDsssReceiverObj_state_bytes, METH_NOARGS,
-    "Serialized state size in bytes." },
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the AsyncDsssReceiverObj has already been\n"
+    "destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
   { "get_state", (PyCFunction)AsyncDsssReceiverObj_get_state, METH_NOARGS,
-    "Serialize the engine's mutable state to bytes." },
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the AsyncDsssReceiverObj has already been\n"
+    "destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
   { "set_state", (PyCFunction)AsyncDsssReceiverObj_set_state, METH_O,
-    "Restore mutable state from a get_state() blob." },
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the AsyncDsssReceiverObj has already been "
+    "destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
   { "destroy", (PyCFunction)AsyncDsssReceiverObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)AsyncDsssReceiverObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)AsyncDsssReceiverObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)AsyncDsssReceiverObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a AsyncDsssReceiver be used in a `with` statement so its C\n"
+    "resources are released deterministically on exit rather than at\n"
+    "collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "AsyncDsssReceiver\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)AsyncDsssReceiverObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the AsyncDsssReceiver.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

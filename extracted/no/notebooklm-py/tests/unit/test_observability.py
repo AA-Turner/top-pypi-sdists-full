@@ -6,8 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from _fixtures.kernel_test_helpers import install_http_client_for_test
-from _helpers.client_factory import build_client_shell_for_tests
 from notebooklm import (
     ClientMetricsSnapshot,
     NotebookLMClient,
@@ -23,6 +21,8 @@ from notebooklm._sources import SourcesAPI
 from notebooklm.auth import AuthTokens
 from notebooklm.rpc import RPCMethod
 from notebooklm.types import GenerationStatus
+from tests._fixtures.kernel_test_helpers import install_http_client_for_test
+from tests._helpers.client_factory import build_client_shell_for_tests
 
 
 @pytest.mark.asyncio
@@ -31,7 +31,7 @@ async def test_rpc_metrics_event_and_correlation_scope(auth_tokens: AuthTokens) 
 
     As of Tier-12 PR 12.4 the per-RPC success/failure counters and the
     ``on_rpc_event`` fire live inside ``MetricsMiddleware`` (which sits
-    in the chain around ``_perform_authed_post``), not inside
+    in the shared authed transport chain), not inside
     ``RpcExecutor.rpc_call``. The seam the test mocks therefore has to
     live below the chain. We mock the chain terminal so the chain runs
     end-to-end, and we return a wire-format payload that the real decoder
@@ -44,8 +44,8 @@ async def test_rpc_metrics_event_and_correlation_scope(auth_tokens: AuthTokens) 
     """
     events: list[RpcTelemetryEvent] = []
 
-    # Inject the decoder at construction time (Session DI seam — see
-    # ``docs/improvement.md`` §4.1). The real decoder requires a wire
+    # Inject the decoder at construction time (NotebookLMClient test seam; see
+    # ``docs/architecture.md``'s ClientSeams wiring). The real decoder requires a wire
     # payload that matches the method's RPC ID; constructing one makes
     # the test brittle to RPC-ID changes. Stubbing keeps the test focused
     # on observability semantics (counters + events + correlation) rather
@@ -62,7 +62,7 @@ async def test_rpc_metrics_event_and_correlation_scope(auth_tokens: AuthTokens) 
     # Mock the chain LEAF (innermost wrapper around
     # ``Kernel.post``) so the real chain runs
     # end-to-end and ``MetricsMiddleware`` sees the call. Mocking
-    # ``_perform_authed_post`` itself would bypass the chain entirely
+    # the shared authed transport itself would bypass the chain entirely
     # and silence the counters this test exists to assert. Mocking above
     # the chain would do the same.
     from notebooklm._middleware.core import RpcResponse
@@ -97,12 +97,57 @@ async def test_rpc_metrics_event_and_correlation_scope(auth_tokens: AuthTokens) 
     assert snapshot.rpc_calls_started == 1
     assert snapshot.rpc_calls_succeeded == 1
     assert snapshot.rpc_calls_failed == 0
+    # A clean decode never touches the drift counter (issue #1492).
+    assert snapshot.rpc_decode_errors == 0
     assert snapshot.rpc_latency_seconds_total >= 0
 
     assert len(events) == 1
     assert events[0].method == "GET_NOTEBOOK"
     assert events[0].status == "success"
     assert events[0].request_id == "batch-42"
+
+
+@pytest.mark.asyncio
+async def test_rpc_decode_error_bumps_drift_counter(auth_tokens: AuthTokens) -> None:
+    """Public contract: a decode/drift failure increments ``rpc_decode_errors``.
+
+    End-to-end mirror of the success test above (issue #1492). The transport
+    leg returns 200 OK; the injected decoder then raises a ``DecodingError``
+    (the base of ``UnknownRPCMethodError``), exercising the executor's
+    decode-boundary increment. Wire-schema drift is the stated #1 breakage
+    class, so the snapshot must expose it as a dedicated counter distinct from
+    ``rpc_calls_failed`` (which tracks transport-leg failures).
+    """
+    from notebooklm.exceptions import DecodingError
+
+    def drifting_decode(raw: str, rpc_id: str, *, allow_null: bool = False) -> dict:
+        raise DecodingError("Google reshaped the response", method_id=rpc_id)
+
+    core = build_client_shell_for_tests(auth_tokens, decode_response=drifting_decode)
+    install_http_client_for_test(core._collaborators.kernel, AsyncMock(spec=httpx.AsyncClient))
+
+    from notebooklm._middleware.core import RpcResponse, build_chain
+
+    async def fake_terminal(request: object) -> RpcResponse:
+        return RpcResponse(
+            response=httpx.Response(200, text=")]}'\n[]"),
+            context=request.context,  # type: ignore[attr-defined]
+        )
+
+    core._composed.chain_host._authed_post_chain_terminal = fake_terminal  # type: ignore[method-assign]
+    core._composed.chain_host._authed_post_chain = build_chain(
+        core._composed.middlewares, fake_terminal
+    )
+
+    with pytest.raises(DecodingError):
+        await core._rpc_executor.rpc_call(RPCMethod.GET_NOTEBOOK, ["nb_123"])
+
+    snapshot = core._collaborators.metrics.snapshot()
+    assert snapshot.rpc_decode_errors == 1
+    # The transport leg succeeded (200 OK), so the generic transport-failure
+    # counter stays 0 — the drift is counted ONLY under the dedicated signal.
+    assert snapshot.rpc_calls_failed == 0
+    assert snapshot.rpc_calls_started == 1
 
 
 @pytest.mark.asyncio

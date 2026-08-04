@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: h2
-Version: 4.4.0
+Version: 4.4.1
 Summary: Pure-Python HTTP/2 protocol implementation
 Author-email: Cory Benfield <cory@lukasa.co.uk>
 Maintainer-email: Thomas Kriechbaumer <thomas@kriechbaumer.name>

@@ -176,6 +176,126 @@ async def test_missing_source_raises_not_found() -> None:
 
 
 @pytest.mark.asyncio
+async def test_malformed_type_code_warns_and_degrades_to_none(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A present-but-non-int ``metadata[4]`` degrades to ``None`` LOUDLY (#1485).
+
+    Historically the slot was read with no validation at all, so a malformed
+    value flowed straight into ``SourceFulltext._type_code``. The read now
+    goes through ``SourceRow.type_code`` (int-validated); the malformed case
+    warns with a bounded payload preview.
+    """
+    renderer = SourceContentRenderer(
+        RecordingRpc(
+            [
+                ["src_bad", "Article", [None, None, None, None, "not-an-int"]],
+                None,
+                None,
+                [[["Body."]]],
+            ]
+        ),
+        logger=SOURCE_LOGGER,
+    )
+    caplog.set_level("WARNING", logger="notebooklm._sources")
+
+    fulltext = await renderer.get_fulltext("nb_1", "src_bad")
+
+    assert fulltext._type_code is None
+    assert fulltext.content == "Body."
+    assert "type-code slot malformed" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_drive_pdf_type_code_14_fulltext_decodes_to_pdf() -> None:
+    """A Drive-hosted PDF read via GET_SOURCE decodes as PDF, not spreadsheet (#1832).
+
+    Real GET_SOURCE metadata (live capture): ``type_code == 14`` collides with a
+    native Google Sheet, but the row's MIME (``metadata[19]`` / ``metadata[9][2]``)
+    is ``application/pdf`` — so the fulltext path must disambiguate to PDF exactly
+    like ``Source.from_row`` does for the list path.
+    """
+    from notebooklm.types import SourceType
+
+    meta = [None] * 20
+    meta[4] = 14
+    meta[9] = ["drive-id", 5, "application/pdf", ""]
+    meta[19] = "application/pdf"
+    renderer = SourceContentRenderer(
+        RecordingRpc([["src_pdf", "Report.pdf", meta], None, None, [[["Body."]]]])
+    )
+
+    fulltext = await renderer.get_fulltext("nb_1", "src_pdf")
+
+    assert fulltext._type_code == 3
+    assert fulltext.kind == SourceType.PDF
+
+
+@pytest.mark.asyncio
+async def test_pdf_url_title_fallback_applies_to_fulltext() -> None:
+    """``source fulltext`` corrects a degraded direct-PDF-URL title (#1850).
+
+    The fallback lives in a shared helper used by both ``Source.from_row`` and
+    this ``GET_SOURCE`` read, so ``source fulltext`` shows the basename too —
+    not the raw URL (codex review on #1858).
+    """
+    url = "https://example.com/papers/SomePaper.pdf"
+    meta = [None, None, None, None, 3, None, None, [url]]
+    renderer = SourceContentRenderer(
+        RecordingRpc([["src_pdf", url, meta], None, None, [[["Body."]]]])
+    )
+
+    fulltext = await renderer.get_fulltext("nb_1", "src_pdf")
+
+    assert fulltext.title == "SomePaper"
+    assert fulltext.url == url
+    assert fulltext._type_code == 3
+
+
+@pytest.mark.asyncio
+async def test_native_sheet_type_code_14_fulltext_stays_spreadsheet() -> None:
+    """A native Sheet read via GET_SOURCE stays GOOGLE_SPREADSHEET (no regression, #1832)."""
+    from notebooklm.types import SourceType
+
+    meta = [None] * 20
+    meta[4] = 14
+    meta[9] = ["sheet-id", 8, "application/vnd.google-apps.spreadsheet", ""]
+    meta[19] = "application/vnd.google-apps.spreadsheet"
+    renderer = SourceContentRenderer(
+        RecordingRpc([["src_sheet", "Budget", meta], None, None, [[["Body."]]]])
+    )
+
+    fulltext = await renderer.get_fulltext("nb_1", "src_sheet")
+
+    assert fulltext._type_code == 14
+    assert fulltext.kind == SourceType.GOOGLE_SPREADSHEET
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        [None, None],  # too short to carry the type-code slot (absence)
+        [None, None, None, None, None],  # null type-code slot (absence)
+    ],
+)
+async def test_absent_type_code_stays_silent(
+    metadata: list[Any], caplog: pytest.LogCaptureFixture
+) -> None:
+    """An absent / ``None`` type-code slot keeps the silent ``None`` default."""
+    renderer = SourceContentRenderer(
+        RecordingRpc([["src_short", "Article", metadata], None, None, [[["Body."]]]]),
+        logger=SOURCE_LOGGER,
+    )
+    caplog.set_level("WARNING", logger="notebooklm._sources")
+
+    fulltext = await renderer.get_fulltext("nb_1", "src_short")
+
+    assert fulltext._type_code is None
+    assert "type-code slot malformed" not in caplog.text
+
+
+@pytest.mark.asyncio
 async def test_url_and_type_parsing_uses_shared_metadata_rules() -> None:
     renderer = SourceContentRenderer(
         RecordingRpc(
@@ -230,12 +350,13 @@ async def test_get_guide_uses_exact_rpc_shape_and_parses_summary_keywords() -> N
 
     guide = await renderer.get_guide("nb_1", "src_1")
 
-    # Typed return; attribute access is the new way (keywords is a tuple).
+    # Typed return; attribute access is the only way (keywords is a tuple).
     assert guide.summary == "Summary"
     assert guide.keywords == ("keyword1", "keyword2")
-    # Legacy dict-subscript access still works (with a DeprecationWarning).
-    with pytest.warns(DeprecationWarning):
-        assert guide["summary"] == "Summary"
+    # The dict-subscript back-compat bridge was dropped in v0.8.0 (#1251): the
+    # dataclass is now attribute-only, so subscript raises a plain TypeError.
+    with pytest.raises(TypeError, match="not subscriptable"):
+        guide["summary"]  # type: ignore[index]
     assert guide.to_public_dict() == {
         "summary": "Summary",
         "keywords": ["keyword1", "keyword2"],
@@ -268,6 +389,8 @@ async def test_get_guide_shape_variants_return_stable_defaults(response: Any) ->
 
     guide = await renderer.get_guide("nb_1", "src_1")
 
-    assert set(guide) == {"summary", "keywords"}
+    # Attribute-only typed return (#1251): the historical key set lives in the
+    # to_public_dict() JSON shape, not on the dataclass's (removed) mapping API.
+    assert set(guide.to_public_dict()) == {"summary", "keywords"}
     assert isinstance(guide.summary, str)
     assert isinstance(guide.keywords, tuple)

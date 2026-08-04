@@ -91,7 +91,19 @@ class CompletionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CompletionCreateResponse:
         """
-        Chat Completions
+        Generates a chat completion from an OpenAI-style `messages` array.
+
+        Use this endpoint for standard messages-based chat inference; use
+        /v5/completions instead when you have a raw text `prompt` rather than messages,
+        /v5/responses for the OpenAI Responses API contract, and /v5/inference when the
+        payload does not follow any OpenAI schema. The request accepts the OpenAI Chat
+        Completions parameters (extra fields are allowed and forwarded), and the model
+        is selected from `model` given as `vendor/name`; most vendors are served through
+        the litellm proxy gateway, while OpenAI may use a native gateway. When `stream`
+        is set the response is delivered as server-sent events of
+        `chat.completion.chunk`; otherwise a single `chat.completion` object is
+        returned. Token usage is recorded for the account, and for streaming responses
+        it is read from the final chunk.
 
         Args:
           messages: openai standard message format
@@ -220,7 +232,19 @@ class CompletionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Stream[ChatCompletionChunk]:
         """
-        Chat Completions
+        Generates a chat completion from an OpenAI-style `messages` array.
+
+        Use this endpoint for standard messages-based chat inference; use
+        /v5/completions instead when you have a raw text `prompt` rather than messages,
+        /v5/responses for the OpenAI Responses API contract, and /v5/inference when the
+        payload does not follow any OpenAI schema. The request accepts the OpenAI Chat
+        Completions parameters (extra fields are allowed and forwarded), and the model
+        is selected from `model` given as `vendor/name`; most vendors are served through
+        the litellm proxy gateway, while OpenAI may use a native gateway. When `stream`
+        is set the response is delivered as server-sent events of
+        `chat.completion.chunk`; otherwise a single `chat.completion` object is
+        returned. Token usage is recorded for the account, and for streaming responses
+        it is read from the final chunk.
 
         Args:
           messages: openai standard message format
@@ -349,7 +373,19 @@ class CompletionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CompletionCreateResponse | Stream[ChatCompletionChunk]:
         """
-        Chat Completions
+        Generates a chat completion from an OpenAI-style `messages` array.
+
+        Use this endpoint for standard messages-based chat inference; use
+        /v5/completions instead when you have a raw text `prompt` rather than messages,
+        /v5/responses for the OpenAI Responses API contract, and /v5/inference when the
+        payload does not follow any OpenAI schema. The request accepts the OpenAI Chat
+        Completions parameters (extra fields are allowed and forwarded), and the model
+        is selected from `model` given as `vendor/name`; most vendors are served through
+        the litellm proxy gateway, while OpenAI may use a native gateway. When `stream`
+        is set the response is delivered as server-sent events of
+        `chat.completion.chunk`; otherwise a single `chat.completion` object is
+        returned. Token usage is recorded for the account, and for streaming responses
+        it is read from the final chunk.
 
         Args:
           messages: openai standard message format
@@ -543,7 +579,15 @@ class CompletionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CompletionModelsResponse:
         """
-        List Chat Completion Models
+        Lists the models available for use with /v5/chat/completions.
+
+        Results are served directly from the stored inference-models catalog filtered to
+        the chat-completion model type, not from a live provider probe, so availability
+        reflects the catalog's recorded status. Pass the optional `model_vendor` query
+        parameter to restrict results to a single vendor. Results are paginated, and
+        each entry reports the model name, vendor, type, and availability. If the
+        underlying catalog query fails the endpoint returns an empty list rather than
+        raising an error.
 
         Args:
           extra_headers: Send extra headers
@@ -639,7 +683,19 @@ class AsyncCompletionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CompletionCreateResponse:
         """
-        Chat Completions
+        Generates a chat completion from an OpenAI-style `messages` array.
+
+        Use this endpoint for standard messages-based chat inference; use
+        /v5/completions instead when you have a raw text `prompt` rather than messages,
+        /v5/responses for the OpenAI Responses API contract, and /v5/inference when the
+        payload does not follow any OpenAI schema. The request accepts the OpenAI Chat
+        Completions parameters (extra fields are allowed and forwarded), and the model
+        is selected from `model` given as `vendor/name`; most vendors are served through
+        the litellm proxy gateway, while OpenAI may use a native gateway. When `stream`
+        is set the response is delivered as server-sent events of
+        `chat.completion.chunk`; otherwise a single `chat.completion` object is
+        returned. Token usage is recorded for the account, and for streaming responses
+        it is read from the final chunk.
 
         Args:
           messages: openai standard message format
@@ -768,7 +824,19 @@ class AsyncCompletionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncStream[ChatCompletionChunk]:
         """
-        Chat Completions
+        Generates a chat completion from an OpenAI-style `messages` array.
+
+        Use this endpoint for standard messages-based chat inference; use
+        /v5/completions instead when you have a raw text `prompt` rather than messages,
+        /v5/responses for the OpenAI Responses API contract, and /v5/inference when the
+        payload does not follow any OpenAI schema. The request accepts the OpenAI Chat
+        Completions parameters (extra fields are allowed and forwarded), and the model
+        is selected from `model` given as `vendor/name`; most vendors are served through
+        the litellm proxy gateway, while OpenAI may use a native gateway. When `stream`
+        is set the response is delivered as server-sent events of
+        `chat.completion.chunk`; otherwise a single `chat.completion` object is
+        returned. Token usage is recorded for the account, and for streaming responses
+        it is read from the final chunk.
 
         Args:
           messages: openai standard message format
@@ -897,7 +965,19 @@ class AsyncCompletionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CompletionCreateResponse | AsyncStream[ChatCompletionChunk]:
         """
-        Chat Completions
+        Generates a chat completion from an OpenAI-style `messages` array.
+
+        Use this endpoint for standard messages-based chat inference; use
+        /v5/completions instead when you have a raw text `prompt` rather than messages,
+        /v5/responses for the OpenAI Responses API contract, and /v5/inference when the
+        payload does not follow any OpenAI schema. The request accepts the OpenAI Chat
+        Completions parameters (extra fields are allowed and forwarded), and the model
+        is selected from `model` given as `vendor/name`; most vendors are served through
+        the litellm proxy gateway, while OpenAI may use a native gateway. When `stream`
+        is set the response is delivered as server-sent events of
+        `chat.completion.chunk`; otherwise a single `chat.completion` object is
+        returned. Token usage is recorded for the account, and for streaming responses
+        it is read from the final chunk.
 
         Args:
           messages: openai standard message format
@@ -1091,7 +1171,15 @@ class AsyncCompletionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CompletionModelsResponse:
         """
-        List Chat Completion Models
+        Lists the models available for use with /v5/chat/completions.
+
+        Results are served directly from the stored inference-models catalog filtered to
+        the chat-completion model type, not from a live provider probe, so availability
+        reflects the catalog's recorded status. Pass the optional `model_vendor` query
+        parameter to restrict results to a single vendor. Results are paginated, and
+        each entry reports the model name, vendor, type, and availability. If the
+        underlying catalog query fails the endpoint returns an empty list rather than
+        raising an error.
 
         Args:
           extra_headers: Send extra headers

@@ -63,6 +63,7 @@ from weblate.trans.models import (
     ComponentList,
     ContributorAgreement,
     Project,
+    Report,
     Translation,
     Unit,
 )
@@ -74,8 +75,10 @@ from weblate.trans.tests.utils import (
     create_test_billing,
     create_test_user,
     get_test_file,
+    require_github,
     social_core_override_settings,
 )
+from weblate.trans.widgets import WIDGETS
 from weblate.utils.data import data_dir
 from weblate.utils.files import remove_tree
 from weblate.utils.stats import GlobalStats, ProjectLanguage
@@ -240,11 +243,6 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin, TempDirMixin)
         # Accept English as primary language, this does not seem to work
         options.add_experimental_option("prefs", {"intl.accept_languages": "en,en_US"})
 
-        # Need to revert fontconfig custom config for starting chrome
-        backup_fc = os.environ.get("FONTCONFIG_FILE")
-        if backup_fc is not None:
-            del os.environ["FONTCONFIG_FILE"]
-
         # Force English locales, the --lang and accept_language settings does not
         # work in some cases
         backup_lang = os.environ.get("LANG")
@@ -287,9 +285,6 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin, TempDirMixin)
                 },
             )
 
-        # Restore custom fontconfig settings
-        if backup_fc is not None:
-            os.environ["FONTCONFIG_FILE"] = backup_fc
         # Restore locales
         if backup_lang is None:
             del os.environ["LANG"]
@@ -656,6 +651,21 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin, TempDirMixin)
             self.driver.get_screenshot_as_png()
         )
 
+    def screenshot_viewport(self, name: str, width: int, height: int = 1024) -> None:
+        """
+        Capture screenshot of a fixed size viewport.
+
+        Unlike screenshot(), the window is not grown to fit the whole document,
+        so that responsive layout and scrollbars are captured as the user sees
+        them at the given width.
+        """
+        self.driver.set_window_size(width, height)
+        self.scroll_top()
+        self.wait_for_screenshot_ready()
+        Path(os.path.join(self.image_path, name)).write_bytes(
+            self.driver.get_screenshot_as_png()
+        )
+
     def use_live_server_widget_preview(self) -> None:
         """Load widget preview from the live server while displaying public URLs."""
         protocol = "https" if settings.ENABLE_HTTPS else "http"
@@ -677,6 +687,15 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin, TempDirMixin)
                 return image === null || (image.complete && image.naturalWidth > 0);
                 """
             )
+        )
+
+    def screenshot_widget(self, name: str) -> None:
+        """Capture a widget preview for visual comparison in Argos CI."""
+        self.use_live_server_widget_preview()
+        self.wait_for_screenshot_ready()
+        widget = self.driver.find_element(By.ID, "widget-image")
+        Path(os.path.join(self.image_path, f"widget-{name}.png")).write_bytes(
+            widget.screenshot_as_png
         )
 
     @contextmanager
@@ -907,6 +926,39 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin, TempDirMixin)
             lambda _driver: slug_input.get_attribute("value") == "example-project-name"
         )
 
+    def test_search_preview_scopes_boolean_query(self) -> None:
+        project = self.create_component()
+        component = Component.objects.get(project=project, slug="language-names")
+        self.do_login(superuser=True)
+        self.open_component(component, project)
+        self.click("Operations")
+        self.click("Bulk edit")
+
+        self.driver.execute_script(
+            """
+            window.previewRequestUrl = null;
+            window.fetch = (url) => {
+                window.previewRequestUrl = url;
+                return Promise.resolve({ok: false});
+            };
+            """
+        )
+        self.driver.find_element(By.ID, "id_bulk_q").send_keys('"a" OR ""')
+
+        preview_url = WebDriverWait(self.driver, 5).until(
+            lambda driver: driver.execute_script("return window.previewRequestUrl;")
+        )
+        preview_query = self.driver.execute_script(
+            """
+            return new URL(arguments[0], document.baseURI).searchParams.get("q");
+            """,
+            preview_url,
+        )
+        self.assertEqual(
+            preview_query,
+            f'path:{component.full_slug} AND ("a" OR "")',
+        )
+
     def test_js_unit_tests(self) -> None:
         self.assertEqual(self.driver.execute_script("return getNumber('1,23');"), 1.23)
         self.assertEqual(self.driver.execute_script("return getNumber('1.23');"), 1.23)
@@ -942,6 +994,46 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin, TempDirMixin)
             ),
             "inner",
         )
+
+    def test_table_sorting(self) -> None:
+        """Clicking sortable table headers reorders the rows client-side."""
+        # Load a page so that loader-bootstrap.js is loaded
+        with self.wait_for_page_load():
+            self.driver.get(f"{self.live_server_url}{reverse('languages')}")
+
+        result = self.driver.execute_script(
+            r"""
+            const table = document.createElement("table");
+            table.className = "sort";
+            table.innerHTML = `
+              <thead><tr>
+                <th class="sort-skip"></th>
+                <th class="sort-cell">Name</th>
+                <th class="number sort-cell"><span class="sort-icon"> </span>Count</th>
+              </tr></thead>
+              <tbody>
+                <tr id="9row-1"><td></td><th class="object-link">Beta</th><td class="number" data-value="30">30</td></tr>
+                <tr data-parent="9row-1"><td colspan="3">progress</td></tr>
+                <tr id="9row-2"><td></td><th class="object-link">Alpha</th><td class="number" data-value="10">10</td></tr>
+                <tr data-parent="9row-2"><td colspan="3">progress</td></tr>
+                <tr id="9row-3"><td></td><th class="object-link">Gamma</th><td class="number" data-value="20">20</td></tr>
+                <tr data-parent="9row-3"><td colspan="3">progress</td></tr>
+              </tbody>`;
+            document.body.appendChild(table);
+            loadTableSorting();
+            const header = table.querySelectorAll("thead th")[2];
+            const readNames = () => Array.from(
+                table.querySelectorAll("tbody tr[id] th.object-link")
+            ).map((el) => el.textContent.trim());
+            header.click();
+            const ascending = readNames();
+            header.click();
+            const descending = readNames();
+            return {ascending: ascending, descending: descending};
+            """
+        )
+        self.assertEqual(result["ascending"], ["Alpha", "Gamma", "Beta"])
+        self.assertEqual(result["descending"], ["Beta", "Gamma", "Alpha"])
 
     def test_hotkeys(self) -> None:
         """Test hotkeys functionality."""
@@ -1300,7 +1392,7 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin, TempDirMixin)
             self.driver.get(f"{self.live_server_url}{reverse('manage-ssh')}")
 
         # Add SSH host key
-        self.driver.find_element(By.ID, "id_host").send_keys("example.com")
+        self.driver.find_element(By.ID, "id_host").send_keys("github.com")
         with (
             patch.dict(
                 os.environ,
@@ -1318,6 +1410,7 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin, TempDirMixin)
         self.screenshot("ssh-keys.png")
 
     def create_component(self) -> Project:
+        require_github("https://github.com/WeblateOrg/demo.git")
         self.clear_weblateorg_fixture_path()
         project = Project.objects.create(name="WeblateOrg", slug="weblateorg")
         Component.objects.create(
@@ -1771,6 +1864,15 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin, TempDirMixin)
                 self.click("Status widgets")
             self.use_live_server_widget_preview()
             self.screenshot("promote.png")
+            widget_select = Select(self.driver.find_element(By.ID, "widget-type"))
+            language_select = Select(
+                self.driver.find_element(By.ID, "translation-language")
+            )
+            for language, suffix in (("", ""), ("he", "-rtl")):
+                language_select.select_by_value(language)
+                for widget_name in WIDGETS:
+                    widget_select.select_by_value(widget_name)
+                    self.screenshot_widget(f"{widget_name}{suffix}")
         with self.wait_for_page_load():
             self.driver.get(
                 f"{self.live_server_url}"
@@ -1786,7 +1888,7 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin, TempDirMixin)
         project = self.create_component()
         component = Component.objects.get(project=project, slug="language-names")
         self.use_screenshot_site_domain_for_git_export(component)
-        self.do_login(superuser=True)
+        user = self.do_login(superuser=True)
         self.open_component(component, project)
 
         # Repository
@@ -1836,6 +1938,54 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin, TempDirMixin)
         self.click("Translation reports")
         self.click("Insights")
         self.screenshot("reporting.png")
+
+        translation = component.translation_set.get(language__code="cs")
+        Change.objects.create(
+            action=ActionEvents.CHANGE,
+            user=user,
+            author=user,
+            project=project,
+            component=component,
+            translation=translation,
+            language=translation.language,
+        )
+        credits_form = self.driver.find_element(
+            By.XPATH,
+            '//h4[contains(@class, "card-title") and '
+            'contains(normalize-space(), "Credits")]/ancestor::form',
+        )
+        period = credits_form.find_element(By.NAME, "period")
+        self.click(period)
+        self.click(credits_form.find_elements(By.CSS_SELECTOR, ".datepicker-preset")[2])
+        with (
+            patch("django.utils.timezone.now", return_value=SCREENSHOT_DATE),
+            self.wait_for_page_load(),
+        ):
+            credits_form.submit()
+        self.assertEqual(
+            Report.objects.get(creator=user, component=component).created,
+            SCREENSHOT_DATE,
+        )
+        self.assertEqual(
+            [
+                item.text
+                for item in self.driver.find_elements(
+                    By.CSS_SELECTOR, ".breadcrumb-item"
+                )
+            ],
+            ["WeblateOrg", "Language names", "Translation reports", "Credits"],
+        )
+        self.assert_text_contains(".card-title", "Credits")
+        self.assert_text_contains("#report-metadata", "testuser")
+        self.assert_text_contains("#report-metadata", "2026")
+        self.assert_text_contains("#report-content", "Weblate Test")
+        for download_format in ("JSON", "HTML", "reStructuredText"):
+            self.driver.find_element(By.LINK_TEXT, f"Download {download_format}")
+        self.assertLess(
+            self.driver.find_element(By.ID, "report-downloads").rect["y"],
+            self.driver.find_element(By.ID, "report-content").rect["y"],
+        )
+        self.screenshot("report-view.png")
 
         # Component tools
         self.open_component(component, project)
@@ -2029,6 +2179,108 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin, TempDirMixin)
         time.sleep(0.2)
         self.screenshot("your-translations.png")
 
+    def get_dashboard_listing_scroll(self) -> dict:
+        """Measure horizontal scrolling of the watched translations listing."""
+        return self.driver.execute_script(
+            """
+            const wrapper = document.querySelector(
+                "#your-subscriptions .table-listing-wrapper"
+            );
+            if (wrapper === null) {
+                return null;
+            }
+            const header = wrapper.querySelector(".sticky-header");
+            const hidden = Array.from(
+                wrapper.querySelectorAll("thead th[class*='zero-width-']")
+            ).filter((cell) => getComputedStyle(cell).display === "none");
+            // Scroll to the end to see how far the listing actually scrolls
+            wrapper.scrollLeft = wrapper.scrollWidth;
+            const scrollLeft = wrapper.scrollLeft;
+            wrapper.scrollLeft = 0;
+            const doc = document.documentElement;
+            return {
+                scrollable: wrapper.classList.contains("table-scroll"),
+                overflow: wrapper.scrollWidth - wrapper.clientWidth,
+                hiddenColumns: hidden.length,
+                scrollLeft: scrollLeft,
+                headerPosition: header === null ? "" : getComputedStyle(header).position,
+                documentOverflow: doc.scrollWidth - doc.clientWidth,
+                tabindex: wrapper.getAttribute("tabindex"),
+            };
+            """
+        )
+
+    def test_dashboard_wide_tables(self) -> None:
+        """Test horizontal scrolling of the dashboard listing."""
+        # Window narrow enough for the responsive rules to hide some columns
+        narrow_width = 900
+
+        project = self.create_component()
+        user = self.do_login()
+        user.profile.watched.add(project)
+
+        self.driver.set_window_size(narrow_width, 1024)
+        with self.wait_for_page_load():
+            self.driver.get(f"{self.live_server_url}{reverse('home')}")
+
+        # Columns are hidden and the listing does not scroll by default
+        before = self.get_dashboard_listing_scroll()
+        self.assertIsNotNone(before)
+        self.assertFalse(before["scrollable"])
+        self.assertGreater(before["hiddenColumns"], 0)
+        self.assertEqual(before["scrollLeft"], 0)
+        self.assertEqual(before["documentOverflow"], 0)
+        self.assertIsNone(before["tabindex"])
+        self.assertEqual(before["headerPosition"], "sticky")
+        self.screenshot_viewport("dashboard-narrow-columns.png", narrow_width)
+
+        # Turn the preference on in the settings
+        self.driver.set_window_size(1200, 1024)
+        with self.wait_for_page_load():
+            self.driver.get(f"{self.live_server_url}{reverse('profile')}")
+        self.click("Preferences")
+        wide_tables = self.driver.find_element(By.ID, "id_wide_tables")
+        self.assertFalse(wide_tables.is_selected())
+        self.click(wide_tables)
+        with self.wait_for_page_load():
+            self.click(
+                self.driver.find_element(
+                    By.CSS_SELECTOR, "#preferences input[type='submit']"
+                )
+            )
+        user.profile.refresh_from_db()
+        self.assertTrue(user.profile.wide_tables)
+
+        self.driver.set_window_size(narrow_width, 1024)
+        with self.wait_for_page_load():
+            self.driver.get(f"{self.live_server_url}{reverse('home')}")
+
+        # All columns are shown and the listing scrolls horizontally instead
+        after = self.get_dashboard_listing_scroll()
+        self.assertIsNotNone(after)
+        self.assertTrue(after["scrollable"])
+        self.assertEqual(after["hiddenColumns"], 0)
+        self.assertGreater(after["overflow"], 0)
+        self.assertGreater(after["scrollLeft"], 0)
+        # Only the listing scrolls, the page itself must not overflow
+        self.assertEqual(after["documentOverflow"], 0)
+        # Sticky header does not work inside a scrolling container
+        self.assertEqual(after["headerPosition"], "static")
+        self.screenshot_viewport("dashboard-wide-tables.png", narrow_width)
+
+        # The listing is keyboard focusable and scrollable
+        self.assertEqual(after["tabindex"], "0")
+        wrapper = self.driver.find_element(
+            By.CSS_SELECTOR, "#your-subscriptions .table-listing-wrapper"
+        )
+        self.driver.execute_script("arguments[0].focus();", wrapper)
+        for _ in range(3):
+            wrapper.send_keys(Keys.ARROW_RIGHT)
+        time.sleep(0.2)
+        self.assertGreater(
+            self.driver.execute_script("return arguments[0].scrollLeft;", wrapper), 0
+        )
+
     def test_team_management(self) -> None:
         """Test team management screenshots."""
         project = self.create_component()
@@ -2061,6 +2313,7 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin, TempDirMixin)
     @modify_settings(INSTALLED_APPS={"append": "weblate.billing"})
     def test_add_component(self) -> None:
         """Test user adding project and component."""
+        require_github("https://github.com/WeblateOrg/demo.git")
         self.clear_weblateorg_fixture_path()
         user = self.do_login()
         with patch("django.utils.timezone.now", return_value=SCREENSHOT_DATE):
@@ -2136,6 +2389,7 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin, TempDirMixin)
             self.screenshot("user-add-component.png")
 
     def test_alerts(self) -> None:
+        require_github("https://github.com/WeblateOrg/test.git")
         self.clear_weblateorg_fixture_path()
         project = Project.objects.create(name="WeblateOrg", slug="weblateorg")
         duplicates = Component.objects.create(
@@ -2175,12 +2429,156 @@ class SeleniumTests(BaseLiveServerTestCase, RegistrationTestMixin, TempDirMixin)
             file_format="po",
         )
         guidance.add_alert("MissingTranslationInstructions")
+        alert_timestamp = self.get_stable_naturaltime_timestamp()
+        guidance.alert_set.update(timestamp=alert_timestamp, updated=alert_timestamp)
         self.driver.get(f"{self.live_server_url}{guidance.get_absolute_url()}")
         self.click(
             self.driver.find_element(By.CSS_SELECTOR, 'a[data-bs-target="#alerts"]')
         )
         self.screenshot("component-diagnostics.png")
         self.assert_text_contains("#alerts", "Define translation instructions")
+
+    @modify_settings(INSTALLED_APPS={"remove": "weblate.billing"})
+    def test_diagnostics_overviews(self) -> None:
+        """Test project and workspace diagnostics overviews."""
+        workspace = Workspace.objects.create(name="Product localization")
+        website = Project.objects.create(
+            name="Website translations",
+            slug="website-translations",
+            web="https://example.com/website/",
+            workspace=workspace,
+        )
+        mobile = Project.objects.create(
+            name="Mobile applications",
+            slug="mobile-applications",
+            web="https://example.com/mobile/",
+            workspace=workspace,
+        )
+        checkout, account, android, ios = Component.objects.bulk_create(
+            [
+                Component(
+                    name="Checkout interface",
+                    slug="checkout-interface",
+                    project=website,
+                    repo="local:",
+                    filemask="checkout/*.po",
+                    file_format="po",
+                ),
+                Component(
+                    name="Account emails",
+                    slug="account-emails",
+                    project=website,
+                    repo="local:",
+                    filemask="account/*.po",
+                    file_format="po",
+                ),
+                Component(
+                    name="Android application",
+                    slug="android-application",
+                    project=mobile,
+                    repo="local:",
+                    filemask="android/*.po",
+                    file_format="po",
+                ),
+                Component(
+                    name="iOS application",
+                    slug="ios-application",
+                    project=mobile,
+                    repo="local:",
+                    filemask="ios/*.po",
+                    file_format="po",
+                ),
+            ]
+        )
+        self.clear_project_stats_cache(website)
+        self.clear_project_stats_cache(mobile)
+
+        user = self.do_login(superuser=True)
+        workspace.add_owner(user)
+        checkout.add_alert(
+            "ParseError",
+            occurrences=[{"filename": "checkout/cs.po", "error": "Invalid PO"}],
+        )
+        account.add_alert(
+            "ParseError",
+            occurrences=[{"filename": "account/cs.po", "error": "Invalid PO"}],
+        )
+        android.add_alert(
+            "ParseError",
+            occurrences=[{"filename": "android/cs.po", "error": "Invalid PO"}],
+        )
+        for component in (checkout, account, android):
+            component.add_alert("MissingTranslationInstructions")
+        ios.add_alert("UnusedScreenshot")
+        with patch("django.utils.timezone.now", return_value=SCREENSHOT_DATE):
+            ios.alert_set.get(name="UnusedScreenshot").dismiss(
+                user, "Reviewed for documentation"
+            )
+        for component in (checkout, account, android, ios):
+            component.alert_set.update(
+                timestamp=SCREENSHOT_DATE, updated=SCREENSHOT_DATE
+            )
+
+        with self.wait_for_page_load():
+            self.driver.get(
+                f"{self.live_server_url}{website.get_absolute_url()}#diagnostics"
+            )
+        self.wait_for_ajax_tab("#diagnostics", "Could not parse translation files.")
+        project_diagnostics = self.driver.find_element(By.ID, "diagnostics").text
+        self.assertEqual(
+            project_diagnostics.count(
+                "Define translation instructions to help translators."
+            ),
+            1,
+        )
+        self.assertIn("Active: 2", project_diagnostics)
+        self.assertIn("Account emails", project_diagnostics)
+        self.assertIn("Checkout interface", project_diagnostics)
+        self.assertTrue(
+            any(
+                badge.text == "Active: 2"
+                for badge in self.driver.find_elements(
+                    By.CSS_SELECTOR, "#diagnostics .card-header .badge"
+                )
+            )
+        )
+        self.assertFalse(
+            any(
+                badge.text.startswith(("Active:", "Dismissed:"))
+                for badge in self.driver.find_elements(
+                    By.CSS_SELECTOR, "#diagnostics .card-body .badge"
+                )
+            )
+        )
+        self.screenshot("project-diagnostics.png")
+
+        with self.wait_for_page_load():
+            self.driver.get(
+                f"{self.live_server_url}{workspace.get_absolute_url()}"
+                "?diagnostic_state=all#diagnostics"
+            )
+        self.wait_for_ajax_tab("#diagnostics", "Unused screenshot")
+        workspace_diagnostics = self.driver.find_element(By.ID, "diagnostics").text
+        self.assertEqual(
+            workspace_diagnostics.count(
+                "Define translation instructions to help translators."
+            ),
+            1,
+        )
+        self.assertIn(
+            "Website translations / Checkout interface", workspace_diagnostics
+        )
+        self.assertIn(
+            "Mobile applications / Android application", workspace_diagnostics
+        )
+        self.assertIn("Dismissed: 1", workspace_diagnostics)
+        self.assertEqual(
+            Select(
+                self.driver.find_element(By.ID, "id_diagnostic_state")
+            ).first_selected_option.text,
+            "All",
+        )
+        self.screenshot("workspace-diagnostics.png")
 
     def test_fonts(self) -> None:
         self.create_component()

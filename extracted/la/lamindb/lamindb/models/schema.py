@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import warnings
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any, Literal, Type, overload
 
 import pgtrigger
@@ -18,7 +19,7 @@ from lamindb.base.fields import (
     IntegerField,
     TextField,
 )
-from lamindb.base.types import FieldAttr, ListLike
+from lamindb.base.types import CanonicalSuffix, FieldAttr, ListLike
 from lamindb.base.uids import base62_16
 from lamindb.base.utils import class_and_instance_method
 from lamindb.errors import FieldValidationError, InvalidArgument
@@ -88,7 +89,7 @@ def validate_features(features: list[SQLRecord]) -> SQLRecord:
         raise TypeError("schema can only contain a single type")
     for feature in features:
         if feature._state.adding:
-            raise ValueError("Can only construct feature sets from validated features")
+            raise ValueError("Can only create schema from validated features")
     return next(iter(feature_types))  # return value in set of cardinality 1
 
 
@@ -336,6 +337,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             If `features` is passed, defaults to `False` so that, e.g., additional columns of a `DataFrame` encountered during validation are disregarded.
             If `features` is not passed, defaults to `True`.
         otype: `str | None = None` An object type to define the structure of a composite schema, e.g., `"DataFrame"`, `"AnnData"`.
+        suffix: `str | None = None` A required artifact suffix for schema-validated artifacts.
+            Must be a canonical suffix as defined by :class:`~lamindb.base.types.CanonicalSuffix`, e.g., `".csv"`, `".parquet"`, or `".zarr"`.
         dtype: `str | None = None` A `dtype` to assume for all features in the schema (e.g., "num", float, int).
             Defaults to `None` if `itype` is `Feature`. Otherwise to `"num"`, e.g., if `itype` is `bt.Gene.ensembl_gene_id`.
         minimal_set: `bool = True` Whether all passed features are required by default.
@@ -554,6 +557,18 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """
     otype: str | None = CharField(max_length=64, db_index=True, null=True)
     """Default Python object type, e.g., DataFrame, AnnData."""
+    suffix: str | None = CharField(
+        max_length=30, db_index=True, null=True, default=None
+    )
+    """A required canonical suffix for artifacts validated with this schema.
+
+    Like :attr:`~lamindb.Artifact.suffix`, this uses canonical storage-format suffixes
+    from :class:`~lamindb.base.types.CanonicalSuffix`, such as `".csv"`,
+    `".parquet"`, or `".zarr"`.
+
+    If set, :meth:`~lamindb.Artifact.save` raises a
+    :class:`~lamindb.errors.ValidationError` when an artifact's suffix does not match.
+    """
     _dtype_str: str | None = CharField(max_length=64, null=True, editable=False)
     """Data type, e.g., "num", "float", "int". Is `None` for :class:`~lamindb.Feature`.
 
@@ -620,6 +635,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         index: Feature | None = None,
         flexible: bool | None = None,
         otype: str | None = None,
+        suffix: str | None = None,
         dtype: str | Type[int | float | str] | None = None,  # noqa
         minimal_set: bool = True,
         maximal_set: bool = False,
@@ -659,6 +675,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         type: Feature | None = kwargs.pop("type", None)
         is_type: bool = kwargs.pop("is_type", False)
         otype: str | None = kwargs.pop("otype", None)
+        suffix: str | None = kwargs.pop("suffix", None)
         dtype: str | None = kwargs.pop("dtype", None)
         minimal_set: bool = kwargs.pop("minimal_set", True)
         ordered_set: bool = kwargs.pop("ordered_set", False)
@@ -712,6 +729,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             type=type,
             is_type=is_type,
             otype=otype,
+            suffix=suffix,
             dtype=dtype,
             minimal_set=minimal_set,
             ordered_set=ordered_set,
@@ -778,6 +796,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         type: Feature | None,
         is_type: bool,
         otype: str | None,
+        suffix: str | None,
         dtype: str | None,
         minimal_set: bool,
         ordered_set: bool,
@@ -786,6 +805,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         n_features: int | None,
         optional_features_manual: list[Feature] | None = None,
     ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool]:
+        suffix = validate_schema_suffix(suffix)
         optional_features = []
         features_registry: Registry = None
         if itype is not None:
@@ -841,6 +861,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             "is_type": is_type,
             "_dtype_str": dtype,
             "otype": otype,
+            "suffix": suffix,
             "n_members": n_features,
             "itype": itype_str,
             "minimal_set": minimal_set,
@@ -878,6 +899,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             "features_hash": "j",
             "index": "k",
             "slots_hash": "l",
+            "suffix": "m",
         }
         # we do not want pure informational annotations like otype, name, type, is_type, otype to be part of the hash
         hash_args = ["_dtype_str", "itype", "minimal_set", "ordered_set", "maximal_set"]
@@ -891,6 +913,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             list_for_hashing.append(f"{HASH_CODE['flexible']}={flexible}")
         if coerce is not None and coerce != coerce_default:
             list_for_hashing.append(f"{HASH_CODE['coerce_dtype']}={coerce}")
+        if suffix is not None:
+            list_for_hashing.append(f"{HASH_CODE['suffix']}={suffix}")
         if n_features is not None and n_features != n_features_default:
             list_for_hashing.append(f"{HASH_CODE['n']}={n_features}")
         if index is not None:
@@ -1124,6 +1148,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 type=self.type,
                 is_type=self.is_type,
                 otype=self.otype,
+                suffix=self.suffix,
                 dtype=self.dtype,
                 minimal_set=self.minimal_set,
                 ordered_set=self.ordered_set,
@@ -1428,20 +1453,52 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         """
         return SchemaOptionals(self)
 
-    def add_optional_features(self, features: list[Feature]) -> None:
-        """Add optional features to the schema."""
-        self.features.add(*features)
-        self.optionals.add(features)
+    @staticmethod
+    def _normalize_feature_input(features: Feature | list[Feature]) -> list[Feature]:
+        if not isinstance(features, list):
+            features = [features]
+        if not all(isinstance(feature, Feature) for feature in features):
+            raise TypeError("features must be a Feature or list of Feature records!")
+        return features
+
+    def add(self, features: Feature | list[Feature], optional: bool = True) -> None:
+        """Add one or multiple features to the schema.
+
+        Args:
+            features: The feature or list of features to add.
+            optional: Whether the feature to be added is optional.
+        """
+        if not optional:
+            raise NotImplementedError(
+                "Passing optional=False is currently not supported for `Schema.add()`: "
+                "this could invalidate many artifacts and records, especially if a feature is not nullable."
+            )
+        normalized_features = self._normalize_feature_input(features)
+        self.features.add(*normalized_features)
+        if self.minimal_set is not False:
+            self.optionals.add(normalized_features)
         self.save(print_hash_mutation_warning=False)
 
+    def remove(self, features: Feature | list[Feature]) -> None:
+        """Remove one or multiple features from the schema."""
+        normalized_features = self._normalize_feature_input(features)
+        if self.maximal_set is True:
+            raise NotImplementedError(
+                "Removing features from a schema with `maximal_set=True` is currently not supported: "
+                "this could invalidate many artifacts."
+            )
+        self.features.remove(*normalized_features)
+        self.save(print_hash_mutation_warning=False)
+
+    @deprecated("add")
+    def add_optional_features(self, features: list[Feature]) -> None:
+        """Add optional features to the schema."""
+        self.add(features, optional=True)
+
+    @deprecated("remove")
     def remove_optional_features(self, features: list[Feature]) -> None:
         """Remove optional features from the schema."""
-        optional_features = self.optionals.get()
-        for feature in features:
-            assert feature in optional_features, f"Feature {feature} is not optional"
-        self.features.remove(*features)
-        self.optionals.remove(features)
-        self.save(print_hash_mutation_warning=False)
+        self.remove(features)
 
     @class_and_instance_method
     def describe(
@@ -1468,6 +1525,17 @@ def get_type_str(dtype: str | None) -> str | None:
     else:
         type_str = None
     return type_str
+
+
+def validate_schema_suffix(suffix: str | None) -> str | None:
+    if suffix is None:
+        return None
+    canonical_suffix = CanonicalSuffix.from_path(PurePosixPath(f"file{suffix}"))
+    if canonical_suffix != suffix:
+        raise FieldValidationError(
+            f"Invalid suffix '{suffix}'. Please pass a canonical suffix: https://docs.lamin.ai/lamindb.base.types"
+        )
+    return suffix
 
 
 def _get_related_name(self: Schema) -> str | None:

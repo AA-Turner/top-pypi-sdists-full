@@ -39,6 +39,9 @@ __all__ = (
 class AssumeRoleForPodIdentityRequestTypeDef(TypedDict):
     clusterName: str
     token: str
+    eksNodeName: NotRequired[str]
+    instanceId: NotRequired[str]
+    zone: NotRequired[str]
 
 
 class AssumedRoleUserTypeDef(TypedDict):

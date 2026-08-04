@@ -63,7 +63,7 @@ def _make_notebooks_api(rpc_call: AsyncMock) -> NotebooksAPI:
     # ADR-0007: configure the rpc_call seam via constructor injection
     # (``make_fake_core(rpc_call=...)``) rather than dotted AsyncMock attribute
     # assignment, which the forbidden-monkeypatch lint rejects.
-    from _fixtures.fake_core import make_fake_core
+    from tests._fixtures.fake_core import make_fake_core
 
     core = make_fake_core(rpc_call=rpc_call)
     return NotebooksAPI(core.rpc_executor, sources_api=MagicMock())
@@ -76,7 +76,7 @@ def sources_api():
 
 @pytest.fixture
 def artifacts_api():
-    from _fixtures.fake_core import make_fake_core
+    from tests._fixtures.fake_core import make_fake_core
 
     core = make_fake_core(rpc_call=AsyncMock(), get_source_ids=AsyncMock(return_value=[]))
     mind_maps = MagicMock(spec=NoteBackedMindMapService)
@@ -95,7 +95,7 @@ def artifacts_api():
 
 @pytest.fixture
 def notes_api():
-    from _fixtures.fake_core import make_fake_core
+    from tests._fixtures.fake_core import make_fake_core
 
     core = make_fake_core(rpc_call=AsyncMock())
     note_service = NoteService(core)
@@ -232,6 +232,21 @@ class TestNotesGetOrNone:
             warnings.simplefilter("error", DeprecationWarning)
             result = await notes_api.get_or_none("nb_1", "missing")
         assert result is None
+
+    @pytest.mark.asyncio
+    async def test_id_match_reads_through_note_row_adapter(self, notes_api):
+        """The id-slot comparison goes through ``NoteRow.id`` (#1485).
+
+        ``NoteRow.id`` stringifies the raw slot (the unified ``SourceRow.id``
+        convention), so a non-string wire id still matches its string form
+        instead of silently flipping a found note to not-found.
+        """
+        notes_api._get_all_notes_and_mind_maps = AsyncMock(
+            return_value=[[12345, ["12345", "Body", None, None, "Title"]]]
+        )
+        result = await notes_api.get_or_none("nb_1", "12345")
+        assert result is not None
+        assert result.id == "12345"
 
     @pytest.mark.asyncio
     async def test_propagates_rpc_error(self, notes_api):

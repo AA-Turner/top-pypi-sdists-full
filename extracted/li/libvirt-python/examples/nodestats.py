@@ -7,7 +7,7 @@
 import libvirt
 from xml.dom import minidom
 import libxml2
-from typing import Any, Dict  # noqa F401
+from typing import Any  # noqa F401
 
 
 def xpath_eval(ctxt, path: str) -> str:
@@ -52,7 +52,7 @@ domsStrict = [
     if proc.numaParameters()["numa_mode"] == libvirt.VIR_DOMAIN_NUMATUNE_MEM_STRICT
 ]
 
-domsStrictCfg = {}  # type: Dict[libvirt.virDomain, Dict[str, Dict[str, Any]]]
+domsStrictCfg = {}  # type: dict[libvirt.virDomain, dict[str, dict[str, Any]]]
 for dom in domsStrict:
     xmlStr = dom.XMLDesc()
     doc = libxml2.parseDoc(xmlStr)

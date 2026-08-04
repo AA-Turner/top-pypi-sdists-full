@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 import re
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -497,6 +498,56 @@ def publish_docker_image(
             success=False, ecr_image=ecr_image, latest_image=latest_image, error="ECR login failed"
         )
 
+    # Flags shared by the depot and buildx paths. `--pull` always re-resolves
+    # `FROM ...:latest` base images against the registry. Without it, the
+    # builder reuses whatever base image it has cached, so a stale
+    # `plato-agent-base:latest` (e.g. an old build that left /root owned by a
+    # non-root uid, which breaks sshd into the VM) silently ships into the
+    # agent image. `--no-cache` does NOT cover this — it only busts
+    # build-layer cache, not the FROM base.
+    common_flags = ["--pull"]
+    if disable_provenance:
+        common_flags.append("--provenance=false")
+
+    # Tag with both versioned and latest
+    common_flags.extend(["-t", ecr_image, "-t", latest_image])
+
+    # Reproducible builds
+    common_flags.extend(["--build-arg", "SOURCE_DATE_EPOCH=0"])
+
+    # Add --target if specified, or auto-detect from Dockerfile
+    dockerfile_path = Path(build_path) / "Dockerfile"
+    if target:
+        common_flags.extend(["--target", target])
+    elif dockerfile_path.exists():
+        dockerfile_content = dockerfile_path.read_text()
+        if "FROM" in dockerfile_content and "AS prod" in dockerfile_content:
+            common_flags.extend(["--target", "prod"])
+
+    # Add build args
+    if build_args:
+        for key, value in build_args.items():
+            common_flags.extend(["--build-arg", f"{key}={value}"])
+
+    if no_cache:
+        common_flags.append("--no-cache")
+
+    # Prefer a Depot remote builder when available (depot CLI on PATH +
+    # DEPOT_PROJECT_ID set, e.g. in CI on depot runners). The persistent NVMe
+    # layer cache lives with the builder — no registry-cache import/export —
+    # and `--push` ships the image straight from the builder to ECR without it
+    # ever transiting this machine. Auth: depot forwards the local docker
+    # config's ECR credentials (ecr_login() above) to the remote builder.
+    depot_project = os.environ.get("DEPOT_PROJECT_ID")
+    if depot_project and shutil.which("depot"):
+        depot_cmd = ["depot", "build", "--project", depot_project, *common_flags, "--push", build_path]
+        if subprocess.run(depot_cmd).returncode == 0:
+            return DockerPublishResult(success=True, ecr_image=ecr_image, latest_image=latest_image)
+        # Fall through to local buildx so a Depot-side problem (auth, project
+        # trust, outage) can never strand a deploy. A genuine Dockerfile error
+        # fails again below and surfaces there.
+        logger.warning("depot build failed; falling back to local buildx")
+
     # Use buildx with docker-container driver for registry cache support.
     # Registry cache stores cache metadata in a separate :cache tag so the
     # actual image digest stays stable when layers don't change.
@@ -509,49 +560,12 @@ def publish_docker_image(
     base_ref = _dockerfile_base_ref(build_path)
     base_digest = _resolve_registry_digest(base_ref) if base_ref else None
     builder = _ensure_buildx_builder(base_digest)
-    docker_cmd = [
-        "docker",
-        "buildx",
-        "build",
-        "--builder",
-        builder,
-        # Always re-resolve `FROM ...:latest` base images against the registry.
-        # Without this, buildx reuses whatever base image is cached locally / in
-        # the builder, so a stale `plato-agent-base:latest` (e.g. an old build
-        # that left /root owned by a non-root uid, which breaks sshd into the
-        # VM) silently ships into the agent image. `--no-cache` does NOT cover
-        # this — it only busts build-layer cache, not the FROM base.
-        "--pull",
-    ]
-    if disable_provenance:
-        docker_cmd.append("--provenance=false")
+    docker_cmd = ["docker", "buildx", "build", "--builder", builder, *common_flags]
 
-    # Tag with both versioned and latest
-    docker_cmd.extend(["-t", ecr_image, "-t", latest_image])
-
-    # Reproducible builds
-    docker_cmd.extend(["--build-arg", "SOURCE_DATE_EPOCH=0"])
-
-    # Registry cache
-    if no_cache:
-        docker_cmd.append("--no-cache")
-    else:
+    # Registry cache (buildx only — depot's builder-local cache replaces it)
+    if not no_cache:
         docker_cmd.extend(["--cache-from", f"type=registry,ref={cache_image}"])
     docker_cmd.extend(["--cache-to", f"type=registry,ref={cache_image},mode=max"])
-
-    # Add --target if specified, or auto-detect from Dockerfile
-    dockerfile_path = Path(build_path) / "Dockerfile"
-    if target:
-        docker_cmd.extend(["--target", target])
-    elif dockerfile_path.exists():
-        dockerfile_content = dockerfile_path.read_text()
-        if "FROM" in dockerfile_content and "AS prod" in dockerfile_content:
-            docker_cmd.extend(["--target", "prod"])
-
-    # Add build args
-    if build_args:
-        for key, value in build_args.items():
-            docker_cmd.extend(["--build-arg", f"{key}={value}"])
 
     # Build and push in one step
     docker_cmd.extend(["--push", build_path])

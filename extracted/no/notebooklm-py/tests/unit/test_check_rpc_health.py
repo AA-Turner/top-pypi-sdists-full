@@ -19,6 +19,7 @@ auth-failure test by invoking ``main()`` with a missing storage env var.
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from collections import Counter
 from pathlib import Path
@@ -567,6 +568,139 @@ def test_print_summary_lists_affected_methods_on_exit_three(
 
 
 # ---------------------------------------------------------------------------
+# check_chat_query: GenerateFreeFormStreamed (PATH_NOT_METHOD) drift probe
+#
+# The streamed-chat orchestration RPC has no obfuscated method ID to echo back
+# (it is a hardcoded ``v1`` URL path), so the canary probes its WIRE SHAPE:
+# 200 + a recognizable stream frame -> OK; zero parseable chunks -> ERROR
+# (drift). These tests pin that classification (issue #1492).
+# ---------------------------------------------------------------------------
+
+
+def _chat_auth() -> Any:
+    return check_rpc_health.AuthTokens(
+        cookies={"SID": "sid"},
+        csrf_token="csrf",
+        session_id="session",
+        authuser=2,
+        account_email="bob@example.com",
+    )
+
+
+class _ChatClient:
+    """Minimal httpx-like client returning a fixed response (or raising)."""
+
+    def __init__(self, *, text: str = "", status: int = 200, raises: Exception | None = None):
+        self._text = text
+        self._status = status
+        self._raises = raises
+        self.url: str | None = None
+        self.content: str | None = None
+
+    async def post(self, url: str, *, content: str, headers: dict[str, str]) -> httpx.Response:
+        self.url = url
+        self.content = content
+        if self._raises is not None:
+            raise self._raises
+        return httpx.Response(
+            self._status,
+            text=self._text,
+            request=httpx.Request("POST", url),
+        )
+
+
+def _wrb_fr_body(inner: Any) -> str:
+    """Build an anti-XSSI-prefixed body wrapping one ``wrb.fr`` frame."""
+    frame = json.dumps([["wrb.fr", "GenerateFreeFormStreamed", json.dumps(inner)]])
+    return ")]}'\n" + frame
+
+
+def test_chat_probe_uses_query_endpoint_path() -> None:
+    """The probe's CheckResult is labelled with the streamed-chat path, not an
+    RPCMethod value, and matches the library's ``_QUERY_ENDPOINT_PATH``.
+    """
+    assert check_rpc_health.CHAT_QUERY_PROBE.value == check_rpc_health._QUERY_ENDPOINT_PATH
+    assert "GenerateFreeFormStreamed" in check_rpc_health.CHAT_QUERY_PROBE.value
+
+
+@pytest.mark.asyncio
+async def test_chat_probe_skipped_without_notebook() -> None:
+    result = await check_rpc_health.check_chat_query(_ChatClient(), _chat_auth(), None)
+    assert result.status is CheckStatus.SKIPPED
+    assert result.method.name == "GENERATE_FREE_FORM_STREAMED"
+
+
+@pytest.mark.asyncio
+async def test_chat_probe_ok_on_parseable_frame() -> None:
+    # An empty-list ``wrb.fr`` frame is a recognized (heartbeat) frame: the
+    # wire shape is intact even though there's no answer text. -> OK.
+    client = _ChatClient(text=_wrb_fr_body([]))
+    result = await check_rpc_health.check_chat_query(client, _chat_auth(), "nb_123")
+    assert result.status is CheckStatus.OK
+    # The probe hit the streamed-chat endpoint, not batchexecute.
+    assert "GenerateFreeFormStreamed" in (client.url or "")
+
+
+@pytest.mark.asyncio
+async def test_chat_probe_error_on_zero_parseable_chunks() -> None:
+    # Empty/garbage body -> ChatResponseParseError -> ERROR (this is the
+    # wire-drift signal the chat canary exists to catch).
+    client = _ChatClient(text=")]}'\n\n")
+    result = await check_rpc_health.check_chat_query(client, _chat_auth(), "nb_123")
+    assert result.status is CheckStatus.ERROR
+    assert "Parse error" in (result.error or "")
+
+
+@pytest.mark.asyncio
+async def test_chat_probe_error_on_strict_decode_drift(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Strict positional drift in the wire decoder raises UnknownRPCMethodError
+    # (a DecodingError subclass), NOT ChatResponseParseError. The probe must
+    # CATCH it and return ERROR rather than letting it escape and crash the
+    # canary (#1492 review). This is the drift the chat canary exists to catch.
+    from notebooklm.exceptions import UnknownRPCMethodError
+
+    def _raise_drift(_text: str) -> Any:
+        raise UnknownRPCMethodError("safe_index drift at path ()[0]")
+
+    monkeypatch.setattr(check_rpc_health, "parse_streaming_chat_response", _raise_drift)
+    client = _ChatClient(text=_wrb_fr_body([]))
+    result = await check_rpc_health.check_chat_query(client, _chat_auth(), "nb_123")
+    assert result.status is CheckStatus.ERROR
+    assert "Parse error" in (result.error or "")
+
+
+@pytest.mark.asyncio
+async def test_chat_probe_ok_on_recognized_server_error_frame() -> None:
+    # An ``"er"`` frame is a RECOGNIZED frame (the parser raises ChatError):
+    # the wire contract is intact, the server merely declined. -> OK.
+    body = ")]}'\n" + json.dumps([["er", "GenerateFreeFormStreamed", 7]])
+    client = _ChatClient(text=body)
+    result = await check_rpc_health.check_chat_query(client, _chat_auth(), "nb_123")
+    assert result.status is CheckStatus.OK
+
+
+@pytest.mark.asyncio
+async def test_chat_probe_error_on_http_status() -> None:
+    client = _ChatClient(status=500, text="boom")
+    result = await check_rpc_health.check_chat_query(client, _chat_auth(), "nb_123")
+    assert result.status is CheckStatus.ERROR
+    assert result.error == "HTTP 500"
+
+
+@pytest.mark.asyncio
+async def test_chat_probe_surfaces_class_name_for_empty_message_errors() -> None:
+    # Mirror the make_rpc_request #864 fallback: ``httpx.ReadTimeout("")``
+    # stringifies to "" and must surface as the class name, not be swallowed.
+    client = _ChatClient(raises=httpx.ReadTimeout(""))
+    result = await check_rpc_health.check_chat_query(client, _chat_auth(), "nb_123")
+    assert result.status is CheckStatus.ERROR
+    assert result.error == "ReadTimeout"
+    # And ReadTimeout is classified as transient downstream (does not fail the
+    # canary) — same posture as the method-ID probes.
+    assert is_transient_error(result.error) is True
+
+
+# ---------------------------------------------------------------------------
 # main() auth-failure path -> exit 2
 # ---------------------------------------------------------------------------
 
@@ -589,3 +723,143 @@ def test_main_exits_two_when_auth_missing(monkeypatch: pytest.MonkeyPatch) -> No
     with pytest.raises(SystemExit) as excinfo:
         check_rpc_health.main()
     assert excinfo.value.code == 2
+
+
+# ---------------------------------------------------------------------------
+# sqTeoe studio-customization cohort tripwire
+# ---------------------------------------------------------------------------
+
+CohortStatus = check_rpc_health.CohortStatus
+build_customization_choices_params = check_rpc_health.build_customization_choices_params
+check_customization_cohort = check_rpc_health.check_customization_cohort
+make_raw_rpc_request = check_rpc_health.make_raw_rpc_request
+
+
+def _cohort_auth() -> check_rpc_health.AuthTokens:
+    return check_rpc_health.AuthTokens(
+        cookies={"SID": "sid"},
+        csrf_token="csrf",
+        session_id="session",
+    )
+
+
+def test_build_customization_choices_params_shape() -> None:
+    """The reverse-engineered ``[nbctx, None, artifact_type]`` shape is verified."""
+    params = build_customization_choices_params("nb_42")
+    assert params == [
+        [
+            2,
+            None,
+            None,
+            [1, None, None, None, None, None, None, None, None, None, [1]],
+            ["nb_42"],
+        ],
+        None,
+        3,  # artifact_type = video
+    ]
+
+
+@pytest.mark.asyncio
+async def test_make_raw_rpc_request_threads_id_into_query_and_body() -> None:
+    """The raw id lands in BOTH the ``rpcids=`` query param and the ``f.req`` body."""
+    captured: dict[str, Any] = {}
+
+    class FakeClient:
+        async def post(self, url: str, *, content: str, headers: dict[str, str]) -> httpx.Response:
+            captured["url"] = url
+            captured["content"] = content
+            return httpx.Response(200, text=")]}'\n\n[]", request=httpx.Request("POST", url))
+
+    text, error = await make_raw_rpc_request(
+        FakeClient(),
+        _cohort_auth(),
+        "sqTeoe",
+        [["x"]],
+        source_path="/notebook/nb_1",
+    )
+    assert error is None
+    assert text == ")]}'\n\n[]"
+    query = parse_qs(urlparse(captured["url"]).query)
+    assert query["rpcids"] == ["sqTeoe"]
+    assert query["source-path"] == ["/notebook/nb_1"]
+    # The body's f.req carries the override id, kept in sync with the query param.
+    assert "sqTeoe" in captured["content"]
+    # The fallback RPCMethod (LIST_NOTEBOOKS) must NOT leak into the wire.
+    assert check_rpc_health.RPCMethod.LIST_NOTEBOOKS.value not in captured["content"]
+
+
+@pytest.mark.asyncio
+async def test_check_customization_cohort_gated_on_null() -> None:
+    """A genuine null payload is GATED (the expected steady state, NOT a failure)."""
+
+    class NullClient:
+        async def post(self, url: str, *, content: str, headers: dict[str, str]) -> httpx.Response:
+            # wrb.fr frame whose payload is JSON null -> decode_response(..., allow_null) == None
+            body = ')]}\'\n\n[["wrb.fr","sqTeoe","null",null,null,null,"generic"]]'
+            return httpx.Response(200, text=body, request=httpx.Request("POST", url))
+
+    status, detail = await check_customization_cohort(NullClient(), _cohort_auth(), "nb_1")
+    assert status is CohortStatus.GATED
+    assert "gated" in detail.lower()
+
+
+@pytest.mark.asyncio
+async def test_check_customization_cohort_migrated_on_non_null() -> None:
+    """A non-null payload is the loud MIGRATED signal (cohort flipped)."""
+
+    class MigratedClient:
+        async def post(self, url: str, *, content: str, headers: dict[str, str]) -> httpx.Response:
+            body = ')]}\'\n\n[["wrb.fr","sqTeoe","[[1,2,3]]",null,null,null,"generic"]]'
+            return httpx.Response(200, text=body, request=httpx.Request("POST", url))
+
+    status, _ = await check_customization_cohort(MigratedClient(), _cohort_auth(), "nb_1")
+    assert status is CohortStatus.MIGRATED
+
+
+@pytest.mark.asyncio
+async def test_check_customization_cohort_unknown_on_transport_error() -> None:
+    """A transport failure never alarms; it draws UNKNOWN (no cohort conclusion)."""
+
+    class FailingClient:
+        async def post(self, url: str, *, content: str, headers: dict[str, str]) -> httpx.Response:
+            raise httpx.ReadTimeout("")
+
+    status, detail = await check_customization_cohort(FailingClient(), _cohort_auth(), "nb_1")
+    assert status is CohortStatus.UNKNOWN
+    assert detail == "ReadTimeout"
+
+
+@pytest.mark.asyncio
+async def test_check_customization_cohort_unknown_without_notebook() -> None:
+    status, _ = await check_customization_cohort(object(), _cohort_auth(), None)
+    assert status is CohortStatus.UNKNOWN
+
+
+def test_compute_exit_code_cohort_migrated_is_four() -> None:
+    """MIGRATED draws exit 4 when no higher-priority drift fired."""
+    clean = Counter({CheckStatus.OK: 3})
+    assert check_rpc_health.compute_exit_code(clean, [], CohortStatus.MIGRATED) == 4
+    assert check_rpc_health.compute_exit_code(clean, [], CohortStatus.GATED) == 0
+    # RPC drift outranks the cohort flip.
+    mismatch = Counter({CheckStatus.MISMATCH: 1})
+    assert check_rpc_health.compute_exit_code(mismatch, [], CohortStatus.MIGRATED) == 1
+    real_error = [_result("e", CheckStatus.ERROR, error="Parse error: boom")]
+    assert check_rpc_health.compute_exit_code(Counter(), real_error, CohortStatus.MIGRATED) == 3
+
+
+def test_print_summary_reports_cohort_flip(capsys: pytest.CaptureFixture[str]) -> None:
+    results = [_result("ok", CheckStatus.OK)]
+    rc = print_summary(results, CohortStatus.MIGRATED)
+    out = capsys.readouterr().out
+    assert rc == 4
+    assert "COHORT FLIP" in out
+    assert "sqTeoe customization choices = MIGRATED" in out
+
+
+def test_print_summary_gated_is_pass(capsys: pytest.CaptureFixture[str]) -> None:
+    results = [_result("ok", CheckStatus.OK)]
+    rc = print_summary(results, CohortStatus.GATED)
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "sqTeoe customization choices = GATED" in out
+    assert "RESULT: PASS" in out

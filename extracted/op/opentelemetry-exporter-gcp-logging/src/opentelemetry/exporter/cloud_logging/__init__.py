@@ -81,6 +81,8 @@ PROJECT_ID_ATTRIBUTE_KEY = "gcp.project_id"
 _OTEL_SDK_VERSION = opentelemetry_sdk_version.__version__
 _USER_AGENT = f"opentelemetry-python {_OTEL_SDK_VERSION}; google-cloud-logging-exporter {__version__}"
 
+logger = logging.getLogger(__name__)
+
 # Set user-agent metadata, see https://github.com/grpc/grpc/issues/23644 and default options
 # from
 # https://github.com/googleapis/python-logging/blob/5309478c054d0f2b9301817fd835f2098f51dc3a/google/cloud/logging_v2/services/logging_service_v2/transports/grpc.py#L179-L182
@@ -473,6 +475,15 @@ class CloudLoggingExporter(LogRecordExporter):
                 logging.error(
                     "Error while writing to Cloud Logging", exc_info=ex
                 )
+
+    # pylint: disable=unused-argument,no-self-use
+    def force_flush(self, timeout_millis: float = 30_000) -> bool:
+        """Flushes any buffered logs.
+
+        For CloudLoggingExporter, this is a no-op as logs are exported synchronously.
+        """
+        logger.debug("force_flush does nothing for CloudLoggingExporter")
+        return True
 
     def shutdown(self):
         pass

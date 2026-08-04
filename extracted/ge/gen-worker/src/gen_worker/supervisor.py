@@ -158,10 +158,17 @@ def _emit(detail: str, *, dial: bool = True) -> None:
     if not dial:
         return
     try:
-        from .config import get_settings
+        from . import config
         from .worker_fatal import report_worker_detail
 
-        delivered = report_worker_detail(get_settings(), detail)
+        # The supervisor is a PRE-FORK process entry: it loads its own
+        # Settings once (§1.18 acceptance is one bootstrap-owned load per
+        # process entry, not one across the tree) and hands them down. It does
+        # not consult a cache that may or may not have been filled.
+        delivered = report_worker_detail(
+            config.current() if config.installed() else config.load_settings(),
+            detail,
+        )
         logger.info("worker.postmortem wire report delivered=%s", delivered)
     except Exception:
         logger.warning("post-mortem wire report failed", exc_info=True)
@@ -197,7 +204,7 @@ def supervise(
     report_previous_container_death(record_path)
     # Anything the previous-death report did not consume is stale by now —
     # a lingering marker would misattribute the NEXT death (pgw#676).
-    postmortem.clear_inflight()
+    postmortem.clear_all_inflight(record_path.parent)
     postmortem.write_boot_record(record_path)
 
     started = time.time()
@@ -234,8 +241,8 @@ def supervise(
     clean = not verdict.get("signaled") and verdict.get("exit_code") == 0
     if clean:
         postmortem.clear_boot_record(record_path)
-        postmortem.clear_inflight()
-        postmortem.clear_fault_dump()
+        postmortem.clear_all_inflight(record_path.parent)
+        postmortem.clear_all_fault_dumps(record_path.parent)
     else:
         oom_after = postmortem.oom_kill_count()
         extra: dict = {"child_pid": child_pid}
@@ -244,8 +251,10 @@ def supervise(
             # executing), the faulthandler dump (every thread's Python
             # stack, written below Python by the dying child), and the
             # per-pod crash streak the next boot's gate refuses on.
-            extra.update(postmortem.attribute_signal_death(
-                signal_name=str(verdict.get("signal_name") or "")))
+            extra.update(postmortem.attribute_all_signal_deaths(
+                signal_name=str(verdict.get("signal_name") or ""),
+                marker_dir=record_path.parent,
+            ))
         _emit(
             postmortem.format_detail(
                 phase="worker_process_exit",

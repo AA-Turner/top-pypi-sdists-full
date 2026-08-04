@@ -15,7 +15,7 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aiohttp import web
 from esphome.const import __version__ as esphome_version
@@ -42,6 +42,7 @@ from .controllers.firmware.download import http_download as firmware_http_downlo
 from .controllers.labels import LabelsController
 from .controllers.onboarding import OnboardingController
 from .controllers.remote_build import OffloaderController, ReceiverController
+from .controllers.remote_build.discovery import start_discovery as start_peer_discovery
 from .controllers.version_history import VersionHistoryController
 from .helpers.api import CommandHandler, collect_api_commands
 from .helpers.async_ import create_eager_task, drain_tasks
@@ -57,6 +58,9 @@ from .helpers.secrets_state import write_secrets_locked
 from .helpers.startup_timing import StartupTimer
 from .helpers.subscriber_presence import SubscriberPresence
 from .models import EventType
+
+if TYPE_CHECKING:
+    from esphome.zeroconf import AsyncEsphomeZeroconf
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -81,6 +85,13 @@ _BACKGROUND_POLL_INTERVAL_SECONDS = 5
 # normal handler latency in this codebase and tight enough that a
 # bug in a slow handler can't silently extend shutdown to a minute.
 _SHUTDOWN_TIMEOUT_SECONDS = 5.0
+
+# Upper bound on the advertise chain's wait for ``notify_serving``.
+# Every production path opens the gate within milliseconds of
+# ``start()`` returning; the timeout exists so a future serving path
+# that forgets the call self-reports instead of silently never
+# advertising.
+_SERVING_GATE_TIMEOUT_SECONDS = 60.0
 
 # Cache policy for the SPA shell:
 #   - ``index.html`` and any non-hashed top-level file: must always
@@ -267,6 +278,8 @@ class DeviceBuilder:
         # Background tasks
         self._background_tasks: set[asyncio.Task] = set()
         self._bg_task: asyncio.Task | None = None
+        self._advertise_task: asyncio.Task | None = None
+        self._serving_event = asyncio.Event()
         self._bg_poll: _BackgroundPollLoop | None = None
 
         # Latches the one-time network teardown so it can run early (in the
@@ -352,6 +365,91 @@ class DeviceBuilder:
             raise RuntimeError(msg)
         self.loop.set_default_executor(self._executor)
 
+    def _mark_startup_phase(self, name: str) -> None:
+        """Record a startup sub-phase when a timer is attached."""
+        if self._startup_timer is not None:
+            self._startup_timer.mark(name)
+
+    def _print_banner_and_notify_serving(self, banner: str) -> None:
+        """``web.run_app`` post-bind hook: release the advertise gate, keep the banner."""
+        # run_app invokes print only after every site's socket is bound.
+        self.notify_serving()
+        print(banner)  # noqa: T201 — aiohttp's own run_app banner, kept on stdout
+
+    def _run_web_app(
+        self,
+        app: web.Application,
+        *,
+        host: list[str],
+        port: int,
+        path: str | None = None,
+    ) -> None:
+        """Serve *app* until stop, opening the serving gate once bound."""
+        # ``handle_signals=False``: keep our ``__main__`` SIGTERM/SIGBREAK trap
+        # as the sole handler for the whole lifecycle. aiohttp's own
+        # ``add_signal_handler`` is armed inside ``runner.setup()`` *before*
+        # ``on_startup`` runs and would otherwise replace our trap, so a stop
+        # landing mid-startup would take aiohttp's path and bypass the
+        # clean-exit bookkeeping in ``main``. Our trap defers ``GracefulExit``
+        # to the loop just the same, so ``run_app`` still drains ``on_cleanup``
+        # while serving.
+        web.run_app(
+            app,
+            host=host,
+            port=port,
+            path=path,
+            shutdown_timeout=_SHUTDOWN_TIMEOUT_SECONDS,
+            handle_signals=False,
+            print=self._print_banner_and_notify_serving,
+        )
+
+    def _register_command_handlers(self) -> None:
+        """Collect ``@api_command`` handlers from every controller, plus built-ins."""
+        for controller in (
+            self.auth,
+            self.boards,
+            self.components,
+            self.config,
+            self.desktop,
+            self.devices,
+            self.automations,
+            self.firmware,
+            self.editor,
+            self.labels,
+            self.onboarding,
+            self.remote_build_offloader,
+            self.remote_build_receiver,
+            self.version_history,
+        ):
+            self.command_handlers.update(collect_api_commands(controller))
+        self.command_handlers["ping"] = self._cmd_ping
+        self.command_handlers["subscribe_events"] = self._cmd_subscribe_events
+        # `auth` is an alias for `auth/login` so both forms work on the wire.
+        if "auth/login" in self.command_handlers:
+            self.command_handlers["auth"] = self.command_handlers["auth/login"]
+
+    async def _advertise_and_start_peer_discovery(
+        self, zeroconf: AsyncEsphomeZeroconf | None
+    ) -> None:
+        """Once serving, register the dashboard mDNS advertise, then start peer discovery."""
+        try:
+            await asyncio.wait_for(self._serving_event.wait(), _SERVING_GATE_TIMEOUT_SECONDS)
+        except TimeoutError:
+            _LOGGER.warning(
+                "Serving gate never opened after %ss — a serving path is missing "
+                "notify_serving(); advertising anyway",
+                _SERVING_GATE_TIMEOUT_SECONDS,
+            )
+        if self._dashboard_advertiser is not None and zeroconf is not None:
+            # The legs are independent: a failed advertise must neither
+            # die silently nor keep the peer browse from starting.
+            try:
+                await self._dashboard_advertiser.register(zeroconf)
+            except Exception:
+                _LOGGER.exception("Dashboard mDNS advertise failed; starting peer discovery anyway")
+        if (offloader := self.remote_build_offloader) is not None:
+            start_peer_discovery(offloader)
+
     async def start(self) -> None:
         """Start the application — load catalogs, initialize controllers."""
         self.loop = asyncio.get_running_loop()
@@ -362,6 +460,8 @@ class DeviceBuilder:
         # here we just register it as the loop's default. See
         # ``_EXECUTOR_MAX_WORKERS`` for the why behind the pool size.
         self._install_default_executor()
+        # Fresh gate each start so a restart-in-place waits for its own bind.
+        self._serving_event = asyncio.Event()
 
         # Initialize controllers
         self.auth = AuthController(self)
@@ -386,10 +486,15 @@ class DeviceBuilder:
         # Default pre-existing installs to the YAML experience before
         # any onboarding command can be served.
         await self.onboarding.migrate_preexisting_install()
+        self._mark_startup_phase("prefs")
         await self.devices.start()
+        self._mark_startup_phase("devices")
         await self.firmware.start()
+        self._mark_startup_phase("firmware")
         await self.editor.start()
+        self._mark_startup_phase("editor")
         await self.version_history.start()
+        self._mark_startup_phase("history")
 
         # Advertise this dashboard on mDNS so peer dashboards (and
         # the future ESPHome Desktop welcome screen) can discover it.
@@ -436,44 +541,22 @@ class DeviceBuilder:
         # initial announce and flap the wire-visible TXT keys.
         await self._remote_build_lifecycle.maybe_start()
 
-        if self._dashboard_advertiser is not None and zeroconf is not None:
-            await self._dashboard_advertiser.register(zeroconf)
-
         # Remote-build peer browse (issue #106): browse the same
-        # service type to surface peer dashboards.
-        # ``OffloaderController.start`` is itself a no-op on the
-        # mDNS path when zeroconf is unavailable — same fail-soft
-        # contract as the advertise — so we don't gate it here.
-        # Started AFTER the advertiser so the browser can capture
-        # our own service-instance name and filter our broadcast
-        # out of the discovered list.
+        # service type to surface peer dashboards. ``start`` loads the
+        # pairings store and spawns peer-link clients so the first
+        # ``subscribe_events`` snapshot sees them; the mDNS browse
+        # itself starts in the background task below.
         await self.remote_build_offloader.start()
+        self._mark_startup_phase("remote_build")
 
-        # Collect command handlers from all controllers
-        for controller in (
-            self.auth,
-            self.boards,
-            self.components,
-            self.config,
-            self.desktop,
-            self.devices,
-            self.automations,
-            self.firmware,
-            self.editor,
-            self.labels,
-            self.onboarding,
-            self.remote_build_offloader,
-            self.remote_build_receiver,
-            self.version_history,
-        ):
-            self.command_handlers.update(collect_api_commands(controller))
+        # ``async_register_service`` awaits its ~1.2s probe cycle, and
+        # the browse must follow the register, so both run off the
+        # startup critical path.
+        self._advertise_task = self.create_background_task(
+            self._advertise_and_start_peer_discovery(zeroconf)
+        )
 
-        # Register built-in commands
-        self.command_handlers["ping"] = self._cmd_ping
-        self.command_handlers["subscribe_events"] = self._cmd_subscribe_events
-        # `auth` is an alias for `auth/login` so both forms work on the wire.
-        if "auth/login" in self.command_handlers:
-            self.command_handlers["auth"] = self.command_handlers["auth/login"]
+        self._register_command_handlers()
 
         # Start background polling
         self._bg_poll = _BackgroundPollLoop(self)
@@ -488,6 +571,10 @@ class DeviceBuilder:
         if self._startup_timer is not None:
             self._startup_timer.mark("controllers")
             _LOGGER.info("Startup phases: %s", self._startup_timer.summary())
+
+    def notify_serving(self) -> None:
+        """Unblock work gated on the listening socket being bound (mDNS advertise)."""
+        self._serving_event.set()
 
     async def stop(self) -> None:
         """Shut down the application: free network sockets first, then flush local state."""
@@ -942,18 +1029,10 @@ class DeviceBuilder:
                 # site stays unauthenticated for same-origin and non-browser
                 # clients (which omit Origin) without paying the open-origin cost.
                 app = self.create_app(trusted=False, peer_guard=False)
-                if self._startup_timer is not None:
-                    self._startup_timer.mark("app")
+                self._mark_startup_phase("app")
                 hosts = resolve_bind_host(settings.host) if settings.unix_socket is None else []
                 ensure_single_host_for_ephemeral_port(hosts, settings.port, "--port")
-                web.run_app(
-                    app,
-                    host=hosts,
-                    port=settings.port,
-                    path=settings.unix_socket,
-                    shutdown_timeout=_SHUTDOWN_TIMEOUT_SECONDS,
-                    handle_signals=False,
-                )
+                self._run_web_app(app, host=hosts, port=settings.port, path=settings.unix_socket)
                 return
             if settings.front_door_open:
                 # Front door open but the port isn't mapped, so there's
@@ -990,39 +1069,16 @@ class DeviceBuilder:
                     settings.port,
                 )
             app = self.create_app(trusted=True, with_ingress_site=False)
-            if self._startup_timer is not None:
-                self._startup_timer.mark("app")
+            self._mark_startup_phase("app")
             hosts = settings.ingress_bind_hosts
             ensure_single_host_for_ephemeral_port(hosts, settings.ingress_port, "--ingress-port")
-            web.run_app(
-                app,
-                host=hosts,
-                port=settings.ingress_port,
-                shutdown_timeout=_SHUTDOWN_TIMEOUT_SECONDS,
-                handle_signals=False,
-            )
+            self._run_web_app(app, host=hosts, port=settings.ingress_port)
             return
         app = self.create_app()
-        if self._startup_timer is not None:
-            self._startup_timer.mark("app")
+        self._mark_startup_phase("app")
         hosts = resolve_bind_host(settings.host) if settings.unix_socket is None else []
         ensure_single_host_for_ephemeral_port(hosts, settings.port, "--port")
-        # ``handle_signals=False``: keep our ``__main__`` SIGTERM/SIGBREAK trap
-        # as the sole handler for the whole lifecycle. aiohttp's own
-        # ``add_signal_handler`` is armed inside ``runner.setup()`` *before*
-        # ``on_startup`` runs and would otherwise replace our trap, so a stop
-        # landing mid-startup would take aiohttp's path and bypass the
-        # clean-exit bookkeeping in ``main``. Our trap defers ``GracefulExit``
-        # to the loop just the same, so ``run_app`` still drains ``on_cleanup``
-        # while serving.
-        web.run_app(
-            app,
-            host=hosts,
-            port=settings.port,
-            path=settings.unix_socket,
-            shutdown_timeout=_SHUTDOWN_TIMEOUT_SECONDS,
-            handle_signals=False,
-        )
+        self._run_web_app(app, host=hosts, port=settings.port, path=settings.unix_socket)
 
     @staticmethod
     def _get_frontend_dir() -> Path | None:

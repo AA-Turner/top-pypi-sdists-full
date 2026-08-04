@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esphome-device-builder
-Version: 1.9.1
+Version: 1.9.2
 Summary: ESPHome Device Builder
 Author-email: The ESPHome Authors <esphome@openhomefoundation.org>
 Maintainer-email: Open Home Foundation <esphome@openhomefoundation.org>

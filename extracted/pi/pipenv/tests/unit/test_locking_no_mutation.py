@@ -11,6 +11,7 @@ from unittest import mock
 import pytest
 
 from pipenv.project import Project
+from pipenv.routines.context import RoutineContext
 from pipenv.routines.lock import do_lock
 from pipenv.utils import locking
 
@@ -72,15 +73,32 @@ def project_with_cached_outline_tables(tmp_path, monkeypatch):
 
 
 def _fake_resolve_packages(*args, **kwargs):
-    return [
-        {"name": "six", "version": "==1.16.0"},
-        {"name": "requests", "version": "==2.32.3", "extras": ["socks"]},
-        {
-            "name": "mypkg",
-            "git": "https://example.com/mypkg.git",
-            "ref": "deadbeef",
-        },
+    """Stub for the post-T_F.3-B1 ``resolve_packages(request)`` signature.
+
+    Returns ``(locked, resolver)`` where ``locked`` is a list of
+    typed :class:`LockedRequirement` instances and ``resolver`` is the
+    unused internal handle.  Wave B2's rewrite of the in-process branch
+    at ``pipenv/utils/resolver.py:1431`` will adapt the call site to
+    this shape; until then this test exercises the new contract
+    independently.
+    """
+    from pipenv.resolver.schema import LockedRequirement, VCSPin
+
+    locked = [
+        LockedRequirement(name="six", version="==1.16.0"),
+        LockedRequirement(
+            name="requests", version="==2.32.3", extras=("socks",)
+        ),
+        LockedRequirement(
+            name="mypkg",
+            vcs=VCSPin(
+                backend="git",
+                url="https://example.com/mypkg.git",
+                ref="deadbeef",
+            ),
+        ),
     ]
+    return locked, None
 
 
 def test_missing_lock_then_write_toml_keeps_cached_pipfile_entries(
@@ -91,7 +109,7 @@ def test_missing_lock_then_write_toml_keeps_cached_pipfile_entries(
     with mock.patch.object(project.s, "PIPENV_RESOLVER_PARENT_PYTHON", True), mock.patch(
         "pipenv.resolver.resolve_packages", side_effect=_fake_resolve_packages
     ):
-        do_lock(project, write=False, quiet=True)
+        do_lock(project, RoutineContext.from_cli(write=False, quiet=True))
 
     project.add_pipfile_entry_to_pipfile(
         "colorama", "colorama", "*", category="packages"

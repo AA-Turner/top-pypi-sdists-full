@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cisco-ai-skill-scanner
-Version: 2.0.12
+Version: 2.0.13
 Summary: Security scanner for Agent Skills packages - Detects prompt injection, data exfiltration, and malicious code
 Project-URL: Homepage, https://github.com/cisco-ai-defense/skill-scanner
 Project-URL: Documentation, https://github.com/cisco-ai-defense/skill-scanner#readme
@@ -28,6 +28,7 @@ Classifier: Topic :: Software Development :: Testing
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: anthropic<1,>=0.50
+Requires-Dist: click>=8.3.3
 Requires-Dist: confusable-homoglyphs<4,>=3.3
 Requires-Dist: fastapi<1,>=0.115
 Requires-Dist: httpx<1,>=0.27
@@ -52,6 +53,8 @@ Requires-Dist: boto3<2,>=1.40; extra == 'all'
 Requires-Dist: google-cloud-aiplatform<2,>=1.130; extra == 'all'
 Requires-Dist: google-genai<2,>=1.60; extra == 'all'
 Requires-Dist: google-generativeai<1,>=0.8; extra == 'all'
+Requires-Dist: httplib2>=0.32.0; extra == 'all'
+Requires-Dist: pyasn1>=0.6.4; extra == 'all'
 Provides-Extra: azure
 Requires-Dist: azure-identity<2,>=1.20; extra == 'azure'
 Provides-Extra: bedrock
@@ -59,8 +62,12 @@ Requires-Dist: boto3<2,>=1.40; extra == 'bedrock'
 Provides-Extra: google
 Requires-Dist: google-genai<2,>=1.60; extra == 'google'
 Requires-Dist: google-generativeai<1,>=0.8; extra == 'google'
+Requires-Dist: httplib2>=0.32.0; extra == 'google'
+Requires-Dist: pyasn1>=0.6.4; extra == 'google'
 Provides-Extra: vertex
 Requires-Dist: google-cloud-aiplatform<2,>=1.130; extra == 'vertex'
+Requires-Dist: httplib2>=0.32.0; extra == 'vertex'
+Requires-Dist: pyasn1>=0.6.4; extra == 'vertex'
 Description-Content-Type: text/markdown
 
 # Skill Scanner
@@ -258,6 +265,14 @@ skill-scanner generate-policy -o my_org_policy.yaml
 skill-scanner configure-policy
 ```
 
+Consensus mode keeps a finding only when it appears in more than half of the
+configured runs. When those votes disagree on severity, the highest observed
+severity wins, independent of response order. Failed runs and successful runs
+that omit the finding cast no vote but remain in the denominator. This makes
+severity selection stable for majority-agreed findings. It does not make an
+individual LLM sample deterministic, and descriptive fields from equal-severity
+votes, single-run output, and non-majority findings can still vary between scans.
+
 **LLM provider note:** `--llm-provider` currently accepts `anthropic` or `openai`.
 For Bedrock, Vertex, Azure, Gemini, and other LiteLLM backends, set provider-specific model strings and environment variables (see [LLM Analyzer docs](docs/architecture/analyzers/llm-analyzer.md)).
 
@@ -309,7 +324,7 @@ if not result.is_safe:
 | `--use-behavioral` | Enable behavioral analyzer (dataflow analysis) |
 | `--use-llm` | Enable LLM analyzer (requires API key) |
 | `--llm-provider` | LLM provider for CLI routing: `anthropic` or `openai` |
-| `--llm-consensus-runs N` | Run LLM analysis `N` times and keep majority-agreed findings |
+| `--llm-consensus-runs N` | Run LLM analysis `N` times, keep majority-agreed findings, and retain their highest observed severity |
 | `--llm-max-tokens N` | Maximum output tokens for LLM responses (default: 8192) |
 | `--use-virustotal` | Enable VirusTotal binary scanner |
 | `--vt-api-key KEY` | Provide VirusTotal API key directly (optional) |
@@ -403,10 +418,26 @@ repos:
 Or install the built-in hook directly:
 
 ```bash
-skill-scanner-pre-commit install
+skill-scanner-pre-commit --install
 ```
 
-The hook automatically detects which skill directories have staged changes and only scans those, keeping commit times fast. Use `--all` to scan everything.
+The hook maps changed files to their nearest `SKILL.md` and scans each affected
+skill once. During a normal commit, it reads the staged diff. In CI, compare two
+revisions so no staged index is required:
+
+```bash
+pre-commit run skill-scanner --from-ref "$BASE_SHA" --to-ref "$HEAD_SHA"
+```
+
+Both revisions must exist in the checkout. To scan every configured skill,
+invoke the hook directly:
+
+```bash
+skill-scanner-pre-commit --scan-all
+```
+
+Alternatively, configure `args: [--scan-all]` for the hook in
+`.pre-commit-config.yaml`.
 
 ---
 

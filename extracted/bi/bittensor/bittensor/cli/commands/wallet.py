@@ -31,6 +31,7 @@ from ..context import AppContext, address_cli_name, ctx_of, ss58_param_help
 from ..globals import with_globals, with_tx_globals, with_unlock_globals
 from ..helpers import (
     STAKE_LIST_TITLE,
+    annotate_stake_groups_with_locks,
     chain_identity_names,
     dust_note,
     filter_stakes,
@@ -190,6 +191,34 @@ def _unlock_options(app_ctx: AppContext) -> _UnlockOptions:
         "macos_prompt": app_ctx.macos_password,
         "keychain": app_ctx.keychain_password,
     }
+
+
+def _is_wrong_password(error: BaseException) -> bool:
+    if isinstance(error, WrongPasswordError):
+        return True
+    cause = error.__cause__
+    if isinstance(cause, WrongPasswordError):
+        return True
+    return str(error).lower().startswith("wrong password")
+
+
+def _report_unlock_error(app_ctx: AppContext, error: BaseException) -> None:
+    """Print a rustc-style unlock failure and exit (no traceback)."""
+    if _is_wrong_password(error):
+        help_text = (
+            "re-save with `btcli wallet keychain save`"
+            if app_ctx.keychain_password
+            else "re-run and enter the coldkey password used when the key was created"
+        )
+        app_ctx.output.error("wrong password", help=help_text)
+    else:
+        text = str(error).strip()
+        if text.endswith("."):
+            text = text[:-1]
+        if text:
+            text = text[0].lower() + text[1:]
+        app_ctx.output.error(text or "could not unlock coldkey")
+    raise typer.Exit(1)
 
 
 @app.command(rich_help_panel=PANEL_MANAGE)
@@ -540,22 +569,33 @@ def sign(
     """Sign a message with the wallet's coldkey (or hotkey).
 
     Signing with the coldkey requires unlocking it, so you may be prompted
-    for the wallet password. The signature is printed as 0x-hex and can be
-    checked with `btcli wallet verify`.
+    for the wallet password. The signature is printed as bare hex (no ``0x``)
+    under the classic ``signed_message`` / ``signer_address`` field names so
+    paste-into-verifier flows match old btcli. Checked with `btcli wallet verify`.
     """
     app_ctx: AppContext = ctx_of(ctx)
     confirm_wallet(
         app_ctx, help_text="Wallet that signs the message.", require_coldkey=not use_hotkey
     )
-    signed = wallets.sign_message(
-        message,
-        name=app_ctx.wallet_name,
-        hotkey=app_ctx.hotkey_name,
-        path=app_ctx.wallet_path,
-        use="hotkey" if use_hotkey else "coldkey",
-        **_unlock_options(app_ctx),
+    try:
+        signed = wallets.sign_message(
+            message,
+            name=app_ctx.wallet_name,
+            hotkey=app_ctx.hotkey_name,
+            path=app_ctx.wallet_path,
+            use="hotkey" if use_hotkey else "coldkey",
+            **_unlock_options(app_ctx),
+        )
+    except (ValueError, OSError, WrongPasswordError) as error:
+        _report_unlock_error(app_ctx, error)
+    # Classic btcli field names + bare hex (no 0x).
+    app_ctx.output.detail(
+        "signed",
+        {
+            "signed_message": signed["signature"].removeprefix("0x"),
+            "signer_address": signed["ss58"],
+        },
     )
-    app_ctx.output.detail("signed", signed)
 
 
 @app.command(rich_help_panel=PANEL_OPS)
@@ -563,7 +603,9 @@ def sign(
 def verify(
     ctx: typer.Context,
     message: str = typer.Option(..., "--message", help="The exact message that was signed."),
-    signature: str = typer.Option(..., "--signature", help="0x-hex signature."),
+    signature: str = typer.Option(
+        ..., "--signature", help="Hex signature (with or without a 0x prefix)."
+    ),
     ss58: str = typer.Option(..., "--ss58", help="Address the message was signed with."),
 ):
     """Verify a message signature against an address."""
@@ -687,16 +729,12 @@ def unlock_wallet(ctx: typer.Context):
                 keychain=app_ctx.keychain_password,
             )
             break
-        except (ValueError, OSError) as error:
-            wrong = isinstance(error.__cause__, WrongPasswordError)
-            if prompted and wrong:
+        except (ValueError, OSError, WrongPasswordError) as error:
+            if prompted and _is_wrong_password(error) and attempts_left:
                 app_ctx.output.error("wrong password")
-                if attempts_left:
-                    password = None
-                    continue
-            else:
-                app_ctx.output.error(str(error))
-            raise typer.Exit(1)
+                password = None
+                continue
+            _report_unlock_error(app_ctx, error)
     app_ctx.output.detail(
         "unlocked",
         {
@@ -882,7 +920,7 @@ def wallet_balance(
 
         rows_data = app_ctx.run(_all)
         key_map = {
-            "name": lambda r: r["wallet"].lower(),
+            "name": lambda r: wallets.natural_name_key(r["wallet"]),
             "free": lambda r: r["free_tao"],
             "stake-value": lambda r: r["stake_value_tao"],
             "total-value": lambda r: r["total_value_tao"],
@@ -965,13 +1003,17 @@ def wallet_overview(
     known_names = local_address_names(app_ctx.wallet_path)
 
     async def _fetch(client):
-        rows, valuations = await wallet_overview_rows(client, targets, netuid=netuid)
+        rows, valuations, lock_ctx = await wallet_overview_rows(client, targets, netuid=netuid)
         unnamed = [
             s["hotkey"] for row in rows for s in row["stakes"] if s["hotkey"] not in known_names
         ]
-        return rows, valuations, await chain_identity_names(client, unnamed)
+        for locks_by_netuid, _ in lock_ctx.values():
+            for lock in locks_by_netuid.values():
+                if lock["hotkey"] not in known_names:
+                    unnamed.append(lock["hotkey"])
+        return rows, valuations, lock_ctx, await chain_identity_names(client, unnamed)
 
-    rows, valuations, identity_names = app_ctx.run(_fetch)
+    rows, valuations, lock_ctx, identity_names = app_ctx.run(_fetch)
     out = app_ctx.output
     if out.json_mode:
         out.value(rows)
@@ -979,27 +1021,32 @@ def wallet_overview(
 
     if not all_wallets:
         row = rows[0]
-        out.detail(
-            None,
-            {
-                "wallet": f"{row['wallet']} ({row['coldkey']})",
-                "free": row["free"],
-                "stake_value": f"{row['stake_value']}  (spot, excl. slippage/fees)",
-            },
-        )
+        fields = {
+            "wallet": f"{row['wallet']} ({row['coldkey']})",
+            "free": row["free"],
+            "stake_value": f"{row['stake_value']}  (spot, excl. slippage/fees)",
+        }
+        if row["locked_subnets"]:
+            fields["locked_value"] = (
+                f"{row['locked_value']}  (conviction-locked; part of stake_value)"
+            )
+        out.detail(None, fields)
         out.message("")
 
-    groups = [
-        group
-        for name, ss58 in targets
-        for group in netuid_groups(
+    groups = []
+    for name, ss58 in targets:
+        wallet_groups = netuid_groups(
             filter_stakes(valuations[ss58].positions, netuid),
             valuations[ss58],
             known_names,
             identity_names,
             {"wallet": name} if all_wallets else None,
         )
-    ]
+        locks_by_netuid, availability_by_netuid = lock_ctx[ss58]
+        annotate_stake_groups_with_locks(
+            wallet_groups, locks_by_netuid, availability_by_netuid, known_names, identity_names
+        )
+        groups.extend(wallet_groups)
     shown, dust = (groups, []) if show_dust else split_dust(groups)
     total = Balance(
         sum(

@@ -1,6 +1,6 @@
 [project]
 name = "scale-gp-beta"
-version = "0.3.2"
+version = "0.4.1"
 description = "The official Python library for the Scale GP API"
 dynamic = ["readme"]
 license = "Apache-2.0"

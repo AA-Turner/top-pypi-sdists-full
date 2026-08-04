@@ -117,6 +117,8 @@ from .type_defs import (
     InterconnectsTypeDef,
     LagResponseTypeDef,
     LagsTypeDef,
+    ListVirtualInterfaceRoutesRequestTypeDef,
+    ListVirtualInterfaceRoutesResponseTypeDef,
     ListVirtualInterfaceTestHistoryRequestTypeDef,
     ListVirtualInterfaceTestHistoryResponseTypeDef,
     LoaResponseTypeDef,
@@ -734,6 +736,16 @@ class DirectConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/directconnect/client/disassociate_mac_sec_key.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_directconnect/client/#disassociate_mac_sec_key)
+        """
+
+    def list_virtual_interface_routes(
+        self, **kwargs: Unpack[ListVirtualInterfaceRoutesRequestTypeDef]
+    ) -> ListVirtualInterfaceRoutesResponseTypeDef:
+        """
+        Lists the routes for the specified virtual interface.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/directconnect/client/list_virtual_interface_routes.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_directconnect/client/#list_virtual_interface_routes)
         """
 
     def list_virtual_interface_test_history(

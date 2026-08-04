@@ -17,24 +17,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
-            python-version: 3.7
-            toxenv: py37-test-pytestoldest
           - os: ubuntu-latest
-            python-version: 3.7
-            toxenv: py37-test-pytest50
-          - os: ubuntu-latest
-            python-version: 3.7
-            toxenv: py37-test-pytest51
+            python-version: 3.9
+            toxenv: py39-test-pytestoldest
           - os: windows-latest
-            python-version: 3.7
-            toxenv: py37-test-pytest52
-          - os: windows-latest
-            python-version: 3.8
-            toxenv: py38-test-pytest53
-          - os: ubuntu-latest
-            python-version: 3.8
-            toxenv: py38-test-pytest60
+            python-version: 3.9
+            toxenv: py39-test-60
           - os: ubuntu-latest
             python-version: 3.9
             toxenv: py39-test-pytest61
@@ -46,26 +34,35 @@ jobs:
             toxenv: py311-test-pytest72
           - os: ubuntu-latest
             python-version: '3.11'
-            toxenv: py310-test-pytest73
+            toxenv: py311-test-pytest73
           - os: windows-latest
             python-version: '3.11'
-            toxenv: py310-test-pytest74
-          - os: macos-latest
-            python-version: '3.11'
-            toxenv: py311-test-pytestdev
-          - os: windows-latest
-            python-version: '3.11'
-            toxenv: py311-test-pytestdev
+            toxenv: py311-test-pytest74
           - os: ubuntu-latest
-            python-version: '3.12-dev'
-            toxenv: py312-test-pytestdev
+            python-version: '3.12'
+            toxenv: py312-test-pytest81
+          - os: ubuntu-latest
+            python-version: '3.12'
+            toxenv: py312-test-pytest82
+          - os: ubuntu-latest
+            python-version: '3.13'
+            toxenv: py313-test-pytest83
+          - os: macos-latest
+            python-version: '3.14'
+            toxenv: py314-test-pytestdev
+          - os: windows-latest
+            python-version: '3.14'
+            toxenv: py314-test-pytestdev
+          - os: ubuntu-latest
+            python-version: '3.14'
+            toxenv: py314-test-pytestdev
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       with:
         fetch-depth: 0
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install Tox

@@ -1,8 +1,6 @@
 """Tests for client-owned composition primitives.
 
-Covers the helpers introduced by Stage B1 PR 1 and made live by Stage B1
-PR 2 of the post-refactoring plan
-(``docs/post-refactoring-plan-2026-05-27.md``):
+Covers the client-owned composition helpers in :mod:`notebooklm._runtime.init`:
 
 - :class:`notebooklm._runtime.init.ClientInternals` dataclass
 - :func:`notebooklm._runtime.init.compose_client_internals`
@@ -27,7 +25,6 @@ from typing import Any
 
 import pytest
 
-from _helpers.client_factory import build_client_shell_for_tests
 from notebooklm._client_composed import ClientComposed
 from notebooklm._client_seams import ClientSeams
 from notebooklm._runtime.init import (
@@ -36,6 +33,7 @@ from notebooklm._runtime.init import (
 )
 from notebooklm.auth import AuthTokens
 from notebooklm.client import NotebookLMClient
+from tests._helpers.client_factory import build_client_shell_for_tests
 
 
 def _make_auth() -> AuthTokens:

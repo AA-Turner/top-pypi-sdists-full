@@ -36,3 +36,21 @@ class BuildCreateParams(TypedDict, total=False):
 
     Defaults to the build host's native architecture when not specified.
     """
+
+    source_commit: str
+    """Git commit the build context was at."""
+
+    source_dirty: bool
+    """Whether the work tree had uncommitted changes at build time."""
+
+    source_ref: str
+    """Git branch or tag for source_commit."""
+
+    source_repo: str
+    """Normalized git remote the build context came from."""
+
+    source_subpath: str
+    """Build-context path relative to the repo root."""
+
+    working_tree_hash: str
+    """Deterministic SHA-256 content hash of the build inputs."""

@@ -22,7 +22,7 @@ class SpeechToTextTranslateResponse(UniversalBaseModel):
 
     diarized_transcript: typing.Optional[DiarizedTranscript] = pydantic.Field(default=None)
     """
-    Diarized transcript of the provided speech
+    Diarized transcript of the provided speech. Always `null` on the REST API — diarization is only available via the Batch API.
     """
 
     language_probability: typing.Optional[float] = pydantic.Field(default=None)

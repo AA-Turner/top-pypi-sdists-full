@@ -33,6 +33,7 @@ from datamodel_code_generator import (
     cached_path_exists,
     chdir,
     generate,
+    load_data,
     load_data_from_path,
 )
 from datamodel_code_generator.__main__ import Exit
@@ -47,6 +48,7 @@ from tests.conftest import (
     MockHttpxResponse,
     assert_directory_content,
     assert_httpx_get_kwargs,
+    assert_mutable_copy_is_isolated,
     assert_output,
     assert_warnings_contain,
     assert_warnings_do_not_contain,
@@ -56,6 +58,8 @@ from tests.conftest import (
 )
 from tests.main.conftest import (
     ALIASES_DATA_PATH,
+    BACKEND_GOLDEN_CASES,
+    BACKEND_GOLDEN_TARGET_ARGS,
     BLACK_PY313_SKIP,
     BLACK_PY314_SKIP,
     DATA_PATH,
@@ -69,8 +73,6 @@ from tests.main.conftest import (
     _uses_external_test_default_formatter,
     assert_generated_model_json_invalid,
     assert_generated_model_json_validation,
-    assert_path_cache_invalidates_after_write,
-    assert_path_cache_reuses_value,
     run_generate_and_assert,
     run_generate_file_and_assert,
     run_main_and_assert,
@@ -2051,6 +2053,50 @@ def test_main_reuse_model_collapse_with_root(output_file: Path) -> None:
     )
 
 
+def test_main_reuse_model_root_type_override_preserves_root_processing(output_file: Path) -> None:
+    """Keep non-reuse root processing active when a root model is overridden."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "reuse_model_collapse_with_root.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="reuse_model_collapse_with_root_type_override.py",
+        extra_args=[
+            "--reuse-model",
+            "--collapse-reuse-models",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--type-overrides",
+            '{"StringType": "datetime.date"}',
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+    )
+
+
+def test_main_reuse_model_preserves_list_root(output_file: Path) -> None:
+    """Keep list RootModel processing active during reuse optimization."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "root_model_sequence_interface.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="root_model_sequence_interface.py",
+        extra_args=[
+            "--reuse-model",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--use-root-model-sequence-interface",
+            "--class-name",
+            "Pets",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+    )
+
+
 def test_main_reuse_model_collapse_nested(output_file: Path) -> None:
     """Test --reuse-model --collapse-reuse-models with deeply nested identical structures."""
     run_main_and_assert(
@@ -2676,7 +2722,26 @@ def test_main_all_of_ref_with_property_override(output_file: Path) -> None:
             input_file_type="jsonschema",
             assert_func=assert_file_content,
             expected_file="all_of_ref_with_property_override.py",
+            force_exec_validation=True,
         )
+    valid_payload = '{"type":"playground:Person","name":"Ada"}'
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="all_of_ref_with_property_override",
+        model_name="Person",
+        valid_json=valid_payload,
+        invalid_json='{"type":"playground:Person"}',
+        expected_error_type="missing",
+        expected_attribute_path=("name",),
+        expected_attribute_value="Ada",
+    )
+    assert_generated_model_json_invalid(
+        output_file,
+        module_name="all_of_ref_with_property_override_constraint",
+        model_name="Person",
+        invalid_json='{"type":"playground:Person","name":"x"}',
+        expected_error_type="string_too_short",
+    )
 
 
 def test_main_all_of_multi_ref_with_property_override(output_file: Path) -> None:
@@ -2688,7 +2753,26 @@ def test_main_all_of_multi_ref_with_property_override(output_file: Path) -> None
             input_file_type="jsonschema",
             assert_func=assert_file_content,
             expected_file="all_of_multi_ref_with_property_override.py",
+            force_exec_validation=True,
         )
+    valid_payload = '{"type":"playground:Person","name":"Ada","address":"Tokyo"}'
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="all_of_multi_ref_with_property_override",
+        model_name="Person",
+        valid_json=valid_payload,
+        invalid_json='{"type":"playground:Person","name":"Ada"}',
+        expected_error_type="missing",
+        expected_attribute_path=("address",),
+        expected_attribute_value="Tokyo",
+    )
+    assert_generated_model_json_invalid(
+        output_file,
+        module_name="all_of_multi_ref_with_property_override_constraint",
+        model_name="Person",
+        invalid_json='{"type":"playground:Person","name":"x","address":"Tokyo"}',
+        expected_error_type="string_too_short",
+    )
 
 
 def test_main_all_of_deep_hierarchy_property_override(output_file: Path) -> None:
@@ -2700,7 +2784,18 @@ def test_main_all_of_deep_hierarchy_property_override(output_file: Path) -> None
             input_file_type="jsonschema",
             assert_func=assert_file_content,
             expected_file="all_of_deep_hierarchy_property_override.py",
+            force_exec_validation=True,
         )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="all_of_deep_hierarchy_property_override",
+        model_name="Person",
+        valid_json='{"type":"playground:Person","name":"Ada"}',
+        invalid_json='{"name":"Ada"}',
+        expected_error_type="missing",
+        expected_attribute_path=("type",),
+        expected_attribute_value="playground:Person",
+    )
 
 
 def test_main_all_of_very_deep_hierarchy_property_override(output_file: Path) -> None:
@@ -2712,7 +2807,18 @@ def test_main_all_of_very_deep_hierarchy_property_override(output_file: Path) ->
             input_file_type="jsonschema",
             assert_func=assert_file_content,
             expected_file="all_of_very_deep_hierarchy_property_override.py",
+            force_exec_validation=True,
         )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="all_of_very_deep_hierarchy_property_override",
+        model_name="SpecificPerson",
+        valid_json='{"id":"specific-id","type":"SpecificPerson","name":"Ada"}',
+        invalid_json='{"type":"SpecificPerson","name":"Ada"}',
+        expected_error_type="missing",
+        expected_attribute_path=("id",),
+        expected_attribute_value="specific-id",
+    )
 
 
 def test_main_all_of_hierarchy_property_not_in_ancestor(output_file: Path) -> None:
@@ -2801,13 +2907,26 @@ def test_main_generate_with_parsed_source_cache(output_file: Path) -> None:
     )
 
 
-def test_load_data_from_path_caches_json_source(tmp_path: Path) -> None:
-    """Reuse parsed JSON file data by path and content hash for local reference loading."""
+def test_load_data_from_path_isolates_cached_json_source(tmp_path: Path) -> None:
+    """Return independent parsed JSON values from the process-local cache."""
     schema_path = tmp_path / "schema.json"
     schema_path.write_text((JSON_SCHEMA_DATA_PATH / "person.json").read_text(encoding="utf-8"), encoding="utf-8")
     _clear_parser_source_data_cache()
 
-    assert_path_cache_reuses_value(load_data_from_path, schema_path, warmups=1)
+    original = load_data_from_path(schema_path, "utf-8")
+    cached = load_data_from_path(schema_path, "utf-8")
+    assert_mutable_copy_is_isolated(
+        original=original,
+        copied=cached,
+        mutate_copied=lambda value: value["properties"]["firstName"].update(type="integer"),
+        label="cached JSON source",
+    )
+    assert_mutable_copy_is_isolated(
+        original=original,
+        copied=load_data_from_path(schema_path, "utf-8"),
+        mutate_copied=lambda value: value["properties"]["lastName"].update(type="integer"),
+        label="reloaded JSON source",
+    )
 
 
 def test_load_data_from_path_invalidates_updated_json_source(tmp_path: Path) -> None:
@@ -2815,13 +2934,16 @@ def test_load_data_from_path_invalidates_updated_json_source(tmp_path: Path) -> 
     schema_path = tmp_path / "schema.json"
     schema_path.write_text((JSON_SCHEMA_DATA_PATH / "person.json").read_text(encoding="utf-8"), encoding="utf-8")
     _clear_parser_source_data_cache()
+    load_data_from_path(schema_path, "utf-8")
+    load_data_from_path(schema_path, "utf-8")
+    updated_text = (JSON_SCHEMA_DATA_PATH / "simple_string.json").read_text(encoding="utf-8")
+    schema_path.write_text(updated_text, encoding="utf-8")
 
-    assert_path_cache_invalidates_after_write(
-        load_data_from_path,
-        schema_path,
-        (JSON_SCHEMA_DATA_PATH / "simple_string.json").read_text(encoding="utf-8"),
-        ["s"],
-        expected_value_path=("required",),
+    assert_mutable_copy_is_isolated(
+        original=load_data(updated_text),
+        copied=load_data_from_path(schema_path, "utf-8"),
+        mutate_copied=lambda value: value["required"].append("mutated"),
+        label="updated cached JSON source",
     )
 
 
@@ -5314,14 +5436,34 @@ def test_main_jsonschema_has_default_value(output_file: Path) -> None:
     )
 
 
-def test_main_jsonschema_boolean_property(output_file: Path) -> None:
-    """Test boolean property generation."""
+@pytest.mark.parametrize(
+    ("output_model_type", "expected_name"),
+    [
+        *BACKEND_GOLDEN_CASES,
+        pytest.param(
+            DataModelType.PydanticV2Dataclass.value,
+            "pydantic_v2_dataclass",
+            id="pydantic-v2-dataclass",
+        ),
+    ],
+)
+def test_main_jsonschema_boolean_property(
+    output_model_type: str,
+    expected_name: str,
+    output_file: Path,
+) -> None:
+    """Route boolean property schemas through every backend's field policy."""
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "boolean_property.json",
         output_path=output_file,
         input_file_type="jsonschema",
         assert_func=assert_file_content,
-        expected_file="boolean_property.py",
+        expected_file=f"boolean_property/{expected_name}.py",
+        extra_args=[
+            *BACKEND_GOLDEN_TARGET_ARGS,
+            "--output-model-type",
+            output_model_type,
+        ],
     )
 
 
@@ -7678,6 +7820,61 @@ def test_main_pydantic_v2_dataclass_deprecated_model_with_other_decorator(output
             "--additional-imports",
             "some_module.some_decorator",
         ],
+    )
+
+
+@pytest.mark.parametrize(
+    ("output_model_type", "expected_file"),
+    [
+        pytest.param(
+            "dataclasses.dataclass",
+            "deprecated_dataclass_with_prefixed_decorator.py",
+            id="stdlib",
+        ),
+        pytest.param(
+            "pydantic_v2.dataclass",
+            "deprecated_pydantic_v2_dataclass_with_prefixed_decorator.py",
+            id="pydantic-v2",
+        ),
+    ],
+)
+def test_main_deprecated_model_distinguishes_prefixed_decorator(
+    output_file: Path,
+    output_model_type: str,
+    expected_file: str,
+) -> None:
+    """Add the exact deprecated decorator when another name shares its prefix."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "deprecated_dataclass.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=[
+            "--output-model-type",
+            output_model_type,
+            "--class-decorators",
+            "@deprecated_custom",
+            "--additional-imports",
+            "some_module.deprecated_custom",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+    )
+
+
+def test_main_deprecated_model_keeps_target_syntax_opaque_across_runtimes() -> None:
+    """Keep one target-only fixture opaque on Python 3.10, 3.12, and 3.14 runtimes."""
+    run_generate_and_assert(
+        input_=JSON_SCHEMA_DATA_PATH / "deprecated_dataclass.json",
+        expected_file=EXPECTED_JSON_SCHEMA_PATH / "deprecated_dataclass_with_newer_decorator_syntax.py",
+        input_file_type=InputFileType.JsonSchema,
+        output_model_type=DataModelType.DataclassesDataclass,
+        target_python_version=PythonVersion.PY_314,
+        class_decorators=["@deprecated(t'LegacyUser is deprecated.')"],
+        disable_timestamp=True,
+        formatters=[],
     )
 
 
@@ -10536,6 +10733,45 @@ def test_main_jsonschema_reuse_scope_tree_self_ref(output_dir: Path) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("collapse_args", "expected_directory"),
+    [
+        pytest.param([], "reuse_type_overrides_tree", id="inherit"),
+        pytest.param(
+            ["--collapse-reuse-models"],
+            "reuse_type_overrides_tree_collapsed",
+            id="collapse",
+        ),
+    ],
+)
+def test_main_jsonschema_reuse_scope_tree_preserves_type_overrides(
+    collapse_args: list[str],
+    expected_directory: str,
+    output_dir: Path,
+) -> None:
+    """Keep scoped and model-level overrides outside tree reuse optimizations."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "reuse_type_overrides_tree",
+        output_path=output_dir,
+        expected_directory=EXPECTED_JSON_SCHEMA_PATH / expected_directory,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--formatters",
+            "builtin",
+            "--reuse-model",
+            "--reuse-scope",
+            "tree",
+            *collapse_args,
+            "--type-overrides",
+            '{"Node.child": "datetime.date", "Replaced": "datetime.datetime"}',
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+    )
+
+
 def test_main_jsonschema_reuse_scope_tree_conflict(capsys: pytest.CaptureFixture[str], output_dir: Path) -> None:
     """Test --reuse-scope=tree error when schema file name conflicts with shared module."""
     run_main_and_assert(
@@ -11966,6 +12202,7 @@ def test_main_use_frozen_field_typed_dict(target_python_version: str, expected_f
     [
         ("dataclasses.dataclass", "default_factory_nested_model_dataclass.py"),
         ("pydantic_v2.BaseModel", "default_factory_nested_model_pydantic_v2.py"),
+        ("pydantic_v2.dataclass", "default_factory_nested_model_pydantic_v2_dataclass.py"),
         ("msgspec.Struct", "default_factory_nested_model_msgspec.py"),
     ],
 )
@@ -12179,6 +12416,25 @@ def test_main_allof_class_hierarchy(output_file: Path) -> None:
         assert_func=assert_file_content,
         expected_file="allof_class_hierarchy.py",
         extra_args=["--allof-class-hierarchy", "always"],
+        force_exec_validation=True,
+    )
+    valid_payload = '{"type":"playground:Person","type_list":["playground:Person"],"name":"Ada","address":"Tokyo"}'
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="allof_class_hierarchy",
+        model_name="Person",
+        valid_json=valid_payload,
+        invalid_json='{"type":"playground:Person","name":"Ada","address":"Tokyo"}',
+        expected_error_type="missing",
+        expected_attribute_path=("type_list",),
+        expected_attribute_value=["playground:Person"],
+    )
+    assert_generated_model_json_invalid(
+        output_file,
+        module_name="allof_class_hierarchy_constraint",
+        model_name="Person",
+        invalid_json=('{"type":"playground:Person","type_list":["playground:Person"],"name":"","address":"Tokyo"}'),
+        expected_error_type="string_too_short",
     )
 
 
@@ -13106,6 +13362,7 @@ def test_main_jsonschema_x_python_import_unused(output_file: Path) -> None:
         "__import__('builtins').print('XPT_EXEC')",
         "Callable[[str], __import__('builtins').print('XPT_EXEC')]",
         "str\nprint('XPT_EXEC')\n#",
+        "tuple[*Ts",
     ],
 )
 @pytest.mark.parametrize(
@@ -15160,6 +15417,50 @@ def test_main_non_finite_container_defaults(
     )
 
 
+def test_main_dataclass_nested_mapping_defaults_require_constructor_arguments(output_file: Path) -> None:
+    """Construct typed defaults only when every required dataclass argument is covered."""
+    module_name = "generated_dataclass_nested_mapping_defaults"
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "dataclass_nested_mapping_defaults.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "dataclasses.dataclass",
+            "--use-default",
+            "--snake-case-field",
+        ],
+        assert_func=assert_file_content,
+        expected_file="dataclass_nested_mapping_defaults.py",
+        importable_module_name=module_name,
+    )
+    with _generated_model(output_file, module_name, "Model") as model:
+        instance = model()
+        actual = (
+            (type(instance.complete).__name__, getattr(instance.complete, "external_name", None)),
+            instance.partial,
+            instance.empty,
+            (type(instance.defaulted).__name__, getattr(instance.defaulted, "value", None)),
+            (type(instance.model_union).__name__, getattr(instance.model_union, "external_name", None)),
+            instance.mapping_union,
+            instance.nested_mapping,
+        )
+        expected = (
+            ("RequiredNested", "preset"),
+            {"optional_value": "preset"},
+            {},
+            ("DefaultedNested", "fallback"),
+            ("RequiredNested", "union"),
+            {"external-name": "mapping"},
+            {},
+        )
+        match actual:
+            case _ if actual == expected:
+                pass
+            case _:  # pragma: no cover
+                pytest.fail(f"Nested mapping defaults produced unexpected values: {actual!r}")
+
+
 def test_main_msgspec_decimal_constraints(output_file: Path) -> None:
     """Test msgspec keeps fractional decimal constraints and integer-valued bounds."""
     run_main_and_assert(
@@ -15209,6 +15510,25 @@ def test_main_jsonschema_enum_member_typed_defaults(output_file: Path) -> None:
         assert_func=assert_file_content,
         expected_file="enum_member_typed_defaults.py",
         importable_module_name="generated_enum_member_typed_defaults",
+    )
+
+
+@pytest.mark.parametrize(
+    "custom_template_dir",
+    [
+        pytest.param(None, id="builtin-template"),
+        pytest.param(DATA_PATH / "templates_extensions", id="existing-custom-enum-template"),
+    ],
+)
+def test_generate_jsonschema_structured_enum_values(custom_template_dir: Path | None) -> None:
+    """Keep raw enum values distinct from rendered source through the generate API."""
+    run_generate_and_assert(
+        input_=JSON_SCHEMA_DATA_PATH / "structured_enum_values.json",
+        expected_file=EXPECTED_JSON_SCHEMA_PATH / "structured_enum_values.py",
+        input_file_type=InputFileType.JsonSchema,
+        output_model_type=DataModelType.PydanticV2BaseModel,
+        set_default_enum_member=True,
+        custom_template_dir=custom_template_dir,
     )
 
 

@@ -23,14 +23,17 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import re
 import time
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 from .analyzability import AnalyzabilityReport, compute_analyzability
 from .analyzer_factory import build_core_analyzers
 from .analyzers.base import BaseAnalyzer
+from .analyzers.llm_request_handler import _add_token_usage, _empty_token_usage
 from .extractors.content_extractor import ContentExtractor
 from .loader import SkillLoader, SkillLoadError
 from .models import Finding, Report, ScanResult, Severity, Skill, ThreatCategory
@@ -103,6 +106,11 @@ _STOP_WORDS = frozenset(
 
 class SkillScanner:
     """Main scanner that orchestrates skill analysis."""
+
+    # Upper bound on directories visited during recursive discovery. Guards
+    # against a hostile symlink fan-out (e.g. ``trap -> /``) turning a scan into
+    # a full-filesystem crawl. Far above any realistic skill tree (issue #116).
+    _MAX_WALK_DIRS = 100_000
 
     def __init__(
         self,
@@ -218,6 +226,7 @@ class SkillScanner:
             llm_analyzers: list[BaseAnalyzer] = []
             unreferenced_scripts: list[str] = []
             llm_scan_meta: dict[str, Any] = {}
+            llm_usage: dict[str, int] | None = None
 
             for analyzer in self.analyzers:
                 # Defer LLM analyzers to Phase 2
@@ -235,6 +244,54 @@ class SkillScanner:
                 # LLM enrichment (no longer emitted as standalone findings).
                 if hasattr(analyzer, "get_unreferenced_scripts"):
                     unreferenced_scripts = analyzer.get_unreferenced_scripts()
+
+            # Phase 1.5: Per-finding adjudicator (demote literal-regex FPs)
+            #
+            # Runs before the LLM analyzer so that demoted findings never
+            # enter the LLM analyzer's ``static_findings_summary`` enrichment
+            # context.  This naturally breaks the cross-analyzer confirmation
+            # cascade where a wrong deterministic HIGH gets amplified into
+            # LLM findings citing the same pattern hit.
+            #
+            # Demote-only: findings can only be lowered in severity, never
+            # raised. LLM errors leave findings at their original severity,
+            # so enabling this pass cannot introduce false negatives.
+            adjudicator_audit: list[dict[str, Any]] = []
+            adjudicator_usage = _empty_token_usage()
+            if self.policy.adjudicator.enabled and all_findings:
+                try:
+                    from .analyzers.adjudicator import Adjudicator
+
+                    adj = Adjudicator(
+                        min_fp_confidence=self.policy.adjudicator.min_fp_confidence,
+                    )
+                    try:
+                        if adj.is_available():
+                            adj.adjudicate(all_findings, skill)
+                            analyzer_names.append("adjudicator")
+                            adjudicator_audit = [
+                                {
+                                    "rule_id": r.rule_id,
+                                    "verdict": r.verdict,
+                                    "confidence": r.confidence,
+                                    "reason": r.reason,
+                                    "demoted_to": r.demoted_to,
+                                    "model_id": r.model_id,
+                                }
+                                for r in adj.audit
+                            ]
+                        else:
+                            logger.debug(
+                                "adjudicator enabled but no LLM model configured; "
+                                "set SKILL_SCANNER_LLM_MODEL or "
+                                "SKILL_SCANNER_ADJUDICATOR_LLM_MODEL to activate"
+                            )
+                    finally:
+                        # Preserve billed usage even if a later adjudication
+                        # step raises and findings remain fail-closed.
+                        _add_token_usage(adjudicator_usage, adj.llm_usage)
+                except Exception as exc:
+                    logger.warning("Adjudication failed: %s", exc)
 
             # Phase 2: Run LLM analyzers with enrichment context from Phase 1
             if llm_analyzers:
@@ -275,6 +332,14 @@ class SkillScanner:
                         llm_scan_meta["llm_overall_assessment"] = analyzer.last_overall_assessment
                         llm_scan_meta["llm_primary_threats"] = getattr(analyzer, "last_primary_threats", [])
 
+            # Aggregate token usage across all LLM analyzers that ran.
+            aggregated_usage = _empty_token_usage()
+            _add_token_usage(aggregated_usage, adjudicator_usage)
+            for analyzer in llm_analyzers:
+                if hasattr(analyzer, "llm_usage"):
+                    _add_token_usage(aggregated_usage, analyzer.llm_usage)
+            llm_usage = dict(aggregated_usage) if any(aggregated_usage.values()) else None  # type: ignore[arg-type]
+
             # Post-process findings: Suppress BINARY_FILE_DETECTED for VirusTotal-validated files
             if validated_binary_files:
                 filtered_findings = []
@@ -307,6 +372,13 @@ class SkillScanner:
             policy_meta = self._policy_fingerprint_metadata()
             if llm_scan_meta:
                 policy_meta.update(llm_scan_meta)
+            if adjudicator_audit:
+                demoted = [a for a in adjudicator_audit if a.get("demoted_to")]
+                policy_meta["adjudicator"] = {
+                    "considered": len(adjudicator_audit),
+                    "demoted": len(demoted),
+                    "audit": adjudicator_audit,
+                }
             self._annotate_findings_with_policy(all_findings, policy_meta)
 
         finally:
@@ -326,6 +398,7 @@ class SkillScanner:
             analyzability_score=analyzability.score,
             analyzability_details=analyzability.to_dict(),
             scan_metadata=policy_meta,
+            llm_usage=llm_usage,
         )
 
         return result
@@ -449,8 +522,16 @@ class SkillScanner:
         return has_critical_or_high or has_unreferenced or has_magic_mismatch
 
     def _apply_severity_overrides(self, findings: list) -> None:
-        """Apply severity overrides from policy ``severity_overrides``."""
+        """Apply severity overrides from policy ``severity_overrides``.
+
+        Findings previously demoted by the adjudicator (marked with
+        ``metadata['adjudication']['demoted_to']``) are exempt — the
+        adjudicator's INFO verdict is load-bearing for downstream verdict
+        computation and must not be re-raised by a per-rule override.
+        """
         for finding in findings:
+            if (finding.metadata or {}).get("adjudication", {}).get("demoted_to"):
+                continue
             override = self.policy.get_severity_override(finding.rule_id)
             if override:
                 try:
@@ -854,6 +935,77 @@ class SkillScanner:
 
         return intersection / union if union > 0 else 0.0
 
+    def _walk_skill_dirs(self, directory: Path) -> Iterator[Path]:
+        """Yield *directory* and every subdirectory beneath it, descending
+        into symlinked directories as well.
+
+        ``Path.rglob`` / ``Path.glob("**")`` do not follow directory symlinks
+        (and on Python < 3.13 there is no option to make them), so skills
+        installed as symlinks are silently skipped during recursive discovery.
+        This is the standard Claude Code layout, where ``~/.claude/skills/<name>``
+        is a symlink to a real directory elsewhere (issue #116).  ``os.walk``
+        with ``followlinks=True`` descends into them.
+
+        Following symlinks is deliberately bounded so a security scan cannot be
+        turned against the user (issue #116 review):
+
+        * **Containment.** When the walk crosses a symlink whose real target is
+          *outside* the scan root, that directory itself is still yielded (so a
+          per-skill symlink such as ``~/.claude/skills/<name>`` -- which points
+          directly at a leaf skill with its ``SKILL.md`` at depth 0 -- is
+          discovered), but its children are not descended into. This stops a
+          hostile bundle whose ``trap -> /`` (or ``-> ~``) symlink would
+          otherwise make discovery crawl the entire filesystem.
+
+          Limitation: because descent stops at the crossing, a symlink pointing
+          at an external *collection* of skills (e.g. ``skills -> /ext/skillset``
+          with skills nested at ``skillset/a``, ``skillset/group/b``) only has
+          its top level evaluated; nested skills underneath are not discovered.
+          This is not a regression -- ``rglob`` followed no symlinks at all -- and
+          the standard #116 layout (one symlink per skill) is unaffected. To scan
+          such a collection, point the scanner directly at the resolved directory.
+        * **Cycle safety.** Resolved paths are tracked so symlink cycles and
+          aliases are walked at most once.
+        * **DoS backstop.** Discovery stops after ``_MAX_WALK_DIRS`` directories,
+          logging the truncation. Note this bounds the *number of directories*
+          walked, not the entry count within a single directory: ``os.walk``
+          still materializes one directory's full listing at a time, so a symlink
+          to a single directory with an enormous number of entries is not bounded
+          by this cap.
+        """
+        try:
+            scan_root = directory.resolve()
+        except OSError:
+            return
+        visited: set[Path] = set()
+        for root, dirs, _files in os.walk(directory, followlinks=True):
+            if len(visited) >= self._MAX_WALK_DIRS:
+                logger.warning(
+                    "Skill discovery truncated at %d directories under %s "
+                    "(possible symlink fan-out); some skills may be skipped.",
+                    self._MAX_WALK_DIRS,
+                    directory,
+                )
+                break
+            root_path = Path(root)
+            try:
+                real = root_path.resolve()
+            except OSError:
+                # Symlink loop / unreadable entry: do not descend further.
+                dirs[:] = []
+                continue
+            if real in visited:
+                # Already walked this real directory (symlink cycle or alias).
+                dirs[:] = []
+                continue
+            visited.add(real)
+            yield root_path
+            if not real.is_relative_to(scan_root):
+                # Followed a symlink out of the scan root: evaluate this
+                # directory as a skill, but do not wander into its external
+                # siblings/children (containment, see docstring).
+                dirs[:] = []
+
     def _find_skill_directories(
         self,
         directory: Path,
@@ -885,11 +1037,12 @@ class SkillScanner:
 
         # Phase 1: find directories with the target metadata file
         if recursive:
-            for md in directory.rglob(target_filename):
-                resolved = md.parent.resolve()
-                if resolved not in seen:
-                    seen.add(resolved)
-                    skill_dirs.append(md.parent)
+            for sub in self._walk_skill_dirs(directory):
+                if (sub / target_filename).exists():
+                    resolved = sub.resolve()
+                    if resolved not in seen:
+                        seen.add(resolved)
+                        skill_dirs.append(sub)
         else:
             for item in directory.iterdir():
                 if item.is_dir():
@@ -903,11 +1056,13 @@ class SkillScanner:
         # Phase 2 (lenient only): discover directories with .md files
         if lenient:
             if recursive:
-                for md in directory.rglob("*.md"):
-                    candidate = md.parent.resolve()
-                    if candidate not in seen:
+                for sub in self._walk_skill_dirs(directory):
+                    candidate = sub.resolve()
+                    if candidate in seen:
+                        continue
+                    if any(sub.glob("*.md")):
                         seen.add(candidate)
-                        skill_dirs.append(md.parent)
+                        skill_dirs.append(sub)
             else:
                 for item in directory.iterdir():
                     if item.is_dir():

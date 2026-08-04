@@ -35,8 +35,21 @@ if typing.TYPE_CHECKING:
     from .configure_connection import ConfigureConnectionParams
     from .configure_connection_data import ConfigureConnectionDataParams
     from .create_chat_completion_response import CreateChatCompletionResponseParams
+    from .create_dubbing_job_data import CreateDubbingJobDataParams
+    from .create_dubbing_job_response import CreateDubbingJobResponseParams
     from .diarized_entry import DiarizedEntryParams
     from .diarized_transcript import DiarizedTranscriptParams
+    from .doc_ai_digitise_results import DocAiDigitiseResultsParams
+    from .doc_ai_digitise_results_documents_item import DocAiDigitiseResultsDocumentsItemParams
+    from .doc_ai_digitise_results_documents_item_pages_item import DocAiDigitiseResultsDocumentsItemPagesItemParams
+    from .doc_ai_download_url_response import DocAiDownloadUrlResponseParams
+    from .doc_ai_error_detail import DocAiErrorDetailParams
+    from .doc_ai_error_model import DocAiErrorModelParams
+    from .doc_ai_extract_results import DocAiExtractResultsParams
+    from .doc_ai_job_status_response import DocAiJobStatusResponseParams
+    from .doc_ai_presign_upload_response import DocAiPresignUploadResponseParams
+    from .doc_ai_start_job_response import DocAiStartJobResponseParams
+    from .doc_ai_usage import DocAiUsageParams
     from .doc_digitization_create_job_response import DocDigitizationCreateJobResponseParams
     from .doc_digitization_download_files_response import DocDigitizationDownloadFilesResponseParams
     from .doc_digitization_error_details import DocDigitizationErrorDetailsParams
@@ -46,7 +59,14 @@ if typing.TYPE_CHECKING:
     from .doc_digitization_job_status_response import DocDigitizationJobStatusResponseParams
     from .doc_digitization_page_error import DocDigitizationPageErrorParams
     from .doc_digitization_upload_files_response import DocDigitizationUploadFilesResponseParams
-    from .doc_digitization_webhook_callback import DocDigitizationWebhookCallbackParams
+    from .dubbing_export_item import DubbingExportItemParams
+    from .dubbing_export_status_data import DubbingExportStatusDataParams
+    from .dubbing_export_status_response import DubbingExportStatusResponseParams
+    from .dubbing_live_status_data import DubbingLiveStatusDataParams
+    from .dubbing_live_status_export_info import DubbingLiveStatusExportInfoParams
+    from .dubbing_live_status_response import DubbingLiveStatusResponseParams
+    from .dubbing_start_data import DubbingStartDataParams
+    from .dubbing_start_response import DubbingStartResponseParams
     from .error_data import ErrorDataParams
     from .error_details import ErrorDetailsParams
     from .error_details2 import ErrorDetails2Params
@@ -65,6 +85,7 @@ if typing.TYPE_CHECKING:
     from .function_call import FunctionCallParams
     from .function_definition import FunctionDefinitionParams
     from .job_status_response import JobStatusResponseParams
+    from .json_schema_definition import JsonSchemaDefinitionParams
     from .language_identification_response import LanguageIdentificationResponseParams
     from .ping_signal import PingSignalParams
     from .pronunciation_dictionary_data import PronunciationDictionaryDataParams
@@ -72,6 +93,32 @@ if typing.TYPE_CHECKING:
     from .pronunciation_dictionary_get_response import PronunciationDictionaryGetResponseParams
     from .pronunciation_dictionary_response import PronunciationDictionaryResponseParams
     from .pronunciation_dictionary_update_response import PronunciationDictionaryUpdateResponseParams
+    from .realtime_audio_input import RealtimeAudioInputParams
+    from .realtime_config_update import RealtimeConfigUpdateParams
+    from .realtime_config_updated import RealtimeConfigUpdatedParams
+    from .realtime_end import RealtimeEndParams
+    from .realtime_error import RealtimeErrorParams
+    from .realtime_flush import RealtimeFlushParams
+    from .realtime_ping import RealtimePingParams
+    from .realtime_pong import RealtimePongParams
+    from .realtime_session_begin import RealtimeSessionBeginParams
+    from .realtime_session_begin_config import RealtimeSessionBeginConfigParams
+    from .realtime_session_end import RealtimeSessionEndParams
+    from .realtime_speech_end import RealtimeSpeechEndParams
+    from .realtime_speech_start import RealtimeSpeechStartParams
+    from .realtime_transcript_final import RealtimeTranscriptFinalParams
+    from .realtime_transcript_partial import RealtimeTranscriptPartialParams
+    from .realtime_vad_speech_end import RealtimeVadSpeechEndParams
+    from .realtime_vad_speech_start import RealtimeVadSpeechStartParams
+    from .response_format import (
+        ResponseFormatParams,
+        ResponseFormat_JsonObjectParams,
+        ResponseFormat_JsonSchemaParams,
+        ResponseFormat_TextParams,
+    )
+    from .response_format_json_object import ResponseFormatJsonObjectParams
+    from .response_format_json_schema import ResponseFormatJsonSchemaParams
+    from .response_format_text import ResponseFormatTextParams
     from .send_text import SendTextParams
     from .send_text_data import SendTextDataParams
     from .speech_to_text_job_parameters import SpeechToTextJobParametersParams
@@ -122,8 +169,21 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ConfigureConnectionDataParams": ".configure_connection_data",
     "ConfigureConnectionParams": ".configure_connection",
     "CreateChatCompletionResponseParams": ".create_chat_completion_response",
+    "CreateDubbingJobDataParams": ".create_dubbing_job_data",
+    "CreateDubbingJobResponseParams": ".create_dubbing_job_response",
     "DiarizedEntryParams": ".diarized_entry",
     "DiarizedTranscriptParams": ".diarized_transcript",
+    "DocAiDigitiseResultsDocumentsItemPagesItemParams": ".doc_ai_digitise_results_documents_item_pages_item",
+    "DocAiDigitiseResultsDocumentsItemParams": ".doc_ai_digitise_results_documents_item",
+    "DocAiDigitiseResultsParams": ".doc_ai_digitise_results",
+    "DocAiDownloadUrlResponseParams": ".doc_ai_download_url_response",
+    "DocAiErrorDetailParams": ".doc_ai_error_detail",
+    "DocAiErrorModelParams": ".doc_ai_error_model",
+    "DocAiExtractResultsParams": ".doc_ai_extract_results",
+    "DocAiJobStatusResponseParams": ".doc_ai_job_status_response",
+    "DocAiPresignUploadResponseParams": ".doc_ai_presign_upload_response",
+    "DocAiStartJobResponseParams": ".doc_ai_start_job_response",
+    "DocAiUsageParams": ".doc_ai_usage",
     "DocDigitizationCreateJobResponseParams": ".doc_digitization_create_job_response",
     "DocDigitizationDownloadFilesResponseParams": ".doc_digitization_download_files_response",
     "DocDigitizationErrorDetailsParams": ".doc_digitization_error_details",
@@ -133,7 +193,14 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DocDigitizationJobStatusResponseParams": ".doc_digitization_job_status_response",
     "DocDigitizationPageErrorParams": ".doc_digitization_page_error",
     "DocDigitizationUploadFilesResponseParams": ".doc_digitization_upload_files_response",
-    "DocDigitizationWebhookCallbackParams": ".doc_digitization_webhook_callback",
+    "DubbingExportItemParams": ".dubbing_export_item",
+    "DubbingExportStatusDataParams": ".dubbing_export_status_data",
+    "DubbingExportStatusResponseParams": ".dubbing_export_status_response",
+    "DubbingLiveStatusDataParams": ".dubbing_live_status_data",
+    "DubbingLiveStatusExportInfoParams": ".dubbing_live_status_export_info",
+    "DubbingLiveStatusResponseParams": ".dubbing_live_status_response",
+    "DubbingStartDataParams": ".dubbing_start_data",
+    "DubbingStartResponseParams": ".dubbing_start_response",
     "ErrorDataParams": ".error_data",
     "ErrorDetails2Params": ".error_details2",
     "ErrorDetailsParams": ".error_details",
@@ -152,6 +219,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "FunctionCallParams": ".function_call",
     "FunctionDefinitionParams": ".function_definition",
     "JobStatusResponseParams": ".job_status_response",
+    "JsonSchemaDefinitionParams": ".json_schema_definition",
     "LanguageIdentificationResponseParams": ".language_identification_response",
     "PingSignalParams": ".ping_signal",
     "PronunciationDictionaryDataParams": ".pronunciation_dictionary_data",
@@ -159,6 +227,30 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PronunciationDictionaryGetResponseParams": ".pronunciation_dictionary_get_response",
     "PronunciationDictionaryResponseParams": ".pronunciation_dictionary_response",
     "PronunciationDictionaryUpdateResponseParams": ".pronunciation_dictionary_update_response",
+    "RealtimeAudioInputParams": ".realtime_audio_input",
+    "RealtimeConfigUpdateParams": ".realtime_config_update",
+    "RealtimeConfigUpdatedParams": ".realtime_config_updated",
+    "RealtimeEndParams": ".realtime_end",
+    "RealtimeErrorParams": ".realtime_error",
+    "RealtimeFlushParams": ".realtime_flush",
+    "RealtimePingParams": ".realtime_ping",
+    "RealtimePongParams": ".realtime_pong",
+    "RealtimeSessionBeginConfigParams": ".realtime_session_begin_config",
+    "RealtimeSessionBeginParams": ".realtime_session_begin",
+    "RealtimeSessionEndParams": ".realtime_session_end",
+    "RealtimeSpeechEndParams": ".realtime_speech_end",
+    "RealtimeSpeechStartParams": ".realtime_speech_start",
+    "RealtimeTranscriptFinalParams": ".realtime_transcript_final",
+    "RealtimeTranscriptPartialParams": ".realtime_transcript_partial",
+    "RealtimeVadSpeechEndParams": ".realtime_vad_speech_end",
+    "RealtimeVadSpeechStartParams": ".realtime_vad_speech_start",
+    "ResponseFormatJsonObjectParams": ".response_format_json_object",
+    "ResponseFormatJsonSchemaParams": ".response_format_json_schema",
+    "ResponseFormatParams": ".response_format",
+    "ResponseFormatTextParams": ".response_format_text",
+    "ResponseFormat_JsonObjectParams": ".response_format",
+    "ResponseFormat_JsonSchemaParams": ".response_format",
+    "ResponseFormat_TextParams": ".response_format",
     "SendTextDataParams": ".send_text_data",
     "SendTextParams": ".send_text",
     "SpeechToTextJobParametersParams": ".speech_to_text_job_parameters",
@@ -233,8 +325,21 @@ __all__ = [
     "ConfigureConnectionDataParams",
     "ConfigureConnectionParams",
     "CreateChatCompletionResponseParams",
+    "CreateDubbingJobDataParams",
+    "CreateDubbingJobResponseParams",
     "DiarizedEntryParams",
     "DiarizedTranscriptParams",
+    "DocAiDigitiseResultsDocumentsItemPagesItemParams",
+    "DocAiDigitiseResultsDocumentsItemParams",
+    "DocAiDigitiseResultsParams",
+    "DocAiDownloadUrlResponseParams",
+    "DocAiErrorDetailParams",
+    "DocAiErrorModelParams",
+    "DocAiExtractResultsParams",
+    "DocAiJobStatusResponseParams",
+    "DocAiPresignUploadResponseParams",
+    "DocAiStartJobResponseParams",
+    "DocAiUsageParams",
     "DocDigitizationCreateJobResponseParams",
     "DocDigitizationDownloadFilesResponseParams",
     "DocDigitizationErrorDetailsParams",
@@ -244,7 +349,14 @@ __all__ = [
     "DocDigitizationJobStatusResponseParams",
     "DocDigitizationPageErrorParams",
     "DocDigitizationUploadFilesResponseParams",
-    "DocDigitizationWebhookCallbackParams",
+    "DubbingExportItemParams",
+    "DubbingExportStatusDataParams",
+    "DubbingExportStatusResponseParams",
+    "DubbingLiveStatusDataParams",
+    "DubbingLiveStatusExportInfoParams",
+    "DubbingLiveStatusResponseParams",
+    "DubbingStartDataParams",
+    "DubbingStartResponseParams",
     "ErrorDataParams",
     "ErrorDetails2Params",
     "ErrorDetailsParams",
@@ -263,6 +375,7 @@ __all__ = [
     "FunctionCallParams",
     "FunctionDefinitionParams",
     "JobStatusResponseParams",
+    "JsonSchemaDefinitionParams",
     "LanguageIdentificationResponseParams",
     "PingSignalParams",
     "PronunciationDictionaryDataParams",
@@ -270,6 +383,30 @@ __all__ = [
     "PronunciationDictionaryGetResponseParams",
     "PronunciationDictionaryResponseParams",
     "PronunciationDictionaryUpdateResponseParams",
+    "RealtimeAudioInputParams",
+    "RealtimeConfigUpdateParams",
+    "RealtimeConfigUpdatedParams",
+    "RealtimeEndParams",
+    "RealtimeErrorParams",
+    "RealtimeFlushParams",
+    "RealtimePingParams",
+    "RealtimePongParams",
+    "RealtimeSessionBeginConfigParams",
+    "RealtimeSessionBeginParams",
+    "RealtimeSessionEndParams",
+    "RealtimeSpeechEndParams",
+    "RealtimeSpeechStartParams",
+    "RealtimeTranscriptFinalParams",
+    "RealtimeTranscriptPartialParams",
+    "RealtimeVadSpeechEndParams",
+    "RealtimeVadSpeechStartParams",
+    "ResponseFormatJsonObjectParams",
+    "ResponseFormatJsonSchemaParams",
+    "ResponseFormatParams",
+    "ResponseFormatTextParams",
+    "ResponseFormat_JsonObjectParams",
+    "ResponseFormat_JsonSchemaParams",
+    "ResponseFormat_TextParams",
     "SendTextDataParams",
     "SendTextParams",
     "SpeechToTextJobParametersParams",

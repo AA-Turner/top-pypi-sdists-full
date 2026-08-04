@@ -19,7 +19,7 @@ import warnings
 from mastodon.versions import parse_version_string
 from mastodon.errors import MastodonNetworkError, MastodonIllegalArgumentError, MastodonRatelimitError, MastodonNotFoundError, \
                     MastodonUnauthorizedError, MastodonInternalServerError, MastodonBadGatewayError, MastodonServiceUnavailableError, \
-                    MastodonGatewayTimeoutError, MastodonServerError, MastodonAPIError, MastodonMalformedEventError, MastodonDeprecationWarning
+                    MastodonGatewayTimeoutError, MastodonServerError, MastodonAPIError, MastodonMalformedEventError, MastodonDeprecationWarning, MastodonWarning
 from mastodon.compat import urlparse, magic, PurePath, Path
 from mastodon.defaults import _DEFAULT_STREAM_TIMEOUT, _DEFAULT_STREAM_RECONNECT_WAIT_SEC
 from mastodon.return_types import AttribAccessDict, PaginatableList, try_cast_recurse
@@ -27,8 +27,55 @@ from mastodon.return_types import *
 
 ###
 # Internal helpers, dragons probably
+# timeline_is_available is exported and can be used, it is here for import circularity reasons
 ###
 class Mastodon():
+    def timeline_is_available(self, timeline: str = "public", local: bool = False, remote: bool = False, 
+                              with_auth: bool = False, fail_hard: bool = False) -> bool:
+        """
+        Determine whether a given public timeline feed variant is available on this instance.
+
+        Supported parameter values are as in `timeline()`.
+
+        Set `with_auth` to True to return True for timelines that require login, not just fully public ones.
+        Set `fail_hard` to True to raise an exception if we fail to determine availability, instead of silently returning True.
+        """
+        timeline_to_feed_key = {
+            "public": "live_feeds",
+            "hashtag": "hashtag_feeds",
+            "trending_links": "trending_link_feeds",
+        }
+        if timeline not in timeline_to_feed_key:
+            if fail_hard:
+                raise MastodonIllegalArgumentError(f"Unknown timeline: {timeline}")
+            return True
+        feed_key = timeline_to_feed_key[timeline]
+
+        valid_values = ("public")
+        if with_auth:
+            valid_values = ("authenticated", "public")
+            
+        try:
+            instance_v2_info = self.__instance_v2(cached=True)
+
+            timelines_access = instance_v2_info["configuration"]["timelines_access"]
+            feed_config = timelines_access[feed_key]
+            local_available = feed_config["local"] in valid_values
+            remote_available = feed_config["remote"] in valid_values
+
+            if local and remote:
+                return local_available and remote_available
+            elif local:
+                return local_available
+            elif remote:
+                return remote_available
+            else:
+                return local_available or remote_available
+        except Exception as e:
+            if fail_hard:
+                raise MastodonAPIError(f"Failed to determine timeline availability for '{timeline}'.") from e
+            return True
+
     def __datetime_to_epoch(self, date_time: datetime) -> float:
         """
         Converts a python datetime to unix epoch, accounting for
@@ -395,16 +442,22 @@ class Mastodon():
         """
         if self.__streaming_base is not None:
             return self.__streaming_base
+
+        if not self.timeline_is_available("public", with_auth=self.access_token is not None, fail_hard=False):
+            warnings.warn(
+                "Public timeline appears to be unavailable on this instance for the current auth context; streaming may fail.",
+                MastodonWarning
+            )
         
         # Try to support implementations that have no v1 endpoint (Sharkey does this)
         streaming_api_url = None
         try:
-            instance = self.__instance()
+            instance = self.__instance(cached=True)
             if  "streaming_api" in instance["urls"]:
                 streaming_api_url = instance["urls"]["streaming_api"]
         except:
             try:
-                streaming_api_url = self.__instance_v2().configuration.urls.streaming
+                streaming_api_url = self.__instance_v2(cached=True).configuration.urls.streaming
             except:
                 pass
 
@@ -417,12 +470,15 @@ class Mastodon():
             elif parse.scheme == 'ws':
                 url = "http://" + parse.netloc
             else:
+                if parse.scheme in ('http', 'https'):
+                    url = parse.scheme + "://" + parse.netloc
                 raise MastodonAPIError(
                     f"Could not parse streaming api location returned from server: {streaming_api_url}."
                 )
         else:
             url = self.api_base_url
         assert not url is None
+        self.__streaming_base = url
         return url
 
     def __stream(self, endpoint, listener, params={}, run_async=False, timeout=_DEFAULT_STREAM_TIMEOUT, reconnect_async=False, reconnect_async_wait_sec=_DEFAULT_STREAM_RECONNECT_WAIT_SEC):

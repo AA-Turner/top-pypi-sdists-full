@@ -9,17 +9,17 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 class TimestampsModel(UniversalBaseModel):
     words: typing.List[str] = pydantic.Field()
     """
-    List of words in the transcript.
+    List of transcript chunks (sentence or phrase segments). Not individual words.
     """
 
     start_time_seconds: typing.List[float] = pydantic.Field()
     """
-    List of start times of words in seconds.
+    List of start times for each chunk in seconds.
     """
 
     end_time_seconds: typing.List[float] = pydantic.Field()
     """
-    List of end times of words in seconds.
+    List of end times for each chunk in seconds.
     """
 
     if IS_PYDANTIC_V2:

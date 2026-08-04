@@ -2,6 +2,7 @@
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
 
+import os
 import re
 import sys
 from collections import defaultdict
@@ -494,6 +495,11 @@ class GlobalConfig:
         "snowpark.connect.artifact_repository": lambda session, _: clear_spark_session_cache(
             get_spark_session_id()
         ),
+        # In a Native App versioned schema, direct-stage IMPORTS are rejected (093023),
+        # so force every Python UDF/UDTF/pandas-UDF closure to inline into the handler.
+        "snowpark.connect.native_app_mode": lambda session, value: _force_python_udxf_inline_on_native_app_mode(
+            session, value
+        ),
     }
 
     float_config_list = []
@@ -614,6 +620,10 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "spark.sql.sources.partitionOverwriteMode",
     "snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables",
     "snowpark.connect.sql.returnDmlMetadata",
+    # SNOW-3859781: when true, collapse chained distinct UNION parsed from
+    # spark.sql() (Distinct(Union(Distinct(Union(...))))) into a flat UNION ALL
+    # chain + single terminal dedup so the plan does not nest O(N) deep.
+    "snowpark.connect.sql.flattenChainedUnion",
     "snowpark.connect.csv.continueOnError",  # Deprecated: use .option("mode", "DROPMALFORMED")
     # SNOW-3295599: SCOS-internal knob to flip Snowflake's SKIP_BLANK_LINES on
     # CSV reads. Default TRUE preserves Spark-default semantics (Univocity also
@@ -644,6 +654,13 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "snowpark.connect.aggregate.coerceStringToNumeric",
     "snowpark.connect.use2000AsTwoDigitCenturyStart",
     "snowpark.connect.window.collectListHonorOrderByDirection",
+    # NSS (Native Spark Sandbox) session-level knobs. Whether NSS is *enabled* is
+    # deliberately NOT a client config — it is gated server-side by the
+    # SCOS_NSS_ENABLED env var (see is_nss_enabled) so customers cannot reach the
+    # experimental read path via spark.conf.set. Only the format-name overrides
+    # remain session knobs.
+    "snowpark.connect.nss.json_format_name",
+    "snowpark.connect.nss.csv_format_name",
 }
 
 # Static Spark configs that nonetheless accept a *per-session* override at
@@ -676,6 +693,24 @@ def valid_session_config_key(key: str):
     )
 
 
+def is_nss_enabled() -> bool:
+    """Whether the NSS (Native Spark Sandbox) file-read path is enabled.
+
+    NSS is gated by a **server-side environment variable**, not a client session
+    config: it is an internal/experimental path that must not be reachable by
+    customers via ``spark.conf.set``. Operators and the test/CI harness enable it
+    by starting the SCOS server process with ``SCOS_NSS_ENABLED=true``. Read live
+    from the environment so a server started with the var set applies it to every
+    session.
+    """
+    return os.environ.get("SCOS_NSS_ENABLED", "false").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
 class SessionConfig:
     """This class contains the session configuration for the Spark Server."""
 
@@ -704,6 +739,8 @@ class SessionConfig:
         "spark.sql.sources.partitionOverwriteMode": "STATIC",
         "snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables": "false",
         "snowpark.connect.sql.returnDmlMetadata": "false",
+        # SNOW-3859781: opt-in; default off preserves existing SQL shape.
+        "snowpark.connect.sql.flattenChainedUnion": "false",
         "snowpark.connect.csv.continueOnError": "false",  # Deprecated
         "snowpark.connect.csv.skipBlankLines": "true",  # SNOW-3295599
         "spark.sql.parquet.inferTimestampNTZ.enabled": "true",
@@ -730,6 +767,24 @@ class SessionConfig:
         # SNOW-3674169: ``""`` means unset — the Iceberg writer falls back to
         # Snowflake's own ``TARGET_FILE_SIZE`` default (``AUTO``).
         "spark.sql.files.maxPartitionBytes": "",
+        # NSS (Native Spark Sandbox) file-ingestion configuration.
+        # Whether NSS is enabled is intentionally NOT a session config: it is gated
+        # by the server-side SCOS_NSS_ENABLED env var (see is_nss_enabled) so it is
+        # never reachable by customers via spark.conf.set. When enabled, CSV/JSON
+        # reads go through the official STAGE_FILE_READER / INFER_STAGE_FILE_SCHEMA
+        # TVFs instead of COPY INTO. Off by default.
+        # Official TVF names (overridable for named/test deployments).
+        "snowpark.connect.nss.stage_file_reader_fqn": os.environ.get(
+            "NSS_STAGE_FILE_READER_FQN", "STAGE_FILE_READER"
+        ),
+        "snowpark.connect.nss.infer_stage_file_schema_fqn": os.environ.get(
+            "NSS_INFER_STAGE_FILE_SCHEMA_FQN", "INFER_STAGE_FILE_SCHEMA"
+        ),
+        # FILE FORMAT for the NSS read call. Empty (default) => SCOS creates a
+        # session-local TEMP FILE FORMAT per type. Set to an explicit name/FQN to
+        # override with a pre-created format.
+        "snowpark.connect.nss.json_format_name": "",
+        "snowpark.connect.nss.csv_format_name": "",
     }
 
     def __init__(self) -> None:
@@ -1410,6 +1465,10 @@ def get_return_dml_metadata_enabled() -> bool:
     return get_boolean_session_config_param("snowpark.connect.sql.returnDmlMetadata")
 
 
+def is_flatten_chained_union_enabled() -> bool:
+    return get_boolean_session_config_param("snowpark.connect.sql.flattenChainedUnion")
+
+
 def is_add_debug_info_to_query_tag_enabled() -> bool:
     return global_config.snowpark_connect_addDebugInfoToQueryTag
 
@@ -1778,6 +1837,64 @@ def is_native_app_mode() -> bool:
     The app provider must bundle the SCOS JARs in the app's version stage.
     """
     return str_to_bool(global_config.get("snowpark.connect.native_app_mode", "false"))
+
+
+def _force_python_udxf_inline_on_native_app_mode(session, value) -> None:
+    """``snowpark_config_mapping`` callback for ``native_app_mode``.
+
+    When native app mode is enabled, force everything that would otherwise land on
+    a stage or a temp object to inline into the SQL statement instead — a Native App
+    versioned schema rejects direct-stage IMPORTS (093023) and a Native App may not
+    ``CREATE TEMPORARY TABLE`` (093058). Two thresholds are raised:
+
+    1. Snowpark's inline-closure threshold, so every Python UDF/UDTF/pandas-UDF
+       closure is embedded in the handler instead of uploaded to a stage. Covers all
+       Python UDxF paths uniformly (scalar UDF, UDTF, ``mapInPandas``/``applyInPandas``).
+    2. Snowpark's ``ARRAY_BIND_THRESHOLD``, so ``createDataFrame`` over local data
+       always emits an inline ``VALUES`` clause instead of a temp-table batch insert
+       (``SnowflakeValues.is_large_local_data``). The upper bound is then Snowflake's
+       max SQL statement size — a temp table is not an option in an app anyway.
+
+    Firing at mode activation covers all paths uniformly rather than per-creation-site.
+    No-op when disabled. Lazy imports avoid a config<->udf_utils import cycle.
+
+    One-way latch: this only ever *raises* the thresholds and keys off
+    ``is_native_app_mode()``, so a later ``conf.set(..., "false")`` cannot lower them
+    back in-process. That is intentional — ``native_app_mode`` is a process-global
+    startup flag, not something toggled per query.
+
+    Runs on whatever thread calls ``conf.set`` — including the ``execute_jar`` native-app
+    sproc thread (see ``orchestration/sproc_manager.py``), which sets the flag under
+    owner's rights. The Snowpark ``_internal`` reach is guarded so a future Snowpark
+    refactor degrades to a logged warning instead of breaking that released path.
+    """
+    if not is_native_app_mode():
+        return
+
+    from snowflake.snowpark_connect.utils.udf_utils import (
+        _force_inline_python_udf_in_native_app,
+    )
+
+    _force_inline_python_udf_in_native_app()
+
+    import sys
+
+    # Reaches into a second Snowpark internal (beyond #4814's udf_utils threshold);
+    # guard it like _force_inline_python_udf_in_native_app guards its own import so a
+    # Snowpark layout change can't break native-app Java-UDF execution (execute_jar).
+    try:
+        import snowflake.snowpark._internal.analyzer.analyzer as _sp_analyzer
+    except ImportError:
+        logger.warning(
+            "native_app_mode: could not import snowpark analyzer to raise "
+            "ARRAY_BIND_THRESHOLD; large createDataFrame local data may hit 093058 "
+            "(CREATE TEMPORARY TABLE) in a versioned schema."
+        )
+        return
+
+    # Raising the bind threshold above any rows*cols product makes
+    # SnowflakeValues.is_large_local_data always False -> inline VALUES, no temp table.
+    _sp_analyzer.ARRAY_BIND_THRESHOLD = sys.maxsize
 
 
 def is_dynamic_partition_overwrite_enabled() -> bool:

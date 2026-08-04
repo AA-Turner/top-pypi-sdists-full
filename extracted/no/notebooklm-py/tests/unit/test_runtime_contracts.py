@@ -1,7 +1,7 @@
 """Typing checks for the capability-Protocol contracts in
 ``notebooklm._runtime.contracts``.
 
-Phase 7 (refactor-history.md §Migration Plan step 10) replaced the broad
+Phase 7 (docs/refactor-history.md §Migration Plan step 10) replaced the broad
 ``Session`` Protocol with shared capability Protocols. The surviving
 shared Protocols are ``RpcCaller`` (~17 consumers), ``LoopGuard`` (2
 consumers), and the pure-transport ``Kernel``. The single-consumer
@@ -13,8 +13,8 @@ modules / deleted in issue #1327 — ``AuthMetadata`` now lives in
 ``ArtifactPollingService``); mypy enforces their structural conformance
 at the consuming call sites. The standalone
 ``DrainHookRegistration`` Protocol previously kept here was deleted in
-Phase 7 — the canonical ``DrainHookRegistration`` is now local to
-``_artifacts.py`` since artifact polling is its only consumer.
+Phase 7; drain-hook registration now lives on
+``TransportDrainTracker.register_drain_hook(...)`` in ``_transport_drain.py``.
 """
 
 from __future__ import annotations
@@ -61,6 +61,7 @@ class _KernelImpl:
         body: bytes,
         *,
         read_timeout: float | None = None,
+        max_response_bytes: int | None = None,
     ) -> httpx.Response:
         return httpx.Response(200, content=body)
 
@@ -121,11 +122,20 @@ def test_rpc_caller_signature_matches_legacy_session_rpc_call() -> None:
 
 def test_kernel_protocol_signatures_are_pinned() -> None:
     post = inspect.signature(Kernel.post)
-    assert list(post.parameters) == ["self", "url", "headers", "body", "read_timeout"]
+    assert list(post.parameters) == [
+        "self",
+        "url",
+        "headers",
+        "body",
+        "read_timeout",
+        "max_response_bytes",
+    ]
     assert post.parameters["headers"].annotation == "Mapping[str, str]"
     assert post.parameters["body"].annotation == "bytes"
     assert post.parameters["read_timeout"].kind is inspect.Parameter.KEYWORD_ONLY
     assert post.parameters["read_timeout"].default is None
+    assert post.parameters["max_response_bytes"].kind is inspect.Parameter.KEYWORD_ONLY
+    assert post.parameters["max_response_bytes"].default is None
     assert post.return_annotation == "httpx.Response"
 
     cookies = inspect.signature(Kernel.cookies.fget)

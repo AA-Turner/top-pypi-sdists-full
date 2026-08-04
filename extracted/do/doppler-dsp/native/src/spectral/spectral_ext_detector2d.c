@@ -281,25 +281,33 @@ CorrDetector2D_getprop_last_corr (CorrDetector2DObject *self,
   return arr;
 }
 
-static PyGetSetDef CorrDetector2D_getset[] = {
-  { "ny", (getter)CorrDetector2D_getprop_ny, NULL, NULL, NULL },
-  { "nx", (getter)CorrDetector2D_getprop_nx, NULL, NULL, NULL },
-  { "n", (getter)CorrDetector2D_getprop_n, NULL, NULL, NULL },
-  { "dwell", (getter)CorrDetector2D_getprop_dwell, NULL, NULL, NULL },
-  { "count", (getter)CorrDetector2D_getprop_count, NULL, NULL, NULL },
-  { "ring_cap", (getter)CorrDetector2D_getprop_ring_cap, NULL, NULL, NULL },
-  { "noise_lo", (getter)CorrDetector2D_getprop_noise_lo, NULL, NULL, NULL },
-  { "noise_hi", (getter)CorrDetector2D_getprop_noise_hi, NULL, NULL, NULL },
-  { "threshold", (getter)CorrDetector2D_getprop_threshold, NULL, NULL, NULL },
-  { "last_corr", (getter)CorrDetector2D_getprop_last_corr, NULL,
-    "The correlation vector from the most recent push() that produced a "
-    "result (None before that). This is a zero-copy view into a buffer "
-    "owned by the detector and reused every push() -- the next push() "
-    "(even one that doesn't produce a result) overwrites it in place. "
-    "Copy the array before the next push() if you need to retain it.\n",
-    NULL },
-  { NULL }
-};
+static PyGetSetDef CorrDetector2D_getset[]
+    = { { "ny", (getter)CorrDetector2D_getprop_ny, NULL, "Number of rows.\n",
+          NULL },
+        { "nx", (getter)CorrDetector2D_getprop_nx, NULL,
+          "Number of columns.\n", NULL },
+        { "n", (getter)CorrDetector2D_getprop_n, NULL,
+          "ny * nx — total frame length.\n", NULL },
+        { "dwell", (getter)CorrDetector2D_getprop_dwell, NULL,
+          "Integration depth.\n", NULL },
+        { "count", (getter)CorrDetector2D_getprop_count, NULL,
+          "Frames accumulated (0 … dwell-1).\n", NULL },
+        { "ring_cap", (getter)CorrDetector2D_getprop_ring_cap, NULL,
+          "Ring buffer capacity in complex samples.\n", NULL },
+        { "noise_lo", (getter)CorrDetector2D_getprop_noise_lo, NULL,
+          "Noise bin range lower bound (inclusive).\n", NULL },
+        { "noise_hi", (getter)CorrDetector2D_getprop_noise_hi, NULL,
+          "Noise bin range upper bound (inclusive).\n", NULL },
+        { "threshold", (getter)CorrDetector2D_getprop_threshold, NULL,
+          "0 = always fire; >0 = gate on test_stat.\n", NULL },
+        { "last_corr", (getter)CorrDetector2D_getprop_last_corr, NULL,
+          "The correlation vector from the most recent push() that produced a "
+          "result (None before that). This is a zero-copy view into a buffer "
+          "owned by the detector and reused every push() -- the next push() "
+          "(even one that doesn't produce a result) overwrites it in place. "
+          "Copy the array before the next push() if you need to retain it.\n",
+          NULL },
+        { NULL } };
 
 static PyObject *
 CorrDetector2DObj_destroy (CorrDetector2DObject *self,
@@ -390,31 +398,129 @@ CorrDetector2DObj_set_state (CorrDetector2DObject *self, PyObject *arg)
 
 static PyMethodDef CorrDetector2DObj_methods[] = {
   { "reset", (PyCFunction)CorrDetector2DObj_reset, METH_NOARGS,
-    "Reset state to post-create defaults." },
+    "Reset the 2-D correlator, ring buffer, and last-corr flag. Discards any "
+    "partial frame buffered in the ring and zeroes the coherent accumulator.  "
+    "The reference spectrum and FFT plans are preserved." },
 
   { "push", (PyCFunction)CorrDetector2DObj_push, METH_VARARGS,
     "push(x) -> list[tuple]\n"
     "\n"
-    "Returns list of (row, col, peak_mag, noise_est, test_stat,) tuples.\n"
+    "Stream an arbitrary-length CF32 chunk through the 2-D detector. "
+    "Identical to detector_push() except frames are ny*nx complex samples and "
+    "each detection event carries (row, col) for the peak location instead of "
+    "a single lag index.  In Python the result is always a list of (row, col, "
+    "peak_mag, noise_est, test_stat) tuples.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import CorrDetector2D\n"
-    "    >>> obj = CorrDetector2D(np.zeros((1, 1), dtype=np.complex64), "
-    "\"mean\", "
-    "1, 0, ny*nx-1, 0.0, 1)\n"
-    "    >>> results = obj.push(np.zeros(4, dtype=np.complex64))\n"
-    "    >>> isinstance(results, list)\n"
-    "    True\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : complex\n"
+    "    Input.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "list[tuple]\n"
+    "    Number of det_result2d_t entries written to result.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.spectral import CorrDetector2D\n"
+    ">>> import numpy as np\n"
+    ">>> ref = np.zeros((4, 4), dtype=np.complex64); ref[0, 0] = 1.0\n"
+    ">>> det = CorrDetector2D(ref=ref, dwell=1, noise_lo=1, noise_hi=15,\n"
+    "...                  noise_mode=\"mean\", threshold=0.0)\n"
+    ">>> results = det.push(np.ones((4, 4), dtype=np.complex64))\n"
+    ">>> len(results)\n"
+    "1\n"
+    ">>> row, col, peak, noise, stat = results[0]\n"
+    ">>> row, col, round(peak, 4), round(noise, 4), round(stat, 4)\n"
+    "(0, 0, 1.0, 1.0, 1.0)\n" },
   { "destroy", (PyCFunction)CorrDetector2DObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)CorrDetector2DObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)CorrDetector2DObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)CorrDetector2DObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a Detector2d be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "Detector2d\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)CorrDetector2DObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the Detector2d.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { "state_bytes", (PyCFunction)CorrDetector2DObj_state_bytes, METH_NOARGS,
-    "Serialized state size in bytes." },
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the CorrDetector2DObj has already been\n"
+    "destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
   { "get_state", (PyCFunction)CorrDetector2DObj_get_state, METH_NOARGS,
-    "Serialize the engine's mutable state to bytes." },
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the CorrDetector2DObj has already been\n"
+    "destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
   { "set_state", (PyCFunction)CorrDetector2DObj_set_state, METH_O,
-    "Restore mutable state from a get_state() blob." },
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the CorrDetector2DObj has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
   { NULL }
 };
 

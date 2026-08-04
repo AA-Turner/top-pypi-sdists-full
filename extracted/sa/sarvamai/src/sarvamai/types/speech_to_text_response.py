@@ -4,7 +4,6 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
-from .diarized_transcript import DiarizedTranscript
 from .timestamps_model import TimestampsModel
 
 
@@ -17,12 +16,7 @@ class SpeechToTextResponse(UniversalBaseModel):
 
     timestamps: typing.Optional[TimestampsModel] = pydantic.Field(default=None)
     """
-    Contains timestamps for the transcribed text. This field is included only if with_timestamps is set to true
-    """
-
-    diarized_transcript: typing.Optional[DiarizedTranscript] = pydantic.Field(default=None)
-    """
-    Diarized transcript of the provided speech
+    Chunk-level timestamps for the transcribed text (sentence/phrase segments, not individual words). Present only when `with_timestamps` is `true`; omitted otherwise.
     """
 
     language_code: typing.Optional[str] = pydantic.Field(default=None)
@@ -32,16 +26,7 @@ class SpeechToTextResponse(UniversalBaseModel):
 
     language_probability: typing.Optional[float] = pydantic.Field(default=None)
     """
-    Float value (0.0 to 1.0) indicating the probability of the detected language being correct. Higher values indicate higher confidence.
-    
-    **When it returns a value:**
-    - When `language_code` is not provided in the request
-    - When `language_code` is set to `unknown`
-    
-    **When it returns null:**
-    - When a specific `language_code` is provided (language detection is skipped)
-    
-    The parameter is always present in the response.
+    Float value (0.0 to 1.0) indicating confidence in the detected language. Present when `language_code` is omitted or set to `unknown`; omitted (or null) when a specific language code is provided.
     """
 
     if IS_PYDANTIC_V2:

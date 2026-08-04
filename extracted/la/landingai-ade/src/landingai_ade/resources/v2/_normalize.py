@@ -6,9 +6,20 @@ from datetime import datetime
 
 from ..._types import StrBytesIntFloat
 from ..._utils import parse_datetime
-from ...types.v2 import Job, JobError, JobStatus, V2GroundResult, V2ExtractResult, V2ParseResponse
+from ...types.v2 import (
+    Job,
+    JobError,
+    JobStatus,
+    V2ExtractResult,
+    V2ParseResponse,
+    V2BuildSchemaResponse,
+)
 
-__all__ = ["normalize_parse_job", "normalize_extract_job", "normalize_ground_job"]
+__all__ = [
+    "normalize_parse_job",
+    "normalize_extract_job",
+    "normalize_build_schema_job",
+]
 
 
 def _ts(value: Optional[Union[datetime, StrBytesIntFloat]]) -> Optional[datetime]:
@@ -23,6 +34,15 @@ def _ts(value: Optional[Union[datetime, StrBytesIntFloat]]) -> Optional[datetime
 def _progress(value: object) -> Optional[float]:
     if isinstance(value, (int, float)):
         return float(value)
+    return None
+
+
+def _metadata(value: object) -> Optional[Dict[str, object]]:
+    # The top-level `metadata` receipt rides back on a completed job only when
+    # `output_save_url` was set (the result was delivered out-of-band). Pass it
+    # through as a plain dict; the inline-result case leaves this None.
+    if isinstance(value, Mapping):
+        return dict(cast(Dict[str, object], value))
     return None
 
 
@@ -68,6 +88,7 @@ def normalize_parse_job(raw: Mapping[str, Any]) -> Job:
         progress=_progress(raw.get("progress")),
         result=result,
         error=error,
+        metadata=_metadata(raw.get("metadata")),
         raw=dict(raw),
     )
 
@@ -95,23 +116,24 @@ def normalize_extract_job(raw: Mapping[str, Any]) -> Job:
         progress=_progress(raw.get("progress")),
         result=result,
         error=error,
+        metadata=_metadata(raw.get("metadata")),
         raw=dict(raw),
     )
 
 
-def normalize_ground_job(raw: Mapping[str, Any]) -> Job:
+def normalize_build_schema_job(raw: Mapping[str, Any]) -> Job:
     status = _status(raw)
     payload = raw.get("result")
     # Build leniently (like the sync-response path) so unexpected upstream drift
     # doesn't fail construction.
-    result = V2GroundResult.construct(**cast(Dict[str, Any], payload)) if isinstance(payload, Mapping) else None
+    result = V2BuildSchemaResponse.construct(**cast(Dict[str, Any], payload)) if isinstance(payload, Mapping) else None
 
     error = None
     err = raw.get("error")
     if isinstance(err, Mapping):
         err = cast(Dict[str, Any], err)
         error = JobError(code=err.get("code"), message=err.get("message"))
-    elif raw.get("failure_reason"):  # ground *list* uses failure_reason
+    elif raw.get("failure_reason"):  # build-schema *list* uses failure_reason
         error = JobError(message=str(raw["failure_reason"]))
 
     return Job(

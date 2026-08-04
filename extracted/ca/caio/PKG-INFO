@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: caio
-Version: 0.10.2
+Version: 0.11.1
 Summary: Asynchronous file IO for Linux MacOS or Windows.
 Author-email: Dmitry Orlov <me@mosquito.su>
 License-Expression: Apache-2.0

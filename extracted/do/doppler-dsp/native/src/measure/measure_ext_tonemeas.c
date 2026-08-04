@@ -547,20 +547,24 @@ ToneMeasure_getprop_proc_gain_db (ToneMeasureObject *self,
 }
 
 static PyGetSetDef ToneMeasure_getset[]
-    = { { "n", (getter)ToneMeasure_getprop_n, NULL, "N.\n", NULL },
-        { "nfft", (getter)ToneMeasure_getprop_nfft, NULL, "Nfft.\n", NULL },
-        { "fs", (getter)ToneMeasure_getprop_fs, NULL, "Fs.\n", NULL },
-        { "enbw", (getter)ToneMeasure_getprop_enbw, NULL, "Enbw.\n", NULL },
+    = { { "n", (getter)ToneMeasure_getprop_n, NULL,
+          "Window / frame length (samples).\n", NULL },
+        { "nfft", (getter)ToneMeasure_getprop_nfft, NULL,
+          "Zero-padded transform length.\n", NULL },
+        { "fs", (getter)ToneMeasure_getprop_fs, NULL, "Sample rate, Hz.\n",
+          NULL },
+        { "enbw", (getter)ToneMeasure_getprop_enbw, NULL,
+          "Equivalent noise bandwidth, bins.\n", NULL },
         { "lobe_bins", (getter)ToneMeasure_getprop_lobe_bins, NULL,
-          "Lobe bins.\n", NULL },
+          "Window main-lobe half-width L [bins].\n", NULL },
         { "spur_guard_bins", (getter)ToneMeasure_getprop_spur_guard_bins, NULL,
           "Spur guard bins.\n", NULL },
         { "beta", (getter)ToneMeasure_getprop_beta, NULL, "Beta.\n", NULL },
         { "rbw", (getter)ToneMeasure_getprop_rbw, NULL, "Rbw.\n", NULL },
-        { "bin_hz", (getter)ToneMeasure_getprop_bin_hz, NULL, "Bin hz.\n",
-          NULL },
+        { "bin_hz", (getter)ToneMeasure_getprop_bin_hz, NULL,
+          "FFT bin spacing = fs/nfft [Hz].\n", NULL },
         { "proc_gain_db", (getter)ToneMeasure_getprop_proc_gain_db, NULL,
-          "Proc gain db.\n", NULL },
+          "FFT processing gain = 10log10(nfft/2) [dB].\n", NULL },
         { NULL } };
 
 static PyObject *
@@ -595,7 +599,7 @@ ToneMeasureObj_exit (ToneMeasureObject *self, PyObject *args)
 
 static PyMethodDef ToneMeasureObj_methods[] = {
   { "reset", (PyCFunction)ToneMeasureObj_reset, METH_NOARGS,
-    "Reset state to post-create defaults." },
+    "Reset the analyser (a no-op: it holds no state between calls)." },
 
   { "analyze", (PyCFunction)ToneMeasureObj_analyze, METH_VARARGS,
     "analyze(x) -> ToneMetrics record (snr, sinad, thd, thd_pct, thd_n, "
@@ -620,20 +624,77 @@ static PyMethodDef ToneMeasureObj_methods[] = {
     "DC-centred dBFS magnitude spectrum of a capture (length nfft, for "
     "plots).\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import ToneMeasure\n"
-    "    >>> obj = ToneMeasure(8192, 1.0, 8, 1.0, 0, 0.0, 0)\n"
-    "    >>> y = obj.spectrum_dbfs(np.zeros(4))\n"
-    "    >>> y.dtype\n"
-    "    dtype('float32')\n" },
+    "The windowed, zero-padded magnitude spectrum behind the metrics, laid\n"
+    "out DC-centred (fftshifted) and normalised to dBFS so it drops straight\n"
+    "under an analyzer trace. Use it to eyeball where the fundamental,\n"
+    "harmonics and spurs that analyze() quantifies actually sit.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.float32]\n"
+    "    Real time-domain capture (length x_len).\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.float32]\n"
+    "    DC-centred dBFS magnitude spectrum, one value per FFT bin (nfft).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.measure import ToneMeasure\n"
+    ">>> import numpy as np\n"
+    ">>> t = np.arange(4096)\n"
+    ">>> x = np.cos(2*np.pi*300*t/4096).astype(np.float32)   # full-scale "
+    "tone\n"
+    ">>> s = ToneMeasure(n=4096, fs=1.0).spectrum_dbfs(x)   # DC-centred "
+    "spectrum\n"
+    ">>> s.shape                              # zero-padded to next power of "
+    "two\n"
+    "(8192,)\n"
+    ">>> round(float(s.max()), 1)   # split across two real images, ~6 dB "
+    "each\n"
+    "-6.0\n" },
   { "spectrum_dbfs_max_out", (PyCFunction)ToneMeasureObj_spectrum_dbfs_max_out,
     METH_NOARGS,
     "spectrum_dbfs_max_out() -> int\n\nMax output length spectrum_dbfs() can "
     "produce for the current state.\nUse to size the ``out=`` buffer." },
   { "destroy", (PyCFunction)ToneMeasureObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)ToneMeasureObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)ToneMeasureObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)ToneMeasureObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a Tonemeas be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "Tonemeas\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)ToneMeasureObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the Tonemeas.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

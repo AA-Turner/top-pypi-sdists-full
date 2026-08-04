@@ -5525,18 +5525,23 @@ class MonitorTuningAgentRunSource(sgqlc.types.Enum):
     """Origin of a monitor tuning run.      ``MANUAL`` — triggered in-
     product by a user (create/apply) or by the agentic     platform's
     domain-scoped autonomous path. ``PROACTIVE`` — dispatched by the
-    noisy-monitor scheduler. Lets read surfaces (FE button swap, Ops
-    Agent) and     analytics single out proactively-produced
-    suggestions.
+    noisy-monitor scheduler. ``AUTO_APPLY`` — an apply dispatched
+    without a human,     against a ``PROACTIVE`` suggestion. Lets read
+    surfaces (FE button swap, Ops     Agent) and analytics single out
+    how a run came about.      Only ``MANUAL`` and ``PROACTIVE``
+    produce suggestions: the proactive     suggestions read filters to
+    those two sources, so an ``AUTO_APPLY`` row never     surfaces as
+    something to act on.
 
     Enumeration Choices:
 
+    * `AUTO_APPLY`None
     * `MANUAL`None
     * `PROACTIVE`None
     """
 
     __schema__ = schema
-    __choices__ = ("MANUAL", "PROACTIVE")
+    __choices__ = ("AUTO_APPLY", "MANUAL", "PROACTIVE")
 
 
 class MonitorTuningAgentRunStatus(sgqlc.types.Enum):
@@ -6772,6 +6777,42 @@ class ReinforcementLoopDispatchOutcome(sgqlc.types.Enum):
         "SKIPPED_NO_TARGETS",
         "SKIPPED_RECENTLY_DISPATCHED",
     )
+
+
+class ReinforcementLoopIssueLifecycle(sgqlc.types.Enum):
+    """Cross-run lifecycle of a stable reinforcement-loop issue.  The
+    full 4-state vocabulary of the stable issue record: NEW = first
+    seen; ONGOING = re-reported since; REOPENED = seen again after
+    having been resolved; RESOLVED = no longer occurring. The 2-state
+    AgentHealthIssueLifecycle on the nested issue payload squashes
+    REOPENED into NEW and omits RESOLVED (parity with the legacy
+    report surface).
+
+    Enumeration Choices:
+
+    * `NEW`None
+    * `ONGOING`None
+    * `REOPENED`None
+    * `RESOLVED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("NEW", "ONGOING", "REOPENED", "RESOLVED")
+
+
+class ReinforcementLoopSnapshotSelection(sgqlc.types.Enum):
+    """Which in-window snapshot carries each issue's payload on the list
+    query.  OLDEST = the issue's first in-window occurrence (matching
+    getAgentHealthIssueFindings' dedupe); LATEST = its most recent.
+
+    Enumeration Choices:
+
+    * `LATEST`None
+    * `OLDEST`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("LATEST", "OLDEST")
 
 
 class RelationshipType(sgqlc.types.Enum):
@@ -13977,6 +14018,22 @@ class MonitorSelectExpressionInput(sgqlc.types.Input):
     data_type = sgqlc.types.Field(String, graphql_name="dataType")
     """Data type of expression. Required if expression is a complex
     expression and not a raw column name
+    """
+
+
+class MonitorTuningAutoApplyDomainOverrideInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("domain_uuid", "enabled")
+    domain_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="domainUuid")
+    """UUID of the domain to override. Must be a metadata domain in the
+    account.
+    """
+
+    enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="enabled")
+    """False disables auto-apply for monitors assigned to this domain;
+    monitors with no domain assignment follow the account-level
+    setting. True clears the override so the account-level setting
+    applies again — it cannot enable auto-apply on its own.
     """
 
 
@@ -27014,6 +27071,7 @@ class ConversationTurnV2(sgqlc.types.Type):
         "system_messages",
         "messages",
         "internal_steps",
+        "start_time",
         "duration_seconds",
         "prompt_tokens",
         "completion_tokens",
@@ -27048,6 +27106,15 @@ class ConversationTurnV2(sgqlc.types.Type):
         graphql_name="internalSteps",
     )
     """Non-main-chain spans (internal agent steps) for this turn"""
+
+    start_time = sgqlc.types.Field(DateTime, graphql_name="startTime")
+    """Wall-clock start of this turn: the earliest LLM span start in the
+    turn's trace, or the error timestamp for error-only turns (no LLM
+    spans). Null when no start time is known. Turns are ordered by
+    their trace's earliest activity, so a turn whose trace also has an
+    earlier error span can report a start_time after a preceding
+    turn's.
+    """
 
     duration_seconds = sgqlc.types.Field(Float, graphql_name="durationSeconds")
     """Wall-clock duration of this turn in seconds, measured from the
@@ -41329,6 +41396,63 @@ class MonitorTable(sgqlc.types.Type):
     """List of MCONs for the tables with this identifier"""
 
 
+class MonitorTuningAutoApplyConfigOutput(sgqlc.types.Type):
+    """Account-level auto-apply configuration for monitor tuning."""
+
+    __schema__ = schema
+    __field_names__ = ("auto_apply_enabled_default", "domain_configs")
+    auto_apply_enabled_default = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="autoApplyEnabledDefault"
+    )
+    """The account-level auto-apply setting, managed by Monte Carlo.
+    `domainConfigs.effectiveEnabled` is authoritative for a domain's
+    outcome and may be off for reasons outside this setting.
+    """
+
+    domain_configs = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("MonitorTuningAutoApplyDomainConfigOutput"))
+        ),
+        graphql_name="domainConfigs",
+    )
+    """Per-domain configuration for every metadata domain the caller can
+    access, each combining the raw override with the effective
+    outcome.
+    """
+
+
+class MonitorTuningAutoApplyDomainConfigOutput(sgqlc.types.Type):
+    """Per-domain auto-apply configuration: the raw override (null means
+    the domain inherits the account-level setting) alongside the
+    effective outcome after applying the override on top of it.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("domain_uuid", "domain_name", "enabled_override", "effective_enabled")
+    domain_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="domainUuid")
+    """Domain UUID."""
+
+    domain_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="domainName")
+    """Domain name."""
+
+    enabled_override = sgqlc.types.Field(Boolean, graphql_name="enabledOverride")
+    """Raw per-domain override. False disables auto-apply for monitors
+    assigned to this domain; monitors with no domain assignment follow
+    the account-level setting. True is an explicitly cleared override,
+    which leaves the account-level setting in charge. Null means the
+    domain has never been overridden and inherits.
+    """
+
+    effective_enabled = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="effectiveEnabled"
+    )
+    """Whether this domain's configuration permits auto-apply for
+    monitors assigned to it. A monitor assigned to several domains is
+    auto-applied only when every one of them permits it. Monitors with
+    no domain assignment follow the account-level setting.
+    """
+
+
 class MonitorTuningRec(sgqlc.types.Type):
     """One recommendation produced by the monitor_tuning agent."""
 
@@ -41426,8 +41550,9 @@ class MonitorTuningRunResult(sgqlc.types.Type):
     source = sgqlc.types.Field(
         sgqlc.types.non_null(MonitorTuningAgentRunSource), graphql_name="source"
     )
-    """Origin of the run — MANUAL (in-product / Bob) or PROACTIVE (noisy-
-    monitor scheduler).
+    """Origin of the run — MANUAL (in-product or autonomous agent),
+    PROACTIVE (noisy-monitor scheduler), or AUTO_APPLY (applied
+    without a human against a PROACTIVE suggestion).
     """
 
     monitor_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="monitorType")
@@ -42178,6 +42303,7 @@ class Mutation(sgqlc.types.Type):
         "create_monitor_tuning_run",
         "apply_monitor_tuning_run",
         "dismiss_monitor_tuning_suggestion",
+        "update_monitor_tuning_auto_apply_config",
         "triage_alerts",
         "set_sensitivity",
         "add_to_collection_block_list",
@@ -53394,6 +53520,37 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `input` (`DismissMonitorTuningSuggestionInput!`)None
+    """
+
+    update_monitor_tuning_auto_apply_config = sgqlc.types.Field(
+        "UpdateMonitorTuningAutoApplyConfig",
+        graphql_name="updateMonitorTuningAutoApplyConfig",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_overrides",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(
+                            sgqlc.types.list_of(
+                                sgqlc.types.non_null(MonitorTuningAutoApplyDomainOverrideInput)
+                            )
+                        ),
+                        graphql_name="domainOverrides",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Set per-domain auto-apply overrides for monitor
+    tuning.
+
+    Arguments:
+
+    * `domain_overrides`
+      (`[MonitorTuningAutoApplyDomainOverrideInput!]!`): Domain
+      overrides to set. When a domain appears more than once, the last
+      entry wins.
     """
 
     triage_alerts = sgqlc.types.Field(
@@ -69272,6 +69429,7 @@ class Query(sgqlc.types.Type):
         "get_latest_agent_health_finding",
         "get_latest_agent_health_finding_summaries",
         "get_agent_health_issue_findings",
+        "get_reinforcement_loop_issues",
         "get_linear_teams",
         "get_linear_integration",
         "get_available_platform_agents",
@@ -69656,6 +69814,7 @@ class Query(sgqlc.types.Type):
         "get_triage_availability",
         "get_monitor_tuning_runs",
         "get_monitor_tuning_suggestions",
+        "get_monitor_tuning_auto_apply_config",
         "agentic_notification_routes",
         "queued_job",
         "active_sso_migration_job",
@@ -70665,6 +70824,81 @@ class Query(sgqlc.types.Type):
       with a UTC offset.
     * `end_time` (`DateTime!`): Include findings with detectionTime at
       or before this instant (inclusive). Must not precede startTime.
+    """
+
+    get_reinforcement_loop_issues = sgqlc.types.Field(
+        sgqlc.types.non_null("ReinforcementLoopIssueConnection"),
+        graphql_name="getReinforcementLoopIssues",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
+                    ),
+                ),
+                (
+                    "trace_table_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
+                    ),
+                ),
+                (
+                    "workflow_name",
+                    sgqlc.types.Arg(String, graphql_name="workflowName", default=None),
+                ),
+                ("issue_uuid", sgqlc.types.Arg(UUID, graphql_name="issueUuid", default=None)),
+                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
+                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
+                (
+                    "snapshot_selection",
+                    sgqlc.types.Arg(
+                        ReinforcementLoopSnapshotSelection,
+                        graphql_name="snapshotSelection",
+                        default="oldest",
+                    ),
+                ),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=100)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+            )
+        ),
+    )
+    """(experimental) Issues observed in a time window for one agent
+    (optionally narrowed to one workflow or one issue), issue-centric:
+    one node per (workflow, issue) with cross-run lifecycle and
+    recency from the stable issue record plus one selected in-window
+    snapshot's payload. Sorted by lastSeenAt, newest first; forward-
+    paginated. The issue-centric superset of
+    getAgentHealthIssueFindings.
+
+    Arguments:
+
+    * `agent_name` (`String!`): Observability agent name.
+    * `trace_table_mcon` (`String!`): MCON of the agent's trace table
+      — same value passed as `traceTableMcon` on getAgentGraph.
+      Disambiguates agents with identical names across trace tables.
+    * `workflow_name` (`String`): Workflow within the agent. Omit to
+      span every workflow of the agent in one call — each node carries
+      its workflowName.
+    * `issue_uuid` (`UUID`): Narrow to one issue by its issueUuid
+      (detail views, deep links). ANDs with the other filters — a
+      mismatch returns empty, not an error. When given, startTime
+      becomes optional and an absent startTime/endTime leaves the
+      snapshot scan unbounded on that side.
+    * `start_time` (`DateTime`): Include snapshots reported at or
+      after this instant (inclusive). Required unless issueUuid is
+      given. Pass an ISO-8601 datetime with a UTC offset.
+    * `end_time` (`DateTime`): Include snapshots reported at or before
+      this instant (inclusive; must not precede startTime). Required
+      whenever startTime is given so the window's upper bound stays
+      fixed across page fetches; optional only for an issueUuid re-
+      fetch, where its absence leaves the scan unbounded above.
+    * `snapshot_selection` (`ReinforcementLoopSnapshotSelection`):
+      Which in-window snapshot carries each issue's payload — OLDEST
+      by default. (default: `"oldest"`)
+    * `first` (`Int`): Page size, 1..500. (default: `100`)
+    * `after` (`String`): Opaque forward-pagination cursor — the
+      previous page's endCursor. Omit for the first page.
     """
 
     get_linear_teams = sgqlc.types.Field(
@@ -84741,6 +84975,15 @@ class Query(sgqlc.types.Type):
     suggestion, newest first.
     """
 
+    get_monitor_tuning_auto_apply_config = sgqlc.types.Field(
+        sgqlc.types.non_null(MonitorTuningAutoApplyConfigOutput),
+        graphql_name="getMonitorTuningAutoApplyConfig",
+    )
+    """(experimental) Returns the auto-apply configuration for the
+    caller's account: the account-level setting, the raw per-domain
+    overrides, and the effective per-domain outcome.
+    """
+
     agentic_notification_routes = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(AgenticNotificationRoute)),
         graphql_name="agenticNotificationRoutes",
@@ -94336,6 +94579,130 @@ class RegisterGitlabApp(sgqlc.types.Type):
     """GitLab URL to request authorization code"""
 
 
+class ReinforcementLoopIssue(sgqlc.types.Type):
+    """One reinforcement-loop issue: cross-run identity plus one selected
+    snapshot.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "issue_uuid",
+        "stable_issue_id",
+        "workflow_name",
+        "lifecycle",
+        "first_detected_at",
+        "last_seen_at",
+        "occurrence_count",
+        "snapshot_reported_at",
+        "run_uuid",
+        "report_window_start",
+        "report_window_end",
+        "issue",
+    )
+    issue_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="issueUuid")
+    """The stable issue's public id — the handle the ticket and draft-PR
+    mutations resolve, and the issueUuid argument for a targeted re-
+    fetch. Falls back to the snapshot's uuid on the rare occurrence
+    not yet backed by a stable issue record.
+    """
+
+    stable_issue_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="stableIssueId")
+    """Agent-generated cross-run 'same problem' id the window is deduped
+    on. Unique per workflow, not across workflows.
+    """
+
+    workflow_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="workflowName")
+    """Workflow the issue belongs to — stamped per node so cross-workflow
+    reads need no client-side flattening.
+    """
+
+    lifecycle = sgqlc.types.Field(ReinforcementLoopIssueLifecycle, graphql_name="lifecycle")
+    """Cross-run lifecycle of the stable issue record — the full 4-state
+    enum, unlike the nested issue payload's 2-state parity field. Null
+    on an occurrence not yet backed by a stable issue record.
+    """
+
+    first_detected_at = sgqlc.types.Field(
+        sgqlc.types.non_null(DateTime), graphql_name="firstDetectedAt"
+    )
+    """When the issue was FIRST detected across runs — the age anchor.
+    Falls back to the selected snapshot's snapshotReportedAt when no
+    stable issue record exists.
+    """
+
+    last_seen_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="lastSeenAt")
+    """When any run LAST reported the issue — the sort key, newest first.
+    A global as-of-now value, NOT clamped to the query window: it can
+    exceed endTime when the issue is still occurring. Same fallback as
+    firstDetectedAt.
+    """
+
+    occurrence_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="occurrenceCount")
+    """How many runs have reported this issue in total (not clamped to
+    the query window; 1 when no stable issue record exists).
+    """
+
+    snapshot_reported_at = sgqlc.types.Field(
+        sgqlc.types.non_null(DateTime), graphql_name="snapshotReportedAt"
+    )
+    """The SELECTED snapshot's report time. With snapshotSelection:
+    OLDEST this equals getAgentHealthIssueFindings' detectionTime.
+    """
+
+    run_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="runUuid")
+    """The selected snapshot's run — the occurrence's provenance (the
+    legacy surface's reportFindingUuid).
+    """
+
+    report_window_start = sgqlc.types.Field(DateTime, graphql_name="reportWindowStart")
+    """Start of the selected snapshot's run window — the time bounds its
+    evidence samples were observed in. Null on runs reported before
+    window stamping.
+    """
+
+    report_window_end = sgqlc.types.Field(DateTime, graphql_name="reportWindowEnd")
+    """End of the selected snapshot's run window; null like
+    reportWindowStart.
+    """
+
+    issue = sgqlc.types.Field(sgqlc.types.non_null(AgentHealthIssue), graphql_name="issue")
+    """The selected snapshot's issue payload, evidence and recommended
+    actions resolved inline — the same shape
+    getAgentHealthIssueFindings serves.
+    """
+
+
+class ReinforcementLoopIssueConnection(sgqlc.types.relay.Connection):
+    """One page of reinforcement-loop issues."""
+
+    __schema__ = schema
+    __field_names__ = ("nodes", "page_info")
+    nodes = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ReinforcementLoopIssue))),
+        graphql_name="nodes",
+    )
+    """This page's issues, sorted lastSeenAt descending."""
+
+    page_info = sgqlc.types.Field(
+        sgqlc.types.non_null("ReinforcementLoopIssuePageInfo"), graphql_name="pageInfo"
+    )
+    """Pagination information."""
+
+
+class ReinforcementLoopIssuePageInfo(sgqlc.types.Type):
+    """Forward-only pagination info for getReinforcementLoopIssues."""
+
+    __schema__ = schema
+    __field_names__ = ("has_next_page", "end_cursor")
+    has_next_page = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasNextPage")
+    """Whether more issues follow this page."""
+
+    end_cursor = sgqlc.types.Field(String, graphql_name="endCursor")
+    """Cursor resuming after this page's last node; null on an empty
+    page.
+    """
+
+
 class RelatedAlert(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("incident", "role")
@@ -100304,15 +100671,33 @@ class TokenMetadata(sgqlc.types.Type):
 
 
 class ToolCallBlock(sgqlc.types.Type):
-    """A tool call extracted from a message content block."""
+    """A tool call — usually extracted from an inline tool_use content
+    block, but also synthesized for column-carried tool-call steps
+    (Cortex/Genie/OTel/MLflow) whose I/O arrives on the
+    tool_call_input/tool_call_output columns.
+    """
 
     __schema__ = schema
-    __field_names__ = ("name", "input_json", "tool_use_id")
+    __field_names__ = ("name", "input_json", "output_json", "tool_use_id")
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
     """Tool name"""
 
     input_json = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="inputJson")
-    """JSON-encoded tool input arguments"""
+    """The tool's input, always as valid JSON: an object/array for tools
+    with structured input (inline tool_use calls), or a JSON string
+    for tools whose input is raw text (e.g. a SQL string for
+    Cortex/Genie SQL tools). Consumers can JSON-decode it
+    unconditionally.
+    """
+
+    output_json = sgqlc.types.Field(String, graphql_name="outputJson")
+    """The tool's output, for tool steps that carry it on the
+    tool_call_output column (Cortex/Genie/OTel/MLflow tool steps),
+    always as valid JSON: an object/array for structured output, or a
+    JSON string for raw text. Null for inline tool_use calls, whose
+    output is conveyed on the paired tool-role message. Consumers can
+    JSON-decode it unconditionally.
+    """
 
     tool_use_id = sgqlc.types.Field(String, graphql_name="toolUseId")
     """Unique ID for this tool call (if available)"""
@@ -102427,6 +102812,20 @@ class UpdateMonitorTags(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
+
+
+class UpdateMonitorTuningAutoApplyConfig(sgqlc.types.Type):
+    """Set per-domain auto-apply overrides for the caller's account.
+    Requires domain-settings edit access. Overrides can only narrow
+    the account-level setting: turning auto-apply on for a domain
+    whose account-level setting is off is not possible.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("config",)
+    config = sgqlc.types.Field(
+        sgqlc.types.non_null(MonitorTuningAutoApplyConfigOutput), graphql_name="config"
+    )
 
 
 class UpdateMonitorsPriorities(sgqlc.types.Type):

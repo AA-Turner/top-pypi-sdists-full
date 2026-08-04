@@ -5,13 +5,14 @@ session and exposes browser automation actions as individual Tool objects.
 
 Example usage:
     from stirrup.clients.chat_completions_client import ChatCompletionsClient
+    from stirrup.tools import default_tools
     from stirrup.tools.browser_use import BrowserUseToolProvider
 
-    client = ChatCompletionsClient(model="gpt-5")
+    client = ChatCompletionsClient(model="gpt-5.6-luna", max_tokens=8_192, context_window_tokens=1_000_000)
     agent = Agent(
         client=client,
         name="browser_agent",
-        tools=[*DEFAULT_TOOLS, BrowserUseToolProvider()],
+        tools=[*default_tools(), BrowserUseToolProvider()],
     )
 
     async with agent.session() as session:
@@ -24,7 +25,7 @@ import asyncio
 import os
 import urllib.parse
 from types import TracebackType
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, Field
 
@@ -140,8 +141,8 @@ class NavigateMetadata(ToolUseCountMetadata):
 
     urls: list[str] = Field(default_factory=list)
 
-    def __add__(self, other: "NavigateMetadata") -> "NavigateMetadata":  # type: ignore[override]
-        return NavigateMetadata(
+    def __add__(self, other: Self) -> Self:  # ty: ignore[invalid-method-override]
+        return self.__class__(
             num_uses=self.num_uses + other.num_uses,
             urls=self.urls + other.urls,
         )
@@ -152,8 +153,8 @@ class SearchMetadata(ToolUseCountMetadata):
 
     queries: list[str] = Field(default_factory=list)
 
-    def __add__(self, other: "SearchMetadata") -> "SearchMetadata":  # type: ignore[override]
-        return SearchMetadata(
+    def __add__(self, other: Self) -> Self:  # ty: ignore[invalid-method-override]
+        return self.__class__(
             num_uses=self.num_uses + other.num_uses,
             queries=self.queries + other.queries,
         )
@@ -164,8 +165,8 @@ class InputTextMetadata(ToolUseCountMetadata):
 
     texts: list[str] = Field(default_factory=list)
 
-    def __add__(self, other: "InputTextMetadata") -> "InputTextMetadata":  # type: ignore[override]
-        return InputTextMetadata(
+    def __add__(self, other: Self) -> Self:  # ty: ignore[invalid-method-override]
+        return self.__class__(
             num_uses=self.num_uses + other.num_uses,
             texts=self.texts + other.texts,
         )
@@ -244,7 +245,7 @@ class BrowserUseToolProvider(ToolProvider):
                 "BROWSER_USE_API_KEY environment variable is required when use_cloud=True. "
                 "Get your API key from https://cloud.browser-use.com"
             )
-        self._session = BrowserSession(  # type: ignore[call-overload]
+        self._session = BrowserSession(  # ty: ignore[no-matching-overload]
             headless=self._headless,
             disable_security=self._disable_security,
             executable_path=self._executable_path,

@@ -1,10 +1,9 @@
 """Unit tests for :class:`notebooklm._client_metrics.ClientMetrics`.
 
-Covers the metrics helper in isolation — the ``Session`` facade contract
-(``metrics_snapshot``, ``_increment_metrics``, ``_record_rpc_queue_wait``,
-``_record_lock_wait``, ``_emit_rpc_event``) is exercised end-to-end in
-``tests/unit/test_observability.py``. This file pins the helper-class
-invariants the facade depends on:
+Covers the metrics helper in isolation; NotebookLMClient observability plumbing
+(``metrics_snapshot`` and RPC telemetry emission) is exercised end-to-end in
+``tests/unit/test_observability.py``. This file pins the helper-class invariants
+that client/runtime observability depends on:
 
 * ``__init__`` is event-loop-agnostic (no ``asyncio.*`` primitives).
 * ``snapshot()`` returns a defensive copy, not a live reference.
@@ -92,6 +91,19 @@ def test_increment_accumulates_across_calls() -> None:
     assert snapshot.rpc_calls_started == 3
     assert snapshot.rpc_calls_succeeded == 3
     assert snapshot.rpc_calls_failed == 0
+
+
+def test_decode_errors_counter_defaults_zero_and_accumulates() -> None:
+    """The drift counter (issue #1492) starts at 0 and accumulates through the
+    same locked ``increment()`` path as every other counter — confirming it is
+    threadsafe-consistent with the existing metrics locking.
+    """
+    metrics = ClientMetrics()
+    assert metrics.snapshot().rpc_decode_errors == 0
+
+    metrics.increment(rpc_decode_errors=1)
+    metrics.increment(rpc_decode_errors=2)
+    assert metrics.snapshot().rpc_decode_errors == 3
 
 
 def test_increment_holds_metrics_lock_during_update() -> None:

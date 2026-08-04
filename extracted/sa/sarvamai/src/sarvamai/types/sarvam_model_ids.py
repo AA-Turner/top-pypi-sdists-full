@@ -2,4 +2,4 @@
 
 import typing
 
-SarvamModelIds = typing.Union[typing.Literal["sarvam-105b", "sarvam-30b", "sarvam-m"], typing.Any]
+SarvamModelIds = typing.Literal["sarvam-105b"]

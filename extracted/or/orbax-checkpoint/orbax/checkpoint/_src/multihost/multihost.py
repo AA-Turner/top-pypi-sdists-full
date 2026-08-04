@@ -15,6 +15,7 @@
 """Orbax utils related to multihost_utils functionality."""
 
 import functools
+import os
 import threading
 import time
 from typing import List, Optional, Protocol, Set
@@ -31,10 +32,10 @@ _DEFAULT_BARRIER_TIMEOUT = 300
 _TEST_CASE_INDEX = None
 
 # Map from distributed process index to device ids.
-_DISTRIBUTED_TO_DEVICE_IDS: List[List[int]] = None
+_DISTRIBUTED_TO_DEVICE_IDS: List[List[int]] = None  # pyrefly: ignore[bad-assignment]
 
 # Map from runtime process index to distributed process index.
-_RUNTIME_TO_DISTRIBUTED_ID: List[int] = None
+_RUNTIME_TO_DISTRIBUTED_ID: List[int] = None  # pyrefly: ignore[bad-assignment]
 
 # Marks the colocated-Python runtime in Pathways single-controller mode.
 _PATHWAYS_COLOCATED_RUNTIME_ACTIVE = False
@@ -63,6 +64,30 @@ def coordination_timeout() -> int:
 
 def is_proxy_pathways_backend() -> bool:
   return jax.devices()[0].client.runtime_type == 'proxy/pathways'
+
+
+def is_cloud_pathways_persistence_enabled() -> bool:
+  """Returns whether Cloud Pathways persistence is enabled.
+
+  This function checks the environment variable ENABLE_PATHWAYS_PERSISTENCE to
+  determine whether persistence is enabled. If the variable is set to "1",
+  persistence is enabled. If the variable is set to "0" or unset, persistence is
+  disabled.
+
+  Returns:
+    True if persistence is enabled, False otherwise.
+  """
+  if 'ENABLE_PATHWAYS_PERSISTENCE' in os.environ:
+    if os.environ['ENABLE_PATHWAYS_PERSISTENCE'] == '1':
+      return True
+    if os.environ['ENABLE_PATHWAYS_PERSISTENCE'] == '0':
+      return False
+    else:
+      raise ValueError(
+          'ENABLE_PATHWAYS_PERSISTENCE must be set to 1/0 or unset, got: '
+          + os.environ['ENABLE_PATHWAYS_PERSISTENCE']
+      )
+  return False
 
 
 def is_native_pathways_backend() -> bool:
@@ -130,11 +155,11 @@ def initialize_distributed_to_device_ids():
     distributed_id = int(key.split('/')[-1])
     # Remove the list brackets.
     device_ids = device_ids[1 : len(device_ids) - 1]
-    results[distributed_id] = [
+    results[distributed_id] = [  # pyrefly: ignore[unsupported-operation]
         int(device_id) for device_id in device_ids.split(', ')
     ]
   assert None not in results
-  _DISTRIBUTED_TO_DEVICE_IDS = results
+  _DISTRIBUTED_TO_DEVICE_IDS = results  # pyrefly: ignore[bad-assignment]
   logging.vlog(
       1,
       '[process=%s][thread=%s] distributed_to_device_ids: %s',

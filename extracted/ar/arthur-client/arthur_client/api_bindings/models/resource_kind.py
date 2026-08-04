@@ -49,6 +49,7 @@ class ResourceKind(str, Enum):
     POLICY_ALERT_RULE = 'policy_alert_rule'
     POLICY_ATTESTATION_RULE = 'policy_attestation_rule'
     POLICY_ASSIGNMENT = 'policy_assignment'
+    DASHBOARD = 'dashboard'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

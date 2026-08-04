@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylitterbot
-Version: 2025.6.3
+Version: 2025.6.4
 Summary: Python package for controlling Whisker automatic robots.
 Project-URL: Homepage, https://github.com/natekspencer/pylitterbot
 Project-URL: Repository, https://github.com/natekspencer/pylitterbot
@@ -109,9 +109,9 @@ from pylitterbot import Account, LitterRobot4, LitterRobot5
 account = Account(robot_types=[LitterRobot4, LitterRobot5])
 
 await account.connect(
-  username=username,
-  password=password,
-  load_robots=True,
+    username=username,
+    password=password,
+    load_robots=True,
 )
 ```
 

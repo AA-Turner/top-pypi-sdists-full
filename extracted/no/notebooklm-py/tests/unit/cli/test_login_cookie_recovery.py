@@ -23,8 +23,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from _fixtures import patch_session_login_dual
+import notebooklm.auth as auth_module
 from notebooklm.notebooklm_cli import cli
+from tests._fixtures import patch_session_login_dual
 
 _ROTATE_URL_RE = re.compile(r"^https://accounts\.google\.com/RotateCookies$")
 
@@ -132,7 +133,7 @@ class TestPsidtsRecoveryDuringExtraction:
                 side_effect=_profile_storage_path(target_root),
             ),
             patch_session_login_dual("_sync_server_language_to_config"),
-            patch("notebooklm.auth.enumerate_accounts", new=_account_enum()),
+            patch.object(auth_module, "enumerate_accounts", new=_account_enum()),
             patch_session_login_dual(
                 "fetch_tokens_with_domains",
                 new_callable=AsyncMock,

@@ -27,37 +27,75 @@ class LoopFilter:
     def __init__(self, bn: float = ..., zeta: float = ..., t: float = ...) -> None: ...
 
     def step(self, x: float) -> float:
-        """Advance the loop one update with error x; return the control.
+        """Advance the loop one update with error x and return the control value the tracker should apply.
 
-        `integ += ki*x; return integ + kp*x`.
+        The PI recurrence is `integ += ki*x; control = integ + kp*x`: the
+        integrator accumulates the running frequency/rate estimate while the
+        proportional term kp*x is the instantaneous phase nudge. Fed a constant
+        error the integrator ramps linearly and the control converges to the
+        steady-state estimate — the behaviour that pulls a Costas/DLL/timing
+        loop into lock.
 
         Parameters
         ----------
         x : float
-            Loop error.
+            Loop error (discriminator output) for this update.
 
         Returns
         -------
         float
-            Control value (integ + kp*x).
+            Control value integ+kp*x to drive the NCO / interpolator.
+
+        Examples
+        --------
+        >>> from doppler.track import LoopFilter
+        >>> lf = LoopFilter(bn=0.02, zeta=0.707, t=1.0)
+        >>> round(lf.step(1.0), 6)   # unit error: control = ki + kp
+        0.05331
+        >>> round(lf.integ, 6)       # integrator now holds ki
+        0.001385
+
         """
 
     def steps(self, x: NDArray[np.float64], out: NDArray[np.float64] | None = None) -> NDArray[np.float64]:
-        """Run a block of errors through the loop.
+        """Filter a whole block of loop errors, returning the control value for each update.
+
+        Equivalent to calling loop_filter_step() once per element of x in order,
+        carrying the integrator across the block, so the loop's memory and lock
+        state persist from one call to the next. This is the vectorized path
+        used to run a captured error sequence through the filter in one shot.
 
         Parameters
         ----------
         x : NDArray[np.float64]
-            Input.
+            Loop-error array, one discriminator sample per update.
 
         Returns
         -------
         NDArray[np.float64]
             Output.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import LoopFilter
+        >>> lf = LoopFilter(bn=0.05, zeta=0.707, t=1.0)
+        >>> ctl = lf.steps(np.full(50, 0.1))   # constant error into the loop
+        >>> round(float(ctl[0]), 4)            # first control nudge
+        0.0133
+        >>> round(float(ctl[-1]), 4)           # converging toward the estimate
+        0.0541
+
         """
 
     def configure(self, bn: float, zeta: float, t: float) -> None:
         """Recompute the loop gains for a new (bn, zeta, t); preserves the integrator.
+
+        Recomputes the proportional and integral gains from the standard
+        2nd-order form but leaves integ untouched, so a loop can be widened for
+        fast acquisition and then narrowed for steady-state tracking while
+        holding its accumulated frequency/rate estimate — the retune preserves
+        lock.
 
         Parameters
         ----------
@@ -67,51 +105,161 @@ class LoopFilter:
             Damping factor (typically 0.707).
         t : float
             Update period in samples (> 0).
+
+        Examples
+        --------
+        >>> from doppler.track import LoopFilter
+        >>> lf = LoopFilter(bn=0.01, zeta=0.707, t=1.0)
+        >>> _ = lf.step(1.0)
+        >>> before = round(lf.integ, 6)
+        >>> lf.configure(0.05, 0.707, 1.0)   # widen the loop, keep lock
+        >>> round(lf.integ, 6) == before     # integrator preserved
+        True
+        >>> round(lf.kp, 6)                  # proportional gain rose
+        0.124728
+
         """
 
     def reset(self) -> None:
         """Zero the integrator; keep the configured gains.
+
+        Clears the accumulated frequency/rate estimate (integ) back to zero but
+        leaves kp / ki as configured, so the loop reacquires from a clean slate
+        at its current bandwidth — the right thing when a tracker drops lock and
+        must restart, without re-deriving gains.
+
+        Examples
+        --------
+        >>> from doppler.track import LoopFilter
+        >>> lf = LoopFilter(bn=0.02, zeta=0.707, t=1.0)
+        >>> for _ in range(10):
+        ...     _ = lf.step(1.0)             # ramp the integrator
+        >>> round(lf.integ, 6)
+        0.013849
+        >>> lf.reset()
+        >>> lf.integ                          # integrator cleared, gains kept
+        0.0
+
         """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the LoopFilter has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the LoopFilter has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the LoopFilter has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def kp(self) -> float:
-        """Kp."""
+        """proportional gain (derived from bn, zeta, t)."""
 
     @property
     def ki(self) -> float:
-        """Ki."""
+        """integral gain (derived from bn, zeta, t)."""
 
     @property
     def integ(self) -> float:
-        """Integ."""
+        """integrator memory = running rate/freq estimate."""
     @integ.setter
     def integ(self, value: float) -> None: ...
 
     @property
     def bn(self) -> float:
-        """Bn."""
+        """loop noise bandwidth, normalized cycles/sample."""
 
     @property
     def zeta(self) -> float:
-        """Zeta."""
+        """damping factor (0.707 = critically damped)."""
 
     @property
     def t(self) -> float:
-        """T."""
+        """update period in samples."""
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "LoopFilter": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "LoopFilter":
+        """Enter a context manager, returning this object.
+
+        Lets a LoopFilter be used in a `with` statement so its C resources are
+        released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        LoopFilter
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the LoopFilter.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
 
 @final
 class Costas:
@@ -143,19 +291,65 @@ class Costas:
     def steps(self, x: NDArray[np.complex64], out: NDArray[np.complex64] | None = None) -> NDArray[np.complex64]:
         """De-rotate a cf32 block with the integer-NCO carrier, coherently integrate over each tsamps-sample symbol, run the decision-directed Costas discriminator, and emit one complex prompt symbol per symbol.
 
+        The streaming Python face of the loop. For every input sample it wipes
+        the (tracked) carrier off x with the integer-phase NCO, sums the result
+        into the coherent integrate-and-dump accumulator, and on each symbol
+        boundary (one every tsamps samples) dumps the accumulator as the prompt,
+        runs the BPSK Costas discriminator to steer the NCO frequency and phase,
+        and appends the mean-scaled prompt to the output. Loop state carries
+        across calls, so a long capture can be fed block by block; exactly one
+        prompt symbol comes out per tsamps input samples.
+
         Parameters
         ----------
         x : NDArray[np.complex64]
-            Input.
+            Input samples, one complex baseband sample each.
 
         Returns
         -------
         NDArray[np.complex64]
-            Output.
+            Number of prompt symbols written to out (one per tsamps input
+            samples). On the Python face this is the recovered-symbol array.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import Costas
+        >>> tsamps = 16
+        >>> rng = np.random.default_rng(1)
+        >>> bits = rng.integers(0, 2, 4000) * 2 - 1
+        >>> sig = np.repeat(bits.astype(np.complex64), tsamps)
+        >>> k = np.arange(len(sig))
+        >>> rx = (sig * np.exp(2j * np.pi * 0.003 * k)).astype(np.complex64)
+        >>> c = Costas(bn=0.05, zeta=0.707, tsamps=tsamps)
+        >>> sym = c.steps(rx)             # one prompt symbol per tsamps samples
+        >>> sym.shape
+        (4000,)
+        >>> round(c.norm_freq, 4)         # pulled onto the 0.003 cyc/sample residual
+        0.003
+        >>> c.lock_metric > 0.9
+        True
+
         """
 
-    def steps_max_out(self) -> int:
-        """Max output length steps() can produce for the current state."""
+    def steps_max_out(self, x_len: int) -> int:
+        """Largest number of samples steps() can return for x_len inputs.
+
+        Size an `out=` buffer with this before calling steps(), or use it to
+        allocate one up front. The bound is this object's own: what it depends
+        on is a property of the algorithm, so a header block on steps_max_out()
+        replaces this text.
+
+        Parameters
+        ----------
+        x_len : int
+            Number of input samples steps() will be given.
+
+        Returns
+        -------
+        int
+            Upper bound on the output length; the actual call may return fewer.
+        """
 
     def set_telemetry(self, tlm: object | None, prefix: str, decim: int = 1) -> None:
         """Attach (or detach) a telemetry context and register the carrier loop's probes on it. Registers four probes, emitted once per dumped symbol and further thinned by decim: "<prefix>.lock" (the |Re P|/|P| lock-metric EMA, 1 = phase-locked), "<prefix>.e" (the PLL discriminator output — the loop stress), "<prefix>.freq" (the tracked NCO frequency, cycles/sample) and "<prefix>.locked" (the verify-counted lock decision, 0/1 — see costas_configure_lock). Passing NULL detaches.  Setup path, never hot: call before the producer thread starts stepping; the context is borrowed and must outlive the attachment (SPSC rules in telemetry/telemetry.h).
@@ -190,12 +384,27 @@ class Costas:
     def configure(self, bn: float, zeta: float) -> None:
         """Recompute the loop gains for a new (bn, zeta); preserves the frequency/phase estimate.
 
+        Re-derives the PI coefficients from the loop bandwidth and damping and
+        installs them live. The NCO frequency, phase and loop integrator are
+        left untouched, so a converged loop keeps tracking straight through the
+        re-tune — narrow the bandwidth once pulled in for lower phase jitter, or
+        widen it to chase a faster-moving residual.
+
         Parameters
         ----------
         bn : float
-            Input.
+            Loop noise bandwidth, normalised to the symbol rate.
         zeta : float
-            Input.
+            Damping factor (0.707 = critically damped).
+
+        Examples
+        --------
+        >>> from doppler.track import Costas
+        >>> c = Costas(bn=0.05, zeta=0.707, init_norm_freq=0.01, tsamps=16)
+        >>> c.configure(0.02, 1.0)                    # narrow the loop, over-damp
+        >>> (round(c.bn, 3), round(c.norm_freq, 3))   # new gains, estimate kept
+        (0.02, 0.01)
+
         """
 
     def configure_lock(self, up_thresh: float, down_thresh: float, n_up: int, n_down: int) -> None:
@@ -239,18 +448,90 @@ class Costas:
 
     def reset(self) -> None:
         """Re-seed the loop to the create-time frequency/phase; preserve config.
+
+        Drops the lock and rewinds the NCO, loop integrator and
+        integrate-and-dump accumulators to the create-time seed frequency, while
+        retaining the configured loop bandwidth, damping and lock-detector
+        thresholds. Reprocess the same input after a reset and the output is
+        bit-identical.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import Costas
+        >>> tsamps = 16
+        >>> rng = np.random.default_rng(3)
+        >>> bits = rng.integers(0, 2, 1500) * 2 - 1
+        >>> sig = np.repeat(bits.astype(np.complex64), tsamps)
+        >>> k = np.arange(len(sig))
+        >>> rx = (sig * np.exp(2j * np.pi * 0.002 * k)).astype(np.complex64)
+        >>> c = Costas(bn=0.05, zeta=0.707, tsamps=tsamps)
+        >>> _ = c.steps(rx)
+        >>> round(c.norm_freq, 4) != 0.0     # loop pulled onto the residual
+        True
+        >>> c.reset()
+        >>> c.norm_freq                       # back to the create-time seed
+        0.0
+        >>> c.lock_metric
+        0.0
+
         """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the Costas has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the Costas has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the Costas has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def bn(self) -> float:
-        """Bn."""
+        """PLL loop noise bandwidth (retained)."""
     @bn.setter
     def bn(self, value: float) -> None: ...
 
@@ -262,7 +543,7 @@ class Costas:
 
     @property
     def lock_metric(self) -> float:
-        """Lock metric."""
+        """EMA of |Re P|/|P| (1 = locked)."""
 
     @property
     def locked(self) -> bool:
@@ -270,24 +551,58 @@ class Costas:
 
     @property
     def last_error(self) -> float:
-        """Last error."""
+        """last PLL discriminator (loop stress)."""
 
     @property
     def bn_fll(self) -> float:
-        """Bn fll."""
+        """FLL-assist bandwidth (0 = pure PLL)."""
     @bn_fll.setter
     def bn_fll(self, value: float) -> None: ...
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "Costas": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "Costas":
+        """Enter a context manager, returning this object.
+
+        Lets a Costas be used in a `with` statement so its C resources are
+        released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        Costas
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the Costas.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
 
 @final
 class Dll:
-    """Create a DLL instance (COPIES code).
+    """Create a code/timing delay-locked loop over a spreading code.
 
     Parameters
     ----------
@@ -306,25 +621,88 @@ class Dll:
     segments : int, default 1
         Partial correlations per code epoch (default 1). 1 = a coherent full-epoch integrate-and-dump (one prompt/period). >1 splits each epoch into that many sub-epoch partials: it emits that many partial prompts/period and tracks the code non-coherently across them (robust to an asynchronous data-symbol clock). segments/epoch ~ samples/symbol at a downstream SymbolSync when the symbol rate is near the code rate, so choose >= 2 for symbol-timing recovery.
 
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from doppler.track import Dll
+    >>> rng = np.random.default_rng(1)
+    >>> code = rng.integers(0, 2, 31).astype(np.uint8)   # a 31-chip PN code
+    >>> chip = np.where(code & 1, -1.0, 1.0)              # BPSK spreading code
+    >>> x = np.tile(np.repeat(chip, 2), 60).astype(np.complex64)  # 60 periods
+    >>> d = Dll(code=code, sps=2)                         # 2 samples/chip loop
+    >>> sym = d.steps(x)                                  # one prompt per period
+    >>> sym.shape                                         # 60 despread symbols
+    (60,)
+    >>> round(float(np.mean(sym.real[-10:])), 1)          # despread to a clean +1
+    1.0
+    >>> round(d.code_rate, 3)                             # code NCO at nominal rate
+    1.0
+
     """
-    def __init__(self, code: NDArray[np.uint8] = ..., sps: int = ..., init_chip: float = ..., bn: float = ..., zeta: float = ..., spacing: float = ..., segments: int = ...) -> None: ...
+    def __init__(self, code: NDArray[np.uint8], sps: int = ..., init_chip: float = ..., bn: float = ..., zeta: float = ..., spacing: float = ..., segments: int = ...) -> None: ...
 
     def steps(self, x: NDArray[np.complex64], out: NDArray[np.complex64] | None = None) -> NDArray[np.complex64]:
         """Correlate a cf32 block against the local code with early/prompt/late taps and steer the code NCO each code period on the non-coherent (sum|E|-sum|L|)/(sum|E|+sum|L|) discriminator. With segments=1 (default) this is a coherent full-epoch integrate-and-dump: one prompt symbol per period. With segments>1 each epoch is split into that many sub-epoch partial correlations: it emits that many partial prompts per period (a stream at ~segments samples/symbol when the symbol rate is near the code rate) and tracks the code non-coherently across the partials, which a data flip cannot collapse (robust to an asynchronous data-symbol clock). segments>1 is the streaming despreader: it removes the PN code and outputs samples. The non-coherent loop is carrier-blind, so it tracks with a residual carrier still on the input; carrier recovery (Costas) and symbol-timing recovery (SymbolSync) are downstream stages fed from the partial output. Returned blocks are safe to keep across calls (block-size invariant): a block whose array is still referenced is never overwritten by a later call (jm gh-437).
 
+        The Python face of the loop. Each code period the early/prompt/late
+        correlators dump, the power-domain non-coherent early-minus-late
+        discriminator runs, and the fixed-point code-phase NCO is re-steered;
+        the prompt correlator value is emitted as one output symbol per period
+        (or `segments` partial prompts per period when `segments > 1`). The loop
+        is carrier-blind — it tracks with a residual carrier still on the input,
+        so carrier recovery (Costas) and symbol-timing recovery are downstream
+        stages fed from this output. Returned blocks are block-size invariant
+        and safe to keep across calls (a block still referenced is never
+        overwritten, jm gh-437).
+
         Parameters
         ----------
         x : NDArray[np.complex64]
-            Input.
+            Carrier-wiped input samples (one contiguous block).
 
         Returns
         -------
         NDArray[np.complex64]
-            Output.
+            Number of prompt symbols written — one per completed code period
+            (`segments` per period when `segments > 1`) — up to max_out.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import Dll
+        >>> rng = np.random.default_rng(1)
+        >>> code = rng.integers(0, 2, 31).astype(np.uint8)
+        >>> chip = np.where(code & 1, -1.0, 1.0)             # BPSK spreading code
+        >>> x = np.tile(np.repeat(chip, 2), 40).astype(np.complex64)  # 40 clean periods
+        >>> d = Dll(code=code, sps=2)
+        >>> sym = d.steps(x)                                 # one prompt per code period
+        >>> sym.dtype
+        dtype('complex64')
+        >>> round(float(np.mean(sym.real[-10:])), 1)         # despread to a clean +1
+        1.0
+        >>> round(d.code_rate, 3)                            # locked at the nominal rate
+        1.0
+
         """
 
-    def steps_max_out(self) -> int:
-        """Max output length steps() can produce for the current state."""
+    def steps_max_out(self, x_len: int) -> int:
+        """Largest number of samples steps() can return for x_len inputs.
+
+        Size an `out=` buffer with this before calling steps(), or use it to
+        allocate one up front. The bound is this object's own: what it depends
+        on is a property of the algorithm, so a header block on steps_max_out()
+        replaces this text.
+
+        Parameters
+        ----------
+        x_len : int
+            Number of input samples steps() will be given.
+
+        Returns
+        -------
+        int
+            Upper bound on the output length; the actual call may return fewer.
+        """
 
     def set_telemetry(self, tlm: object | None, prefix: str, decim: int = 1) -> None:
         """Attach (or detach) a telemetry context and register the code loop's probes on it. Registers four probes, emitted once per code epoch (period) and further thinned by decim: "<prefix>.e" (the early-minus-late envelope discriminator — the loop stress), "<prefix>.rate" (the tracked code rate, chips advanced per nominal chip, ~1.0 at lock), "<prefix>.lock" (the CFAR lock statistic R; compare against the configured threshold) and "<prefix>.locked" (the verify-counted lock decision, 0/1 — the lockdet output, so a consumer sees where the declare/drop rule fired without re-deriving it from the statistic).  Passing NULL detaches. Setup path, never hot: call before the producer thread starts stepping; the context is borrowed and must outlive the attachment (SPSC rules in telemetry/telemetry.h).
@@ -360,12 +738,30 @@ class Dll:
     def configure(self, bn: float, zeta: float) -> None:
         """Recompute the loop gains for a new (bn, zeta); preserves the code phase/rate.
 
+        Re-derives the 2nd-order loop filter's proportional and integral gains
+        for a new noise bandwidth and damping, leaving the tracked code phase,
+        code rate and correlator accumulators untouched — retune the loop
+        mid-run (e.g. narrow the bandwidth once pulled in) without dropping
+        lock.
+
         Parameters
         ----------
         bn : float
-            Input.
+            Loop noise bandwidth, normalised to the code-period rate.
         zeta : float
-            Input.
+            Damping factor (0.707 = critically damped).
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import Dll
+        >>> rng = np.random.default_rng(1)
+        >>> code = rng.integers(0, 2, 31).astype(np.uint8)
+        >>> d = Dll(code=code, sps=2, bn=0.01)
+        >>> d.configure(bn=0.02, zeta=0.707)   # widen the loop bandwidth mid-run
+        >>> round(d.bn, 3)
+        0.02
+
         """
 
     def set_rate_aid(self, rate_aid: float) -> None:
@@ -384,6 +780,26 @@ class Dll:
         ----------
         rate_aid : float
             Fractional code-rate deviation (e.g. 8e-6). 0 disables.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import Dll
+        >>> rng = np.random.default_rng(11)
+        >>> code = rng.integers(0, 2, 63).astype(np.uint8)
+        >>> delta = 5e-4                                   # code-rate Doppler
+        >>> idx = (np.arange(63 * 4 * 300) * (1 + delta) / 4).astype(np.int64) % 63
+        >>> x = np.where(code[idx] & 1, -1.0, 1.0).astype(np.complex64)
+        >>> plain = Dll(code, sps=4, bn=0.005)
+        >>> _ = plain.steps(x)
+        >>> round(plain.code_rate, 4)      # loop had to pull the whole Doppler
+        1.0005
+        >>> aided = Dll(code, sps=4, bn=0.005)
+        >>> aided.set_rate_aid(delta)      # feed the Doppler forward instead
+        >>> _ = aided.steps(x)
+        >>> round(aided.code_rate, 4)      # loop integrator stays at nominal
+        1.0
+
         """
 
     def configure_lock(self, pfa: float, n_looks: int, ref_snr_db: float = 0.0) -> None:
@@ -437,7 +853,8 @@ class Dll:
         n_looks : int
             Non-coherent integration depth N (looks); clamped >= 1.
         ref_snr_db : float
-            Noise-reference estimator SNR in dB (> 0), or 0 to derive from n_looks as above.
+            Noise-reference estimator SNR in dB (> 0), or 0 to derive from
+            n_looks as above.
 
         Examples
         --------
@@ -469,7 +886,8 @@ class Dll:
         Parameters
         ----------
         up_thresh : float
-            Declare threshold on the statistic R (e.g. the CFAR eta from det_threshold_noncoherent()).
+            Declare threshold on the statistic R (e.g. the CFAR eta from
+            det_threshold_noncoherent()).
         down_thresh : float
             Drop threshold on R; choose <= up_thresh for level hysteresis.
         n_looks : int
@@ -477,25 +895,112 @@ class Dll:
         alpha : float
             EMA coefficient for the noise reference, in (0, 1].
         n_up : int
-            Consecutive above-threshold decisions to declare lock; clamped to >= 1.
+            Consecutive above-threshold decisions to declare lock; clamped to >=
+            1.
         n_down : int
             Consecutive below-threshold decisions to drop it; clamped to >= 1.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import Dll
+        >>> rng = np.random.default_rng(1)
+        >>> code = rng.integers(0, 2, 63).astype(np.uint8)   # >= 7 chips for a lock
+        >>> chip = np.where(code & 1, -1.0, 1.0)
+        >>> x = np.tile(np.repeat(chip, 4), 400).astype(np.complex64)  # clean signal
+        >>> d = Dll(code, sps=4, bn=0.005)
+        >>> # raw geometry: declare at R>3, drop at R<2.5, 8-look, 2-of-2 hysteresis
+        >>> d.configure_lock_raw(3.0, 2.5, 8, 1.0 / 1024, 2, 2)
+        >>> _ = d.steps(x)
+        >>> d.locked                       # statistic cleared the declare threshold
+        True
+        >>> bool(d.lock_stat > 3.0)
+        True
+
         """
 
     def reset(self) -> None:
         """Re-seed the loop to the create-time code phase; preserve config.
+
+        Restores the code phase, loop filter, correlator accumulators and lock
+        detector to their post-construction state while preserving the tuned
+        configuration (bn/zeta, spacing, segments, lock geometry). Re-running
+        the same input after a reset therefore reproduces the same tracked state
+        bit-for-bit — the basis of a deterministic replay.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import Dll
+        >>> rng = np.random.default_rng(21)
+        >>> code = rng.integers(0, 2, 63).astype(np.uint8)
+        >>> idx = (np.arange(63 * 4 * 300) * (1 + 3e-4) / 4).astype(np.int64) % 63
+        >>> x = np.where(code[idx] & 1, -1.0, 1.0).astype(np.complex64)
+        >>> d = Dll(code, sps=4, bn=0.005)
+        >>> _ = d.steps(x)
+        >>> first = round(d.code_rate, 6)
+        >>> d.reset()                       # back to the create-time code phase
+        >>> _ = d.steps(x)                  # same input -> same tracked rate
+        >>> round(d.code_rate, 6) == first
+        True
+
         """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the Dll has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the Dll has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the Dll has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def bn(self) -> float:
-        """Bn."""
+        """loop noise bandwidth (retained)."""
     @bn.setter
     def bn(self, value: float) -> None: ...
 
@@ -505,15 +1010,15 @@ class Dll:
 
     @property
     def code_rate(self) -> float:
-        """Code rate."""
+        """chips advanced per nominal chip (~1.0)."""
 
     @property
     def last_error(self) -> float:
-        """Last error."""
+        """last discriminator output (loop stress)."""
 
     @property
     def segments(self) -> int:
-        """Segments."""
+        """partial correlations per epoch (1 = full)."""
 
     @property
     def locked(self) -> bool:
@@ -528,11 +1033,45 @@ class Dll:
         """Current CFAR noise-power estimate E|O|^2 from the off-peak (noise) tap EMA."""
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "Dll": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "Dll":
+        """Enter a context manager, returning this object.
+
+        Lets a Dll be used in a `with` statement so its C resources are released
+        deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        Dll
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the Dll.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
 
 @final
 class SymbolSync:
@@ -564,19 +1103,59 @@ class SymbolSync:
     def steps(self, x: NDArray[np.complex64], out: NDArray[np.complex64] | None = None) -> NDArray[np.complex64]:
         """Recover symbol timing from an oversampled cf32 baseband block: a timing-error detector (Gardner or DTTL, see the `ted` param) drives an integer timing NCO whose post-wrap value gives the interpolation fraction for free, and a Farrow interpolator emits one symbol-rate sample per recovered symbol instant.
 
+        symsync_step() in a loop, with the TED specialised per detector. Each
+        input sample feeds the Farrow interpolator and advances the integer
+        timing NCO; on a mid-symbol crossing the transition-gate interpolant is
+        stored, and on a wrap the on-time interpolant is formed, the selected
+        TED (Gardner or DTTL) measures the timing error, the PI loop steers the
+        NCO rate, and one symbol-rate sample is emitted at the recovered
+        instant. State carries across calls, so contiguous blocks give the same
+        symbols as one large block.
+
         Parameters
         ----------
         x : NDArray[np.complex64]
-            Input.
+            Oversampled input samples (~sps samples per symbol).
 
         Returns
         -------
         NDArray[np.complex64]
-            Output.
+            Number of recovered symbols written to out.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import SymbolSync
+        >>> ss = SymbolSync(sps=4, bn=0.02, zeta=0.707)
+        >>> x = np.repeat([1.0, -1.0, 1.0, -1.0], 4 * 32).astype(np.complex64)
+        >>> y = ss.steps(x)                # oversampled -> one sample per symbol
+        >>> y.shape[0]
+        127
+        >>> sorted(set(np.where(y.real >= 0, 1, -1).tolist()))   # recovered +/-1
+        [-1, 1]
+        >>> round(ss.rate, 1)              # tracked samples/symbol
+        4.0
+
         """
 
-    def steps_max_out(self) -> int:
-        """Max output length steps() can produce for the current state."""
+    def steps_max_out(self, x_len: int) -> int:
+        """Largest number of samples steps() can return for x_len inputs.
+
+        Size an `out=` buffer with this before calling steps(), or use it to
+        allocate one up front. The bound is this object's own: what it depends
+        on is a property of the algorithm, so a header block on steps_max_out()
+        replaces this text.
+
+        Parameters
+        ----------
+        x_len : int
+            Number of input samples steps() will be given.
+
+        Returns
+        -------
+        int
+            Upper bound on the output length; the actual call may return fewer.
+        """
 
     def set_telemetry(self, tlm: object | None, prefix: str, decim: int = 1) -> None:
         """Attach (or detach) a telemetry context and register the timing loop's probes on it. Registers five probes, emitted once per recovered symbol and further thinned by decim: "<prefix>.e" (the normalised TED error — the loop stress), "<prefix>.freq" (the loop-filter control steering the timing NCO, fractional rate offset), "<prefix>.rate" (the smoothed tracked samples/symbol), "<prefix>.lock" (the last block-averaged lock_signal, held between avgs-look updates) and "<prefix>.locked" (the verify-counted lockdet decision, 0/1). Passing NULL detaches.  Setup path, never hot: call before the producer thread starts stepping; the context is borrowed and must outlive the attachment (SPSC rules in telemetry/telemetry.h).
@@ -611,12 +1190,27 @@ class SymbolSync:
     def configure(self, bn: float, zeta: float) -> None:
         """Recompute the loop gains for a new (bn, zeta); preserve the timing estimate.
 
+        Retunes the PI timing loop in place: the proportional/integral gains are
+        recomputed from the new noise bandwidth and damping, while the NCO
+        phase, tracked rate and loop-filter integrator carry over — so a locked
+        loop is re-bandwidthed (e.g. narrowed after acquisition) without losing
+        lock.
+
         Parameters
         ----------
         bn : float
-            Input.
+            Loop noise bandwidth, normalised to the symbol rate (>= 0).
         zeta : float
-            Input.
+            Damping factor (0.707 = critically damped).
+
+        Examples
+        --------
+        >>> from doppler.track import SymbolSync
+        >>> ss = SymbolSync(sps=4, bn=0.01, zeta=0.707)
+        >>> ss.configure(bn=0.05, zeta=1.0)   # widen and over-damp for acquisition
+        >>> round(ss.bn, 3)
+        0.05
+
         """
 
     def configure_lock(self, rolloff: float, esno_min_db: float, pfa: float, pd: float) -> None:
@@ -649,13 +1243,16 @@ class SymbolSync:
         Parameters
         ----------
         rolloff : float
-            Matched-filter excess bandwidth (e.g. 0.35 for a typical RRC system).
+            Matched-filter excess bandwidth (e.g. 0.35 for a typical RRC
+            system).
         esno_min_db : float
-            Minimum operating Es/N0, dB -- the worst-case link point the detector must still declare lock at.
+            Minimum operating Es/N0, dB -- the worst-case link point the
+            detector must still declare lock at.
         pfa : float
             Target false-alarm probability per decision, in (0, 1).
         pd : float
-            Target detection probability per decision, in (0, 1); must exceed pfa.
+            Target detection probability per decision, in (0, 1); must exceed
+            pfa.
 
         Examples
         --------
@@ -693,22 +1290,98 @@ class SymbolSync:
             Consecutive above-threshold decisions to declare; clamped >= 1.
         n_down : int
             Consecutive below-threshold decisions to drop; clamped >= 1.
+
+        Examples
+        --------
+        >>> from doppler.track import SymbolSync
+        >>> ss = SymbolSync(sps=4, bn=0.01, zeta=0.707)
+        >>> ss.configure_lock_raw(64, 0.3, 0.3, 1, 8)   # 64-look block, 8-drop
+        >>> ss.locked
+        False
+        >>> round(ss.lock_stat, 3)
+        0.0
+
         """
 
     def reset(self) -> None:
         """Re-seed the timing loop to its nominal rate and zero phase.
+
+        Restores the object to its post-create state: the timing NCO is zeroed
+        to the nominal one-wrap-per-symbol rate, the Farrow history and TED
+        state are cleared, the loop-filter integrator is emptied and the lock
+        detector is dropped. The configured (bn, zeta), TED selection and any
+        lock geometry are preserved, so the same object can be re-run on a fresh
+        stream.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import SymbolSync
+        >>> ss = SymbolSync(sps=4, bn=0.02, zeta=0.707)
+        >>> _ = ss.steps(np.repeat([1.0, -1.0], 4 * 40).astype(np.complex64))
+        >>> ss.reset()
+        >>> round(ss.rate, 1)              # back to the nominal sps
+        4.0
+        >>> round(ss.timing_error, 3)      # loop stress cleared
+        0.0
+
         """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the SymbolSync has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the SymbolSync has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the SymbolSync has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def bn(self) -> float:
-        """Bn."""
+        """loop noise bandwidth (retained)."""
     @bn.setter
     def bn(self, value: float) -> None: ...
 
@@ -729,15 +1402,49 @@ class SymbolSync:
         """Current timing-lock decision: True after the verify count of consecutive above-threshold decisions, False again after the drop count of consecutive below-threshold ones (see configure_lock)."""
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "SymbolSync": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "SymbolSync":
+        """Enter a context manager, returning this object.
+
+        Lets a SymbolSync be used in a `with` statement so its C resources are
+        released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        SymbolSync
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the SymbolSync.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
 
 @final
 class RateSync:
-    """RateSync component.
+    """Create a RateSync instance.
 
     Parameters
     ----------
@@ -746,17 +1453,17 @@ class RateSync:
     pulse : Literal["iandd", "rrc"], default "rrc"
         Matched-filter pulse shape: "rrc" (root-raised cosine, roll-off `beta`) or "iandd" (unit rectangle one symbol wide -- the matched filter for a rectangular symbol, and exactly what an integrate-and-dump computes). The rectangle needs far fewer taps, so an NRZ link's matched filter is cheaper.
     beta : float, default 0.35
-        beta constructor parameter.
+        RRC roll-off in `[0, 1]` (ignored for the rectangle).
     span : int, default 8
-        span constructor parameter.
+        One-sided RRC span in symbols (ignored for the rectangle, whose support is always one symbol).
     m : int, default 2
         Terminal outputs per symbol: even, 2 <= m <= 8. Gardner needs a transition gate half a symbol from the on-time strobe, which is why m must be even and at least 2. The oversampled stream is a by-product of the same dot products, not an extra cost. Use m >= 4 with pulse="iandd": the rectangle is one symbol wide, so at m=2 its matched filter is a 2-tap sum and the eye statistic barely opens (measured lock_stat -0.34 at m=2 against +0.95 at m=4 on the same NRZ stream). The RRC spans many symbols and is unaffected.
     num_phases : int, default 1024
         Matched-filter arms; a power of two. Sets the fractional-timing resolution to 1/num_phases of an output period.
     bn : float, default 0.01
-        bn constructor parameter.
+        Loop noise bandwidth, normalised to the symbol rate.
     zeta : float, default 0.707
-        zeta constructor parameter.
+        Damping factor (0.707 = critically damped).
     ted : Literal["gardner", "dttl"], default "gardner"
         Timing-error detector: "gardner" (blind, works for any constellation) or "dttl" (decision-directed sign-sign Data Transition Tracking Loop; lower self-noise near lock but degrades faster at low SNR. BPSK/QPSK only -- invalid for 8PSK/QAM).
 
@@ -786,10 +1493,36 @@ class RateSync:
         -------
         NDArray[np.complex64]
             Symbols written to out.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import RateSync
+        >>> syms = np.where(np.random.default_rng(3).integers(0, 2, 3000) > 0,
+        ...                 1.0, -1.0)
+        >>> x = (0.25 * np.repeat(syms, 8)).astype(np.complex64)  # 8 samp/sym
+        >>> rs = RateSync(sps=8.0, pulse="iandd", m=4, bn=0.01)
+        >>> y = rs.steps(x)             # one symbol per transmitted symbol
+        >>> round(rs.rate, 2)           # tracked samples per symbol
+        8.0
+        >>> bool(rs.lock_stat > 0.55)   # the timing loop has locked
+        True
+
         """
 
-    def steps_max_out(self) -> int:
-        """Max output length steps() can produce for the current state."""
+    def steps_max_out(self, x_len: int) -> int:
+        """Output-buffer hint for the generated binding; 0 means "the input length is already a safe bound" — with `sps >= m >= 2` a block can never yield more symbols than it has samples (mirrors symsync).
+
+        Parameters
+        ----------
+        x_len : int
+            Input.
+
+        Returns
+        -------
+        int
+            Output.
+        """
 
     def set_telemetry(self, tlm: object | None, prefix: str, decim: int = 1) -> None:
         """Attach (or detach) a telemetry context and register the probes.
@@ -816,17 +1549,53 @@ class RateSync:
             Probe-name prefix, e.g. "sync".
         decim : int
             Emit every decim-th symbol; >= 1.
+
+        Examples
+        --------
+        >>> from doppler.track import RateSync
+        >>> from doppler.telemetry import Telemetry
+        >>> tlm = Telemetry(1 << 14)
+        >>> rs = RateSync(sps=8.0, pulse="iandd", m=4, bn=0.01)
+        >>> rs.set_telemetry(tlm, "sync")   # register the six timing probes
+        >>> tlm.probe_count
+        6
+        >>> "sync.rate" in tlm.probe_names()   # tracked samples/symbol
+        True
+
         """
 
     def configure(self, bn: float, zeta: float) -> None:
         """Recompute the loop gains for a new (bn, zeta); preserve the timing estimate.
 
+        Only the PI coefficients change; the integrator, and therefore the
+        tracked rate and the lock, carries through untouched. Use it to narrow
+        the loop after acquisition (a wide bn pulls in fast, a narrow one tracks
+        with less jitter) without forcing a re-acquire.
+
         Parameters
         ----------
         bn : float
-            Input.
+            Loop noise bandwidth, normalised to the symbol rate.
         zeta : float
-            Input.
+            Damping factor (0.707 = critically damped).
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import RateSync
+        >>> syms = np.where(np.random.default_rng(3).integers(0, 2, 3000) > 0,
+        ...                 1.0, -1.0)
+        >>> x = (0.25 * np.repeat(syms, 8)).astype(np.complex64)  # 8 samp/sym
+        >>> rs = RateSync(sps=8.0, pulse="iandd", m=4, bn=0.01)
+        >>> _ = rs.steps(x)              # acquire and lock
+        >>> rs.locked
+        True
+        >>> rs.configure(0.002, 0.707)   # narrow the loop; the lock is preserved
+        >>> round(rs.bn, 3)
+        0.002
+        >>> rs.locked
+        True
+
         """
 
     def configure_lock_raw(self, avgs: int, up_thresh: float, down_thresh: float, n_up: int, n_down: int) -> None:
@@ -849,22 +1618,105 @@ class RateSync:
             Consecutive above-threshold decisions to declare.
         n_down : int
             Consecutive below-threshold decisions to drop.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import RateSync
+        >>> syms = np.where(np.random.default_rng(3).integers(0, 2, 3000) > 0,
+        ...                 1.0, -1.0)
+        >>> x = (0.25 * np.repeat(syms, 8)).astype(np.complex64)
+        >>> rs = RateSync(sps=8.0, pulse="iandd", m=4, bn=0.01)
+        >>> _ = rs.steps(x)
+        >>> rs.locked
+        True
+        >>> rs.configure_lock_raw(64, 0.5, 0.4, 2, 4)  # drops the lock
+        >>> rs.locked
+        False
+        >>> rs.lock_stat                 # the in-flight block was cleared
+        0.0
+
         """
 
     def reset(self) -> None:
         """Re-seed the timing loop, the cascade's filter memories, the strobe ring and the prime countdown.
+
+        Configuration (sps, pulse, bank, bn, zeta, ted, lock geometry) is kept;
+        only the running state is cleared, so a re-run of the same stream from a
+        reset object reproduces its first-run symbols bit for bit.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import RateSync
+        >>> syms = np.where(np.random.default_rng(3).integers(0, 2, 3000) > 0,
+        ...                 1.0, -1.0)
+        >>> x = (0.25 * np.repeat(syms, 8)).astype(np.complex64)
+        >>> rs = RateSync(sps=8.0, pulse="iandd", m=4, bn=0.01)
+        >>> first = np.array(rs.steps(x))
+        >>> rs.reset()
+        >>> rs.ctrl, rs.locked           # back to the post-create state
+        (0.0, False)
+        >>> bool(np.array_equal(first, np.array(rs.steps(x))))  # reproducible
+        True
+
         """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the RateSync has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the RateSync has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the RateSync has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def bn(self) -> float:
-        """Bn."""
+        """loop noise bandwidth (retained)."""
     @bn.setter
     def bn(self, value: float) -> None: ...
 
@@ -893,11 +1745,45 @@ class RateSync:
         """True if the cascade's CIC stage has clipped its input since the last reset(). A CIC bounds its input to +-1.0 and clips silently past that, which no timing metric reveals -- an overdriven front end degrades EVM by 25 dB with a perfectly healthy lock. Always False when the plan contains no CIC stage."""
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "RateSync": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "RateSync":
+        """Enter a context manager, returning this object.
+
+        Lets a RateSync be used in a `with` statement so its C resources are
+        released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        RateSync
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the RateSync.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
 
 @final
 class CarrierMpsk:
@@ -931,45 +1817,193 @@ class CarrierMpsk:
     def steps(self, x: NDArray[np.complex64], out: NDArray[np.complex64] | None = None) -> NDArray[np.complex64]:
         """De-rotate a cf32 block with the integer-NCO carrier, coherently integrate over each tsamps-sample symbol, run the decision-directed M-PSK discriminator (slice to the nearest constellation point, error Im(P*conj(ahat))/|P|), and emit one complex prompt symbol per symbol. The loop tracks a small residual carrier (bulk Doppler removed upstream); it locks to one of m phases, so resolve the M-fold ambiguity downstream (mpsk_diff_demap or a sync word). At m=2 this is exactly the BPSK Costas loop.
 
+        The block form of the inline wipeoff/update pair: for each input sample
+        it de-rotates by the carrier NCO and accumulates the coherent
+        integrate-and-dump; every tsamps samples it dumps the prompt, runs the
+        decision-directed M-PSK discriminator (slice to the nearest
+        constellation point, error `Im(P conj(ahat))/|P|`, plus the optional
+        cross-product FLL assist), filters the error, and steers the NCO
+        frequency and phase. Exactly one de-rotated prompt is emitted per
+        completed symbol; a trailing partial symbol is carried in the
+        accumulator to the next call, so a stream can be fed in blocks of any
+        length with no seam.
+
+        The loop locks to one of m carrier phases — an M-fold ambiguity on the
+        absolute constellation orientation. Resolve it downstream (differential
+        demapping or a sync word); this call only recovers the carrier and
+        returns the prompts. At m = 2 it is exactly the BPSK Costas loop.
+
         Parameters
         ----------
         x : NDArray[np.complex64]
-            Input.
+            Input block, one complex baseband sample per element.
 
         Returns
         -------
         NDArray[np.complex64]
-            Output.
+            One de-rotated prompt symbol per completed integrate-and-dump
+            period; the count is `x_len / tsamps`.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.mpsk import mpsk_map
+        >>> from doppler.track import CarrierMpsk
+        >>> rng = np.random.default_rng(0)
+        >>> sps = 16
+        >>> labels = rng.integers(0, 4, 400).astype(np.uint8)
+        >>> sig = np.repeat(mpsk_map(labels, 4), sps).astype(np.complex64)
+        >>> k = np.arange(len(sig))
+        >>> rx = (sig * np.exp(2j * np.pi * 0.002 * k)).astype(np.complex64)
+        >>> c = CarrierMpsk(bn=0.04, zeta=0.707, init_norm_freq=0.0,
+        ...                 tsamps=sps, bn_fll=0.02, m=4)
+        >>> prompts = c.steps(rx)          # one prompt per symbol
+        >>> prompts.shape
+        (400,)
+        >>> round(c.norm_freq, 4)          # tracked the residual carrier f0=0.002
+        0.002
+        >>> round(c.lock_metric, 2)        # decision-aligned lock metric -> 1
+        1.0
+
         """
 
-    def steps_max_out(self) -> int:
-        """Max output length steps() can produce for the current state."""
+    def steps_max_out(self, x_len: int) -> int:
+        """Largest number of samples steps() can return for x_len inputs.
+
+        Size an `out=` buffer with this before calling steps(), or use it to
+        allocate one up front. The bound is this object's own: what it depends
+        on is a property of the algorithm, so a header block on steps_max_out()
+        replaces this text.
+
+        Parameters
+        ----------
+        x_len : int
+            Number of input samples steps() will be given.
+
+        Returns
+        -------
+        int
+            Upper bound on the output length; the actual call may return fewer.
+        """
 
     def configure(self, bn: float, zeta: float) -> None:
         """Recompute the loop gains for a new (bn, zeta); preserves the frequency/phase estimate.
 
+        Re-derives the proportional/integral gains of the embedded 2nd-order
+        loop filter for the new noise bandwidth and damping, leaving the running
+        frequency and phase estimate (the NCO and the loop integrator) untouched
+        — a live lock survives a re-tune. Use it to widen the loop for fast
+        pull-in and then narrow it for low-jitter tracking, mid-stream.
+
         Parameters
         ----------
         bn : float
-            Input.
+            Loop noise bandwidth, normalised to the symbol rate.
         zeta : float
-            Input.
+            Damping factor (0.707 = critically damped).
+
+        Examples
+        --------
+        >>> from doppler.track import CarrierMpsk
+        >>> c = CarrierMpsk(bn=0.02, zeta=0.707, init_norm_freq=0.01,
+        ...                 tsamps=16, bn_fll=0.0, m=4)
+        >>> round(c.bn, 3)
+        0.02
+        >>> c.configure(bn=0.05, zeta=1.0)   # widen the loop mid-stream
+        >>> round(c.bn, 3)
+        0.05
+        >>> round(c.norm_freq, 3)            # frequency estimate preserved
+        0.01
+
         """
 
     def reset(self) -> None:
         """Re-seed the loop to the create-time frequency/phase; preserve config.
+
+        Returns the NCO to the seed carrier passed at construction, zeroes the
+        integrate-and-dump accumulator, the FLL history, and the lock/error
+        diagnostics, and re-primes the loop integrator to the matching
+        per-symbol frequency — the exact state a fresh carrier_mpsk_create()
+        leaves. The tuning (bn, zeta, bn_fll, tsamps, m) is untouched. Call it
+        at a capture boundary so a lock reached on one segment does not bias an
+        unrelated next one.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.mpsk import mpsk_map
+        >>> from doppler.track import CarrierMpsk
+        >>> rng = np.random.default_rng(1)
+        >>> sig = np.repeat(mpsk_map(rng.integers(0, 4, 100).astype(np.uint8), 4),
+        ...                 16).astype(np.complex64)
+        >>> rx = (sig * np.exp(2j * np.pi * 0.003 * np.arange(len(sig)))
+        ...       ).astype(np.complex64)
+        >>> c = CarrierMpsk(bn=0.04, zeta=0.707, init_norm_freq=0.0,
+        ...                 tsamps=16, bn_fll=0.02, m=4)
+        >>> _ = c.steps(rx)
+        >>> round(c.norm_freq, 3)   # loop pulled onto the residual carrier
+        0.003
+        >>> c.reset()               # back to the create-time seed
+        >>> round(c.norm_freq, 3)
+        0.0
+
         """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the CarrierMpsk has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the CarrierMpsk has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the CarrierMpsk has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def bn(self) -> float:
-        """Bn."""
+        """PLL loop noise bandwidth (retained)."""
     @bn.setter
     def bn(self, value: float) -> None: ...
 
@@ -981,28 +2015,62 @@ class CarrierMpsk:
 
     @property
     def lock_metric(self) -> float:
-        """Lock metric."""
+        """EMA of Re(P conj a)/|P| (1 = locked)."""
 
     @property
     def last_error(self) -> float:
-        """Last error."""
+        """last PLL discriminator (loop stress)."""
 
     @property
     def bn_fll(self) -> float:
-        """Bn fll."""
+        """FLL-assist bandwidth (0 = pure PLL)."""
     @bn_fll.setter
     def bn_fll(self, value: float) -> None: ...
 
     @property
     def m(self) -> int:
-        """M."""
+        """constellation order M (2, 4, 8)."""
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "CarrierMpsk": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "CarrierMpsk":
+        """Enter a context manager, returning this object.
+
+        Lets a CarrierMpsk be used in a `with` statement so its C resources are
+        released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        CarrierMpsk
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the CarrierMpsk.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
 
 @final
 class CarrierNda:
@@ -1036,19 +2104,64 @@ class CarrierNda:
     def steps(self, x: NDArray[np.complex64], out: NDArray[np.complex64] | None = None) -> NDArray[np.complex64]:
         """De-rotate a cf32 block with the integer-NCO carrier and return the de-rotated samples (one per input sample). Internally the loop runs a non-data-aided M-th-power discriminator on an I/Q arm integrate-and-dump at n dumps per symbol and steers the NCO, so it acquires the carrier with no symbol timing and no data present (it strips the M-PSK modulation by raising the arm sample to the Mth power). It locks to one of m phases (M-fold ambiguity), resolved downstream. Read norm_freq for the tracked carrier and lock for the carrier lock metric.
 
+        Runs the non-data-aided carrier loop over the block: each sample is
+        wiped off by the integer-phase NCO, the de-rotated sample slides the I/Q
+        moving-average arm, and the M-th-power discriminator (which strips the
+        M-PSK data modulation) steers the NCO frequency and phase. Because the
+        discriminator is data- and timing-independent, this acquires the carrier
+        with no symbol timing and no data present — a bare carrier, or a
+        modulated carrier before timing lock. It resolves to one of m carrier
+        phases (M-fold ambiguity, resolved downstream). Read norm_freq for the
+        tracked carrier (cycles/sample) and lock for the carrier lock metric.
+
         Parameters
         ----------
         x : NDArray[np.complex64]
-            Input.
+            Input samples (average power at or below unity).
 
         Returns
         -------
         NDArray[np.complex64]
-            Output.
+            Number of de-rotated samples written to out (equals x_len).
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import CarrierNda
+        >>> c = CarrierNda(bn=0.01, zeta=0.707, init_norm_freq=0.0, sps=8, n=4, m=4)
+        >>> rng = np.random.default_rng(0)
+        >>> k = np.arange(40000)
+        >>> x = (np.exp(2j * np.pi * 0.001 * k) + 0.05 * (
+        ...      rng.standard_normal(k.size)
+        ...      + 1j * rng.standard_normal(k.size))).astype(np.complex64)
+        >>> y = c.steps(x)                 # de-rotated toward DC
+        >>> y.shape[0]
+        40000
+        >>> round(c.norm_freq, 4)          # tracked carrier, cycles/sample
+        0.001
+        >>> c.lock > 0.5                    # carrier lock metric, ~1 at lock
+        True
+
         """
 
-    def steps_max_out(self) -> int:
-        """Max output length steps() can produce for the current state."""
+    def steps_max_out(self, x_len: int) -> int:
+        """Largest number of samples steps() can return for x_len inputs.
+
+        Size an `out=` buffer with this before calling steps(), or use it to
+        allocate one up front. The bound is this object's own: what it depends
+        on is a property of the algorithm, so a header block on steps_max_out()
+        replaces this text.
+
+        Parameters
+        ----------
+        x_len : int
+            Number of input samples steps() will be given.
+
+        Returns
+        -------
+        int
+            Upper bound on the output length; the actual call may return fewer.
+        """
 
     def set_telemetry(self, tlm: object | None, prefix: str, decim: int = 1) -> None:
         """Attach (or detach) a telemetry context and register the carrier loop's probes on it — including the embedded arm AGC's. Registers four probes of its own, emitted once per input sample (this is a sample-rate loop — use decim to thin the stream) plus the embedded AGC's "<prefix>.agc.gain_db" (emitted at the AGC's own amortized gain-update rate): "<prefix>.lock" (the lock-signal EMA, ~1 when phase-locked), "<prefix>.e" (the M-th-power phase discriminator — the loop stress), "<prefix>.freq" (the tracked carrier frequency, cycles/sample) and "<prefix>.locked" (the verify-counted lockdet decision, 0/1).  Passing NULL detaches the loop and the embedded AGC. Setup path, never hot: call before the producer thread starts stepping; the context is borrowed and must outlive the attachment (SPSC rules in telemetry/telemetry.h).
@@ -1120,14 +2233,84 @@ class CarrierNda:
 
     def reset(self) -> None:
         """Re-seed the loop to the create-time frequency/phase; preserve config.
+
+        Restores the object to its post-create state: the carrier NCO is reset
+        to the seed frequency it was constructed with (init_norm_freq) with zero
+        phase, the moving-average arm, AGC, loop-filter integrator and lock EMA
+        are cleared, and the lock detector is dropped. The configured (bn,
+        zeta), the arm geometry (sps, n) and the constellation order m are
+        preserved, so the same object can re-acquire a fresh capture.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import CarrierNda
+        >>> c = CarrierNda(bn=0.01, zeta=0.707, init_norm_freq=0.0, sps=8, n=4, m=4)
+        >>> rng = np.random.default_rng(0)
+        >>> k = np.arange(40000)
+        >>> x = (np.exp(2j * np.pi * 0.001 * k) + 0.05 * (
+        ...      rng.standard_normal(k.size)
+        ...      + 1j * rng.standard_normal(k.size))).astype(np.complex64)
+        >>> _ = c.steps(x)
+        >>> round(c.norm_freq, 4), round(c.lock, 2)   # acquired the carrier
+        (0.001, 0.99)
+        >>> c.reset()
+        >>> round(c.norm_freq, 4), round(c.lock, 2)   # back to the seed, unlocked
+        (0.0, 0.0)
+
         """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the CarrierNda has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the CarrierNda has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the CarrierNda has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def norm_freq(self) -> float:
@@ -1137,7 +2320,7 @@ class CarrierNda:
 
     @property
     def lock(self) -> float:
-        """Lock."""
+        """EMA of the lock signal (1 = locked)."""
 
     @property
     def locked(self) -> bool:
@@ -1145,32 +2328,66 @@ class CarrierNda:
 
     @property
     def last_error(self) -> float:
-        """Last error."""
+        """last phase discriminator (loop stress)."""
 
     @property
     def bn(self) -> float:
-        """Bn."""
+        """PLL loop noise bandwidth (retained)."""
     @bn.setter
     def bn(self, value: float) -> None: ...
 
     @property
     def m(self) -> int:
-        """M."""
+        """constellation order M (2, 4, 8)."""
 
     @property
     def n(self) -> int:
-        """N."""
+        """sets the MA window (= a 1/n-symbol box)."""
 
     @property
     def sps(self) -> int:
-        """Sps."""
+        """samples per symbol."""
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "CarrierNda": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "CarrierNda":
+        """Enter a context manager, returning this object.
+
+        Lets a CarrierNda be used in a `with` statement so its C resources are
+        released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        CarrierNda
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the CarrierNda.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
 
 @final
 class MpskReceiver:
@@ -1274,10 +2491,42 @@ class MpskReceiver:
         -------
         NDArray[np.complex64]
             Number of symbols written.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import MpskReceiver
+        >>> rng = np.random.default_rng(0)
+        >>> idx = rng.integers(0, 4, 3000)                  # QPSK symbols
+        >>> tx = np.repeat(np.exp(1j * (2 * np.pi * idx / 4 + np.pi / 4)), 8)
+        >>> tx = tx.astype(np.complex64)                    # 8 samples/symbol
+        >>> rx = MpskReceiver(m=4, sps=8, m_out=4, bn_carrier=0.02)
+        >>> sym = rx.steps(tx)                              # blind NDA acquire
+        >>> sym.size                                        # ~ x_len / sps
+        2997
+        >>> round(rx.lock, 2)                               # carrier locked
+        0.91
+
         """
 
-    def steps_max_out(self) -> int:
-        """Max output length steps() can produce for the current state."""
+    def steps_max_out(self, x_len: int) -> int:
+        """Largest number of samples steps() can return for x_len inputs.
+
+        Size an `out=` buffer with this before calling steps(), or use it to
+        allocate one up front. The bound is this object's own: what it depends
+        on is a property of the algorithm, so a header block on steps_max_out()
+        replaces this text.
+
+        Parameters
+        ----------
+        x_len : int
+            Number of input samples steps() will be given.
+
+        Returns
+        -------
+        int
+            Upper bound on the output length; the actual call may return fewer.
+        """
 
     def bits(self, x: NDArray[np.complex64], out: NDArray[np.uint8] | None = None) -> NDArray[np.uint8]:
         """Demodulate a cf32 block and return hard Gray-coded bits (log2(m) bytes of 0/1 per recovered symbol, LSB-first). Coherent by default; if the receiver was created with differential=1, each symbol's bits come from the phase DIFFERENCE between consecutive symbols (rotation-invariant — resolves the m-fold carrier ambiguity at ~2x the symbol-error rate). Same per-sample carrier/timing recovery as steps().
@@ -1298,10 +2547,43 @@ class MpskReceiver:
         -------
         NDArray[np.uint8]
             Number of bits written.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import MpskReceiver
+        >>> rng = np.random.default_rng(3)
+        >>> idx = rng.integers(0, 2, 3000)                  # BPSK payload bits
+        >>> tx = np.repeat(np.exp(1j * np.pi * idx), 8).astype(np.complex64)
+        >>> rx = MpskReceiver(m=2, sps=8, m_out=4, bn_carrier=0.005)
+        >>> b = rx.bits(tx)                                 # 1 hard bit/symbol
+        >>> b.size
+        2997
+        >>> # settled tail matches the payload up to the BPSK inversion ambiguity
+        >>> tail = np.mean(b[1000:2000] != idx[1000:2000])
+        >>> round(float(min(tail, 1 - tail)), 3)
+        0.0
+
         """
 
-    def bits_max_out(self) -> int:
-        """Max output length bits() can produce for the current state."""
+    def bits_max_out(self, x_len: int) -> int:
+        """Largest number of samples bits() can return for x_len inputs.
+
+        Size an `out=` buffer with this before calling bits(), or use it to
+        allocate one up front. The bound is this object's own: what it depends
+        on is a property of the algorithm, so a header block on bits_max_out()
+        replaces this text.
+
+        Parameters
+        ----------
+        x_len : int
+            Number of input samples bits() will be given.
+
+        Returns
+        -------
+        int
+            Upper bound on the output length; the actual call may return fewer.
+        """
 
     def configure_lock(self, up_thresh: float, down_thresh: float, n_up: int, n_down: int) -> None:
         """Re-tune the acquisition<->tracking handover detector: hands the carrier to the decision-directed discriminator after n_up consecutive symbols with the carrier lock EMA above up_thresh, and falls back to NDA acquisition after n_down consecutive symbols below down_thresh (level + time hysteresis; see detection.LockDet). Previously only settable at construction (lock_thresh, with fixed 0.8x drop / 8-up / 32-down constants) -- this is the post-construction re-tune Dll and Costas both already have. A live handover survives the re-tune; the in-flight verify run restarts.
@@ -1319,9 +2601,11 @@ class MpskReceiver:
         down_thresh : float
             Drop threshold; choose <= up_thresh for level hysteresis.
         n_up : int
-            Consecutive above-threshold symbols to hand over to the decision-directed discriminator; clamped >= 1.
+            Consecutive above-threshold symbols to hand over to the
+            decision-directed discriminator; clamped >= 1.
         n_down : int
-            Consecutive below-threshold symbols to fall back to NDA acquisition; clamped >= 1.
+            Consecutive below-threshold symbols to fall back to NDA acquisition;
+            clamped >= 1.
 
         Examples
         --------
@@ -1335,14 +2619,80 @@ class MpskReceiver:
 
     def reset(self) -> None:
         """Re-seed the carrier and symbol-timing loops to their create-time state; preserve configuration.
+
+        Clears the cascade's filter memory, the carrier and timing NCOs, the
+        loop-filter integrators and the lock detectors, and returns the carrier
+        estimate to init_norm_freq. The configuration (order, rate, pulse,
+        bandwidths) is untouched, so the same input fed twice around a reset
+        reproduces the same output bit-for-bit.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import MpskReceiver
+        >>> rng = np.random.default_rng(0)
+        >>> idx = rng.integers(0, 4, 300)
+        >>> tx = np.repeat(np.exp(1j * (2 * np.pi * idx / 4 + np.pi / 4)), 8)
+        >>> tx = tx.astype(np.complex64)
+        >>> rx = MpskReceiver(m=4, sps=8, m_out=4)
+        >>> first = rx.steps(tx)
+        >>> rx.reset()                                # back to the cold state
+        >>> np.array_equal(first, rx.steps(tx))       # same input, same output
+        True
+
         """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the MpskReceiver has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the MpskReceiver has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the MpskReceiver has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def norm_freq(self) -> float:
@@ -1352,7 +2702,7 @@ class MpskReceiver:
 
     @property
     def lock(self) -> float:
-        """Lock."""
+        """EMA of the carrier lock signal."""
 
     @property
     def timing_rate(self) -> float:
@@ -1360,15 +2710,15 @@ class MpskReceiver:
 
     @property
     def tracking(self) -> int:
-        """Tracking."""
+        """0 = NDA acquire, 1 = decision."""
 
     @property
     def m(self) -> int:
-        """M."""
+        """constellation order M (2, 4, 8)."""
 
     @property
     def sps(self) -> float:
-        """Sps."""
+        """samples per symbol at the receiver's input."""
 
     @property
     def m_out(self) -> int:
@@ -1379,11 +2729,45 @@ class MpskReceiver:
         """Has the cascade's CIC stage clipped its input since the last reset? A CIC bounds its input to |Re|, |Im| <= 1.0 and clips silently past that -- the output stays finite and plausible, merely distorted, at a cost of ~25 dB of EVM that no lock metric reveals. Always 0 for a plan with no CIC stage."""
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "MpskReceiver": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "MpskReceiver":
+        """Enter a context manager, returning this object.
+
+        Lets a MpskReceiver be used in a `with` statement so its C resources are
+        released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        MpskReceiver
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the MpskReceiver.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
 
 @final
 class MpskReceiverR:
@@ -1435,16 +2819,50 @@ class MpskReceiverR:
     def __init__(self, m: int = ..., sps: float = ..., m_out: int = ..., pulse: Literal["iandd", "rrc"] = "iandd", rrc_beta: float = ..., rrc_span: int = ..., bn_carrier: float = ..., zeta: float = ..., bn_timing: float = ..., acq_to_track: int = ..., lock_thresh: float = ..., init_norm_freq: float = ..., warmup_syms: int = ..., differential: int = ..., num_phases: int = ..., nda_tap: Literal["strobe", "mf_all", "lo_arm"] = "strobe") -> None: ...
 
     def set_telemetry(self, tlm: object | None, prefix: str, decim: int = 1) -> None:
-        """Attach (or detach) telemetry; registers the same eleven probes as mpsk_receiver_set_telemetry(), whose contract this shares.
+        """Attach (or detach) a telemetry context across the receiver.
+
+        Registers the same eleven probes as mpsk_receiver_set_telemetry(), whose
+        contract it shares: the receiver's own "<prefix>.lock" and
+        "<prefix>.tracking", the carrier loop's "<prefix>.car.e" / ".freq" /
+        ".locked", and the symbol-timing loop's "<prefix>.sync.e" / ".ctrl" /
+        ".rate" / ".lock" / ".locked" / ".mu" — all thinned by decim and emitted
+        once per recovered symbol. Passing NULL detaches everything. Setup path,
+        never hot; the context is borrowed and must outlive the attachment.
 
         Parameters
         ----------
         tlm : object | None
-            Input.
+            Telemetry context to attach, or NULL to detach.
         prefix : str
-            Input.
+            Probe-name prefix, e.g. "rx".
         decim : int
-            Input.
+            Emit every decim-th symbol; >= 1.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import MpskReceiverR
+        >>> from doppler.telemetry import Telemetry
+        >>> tlm = Telemetry(1 << 14)
+        >>> rx = MpskReceiverR(m=4, sps=10, m_out=2, init_norm_freq=0.25)
+        >>> rx.set_telemetry(tlm, "rx")
+        >>> len(tlm.probe_names())
+        11
+        >>> rng = np.random.default_rng(7)
+        >>> idx = rng.integers(0, 4, 512)
+        >>> bb = np.repeat(np.exp(2j * np.pi * idx / 4), 10)
+        >>> n = np.arange(bb.size)
+        >>> x = (0.4 * bb * np.exp(2j * np.pi * 0.25 * n)).real
+        >>> x = np.ascontiguousarray(x.astype(np.float32))
+        >>> _ = rx.steps(x)
+        >>> recs = tlm.read()
+        >>> tlm.dropped            # size the ring, or the counts below diverge
+        0
+        >>> n_sync = len(recs[recs["probe"] == tlm.probe_id("rx.sync.e")])
+        >>> n_car = len(recs[recs["probe"] == tlm.probe_id("rx.car.e")])
+        >>> n_sync > 0 and n_sync == n_car
+        True
+
         """
 
     def steps(self, x: NDArray[np.float32], out: NDArray[np.complex64] | None = None) -> NDArray[np.complex64]:
@@ -1462,10 +2880,44 @@ class MpskReceiverR:
         -------
         NDArray[np.complex64]
             Number of symbols written.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import MpskReceiverR
+        >>> rng = np.random.default_rng(3)
+        >>> idx = rng.integers(0, 4, 2400)                  # QPSK symbols
+        >>> bb = np.repeat(np.exp(2j * np.pi * idx / 4), 32)  # 32 samples/symbol
+        >>> n = np.arange(bb.size)
+        >>> x = (0.4 * bb * np.exp(2j * np.pi * 0.25 * n)).real   # real IF, fs/4
+        >>> x = np.ascontiguousarray(x.astype(np.float32))
+        >>> rx = MpskReceiverR(m=4, sps=32, m_out=8, init_norm_freq=0.25)
+        >>> sym = rx.steps(x)
+        >>> sym.size                                        # ~ x_len / sps
+        2398
+        >>> round(rx.lock, 2)                               # carrier locked
+        0.99
+
         """
 
-    def steps_max_out(self) -> int:
-        """Max output length steps() can produce for the current state."""
+    def steps_max_out(self, x_len: int) -> int:
+        """Largest number of samples steps() can return for x_len inputs.
+
+        Size an `out=` buffer with this before calling steps(), or use it to
+        allocate one up front. The bound is this object's own: what it depends
+        on is a property of the algorithm, so a header block on steps_max_out()
+        replaces this text.
+
+        Parameters
+        ----------
+        x_len : int
+            Number of input samples steps() will be given.
+
+        Returns
+        -------
+        int
+            Upper bound on the output length; the actual call may return fewer.
+        """
 
     def bits(self, x: NDArray[np.float32], out: NDArray[np.uint8] | None = None) -> NDArray[np.uint8]:
         """Demodulate a real f32 block and return hard Gray-coded bits (log2(m) bytes of 0/1 per recovered symbol, LSB-first). Coherent by default; if the receiver was created with differential=1, each symbol's bits come from the phase DIFFERENCE between consecutive symbols (rotation-invariant — resolves the m-fold carrier ambiguity at ~2x the symbol-error rate). Same per-sample carrier/timing recovery as steps().
@@ -1481,36 +2933,157 @@ class MpskReceiverR:
         -------
         NDArray[np.uint8]
             Number of bits written.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import MpskReceiverR
+        >>> rng = np.random.default_rng(3)
+        >>> idx = rng.integers(0, 2, 2400)                  # BPSK payload bits
+        >>> bb = np.repeat(np.exp(1j * np.pi * idx), 32)
+        >>> n = np.arange(bb.size)
+        >>> x = (0.4 * bb * np.exp(2j * np.pi * 0.25 * n)).real   # real IF, fs/4
+        >>> x = np.ascontiguousarray(x.astype(np.float32))
+        >>> rx = MpskReceiverR(m=2, sps=32, m_out=8, init_norm_freq=0.25,
+        ...                    bn_carrier=0.005)
+        >>> b = rx.bits(x)                                  # 1 hard bit/symbol
+        >>> b.size
+        2398
+        >>> # settled tail matches the payload up to the BPSK inversion ambiguity
+        >>> tail = np.mean(b[1500:2300] != idx[1500:2300])
+        >>> round(float(min(tail, 1 - tail)), 3)
+        0.0
+
         """
 
-    def bits_max_out(self) -> int:
-        """Max output length bits() can produce for the current state."""
+    def bits_max_out(self, x_len: int) -> int:
+        """Largest number of samples bits() can return for x_len inputs.
+
+        Size an `out=` buffer with this before calling bits(), or use it to
+        allocate one up front. The bound is this object's own: what it depends
+        on is a property of the algorithm, so a header block on bits_max_out()
+        replaces this text.
+
+        Parameters
+        ----------
+        x_len : int
+            Number of input samples bits() will be given.
+
+        Returns
+        -------
+        int
+            Upper bound on the output length; the actual call may return fewer.
+        """
 
     def configure_lock(self, up_thresh: float, down_thresh: float, n_up: int, n_down: int) -> None:
         """Re-tune the acquisition<->tracking handover detector: hands the carrier to the decision-directed discriminator after n_up consecutive symbols with the carrier lock EMA above up_thresh, and falls back to NDA acquisition after n_down consecutive symbols below down_thresh (level + time hysteresis; see detection.LockDet). Previously only settable at construction (lock_thresh, with fixed 0.8x drop / 8-up / 32-down constants) -- this is the post-construction re-tune Dll and Costas both already have. A live handover survives the re-tune; the in-flight verify run restarts.
 
+        The real-input twin of mpsk_receiver_configure_lock(), whose contract it
+        shares exactly: a split declare/drop threshold pair on the carrier lock
+        EMA (level hysteresis) plus both verify counts (time hysteresis). A live
+        handover survives the re-tune; the in-flight verify run restarts.
+
         Parameters
         ----------
         up_thresh : float
-            Input.
+            Declare threshold on the carrier lock EMA.
         down_thresh : float
-            Input.
+            Drop threshold; choose <= up_thresh for level hysteresis.
         n_up : int
-            Input.
+            Consecutive above-threshold symbols to hand over to the
+            decision-directed discriminator; clamped >= 1.
         n_down : int
-            Input.
+            Consecutive below-threshold symbols to fall back to NDA acquisition;
+            clamped >= 1.
+
+        Examples
+        --------
+        >>> from doppler.track import MpskReceiverR
+        >>> rx = MpskReceiverR(m=4, sps=10, m_out=2, acq_to_track=1)
+        >>> rx.tracking
+        0
+        >>> rx.configure_lock(0.9, 0.72, 4, 16)   # tighter declare, faster drop
+
         """
 
     def reset(self) -> None:
         """Re-seed the carrier and symbol-timing loops to their create-time state; preserve configuration.
+
+        Identical in effect to mpsk_receiver_reset() — clears the R2C halfband
+        and cascade memory, the carrier and timing NCOs, the loop integrators
+        and the lock detectors, and returns the carrier estimate to
+        init_norm_freq. Configuration is untouched, so a burst fed twice around
+        a reset reproduces bit-for-bit.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.track import MpskReceiverR
+        >>> rng = np.random.default_rng(0)
+        >>> idx = rng.integers(0, 4, 300)
+        >>> bb = np.repeat(np.exp(2j * np.pi * idx / 4), 32)
+        >>> n = np.arange(bb.size)
+        >>> x = (0.4 * bb * np.exp(2j * np.pi * 0.25 * n)).real   # real IF, fs/4
+        >>> x = np.ascontiguousarray(x.astype(np.float32))
+        >>> rx = MpskReceiverR(m=4, sps=32, m_out=8, init_norm_freq=0.25)
+        >>> first = rx.steps(x)
+        >>> rx.reset()                                # back to the cold state
+        >>> np.array_equal(first, rx.steps(x))        # same input, same output
+        True
+
         """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the MpskReceiverR has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the MpskReceiverR has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the MpskReceiverR has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def norm_freq(self) -> float:
@@ -1520,7 +3093,7 @@ class MpskReceiverR:
 
     @property
     def lock(self) -> float:
-        """Lock."""
+        """EMA of the carrier lock signal."""
 
     @property
     def timing_rate(self) -> float:
@@ -1528,27 +3101,61 @@ class MpskReceiverR:
 
     @property
     def tracking(self) -> int:
-        """Tracking."""
+        """0 = NDA acquire, 1 = decision."""
 
     @property
     def m(self) -> int:
-        """M."""
+        """constellation order M (2, 4, 8)."""
 
     @property
     def sps(self) -> float:
-        """Sps."""
+        """samples per symbol at the receiver's input."""
 
     @property
     def m_out(self) -> int:
-        """M out."""
+        """terminal outputs per symbol."""
 
     @property
     def clipped(self) -> int:
         """Has the cascade's CIC stage clipped its input since the last reset? A CIC bounds its input to |Re|, |Im| <= 1.0 and clips silently past that -- the output stays finite and plausible, merely distorted, at a cost of ~25 dB of EVM that no lock metric reveals. Always 0 for a plan with no CIC stage."""
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "MpskReceiverR": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "MpskReceiverR":
+        """Enter a context manager, returning this object.
+
+        Lets a MpskReceiverR be used in a `with` statement so its C resources
+        are released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        MpskReceiverR
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the MpskReceiverR.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """

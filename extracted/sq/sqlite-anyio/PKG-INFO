@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: sqlite-anyio
-Version: 0.3.0
+Version: 0.3.1
 Summary: Asynchronous client for SQLite using AnyIO
 Author: Alex Grönholm, David Brochart
 Author-email: Alex Grönholm <alex.gronholm@nextday.fi>, David Brochart <david.brochart@gmail.com>

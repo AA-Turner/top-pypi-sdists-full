@@ -137,6 +137,7 @@ class Plan(models.Model):
     objects = PlanQuerySet.as_manager()
 
     class Meta:
+        required_db_vendor = "postgresql"
         verbose_name = "Billing plan"
         verbose_name_plural = "Billing plans"
 
@@ -307,6 +308,7 @@ class Billing(models.Model):
     objects = BillingManager.from_queryset(BillingQuerySet)()
 
     class Meta:
+        required_db_vendor = "postgresql"
         verbose_name = "Customer billing"
         verbose_name_plural = "Customer billings"
 
@@ -498,6 +500,16 @@ class Billing(models.Model):
             project_objects = project_objects.db_manager(database)
         if not project_objects.filter(pk=project.pk).update(workspace=self.workspace):
             raise Project.DoesNotExist
+        # ruff: ignore[import-outside-top-level]
+        from weblate.utils.tasks import update_workspace_stats
+
+        update_workspace_stats.delay_on_commit(
+            [
+                str(workspace_id)
+                for workspace_id in (previous_workspace_id, self.workspace_id)
+                if workspace_id is not None
+            ]
+        )
         project.workspace = self.workspace
         project.billing_original_workspace_id = self.workspace_id
         self.update_workspace_name()
@@ -544,6 +556,10 @@ class Billing(models.Model):
     @property
     def is_libre_trial(self) -> bool:
         return self.is_trial and self.plan.price == 0
+
+    @property
+    def can_terminate(self) -> bool:
+        return self.is_active() and not self.get_projects_queryset().exists()
 
     @cached_property
     def can_be_paid(self) -> bool:
@@ -833,7 +849,7 @@ class Billing(models.Model):
         return (
             Alert.objects.filter(
                 component__project_id__in=project_ids,
-                dismissed=False,
+                dismissed_at__isnull=True,
                 name=name,
                 severity__gte=AlertSeverity.ERROR,
             )
@@ -994,11 +1010,14 @@ class Billing(models.Model):
                     queryset=Alert.objects.order_component(),
                 )
             )
-        yield LibreCheck(
-            len(components) > 0,
-            ngettext("Contains %d component", "Contains %d components", len(components))
-            % len(components),
+        component_count = len(components)
+        message = ngettext(
+            "Contains %d component", "Contains %d components", component_count
         )
+        # Ignore when format string is not present
+        with suppress(TypeError):
+            message %= component_count
+        yield LibreCheck(component_count > 0, message)
         for component in components:
             license_name = component.get_license_display()
             license_error = None
@@ -1113,6 +1132,7 @@ class Invoice(models.Model):
     objects = InvoiceQuerySet.as_manager()
 
     class Meta:
+        required_db_vendor = "postgresql"
         verbose_name = "Invoice"
         verbose_name_plural = "Invoices"
 
@@ -1218,6 +1238,9 @@ class BillingLog(models.Model):
     details = models.JSONField(default=dict)
 
     objects = BillingLogQuerySet.as_manager()
+
+    class Meta:
+        required_db_vendor = "postgresql"
 
     def __str__(self) -> str:
         return f"{self.timestamp.isoformat()}: {self.billing}: {self.get_event_display()} {self.summary}"

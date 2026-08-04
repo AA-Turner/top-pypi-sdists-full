@@ -609,6 +609,153 @@ def test_a_live_pid_with_a_dead_port_is_not_a_live_window(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# window.py — liveness reads a tab, not just a pid and a port
+#
+# Closing the last window does not quit Chromium on macOS: the process stays up
+# and the CDP port keeps answering, so pid+port reported a window that had
+# nowhere to look as reusable. Measured on this machine — three such processes
+# resident, /json/version answering, /json/list empty.
+# ---------------------------------------------------------------------------
+
+
+def _json_endpoint(payload, status=200):
+    """Stand in for urlopen(), which window.py uses as a context manager."""
+
+    class _Response:
+        def __init__(self):
+            self.status = status
+
+        def read(self):
+            return json.dumps(payload).encode("utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    def _open(url, timeout=None):
+        return _Response()
+
+    return _open
+
+
+def _running(monkeypatch, pages):
+    """A window whose pid and port are fine; `pages` is what /json/list says."""
+    monkeypatch.setattr(window, "_is_pid_alive", lambda pid: True)
+    monkeypatch.setattr(window, "_cdp_responds", lambda port, timeout_s=1.0: True)
+    monkeypatch.setattr(window, "_cdp_page_count", lambda port, timeout_s=1.0: pages)
+    return window.WindowState(
+        pid=1, port=9333, profile_dir="/tmp/p", instance_url="", started_at=1.0
+    )
+
+
+def test_a_window_with_no_tabs_left_is_not_reusable(monkeypatch):
+    state = _running(monkeypatch, 0)
+
+    liveness = window.window_liveness(state)
+    assert (liveness.process, liveness.port, liveness.pages) == (True, True, 0)
+    assert liveness.reusable is False
+    assert "no tabs" in liveness.reason
+    assert window.is_window_alive(state) is False
+
+
+def test_a_window_that_cannot_report_its_tabs_is_not_reusable(monkeypatch):
+    # `None` is "the question did not get through", NOT "there is nothing".
+    # Failing toward a spare window is recoverable; attaching to a dead one is
+    # not (CLAUDE.md rule 5).
+    state = _running(monkeypatch, None)
+
+    liveness = window.window_liveness(state)
+    assert liveness.pages is None
+    assert liveness.reusable is False
+    assert "did not report" in liveness.reason
+
+
+def test_a_window_with_a_tab_is_reusable(monkeypatch):
+    state = _running(monkeypatch, 2)
+
+    liveness = window.window_liveness(state)
+    assert liveness.reusable is True
+    assert window.is_window_alive(state) is True
+
+
+def test_the_tab_count_ignores_devtools_and_non_page_targets(monkeypatch):
+    targets = [
+        {"type": "page", "url": "https://dev.example.com/nav_to.do"},
+        {"type": "page", "url": "devtools://devtools/bundled/inspector.html"},
+        {"type": "service_worker", "url": "https://dev.example.com/sw.js"},
+        {"type": "background_page", "url": "chrome-extension://abc/bg.html"},
+    ]
+    monkeypatch.setattr(window.urllib.request, "urlopen", _json_endpoint(targets))
+
+    assert window._cdp_page_count(9333) == 1
+
+
+def test_an_unreadable_target_list_is_none_not_zero(monkeypatch):
+    def _boom(url, timeout=None):
+        raise OSError("connection reset")
+
+    monkeypatch.setattr(window.urllib.request, "urlopen", _boom)
+
+    assert window._cdp_page_count(9333) is None
+
+
+def test_a_tabless_window_is_retired_instead_of_stranded(auth, monkeypatch):
+    # Dropping the state file alone would leave the process unreachable AND
+    # un-reapable — resident until reboot. It is killed only on a CONFIRMED
+    # empty tab list.
+    window.write_window_state(
+        auth,
+        window.WindowState(
+            pid=4242, port=9333, profile_dir="/tmp/p", instance_url="", started_at=1.0
+        ),
+    )
+    _running(monkeypatch, 0)
+    killed = []
+    monkeypatch.setattr(window, "terminate_pid", lambda pid: killed.append(pid) or True)
+    monkeypatch.setattr(window, "check_launch_allowed", lambda path: None)
+    monkeypatch.setattr(window, "record_launch", lambda path: None)
+    fresh = window.WindowState(
+        pid=77, port=9444, profile_dir="/tmp/p2", instance_url="", started_at=2.0
+    )
+    monkeypatch.setattr(window, "launch_window", lambda am, **kw: fresh)
+
+    state, opened = window.ensure_window(auth)
+
+    assert (state.pid, opened) == (77, True)
+    assert killed == [4242]
+
+
+def test_a_window_that_cannot_report_its_tabs_is_never_killed(auth, monkeypatch):
+    # Same path, unread signal: a new window is opened, but nobody else's
+    # browser gets terminated on a question that never got an answer.
+    window.write_window_state(
+        auth,
+        window.WindowState(
+            pid=4242, port=9333, profile_dir="/tmp/p", instance_url="", started_at=1.0
+        ),
+    )
+    _running(monkeypatch, None)
+    killed = []
+    monkeypatch.setattr(window, "terminate_pid", lambda pid: killed.append(pid) or True)
+    monkeypatch.setattr(window, "check_launch_allowed", lambda path: None)
+    monkeypatch.setattr(window, "record_launch", lambda path: None)
+    monkeypatch.setattr(
+        window,
+        "launch_window",
+        lambda am, **kw: window.WindowState(
+            pid=77, port=9444, profile_dir="/tmp/p2", instance_url="", started_at=2.0
+        ),
+    )
+
+    _, opened = window.ensure_window(auth)
+
+    assert opened is True
+    assert killed == []
+
+
+# ---------------------------------------------------------------------------
 # capture.py — picking the right tab
 # ---------------------------------------------------------------------------
 
@@ -677,8 +824,144 @@ def test_the_meaning_is_in_the_words_not_the_colour():
     """
     script = badge_init_script("prod")
 
-    assert "PROFILE_NAME = 'prod'" in script
+    # The name is resolved in the page (see the instance tests below), so what
+    # has to be present is the machinery that writes it into the pill.
+    assert "const PROFILE_NAME" in script
+    assert "nameEl.textContent = PROFILE_NAME" in script
     assert badge.badge_accent("prod") in script
+
+
+# ---------------------------------------------------------------------------
+# badge.py — WHICH instance. Read in the page, never from the active alias.
+# ---------------------------------------------------------------------------
+
+
+def test_the_instance_alias_comes_from_the_config_not_the_active_env(monkeypatch):
+    """The bug: a prod window drew 'dev'.
+
+    ``profile_label`` accepted a config it never looked at and returned the
+    process-wide active alias, so a call routed to another instance opened a
+    window there and labelled it with the ACTIVE instance's name — the precise
+    wrong-instance mistake the badge exists to prevent.
+    """
+    monkeypatch.setenv(
+        "SERVICENOW_INSTANCE_CONFIG",
+        json.dumps(
+            {
+                "dev": {"url": "https://dev.example.com"},
+                "prod": {"url": "https://prod.example.com"},
+            }
+        ),
+    )
+    monkeypatch.setenv("SERVICENOW_ACTIVE_INSTANCE", "dev")
+
+    prod_config = SimpleNamespace(instance_url="https://prod.example.com")
+
+    assert badge.profile_label(prod_config) == "prod"
+
+
+def test_a_single_instance_profile_still_says_default(monkeypatch):
+    """No aliases configured means the account carries the identity, as before."""
+    monkeypatch.delenv("SERVICENOW_INSTANCE_CONFIG", raising=False)
+    monkeypatch.delenv("SERVICENOW_ACTIVE_INSTANCE", raising=False)
+
+    config = SimpleNamespace(instance_url="https://only.example.com")
+
+    assert badge.profile_label(config) == "default"
+
+
+def test_instance_aliases_are_keyed_by_host(monkeypatch):
+    monkeypatch.setenv(
+        "SERVICENOW_INSTANCE_CONFIG",
+        json.dumps({"dev": {"url": "https://dev.example.com/"}, "t": {"url": "test.example.com"}}),
+    )
+
+    assert badge.instance_labels() == {"dev.example.com": "dev", "test.example.com": "t"}
+
+
+def test_unreadable_instance_config_labels_nothing_rather_than_raising():
+    """A label never takes the window down, and never invents a name either."""
+    assert badge.instance_labels("{not json") == {}
+    assert badge.instance_labels("") == {}
+
+
+def test_the_badge_resolves_its_instance_from_the_page_not_from_python(monkeypatch):
+    """One window may hold tabs on two instances; a baked-in name fits one.
+
+    The map goes into the script and the lookup happens against
+    ``location.hostname``, so the same script labels each tab correctly.
+    """
+    monkeypatch.setenv(
+        "SERVICENOW_INSTANCE_CONFIG",
+        json.dumps(
+            {
+                "dev": {"url": "https://dev.example.com"},
+                "prod": {"url": "https://prod.example.com"},
+            }
+        ),
+    )
+
+    script = badge_init_script("prod")
+
+    assert "location.hostname" in script
+    assert '"dev.example.com": "dev"' in script
+    assert '"prod.example.com": "prod"' in script
+    # Still no address on the badge — the address bar sits right above it.
+    assert "https://" not in script
+
+
+def test_an_unknown_host_is_left_unnamed_rather_than_given_the_fallback(monkeypatch):
+    """A wrong label is worse than no label on the thing that answers 'which one'."""
+    monkeypatch.setenv(
+        "SERVICENOW_INSTANCE_CONFIG", json.dumps({"dev": {"url": "https://dev.example.com"}})
+    )
+
+    script = badge_init_script("dev")
+
+    # Known host wins; otherwise the fallback is used ONLY when nothing is
+    # configured to compare against.
+    assert "Object.keys(KNOWN_INSTANCES).length ? '' : FALLBACK_NAME" in script
+
+
+def test_the_colour_identifies_the_window_and_the_name_identifies_the_instance():
+    """Two channels, two questions. Hashing the name would collapse them.
+
+    The name is read per tab, so a window holding a dev tab and a test tab
+    labels each correctly — but the colour has to stay one per window, or
+    "is this the same window I was looking at?" goes unanswered.
+    """
+    one = badge_init_script("dev", window_id="/cache/debug_profile_alice")
+    two = badge_init_script("dev", window_id="/cache/debug_profile_bob")
+
+    assert badge.badge_accent("/cache/debug_profile_alice") in one
+    assert badge.badge_accent("/cache/debug_profile_bob") in two
+    # Same instance label, different windows — the colour is what tells them apart.
+    assert badge.badge_accent("/cache/debug_profile_alice") != badge.badge_accent(
+        "/cache/debug_profile_bob"
+    )
+    # And the colour is fixed for the window rather than recomputed per tab.
+    assert "const ACCENT = '" in one
+
+
+def test_one_window_wears_one_colour_across_every_instance_it_holds():
+    """The window colour cannot depend on which tab happens to be in front."""
+    script = badge_init_script("dev", window_id="/cache/debug_profile_alice")
+
+    assert script.count("const ACCENT = ") == 1
+    # No page-side palette lookup: nothing in the document may repaint it.
+    assert "PALETTE" not in script
+
+
+def test_the_badge_colour_comes_from_the_window_not_from_the_label(monkeypatch):
+    """A window is coloured by WHICH window it is, never by what it says."""
+    monkeypatch.delenv("SERVICENOW_INSTANCE_CONFIG", raising=False)
+
+    same_label_two_windows = {
+        badge_init_script("prod", window_id="/cache/debug_profile_alice"),
+        badge_init_script("prod", window_id="/cache/debug_profile_bob"),
+    }
+
+    assert len(same_label_two_windows) == 2
 
 
 def test_the_profile_name_is_the_part_that_carries_the_colour():

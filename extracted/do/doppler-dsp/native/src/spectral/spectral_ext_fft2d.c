@@ -549,9 +549,10 @@ FFT2D_getprop_sign (FFT2DObject *self, void *Py_UNUSED (closure))
 }
 
 static PyGetSetDef FFT2D_getset[]
-    = { { "ny", (getter)FFT2D_getprop_ny, NULL, "Ny.\n", NULL },
-        { "nx", (getter)FFT2D_getprop_nx, NULL, "Nx.\n", NULL },
-        { "sign", (getter)FFT2D_getprop_sign, NULL, "Sign.\n", NULL },
+    = { { "ny", (getter)FFT2D_getprop_ny, NULL, "Row count.\n", NULL },
+        { "nx", (getter)FFT2D_getprop_nx, NULL, "Column count.\n", NULL },
+        { "sign", (getter)FFT2D_getprop_sign, NULL,
+          "-1 forward, +1 inverse.\n", NULL },
         { NULL } };
 
 static PyObject *
@@ -586,7 +587,7 @@ FFT2DObj_exit (FFT2DObject *self, PyObject *args)
 
 static PyMethodDef FFT2DObj_methods[] = {
   { "reset", (PyCFunction)FFT2DObj_reset, METH_NOARGS,
-    "Reset state to post-create defaults." },
+    "No-op reset (plans are immutable after creation)." },
 
   { "execute_cf64", (PyCFunction)(void *)FFT2DObj_execute_cf64,
     METH_VARARGS | METH_KEYWORDS,
@@ -597,12 +598,27 @@ static PyMethodDef FFT2DObj_methods[] = {
     "to the caller-supplied out buffer (also ny*nx); the two must not alias.  "
     "The transform is unnormalised.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import FFT2D\n"
-    "    >>> obj = FFT2D(64, 64, -1, 1)\n"
-    "    >>> y = obj.execute_cf64(1.0 + 0.0j)\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex128')\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : complex\n"
+    "    Input.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex128]\n"
+    "    min(ny*nx, max_out) samples.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.spectral import FFT2D\n"
+    ">>> import numpy as np\n"
+    ">>> fft2d = FFT2D(ny=4, nx=4, sign=-1)\n"
+    ">>> x = np.zeros(16, dtype=np.complex128); x[0] = 1.0\n"
+    ">>> out = fft2d.execute_cf64(x)\n"
+    ">>> out.shape, out.dtype\n"
+    "((16,), dtype('complex128'))\n"
+    ">>> bool(np.allclose(out, 1.0))\n"
+    "True\n" },
   { "execute_cf64_max_out", (PyCFunction)FFT2DObj_execute_cf64_max_out,
     METH_NOARGS,
     "execute_cf64_max_out() -> int\n\nMax output length execute_cf64() can "
@@ -616,12 +632,27 @@ static PyMethodDef FFT2DObj_methods[] = {
     "flat row-major CF32 arrays of length ny*nx.  Output is unnormalised; in "
     "and out must not alias.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import FFT2D\n"
-    "    >>> obj = FFT2D(64, 64, -1, 1)\n"
-    "    >>> y = obj.execute_cf32(1.0 + 0.0j)\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex64')\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : complex\n"
+    "    Input.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex64]\n"
+    "    min(ny*nx, max_out) samples.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.spectral import FFT2D\n"
+    ">>> import numpy as np\n"
+    ">>> fft2d = FFT2D(ny=4, nx=4, sign=-1)\n"
+    ">>> x = np.zeros(16, dtype=np.complex64); x[0] = 1.0\n"
+    ">>> out = fft2d.execute_cf32(x)\n"
+    ">>> out.shape, out.dtype\n"
+    "((16,), dtype('complex64'))\n"
+    ">>> bool(np.allclose(out, 1.0))\n"
+    "True\n" },
   { "execute_cf32_max_out", (PyCFunction)FFT2DObj_execute_cf32_max_out,
     METH_NOARGS,
     "execute_cf32_max_out() -> int\n\nMax output length execute_cf32() can "
@@ -635,12 +666,25 @@ static PyMethodDef FFT2DObj_methods[] = {
     "to out in-place.  in is left unmodified. Useful when the caller owns out "
     "and wants to preserve in.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import FFT2D\n"
-    "    >>> obj = FFT2D(64, 64, -1, 1)\n"
-    "    >>> y = obj.execute_inplace_cf64(1.0 + 0.0j)\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex128')\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : complex\n"
+    "    Input.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex128]\n"
+    "    min(ny*nx, max_out) samples.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.spectral import FFT2D\n"
+    ">>> import numpy as np\n"
+    ">>> fft2d = FFT2D(ny=4, nx=4, sign=-1)\n"
+    ">>> x = np.zeros(16, dtype=np.complex128); x[0] = 1.0\n"
+    ">>> out = fft2d.execute_inplace_cf64(x)\n"
+    ">>> bool(np.allclose(out, 1.0))\n"
+    "True\n" },
   { "execute_inplace_cf64_max_out",
     (PyCFunction)FFT2DObj_execute_inplace_cf64_max_out, METH_NOARGS,
     "execute_inplace_cf64_max_out() -> int\n\nMax output length "
@@ -654,21 +698,67 @@ static PyMethodDef FFT2DObj_methods[] = {
     "Single-precision variant of fft2d_execute_inplace_cf64().  Copies ny*nx "
     "CF32 samples then applies the CF32 2-D pocketfft plan to out.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import FFT2D\n"
-    "    >>> obj = FFT2D(64, 64, -1, 1)\n"
-    "    >>> y = obj.execute_inplace_cf32(1.0 + 0.0j)\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex64')\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : complex\n"
+    "    Input.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex64]\n"
+    "    min(ny*nx, max_out) samples.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.spectral import FFT2D\n"
+    ">>> import numpy as np\n"
+    ">>> fft2d = FFT2D(ny=4, nx=4, sign=-1)\n"
+    ">>> x = np.zeros(16, dtype=np.complex64); x[0] = 1.0\n"
+    ">>> out = fft2d.execute_inplace_cf32(x)\n"
+    ">>> bool(np.allclose(out, 1.0))\n"
+    "True\n" },
   { "execute_inplace_cf32_max_out",
     (PyCFunction)FFT2DObj_execute_inplace_cf32_max_out, METH_NOARGS,
     "execute_inplace_cf32_max_out() -> int\n\nMax output length "
     "execute_inplace_cf32() can produce for the current state.\nUse to size "
     "the ``out=`` buffer." },
   { "destroy", (PyCFunction)FFT2DObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)FFT2DObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)FFT2DObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)FFT2DObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a Fft2d be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "Fft2d\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)FFT2DObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the Fft2d.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

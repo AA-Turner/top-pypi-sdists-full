@@ -223,6 +223,7 @@ if TYPE_CHECKING:
     skip_all_terminals: MarkDecorator
     skip_all_traits: MarkDecorator
     skip_all_windows: MarkDecorator
+    skip_almalinux: MarkDecorator
     skip_alpine: MarkDecorator
     skip_altlinux: MarkDecorator
     skip_amzn: MarkDecorator
@@ -265,6 +266,7 @@ if TYPE_CHECKING:
     skip_dash: MarkDecorator
     skip_debian: MarkDecorator
     skip_dragonfly_bsd: MarkDecorator
+    skip_endeavouros: MarkDecorator
     skip_exherbo: MarkDecorator
     skip_fedora: MarkDecorator
     skip_fish: MarkDecorator
@@ -393,6 +395,7 @@ if TYPE_CHECKING:
     unless_aarch64: MarkDecorator
     unless_aix: MarkDecorator
     unless_alacritty: MarkDecorator
+    unless_almalinux: MarkDecorator
     unless_alpine: MarkDecorator
     unless_altlinux: MarkDecorator
     unless_amzn: MarkDecorator
@@ -446,6 +449,7 @@ if TYPE_CHECKING:
     unless_dash: MarkDecorator
     unless_debian: MarkDecorator
     unless_dragonfly_bsd: MarkDecorator
+    unless_endeavouros: MarkDecorator
     unless_exherbo: MarkDecorator
     unless_fedora: MarkDecorator
     unless_fish: MarkDecorator

@@ -82,6 +82,7 @@ from .detection import (
     is_aarch64,
     is_aix,
     is_alacritty,
+    is_almalinux,
     is_alpine,
     is_altlinux,
     is_amzn,
@@ -117,6 +118,7 @@ from .detection import (
     is_dash,
     is_debian,
     is_dragonfly_bsd,
+    is_endeavouros,
     is_exherbo,
     is_fedora,
     is_fish,
@@ -284,6 +286,7 @@ from .group_data import (
 )
 from .platform_data import (
     AIX,
+    ALMALINUX,
     ALPINE,
     ALTLINUX,
     AMZN,
@@ -298,6 +301,7 @@ from .platform_data import (
     CYGWIN,
     DEBIAN,
     DRAGONFLY_BSD,
+    ENDEAVOUROS,
     EXHERBO,
     FEDORA,
     FREEBSD,
@@ -410,7 +414,7 @@ Pytest optional.
 """
 
 
-__version__ = "13.5.3"
+__version__ = "13.6.0"
 
 
 def _initialize_group_detection_functions() -> None:
@@ -561,6 +565,7 @@ __all__ = (
     "ALL_TRAITS",
     "ALL_TRAIT_IDS",
     "ALL_WINDOWS",
+    "ALMALINUX",
     "ALPINE",
     "ALTLINUX",
     "AMZN",
@@ -605,6 +610,7 @@ __all__ = (
     "DASH",
     "DEBIAN",
     "DRAGONFLY_BSD",
+    "ENDEAVOUROS",
     "EXHERBO",
     "FEDORA",
     "FISH",
@@ -752,6 +758,7 @@ __all__ = (
     "is_aarch64",
     "is_aix",
     "is_alacritty",
+    "is_almalinux",
     "is_alpine",
     "is_altlinux",
     "is_amzn",
@@ -805,6 +812,7 @@ __all__ = (
     "is_dash",
     "is_debian",
     "is_dragonfly_bsd",
+    "is_endeavouros",
     "is_exherbo",
     "is_fedora",
     "is_fish",

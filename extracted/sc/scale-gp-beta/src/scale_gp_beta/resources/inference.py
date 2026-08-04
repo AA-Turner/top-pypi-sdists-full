@@ -57,12 +57,24 @@ class InferenceResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InferenceCreateResponse:
-        """Generic Inference
+        """
+        Runs a model using a free-form, vendor-native request payload rather than a
+        fixed OpenAI schema.
+
+        Use this endpoint when the target model does not fit the OpenAI chat, responses,
+        or text-completion contracts: the `args` field is an arbitrary dict passed
+        straight through to the selected vendor gateway, and the reply is returned
+        inside `response` as arbitrary JSON (object, array, string, number, or boolean).
+        Prefer /v5/chat/completions, /v5/responses, or /v5/completions when your request
+        matches one of those OpenAI-standard shapes, since those return typed OpenAI
+        response objects. The model is chosen from the `model` field formatted as
+        `vendor/name`, which selects the per-vendor inference gateway. When the request
+        enables streaming, the response is sent as server-sent events with each chunk
+        wrapped as a `generic_inference.chunk` object; otherwise a single
+        `generic_inference` object is returned.
 
         Args:
-          model: model specified as `vendor/name` (ex.
-
-        openai/gpt-5)
+          model: model specified as `vendor/name` (ex. openai/gpt-5)
 
           args: Arguments passed into model
 
@@ -131,12 +143,24 @@ class AsyncInferenceResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InferenceCreateResponse:
-        """Generic Inference
+        """
+        Runs a model using a free-form, vendor-native request payload rather than a
+        fixed OpenAI schema.
+
+        Use this endpoint when the target model does not fit the OpenAI chat, responses,
+        or text-completion contracts: the `args` field is an arbitrary dict passed
+        straight through to the selected vendor gateway, and the reply is returned
+        inside `response` as arbitrary JSON (object, array, string, number, or boolean).
+        Prefer /v5/chat/completions, /v5/responses, or /v5/completions when your request
+        matches one of those OpenAI-standard shapes, since those return typed OpenAI
+        response objects. The model is chosen from the `model` field formatted as
+        `vendor/name`, which selects the per-vendor inference gateway. When the request
+        enables streaming, the response is sent as server-sent events with each chunk
+        wrapped as a `generic_inference.chunk` object; otherwise a single
+        `generic_inference` object is returned.
 
         Args:
-          model: model specified as `vendor/name` (ex.
-
-        openai/gpt-5)
+          model: model specified as `vendor/name` (ex. openai/gpt-5)
 
           args: Arguments passed into model
 

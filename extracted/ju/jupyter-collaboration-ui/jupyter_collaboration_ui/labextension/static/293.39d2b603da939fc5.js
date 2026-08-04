@@ -1,0 +1,1 @@
+"use strict";(self.rspackChunk_jupyter_collaboration_extension=self.rspackChunk_jupyter_collaboration_extension||[]).push([[293],{2292(e,o,n){n.r(o),n.d(o,{ICollaborativeContentProvider:()=>t,IGlobalAwareness:()=>a});var r=n(7989);let t=new r.Token("@jupyter/collaboration-extension:ICollaborativeContentProvider"),a=new r.Token("@jupyter/collaboration:IGlobalAwareness")}}]);

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-tenants
-Version: 3.10.2
+Version: 3.12.0
 Summary: Tenant support for Django using PostgreSQL schemas.
 Author-email: Thomas Turner <tom@twt.me.uk>
 License-Expression: MIT
@@ -24,7 +24,8 @@ License-File: LICENSE
 Requires-Dist: django<6.1,>=2.1
 Provides-Extra: dev
 Requires-Dist: coverage; extra == "dev"
-Requires-Dist: gunicorn==25.1.0; extra == "dev"
+Requires-Dist: gunicorn==26.0.0; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
 Requires-Dist: psycopg<3.3,>=3.2.1; extra == "dev"
 Dynamic: license-file
 

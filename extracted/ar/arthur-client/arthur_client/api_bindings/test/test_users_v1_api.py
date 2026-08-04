@@ -40,6 +40,13 @@ class TestUsersV1Api(unittest.TestCase):
         """
         pass
 
+    def test_get_organization_user_invites(self) -> None:
+        """Test case for get_organization_user_invites
+
+        Get Pending User Invitations
+        """
+        pass
+
     def test_get_organization_users(self) -> None:
         """Test case for get_organization_users
 
@@ -93,6 +100,13 @@ class TestUsersV1Api(unittest.TestCase):
         """Test case for post_user_creds
 
         Regenerate User Credentials.
+        """
+        pass
+
+    def test_resend_organization_user_invite(self) -> None:
+        """Test case for resend_organization_user_invite
+
+        Resend User Invitation Email
         """
         pass
 

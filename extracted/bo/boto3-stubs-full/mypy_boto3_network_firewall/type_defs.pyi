@@ -37,6 +37,7 @@ from .literals import (
     ListenerPropertyTypeType,
     LogDestinationTypeType,
     LogTypeType,
+    NatGatewayAttachmentStatusType,
     PerObjectSyncStatusType,
     ProxyModifyStateType,
     ProxyRulePhaseActionType,
@@ -254,6 +255,8 @@ __all__ = (
     "LoggingConfigurationUnionTypeDef",
     "MatchAttributesOutputTypeDef",
     "MatchAttributesTypeDef",
+    "NatGatewayAttachmentTypeDef",
+    "NatGatewayMappingTypeDef",
     "PaginatorConfigTypeDef",
     "PerObjectStatusTypeDef",
     "PolicyVariablesOutputTypeDef",
@@ -280,6 +283,9 @@ __all__ = (
     "ProxyRulesByRequestPhaseOutputTypeDef",
     "ProxyRulesByRequestPhaseTypeDef",
     "ProxyRulesByRequestPhaseUnionTypeDef",
+    "ProxySettingsOutputTypeDef",
+    "ProxySettingsTypeDef",
+    "ProxySettingsUnionTypeDef",
     "ProxyTypeDef",
     "PublishMetricActionOutputTypeDef",
     "PublishMetricActionTypeDef",
@@ -377,6 +383,8 @@ __all__ = (
     "UpdateProxyRulePrioritiesResponseTypeDef",
     "UpdateProxyRuleRequestTypeDef",
     "UpdateProxyRuleResponseTypeDef",
+    "UpdateProxySettingsRequestTypeDef",
+    "UpdateProxySettingsResponseTypeDef",
     "UpdateRuleGroupRequestTypeDef",
     "UpdateRuleGroupResponseTypeDef",
     "UpdateSubnetChangeProtectionRequestTypeDef",
@@ -386,6 +394,9 @@ __all__ = (
     "VpcEndpointAssociationMetadataTypeDef",
     "VpcEndpointAssociationStatusTypeDef",
     "VpcEndpointAssociationTypeDef",
+    "VpcEndpointOutputTypeDef",
+    "VpcEndpointTypeDef",
+    "VpcEndpointUnionTypeDef",
 )
 
 class AttachmentTypeDef(TypedDict):
@@ -393,6 +404,7 @@ class AttachmentTypeDef(TypedDict):
     EndpointId: NotRequired[str]
     Status: NotRequired[AttachmentStatusType]
     StatusMessage: NotRequired[str]
+    DnsName: NotRequired[str]
 
 class AcceptNetworkFirewallTransitGatewayAttachmentRequestTypeDef(TypedDict):
     TransitGatewayAttachmentId: str
@@ -470,6 +482,9 @@ EncryptionConfigurationTypeDef = TypedDict(
         "KeyId": NotRequired[str],
     },
 )
+
+class NatGatewayMappingTypeDef(TypedDict):
+    NatGatewayId: str
 
 class ProxyConfigDefaultRulePhaseActionsRequestTypeDef(TypedDict):
     PreDNS: NotRequired[ProxyRulePhaseActionType]
@@ -836,6 +851,12 @@ class TCPFlagFieldTypeDef(TypedDict):
     Flags: Sequence[TCPFlagType]
     Masks: NotRequired[Sequence[TCPFlagType]]
 
+class NatGatewayAttachmentTypeDef(TypedDict):
+    NatGatewayId: str
+    Status: NatGatewayAttachmentStatusType
+    StatusMessage: NotRequired[str]
+    DnsName: NotRequired[str]
+
 class PerObjectStatusTypeDef(TypedDict):
     SyncStatus: NotRequired[PerObjectSyncStatusType]
     UpdateToken: NotRequired[str]
@@ -1171,6 +1192,14 @@ class DisassociateSubnetsResponseTypeDef(TypedDict):
     UpdateToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class VpcEndpointOutputTypeDef(TypedDict):
+    VpcId: str
+    SubnetMappings: list[SubnetMappingTypeDef]
+
+class VpcEndpointTypeDef(TypedDict):
+    VpcId: str
+    SubnetMappings: Sequence[SubnetMappingTypeDef]
+
 class AttachRuleGroupsToProxyConfigurationRequestTypeDef(TypedDict):
     RuleGroups: Sequence[ProxyRuleGroupAttachmentTypeDef]
     UpdateToken: str
@@ -1229,22 +1258,6 @@ class VpcEndpointAssociationTypeDef(TypedDict):
     Description: NotRequired[str]
     Tags: NotRequired[list[TagTypeDef]]
 
-class CreateFirewallRequestTypeDef(TypedDict):
-    FirewallName: str
-    FirewallPolicyArn: str
-    VpcId: NotRequired[str]
-    SubnetMappings: NotRequired[Sequence[SubnetMappingTypeDef]]
-    DeleteProtection: NotRequired[bool]
-    SubnetChangeProtection: NotRequired[bool]
-    FirewallPolicyChangeProtection: NotRequired[bool]
-    Description: NotRequired[str]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-    EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
-    EnabledAnalysisTypes: NotRequired[Sequence[EnabledAnalysisTypeType]]
-    TransitGatewayId: NotRequired[str]
-    AvailabilityZoneMappings: NotRequired[Sequence[AvailabilityZoneMappingTypeDef]]
-    AvailabilityZoneChangeProtection: NotRequired[bool]
-
 class FirewallPolicyResponseTypeDef(TypedDict):
     FirewallPolicyName: str
     FirewallPolicyArn: str
@@ -1258,26 +1271,6 @@ class FirewallPolicyResponseTypeDef(TypedDict):
     NumberOfAssociations: NotRequired[int]
     EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
     LastModifiedTime: NotRequired[datetime]
-
-class FirewallTypeDef(TypedDict):
-    FirewallPolicyArn: str
-    VpcId: str
-    SubnetMappings: list[SubnetMappingTypeDef]
-    FirewallId: str
-    FirewallName: NotRequired[str]
-    FirewallArn: NotRequired[str]
-    DeleteProtection: NotRequired[bool]
-    SubnetChangeProtection: NotRequired[bool]
-    FirewallPolicyChangeProtection: NotRequired[bool]
-    Description: NotRequired[str]
-    Tags: NotRequired[list[TagTypeDef]]
-    EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
-    NumberOfAssociations: NotRequired[int]
-    EnabledAnalysisTypes: NotRequired[list[EnabledAnalysisTypeType]]
-    TransitGatewayId: NotRequired[str]
-    TransitGatewayOwnerAccountId: NotRequired[str]
-    AvailabilityZoneMappings: NotRequired[list[AvailabilityZoneMappingTypeDef]]
-    AvailabilityZoneChangeProtection: NotRequired[bool]
 
 class UpdateFirewallEncryptionConfigurationRequestTypeDef(TypedDict):
     UpdateToken: NotRequired[str]
@@ -1323,6 +1316,12 @@ class UpdateProxyRequestTypeDef(TypedDict):
     ListenerPropertiesToAdd: NotRequired[Sequence[ListenerPropertyRequestTypeDef]]
     ListenerPropertiesToRemove: NotRequired[Sequence[ListenerPropertyRequestTypeDef]]
     TlsInterceptProperties: NotRequired[TlsInterceptPropertiesRequestTypeDef]
+
+class ProxySettingsOutputTypeDef(TypedDict):
+    ListenerProperties: list[ListenerPropertyTypeDef]
+
+class ProxySettingsTypeDef(TypedDict):
+    ListenerProperties: Sequence[ListenerPropertyTypeDef]
 
 class DescribeProxyResourceTypeDef(TypedDict):
     ProxyName: NotRequired[str]
@@ -1552,6 +1551,7 @@ class MatchAttributesTypeDef(TypedDict):
 class SyncStateTypeDef(TypedDict):
     Attachment: NotRequired[AttachmentTypeDef]
     Config: NotRequired[dict[str, PerObjectStatusTypeDef]]
+    NatGatewayAttachments: NotRequired[list[NatGatewayAttachmentTypeDef]]
 
 class RuleVariablesOutputTypeDef(TypedDict):
     IPSets: NotRequired[dict[str, IPSetOutputTypeDef]]
@@ -1702,6 +1702,8 @@ class GetAnalysisReportResultsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+VpcEndpointUnionTypeDef = Union[VpcEndpointTypeDef, VpcEndpointOutputTypeDef]
+
 class CapacityUsageSummaryTypeDef(TypedDict):
     CIDRs: NotRequired[CIDRSummaryTypeDef]
 
@@ -1766,6 +1768,39 @@ class UpdateFirewallPolicyResponseTypeDef(TypedDict):
     UpdateToken: str
     FirewallPolicyResponse: FirewallPolicyResponseTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class FirewallTypeDef(TypedDict):
+    FirewallPolicyArn: str
+    VpcId: str
+    SubnetMappings: list[SubnetMappingTypeDef]
+    FirewallId: str
+    FirewallName: NotRequired[str]
+    FirewallArn: NotRequired[str]
+    DeleteProtection: NotRequired[bool]
+    SubnetChangeProtection: NotRequired[bool]
+    FirewallPolicyChangeProtection: NotRequired[bool]
+    Description: NotRequired[str]
+    Tags: NotRequired[list[TagTypeDef]]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+    NumberOfAssociations: NotRequired[int]
+    EnabledAnalysisTypes: NotRequired[list[EnabledAnalysisTypeType]]
+    TransitGatewayId: NotRequired[str]
+    TransitGatewayOwnerAccountId: NotRequired[str]
+    AvailabilityZoneMappings: NotRequired[list[AvailabilityZoneMappingTypeDef]]
+    AvailabilityZoneChangeProtection: NotRequired[bool]
+    NatGatewayMappings: NotRequired[list[NatGatewayMappingTypeDef]]
+    ProxySettings: NotRequired[ProxySettingsOutputTypeDef]
+    NoSourcePreservation: NotRequired[bool]
+    VpcEndpoint: NotRequired[VpcEndpointOutputTypeDef]
+
+class UpdateProxySettingsResponseTypeDef(TypedDict):
+    FirewallArn: str
+    FirewallName: str
+    UpdateToken: str
+    ProxySettings: ProxySettingsOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+ProxySettingsUnionTypeDef = Union[ProxySettingsTypeDef, ProxySettingsOutputTypeDef]
 
 class DescribeProxyResponseTypeDef(TypedDict):
     Proxy: DescribeProxyResourceTypeDef
@@ -1995,6 +2030,32 @@ UpdateContainerAssociationRequestTypeDef = TypedDict(
         "Tags": NotRequired[Sequence[TagTypeDef]],
     },
 )
+
+class CreateFirewallRequestTypeDef(TypedDict):
+    FirewallName: str
+    FirewallPolicyArn: str
+    VpcId: NotRequired[str]
+    SubnetMappings: NotRequired[Sequence[SubnetMappingTypeDef]]
+    DeleteProtection: NotRequired[bool]
+    SubnetChangeProtection: NotRequired[bool]
+    FirewallPolicyChangeProtection: NotRequired[bool]
+    Description: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+    EnabledAnalysisTypes: NotRequired[Sequence[EnabledAnalysisTypeType]]
+    TransitGatewayId: NotRequired[str]
+    AvailabilityZoneMappings: NotRequired[Sequence[AvailabilityZoneMappingTypeDef]]
+    AvailabilityZoneChangeProtection: NotRequired[bool]
+    NatGatewayMappings: NotRequired[Sequence[NatGatewayMappingTypeDef]]
+    ProxySettings: NotRequired[ProxySettingsUnionTypeDef]
+    NoSourcePreservation: NotRequired[bool]
+    VpcEndpoint: NotRequired[VpcEndpointUnionTypeDef]
+
+class UpdateProxySettingsRequestTypeDef(TypedDict):
+    FirewallArn: NotRequired[str]
+    FirewallName: NotRequired[str]
+    UpdateToken: NotRequired[str]
+    ProxySettings: NotRequired[ProxySettingsUnionTypeDef]
 
 class CustomActionOutputTypeDef(TypedDict):
     ActionName: str

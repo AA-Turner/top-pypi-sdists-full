@@ -74,7 +74,14 @@ class RubricsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RubricResponse:
         """
-        Create Rubric
+        Create a rubric, optionally with its initial criteria in the same request.
+
+        The rubric is created for the caller's account at version 1. If the optional
+        `criteria` field is supplied it must contain at least one entry, and each entry
+        is created as a criterion attached to the new rubric; omit it to create an empty
+        rubric and add criteria later via the criteria endpoint. The response returns
+        the created rubric together with the full detail of any criteria created in this
+        call.
 
         Args:
           title: The rubric title
@@ -119,7 +126,12 @@ class RubricsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RubricResponse:
         """
-        Get Rubric
+        Retrieve a single rubric with the full detail of its current criteria.
+
+        Returns the latest version of the rubric along with all of its current
+        (latest-version) criteria in full — not the slim title/weight summary returned
+        by the list endpoint. Archived rubrics remain retrievable through this endpoint
+        even though they are hidden from the list endpoint.
 
         Args:
           extra_headers: Send extra headers
@@ -153,7 +165,15 @@ class RubricsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RubricResponse:
         """
-        Update or Restore Rubric
+        Update a rubric's fields, or restore a previously archived rubric.
+
+        The request body is a discriminated union. Send `{"restore": true}` to restore
+        an archived rubric (clearing its archived state); send any other field set (such
+        as `title` or `tags`) to update those fields, carrying forward any field not
+        supplied. Both paths are append-only and produce a new version of the rubric
+        rather than mutating the existing row. Updating the fields of an archived rubric
+        is rejected — restore it first. Restoring a rubric that is not archived is a
+        no-op that returns it unchanged without creating a new version.
 
         Args:
           extra_headers: Send extra headers
@@ -193,7 +213,14 @@ class RubricsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPage[RubricResponse]:
         """
-        List Rubrics
+        List the current account's rubrics, paginated.
+
+        Only the latest version of each rubric is returned, and archived rubrics are
+        excluded (this endpoint has no option to include them). The optional `title`
+        filter matches as a case-insensitive substring, and the optional `tags` filter
+        narrows results to rubrics carrying the given tags. Each returned rubric carries
+        only a slim criteria summary (title and weight per criterion) rather than full
+        criteria; use the get-rubric endpoint to retrieve full criteria detail.
 
         Args:
           tags: Filter by tags
@@ -244,7 +271,14 @@ class RubricsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RubricArchiveResponse:
         """
-        Archive Rubric
+        Archive a rubric (soft delete).
+
+        This is a soft delete, not a permanent one: it records an archived timestamp on
+        the rubric while retaining the rubric and its version history, so it can later
+        be brought back via the restore variant of the update endpoint. An archived
+        rubric is hidden from the list endpoint but stays retrievable by id. The
+        rubric's criteria are left untouched — archiving does not cascade to or delete
+        them. Archiving a rubric that is already archived is rejected.
 
         Args:
           extra_headers: Send extra headers
@@ -304,7 +338,14 @@ class AsyncRubricsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RubricResponse:
         """
-        Create Rubric
+        Create a rubric, optionally with its initial criteria in the same request.
+
+        The rubric is created for the caller's account at version 1. If the optional
+        `criteria` field is supplied it must contain at least one entry, and each entry
+        is created as a criterion attached to the new rubric; omit it to create an empty
+        rubric and add criteria later via the criteria endpoint. The response returns
+        the created rubric together with the full detail of any criteria created in this
+        call.
 
         Args:
           title: The rubric title
@@ -349,7 +390,12 @@ class AsyncRubricsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RubricResponse:
         """
-        Get Rubric
+        Retrieve a single rubric with the full detail of its current criteria.
+
+        Returns the latest version of the rubric along with all of its current
+        (latest-version) criteria in full — not the slim title/weight summary returned
+        by the list endpoint. Archived rubrics remain retrievable through this endpoint
+        even though they are hidden from the list endpoint.
 
         Args:
           extra_headers: Send extra headers
@@ -383,7 +429,15 @@ class AsyncRubricsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RubricResponse:
         """
-        Update or Restore Rubric
+        Update a rubric's fields, or restore a previously archived rubric.
+
+        The request body is a discriminated union. Send `{"restore": true}` to restore
+        an archived rubric (clearing its archived state); send any other field set (such
+        as `title` or `tags`) to update those fields, carrying forward any field not
+        supplied. Both paths are append-only and produce a new version of the rubric
+        rather than mutating the existing row. Updating the fields of an archived rubric
+        is rejected — restore it first. Restoring a rubric that is not archived is a
+        no-op that returns it unchanged without creating a new version.
 
         Args:
           extra_headers: Send extra headers
@@ -423,7 +477,14 @@ class AsyncRubricsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[RubricResponse, AsyncCursorPage[RubricResponse]]:
         """
-        List Rubrics
+        List the current account's rubrics, paginated.
+
+        Only the latest version of each rubric is returned, and archived rubrics are
+        excluded (this endpoint has no option to include them). The optional `title`
+        filter matches as a case-insensitive substring, and the optional `tags` filter
+        narrows results to rubrics carrying the given tags. Each returned rubric carries
+        only a slim criteria summary (title and weight per criterion) rather than full
+        criteria; use the get-rubric endpoint to retrieve full criteria detail.
 
         Args:
           tags: Filter by tags
@@ -474,7 +535,14 @@ class AsyncRubricsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RubricArchiveResponse:
         """
-        Archive Rubric
+        Archive a rubric (soft delete).
+
+        This is a soft delete, not a permanent one: it records an archived timestamp on
+        the rubric while retaining the rubric and its version history, so it can later
+        be brought back via the restore variant of the update endpoint. An archived
+        rubric is hidden from the list endpoint but stays retrievable by id. The
+        rubric's criteria are left untouched — archiving does not cascade to or delete
+        them. Archiving a rubric that is already archived is rejected.
 
         Args:
           extra_headers: Send extra headers

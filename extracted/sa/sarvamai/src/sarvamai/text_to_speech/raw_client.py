@@ -35,7 +35,7 @@ class RawTextToSpeechClient:
         self,
         *,
         text: str,
-        target_language_code: TextToSpeechLanguage,
+        language_code: TextToSpeechLanguage,
         speaker: typing.Optional[TextToSpeechSpeaker] = OMIT,
         pitch: typing.Optional[float] = OMIT,
         pace: typing.Optional[float] = OMIT,
@@ -79,7 +79,7 @@ class RawTextToSpeechClient:
             - For numbers larger than 4 digits, use commas (e.g., '10,000' instead of '10000')
             - This ensures proper pronunciation as a whole number
 
-        target_language_code : TextToSpeechLanguage
+        language_code : TextToSpeechLanguage
             The language code in BCP-47 format.
 
         speaker : typing.Optional[TextToSpeechSpeaker]
@@ -170,7 +170,7 @@ class RawTextToSpeechClient:
             method="POST",
             json={
                 "text": text,
-                "target_language_code": target_language_code,
+                "language_code": language_code,
                 "speaker": speaker,
                 "pitch": pitch,
                 "pace": pace,
@@ -264,7 +264,7 @@ class RawTextToSpeechClient:
         self,
         *,
         text: str,
-        target_language_code: typing.Optional[TextToSpeechLanguage] = OMIT,
+        language_code: typing.Optional[TextToSpeechLanguage] = OMIT,
         speaker: typing.Optional[TextToSpeechSpeaker] = OMIT,
         pitch: typing.Optional[float] = OMIT,
         pace: typing.Optional[float] = OMIT,
@@ -299,7 +299,7 @@ class RawTextToSpeechClient:
             - For numbers larger than 4 digits, use commas (e.g., '10,000' instead of '10000')
             - This ensures proper pronunciation as a whole number
 
-        target_language_code : typing.Optional[TextToSpeechLanguage]
+        language_code : typing.Optional[TextToSpeechLanguage]
             The language code in BCP-47 format.
 
         speaker : typing.Optional[TextToSpeechSpeaker]
@@ -372,7 +372,7 @@ class RawTextToSpeechClient:
             method="POST",
             json={
                 "text": text,
-                "target_language_code": target_language_code,
+                "language_code": language_code,
                 "speaker": speaker,
                 "pitch": pitch,
                 "pace": pace,
@@ -474,7 +474,7 @@ class AsyncRawTextToSpeechClient:
         self,
         *,
         text: str,
-        target_language_code: TextToSpeechLanguage,
+        language_code: TextToSpeechLanguage,
         speaker: typing.Optional[TextToSpeechSpeaker] = OMIT,
         pitch: typing.Optional[float] = OMIT,
         pace: typing.Optional[float] = OMIT,
@@ -518,7 +518,7 @@ class AsyncRawTextToSpeechClient:
             - For numbers larger than 4 digits, use commas (e.g., '10,000' instead of '10000')
             - This ensures proper pronunciation as a whole number
 
-        target_language_code : TextToSpeechLanguage
+        language_code : TextToSpeechLanguage
             The language code in BCP-47 format.
 
         speaker : typing.Optional[TextToSpeechSpeaker]
@@ -609,7 +609,7 @@ class AsyncRawTextToSpeechClient:
             method="POST",
             json={
                 "text": text,
-                "target_language_code": target_language_code,
+                "language_code": language_code,
                 "speaker": speaker,
                 "pitch": pitch,
                 "pace": pace,
@@ -703,7 +703,7 @@ class AsyncRawTextToSpeechClient:
         self,
         *,
         text: str,
-        target_language_code: typing.Optional[TextToSpeechLanguage] = OMIT,
+        language_code: typing.Optional[TextToSpeechLanguage] = OMIT,
         speaker: typing.Optional[TextToSpeechSpeaker] = OMIT,
         pitch: typing.Optional[float] = OMIT,
         pace: typing.Optional[float] = OMIT,
@@ -738,7 +738,7 @@ class AsyncRawTextToSpeechClient:
             - For numbers larger than 4 digits, use commas (e.g., '10,000' instead of '10000')
             - This ensures proper pronunciation as a whole number
 
-        target_language_code : typing.Optional[TextToSpeechLanguage]
+        language_code : typing.Optional[TextToSpeechLanguage]
             The language code in BCP-47 format.
 
         speaker : typing.Optional[TextToSpeechSpeaker]
@@ -811,7 +811,7 @@ class AsyncRawTextToSpeechClient:
             method="POST",
             json={
                 "text": text,
-                "target_language_code": target_language_code,
+                "language_code": language_code,
                 "speaker": speaker,
                 "pitch": pitch,
                 "pace": pace,

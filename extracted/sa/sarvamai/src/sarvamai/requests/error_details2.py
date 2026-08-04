@@ -12,7 +12,7 @@ class ErrorDetails2Params(typing_extensions.TypedDict):
 
     code: ErrorCode2
     """
-    Error code for the specific error that has occured. Refer to the error code documentation for more details.
+    Error code for the specific error that has occurred. Refer to the error code documentation for more details.
     """
 
     request_id: typing_extensions.NotRequired[str]

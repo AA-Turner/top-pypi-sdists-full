@@ -14,7 +14,7 @@ import errno
 import time
 import threading
 from argparse import ArgumentParser
-from typing import Any, Callable, Dict, List, Optional, TypeVar  # noqa F401
+from typing import Any, Callable, Optional, TypeVar  # noqa F401
 _T = TypeVar("_T")
 _EventCallback = Callable[[int, int, int, _T], None]
 _TimerCallback = Callable[[int, _T], None]
@@ -114,8 +114,8 @@ class virEventLoopPoll:
         self.runningPoll = False
         self.nextHandleID = 1
         self.nextTimerID = 1
-        self.handles = []  # type: List[virEventLoopPollHandle]
-        self.timers = []  # type: List[virEventLoopPollTimer]
+        self.handles = []  # type: list[virEventLoopPollHandle]
+        self.timers = []  # type: list[virEventLoopPollTimer]
         self.cleanup = []
         self.quit = False
 
@@ -603,7 +603,7 @@ def myDomainEventBlockJob2Callback(conn: libvirt.virConnect, dom: libvirt.virDom
         dom.name(), dom.ID(), BLOCK_JOB_TYPES[type], disk, BLOCK_JOB_STATUS[status]))
 
 
-def myDomainEventTunableCallback(conn: libvirt.virConnect, dom: libvirt.virDomain, params: Dict[str, Any], opaque: _T) -> None:
+def myDomainEventTunableCallback(conn: libvirt.virConnect, dom: libvirt.virDomain, params: dict[str, Any], opaque: _T) -> None:
     print("myDomainEventTunableCallback: Domain %s(%s) %s" % (
         dom.name(), dom.ID(), params))
 
@@ -623,7 +623,7 @@ def myDomainEventMigrationIteration(conn: libvirt.virConnect, dom: libvirt.virDo
         dom.name(), dom.ID(), iteration))
 
 
-def myDomainEventJobCompletedCallback(conn: libvirt.virConnect, dom: libvirt.virDomain, params: Dict[str, Any], opaque: _T) -> None:
+def myDomainEventJobCompletedCallback(conn: libvirt.virConnect, dom: libvirt.virDomain, params: dict[str, Any], opaque: _T) -> None:
     print("myDomainEventJobCompletedCallback: Domain %s(%s) %s" % (
         dom.name(), dom.ID(), params))
 

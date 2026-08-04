@@ -11,6 +11,7 @@ Usage::
     from boto3.session import Session
     from mypy_boto3_timestream_influxdb import (
         Client,
+        ListDbBackupsPaginator,
         ListDbClustersPaginator,
         ListDbInstancesForClusterPaginator,
         ListDbInstancesPaginator,
@@ -21,6 +22,7 @@ Usage::
     session = Session()
     client: TimestreamInfluxDBClient = session.client("timestream-influxdb")
 
+    list_db_backups_paginator: ListDbBackupsPaginator = client.get_paginator("list_db_backups")
     list_db_clusters_paginator: ListDbClustersPaginator = client.get_paginator("list_db_clusters")
     list_db_instances_for_cluster_paginator: ListDbInstancesForClusterPaginator = client.get_paginator("list_db_instances_for_cluster")
     list_db_instances_paginator: ListDbInstancesPaginator = client.get_paginator("list_db_instances")
@@ -30,6 +32,7 @@ Usage::
 
 from .client import TimestreamInfluxDBClient
 from .paginator import (
+    ListDbBackupsPaginator,
     ListDbClustersPaginator,
     ListDbInstancesForClusterPaginator,
     ListDbInstancesPaginator,
@@ -40,6 +43,7 @@ Client = TimestreamInfluxDBClient
 
 __all__ = (
     "Client",
+    "ListDbBackupsPaginator",
     "ListDbClustersPaginator",
     "ListDbInstancesForClusterPaginator",
     "ListDbInstancesPaginator",

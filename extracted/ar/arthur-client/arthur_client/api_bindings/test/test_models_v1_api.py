@@ -54,6 +54,13 @@ class TestModelsV1Api(unittest.TestCase):
         """
         pass
 
+    def test_get_model_governance_view(self) -> None:
+        """Test case for get_model_governance_view
+
+        Get Model Governance View
+        """
+        pass
+
     def test_get_models(self) -> None:
         """Test case for get_models
 

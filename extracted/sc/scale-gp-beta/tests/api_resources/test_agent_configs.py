@@ -44,6 +44,14 @@ class TestAgentConfigs:
             system_prompt="x",
             allowed_tools=["Read"],
             description="description",
+            persistent_workspace=True,
+            repos=[
+                {
+                    "url": "x",
+                    "depth": 1,
+                    "path": "path",
+                }
+            ],
         )
         assert_matches_type(AgentConfigCreateResponse, agent_config, path=["response"])
 
@@ -132,6 +140,14 @@ class TestAgentConfigs:
             harness="claude-code",
             model="x",
             name="x",
+            persistent_workspace=True,
+            repos=[
+                {
+                    "url": "x",
+                    "depth": 1,
+                    "path": "path",
+                }
+            ],
             system_prompt="x",
         )
         assert_matches_type(AgentConfigUpdateResponse, agent_config, path=["response"])
@@ -291,6 +307,14 @@ class TestAsyncAgentConfigs:
             system_prompt="x",
             allowed_tools=["Read"],
             description="description",
+            persistent_workspace=True,
+            repos=[
+                {
+                    "url": "x",
+                    "depth": 1,
+                    "path": "path",
+                }
+            ],
         )
         assert_matches_type(AgentConfigCreateResponse, agent_config, path=["response"])
 
@@ -379,6 +403,14 @@ class TestAsyncAgentConfigs:
             harness="claude-code",
             model="x",
             name="x",
+            persistent_workspace=True,
+            repos=[
+                {
+                    "url": "x",
+                    "depth": 1,
+                    "path": "path",
+                }
+            ],
             system_prompt="x",
         )
         assert_matches_type(AgentConfigUpdateResponse, agent_config, path=["response"])

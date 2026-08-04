@@ -7,6 +7,29 @@ __all__ = ["AgentConfigListMcpToolsResponse"]
 
 AgentConfigListMcpToolsResponse: TypeAlias = List[
     Literal[
-        "Slack", "Linear", "GitHub", "Confluence", "Notion", "Datadog", "PagerDuty", "Salesforce", "Figma", "Granola"
+        "Slack",
+        "Linear",
+        "GitHub",
+        "Confluence",
+        "Notion",
+        "Datadog",
+        "PagerDuty",
+        "Salesforce",
+        "Figma",
+        "Granola",
+        "Jira",
+        "Gmail",
+        "GoogleCalendar",
+        "GoogleDrive",
+        "GoogleDocs",
+        "GoogleSheets",
+        "GoogleSlides",
+        "Snowflake",
+        "Redash",
+        "Tableau",
+        "Metabase",
+        "Gong",
+        "ZoomInfo",
+        "Clay",
     ]
 ]

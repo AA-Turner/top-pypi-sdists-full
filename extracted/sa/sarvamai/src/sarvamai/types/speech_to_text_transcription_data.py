@@ -20,12 +20,12 @@ class SpeechToTextTranscriptionData(UniversalBaseModel):
 
     timestamps: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
-    Timestamp information (if available)
+    Always `null` over the WebSocket API — timestamps are not supported for streaming; use the REST or Batch API for timestamped transcripts.
     """
 
     diarized_transcript: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
-    Diarized transcript of the provided speech
+    Always `null` over the WebSocket API — diarization is not supported for streaming; use the Batch API for diarized transcripts.
     """
 
     language_code: typing.Optional[str] = pydantic.Field(default=None)
@@ -43,8 +43,6 @@ class SpeechToTextTranscriptionData(UniversalBaseModel):
     
     **When it returns null:**
     - When a specific `language_code` is provided (language detection is skipped)
-    
-    The parameter is always present in the response.
     """
 
     metrics: TranscriptionMetrics

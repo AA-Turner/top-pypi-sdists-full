@@ -12,8 +12,8 @@ configuration (auth tokens, MCP registration, contexts) so rotated secrets are
 picked up without any binary install. It never runs alongside a self-update
 (which reinstalls, and thus reconfigures, on its own).
 
-Skipped in CI, non-interactive (piped stderr), or when ``--json`` is in the
-argv — so scripted usage is never disrupted.
+Skipped in CI, non-interactive (piped stdout or stderr), or when ``--json`` is
+in the argv — so scripted usage is never disrupted.
 """
 
 import json
@@ -157,12 +157,24 @@ def _check_pypi_updates() -> str | None:
     return None
 
 
+def _progress_fd() -> int:
+    """Descriptor the updater writes its progress to — stderr, falling back to
+    discard when stderr has no real descriptor (captured streams)."""
+    try:
+        return sys.stderr.fileno()
+    except (AttributeError, OSError, ValueError):
+        return subprocess.DEVNULL
+
+
 def _run_self_update() -> bool:
     """Invoke ``pysae-ai-tools self-update`` in a subprocess. Returns success."""
     exe = shutil.which("pysae-ai-tools")
     cmd = [exe, "self-update"] if exe else [sys.executable, "-m", "pysae_ai_tools", "self-update"]
     try:
-        return subprocess.run(cmd, timeout=180).returncode == 0
+        # Everything the updater's children print (git pull, install.sh, uv) is
+        # progress, never data: keep it off the caller's stdout, which a command
+        # substitution may be capturing and about to eval as shell.
+        return subprocess.run(cmd, stdout=_progress_fd(), timeout=180).returncode == 0
     except (subprocess.TimeoutExpired, OSError):
         return False
 
@@ -218,10 +230,16 @@ def _should_skip() -> bool:
     if os.environ.get("PYSAE_FORCE_VERSION_CHECK"):
         return False
 
-    # Skip in CI, non-interactive stderr, or JSON-output mode.
+    # Skip in CI, non-interactive output, or JSON-output mode.
     if os.environ.get("CI"):
         return True
     if not sys.stderr.isatty():
+        return True
+    # A captured stdout means a command substitution is consuming this run as
+    # data — `eval "$(pysae-ai-tools env shell-init)"` in an rc file, the shell
+    # completion hook, a pipeline. Anything the update prints there gets eval'd
+    # or parsed by the caller, so never start one.
+    if not sys.stdout.isatty():
         return True
     if "--json" in sys.argv:
         return True

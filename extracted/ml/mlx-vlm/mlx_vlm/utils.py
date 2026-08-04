@@ -49,6 +49,7 @@ MODEL_REMAPPING = {
     "unlimited-ocr": "unlimited_ocr",
     "mistral": "llama",
     "nemotron-nas": "nemotron_nas",
+    "inkling_mm_model": "inkling",
 }
 
 MAX_FILE_SIZE_GB = 5
@@ -735,11 +736,27 @@ python -m mlx_vlm.convert --hf-path <local_dir> --mlx-path <mlx_dir>
             if quantization_config is not None:
                 config["quantization_config"] = quantization_config
 
+        if quantization_config is None:
+            hf_quant_path = model_path / "hf_quant_config.json"
+            if hf_quant_path.exists():
+                with open(hf_quant_path) as f:
+                    hf_quant = json.load(f).get("quantization", {})
+                if hf_quant.get("quant_algo") == "NVFP4":
+                    # nvfp4 implies group_size=16
+                    config["quantization"] = config["quantization_config"] = {
+                        "group_size": 16,
+                        "bits": 4,
+                        "mode": "nvfp4",
+                    }
+
         if quantization_config is not None:
             quant_method = quantization_config.get("quant_method")
             quantization = None
             if quant_method == "compressed-tensors":
-                quantization = {"group_size": 32, "bits": 4, "mode": "affine"}
+                if quantization_config.get("format") == "mxfp4-pack-quantized":
+                    quantization = {"group_size": 32, "bits": 4, "mode": "mxfp4"}
+                else:
+                    quantization = {"group_size": 32, "bits": 4, "mode": "affine"}
             elif quant_method == "mxfp4":
                 quantization = {"group_size": 32, "bits": 4, "mode": "mxfp4"}
             elif quant_method == "fp8" and config.get("model_type") == "deepseek_v4":
@@ -1080,7 +1097,6 @@ def load_image_processor(model_path: Union[str, Path], **kwargs) -> BaseImagePro
 def load_processor(
     model_path, add_detokenizer=True, eos_token_ids=None, **kwargs
 ) -> ProcessorMixin:
-
     processor = AutoProcessor.from_pretrained(model_path, **kwargs)
     if add_detokenizer:
         detokenizer_class = load_tokenizer(model_path, return_tokenizer=False)
@@ -2153,3 +2169,17 @@ def print_array_report(t: mx.array, label: Optional[str]) -> dict:
             print(f" '{key}': {repr(value)},")
     print("}")
     return report
+
+
+def should_add_special_tokens(model_type: str, processor) -> bool:
+    """Return whether tokenization should add markers outside the chat template."""
+    template_owns_markers = {
+        "gemma3",
+        "gemma3n",
+        "gemma4",
+        "gemma4_unified",
+        "laguna",
+    }
+    if model_type not in template_owns_markers:
+        return True
+    return getattr(processor, "chat_template", None) is None

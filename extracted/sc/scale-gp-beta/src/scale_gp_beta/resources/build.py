@@ -61,6 +61,12 @@ class BuildResource(SyncAPIResource):
         build_args: str | Omit = omit,
         image_tag: str | Omit = omit,
         platform: Literal["linux/amd64", "linux/arm64", "linux/arm/v7"] | Omit = omit,
+        source_commit: str | Omit = omit,
+        source_dirty: bool | Omit = omit,
+        source_ref: str | Omit = omit,
+        source_repo: str | Omit = omit,
+        source_subpath: str | Omit = omit,
+        working_tree_hash: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -69,12 +75,22 @@ class BuildResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentexCloudBuild:
         """
-        Submit a container image build.
+        Submit a container image build from an uploaded build context and return the
+        created build record.
 
-        Upload a tar.gz archive containing the build context (Dockerfile and any files
-        needed for the build) along with image name, tag, and optional build arguments.
-
-        Maximum file size: 500MB
+        The request is multipart form data: a tar.gz `context_archive` with the
+        Dockerfile at its root is streamed to cloud object storage, along with the
+        target `image_name`, an optional `image_tag` (defaults to `latest`), optional
+        Docker `build_args` supplied as a JSON string, and an optional target
+        `platform`. Exactly one of `agent_name` or `agent_id` must be provided: pass
+        `agent_name` to create a brand-new agent for a first-time build (rejected if an
+        agent with that name already exists), or `agent_id` to build for an agent that
+        already exists. The build is handed to the configured cloud build provider and
+        runs asynchronously, so the returned record reflects the build's initial status
+        (typically queued or running) rather than a finished image; poll Get Build or
+        follow Stream Build Logs to observe progression to a terminal state. The request
+        is rejected if the archive is missing or empty, exceeds 500MB, or if
+        `build_args` is not valid JSON.
 
         Args:
           context_archive: tar.gz archive containing the build context (Dockerfile and any files needed for
@@ -93,6 +109,18 @@ class BuildResource(SyncAPIResource):
           platform: Target platform for the Docker build. Defaults to the build host's native
               architecture when not specified.
 
+          source_commit: Git commit the build context was at.
+
+          source_dirty: Whether the work tree had uncommitted changes at build time.
+
+          source_ref: Git branch or tag for source_commit.
+
+          source_repo: Normalized git remote the build context came from.
+
+          source_subpath: Build-context path relative to the repo root.
+
+          working_tree_hash: Deterministic SHA-256 content hash of the build inputs.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -110,6 +138,12 @@ class BuildResource(SyncAPIResource):
                 "build_args": build_args,
                 "image_tag": image_tag,
                 "platform": platform,
+                "source_commit": source_commit,
+                "source_dirty": source_dirty,
+                "source_ref": source_ref,
+                "source_repo": source_repo,
+                "source_subpath": source_subpath,
+                "working_tree_hash": working_tree_hash,
             },
             [["context_archive"]],
         )
@@ -140,7 +174,13 @@ class BuildResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentexCloudBuild:
         """
-        Get a build by ID, including current lifecycle status.
+        Retrieve a single build by its ID, including its current lifecycle status.
+
+        Because builds run asynchronously after submission, the status returned here
+        reflects the latest known state and may still be queued or running; call this
+        endpoint again to observe progression to a terminal state such as success,
+        failed, cancelled, or timed out. Responds with a not-found error if no such
+        build exists for the caller's account.
 
         Args:
           extra_headers: Send extra headers
@@ -169,7 +209,9 @@ class BuildResource(SyncAPIResource):
         limit: int | Omit = omit,
         sort_by: str | Omit = omit,
         sort_order: SortOrder | Omit = omit,
+        source_commit: str | Omit = omit,
         starting_after: str | Omit = omit,
+        working_tree_hash: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -178,10 +220,22 @@ class BuildResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPage[AgentexCloudBuild]:
         """
-        List Builds
+        List container image build records for the caller's account as a paginated
+        collection.
+
+        Each entry is one individual build with its current lifecycle status; pass
+        `agent_name`, `source_commit`, or `working_tree_hash` to return only matching
+        builds. Archived builds are excluded, and results are limited to builds the
+        caller is permitted to read. Use this to enumerate individual builds; to instead
+        list agents that have been built but not yet deployed, use
+        `GET /v5/builds/undeployed`.
 
         Args:
           agent_name: Filter builds by agent name
+
+          source_commit: Filter builds by source git commit
+
+          working_tree_hash: Filter builds by build-context content hash
 
           extra_headers: Send extra headers
 
@@ -206,7 +260,9 @@ class BuildResource(SyncAPIResource):
                         "limit": limit,
                         "sort_by": sort_by,
                         "sort_order": sort_order,
+                        "source_commit": source_commit,
                         "starting_after": starting_after,
+                        "working_tree_hash": working_tree_hash,
                     },
                     build_list_params.BuildListParams,
                 ),
@@ -226,10 +282,17 @@ class BuildResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentexCloudBuild:
         """
-        Cancel a pending or running build.
+        Request cancellation of a build and return 202 Accepted.
 
-        Returns 202 Accepted — the actual cancellation happens asynchronously via a
-        Temporal workflow.
+        Cancellation runs asynchronously: the endpoint verifies the build exists and
+        then hands it off to a background workflow that marks the build as cancelling,
+        asks the cloud build provider to stop it, and polls until the build reaches a
+        terminal state before recording the final status. Only builds that are still
+        queued or running are actually cancelled; if the build has already finished, or
+        cancellation is already in progress, the request is still accepted but has no
+        effect. The returned record reflects the build's state at the time of the call,
+        so it will not yet show the pending cancellation. The request is rejected if no
+        such build exists for the caller's account.
 
         Args:
           extra_headers: Send extra headers
@@ -261,11 +324,14 @@ class BuildResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> BuildListUndeployedResponse:
         """
-        List agents that exist only as cloud builds with no healthy deployment.
+        List agents that exist only as cloud builds and have no healthy deployment yet.
 
-        Returns distinct agent names from builds that have never had a deploy reach
-        'healthy' status, along with each agent's latest build info and total build
-        count. Useful for surfacing agents that have been built but not yet deployed.
+        Unlike listing builds, this aggregates by agent: it returns one entry per
+        distinct agent name whose builds have never reached a healthy deploy, each
+        carrying that agent's most recent build and its total build count. The result is
+        a plain list (not paginated) and is limited to builds the caller is permitted to
+        read. Use this to surface agents that were built but still need to be deployed;
+        use `GET /v5/builds` when you need the individual build records instead.
         """
         return self._get(
             "/v5/builds/undeployed",
@@ -287,10 +353,13 @@ class BuildResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Stream[StreamChunk]:
         """
-        Stream build logs via Server-Sent Events (SSE).
+        Stream a build's logs as Server-Sent Events.
 
-        Returns a streaming response with content-type text/event-stream. Each log line
-        is sent as an SSE data event.
+        The response has content-type `text/event-stream`; each event carries one log
+        line as an `AgentexCloudBuildLogLine` object, delivered as lines become
+        available from the cloud build provider. The stream ends when the provider stops
+        producing output. Responds with a not-found error if no such build exists for
+        the caller's account.
 
         Args:
           extra_headers: Send extra headers
@@ -344,6 +413,12 @@ class AsyncBuildResource(AsyncAPIResource):
         build_args: str | Omit = omit,
         image_tag: str | Omit = omit,
         platform: Literal["linux/amd64", "linux/arm64", "linux/arm/v7"] | Omit = omit,
+        source_commit: str | Omit = omit,
+        source_dirty: bool | Omit = omit,
+        source_ref: str | Omit = omit,
+        source_repo: str | Omit = omit,
+        source_subpath: str | Omit = omit,
+        working_tree_hash: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -352,12 +427,22 @@ class AsyncBuildResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentexCloudBuild:
         """
-        Submit a container image build.
+        Submit a container image build from an uploaded build context and return the
+        created build record.
 
-        Upload a tar.gz archive containing the build context (Dockerfile and any files
-        needed for the build) along with image name, tag, and optional build arguments.
-
-        Maximum file size: 500MB
+        The request is multipart form data: a tar.gz `context_archive` with the
+        Dockerfile at its root is streamed to cloud object storage, along with the
+        target `image_name`, an optional `image_tag` (defaults to `latest`), optional
+        Docker `build_args` supplied as a JSON string, and an optional target
+        `platform`. Exactly one of `agent_name` or `agent_id` must be provided: pass
+        `agent_name` to create a brand-new agent for a first-time build (rejected if an
+        agent with that name already exists), or `agent_id` to build for an agent that
+        already exists. The build is handed to the configured cloud build provider and
+        runs asynchronously, so the returned record reflects the build's initial status
+        (typically queued or running) rather than a finished image; poll Get Build or
+        follow Stream Build Logs to observe progression to a terminal state. The request
+        is rejected if the archive is missing or empty, exceeds 500MB, or if
+        `build_args` is not valid JSON.
 
         Args:
           context_archive: tar.gz archive containing the build context (Dockerfile and any files needed for
@@ -376,6 +461,18 @@ class AsyncBuildResource(AsyncAPIResource):
           platform: Target platform for the Docker build. Defaults to the build host's native
               architecture when not specified.
 
+          source_commit: Git commit the build context was at.
+
+          source_dirty: Whether the work tree had uncommitted changes at build time.
+
+          source_ref: Git branch or tag for source_commit.
+
+          source_repo: Normalized git remote the build context came from.
+
+          source_subpath: Build-context path relative to the repo root.
+
+          working_tree_hash: Deterministic SHA-256 content hash of the build inputs.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -393,6 +490,12 @@ class AsyncBuildResource(AsyncAPIResource):
                 "build_args": build_args,
                 "image_tag": image_tag,
                 "platform": platform,
+                "source_commit": source_commit,
+                "source_dirty": source_dirty,
+                "source_ref": source_ref,
+                "source_repo": source_repo,
+                "source_subpath": source_subpath,
+                "working_tree_hash": working_tree_hash,
             },
             [["context_archive"]],
         )
@@ -423,7 +526,13 @@ class AsyncBuildResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentexCloudBuild:
         """
-        Get a build by ID, including current lifecycle status.
+        Retrieve a single build by its ID, including its current lifecycle status.
+
+        Because builds run asynchronously after submission, the status returned here
+        reflects the latest known state and may still be queued or running; call this
+        endpoint again to observe progression to a terminal state such as success,
+        failed, cancelled, or timed out. Responds with a not-found error if no such
+        build exists for the caller's account.
 
         Args:
           extra_headers: Send extra headers
@@ -452,7 +561,9 @@ class AsyncBuildResource(AsyncAPIResource):
         limit: int | Omit = omit,
         sort_by: str | Omit = omit,
         sort_order: SortOrder | Omit = omit,
+        source_commit: str | Omit = omit,
         starting_after: str | Omit = omit,
+        working_tree_hash: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -461,10 +572,22 @@ class AsyncBuildResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[AgentexCloudBuild, AsyncCursorPage[AgentexCloudBuild]]:
         """
-        List Builds
+        List container image build records for the caller's account as a paginated
+        collection.
+
+        Each entry is one individual build with its current lifecycle status; pass
+        `agent_name`, `source_commit`, or `working_tree_hash` to return only matching
+        builds. Archived builds are excluded, and results are limited to builds the
+        caller is permitted to read. Use this to enumerate individual builds; to instead
+        list agents that have been built but not yet deployed, use
+        `GET /v5/builds/undeployed`.
 
         Args:
           agent_name: Filter builds by agent name
+
+          source_commit: Filter builds by source git commit
+
+          working_tree_hash: Filter builds by build-context content hash
 
           extra_headers: Send extra headers
 
@@ -489,7 +612,9 @@ class AsyncBuildResource(AsyncAPIResource):
                         "limit": limit,
                         "sort_by": sort_by,
                         "sort_order": sort_order,
+                        "source_commit": source_commit,
                         "starting_after": starting_after,
+                        "working_tree_hash": working_tree_hash,
                     },
                     build_list_params.BuildListParams,
                 ),
@@ -509,10 +634,17 @@ class AsyncBuildResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentexCloudBuild:
         """
-        Cancel a pending or running build.
+        Request cancellation of a build and return 202 Accepted.
 
-        Returns 202 Accepted — the actual cancellation happens asynchronously via a
-        Temporal workflow.
+        Cancellation runs asynchronously: the endpoint verifies the build exists and
+        then hands it off to a background workflow that marks the build as cancelling,
+        asks the cloud build provider to stop it, and polls until the build reaches a
+        terminal state before recording the final status. Only builds that are still
+        queued or running are actually cancelled; if the build has already finished, or
+        cancellation is already in progress, the request is still accepted but has no
+        effect. The returned record reflects the build's state at the time of the call,
+        so it will not yet show the pending cancellation. The request is rejected if no
+        such build exists for the caller's account.
 
         Args:
           extra_headers: Send extra headers
@@ -544,11 +676,14 @@ class AsyncBuildResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> BuildListUndeployedResponse:
         """
-        List agents that exist only as cloud builds with no healthy deployment.
+        List agents that exist only as cloud builds and have no healthy deployment yet.
 
-        Returns distinct agent names from builds that have never had a deploy reach
-        'healthy' status, along with each agent's latest build info and total build
-        count. Useful for surfacing agents that have been built but not yet deployed.
+        Unlike listing builds, this aggregates by agent: it returns one entry per
+        distinct agent name whose builds have never reached a healthy deploy, each
+        carrying that agent's most recent build and its total build count. The result is
+        a plain list (not paginated) and is limited to builds the caller is permitted to
+        read. Use this to surface agents that were built but still need to be deployed;
+        use `GET /v5/builds` when you need the individual build records instead.
         """
         return await self._get(
             "/v5/builds/undeployed",
@@ -570,10 +705,13 @@ class AsyncBuildResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncStream[StreamChunk]:
         """
-        Stream build logs via Server-Sent Events (SSE).
+        Stream a build's logs as Server-Sent Events.
 
-        Returns a streaming response with content-type text/event-stream. Each log line
-        is sent as an SSE data event.
+        The response has content-type `text/event-stream`; each event carries one log
+        line as an `AgentexCloudBuildLogLine` object, delivered as lines become
+        available from the cloud build provider. The stream ends when the provider stops
+        producing output. Responds with a not-found error if no such build exists for
+        the caller's account.
 
         Args:
           extra_headers: Send extra headers

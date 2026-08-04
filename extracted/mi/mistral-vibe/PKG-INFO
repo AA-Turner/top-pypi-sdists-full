@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistral-vibe
-Version: 2.23.2
+Version: 2.23.3
 Summary: Minimal CLI coding agent by Mistral
 Project-URL: Homepage, https://github.com/mistralai/mistral-vibe
 Project-URL: Repository, https://github.com/mistralai/mistral-vibe
@@ -449,6 +449,10 @@ Vibe provides several built-in slash commands. Use slash commands by typing them
 ```
 > /help
 ```
+
+If a model response is interrupted by a backend error, use `/retry` to continue
+from the partial response. Add optional guidance after the command, for example
+`/retry keep the conclusion concise`.
 
 ### Custom Slash Commands via Skills
 

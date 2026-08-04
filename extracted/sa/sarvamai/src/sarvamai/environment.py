@@ -6,9 +6,12 @@ from __future__ import annotations
 class SarvamAIEnvironment:
     PRODUCTION: SarvamAIEnvironment
 
-    def __init__(self, *, base: str, production: str):
+    def __init__(self, *, base: str, creative: str, production: str):
         self.base = base
+        self.creative = creative
         self.production = production
 
 
-SarvamAIEnvironment.PRODUCTION = SarvamAIEnvironment(base="https://api.sarvam.ai", production="wss://api.sarvam.ai")
+SarvamAIEnvironment.PRODUCTION = SarvamAIEnvironment(
+    base="https://api.sarvam.ai", creative="https://api.sarvam.ai/dubbing", production="wss://api.sarvam.ai"
+)

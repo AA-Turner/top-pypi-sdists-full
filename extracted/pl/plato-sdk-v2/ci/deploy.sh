@@ -39,3 +39,13 @@ if echo "$CHANGED" | grep -qE '(^|/)sim-checker-launch\.json$'; then
   echo "Publishing sim-checker-launch template..."
   uv run plato pm experiment check base push
 fi
+
+# Republish the prebuilt plato-fuse binary whenever its Rust source changed,
+# so the rolling plato-fuse-latest release (the source of truth downloaded by
+# transport-only CI runs and `plato chronos mount`) never drifts behind main.
+# Runs after version-bump, so the published binary reports the just-bumped
+# Cargo version via --version and deploy.sh stamps it into the release notes.
+if echo "$CHANGED_FILES" | grep -q "^python-sdk/plato-fuse/"; then
+  echo "plato-fuse source changed — building and publishing plato-fuse-latest..."
+  bash plato-fuse/deploy.sh
+fi

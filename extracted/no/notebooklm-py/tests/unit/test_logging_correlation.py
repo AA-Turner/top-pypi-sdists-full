@@ -10,7 +10,6 @@ from contextvars import Token
 
 import pytest
 
-from _helpers.client_factory import build_client_shell_for_tests
 from notebooklm._logging import (
     RedactingFilter,
     RedactingFormatter,
@@ -18,6 +17,7 @@ from notebooklm._logging import (
     reset_request_id,
     set_request_id,
 )
+from tests._helpers.client_factory import build_client_shell_for_tests
 
 
 @pytest.fixture(autouse=True)
@@ -265,7 +265,7 @@ async def test_retry_inherits_parent_request_id():
             )
         return "ok"
 
-    # Real Session — the executor's open-client guard
+    # Real NotebookLMClient shell — the executor's open-client guard
     # requires a truthy http_client, so we ``open()`` and let the lifecycle
     # construct one against the default httpx transport. ``fake_impl`` is
     # monkeypatched onto ``_execute_once`` so no actual HTTP call fires;

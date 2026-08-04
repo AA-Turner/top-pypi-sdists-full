@@ -1,0 +1,57 @@
+---
+name: Stage
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - dev
+    paths:
+      - src/**
+      - tests/**
+      - pyproject.toml
+      - uv.lock
+
+concurrency:
+  group: ${{ github.workflow }}-${{github.ref}}
+  cancel-in-progress: true
+
+env:
+  MAIN_PY_VER: "3.14"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      contents: read
+    name: Stage project
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup timezone
+        uses: zcong1993/setup-timezone@040202c2ecba2d55edb016acf01bbeb42261dfc0  # v2.0.0
+        with:
+          timezone: Asia/Jerusalem
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9  # v9.0.0
+        with:
+          python-version: ${{ env.MAIN_PY_VER }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install, test with coverage report, and build
+        run: |
+          uv run --locked pytest -v --cov --cov-report=xml:coverage.xml --junit-xml=junit.xml
+          uv build
+
+      - name: Push to CodeCov
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f  # v7.0.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          fail_ci_if_error: true

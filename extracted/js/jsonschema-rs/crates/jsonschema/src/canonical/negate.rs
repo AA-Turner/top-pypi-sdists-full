@@ -1,5 +1,5 @@
 //! Structural complement of a canonical node.
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 use serde_json::{Number, Value};
 
@@ -8,8 +8,9 @@ use crate::{
         algebra,
         context::CanonicalizationContext,
         ir::{
-            type_set_schema, ArrayLeaf, BoundNumber, CanonicalJson, Discrete, Divisors,
-            LengthBounds, NumberLeaf, ObjectLeaf, Schema, SchemaKind, StringLeaf,
+            type_set_schema, ArrayLeaf, AtLeastTwo, BoundCardinality, BoundNumber, CanonicalJson,
+            ContainsFacet, Discrete, Divisors, LengthBounds, NumberLeaf, ObjectLeaf, Schema,
+            SchemaKind, StringLeaf,
         },
     },
     JsonType, JsonTypeSet,
@@ -61,17 +62,22 @@ pub(crate) fn negate(schema: &Schema, ctx: &CanonicalizationContext) -> Option<S
     }
 }
 
-/// Complement of a finite value set, expressible when every member is a null, boolean, or number:
-/// the untouched types stay whole, an unpaired boolean leaves the other one, and the numeric
-/// members carve rays and gaps out of the number line.
+/// Complement of a finite value set: the untouched types stay whole, an unpaired boolean leaves the
+/// other one, the numeric members carve rays and gaps out of the number line, the string members
+/// become exclusions on the strings, and an empty container leaves the sizes above it.
 /// ```text
 /// e.g.  {"not": {"const": null}}  =>  {"type": ["boolean", "number", "string", "array", "object"]}
-/// e.g.  {"not": {"const": "a"}}  =>  unchanged: string inequality is inexpressible
+/// e.g.  {"not": {"const": []}}
+///       =>  anyOf: [<non-array types>, {"type": "array", "minItems": 1}]
+/// e.g.  {"not": {"const": [1]}}  =>  unchanged: array inequality is inexpressible
 /// ```
 fn negate_finite_values(values: &[CanonicalJson], ctx: &CanonicalizationContext) -> Option<Schema> {
     let mut remaining = JsonTypeSet::all();
     let mut booleans = Vec::new();
     let mut numbers: Vec<Number> = Vec::new();
+    let mut strings: Vec<Arc<str>> = Vec::new();
+    let mut empty_array = false;
+    let mut empty_object = false;
     for value in values {
         match value.as_value() {
             Value::Null => remaining = remaining.remove(JsonType::Null),
@@ -83,16 +89,66 @@ fn negate_finite_values(values: &[CanonicalJson], ctx: &CanonicalizationContext)
                 remaining = remaining.remove(JsonType::Number).remove(JsonType::Integer);
                 numbers.push(number.clone());
             }
-            Value::String(_) | Value::Array(_) | Value::Object(_) => return None,
+            Value::String(text) => {
+                remaining = remaining.remove(JsonType::String);
+                strings.push(Arc::from(text.as_str()));
+            }
+            // An empty container is the only one of its size, so the sizes above it are the rest of
+            // its type. Any other one needs a value to differ somewhere, which no facet spells.
+            Value::Array(items) if items.is_empty() => {
+                remaining = remaining.remove(JsonType::Array);
+                empty_array = true;
+            }
+            Value::Object(entries) if entries.is_empty() => {
+                remaining = remaining.remove(JsonType::Object);
+                empty_object = true;
+            }
+            Value::Array(_) | Value::Object(_) => return None,
         }
     }
     let mut branches = vec![type_set_schema(remaining)];
+    if empty_array {
+        branches.push(algebra::array_leaf(
+            ArrayLeaf {
+                lengths: above_empty(),
+                unique: false,
+                prefix: Vec::new(),
+                items: None,
+                contains: Vec::new(),
+            },
+            ctx,
+        ));
+    }
+    if empty_object {
+        branches.push(object_branch(
+            above_empty(),
+            Vec::new(),
+            BTreeMap::new(),
+            ctx,
+        ));
+    }
     if let [member] = booleans.as_slice() {
         branches.push(Schema::new(SchemaKind::Const(CanonicalJson::from_value(
             &Value::Bool(!member),
         ))));
     }
     branches.extend(number_gaps(&numbers, ctx));
+    if !strings.is_empty() {
+        strings.sort();
+        strings.dedup();
+        branches.push(algebra::string_leaf(
+            StringLeaf {
+                lengths: LengthBounds::default(),
+                patterns: Vec::new(),
+                formats: Vec::new(),
+                excluded_formats: Vec::new(),
+                content_media_types: Vec::new(),
+                content_encodings: Vec::new(),
+                excluded: strings,
+            },
+            ctx,
+        ));
+    }
     Some(algebra::union(branches, ctx))
 }
 
@@ -156,6 +212,28 @@ fn negate_number_leaf(leaf: &NumberLeaf, ctx: &CanonicalizationContext) -> Optio
     Some(algebra::union(branches, ctx))
 }
 
+/// The sizes a container holding something can take.
+fn above_empty() -> LengthBounds {
+    LengthBounds {
+        minimum: Some(BoundCardinality::from(1)),
+        maximum: None,
+    }
+}
+
+/// A value set holding exactly these strings.
+fn finite_strings(values: &[Arc<str>]) -> Schema {
+    let members: Vec<CanonicalJson> = values
+        .iter()
+        .map(|value| CanonicalJson::from_value(&Value::String(value.to_string())))
+        .collect();
+    match AtLeastTwo::new(members) {
+        Ok(set) => Schema::new(SchemaKind::Enum(set)),
+        Err(mut single) => Schema::new(SchemaKind::Const(
+            single.pop().expect("a non-empty exclusion list"),
+        )),
+    }
+}
+
 /// The same limit admitting exactly the values the original end rejects.
 fn flipped(bound: &BoundNumber) -> BoundNumber {
     BoundNumber::new(&bound.to_number(), !bound.is_inclusive())
@@ -190,8 +268,18 @@ pub(crate) fn length_windows(lengths: &LengthBounds) -> Option<Vec<LengthBounds>
 ///       =>  anyOf: [<non-string types>, {"type": "string", "maxLength": 2}]
 /// ```
 fn negate_string_leaf(leaf: &StringLeaf, ctx: &CanonicalizationContext) -> Option<Schema> {
+    if !leaf.excluded.is_empty() {
+        // The dual of the arm above: a leaf that only excludes values complements to those values.
+        let mut branches = vec![type_set_schema(JsonTypeSet::all().remove(JsonType::String))];
+        branches.push(finite_strings(&leaf.excluded));
+        let positive = StringLeaf {
+            excluded: Vec::new(),
+            ..leaf.clone()
+        };
+        branches.push(negate_string_leaf(&positive, ctx)?);
+        return Some(algebra::union(branches, ctx));
+    }
     if !leaf.patterns.is_empty()
-        || !leaf.formats.is_empty()
         || !leaf.content_media_types.is_empty()
         || !leaf.content_encodings.is_empty()
     {
@@ -203,10 +291,27 @@ fn negate_string_leaf(leaf: &StringLeaf, ctx: &CanonicalizationContext) -> Optio
         algebra::string_leaf(
             StringLeaf {
                 lengths,
-                patterns: Vec::new(),
-                formats: Vec::new(),
-                content_media_types: Vec::new(),
-                content_encodings: Vec::new(),
+                ..StringLeaf::default()
+            },
+            ctx,
+        )
+    }));
+    // A string fails a run of formats as soon as it fails one of them, so each gets its own branch
+    // - and a branch barring one format says nothing about the length or the others.
+    branches.extend(leaf.formats.iter().map(|format| {
+        algebra::string_leaf(
+            StringLeaf {
+                excluded_formats: vec![Arc::clone(format)],
+                ..StringLeaf::default()
+            },
+            ctx,
+        )
+    }));
+    branches.extend(leaf.excluded_formats.iter().map(|format| {
+        algebra::string_leaf(
+            StringLeaf {
+                formats: vec![Arc::clone(format)],
+                ..StringLeaf::default()
             },
             ctx,
         )
@@ -214,16 +319,62 @@ fn negate_string_leaf(leaf: &StringLeaf, ctx: &CanonicalizationContext) -> Optio
     Some(algebra::union(branches, ctx))
 }
 
+/// An element schema fails on an array exactly when one element violates it, which is a `contains`
+/// demand for its complement. A demand for one match fails exactly when every element violates it,
+/// which is the same trade the other way round.
 /// ```text
 /// e.g.  {"not": {"type": "array", "maxItems": 2}}
 ///       =>  anyOf: [<non-array types>, {"type": "array", "minItems": 3}]
+/// e.g.  {"not": {"type": "array", "items": {"type": "string"}}}
+///       =>  anyOf: [<non-array types>,
+///                   {"type": "array", "contains": {"type": <every type but string>}}]
+/// e.g.  {"not": {"type": "array", "contains": {"type": "string"}}}
+///       =>  anyOf: [<non-array types>,
+///                   {"type": "array", "items": {"type": <every type but string>}}]
 /// ```
 fn negate_array_leaf(leaf: &ArrayLeaf, ctx: &CanonicalizationContext) -> Option<Schema> {
-    if leaf.unique || !leaf.prefix.is_empty() || leaf.items.is_some() || !leaf.contains.is_empty() {
+    if leaf.unique || !leaf.prefix.is_empty() {
         return None;
     }
     let windows = length_windows(&leaf.lengths)?;
     let mut branches = vec![type_set_schema(JsonTypeSet::all().remove(JsonType::Array))];
+    if let Some(items) = &leaf.items {
+        // Draft 4 has no `contains`, so a validator there ignores the branch and admits every array.
+        if !ctx.draft().is_known_keyword("contains") {
+            return None;
+        }
+        branches.push(algebra::array_leaf(
+            ArrayLeaf {
+                lengths: LengthBounds::default(),
+                unique: false,
+                prefix: Vec::new(),
+                items: None,
+                contains: vec![ContainsFacet {
+                    schema: negate(items, ctx)?,
+                    minimum: None,
+                    maximum: None,
+                }],
+            },
+            ctx,
+        ));
+    }
+    for facet in &leaf.contains {
+        // Missing a window on the count means landing anywhere else in it, and an element schema
+        // holding for every element can only say "nowhere".
+        if facet.maximum.is_some() || facet.effective_minimum() != BoundCardinality::from(1) {
+            return None;
+        }
+        branches.push(algebra::array_leaf(
+            ArrayLeaf {
+                lengths: LengthBounds::default(),
+                unique: false,
+                prefix: Vec::new(),
+                items: Some(negate(&facet.schema, ctx)?),
+                contains: Vec::new(),
+            },
+            ctx,
+        ));
+    }
     branches.extend(windows.into_iter().map(|lengths| {
         algebra::array_leaf(
             ArrayLeaf {

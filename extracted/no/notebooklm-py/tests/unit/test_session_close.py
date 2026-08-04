@@ -1,11 +1,11 @@
-"""Tests for the lifecycle drain on ``Session.close``.
+"""Tests for the lifecycle drain on ``NotebookLMClient.close``.
 
 Pins down:
 
 - ``PollRegistry.active_tasks()`` returns the leader poll tasks currently
   parked in the registry, and excludes already-completed tasks.
 - ``ArtifactsAPI`` owns its poll registry and registers a close-time drain hook
-  so ``Session.close()`` cancels active polls without reaching into feature
+  so ``NotebookLMClient.close()`` cancels active polls without reaching into feature
   state.
 - ``NotebookLMClient.close()`` and ``__aexit__`` default to ``drain=True``
   (BREAKING). Old fire-and-forget callers must pass ``drain=False`` to opt out.
@@ -18,11 +18,11 @@ from typing import Any
 
 import pytest
 
-from _helpers.client_factory import build_client_shell_for_tests
 from notebooklm._artifacts import ArtifactsAPI
 from notebooklm._polling_registry import PollRegistry
 from notebooklm.auth import AuthTokens
 from notebooklm.client import NotebookLMClient
+from tests._helpers.client_factory import build_client_shell_for_tests
 
 
 def _auth() -> AuthTokens:
@@ -83,7 +83,7 @@ async def test_active_tasks_returns_empty_for_fresh_registry() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Session.close runs feature-owned drain hooks
+# NotebookLMClient.close runs feature-owned drain hooks
 # ---------------------------------------------------------------------------
 
 

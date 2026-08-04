@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semble
-Version: 0.5.2
+Version: 0.5.3
 Summary: Fast and Accurate Code Search for Agents
 Author-email: Thomas van Dongen <thomasvdongen@proton.me>, Stéphan Tulkens <stephantul@gmail.com>
 License: MIT License
@@ -49,9 +49,9 @@ Requires-Dist: vicinity>=0.4.4
 Requires-Dist: numpy>=1.24.0
 Requires-Dist: pathspec>=0.12
 Requires-Dist: tree-sitter<0.26,>=0.25
-Requires-Dist: tree-sitter-language-pack!=1.6.3,<1.8.0,>=1.0
 Requires-Dist: orjson
 Requires-Dist: questionary<3.0,>=2.0
+Requires-Dist: semble-grammars>=0.1.2
 Provides-Extra: mcp
 Requires-Dist: mcp<2.0,>=1.0; extra == "mcp"
 Provides-Extra: benchmark
@@ -73,7 +73,7 @@ Dynamic: license-file
 <h2 align="center">
   <img width="30%" alt="semble logo" src="https://raw.githubusercontent.com/MinishLab/semble/main/assets/images/semble_logo.png"><br/>
   Fast and Accurate Code Search for Agents<br/>
-  <sub>Uses ~98% fewer tokens than grep+read</sub>
+  <sub>Uses ~99% fewer tokens than grep+read</sub>
 </h2>
 
 <div align="center">
@@ -96,7 +96,7 @@ Dynamic: license-file
 
 </div>
 
-Semble is a code search library built for agents. It returns the exact code snippets they need instantly, using ~98% fewer tokens than grep+read. Indexing and searching a full codebase end-to-end takes under a second, with ~200x faster indexing and ~10x faster queries than a code-specialized transformer, at 99% of its retrieval quality (see [benchmarks](#benchmarks)). Everything runs on CPU with no API keys, GPU, or external services. Use it as an MCP server, a CLI tool via AGENTS.md, or a dedicated sub-agent, and any coding agent (Claude Code, Cursor, Codex, OpenCode, etc.) gets instant access to any repo.
+Semble is a code search library built for agents. It returns the exact code snippets they need instantly, using ~99% fewer tokens than grep+read. Indexing and searching a full codebase end-to-end takes under a second, matching the retrieval quality of a code-specialized transformer while indexing ~220x faster and querying ~17x faster (see [benchmarks](#benchmarks)). Everything runs on CPU with no API keys, GPU, or external services. Use it as an MCP server, a CLI tool via AGENTS.md, or a dedicated sub-agent, and any coding agent (Claude Code, Cursor, Codex, OpenCode, etc.) gets instant access to any repo.
 
 ## Quickstart
 
@@ -144,9 +144,9 @@ semble install --agent claude --type mcp subagent --yes
 
 ## Main Features
 
-- **Fast**: indexes an average repo in ~250 ms and answers queries in ~1.5 ms, all on CPU.
+- **Fast**: indexes an average repo in ~500 ms and answers queries in ~1 ms, all on CPU.
 - **Accurate**: NDCG@10 of 0.854 on our [benchmarks](#benchmarks), on par with code-specialized transformer models, at a fraction of the size and cost.
-- **Token-efficient**: returns only the relevant chunks, using [~98% fewer tokens than grep+read](#benchmarks).
+- **Token-efficient**: returns only the relevant chunks, using [~99% fewer tokens than grep+read](#benchmarks).
 - **Zero setup**: runs on CPU with no API keys, GPU, or external services required.
 - **MCP server**: works with Claude Code, Cursor, Codex, OpenCode, VS Code, and any other MCP-compatible agent.
 - **Local and remote**: pass a local path or a git URL.
@@ -243,6 +243,8 @@ Savings are calculated as follows: for each call, semble records the total chara
 
 By default, your Semble savings statistics and any saved indexes are stored in the OS cache folder (`~/Library/Caches/semble/` on macOS, `~/.cache/semble/` on Linux, `%LOCALAPPDATA%\semble\Cache\` on Windows). To override this location you can supply an environment variable `SEMBLE_CACHE_LOCATION` which should be the full path to the target cache location e.g. `~/my-folder/my-caches/semble`.
 
+On first use, Semble also downloads the embedding model from Hugging Face and caches it in the standard Hugging Face cache (`~/.cache/huggingface/` by default, or `$HF_HOME` if set); this only happens once and requires network access.
+
 </details>
 
 <details>
@@ -307,11 +309,11 @@ We benchmark quality and speed across ~1,250 queries over 63 repositories in 19 
 </tr>
 </table>
 
-The quality benchmark (left) scores retrieval quality (NDCG@10) against total latency; semble achieves 99% of the quality of the 137M-parameter [CodeRankEmbed](https://huggingface.co/nomic-ai/CodeRankEmbed) Hybrid while indexing 218x faster. The token efficiency benchmark (right) measures how many tokens each method needs to reach a given recall level; semble uses 98% fewer tokens on average and hits 94% recall at only 2k tokens, while grep+read needs a full 100k context window to reach 85%. See [benchmarks](benchmarks/README.md) for per-language results, ablations, and full methodology.
+The quality benchmark (left) scores retrieval quality (NDCG@10) against total latency; semble matches the quality of the 137M-parameter [CodeRankEmbed](https://huggingface.co/nomic-ai/CodeRankEmbed) while indexing 220x faster. The token efficiency benchmark (right) measures how many tokens each method needs to reach a given recall level; semble uses 99% fewer tokens on average and hits 97% recall at only 2k tokens, while grep+read needs a full 100k context window to reach 85%. See [benchmarks](benchmarks/README.md) for per-language results, ablations, and full methodology.
 
 ## How it works
 
-Semble splits each file into code-aware chunks using [tree-sitter](https://github.com/tree-sitter/py-tree-sitter), then scores every query against the chunks with two complementary retrievers: static [Model2Vec](https://github.com/MinishLab/model2vec) embeddings using the code-specialized [potion-code-16M](https://huggingface.co/minishlab/potion-code-16M) model for semantic similarity, and [BM25](https://github.com/xhluca/bm25s) for lexical matches on identifiers and API names. The two score lists are fused with Reciprocal Rank Fusion (RRF).
+Semble splits each file into code-aware chunks using [tree-sitter](https://github.com/tree-sitter/py-tree-sitter), then scores every query against the chunks with two complementary retrievers: static [Model2Vec](https://github.com/MinishLab/model2vec) embeddings using the code-specialized [potion-code-16M-v2](https://huggingface.co/minishlab/potion-code-16M-v2) model for semantic similarity, and BM25 for lexical matches on identifiers and API names. The two score lists are fused with Reciprocal Rank Fusion (RRF).
 
 After fusing, results are reranked with a set of code-aware signals:
 
@@ -328,7 +330,7 @@ After fusing, results are reranked with a set of code-aware signals:
 
 Because the embedding model is static with no transformer forward pass at query time, all of this runs in milliseconds on CPU.
 
-Indexes are cached to disk automatically on the first search. On subsequent runs, Semble walks the file tree and compares modification times; if any file was added, removed, or changed, or if the indexing settings change (e.g., after a semble upgrade), the index is fully rebuilt. In MCP mode, a file watcher detects changes and triggers a rebuild automatically so the index is always current within the same session.
+Indexes are cached to disk automatically on the first search. On subsequent runs, Semble walks the file tree and compares modification times; added, removed, or changed files are reindexed incrementally, without rebuilding the rest of the index. A full rebuild only happens if the indexing settings change (e.g., after a semble upgrade that changes the model, chunking, or cache format). In MCP mode, the index is checked and refreshed automatically as files change, so results stay current across the session.
 
 ## Acknowledgements
 

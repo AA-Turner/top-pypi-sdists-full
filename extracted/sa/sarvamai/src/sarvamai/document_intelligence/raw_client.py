@@ -16,7 +16,6 @@ from ..errors.internal_server_error import InternalServerError
 from ..errors.service_unavailable_error import ServiceUnavailableError
 from ..errors.too_many_requests_error import TooManyRequestsError
 from ..requests.doc_digitization_job_parameters import DocDigitizationJobParametersParams
-from ..requests.doc_digitization_webhook_callback import DocDigitizationWebhookCallbackParams
 from ..types.doc_digitization_create_job_response import DocDigitizationCreateJobResponse
 from ..types.doc_digitization_download_files_response import DocDigitizationDownloadFilesResponse
 from ..types.doc_digitization_job_status_response import DocDigitizationJobStatusResponse
@@ -34,10 +33,11 @@ class RawDocumentIntelligenceClient:
         self,
         *,
         job_parameters: typing.Optional[DocDigitizationJobParametersParams] = OMIT,
-        callback: typing.Optional[DocDigitizationWebhookCallbackParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[DocDigitizationCreateJobResponse]:
         """
+        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+
         Creates a new Document Intelligence job.
 
         **Supported Languages (BCP-47 format):**
@@ -48,13 +48,13 @@ class RawDocumentIntelligenceClient:
         - `kn-IN`: Kannada
         - `ml-IN`: Malayalam
         - `mr-IN`: Marathi
-        - `or-IN`: Odia
+        - `od-IN`: Odia
         - `pa-IN`: Punjabi
         - `ta-IN`: Tamil
         - `te-IN`: Telugu
         - `ur-IN`: Urdu
         - `as-IN`: Assamese
-        - `bodo-IN`: Bodo
+        - `brx-IN`: Bodo
         - `doi-IN`: Dogri
         - `ks-IN`: Kashmiri
         - `kok-IN`: Konkani
@@ -75,9 +75,6 @@ class RawDocumentIntelligenceClient:
         job_parameters : typing.Optional[DocDigitizationJobParametersParams]
             Configuration parameters for the Document Intelligence job including language and output format. Defaults to Hindi (hi-IN) and Markdown output if omitted.
 
-        callback : typing.Optional[DocDigitizationWebhookCallbackParams]
-            Optional webhook for completion notification
-
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -93,9 +90,6 @@ class RawDocumentIntelligenceClient:
             json={
                 "job_parameters": convert_and_respect_annotation_metadata(
                     object_=job_parameters, annotation=DocDigitizationJobParametersParams, direction="write"
-                ),
-                "callback": convert_and_respect_annotation_metadata(
-                    object_=callback, annotation=DocDigitizationWebhookCallbackParams, direction="write"
                 ),
             },
             headers={
@@ -178,6 +172,8 @@ class RawDocumentIntelligenceClient:
         self, *, job_id: str, files: typing.Sequence[str], request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DocDigitizationUploadFilesResponse]:
         """
+        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+
         Returns presigned URLs for uploading input files.
 
         **File Constraints:**
@@ -289,6 +285,8 @@ class RawDocumentIntelligenceClient:
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DocDigitizationJobStatusResponse]:
         """
+        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+
         Validates the uploaded file and starts processing.
 
         **Validation Checks:**
@@ -298,11 +296,11 @@ class RawDocumentIntelligenceClient:
         - ZIP must contain only JPEG/PNG images
         - ZIP must be flat (no nested folders beyond one level)
         - ZIP must contain at least one valid image
-        - Page/image count must not exceed 10 (returns `422` with `max_page_limit_exceeded` if exceeded)
+        - Page/image count must not exceed 10 (returns `400` with `invalid_request_error` if exceeded)
         - User must have sufficient credits
 
         **Processing:**
-        Job runs asynchronously. Poll the status endpoint or use webhook callback for completion notification.
+        Job runs asynchronously. Poll the status endpoint for completion.
 
         Parameters
         ----------
@@ -397,6 +395,8 @@ class RawDocumentIntelligenceClient:
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DocDigitizationJobStatusResponse]:
         """
+        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+
         Returns the current status of a job with page-level metrics.
 
         **Job States:**
@@ -503,7 +503,11 @@ class RawDocumentIntelligenceClient:
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DocDigitizationDownloadFilesResponse]:
         """
+        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+
         Returns presigned URLs for downloading output files.
+
+        **Method:** POST only. A GET request to this path returns 405 Method Not Allowed.
 
         **Prerequisites:**
         - Job must be in `Completed` or `PartiallyCompleted` state
@@ -607,10 +611,11 @@ class AsyncRawDocumentIntelligenceClient:
         self,
         *,
         job_parameters: typing.Optional[DocDigitizationJobParametersParams] = OMIT,
-        callback: typing.Optional[DocDigitizationWebhookCallbackParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[DocDigitizationCreateJobResponse]:
         """
+        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+
         Creates a new Document Intelligence job.
 
         **Supported Languages (BCP-47 format):**
@@ -621,13 +626,13 @@ class AsyncRawDocumentIntelligenceClient:
         - `kn-IN`: Kannada
         - `ml-IN`: Malayalam
         - `mr-IN`: Marathi
-        - `or-IN`: Odia
+        - `od-IN`: Odia
         - `pa-IN`: Punjabi
         - `ta-IN`: Tamil
         - `te-IN`: Telugu
         - `ur-IN`: Urdu
         - `as-IN`: Assamese
-        - `bodo-IN`: Bodo
+        - `brx-IN`: Bodo
         - `doi-IN`: Dogri
         - `ks-IN`: Kashmiri
         - `kok-IN`: Konkani
@@ -648,9 +653,6 @@ class AsyncRawDocumentIntelligenceClient:
         job_parameters : typing.Optional[DocDigitizationJobParametersParams]
             Configuration parameters for the Document Intelligence job including language and output format. Defaults to Hindi (hi-IN) and Markdown output if omitted.
 
-        callback : typing.Optional[DocDigitizationWebhookCallbackParams]
-            Optional webhook for completion notification
-
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -666,9 +668,6 @@ class AsyncRawDocumentIntelligenceClient:
             json={
                 "job_parameters": convert_and_respect_annotation_metadata(
                     object_=job_parameters, annotation=DocDigitizationJobParametersParams, direction="write"
-                ),
-                "callback": convert_and_respect_annotation_metadata(
-                    object_=callback, annotation=DocDigitizationWebhookCallbackParams, direction="write"
                 ),
             },
             headers={
@@ -751,6 +750,8 @@ class AsyncRawDocumentIntelligenceClient:
         self, *, job_id: str, files: typing.Sequence[str], request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[DocDigitizationUploadFilesResponse]:
         """
+        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+
         Returns presigned URLs for uploading input files.
 
         **File Constraints:**
@@ -862,6 +863,8 @@ class AsyncRawDocumentIntelligenceClient:
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[DocDigitizationJobStatusResponse]:
         """
+        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+
         Validates the uploaded file and starts processing.
 
         **Validation Checks:**
@@ -871,11 +874,11 @@ class AsyncRawDocumentIntelligenceClient:
         - ZIP must contain only JPEG/PNG images
         - ZIP must be flat (no nested folders beyond one level)
         - ZIP must contain at least one valid image
-        - Page/image count must not exceed 10 (returns `422` with `max_page_limit_exceeded` if exceeded)
+        - Page/image count must not exceed 10 (returns `400` with `invalid_request_error` if exceeded)
         - User must have sufficient credits
 
         **Processing:**
-        Job runs asynchronously. Poll the status endpoint or use webhook callback for completion notification.
+        Job runs asynchronously. Poll the status endpoint for completion.
 
         Parameters
         ----------
@@ -970,6 +973,8 @@ class AsyncRawDocumentIntelligenceClient:
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[DocDigitizationJobStatusResponse]:
         """
+        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+
         Returns the current status of a job with page-level metrics.
 
         **Job States:**
@@ -1076,7 +1081,11 @@ class AsyncRawDocumentIntelligenceClient:
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[DocDigitizationDownloadFilesResponse]:
         """
+        **Legacy API.** The `/doc-digitization/job/v1` endpoints remain available for existing integrations. For new integrations, use the Document Intelligence API under `/doc-ai/v1`.
+
         Returns presigned URLs for downloading output files.
+
+        **Method:** POST only. A GET request to this path returns 405 Method Not Allowed.
 
         **Prerequisites:**
         - Job must be in `Completed` or `PartiallyCompleted` state

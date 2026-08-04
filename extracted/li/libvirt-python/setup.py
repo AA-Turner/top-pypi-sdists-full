@@ -4,6 +4,7 @@ import sys
 import re
 import shutil
 import subprocess
+import sysconfig
 import time
 
 from pathlib import Path
@@ -88,7 +89,23 @@ def get_module_lists():
     cflags = get_pkgconfig_data(["--cflags"], "libvirt", False).split()
 
     cflags += ["-Ibuild"]
-    cflags += ["-Wp,-DPy_LIMITED_API=0x03060000"]
+    # The limited API / stable ABI (abi3) is not supported in free-threaded
+    # Python versions: https://docs.python.org/3/c-api/stable.html#c.Py_LIMITED_API
+    # So the only way to build free-threaded Python modules is to drop abi3 support
+    # and use the legacy API instead.
+    #
+    # Platform    | Python              | C flags added                        | Result
+    # -------------+---------------------+-------------------------------------+-----------------------
+    # Linux       | python3.13/3.14     | Py_LIMITED_API=0x03060000            | Stable ABI (abi3)
+    # Windows     | python3.13/3.14     | Py_LIMITED_API=0x03060000            | Stable ABI (abi3)
+    # Linux       | python3.13t/3.14t   | none                                 | Version-specific API
+    # Windows     | python3.13t/3.14t   | Py_GIL_DISABLED=1                    | Version-specific API
+    # CPython 3.15+ will be compatible with abi3t ABI (from PEP-0803).
+    if sysconfig.get_config_var("Py_GIL_DISABLED"):
+        if sys.platform == "win32":
+            cflags += ["-DPy_GIL_DISABLED=1"]
+    else:
+        cflags += ["-Wp,-DPy_LIMITED_API=0x03060000"]
 
     module = Extension("libvirtmod",
                        sources=[

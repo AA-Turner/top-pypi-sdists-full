@@ -8,14 +8,14 @@ use std::sync::Arc;
 use anyhow::Result;
 use prek_consts::env_vars::{EnvVars, EnvVarsRead};
 use prek_identify::parse_shebang;
-use tracing::{Instrument, trace, trace_span};
+use tracing::{instrument, trace};
 
 use crate::cli::reporter::HookInstallReporter;
 use crate::cli::run::HookRunReporter;
 use crate::config::Language;
 use crate::fs::CWD;
 use crate::hook::{Hook, InstallInfo, InstalledHook, Repo};
-use crate::hooks;
+use crate::hooks::{self, HookOutput};
 use crate::store::{CacheBucket, Store, ToolBucket};
 
 mod bun;
@@ -126,6 +126,10 @@ impl Language {
             Self::Swift => &swift::Swift,
             Self::System => &system::System,
         }
+    }
+
+    pub(crate) fn can_modify_files(self) -> bool {
+        !matches!(self, Self::Fail | Self::Pygrep)
     }
 
     pub(crate) fn supports_install_env(self) -> bool {
@@ -323,41 +327,44 @@ impl Language {
         self.backend().check_health(info)
     }
 
-    pub(crate) fn run<'a, 'p>(
+    #[instrument(skip_all, fields(hook_id=%hook.id, language=%hook.language))]
+    pub(crate) async fn run<'a, 'p>(
         &'a self,
         store: &'a Store,
         hook: &'a InstalledHook,
         filenames: &'a [&'p Path],
         reporter: &'a HookRunReporter,
-    ) -> impl Future<Output = Result<(i32, Vec<u8>)>> + 'a
+    ) -> Result<HookOutput>
     where
         'p: 'a,
     {
-        let future: LanguageFuture<'a, (i32, Vec<u8>)> = match hook.repo() {
-            Repo::Meta { .. } => Box::pin(
+        match hook.repo() {
+            Repo::Meta { .. } => {
                 hooks::MetaHooks::from_str(&hook.id)
                     .unwrap()
-                    .run(store, hook, filenames, reporter),
-            ),
-            Repo::Builtin { .. } => Box::pin(
+                    .run(store, hook, filenames, reporter)
+                    .await
+            }
+            Repo::Builtin { .. } => {
                 hooks::BuiltinHooks::from_str(&hook.id)
                     .unwrap()
-                    .run(store, hook, filenames, reporter),
-            ),
+                    .run(store, hook, filenames, reporter)
+                    .await
+            }
             // Fast path for hooks implemented in Rust
             Repo::Remote { .. } if hooks::check_fast_path(hook) => {
-                Box::pin(hooks::run_fast_path(store, hook, filenames, reporter))
+                hooks::run_fast_path(store, hook, filenames, reporter).await
             }
             Repo::Remote { .. } | Repo::Local { .. } => {
-                self.backend().run(store, hook, filenames, reporter)
+                let (exit_status, output) =
+                    self.backend().run(store, hook, filenames, reporter).await?;
+                if self.can_modify_files() {
+                    Ok(HookOutput::unknown(exit_status, output))
+                } else {
+                    Ok(HookOutput::unchanged(exit_status, output))
+                }
             }
-        };
-
-        future.instrument(trace_span!(
-            "run",
-            hook_id = %hook.id,
-            language = %hook.language,
-        ))
+        }
     }
 }
 

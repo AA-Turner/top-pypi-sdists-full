@@ -62,17 +62,27 @@ class LockDet:
         """
 
     def steps(self, x: NDArray[np.float64], out: NDArray[np.int32] | None = None) -> NDArray[np.int32]:
-        """Run a block of lock-metric looks through the detector.
+        """Run a block of lock-metric looks through the detector. Applies lockdet_step() to each look in turn, so the decision flag and the in-flight verify run carry across the block exactly as they would look by look — a signal can be processed in frames of any size with no seam.
 
         Parameters
         ----------
         x : NDArray[np.float64]
-            Input.
+            Lock-metric looks, one scalar per look (length >= n).
 
         Returns
         -------
         NDArray[np.int32]
             Output.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.detection import LockDet
+        >>> d = LockDet(up_thresh=1.5, down_thresh=1.2, n_up=2, n_down=2)
+        >>> x = np.array([2.0, 2.0, 1.0, 2.0])   # declares on the 2nd straight hit
+        >>> d.steps(x).tolist()
+        [0, 1, 1, 1]
+
         """
 
     def configure(self, up_thresh: float, down_thresh: float, n_up: int, n_down: int) -> None:
@@ -92,38 +102,105 @@ class LockDet:
             Consecutive hits to declare; clamped to >= 1.
         n_down : int
             Consecutive misses to drop; clamped to >= 1.
+
+        Examples
+        --------
+        >>> from doppler.detection import LockDet
+        >>> d = LockDet(up_thresh=1.5, down_thresh=1.2, n_up=2, n_down=2)
+        >>> d.configure(up_thresh=3.0, down_thresh=2.5, n_up=1, n_down=1)
+        >>> d.up_thresh          # thresholds re-tuned in place
+        3.0
+        >>> d.step(4.0)          # a single hit now declares (n_up=1)
+        1
+
         """
 
     def reset(self) -> None:
         """Drop the lock and clear the verify counter; keep the config.
+
+        Examples
+        --------
+        >>> from doppler.detection import LockDet
+        >>> d = LockDet(up_thresh=1.5, down_thresh=1.2, n_up=1, n_down=1)
+        >>> d.step(2.0)          # one hit declares lock (n_up=1)
+        1
+        >>> d.reset()            # drop it and clear the verify run
+        >>> d.locked
+        False
+
         """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the LockDet has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the LockDet has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the LockDet has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def up_thresh(self) -> float:
-        """Up thresh."""
+        """declare side: hit when metric > up_thresh."""
     @up_thresh.setter
     def up_thresh(self, value: float) -> None: ...
 
     @property
     def down_thresh(self) -> float:
-        """Down thresh."""
+        """drop side: miss when metric < down_thresh."""
     @down_thresh.setter
     def down_thresh(self, value: float) -> None: ...
 
     @property
     def n_up(self) -> int:
-        """N up."""
+        """consecutive hits required to declare (>= 1)."""
 
     @property
     def n_down(self) -> int:
-        """N down."""
+        """consecutive misses required to drop (>= 1)."""
 
     @property
     def cnt(self) -> int:
@@ -134,11 +211,45 @@ class LockDet:
         """Current decision (True = locked)."""
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "LockDet": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "LockDet":
+        """Enter a context manager, returning this object.
+
+        Lets a LockDet be used in a `with` statement so its C resources are
+        released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        LockDet
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the LockDet.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
 
 def marcum_q(m: int, a: float, b: float) -> float:
     """Marcum Q function Q_M(a, b) for integer M >= 1.
@@ -160,15 +271,17 @@ def marcum_q(m: int, a: float, b: float) -> float:
     Q_n(0,b) + exp(-v)*v^n/n!. Total cost: O(K) where K ~ max(u, M) + safety
     margin.
 
-    Special cases: - a = 0: Q_M(0, b) = exp(-b^2/2) * sum_{j=0}^{M-1}
-    (b^2/2)^j/j! - b <= 0: Q_M(a, b) = 1.0
+    Special cases:
+
+    - a = 0:   Q_M(0, b) = exp(-b^2/2) * sum_{j=0}^{M-1} (b^2/2)^j/j!
+    - b <= 0:  Q_M(a, b) = 1.0
 
     Parameters
     ----------
     m : int
         Integration order; must be >= 1.
     a : float
-        Non-centrality parameter (signal strength).  a = 0 for H0.
+        Non-centrality parameter (signal strength). a = 0 for H0.
     b : float
         Threshold (same units as test_stat).
 
@@ -230,7 +343,8 @@ def det_pd(snr: float, dwell: int, threshold: float) -> float:
     Parameters
     ----------
     snr : float
-        Per-sample amplitude SNR (signal / noise amplitude, linear).  snr = 0 gives Pd = Pfa.
+        Per-sample amplitude SNR (signal / noise amplitude, linear). snr = 0
+        gives Pd = Pfa.
     dwell : int
         Coherent integration depth; must be >= 1.
     threshold : float
@@ -500,7 +614,7 @@ def det_threshold_f(pfa: float, n: int) -> float:
     """
 
 def det_pd_noncoherent(snr: float, n_coh: int, n_noncoh: int, threshold: float) -> float:
-    """Detection probability for n_noncoh non-coherent looks.
+    r"""Detection probability for n_noncoh non-coherent looks.
 
     Computes Pd = Q_{n_noncoh}(a, threshold) with the non-centrality a =
     sqrt(2 * n_coh * n_noncoh) * snr. At n_noncoh = 1 this is exactly
@@ -607,7 +721,8 @@ def det_pd_power(snr_power: float, dwell: int, power_threshold: float) -> float:
     Parameters
     ----------
     snr_power : float
-        Per-sample power SNR (signal power / noise power at the correlator output, linear).  0 gives Pd = Pfa.
+        Per-sample power SNR (signal power / noise power at the correlator
+        output, linear). 0 gives Pd = Pfa.
     dwell : int
         Coherent integration depth; must be >= 1.
     power_threshold : float

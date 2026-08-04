@@ -37,6 +37,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
 
+from . import worker_goals
+from .worker_goals import WorkerGoals
+
 _GIB = 1 << 30
 
 #: Activation working set as a fraction of the resident set, used only when
@@ -67,6 +70,16 @@ _CHILD_PEAKS: Dict[Tuple[str, str], int] = {}
 #: compiler it runs), which is what bounds K.
 _ENTRY_RSS_PEAKS: Dict[Tuple[str, str], int] = {}
 
+#: pgw#877: and the DEVICE half of the entry loop, which is the one that was
+#: missing entirely. ``_CHILD_PEAKS`` above is the MINT CHILD's device peak —
+#: one process holding a whole pipeline. This is ONE ENTRY CHILD's, measured
+#: by ``aot_compile_child._peak_device`` and carried out on the pool's phase
+#: table. They are different processes with different footprints and must not
+#: share a figure: the entry ask used to be the mint child's whole
+#: co-residency estimate, which is how K stayed at 1-2 on a host that could
+#: run it 37-127 wide.
+_ENTRY_DEVICE_PEAKS: Dict[Tuple[str, str], int] = {}
+
 
 def _gib(value: int) -> str:
     return f"{value / _GIB:.2f}GiB"
@@ -84,6 +97,10 @@ class MintBudget:
     need_bytes: int = 0
     resident_bytes: int = 0
     activation_bytes: int = 0
+    #: pgw#877 #3: ``reserved - allocated``, the part of ``free_bytes`` that is
+    #: free to THIS process only. Reported so the cross-process over-count can
+    #: be measured on a real pod instead of reasoned about.
+    cache_slack_bytes: int = 0
     #: pgw#848: the CEILING the child is actually given, which is NOT
     #: ``need_bytes``. See :func:`co_residency` — the estimate answers "should
     #: this start", the ceiling answers "how far may it go", and using one
@@ -101,7 +118,8 @@ class MintBudget:
             f"resident={_gib(self.resident_bytes)} "
             f"activation={_gib(self.activation_bytes)}"
             f"({'measured' if self.measured else 'estimated'}) "
-            f"cap={_gib(self.cap_bytes)}"
+            f"cap={_gib(self.cap_bytes)} "
+            f"cache_slack={_gib(self.cache_slack_bytes)}"
         )
 
 
@@ -130,37 +148,87 @@ def device_of(pipeline: Any) -> Optional[int]:
     return None
 
 
-def probe(device: Optional[int] = None) -> MintBudget:
-    """Can a self-mint capture run here without taking the tenant down?"""
+@dataclass(frozen=True)
+class _DeviceRead:
+    """One CUDA reading, and the two derived quantities both budgets need.
+
+    pgw#877: :func:`probe` and :func:`co_residency` each carried their own
+    verbatim copy of this — same five ``torch.cuda`` calls, same ``free_bytes``
+    sum, same ``activation`` floor. Two copies of one definition is how the two
+    answers drift apart on a card neither of them can re-read.
+
+    ``free_bytes`` counts THIS process's cached-but-unallocated allocator
+    blocks as headroom. That is exact for :func:`probe`, whose capture runs in
+    this process and this allocator. It is NOT exact for
+    :func:`co_residency`, whose consumer is a different OS process: the
+    caching allocator does not hand cached blocks back to the driver without
+    ``empty_cache()``, so those bytes are free to nobody but us. See that
+    function's note.
+    """
+
+    free_bytes: int
+    allocated: int
+    measured_activation: int
+    activation: int
+    #: pgw#877 #3: THE OVER-COUNT, named and carried rather than argued about.
+    #: ``reserved - allocated`` — this process's cached-but-unallocated
+    #: allocator blocks, which `free_bytes` counts as headroom. Exact for
+    #: :func:`probe`; for :func:`co_residency` it is bytes a DIFFERENT process
+    #: cannot have, so it inflates both `fits` and `cap_bytes` by this much,
+    #: out of the tenant's reserve. Off-pod it cannot be measured (this box has
+    #: no usable CUDA), so the instrument ships and the next real mint reports
+    #: it: compare `cache_slack` in the decline line against `nvidia-smi`'s
+    #: free. Nothing branches on it — measure first, then decide.
+    cache_slack: int
+
+
+def _read_device(device: Optional[int]) -> Optional[_DeviceRead]:
+    """The reading, or ``None`` when there is no CUDA to read."""
     try:
         import torch
 
         if not torch.cuda.is_available():
-            return _UNPROBEABLE
+            return None
         dev = torch.cuda.current_device() if device is None else int(device)
         free, _total = torch.cuda.mem_get_info(dev)
         allocated = int(torch.cuda.memory_allocated(dev))
         reserved = int(torch.cuda.memory_reserved(dev))
         peak = int(torch.cuda.max_memory_allocated(dev))
     except Exception:
-        return _UNPROBEABLE
-    # The allocator's cached-but-unallocated pool is reclaimable headroom
-    # (ie#468's planner reads free VRAM the same way).
-    free_bytes = int(free) + max(0, reserved - allocated)
+        return None
     measured_activation = max(0, peak - allocated)
-    activation = max(
-        measured_activation,
-        int(allocated * _UNMEASURED_ACTIVATION_FRACTION),
+    return _DeviceRead(
+        free_bytes=int(free) + max(0, reserved - allocated),
+        allocated=allocated,
+        cache_slack=max(0, reserved - allocated),
+        measured_activation=measured_activation,
+        activation=max(
+            measured_activation,
+            int(allocated * _UNMEASURED_ACTIVATION_FRACTION),
+        ),
     )
-    need = 2 * activation + _COMPILE_WORKSPACE_BYTES
+
+
+def probe(device: Optional[int] = None) -> MintBudget:
+    """Can a self-mint capture run here without taking the tenant down?
+
+    The IN-PROCESS capture's gate (pgw#737), still reached whenever
+    delegation declines — ``executor._background_mint_run`` falls through to
+    it when no pending is delegated.
+    """
+    read = _read_device(device)
+    if read is None:
+        return _UNPROBEABLE
+    need = 2 * read.activation + _COMPILE_WORKSPACE_BYTES
     return MintBudget(
-        fits=free_bytes >= need,
+        fits=read.free_bytes >= need,
         probed=True,
-        measured=measured_activation > 0,
-        free_bytes=free_bytes,
+        measured=read.measured_activation > 0,
+        free_bytes=read.free_bytes,
         need_bytes=need,
-        resident_bytes=allocated,
-        activation_bytes=activation,
+        resident_bytes=read.allocated,
+        activation_bytes=read.activation,
+        cache_slack_bytes=read.cache_slack,
         cap_bytes=need,
     )
 
@@ -209,12 +277,57 @@ def entry_peak_rss(family: str, weight_lane: str) -> int:
     return _ENTRY_RSS_PEAKS.get((str(family or ""), str(weight_lane or "")), 0)
 
 
+def record_entry_device_peak(
+    family: str, weight_lane: str, peak_bytes: int,
+) -> None:
+    """Bank ONE ENTRY child's measured DEVICE high-water (pgw#877 #1/#2).
+
+    The third bank, and the last one that was missing. pgw#868 A4 taught the
+    entry child to measure this (``EntryReport.peak_device_bytes`` /
+    ``..._reserved_bytes``) and deliberately left it telemetry-only; nothing
+    ever read it, so the per-entry device ask stayed
+    ``co_residency().need_bytes`` — the MINT CHILD's whole footprint, ~56 % of
+    which was never observed — reported as ``per_entry_device_basis:
+    'measured'``.
+
+    Written by the SERVING PARENT only, exactly like its two siblings, and
+    read back onto ``MintRequest.entry_device_peak_bytes``. That wire hop is
+    the fix for the defect this bank would otherwise reproduce: a
+    module-global read inside the mint child is a read of an empty dict.
+
+    Monotone, for the reason both siblings are: a mint that peaked higher once
+    can peak that high again.
+    """
+    if peak_bytes <= 0:
+        return
+    key = (str(family or ""), str(weight_lane or ""))
+    _ENTRY_DEVICE_PEAKS[key] = max(
+        _ENTRY_DEVICE_PEAKS.get(key, 0), int(peak_bytes))
+
+
+def entry_device_peak(family: str, weight_lane: str) -> int:
+    """0 = no entry child has ever been watched on this pod for this lane."""
+    return _ENTRY_DEVICE_PEAKS.get(
+        (str(family or ""), str(weight_lane or "")), 0)
+
+
+def entry_device_ask(peak_bytes: int) -> int:
+    """One entry child's device ask from ITS OWN measured peak (0 = none).
+
+    The peak is the caching allocator's high-water. A CUDA context, the
+    cuBLAS/cuDNN handles and the driver's own per-process overhead live
+    OUTSIDE the allocator and are invisible to it, so the context floor is
+    added rather than assumed to be inside the measurement.
+    """
+    return int(peak_bytes) + _CUDA_CONTEXT_FLOOR_BYTES if peak_bytes > 0 else 0
+
+
 def co_residency(
     device: Optional[int] = None,
     *,
     family: str = "",
     weight_lane: str = "",
-    forge: Optional[bool] = None,
+    goals: Optional[WorkerGoals] = None,
 ) -> MintBudget:
     """pgw#784: can a MINT CHILD live on this card next to the eager server?
 
@@ -286,6 +399,23 @@ def co_residency(
     OOM rather than the tenant's — which is the failure the wan-2.2 incident
     was. What changes is that a roomy card now licenses a roomy child.
 
+    KNOWN OVERSTATEMENT, unfixed (pgw#877)
+    --------------------------------------
+    ``free_bytes`` is ``mem_get_info().free + (reserved - allocated)`` — the
+    driver's free plus THIS process's cached-but-unallocated allocator blocks.
+    That sum is exact for :func:`probe`, whose capture runs in this allocator.
+    It is not exact here: the consumer is a different OS process, and PyTorch's
+    caching allocator does not return cached blocks to the driver without an
+    ``empty_cache()`` nobody calls on this path. So both ``fits`` and
+    ``cap_bytes`` are overstated by exactly ``reserved - allocated``, and the
+    overstatement comes out of the tenant's reserve. ``aot_compile_pool
+    ._probe_free_device_bytes`` reads the card the same way for the same
+    cross-process consumer, and its own docstring already says the quiet part
+    ("a cached block the tenant is not using is free to nobody but this
+    process"). Observable: log ``reserved - allocated`` beside ``free_bytes``
+    and diff ``free_bytes`` against ``nvidia-smi``'s free — the gap is the
+    over-count.
+
     On :data:`_UNMEASURED_ACTIVATION_FRACTION`: it is still a guess, and it is
     deliberately NOT replaced with a different off-pod constant — substituting
     one unmeasured number for another is a move this program has already paid
@@ -293,47 +423,59 @@ def co_residency(
     never the child, and the child's measured peak is banked
     (``record_child_peak``) so the second ask on a pod is a fact.
     """
-    if forge is None:
-        from . import worker_mode
-
-        forge = worker_mode.is_forge()
-    try:
-        import torch
-
-        if not torch.cuda.is_available():
-            return _UNPROBEABLE
-        dev = torch.cuda.current_device() if device is None else int(device)
-        free, _total = torch.cuda.mem_get_info(dev)
-        allocated = int(torch.cuda.memory_allocated(dev))
-        reserved = int(torch.cuda.memory_reserved(dev))
-        peak = int(torch.cuda.max_memory_allocated(dev))
-    except Exception:
+    if goals is None:
+        goals = worker_goals.current()
+    read = _read_device(device)
+    if read is None:
         return _UNPROBEABLE
-    free_bytes = int(free) + max(0, reserved - allocated)
-    measured_activation = max(0, peak - allocated)
-    activation = max(
-        measured_activation,
-        int(allocated * _UNMEASURED_ACTIVATION_FRACTION),
-    )
-    if forge:
-        # th#1359 / pgw#848: on a FORGE pod there is no tenant, so there is
+    free_bytes = read.free_bytes
+    allocated = read.allocated
+    measured_activation = read.measured_activation
+    activation = read.activation
+    if not goals.tenant_reserve_applies():
+        # pgw#930 (§1.17): with no SERVE goal there is no tenant, so there is
         # nothing to reserve for one. Every term in this module exists to
         # protect a co-resident serving process; with none, the whole premise
         # collapses and the mint gets the card.
         #
+        # This used to ask `is_forge()`, which was a proxy for the question and
+        # the wrong one the moment serve and mint compose: a pod holding BOTH
+        # goals is not a forge pod, and it needs its reserve. The reserve now
+        # follows the serve goal directly, so the dual-goal case gets a real
+        # one and the mint-only case gets zero for the true reason.
+        #
         # Explicit rather than emergent. Once the serving instance is released
         # `allocated` tends to 0 and the arithmetic mostly falls out on its
         # own — but "mostly" is how the 11.09 GiB ceiling survived fifteen
-        # attempts. A forge pod that probes a millisecond before the release
-        # completes must not inherit a tenant reserve computed off a model
-        # that is on its way out.
+        # attempts. A mint-only pod that probes a millisecond before the
+        # release completes must not inherit a tenant reserve computed off a
+        # model that is on its way out.
         activation = 0
+    # pgw#877 #4 — A MEASUREMENT REPLACES THE GUESSES IT MEASURED.
+    #
+    # This was `max(banked + ctx, allocated + activation + workspace + ctx)`,
+    # so a child that really peaked BELOW the estimate re-asked for the
+    # estimate forever: an estimate acting as a floor a measurement isn't
+    # allowed to correct. That is this subsystem's whole disease in one line.
+    #
+    # The monotone ratchet belongs at the WRITE (`record_child_peak` keeps the
+    # high-water across attempts, so a lucky run cannot talk the ask down) and
+    # NOT at the read, where it can only ever pin the answer to the guess.
+    #
+    # The floor that makes narrowing safe is `allocated + ctx`, and it is
+    # chosen rather than assumed: `allocated` is a MEASUREMENT of the resident
+    # set the child provably re-holds, while `_UNMEASURED_ACTIVATION_FRACTION`
+    # and `_COMPILE_WORKSPACE_BYTES` are the two guesses. Only the guesses may
+    # be corrected away. It matters because `record_child_peak` banks on EVERY
+    # outcome including failures (pgw#848, deliberately) — a child that OOMed
+    # during `load` banks a tiny peak, and a narrowing that trusted it blindly
+    # would admit the next mint onto a card that cannot hold one weight copy.
     banked = child_peak(family, weight_lane)
-    need = max(
-        banked + _CUDA_CONTEXT_FLOOR_BYTES if banked else 0,
-        allocated + activation + _COMPILE_WORKSPACE_BYTES
-        + _CUDA_CONTEXT_FLOOR_BYTES,
-    )
+    if banked:
+        need = max(banked, allocated) + _CUDA_CONTEXT_FLOOR_BYTES
+    else:
+        need = (allocated + activation + _COMPILE_WORKSPACE_BYTES
+                + _CUDA_CONTEXT_FLOOR_BYTES)
     # pgw#848: the CEILING, which is a property of the CARD and not of the
     # estimate. Everything the tenant will need for its next forward is
     # `activation` — its weights are already allocated and therefore already
@@ -350,6 +492,7 @@ def co_residency(
         need_bytes=need,
         resident_bytes=allocated,
         activation_bytes=activation,
+        cache_slack_bytes=read.cache_slack,
         cap_bytes=cap,
     )
 
@@ -359,8 +502,11 @@ __all__ = [
     "child_peak",
     "co_residency",
     "device_of",
+    "entry_device_ask",
+    "entry_device_peak",
     "entry_peak_rss",
     "probe",
     "record_child_peak",
+    "record_entry_device_peak",
     "record_entry_peak_rss",
 ]

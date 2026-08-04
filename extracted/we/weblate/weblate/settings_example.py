@@ -111,6 +111,7 @@ LANGUAGES = (
     ("kab", "Taqbaylit"),
     ("kk", "Қазақ тілі"),
     ("ko", "한국어"),
+    ("lo", "ລາວ"),
     ("nb", "Norsk bokmål"),
     ("nl", "Nederlands"),
     ("pl", "Polski"),
@@ -171,8 +172,18 @@ STATICFILES_DIRS = (
 STATICFILES_FINDERS = (
     "django.contrib.staticfiles.finders.FileSystemFinder",
     "django.contrib.staticfiles.finders.AppDirectoriesFinder",
-    "compressor.finders.CompressorFinder",
 )
+
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {
+        "BACKEND": (
+            "django.contrib.staticfiles.storage.StaticFilesStorage"
+            if DEBUG
+            else "weblate.utils.static.WeblateManifestStaticFilesStorage"
+        )
+    },
+}
 
 # Make this unique, and don't share it with anybody.
 # You can generate it using weblate-generate-secret-key
@@ -200,6 +211,9 @@ TEMPLATES = [
 # GitHub username and token for sending pull requests.
 # Please see the documentation for more details.
 GITHUB_CREDENTIALS = {}
+
+# Webhook secret for a legacy GitHub App delivering to /hooks/github/.
+GITHUB_LEGACY_APP_WEBHOOK_SECRET = ""
 
 # Azure DevOps username and token for sending pull requests.
 # Please see the documentation for more details.
@@ -458,7 +472,6 @@ INSTALLED_APPS = [
     "social_django",
     "crispy_forms",
     "crispy_bootstrap5",
-    "compressor",
     "rest_framework",
     "rest_framework.authtoken",
     "django_filters",
@@ -908,17 +921,13 @@ SPECTACULAR_SETTINGS = get_spectacular_settings(
     INSTALLED_APPS,
     SITE_URL,
     SITE_TITLE,
+    static_url=STATIC_URL,
     legal_hidden_documents=globals().get("LEGAL_HIDDEN_DOCUMENTS", ()),
     legal_url=globals().get("LEGAL_URL"),
 )
 
 # Fonts CDN URL
 FONTS_CDN_URL = None
-
-# Django compressor offline mode
-COMPRESS_OFFLINE = False
-COMPRESS_OFFLINE_CONTEXT = "weblate.utils.compress.offline_context"
-COMPRESS_CSS_HASHING_METHOD = "content"
 
 # Note: When REQUIRE_LOGIN is enabled, Django's LoginRequiredMiddleware is used.
 # Public views are marked with @login_not_required decorator in the code.
@@ -951,6 +960,7 @@ CELERY_BROKER_CONNECTION_RETRY = True
 
 # Celery settings, it is not recommended to change these
 CELERY_WORKER_MAX_MEMORY_PER_CHILD = 450000 if DEBUG else 250000
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_TASK_ROUTES = {
     "weblate.trans.tasks.auto_translate*": {"queue": "translate"},

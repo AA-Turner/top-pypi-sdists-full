@@ -3,14 +3,15 @@ command line interface (cli) code.
 """
 # pylint: disable=line-too-long
 import argparse
-
-from pydeps.configs import Config
-from .arguments import Arguments
 import logging
 import os
-import sys
 import subprocess
+import sys
 import textwrap
+
+from pydeps.configs import Config
+
+from .arguments import Arguments
 from . import __version__
 
 
@@ -188,6 +189,9 @@ def parse_args(argv=()):
     _args.show = not _args.no_show
     if _args.no_dot:
         _args.show_dot = False
+    if _args.dot_out:
+        _args.no_dot = False
+        _args.show_dot = True
     if _args.max_bacon == 0:
         _args.max_bacon = sys.maxsize
     if (

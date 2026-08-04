@@ -17,7 +17,6 @@ from ..errors.internal_server_error import InternalServerError
 from ..errors.not_found_error import NotFoundError
 from ..errors.too_many_requests_error import TooManyRequestsError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
-from ..types.error_message import ErrorMessage
 from ..types.pronunciation_dictionary_data import PronunciationDictionaryData
 from ..types.pronunciation_dictionary_delete_response import PronunciationDictionaryDeleteResponse
 from ..types.pronunciation_dictionary_get_response import PronunciationDictionaryGetResponse
@@ -197,9 +196,9 @@ class RawPronunciationDictionaryClient:
                 raise ContentTooLargeError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorMessage,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorMessage,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -319,9 +318,9 @@ class RawPronunciationDictionaryClient:
                 raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorMessage,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorMessage,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -330,9 +329,9 @@ class RawPronunciationDictionaryClient:
                 raise ContentTooLargeError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorMessage,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorMessage,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -439,9 +438,9 @@ class RawPronunciationDictionaryClient:
                 raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorMessage,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorMessage,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -546,9 +545,9 @@ class RawPronunciationDictionaryClient:
                 raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorMessage,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorMessage,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -761,9 +760,9 @@ class AsyncRawPronunciationDictionaryClient:
                 raise ContentTooLargeError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorMessage,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorMessage,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -883,9 +882,9 @@ class AsyncRawPronunciationDictionaryClient:
                 raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorMessage,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorMessage,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -894,9 +893,9 @@ class AsyncRawPronunciationDictionaryClient:
                 raise ContentTooLargeError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorMessage,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorMessage,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1003,9 +1002,9 @@ class AsyncRawPronunciationDictionaryClient:
                 raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorMessage,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorMessage,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1110,9 +1109,9 @@ class AsyncRawPronunciationDictionaryClient:
                 raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorMessage,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorMessage,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

@@ -292,10 +292,14 @@ Corr_getprop_count (CorrObject *self, void *Py_UNUSED (closure))
 }
 
 static PyGetSetDef Corr_getset[]
-    = { { "n", (getter)Corr_getprop_n, NULL, "N.\n", NULL },
-        { "n_out", (getter)Corr_getprop_n_out, NULL, "N out.\n", NULL },
-        { "dwell", (getter)Corr_getprop_dwell, NULL, "Dwell.\n", NULL },
-        { "count", (getter)Corr_getprop_count, NULL, "Count.\n", NULL },
+    = { { "n", (getter)Corr_getprop_n, NULL,
+          "FFT / reference length (samples).\n", NULL },
+        { "n_out", (getter)Corr_getprop_n_out, NULL,
+          "Output length (== n unless decoupled).\n", NULL },
+        { "dwell", (getter)Corr_getprop_dwell, NULL,
+          "Integration depth; dump every dwell calls.\n", NULL },
+        { "count", (getter)Corr_getprop_count, NULL,
+          "Frames accumulated so far (0 … dwell-1).\n", NULL },
         { NULL } };
 
 static PyObject *
@@ -330,7 +334,10 @@ CorrObj_exit (CorrObject *self, PyObject *args)
 
 static PyMethodDef CorrObj_methods[] = {
   { "reset", (PyCFunction)CorrObj_reset, METH_NOARGS,
-    "Reset state to post-create defaults." },
+    "Zero the accumulator and reset the integration counter to 0. Equivalent "
+    "to starting a fresh dwell cycle without tearing down the FFT plans.  "
+    "Does NOT recompute ref_spec; use corr_set_ref() to replace the "
+    "reference." },
 
   { "execute", (PyCFunction)(void *)CorrObj_execute,
     METH_VARARGS | METH_KEYWORDS,
@@ -347,25 +354,116 @@ static PyMethodDef CorrObj_methods[] = {
     "n_out.  All other calls return 0 and leave out unmodified.  In Python, a "
     "dump returns an ndarray and a no-dump returns None.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import Corr\n"
-    "    >>> obj = Corr(np.zeros(1, dtype=np.complex64), 1, 1, 0)\n"
-    "    >>> y = obj.execute(1.0 + 0.0j)\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex64')\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : complex\n"
+    "    Input.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex64]\n"
+    "    n_out on a dump call (or max_out if smaller), 0 otherwise (None in\n"
+    "    Python).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.spectral import Corr\n"
+    ">>> import numpy as np\n"
+    ">>> ref = np.zeros(4, dtype=np.complex64); ref[0] = 1.0\n"
+    ">>> corr = Corr(ref=ref, dwell=2)\n"
+    ">>> x = np.ones(4, dtype=np.complex64)\n"
+    ">>> corr.execute(x) is None   # frame 1 — no dump yet\n"
+    "True\n"
+    ">>> corr.execute(x).tolist()  # frame 2 — dump\n"
+    "[(2+0j), (2+0j), (2+0j), (2+0j)]\n" },
   { "execute_max_out", (PyCFunction)CorrObj_execute_max_out, METH_NOARGS,
     "execute_max_out() -> int\n\nMax output length execute() can produce for "
     "the current state.\nUse to size the ``out=`` buffer." },
   { "state_bytes", (PyCFunction)CorrObj_state_bytes, METH_NOARGS,
-    "Serialized state size in bytes." },
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the CorrObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
   { "get_state", (PyCFunction)CorrObj_get_state, METH_NOARGS,
-    "Serialize the engine's mutable state to bytes." },
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the CorrObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
   { "set_state", (PyCFunction)CorrObj_set_state, METH_O,
-    "Restore mutable state from a get_state() blob." },
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the CorrObj has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
   { "destroy", (PyCFunction)CorrObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)CorrObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)CorrObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)CorrObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a Corr be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "Corr\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)CorrObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the Corr.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

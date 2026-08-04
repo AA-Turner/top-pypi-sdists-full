@@ -675,6 +675,69 @@ class MonteCarloConfigServiceTest(TestCase):
         self.assertEqual(responses[0].errors, {})
         self.assertEqual(len(responses[0].resource_modifications), 2)
 
+    def test_apply_dry_run_renders_estimated_credits(self):
+        namespace = "foo"
+        update_uuid = "eeeeeeee-58fd-44d0-8b2d-eeeeeeeeeeee"
+        update_response = MonolithResponse(
+            data={
+                "response": {
+                    "updateUuid": update_uuid,
+                    "errorsAsJson": "{}",
+                    "warningsAsJson": "{}",
+                }
+            }
+        )
+        poll_response = MonolithResponse(
+            data={
+                "state": "APPLIED",
+                "resourceModifications": [
+                    {
+                        "type": "ResourceModificationType.CREATE",
+                        "description": "Monitor: type=stats, table=analytics:prod.a",
+                        "estimatedCredits": {
+                            "creditsPerDay": 12.5,
+                            "scale": 3.0,
+                            "segmentCountSource": "MONITOR_HINT",
+                            "warnings": ["approximate"],
+                        },
+                    },
+                    {
+                        "type": "ResourceModificationType.UPDATE",
+                        "description": "Monitor: type=categories, table=analytics:prod.b",
+                        "estimatedCredits": {
+                            "creditsPerDay": 4.0,
+                            "scale": 1.0,
+                            "segmentCountSource": "UNRESOLVED",
+                            "warnings": ["Segment count could not be resolved"],
+                        },
+                    },
+                ],
+                "changesApplied": True,
+                "errorsAsJson": "{}",
+                "warningsAsJson": "{}",
+            }
+        )
+        self._request_wrapper_mock.make_request_v2.side_effect = [
+            update_response,
+            poll_response,
+        ]
+
+        responses = self.service.apply(namespace, dry_run=True)
+
+        # The nested estimate deserializes onto the modification.
+        first_estimate = responses[0].resource_modifications[0].estimated_credits
+        self.assertIsNotNone(first_estimate)
+        self.assertEqual(first_estimate.credits_per_day, 12.5)
+        self.assertEqual(first_estimate.segment_count_source, "MONITOR_HINT")
+        self.assertEqual(first_estimate.warnings, ["approximate"])
+
+        printed = "\n".join(str(c.args[0]) for c in self._print_func.call_args_list if c.args)
+        # Per-resource estimate line + warning note.
+        self.assertIn("Estimated credits/day: ~12.50", printed)
+        self.assertIn("note: approximate", printed)
+        # Per-namespace total is a lower bound because one estimate is UNRESOLVED.
+        self.assertIn("Estimated total credits/day for this namespace: at least ~16.50", printed)
+
     def test_apply_with_errors(self):
         namespace = "foo"
         update_uuid = "eeeeeeee-58fd-44d0-8b2d-eeeeeeeeeeee"

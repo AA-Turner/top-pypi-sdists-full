@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 import agate
 import dbt_common.exceptions
@@ -29,6 +29,9 @@ from dbt.adapters.sqlserver.relation_configs.index import (
 from dbt.adapters.sqlserver.sqlserver_column import SQLServerColumn, SQLServerColumnNative
 from dbt.adapters.sqlserver.sqlserver_configs import SQLServerConfigs
 from dbt.adapters.sqlserver.sqlserver_connections import SQLServerConnectionManager
+from dbt.adapters.sqlserver.sqlserver_mask import ColumnMask
+from dbt.adapters.sqlserver.sqlserver_mask import mask_changes as _mask_changes
+from dbt.adapters.sqlserver.sqlserver_mask import resolve_masks as _resolve_masks
 from dbt.adapters.sqlserver.sqlserver_relation import SQLServerRelation
 
 logger = AdapterLogger("SQLServer")
@@ -74,14 +77,6 @@ class SQLServerAdapter(SQLAdapter):
     @property
     def _behavior_flags(self) -> List[BehaviorFlag]:
         return [
-            {
-                "name": "empty",
-                "default": False,
-                "description": (
-                    "When enabled, table and view materializations will be created as empty "
-                    "structures (no data)."
-                ),
-            },
             {
                 "name": "dbt_sqlserver_use_default_schema_concat",
                 "default": False,
@@ -425,6 +420,57 @@ class SQLServerAdapter(SQLAdapter):
         return SQLServerIndexConfig.parse(raw_index)
 
     @available
+    def index_needs_own_batch(self, raw_index: Any) -> bool:
+        """True when raw_index's build_options (ONLINE / RESUMABLE) force its
+        CREATE INDEX to run outside any transaction: SQL Server rejects
+        RESUMABLE inside a user transaction (error 574), and an ONLINE build
+        wrapped in one holds its locks until commit, negating the point."""
+        parsed = self.parse_index(raw_index)
+        if not parsed:
+            return False
+        return create_needs_own_batch(parsed.build_options)
+
+    @available
+    def commit_if_open(self) -> None:
+        """Commit the current transaction if one is open - a no-op otherwise.
+
+        dbt_sqlserver_use_dbt_transactions on (default) wraps a
+        materialization's whole build, from its first statement through its
+        own trailing ``adapter.commit()``, in one continuous ambient
+        transaction. Some statements must not share that transaction with
+        whatever runs after them: an ONLINE/RESUMABLE index build (SQL Server
+        rejects RESUMABLE inside a user transaction outright, and ONLINE
+        holds its locks until commit either way), or a full-refresh-in-
+        progress marker, which exists specifically to survive a later
+        failure and so must not roll back with it. This makes the prior
+        statement durable on its own; pair with begin_if_closed once the
+        statement(s) that must run outside a transaction are done, to leave
+        later code (more such statements, or the materialization's own
+        trailing ``adapter.commit()``, which raises if it finds nothing open)
+        working as if this call had never happened.
+
+        A no-op when no transaction is open: the caller's statement already
+        ran autocommitted on its own (e.g. via ``run_query``'s
+        ``auto_begin=false``, before anything else began one), so there is
+        nothing to flush. Also a no-op, at the SQL level, whenever
+        dbt_sqlserver_use_dbt_transactions is off: begin/commit still flip
+        dbt-core's bookkeeping (see
+        SQLServerConnectionManager.add_begin_query/add_commit_query), but
+        emit no real T-SQL, matching the driver's own autocommit.
+        """
+        connection = self.connections.get_thread_connection()
+        if connection is not None and connection.transaction_open:
+            self.connections.commit()
+
+    @available
+    def begin_if_closed(self) -> None:
+        """Begin a transaction if none is open - a no-op otherwise. See
+        commit_if_open, which this pairs with."""
+        connection = self.connections.get_thread_connection()
+        if connection is not None and not connection.transaction_open:
+            self.connections.begin()
+
+    @available
     def validate_indexes(
         self, raw_indexes: Any, as_columnstore: Any = False, drop_unmanaged: Any = False
     ) -> None:
@@ -501,6 +547,64 @@ class SQLServerAdapter(SQLAdapter):
             "creates_no_txn": creates_no_txn,
             "warnings": warnings,
         }
+
+    @available
+    def resolve_masks(self, model: Any, model_masks: Optional[dict] = None) -> Dict[str, str]:
+        """Merge the column-level `masked_with` and model-level `masks` surfaces
+        into one `{column: function}` map for `apply_masks`.
+
+        `model` is the Jinja `model` dict (`node.to_dict()`), whose `columns`
+        carry any `masked_with` as a flattened key (an explicit `masked_with:
+        null` survives serialization as a present `None`, signalling opt-out).
+        `model_masks` is `config.get('masks')` — already surface-merged by dbt.
+        Precedence and conflict warnings are handled here; key existence is
+        validated later in the macro against the real relation.
+        """
+        model = model or {}
+        columns = model.get("columns") or {}
+        column_masks = []
+        for name, col in columns.items():
+            col = col or {}
+            column_masks.append(
+                ColumnMask(
+                    name=col.get("name", name),
+                    masked_with_present=("masked_with" in col),
+                    masked_with=col.get("masked_with"),
+                )
+            )
+        model_name = model.get("name") or model.get("alias") or "<unknown>"
+        mask_map, warnings = _resolve_masks(column_masks, model_masks, model_name)
+        for warning in warnings:
+            logger.warning(warning)
+        return mask_map
+
+    @available
+    def mask_changes(
+        self,
+        existing_masks: Any,
+        mask_config: Optional[dict],
+        index_key_columns: Any = None,
+        existing_columns: Any = None,
+    ) -> dict:
+        """Diff a resolved mask map against current `sys.masked_columns` state.
+
+        `existing_masks` is the agate table from `get_show_mask_sql` (columns
+        `name`, `masking_function`). Returns plain lists for jinja: `adds` /
+        `changes` (each `[column, function]`), `drops` (column names), `skipped`
+        (warnings for columns absent from the relation) and `errors` (an ADD onto
+        a current index-key column, which SQL Server rejects). The macro emits
+        DDL for adds/changes/drops, logs `skipped`, and raises on `errors`."""
+        rows = []
+        if existing_masks is not None:
+            column_names = existing_masks.column_names
+            for row in existing_masks.rows:
+                rows.append(dict(zip(column_names, row)))
+        return _mask_changes(
+            rows,
+            mask_config or {},
+            set(index_key_columns or []),
+            existing_columns=(list(existing_columns) if existing_columns is not None else None),
+        )
 
 
 COLUMNS_EQUAL_SQL = """

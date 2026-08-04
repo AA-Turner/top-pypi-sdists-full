@@ -45,6 +45,7 @@ from datamodel_code_generator.enums import (
     DataModelType,
     FieldTypeCollisionStrategy,
     GraphQLScope,
+    HTTPBackend,
     InputFileType,
     InputModelRefStrategy,
     JsonSchemaVersion,
@@ -156,23 +157,33 @@ _IGNORED_TEXT_PREFIX_CHARS: frozenset[str] = frozenset({"\ufeff", " ", "\t", "\r
 _PARSER_SOURCE_DATA_CACHE_MAX_SIZE = 128
 _ParserSourceDataCacheKey: TypeAlias = tuple[Path, str, str, str]
 _ParserSourceDataSeenKey: TypeAlias = tuple[Path, str]
-_parser_source_data_cache: OrderedDict[_ParserSourceDataCacheKey, YamlValue] = OrderedDict()
+# Serialized snapshots isolate mutable callers and are faster to restore than reparsing source text.
+_parser_source_data_cache: OrderedDict[_ParserSourceDataCacheKey, bytes] = OrderedDict()
 _parser_source_data_seen_keys: OrderedDict[_ParserSourceDataSeenKey, None] = OrderedDict()
 _parser_source_data_cache_lock = RLock()
+_parsed_source_cache_enable_count = 0
 _enable_parsed_source_cache = False
 
 
 def enable_parsed_source_cache() -> Callable[[], None]:
     """Enable the process-local parsed source cache and return a restore callback."""
-    global _enable_parsed_source_cache  # noqa: PLW0603
+    global _enable_parsed_source_cache, _parsed_source_cache_enable_count  # noqa: PLW0603
 
-    previous = _enable_parsed_source_cache
-    _enable_parsed_source_cache = True
+    with _parser_source_data_cache_lock:
+        _parsed_source_cache_enable_count += 1
+        _enable_parsed_source_cache = True
+    restored = False
 
     def restore() -> None:
-        global _enable_parsed_source_cache  # noqa: PLW0603
+        nonlocal restored
+        global _enable_parsed_source_cache, _parsed_source_cache_enable_count  # noqa: PLW0603
 
-        _enable_parsed_source_cache = previous
+        with _parser_source_data_cache_lock:
+            if restored:
+                return
+            restored = True
+            _parsed_source_cache_enable_count -= 1
+            _enable_parsed_source_cache = _parsed_source_cache_enable_count > 0
 
     return restore
 
@@ -330,15 +341,26 @@ def _load_parser_source_data_from_path_bytes(resolved_path: Path, data: bytes, e
 
 def _load_cached_parser_source_data(cache_key: _ParserSourceDataCacheKey) -> YamlValue | None:
     with _parser_source_data_cache_lock:
-        if cache_key in _parser_source_data_cache:
-            _parser_source_data_cache.move_to_end(cache_key)
-            return _parser_source_data_cache[cache_key]
-    return None
+        if (cached_data := _parser_source_data_cache.get(cache_key)) is None:
+            return None
+        _parser_source_data_cache.move_to_end(cache_key)
+
+    import marshal  # noqa: PLC0415
+
+    # Entries are process-local values emitted by marshal.dumps below, never external bytes.
+    return marshal.loads(cached_data)  # noqa: S302
 
 
 def _store_parser_source_data(cache_key: _ParserSourceDataCacheKey, parsed_data: YamlValue) -> YamlValue:
+    import marshal  # noqa: PLC0415
+
+    try:
+        cached_data = marshal.dumps(parsed_data)
+    except Exception:  # noqa: BLE001
+        # Values outside the primitive YamlValue shape remain valid uncached input.
+        return parsed_data
     with _parser_source_data_cache_lock:
-        _parser_source_data_cache[cache_key] = parsed_data
+        _parser_source_data_cache[cache_key] = cached_data
         _parser_source_data_cache.move_to_end(cache_key)
         while len(_parser_source_data_cache) > _PARSER_SOURCE_DATA_CACHE_MAX_SIZE:
             _parser_source_data_cache.popitem(last=False)
@@ -728,6 +750,9 @@ class SchemaFetchError(Error):
     """Raised when fetching a remote schema fails (HTTP error, unexpected content type)."""
 
 
+_COMMENT_ONLY_HEADER_FAST_PATH_LIMIT = 4096
+
+
 def get_first_file(path: Path) -> Path:  # pragma: no cover
     """Find and return the first file in a path (file or directory)."""
     if path.is_file():
@@ -740,39 +765,124 @@ def get_first_file(path: Path) -> Path:  # pragma: no cover
     raise FileNotFoundError(msg)
 
 
-def _find_future_import_insertion_point(header: str) -> int:
-    """Find position in header where __future__ import should be inserted."""
-    import ast  # noqa: PLC0415
+def _find_future_import_insertion_point(header: str) -> int:  # noqa: PLR0911, PLR0912, PLR0915
+    """Find the future-import position without crossing into target-version syntax.
 
-    try:
-        tree = ast.parse(header)
-    except SyntaxError:
-        return 0
+    ``generate_tokens`` uses the running Python tokenizer; it is not a parser for
+    the requested target Python version. Scan only the leading header boundary
+    and never consume later statements, which may use newer target-only syntax.
 
-    lines = header.splitlines(keepends=True)
+    The bounded fast path recognizes only physical blank and comment lines. It
+    must stay target-syntax agnostic; all statement-shaped input belongs to the
+    conservative tokenizer path below.
+    """
+    header_size = len(header)
+    if header_size <= _COMMENT_ONLY_HEADER_FAST_PATH_LIMIT:
+        first_content = 0
+        while first_content < header_size and header[first_content] in " \t\f\r\n":
+            first_content += 1
+        if first_content == header_size:
+            return header_size
+        # Keep the speculative scan bounded: a comment-prefixed code header
+        # must not pay an unbounded second pass before runtime tokenization.
+        # Do not use splitlines(): its extra Unicode boundaries are not the
+        # physical CR/LF boundaries normalized by the tokenizer adapter.
+        if header[first_content] == "#" and all(
+            not (content := line.lstrip(" \t\f")) or content.startswith("#")
+            for line in header.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+        ):
+            return header_size
+
+    import io  # noqa: PLC0415
+    import tokenize  # noqa: PLC0415
+
+    line_end_positions = [0]
 
     def line_end_pos(line_num: int) -> int:
-        return sum(len(lines[i]) for i in range(line_num))
+        return line_end_positions[line_num]
 
-    if not tree.body:
-        return len(header)
+    def is_docstring_token(token: tokenize.TokenInfo) -> bool:
+        quote_index = min((index for quote in "\"'" if (index := token.string.find(quote)) >= 0), default=0)
+        return token.string[:quote_index].lower() in {"", "r", "u"}
 
-    first_stmt = tree.body[0]
-    is_docstring = isinstance(first_stmt, ast.Expr) and (
-        (isinstance(first_stmt.value, ast.Constant) and isinstance(first_stmt.value.value, str))
-        or isinstance(first_stmt.value, ast.JoinedStr)
-    )
-    if is_docstring:
-        end_line = first_stmt.end_lineno or len(lines)
-        pos = line_end_pos(end_line)
-        while end_line < len(lines) and not lines[end_line].strip():
-            pos += len(lines[end_line])
-            end_line += 1
-        return pos
+    statement_start_line: int | None = None
+    statement_end_line = 0
+    parenthesis_depth = 0
+    has_docstring = False
+    trailing_semicolon_end: tuple[int, int] | None = None
+    with io.StringIO(header, newline="") as source:
 
-    pos = 0
-    for i in range(first_stmt.lineno - 1):
-        pos += len(lines[i])
+        def readline() -> str:
+            line = source.readline()
+            if not line:
+                return ""
+            line_end_positions.append(line_end_positions[-1] + len(line))
+            if line.endswith("\r\n"):
+                return f"{line[:-2]}\n"
+            if line.endswith("\r"):
+                return f"{line[:-1]}\n"
+            return line
+
+        try:
+            for token in tokenize.generate_tokens(readline):  # pragma: no branch
+                match token.type:
+                    case tokenize.COMMENT | tokenize.NL:
+                        continue
+                    case _ if trailing_semicolon_end and token.type not in {tokenize.NEWLINE, tokenize.ENDMARKER}:
+                        semicolon_line, semicolon_column = trailing_semicolon_end
+                        if token.start[0] == semicolon_line:
+                            return line_end_pos(semicolon_line - 1) + semicolon_column
+                        return 0
+                    case tokenize.STRING:
+                        statement_start_line = statement_start_line or token.start[0]
+                        if not is_docstring_token(token):
+                            return line_end_pos(statement_start_line - 1)
+                        has_docstring = True
+                        statement_end_line = token.end[0]
+                    case tokenize.OP if token.string == "(":
+                        statement_start_line = statement_start_line or token.start[0]
+                        if has_docstring:
+                            return line_end_pos(statement_start_line - 1)
+                        parenthesis_depth += 1
+                    case tokenize.OP if token.string == ")" and parenthesis_depth:
+                        parenthesis_depth -= 1
+                        statement_end_line = token.end[0]
+                    case tokenize.OP if token.string == ";" and has_docstring and not parenthesis_depth:
+                        trailing_semicolon_end = token.end
+                        statement_end_line = token.end[0]
+                    case tokenize.NEWLINE | tokenize.ENDMARKER:
+                        if statement_start_line is None:
+                            if token.type == tokenize.ENDMARKER:
+                                return len(header)
+                            continue  # pragma: no cover  # Blank physical lines tokenize as NL.
+                        if has_docstring and not parenthesis_depth:
+                            statement_end_line = max(statement_end_line, token.start[0])
+                            # This is the header boundary. Do not request another token:
+                            # later statements may use syntax only the target runtime accepts.
+                            break
+                        return line_end_pos(statement_start_line - 1)
+                    case _:
+                        statement_start_line = statement_start_line or token.start[0]
+                        return line_end_pos(statement_start_line - 1)
+        except (SyntaxError, tokenize.TokenError):
+            return 0
+
+    pos = line_end_pos(statement_end_line)
+    while pos < len(header):
+        cr_index = header.find("\r", pos)
+        lf_index = header.find("\n", pos)
+        if cr_index < 0:
+            line_break = lf_index
+        elif lf_index < 0:
+            line_break = cr_index
+        else:
+            line_break = min(cr_index, lf_index)
+        content_end = len(header) if line_break < 0 else line_break
+        if header[pos:content_end].strip():
+            break
+        if line_break < 0:
+            return len(header)
+        pos = line_break + (2 if header.startswith("\r\n", line_break) else 1)
     return pos
 
 
@@ -821,8 +931,6 @@ def _extract_leading_future_imports(body: str, future_imports: str) -> tuple[str
         and (line_end := body.find("\n", future_start)) >= 0
     ):
         if (leading_line := body[future_start:line_end].lstrip()) and not leading_line.startswith("#"):
-            if not leading_line.lstrip("rubfRUBF").startswith(("'", '"')):
-                break
             future_start = _find_future_import_insertion_point(body)
             break
         future_start = line_end + 1
@@ -866,9 +974,11 @@ def _build_module_content(
     header_before = header[:insertion_point].rstrip()
     header_after = header[insertion_point:].strip()
     if header_after:
-        content = header_before + "\n" + extracted_future + "\n\n" + header_after
+        prefix = f"{header_before}\n" if header_before else ""
+        content = prefix + extracted_future + "\n\n" + header_after
     else:
-        content = header_before + "\n\n" + extracted_future
+        prefix = f"{header_before}\n\n" if header_before else ""
+        content = prefix + extracted_future
 
     return f"{content}\n\n{body_without_future.rstrip()}"
 
@@ -1492,6 +1602,11 @@ def generate(
     JSON Schema, GraphQL, XML Schema, Protocol Buffers, Avro, and raw data formats
     (JSON, YAML, Dict, CSV) as input.
 
+    HTTP(S) URL inputs and references select their backend lazily on first use. The default ``HTTPBackend.AUTO``
+    policy selects stable `httpx` when its client module is installed and selects experimental `httpx2` only when
+    that module is absent. Explicit choices and paired dependency errors do not fall back. File URL reference
+    joining uses a dependency-free local fast path.
+
     Args:
         input_: The input source (Path file input, string content, URL, dict,
             list of file paths, or MCP tools list when input_file_type is
@@ -1611,6 +1726,7 @@ def _generate(  # noqa: PLR0912, PLR0914, PLR0915
                     config.http_query_parameters,
                     timeout,
                     allow_private_network=config.allow_private_network,
+                    http_backend=config.http_backend,
                 ),
             )
         case _:
@@ -2008,6 +2124,7 @@ __all__ = [
     "FieldTypeCollisionStrategy",
     "GeneratedModules",
     "GraphQLScope",
+    "HTTPBackend",
     "InputFileType",
     "InputModelRefStrategy",
     "InvalidClassNameError",

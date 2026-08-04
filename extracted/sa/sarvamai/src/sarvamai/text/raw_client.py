@@ -111,7 +111,7 @@ class RawTextClient:
             Specifies the tone or style of the translation.
 
             **Model Support:**
-            - **mayura:v1**: Supports formal, classic-colloquial, and modern-colloquial modes
+            - **mayura:v1**: Supports formal, classic-colloquial, modern-colloquial, and code-mixed modes
             - **sarvam-translate:v1**: Only formal mode is supported
 
             **Default:** formal
@@ -615,7 +615,7 @@ class AsyncRawTextClient:
             Specifies the tone or style of the translation.
 
             **Model Support:**
-            - **mayura:v1**: Supports formal, classic-colloquial, and modern-colloquial modes
+            - **mayura:v1**: Supports formal, classic-colloquial, modern-colloquial, and code-mixed modes
             - **sarvam-translate:v1**: Only formal mode is supported
 
             **Default:** formal

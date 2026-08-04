@@ -52,8 +52,8 @@ class ProtoHandler(
   approach is to use `ocp.Context` with `CheckpointablesOptions`. This allows
   you to bind the handler to a specific dictionary key within the Context scope.
 
-  See :py:class:`~orbax.checkpoint.options.CheckpointablesOptions` for more
-  details on handler registration.
+  See :py:class:`.CheckpointablesOptions` for more details on handler
+  registration.
 
   Example Usage:
     Save a protobuf message configuration::
@@ -93,10 +93,10 @@ class ProtoHandler(
       primary_host: int | None = None
   ):
     if multihost.is_primary_host(primary_host):
-      directory = await directory.await_creation()
+      directory = await directory.await_creation()  # pyrefly: ignore[bad-assignment]
       path = directory / self._filename
       str_msg = text_format.MessageToString(checkpointable)
-      await async_path.write_text(path, str_msg)
+      await async_path.write_text(path, str_msg)  # pyrefly: ignore[bad-argument-type]
 
   async def save(
       self,

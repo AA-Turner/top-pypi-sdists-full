@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from weblate.addons.events import POST_CONFIGURE_EVENTS, AddonEvent
 from weblate.addons.models import ADDONS, Addon
 from weblate.machinery.models import MACHINERY
-from weblate.trans.actions import get_change_action_identifier
+from weblate.trans.actions import ActionEvents, get_change_action_identifier
 from weblate.trans.models import Component, Project
 from weblate.utils.management.base import DocGeneratorCommand
 from weblate.utils.rst import format_rst_string, format_table
@@ -120,20 +120,22 @@ class Command(DocGeneratorCommand):
             addon_lines.extend([*obj.get_versions_rst_lines(), ""])
             addon_lines.append(f":Add-on ID: ``{obj.name}``")
             prefix = ":Configuration: "
-            if obj.settings_form:
+            settings_form = obj.settings_form
+            if settings_form is not None:
                 addon = obj(fake_addon)  # type: ignore[operator]
                 addon.documentation_build = True
                 form = addon.get_settings_form(None)
+                if form is None:
+                    msg = f"Add-on {obj.name} unexpectedly returned no settings form"
+                    raise TypeError(msg)
                 table: list[list[CellType]] = [
                     [
                         f"``{name}``",
                         str(
-                            self.get_documented_field(
-                                obj.settings_form, name, field
-                            ).label
+                            self.get_documented_field(settings_form, name, field).label
                         ),
                         self.get_help_text(
-                            self.get_documented_field(obj.settings_form, name, field),
+                            self.get_documented_field(settings_form, name, field),
                             field,
                             name,
                         ),
@@ -257,10 +259,12 @@ class Command(DocGeneratorCommand):
             "   * - ID",
             "     - Identifier",
             "     - Name",
+            "     - Description",
         ]
         for value, description in choices:
             if not value and not description:
                 continue
+            event = next(event for event in ActionEvents if event.value == int(value))
             result.extend(
                 (
                     f"   * - ``{value}``".replace("\\", "\\\\"),
@@ -268,6 +272,9 @@ class Command(DocGeneratorCommand):
                         "\\", "\\\\"
                     ),
                     f"     - {format_rst_string(description)}".replace("\\", "\\\\"),
+                    f"     - {format_rst_string(event.description)}".replace(
+                        "\\", "\\\\"
+                    ),
                 )
             )
         return result

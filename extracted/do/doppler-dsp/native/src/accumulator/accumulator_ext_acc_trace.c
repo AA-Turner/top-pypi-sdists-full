@@ -322,13 +322,15 @@ AccTrace_getprop_mode (AccTraceObject *self, void *Py_UNUSED (closure))
   return PyLong_FromLong ((long)(int)self->handle->mode);
 }
 
-static PyGetSetDef AccTrace_getset[]
-    = { { "n", (getter)AccTrace_getprop_n, NULL, "N.\n", NULL },
-        { "alpha", (getter)AccTrace_getprop_alpha,
-          (setter)AccTrace_setprop_alpha, "Alpha.\n", NULL },
-        { "count", (getter)AccTrace_getprop_count, NULL, "Count.\n", NULL },
-        { "mode", (getter)AccTrace_getprop_mode, NULL, "Mode.\n", NULL },
-        { NULL } };
+static PyGetSetDef AccTrace_getset[] = {
+  { "n", (getter)AccTrace_getprop_n, NULL, "Trace length (bins).\n", NULL },
+  { "alpha", (getter)AccTrace_getprop_alpha, (setter)AccTrace_setprop_alpha,
+    "EMA smoothing factor (exp mode).\n", NULL },
+  { "count", (getter)AccTrace_getprop_count, NULL,
+    "Frames folded in so far.\n", NULL },
+  { "mode", (getter)AccTrace_getprop_mode, NULL, "Reduction mode.\n", NULL },
+  { NULL }
+};
 
 static PyObject *
 AccTraceObj_destroy (AccTraceObject *self, PyObject *Py_UNUSED (ignored))
@@ -368,18 +370,34 @@ static PyMethodDef AccTraceObj_methods[] = {
     "\n"
     "Fold one length-n frame into the running trace.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import AccTrace\n"
-    "    >>> obj = AccTrace(1024, \"mean\", 0.1)\n"
-    "    >>> obj.accumulate(np.zeros(4, dtype=np.float32))\n" },
+    "Parameters\n"
+    "----------\n"
+    "p : NDArray[np.float32]\n"
+    "    Input frame (float32).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.accumulator import AccTrace\n"
+    ">>> acc = AccTrace(n=4, mode=\"mean\")\n"
+    ">>> acc.accumulate(np.array([1, 3, 5, 7], dtype=np.float32))\n"
+    ">>> acc.accumulate(np.array([3, 5, 7, 9], dtype=np.float32))\n"
+    ">>> acc.value().tolist()\n"
+    "[2.0, 4.0, 6.0, 8.0]\n" },
   { "reset", (PyCFunction)AccTraceObj_reset, METH_NOARGS,
     "reset() -> None\n"
     "\n"
     "Discard the running trace; the next accumulate re-seeds it.\n"
     "\n"
-    "    >>> from doppler import AccTrace\n"
-    "    >>> obj = AccTrace(1024, \"mean\", 0.1)\n"
-    "    >>> obj.reset()\n" },
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.accumulator import AccTrace\n"
+    ">>> acc = AccTrace(n=4, mode=\"mean\")\n"
+    ">>> acc.accumulate(np.ones(4, dtype=np.float32))\n"
+    ">>> acc.reset()\n"
+    ">>> acc.count\n"
+    "0\n" },
   { "value", (PyCFunction)(void *)AccTraceObj_value,
     METH_VARARGS | METH_KEYWORDS,
     "value(n=1) -> ndarray\n"
@@ -396,15 +414,90 @@ static PyMethodDef AccTraceObj_methods[] = {
     "value_max_out() -> int\n\nMax output length value() can produce for the "
     "current state.\nUse to size the ``out=`` buffer." },
   { "state_bytes", (PyCFunction)AccTraceObj_state_bytes, METH_NOARGS,
-    "Serialized state size in bytes." },
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the AccTraceObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
   { "get_state", (PyCFunction)AccTraceObj_get_state, METH_NOARGS,
-    "Serialize the engine's mutable state to bytes." },
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the AccTraceObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
   { "set_state", (PyCFunction)AccTraceObj_set_state, METH_O,
-    "Restore mutable state from a get_state() blob." },
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the AccTraceObj has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
   { "destroy", (PyCFunction)AccTraceObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)AccTraceObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)AccTraceObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)AccTraceObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a AccTrace be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "AccTrace\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)AccTraceObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the AccTrace.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

@@ -533,6 +533,53 @@ def _run_silent_mode(target: str, cfg: "BingoConfig", extra_args: list, s: dict)
     sys.exit(1 if _fe.findings else 0)
 
 
+def _run_web_ide(cfg: BingoConfig, args: list[str]) -> None:
+    """`bingo` default entry: launch the local web IDE and open a browser.
+
+    The engine (AgentLoop), skills, tools, and reporting are unchanged — the
+    web layer only replaces the presentation surface. The session token in the
+    URL is the auth gate; the server binds loopback (0.0.0.0 only on WSL2).
+    """
+    import time
+    import webbrowser
+    from pathlib import Path
+
+    from .web.session import WebSession
+    from .web.security import SESSION_TOKEN
+    from .web.server import start_web_server, _is_wsl2
+
+    root = Path.cwd()
+    session = WebSession(root, cfg)
+
+    os.system("cls" if os.name == "nt" else "clear")
+    console.print(BANNER_SMALL)
+    console.print()
+
+    try:
+        port = start_web_server(session)
+    except Exception as exc:
+        console.print(f"[#ff5c57]Web IDE failed to start: {exc}[/]")
+        return
+
+    host = "localhost" if _is_wsl2() else "127.0.0.1"
+    url = f"http://{host}:{port}/?token={SESSION_TOKEN}"
+    console.print(f"  [#00ff41]⚡ Bingo IDE:[/] [#00e5ff]{url}[/]")
+    console.print(f"  [#546e7a]workspace: {root}[/]")
+    console.print("  [#546e7a](Ctrl-C to stop)[/]\n")
+
+    if "--no-open" not in args and not _is_wsl2():
+        try:
+            webbrowser.open(url)
+        except Exception:
+            pass
+
+    try:
+        while True:
+            time.sleep(3600)
+    except KeyboardInterrupt:
+        console.print("\n[dim]Bye.[/]")
+
+
 def main() -> None:
     """bingo 명령어 진입점"""
     args = sys.argv[1:]
@@ -563,13 +610,6 @@ def main() -> None:
         ]
         _run_silent_mode(_silent_target, _cfg_for_lang, _silent_extra, sl)
         return  # _run_silent_mode 내부에서 sys.exit()
-
-    # ── bingo tui (기본 실행) ────────────────────────────────────
-    # bingo 만 입력하면 TUI 모드로 실행
-    if not args or (args and args[0] == "tui"):
-        from .tui.app import run_tui
-        run_tui()
-        return
 
     # ── bingo scan <url> ─────────────────────────────────────────
     if args and args[0] == "scan":
@@ -689,227 +729,9 @@ def main() -> None:
             cfg = BingoConfig()
         cfg = _onboarding(cfg)
 
-    # ── v7 엔진 실행 ─────────────────────────────────────────────
-    s = get_strings(cfg.lang)
-    from .engine.loop import AgentLoop
-    from .web.event_bus import EventBus as _EventBus
-    from .web.server import start_web_server as _start_web, _is_wsl2 as _wsl2
-    from pathlib import Path as _Path
-    from datetime import datetime as _dt
-    import re as _re
-
-    # 화면 초기화 후 배너 출력
-    os.system("cls" if os.name == "nt" else "clear")
-    _print_banner_v7(cfg, s)
-
-    # ── Web UI 시작 ───────────────────────────────────────────────
-    _no_web = "--no-web" in args
-    _event_bus: "_EventBus | None" = None
-    if not _no_web:
-        try:
-            _event_bus = _EventBus()
-            _web_port = _start_web(_event_bus)
-            console.print(f"  [#00ff41]⚡ Web UI:[/] [#00e5ff]http://127.0.0.1:{_web_port}[/]  [#546e7a](--no-web to disable)[/]")
-            if _wsl2():
-                console.print(f"  [#546e7a]WSL2: Windows 브라우저에서 [/][#00e5ff]http://localhost:{_web_port}[/][#546e7a] 접속[/]")
-            console.print()
-        except Exception as _web_err:
-            console.print(f"  [#546e7a]Web UI unavailable: {_web_err}[/]")
-
-    _current_target = ""
-    _session_log_lines: list[str] = []
-
-    # prompt_toolkit 세션 (화살표 키 히스토리 + 슬래시 자동완성)
-    from prompt_toolkit import PromptSession
-    from prompt_toolkit.history import InMemoryHistory
-    from prompt_toolkit.completion import WordCompleter
-    _slash_commands = [
-        "/target", "/model", "/status", "/clear", "/session", "/help", "/exit",
-        "/files", "/edit", "/cat", "/ls",
-    ]
-    _slash_completer = WordCompleter(_slash_commands, sentence=True)
-    _pt_history = InMemoryHistory()
-    _pt_session = PromptSession(history=_pt_history, completer=_slash_completer)
-
-    while True:
-        try:
-            _prompt_label = f"┌─[bingo]─[{_current_target}]─▶ " if _current_target else "┌─[bingo]─▶ "
-            user_input = _pt_session.prompt(_prompt_label)
-        except (KeyboardInterrupt, EOFError):
-            console.print("\n[dim]Bye.[/]")
-            break
-        if not user_input.strip():
-            continue
-
-        _cmd = user_input.strip().lower()
-
-        # ── 슬래시 명령어 ──────────────────────────────────────
-        if _cmd in ("/exit", "/quit", "exit", "quit"):
-            break
-        if _cmd == "/help":
-            console.print("""[#00d4aa]Commands:[/]
-  /target <url>  — 타겟 설정/변경
-  /model         — 모델 설정
-  /status        — 현재 상태 표시
-  /clear         — 화면 초기화
-  /session       — 세션 로그 경로 표시
-  /files         — 파일 브라우저 열기
-  /edit <path>   — 파일 편집
-  /cat <path>    — 파일 내용 보기
-  /ls [path]     — 디렉토리 목록
-  /exit          — 종료
-
-[#546e7a]Flags (startup):[/]
-  --no-web       — Web UI 비활성화""")
-            continue
-        if _cmd == "/clear":
-            os.system("cls" if os.name == "nt" else "clear")
-            _print_banner_v7(cfg, s)
-            continue
-        if _cmd == "/status":
-            console.print(f"  [#00d4aa]target[/] : {_current_target or '(not set)'}")
-            mc = cfg.get_active_model_config()
-            _mn = mc.display_name() if mc else "(none)"
-            console.print(f"  [#00d4aa]model[/]  : {_mn}")
-            console.print(f"  [#00d4aa]lang[/]   : {cfg.lang}")
-            continue
-        if _cmd == "/session":
-            if _session_log_lines:
-                _sess_dir = _Path.home() / ".bingo" / "sessions"
-                _sess_dir.mkdir(parents=True, exist_ok=True)
-                _sess_path = _sess_dir / f"session_{_dt.now().strftime('%Y%m%d_%H%M%S')}.md"
-                _sess_path.write_text("\n".join(_session_log_lines), encoding="utf-8")
-                console.print(f"  [dim]Session saved: {_sess_path}[/]")
-            else:
-                console.print("  [dim]No session data yet.[/]")
-            continue
-        if _cmd.startswith("/target"):
-            _parts = user_input.strip().split(None, 1)
-            if len(_parts) > 1:
-                _current_target = _parts[1].strip()
-                console.print(f"  [#00e5ff]Target set: {_current_target}[/]")
-            else:
-                console.print("  [yellow]Usage: /target https://example.com[/]")
-            continue
-        if _cmd == "/model":
-            from .ui.terminal import BingoTerminal
-            _t = BingoTerminal.__new__(BingoTerminal)
-            _t.config = cfg
-            _t.console = console
-            _t.s = s
-            _t._cmd_model()
-            cfg = BingoConfig.load()
-            continue
-
-        # ── /files: 파일 브라우저 ──────────────────────────────
-        if _cmd == "/files":
-            from .core.workspace import WorkspaceManager
-            wm = WorkspaceManager()
-            tree = wm.get_file_tree()
-
-            def _print_tree(nodes, indent=0):
-                for node in nodes:
-                    icon = "📁" if node["type"] == "directory" else "📄"
-                    console.print(f"{'  ' * indent}{icon} [cyan]{node['name']}[/]")
-                    if node.get("children"):
-                        _print_tree(node["children"], indent + 1)
-
-            console.print("\n[#00d4aa]📁 Files:[/]")
-            _print_tree(tree)
-            console.print()
-            continue
-
-        # ── /ls: 디렉토리 목록 ────────────────────────────────
-        if _cmd.startswith("/ls"):
-            _parts = user_input.strip().split(None, 1)
-            _dir = _Path(_parts[1] if len(_parts) > 1 else ".")
-            try:
-                if _dir.is_dir():
-                    console.print(f"\n[#00d4aa]📁 {_dir}:[/]")
-                    for item in sorted(_dir.iterdir()):
-                        if item.name.startswith('.'):
-                            continue
-                        icon = "📁" if item.is_dir() else "📄"
-                        console.print(f"  {icon} [cyan]{item.name}[/]")
-                    console.print()
-                else:
-                    console.print(f"[yellow]Not a directory: {_dir}[/]")
-            except Exception as e:
-                console.print(f"[red]Error: {e}[/]")
-            continue
-
-        # ── /cat: 파일 내용 보기 ───────────────────────────────
-        if _cmd.startswith("/cat"):
-            _parts = user_input.strip().split(None, 1)
-            if len(_parts) < 2:
-                console.print("[yellow]Usage: /cat <path>[/]")
-                continue
-
-            _file = _Path(_parts[1])
-            try:
-                if _file.is_file():
-                    from rich.syntax import Syntax
-                    content = _file.read_text(encoding='utf-8')
-                    syntax = Syntax(content, _file.suffix[1:] if _file.suffix else "text",
-                                  theme="monokai", line_numbers=True)
-                    console.print(syntax)
-                else:
-                    console.print(f"[yellow]File not found: {_file}[/]")
-            except Exception as e:
-                console.print(f"[red]Error: {e}[/]")
-            continue
-
-        # ── /edit: 파일 편집 ──────────────────────────────────
-        if _cmd.startswith("/edit"):
-            _parts = user_input.strip().split(None, 1)
-            if len(_parts) < 2:
-                console.print("[yellow]Usage: /edit <path>[/]")
-                continue
-
-            _file = _Path(_parts[1])
-            try:
-                # 기본 에디터로 열기
-                import subprocess
-                editor = os.environ.get('EDITOR', 'nano')
-                subprocess.run([editor, str(_file)])
-                console.print(f"[#00ff41]✓[/] Edited: {_file}")
-            except Exception as e:
-                console.print(f"[red]Error: {e}[/]")
-            continue
-
-        # ── 타겟 추출 ─────────────────────────────────────────
-        _url_m = _re.search(r'https?://[^\s]+', user_input)
-        if _url_m:
-            _current_target = _url_m.group(0).rstrip(".,;")
-        if not _current_target:
-            console.print("[yellow]타겟을 설정하세요. 예: /target https://example.com 또는 URL 포함 메시지 입력[/]")
-            continue
-
-        # ── 에이전트 루프 실행 ─────────────────────────────────
-        _session_log_lines.append(f"## [{_dt.now().strftime('%H:%M:%S')}] User: {user_input}")
-        try:
-            loop = AgentLoop(target=_current_target, config=cfg, console=console, event_bus=_event_bus)
-            loop.run(user_input)
-            _session_log_lines.append(f"  Findings: {len(loop.findings._findings)}")
-        except KeyboardInterrupt:
-            console.print("\n[yellow]중단됨[/]")
-        except Exception as e:
-            import traceback
-            from rich.text import Text
-            console.print(Text(f"Error: {e}", style="red"))
-            console.print(Text(traceback.format_exc()[-500:], style="dim"))
-            _session_log_lines.append(f"  Error: {e}")
-
-    # ── 세션 자동 저장 ────────────────────────────────────────
-    if _session_log_lines:
-        _sess_dir = _Path.home() / ".bingo" / "sessions"
-        _sess_dir.mkdir(parents=True, exist_ok=True)
-        _sess_path = _sess_dir / f"session_{_dt.now().strftime('%Y%m%d_%H%M%S')}.md"
-        _sess_path.write_text(
-            f"# Bingo Session — {_current_target or 'no target'}\n\n" + "\n".join(_session_log_lines),
-            encoding="utf-8",
-        )
-        console.print(f"\n[dim]📝 Session auto-saved: {_sess_path}[/]")
+    # ── 기본 진입: 로컬 웹 IDE (files · Monaco editor · chat) ──────
+    # `bingo` → 브라우저 웹 IDE. 헤드리스(scan/waf/--silent/--update)는 그대로.
+    _run_web_ide(cfg, args)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esphome-device-builder-frontend
-Version: 0.1.296
+Version: 0.1.297
 Summary: Prebuilt web frontend for the ESPHome Device Builder Dashboard
 Author-email: The ESPHome Authors <esphome@openhomefoundation.org>
 License: Apache-2.0

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: port-ocean
-Version: 0.47.2
+Version: 0.47.4
 Summary: Port Ocean is a CLI tool for managing your Port projects.
 Home-page: https://app.getport.io
 Keywords: ocean,port-ocean,port
@@ -41,6 +41,7 @@ Requires-Dist: jsonref (>=1.1.0,<2.0.0) ; extra == "cli"
 Requires-Dist: loguru (>=0.7.0,<0.8.0)
 Requires-Dist: prometheus-client (>=0.21.1,<0.22.0)
 Requires-Dist: psutil (>=7.2.1,<8.0.0)
+Requires-Dist: pydantic-settings (>=2.13.0,<3.0.0)
 Requires-Dist: pydantic[dotenv] (>=2.13.4,<3.0.0)
 Requires-Dist: pydispatcher (>=2.0.7,<3.0.0)
 Requires-Dist: pyhumps (>=3.8.0,<4.0.0)

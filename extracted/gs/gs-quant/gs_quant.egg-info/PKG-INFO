@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gs_quant
-Version: 2.1.1
+Version: 2.1.2
 Summary: Goldman Sachs Quant
 Author-email: Goldman Sachs <developer@gs.com>
 License: Apache-2.0
@@ -47,7 +47,7 @@ Requires-Dist: matplotlib; extra == "notebook"
 Requires-Dist: seaborn; extra == "notebook"
 Requires-Dist: treelib; extra == "notebook"
 Provides-Extra: internal
-Requires-Dist: gs-quant-internal; extra == "internal"
+Requires-Dist: gs-quant-internal>=2.0.20; extra == "internal"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"

@@ -32,7 +32,12 @@ from orbax.checkpoint.experimental.tiering_service import gcp_storage_client
 from orbax.checkpoint.experimental.tiering_service import storage_backend
 from orbax.checkpoint.experimental.tiering_service.proto import tiering_service_pb2
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy.orm import joinedload
 from sqlalchemy.orm import sessionmaker
+
+
+_EXTRA_KEYS = frozenset({"bytes_copied", "total_bytes", "error"})
 
 
 class TieringServiceWorker:
@@ -42,7 +47,6 @@ class TieringServiceWorker:
       self,
       session_maker: sessionmaker | None,
       config: tiering_service_pb2.ServerConfig,
-      gcp_client: gcp_storage_client.GCPStorageClient | None = None,
       *,
       lease_duration_seconds: int = 60,
       poll_interval_seconds: int = 10,
@@ -52,13 +56,11 @@ class TieringServiceWorker:
     Args:
       session_maker: A callable that returns a database session.
       config: The server configuration.
-      gcp_client: Client to interact with GCP Parallelstore.
       lease_duration_seconds: Duration of the lease acquired for jobs.
       poll_interval_seconds: Polling interval for checking job status.
     """
     self._session_maker = session_maker
     self._config = config
-    self._gcp_client = gcp_client
     self._lease_duration = datetime.timedelta(seconds=lease_duration_seconds)
     self._poll_interval = poll_interval_seconds
     self._hostname = socket.gethostname()
@@ -67,91 +69,8 @@ class TieringServiceWorker:
     self._shutdown_event = asyncio.Event()
     self._backends = None
     self._backends_to_try = []
-
-  def _get_client_for_backends(
-      self,
-      source_backend: db_schema.StorageBackend,
-      target_backend: db_schema.StorageBackend,
-  ) -> gcp_storage_client.GCPStorageClient:
-    """Returns the appropriate GCP client for the given transfer backends."""
-    if self._gcp_client is not None:
-      return self._gcp_client
-
-    project = self._config.gcp_project or None
-    service_account = self._config.service_account or None
-
-    # Determine if Lustre import/export or GCS-to-GCS copy.
-    # If source is GCS and target is Lustre -> Import
-    # If source is Lustre and target is GCS -> Export
-    # If both source  and target are GCS -> GCS-to-GCS copy
-    #
-    # TODO(dnlng): Support Lustre-to-Lustre copy.
-
-    if (
-        source_backend.backend_type == db_schema.BackendType.BACKEND_TYPE_GCS
-        and target_backend.backend_type
-        == db_schema.BackendType.BACKEND_TYPE_GCS
-    ):
-      return gcp_storage_client.GcsToGcsClient(
-          project=project, service_account=service_account
-      )
-
-    if (
-        source_backend.backend_type == db_schema.BackendType.BACKEND_TYPE_LUSTRE
-        and target_backend.backend_type
-        == db_schema.BackendType.BACKEND_TYPE_GCS
-    ):
-      location = source_backend.zone
-      instance = f"lustre-{location}"
-      return gcp_storage_client.LustreToGcsClient(
-          instance=instance,
-          location=location,
-          project=project,
-          service_account=service_account,
-      )
-
-    if (
-        source_backend.backend_type == db_schema.BackendType.BACKEND_TYPE_GCS
-        and target_backend.backend_type
-        == db_schema.BackendType.BACKEND_TYPE_LUSTRE
-    ):
-      location = target_backend.zone
-      instance = f"lustre-{location}"
-      return gcp_storage_client.GcsToLustreClient(
-          instance=instance,
-          location=location,
-          project=project,
-          service_account=service_account,
-      )
-
-    raise ValueError(
-        f"Unsupported backend pair: {source_backend.backend_type} and"
-        f" {target_backend.backend_type}"
-    )
-
-  def _get_client_for_job(
-      self, job: db_schema.AssetJob
-  ) -> gcp_storage_client.GCPStorageClient:
-    """Returns the client for the given job."""
-    if self._gcp_client is not None:
-      return self._gcp_client
-
-    target_tp = job.target_tier_path
-    asset = job.asset
-    source_tp = None
-    for tp in asset.tier_paths:
-      if tp.id != target_tp.id:
-        source_tp = tp
-        break
-
-    if not source_tp or not target_tp:
-      raise ValueError(
-          f"Could not resolve source and target backends for job {job.id}"
-      )
-
-    return self._get_client_for_backends(
-        source_tp.storage_backend, target_tp.storage_backend
-    )
+    self._delete_queue = asyncio.Queue()
+    self._delete_worker_task = None
 
   async def start(self):
     """Starts the background worker loops."""
@@ -161,7 +80,7 @@ class TieringServiceWorker:
     self._shutdown_event.clear()
 
     # fetch and cache all storage backends if not already cached.
-    async with self._session_maker() as session:
+    async with self._session_maker() as session:  # pyrefly: ignore[not-callable]
       self._backends = await storage_backend.find_backends_by_level(
           session, level=None
       )
@@ -172,12 +91,18 @@ class TieringServiceWorker:
     self._backends_to_try.append(None)
     random.shuffle(self._backends_to_try)
 
+    # Start background worker loops.
     self._tasks.append(asyncio.create_task(self._run_acquisition_loop()))
+    self._tasks.append(asyncio.create_task(self._run_polling_loop()))
+    self._delete_worker_task = asyncio.create_task(self._run_delete_worker())
+    self._tasks.append(self._delete_worker_task)
 
   async def stop(self):
     """Stops the background worker loops gracefully."""
     logging.info("Stopping TieringServiceWorker...")
     self._shutdown_event.set()
+    if self._delete_worker_task:
+      self._delete_worker_task.cancel()
     if self._tasks:
       # Wait for tasks to finish
       await asyncio.gather(*self._tasks, return_exceptions=True)
@@ -190,7 +115,7 @@ class TieringServiceWorker:
       try:
         for backend_id in self._backends_to_try:
           job = await db_lib.acquire_next_job(
-              session_maker=self._session_maker,
+              session_maker=self._session_maker,  # pyrefly: ignore[bad-argument-type]
               backend_id=backend_id,
               lease_duration=self._lease_duration,
               hostname=self._hostname,
@@ -211,18 +136,249 @@ class TieringServiceWorker:
         logging.exception("Error in job acquisition loop.")
       await asyncio.sleep(self._poll_interval)
 
+  async def _run_polling_loop(self):
+    """Periodically polls status of active jobs owned by this worker."""
+    while not self._shutdown_event.is_set():
+      try:
+        await self._poll_active_jobs()
+      except Exception:  # pylint: disable=broad-except
+        logging.exception("Error in job polling loop.")
+      await asyncio.sleep(self._poll_interval)
+
+  async def _poll_active_jobs(self):
+    """Polls status of active jobs owned by this worker."""
+    now = datetime.datetime.now(datetime.timezone.utc)
+    async with self._session_maker() as session:  # pyrefly: ignore[not-callable]
+      active_jobs = await db_lib.get_active_jobs(
+          session, self._hostname, self._pid
+      )
+
+    for job in active_jobs:
+      await self._poll_single_job(job, now)
+
+  async def _extend_delete_job_lease(
+      self, job: db_schema.AssetJob, now: datetime.datetime
+  ):
+    """Extends the lease for an active background delete job."""
+    async with self._session_maker() as session:  # pyrefly: ignore[not-callable]
+      async with session.begin():
+        merged_job = await session.get(
+            db_schema.AssetJob, job.id, with_for_update=True
+        )
+        if merged_job and (
+            merged_job.status == db_schema.JobStatus.JOB_STATUS_PROCESSING
+            and merged_job.worker_host == self._hostname
+            and merged_job.worker_pid == self._pid
+        ):
+          await self._extend_lease(merged_job, now)
+
+  async def _poll_copy_job_status(
+      self, job: db_schema.AssetJob, now: datetime.datetime
+  ):
+    """Polls the status of an active copy job and updates it in the DB."""
+    status_dict = job.transfer_status
+    if not status_dict or "request_id" not in status_dict:
+      logging.warning("Job %d in PROCESSING but has no request_id", job.id)
+      return
+
+    req_id = status_dict["request_id"]
+    try:
+      client = gcp_storage_client.get_client_from_status(
+          status_dict,
+          project=self._config.gcp_project or None,
+          service_account=self._config.service_account or None,
+      )
+      try:
+        # The network call to client.poll_operation happens OUTSIDE the DB
+        # transaction. GCS/Lustre clients don't use context.
+        gcp_result = await client.poll_operation(req_id)
+        logging.info(
+            "Job %d GCP status: %s, detail_info: %s",
+            job.id,
+            gcp_result.status,
+            gcp_result.detail_info,
+        )
+      finally:
+        await client.close()
+
+      await self._update_job_status_after_poll(
+          job, gcp_result, status_dict, now
+      )
+
+    except ValueError as e:
+      await self._handle_polling_error(job, e, status_dict, now)
+    except Exception:  # pylint: disable=broad-except
+      logging.exception("Error polling job %d", job.id)
+      # Note: lease is not extended if we hit transient error.
+      async with self._session_maker() as session:  # pyrefly: ignore[not-callable]
+        async with session.begin():
+          merged_job = await session.get(
+              db_schema.AssetJob, job.id, with_for_update=True
+          )
+          if merged_job and (
+              merged_job.status == db_schema.JobStatus.JOB_STATUS_PROCESSING
+              and merged_job.worker_host == self._hostname
+              and merged_job.worker_pid == self._pid
+          ):
+            merged_job.last_updated_at = now
+            session.add(merged_job)
+
+  async def _poll_single_job(
+      self, job: db_schema.AssetJob, now: datetime.datetime
+  ):
+    """Polls a single active copy/delete job and updates its status."""
+    logging.info("Polling job %d", job.id)
+
+    if job.request_type in (
+        db_schema.RequestType.REQUEST_TYPE_DELETE_FROM_INSTANCE,
+        db_schema.RequestType.REQUEST_TYPE_DELETE_FROM_ALL_TIERS,
+    ):
+      await self._extend_delete_job_lease(job, now)
+    else:
+      # a copy job
+      await self._poll_copy_job_status(job, now)
+
+  async def _update_job_status_after_poll(
+      self,
+      job: db_schema.AssetJob,
+      gcp_result: gcp_storage_client.Result,
+      status_dict: dict[str, Any],
+      now: datetime.datetime,
+  ):
+    """Updates the job status in the database after a poll iteration."""
+    # Update transfer_status JSON and heartbeat/lease in a short transaction
+    async with self._session_maker() as session:  # pyrefly: ignore[not-callable]
+      async with session.begin():
+        merged_job = await session.get(
+            db_schema.AssetJob, job.id, with_for_update=True
+        )
+        if not merged_job:
+          logging.warning("Job %d was deleted", job.id)
+          return
+        if (
+            merged_job.status != db_schema.JobStatus.JOB_STATUS_PROCESSING
+            or merged_job.worker_host != self._hostname
+            or merged_job.worker_pid != self._pid
+        ):
+          logging.warning(
+              "Job %d is no longer owned by this worker (%s:%d). "
+              "Skipping status update.",
+              job.id,
+              self._hostname,
+              self._pid,
+          )
+          return
+
+        # Extend lease only after successful poll
+        await self._extend_lease(merged_job, now)
+
+        status_data = {
+            **status_dict,
+            "status": gcp_result.status.value,
+        }
+        for k, v in gcp_result.detail_info.items():
+          if k in _EXTRA_KEYS:
+            if k != "error":
+              status_data[k] = v
+          else:
+            status_data[k] = v
+
+        status_pb = gcp_storage_client.deserialize_transfer_status(status_data)
+
+        new_status = gcp_storage_client.serialize_transfer_status(status_pb)
+        merged_job.transfer_status = new_status
+        merged_job.last_updated_at = now
+
+        if gcp_result.status == gcp_storage_client.OperationStatus.SUCCESS:
+          await self._complete_job(session, merged_job, now)
+        elif gcp_result.status == gcp_storage_client.OperationStatus.FAILED:
+          error_msg = gcp_result.detail_info.get("error", "Unknown GCP error")
+          await self._fail_job(session, merged_job, error_msg, new_status, now)
+        else:
+          session.add(merged_job)
+
+  async def _handle_polling_error(
+      self,
+      job: db_schema.AssetJob,
+      error: ValueError,
+      status_dict: dict[str, Any],
+      now: datetime.datetime,
+  ):
+    """Handles permanent logic errors encountered during job polling."""
+    logging.exception("Permanent logic error polling job %d", job.id)
+    async with self._session_maker() as session:  # pyrefly: ignore[not-callable]
+      async with session.begin():
+        merged_job = await session.get(
+            db_schema.AssetJob, job.id, with_for_update=True
+        )
+        if not merged_job:
+          logging.warning("Job %d was deleted", job.id)
+          return
+        if (
+            merged_job.status != db_schema.JobStatus.JOB_STATUS_PROCESSING
+            or merged_job.worker_host != self._hostname
+            or merged_job.worker_pid != self._pid
+        ):
+          logging.warning(
+              "Job %d is no longer owned by this worker (%s:%d). "
+              "Skipping error update.",
+              job.id,
+              self._hostname,
+              self._pid,
+          )
+          return
+        new_status = {
+            **status_dict,
+            "status": gcp_storage_client.OperationStatus.FAILED.value,
+        }
+        await self._fail_job(session, merged_job, str(error), new_status, now)
+
   async def _process_job(self, job: db_schema.AssetJob):
     """Triggers the GCP transfer for the acquired job."""
+    # Check if this is a reclaimed job that is already triggered.
+    if job.transfer_status and "request_id" in job.transfer_status:
+      logging.info(
+          "Job %d was reclaimed and already has active transfer (%s). "
+          "Skipping trigger.",
+          job.id,
+          job.transfer_status["request_id"],
+      )
+      return
+
     if job.request_type == db_schema.RequestType.REQUEST_TYPE_COPY:
       await self._process_copy_job(job)
+    elif job.request_type in (
+        db_schema.RequestType.REQUEST_TYPE_DELETE_FROM_INSTANCE,
+        db_schema.RequestType.REQUEST_TYPE_DELETE_FROM_ALL_TIERS,
+    ):
+      # Synchronously transition paths to DELETE_IN_PROCESS to block reads
+      # instantly before it waits in the delete queue.
+      await self._transition_to_deleting_in_db(job)
+      await self._delete_queue.put(job)
     else:
-      # TODO: b/503445463 - Support DELETE jobs.
       logging.warning("Unsupported job request type: %s", job.request_type)
-      # Mark as failed for now if not COPY
-      async with self._session_maker() as session:
+      # Mark as failed for now if not COPY or DELETE
+      async with self._session_maker() as session:  # pyrefly: ignore[not-callable]
         async with session.begin():
-          # Re-associate the detached job instance with the new session.
-          merged_job = await session.merge(job)
+          merged_job = await session.get(
+              db_schema.AssetJob, job.id, with_for_update=True
+          )
+          if not merged_job:
+            logging.warning("Job %d was deleted", job.id)
+            return
+          if (
+              merged_job.status != db_schema.JobStatus.JOB_STATUS_PROCESSING
+              or merged_job.worker_host != self._hostname
+              or merged_job.worker_pid != self._pid
+          ):
+            logging.warning(
+                "Job %d is no longer owned by this worker (%s:%d). "
+                "Skipping update.",
+                job.id,
+                self._hostname,
+                self._pid,
+            )
+            return
           await self._fail_job(
               session,
               merged_job,
@@ -230,53 +386,66 @@ class TieringServiceWorker:
               {"status": "FAILED"},
           )
 
-  async def _process_copy_job(self, job: db_schema.AssetJob):
-    """Processes a COPY job (eg. GCS -> Lustre or Lustre -> GCS)."""
-    error_msg = None
-    operation_name = None
+  def _find_source_tier_path(
+      self, asset: db_schema.Asset, target_tp: db_schema.TierPath
+  ) -> db_schema.TierPath | None:
+    """Finds a ready source TierPath that is not the target TierPath."""
+    for tp in asset.tier_paths:
+      if tp.id != target_tp.id and tp.ready_at is not None:
+        return tp
+    return None
 
-    try:
-      # Find the target TierPath
-      target_tp = job.target_tier_path
-      if not target_tp:
-        raise ValueError("Target TierPath not found")
-
-      asset = job.asset
-      # Find the source TierPath (the other tier path that is ready)
-      # For now, we just pick the first available.
-      # TODO: b/503445463 - use heuristics to find closest to the target.
-      source_tp = None
-      for tp in asset.tier_paths:
-        if tp.id != target_tp.id and tp.ready_at is not None:
-          source_tp = tp
-          break
-
-      if not source_tp:
-        raise ValueError("Source TierPath not found or not ready")
-
-      client = self._get_client_for_backends(
-          source_tp.storage_backend, target_tp.storage_backend
-      )
-      try:
-        # The network call occurs OUTSIDE database transactions.
-        operation_name = await client.trigger_copy(
-            job.request_id, source_tp.path, target_tp.path
-        )
-      finally:
-        if client is not self._gcp_client:
-          await client.close()
-
-    except ValueError as e:
-      error_msg = str(e)
-    except Exception as e:  # pylint: disable=broad-except
-      logging.exception("Failed to trigger transfer for job %d", job.id)
-      error_msg = f"Failed to trigger transfer: {e}"
-
-    # Update database inside a single session/transaction block at the end.
-    async with self._session_maker() as session:
+  async def _fail_job_by_id(self, job_id: int, error_msg: str):
+    """Fails a job by ID, verifying hostname/PID ownership first."""
+    async with self._session_maker() as session:  # pyrefly: ignore[not-callable]
       async with session.begin():
-        # Re-associate the detached job instance with the new session.
-        merged_job = await session.merge(job)
+        merged_job = await session.get(
+            db_schema.AssetJob, job_id, with_for_update=True
+        )
+        if (
+            merged_job
+            and merged_job.status == db_schema.JobStatus.JOB_STATUS_PROCESSING
+            and merged_job.worker_host == self._hostname
+            and merged_job.worker_pid == self._pid
+        ):
+          await self._fail_job(
+              session,
+              merged_job,
+              error_msg,
+              {"status": "FAILED"},
+          )
+
+  async def _save_triggered_transfer_status(
+      self,
+      job_id: int,
+      error_msg: str | None,
+      operation_name: str | None,
+      client_type: str,
+      zone: str | None,
+  ):
+    """Saves the details of a successfully triggered transfer to the job."""
+    async with self._session_maker() as session:  # pyrefly: ignore[not-callable]
+      async with session.begin():
+        merged_job = await session.get(
+            db_schema.AssetJob, job_id, with_for_update=True
+        )
+        if not merged_job:
+          logging.warning("Job %d was deleted", job_id)
+          return
+        if (
+            merged_job.status != db_schema.JobStatus.JOB_STATUS_PROCESSING
+            or merged_job.worker_host != self._hostname
+            or merged_job.worker_pid != self._pid
+        ):
+          logging.warning(
+              "Job %d is no longer owned by this worker (%s:%d). "
+              "Skipping post-trigger update.",
+              job_id,
+              self._hostname,
+              self._pid,
+          )
+          return
+
         if error_msg is not None:
           await self._fail_job(
               session,
@@ -285,18 +454,88 @@ class TieringServiceWorker:
               {"status": "FAILED"},
           )
         else:
-          merged_job.transfer_status = {
-              "request_id": operation_name,
-              "status": gcp_storage_client.OperationStatus.IN_PROGRESS.value,
-              "bytes_copied": 0,
-              "total_bytes": 0,
-          }
+          status_pb = tiering_service_pb2.TransferStatus(
+              request_id=operation_name,
+              status=gcp_storage_client.OperationStatus.IN_PROGRESS.value,
+              client_type=client_type,
+          )
+          if zone:
+            status_pb.zone = zone
+          merged_job.transfer_status = (
+              gcp_storage_client.serialize_transfer_status(status_pb)
+          )
           session.add(merged_job)
           logging.info(
-              "Triggered transfer for job %d, operation_name: %s",
+              "Triggered transfer for job %d, op: %s",
               merged_job.id,
               operation_name,
           )
+
+  async def _process_copy_job(self, job: db_schema.AssetJob):
+    """Processes a COPY job (eg. GCS -> Lustre or Lustre -> GCS)."""
+    target_tp = job.target_tier_path
+    if not target_tp:
+      await self._fail_job_by_id(job.id, "Target TierPath not found")
+      return
+
+    source_tp = self._find_source_tier_path(job.asset, target_tp)
+    if not source_tp:
+      await self._fail_job_by_id(
+          job.id, "Source TierPath not found or not ready"
+      )
+      return
+
+    try:
+      determined_client = gcp_storage_client.determine_client(
+          source_tp,
+          target_tp,
+          project=self._config.gcp_project or None,
+          service_account=self._config.service_account or None,
+      )
+    except ValueError as e:
+      await self._fail_job_by_id(job.id, str(e))
+      return
+
+    error_msg = None
+    operation_name = None
+    try:
+      operation_name = await determined_client.trigger_copy(
+          job.request_id, source_tp.path, target_tp.path
+      )
+    except Exception as e:  # pylint: disable=broad-except
+      logging.exception("Failed to trigger transfer for job %d", job.id)
+      error_msg = f"Failed to trigger transfer: {e}"
+    finally:
+      await determined_client.close()
+
+    await self._save_triggered_transfer_status(
+        job_id=job.id,
+        error_msg=error_msg,
+        operation_name=operation_name,
+        client_type=determined_client.__class__.__name__,
+        zone=getattr(determined_client, "zone", None),
+    )
+
+  async def _get_target_tier_path(
+      self,
+      session: AsyncSession,
+      job: db_schema.AssetJob,
+      load_backend: bool = False,
+  ) -> db_schema.TierPath | None:
+    """Retrieves target TierPath by ID, optionally eager-loading the backend."""
+    if job.target_tier_path_id is None:
+      return None
+
+    if load_backend:
+      stmt = (
+          select(db_schema.TierPath)
+          .options(joinedload(db_schema.TierPath.storage_backend))
+          .where(db_schema.TierPath.id == job.target_tier_path_id)
+      )
+      result = await session.execute(stmt)
+      return result.scalars().first()
+    else:
+      return await session.get(db_schema.TierPath, job.target_tier_path_id)
 
   async def _fail_job(
       self,
@@ -320,13 +559,15 @@ class TieringServiceWorker:
       transfer_status = dict(transfer_status)
     transfer_status["error"] = error_msg
     job.transfer_status = transfer_status
-    session.add(job)
+    session.add(job)  # pyrefly: ignore[missing-attribute]
 
     # Clean up target TierPath on failure (set state to FAILED)
-    target_tp = job.target_tier_path
+    target_tp = await self._get_target_tier_path(
+        session, job, load_backend=False
+    )
     if target_tp:
       target_tp.state = db_schema.TierPathState.FAILED
-      session.add(target_tp)
+      session.add(target_tp)  # pyrefly: ignore[missing-attribute]
 
     logging.error("Failed job %d: %s", job.id, error_msg)
 
@@ -342,35 +583,263 @@ class TieringServiceWorker:
     job.worker_host = None
     job.worker_pid = None
     job.expiration_at = None
-    session.add(job)
+    session.add(job)  # pyrefly: ignore[missing-attribute]
 
-    # Mark target TierPath as ready
-    target_tp = job.target_tier_path
-    if target_tp:
-      target_tp.state = db_schema.TierPathState.READY
-      target_tp.ready_at = now
-      # Calculate expiration for TierPath if it is Level 0 (Lustre)
-      # "the checkpoint could be removed from this location after it expires."
-      # GCS (Level 1) paths usually don't expire.
-      if (
-          target_tp.storage_backend.backend_type
-          == db_schema.BackendType.BACKEND_TYPE_LUSTRE
-      ):
-        ttl = datetime.timedelta(seconds=60 * 60)
-        target_tp.expires_at = assets.calculate_expires_at(ttl)
-      session.add(target_tp)
+    if job.request_type == db_schema.RequestType.REQUEST_TYPE_COPY:
+      # Mark target TierPath as ready
+      target_tp = await self._get_target_tier_path(
+          session, job, load_backend=True
+      )
+      if target_tp:
+        target_tp.state = db_schema.TierPathState.READY
+        target_tp.ready_at = now
+        # Calculate expiration for TierPath if it is Level 0 (Lustre)
+        # "the checkpoint could be removed from this location after it expires."
+        # GCS (Level 1) paths usually don't expire.
+        if (
+            target_tp.storage_backend.backend_type
+            == db_schema.BackendType.BACKEND_TYPE_LUSTRE
+        ):
+          ttl = datetime.timedelta(seconds=60 * 60)
+          target_tp.expires_at = assets.calculate_expires_at(ttl)
+        session.add(target_tp)  # pyrefly: ignore[missing-attribute]
+      logging.info(
+          "Completed job %d, target TierPath %s marked ready",
+          job.id,
+          target_tp.path if target_tp else "None",
+      )
 
-    logging.info(
-        "Completed job %d, target TierPath %s marked ready",
-        job.id,
-        target_tp.path if target_tp else "None",
+  async def _extend_lease(
+      self,
+      job: db_schema.AssetJob,
+      now: datetime.datetime,
+  ):
+    """Extends the lease of the job (heartbeat)."""
+    job.expiration_at = now + self._lease_duration
+
+  async def _transition_to_deleting_in_db(self, job: db_schema.AssetJob):
+    """Transitions targeted TierPaths to DELETE_IN_PROCESS state immediately.
+
+    Transition the delete job into DELETE_IN_PROCESS state so that other workers
+    will not attempt to delete again.  In addition, it avoids other readers.
+
+    Args:
+      job: The delete job to transition to DELETE_IN_PROCESS state.
+    """
+    async with self._session_maker() as session:  # pyrefly: ignore[not-callable]
+      async with session.begin():
+        if job.target_tier_path_id:
+          stmt = (
+              select(db_schema.TierPath)
+              .where(db_schema.TierPath.id == job.target_tier_path_id)
+              .with_for_update()
+          )
+          res = await session.execute(stmt)
+          tp = res.scalars().first()
+          if tp:
+            await assets.begin_delete_tier_path(session, tp)
+        else:
+          stmt = (
+              select(db_schema.Asset)
+              .where(db_schema.Asset.asset_uuid == job.asset_uuid)
+              .options(joinedload(db_schema.Asset.tier_paths))
+              .with_for_update()
+          )
+          res = await session.execute(stmt)
+          db_asset = res.scalars().first()
+          if db_asset:
+            await assets.begin_delete_asset(session, db_asset)
+
+  async def _run_delete_worker(self):
+    """Processes enqueued delete jobs sequentially."""
+    while not self._shutdown_event.is_set():
+      try:
+        job = await self._delete_queue.get()
+        try:
+          await self._execute_delete_job(job)
+        finally:
+          self._delete_queue.task_done()
+      except asyncio.CancelledError:
+        break
+      except Exception:  # pylint: disable=broad-except
+        # Log the exception but continue to other delete jobs.
+        logging.exception("Error in background delete worker loop.")
+
+  async def _get_paths_to_delete(
+      self, job: db_schema.AssetJob
+  ) -> list[db_schema.TierPath]:
+    """Fetches tier paths associated with the delete job."""
+    async with self._session_maker() as session:  # pyrefly: ignore[not-callable]
+      if job.target_tier_path_id:
+        stmt = (
+            select(db_schema.TierPath)
+            .where(db_schema.TierPath.id == job.target_tier_path_id)
+            .options(joinedload(db_schema.TierPath.storage_backend))
+        )
+        result = await session.execute(stmt)
+        tp = result.scalars().first()
+        return [tp] if tp else []
+      else:
+        stmt = (
+            select(db_schema.Asset)
+            .where(db_schema.Asset.asset_uuid == job.asset_uuid)
+            .options(
+                joinedload(db_schema.Asset.tier_paths).joinedload(
+                    db_schema.TierPath.storage_backend
+                )
+            )
+        )
+        result = await session.execute(stmt)
+        db_asset = result.scalars().first()
+        return db_asset.tier_paths if db_asset else []
+
+  async def _perform_physical_deletions(
+      self,
+      tier_paths: list[db_schema.TierPath],
+  ) -> None:
+    """Invokes storage clients to delete paths physically."""
+
+    # TODO: b/503445463 - We can improve this by batching multiple delete jobs
+    # altogether.
+    async def _delete_single_path(tp: db_schema.TierPath):
+      client = gcp_storage_client.determine_delete_client(
+          tp,
+          project=self._config.gcp_project or None,
+          service_account=self._config.service_account or None,
+      )
+      try:
+        logging.info(
+            "Deleting path %s using client %s",
+            tp.path,
+            type(client).__name__,
+        )
+        await client.delete_path(tp.path)
+      finally:
+        await client.close()
+
+    tasks = [_delete_single_path(tp) for tp in tier_paths]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    exceptions = [r for r in results if isinstance(r, Exception)]
+    if exceptions:
+      # Propagate the first error encountered to fail the job
+      raise exceptions[0]
+
+  async def _complete_delete_all_tiers(
+      self,
+      session: AsyncSession,
+      asset_uuid: str,
+  ) -> None:
+    """Completes deletion of all tiers for an asset."""
+    stmt_asset = (
+        select(db_schema.Asset)
+        .where(db_schema.Asset.asset_uuid == asset_uuid)
+        .options(joinedload(db_schema.Asset.tier_paths))
+        .with_for_update()
     )
+    res_asset = await session.execute(stmt_asset)
+    db_asset = res_asset.scalars().first()
+    logging.info(
+        "DELETE_FROM_ALL_TIERS: db_asset found: %s",
+        str(db_asset is not None),
+    )
+    if db_asset:
+      logging.info(
+          "DELETE_FROM_ALL_TIERS: db_asset %s state before complete: %s",
+          db_asset.asset_uuid,
+          db_asset.state,
+      )
+      await assets.complete_delete_asset(session, db_asset)
+      logging.info(
+          "DELETE_FROM_ALL_TIERS: db_asset %s state after complete: %s",
+          db_asset.asset_uuid,
+          db_asset.state,
+      )
+
+  async def _complete_delete_instances(
+      self,
+      session: AsyncSession,
+      tier_paths: list[db_schema.TierPath],
+  ) -> None:
+    """Completes deletion of specific tier paths."""
+    for tp in tier_paths:
+      stmt_tp = (
+          select(db_schema.TierPath)
+          .where(db_schema.TierPath.id == tp.id)
+          .with_for_update()
+      )
+      res_tp = await session.execute(stmt_tp)
+      db_tp = res_tp.scalars().first()
+      if db_tp:
+        logging.info(
+            "DELETE_FROM_INSTANCE: db_tp %d state before complete: %s",
+            db_tp.id,
+            db_tp.state,
+        )
+        await assets.complete_delete_tier_path(session, db_tp)
+        logging.info(
+            "DELETE_FROM_INSTANCE: db_tp %d state after complete: %s",
+            db_tp.id,
+            db_tp.state,
+        )
+
+  async def _complete_delete_job_db_transition(
+      self,
+      job: db_schema.AssetJob,
+      tier_paths: list[db_schema.TierPath],
+      now: datetime.datetime,
+  ) -> None:
+    """Updates database states for completed deletion job."""
+    async with self._session_maker() as session:  # pyrefly: ignore[not-callable]
+      async with session.begin():
+        merged_job = await session.get(
+            db_schema.AssetJob, job.id, with_for_update=True
+        )
+        if merged_job and (
+            merged_job.status == db_schema.JobStatus.JOB_STATUS_PROCESSING
+            and merged_job.worker_host == self._hostname
+            and merged_job.worker_pid == self._pid
+        ):
+          if (
+              merged_job.request_type
+              == db_schema.RequestType.REQUEST_TYPE_DELETE_FROM_ALL_TIERS
+          ):
+            await self._complete_delete_all_tiers(session, job.asset_uuid)
+          else:
+            await self._complete_delete_instances(session, tier_paths)
+
+          await self._complete_job(session, merged_job, now)
+
+  async def _execute_delete_job(self, job: db_schema.AssetJob):
+    """Executes path deletion in the background and updates DB status."""
+    logging.info("Starting background delete execution for job %d", job.id)
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    try:
+      # Fetch paths to delete (already in DELETE_IN_PROCESS state)
+      tier_paths = await self._get_paths_to_delete(job)
+      if not tier_paths or any(tp is None for tp in tier_paths):
+        logging.warning("No tier paths found for delete job %d", job.id)
+        await self._fail_job_by_id(job.id, "No paths to delete")
+        return
+
+      # Perform deletions asynchronously
+      await self._perform_physical_deletions(tier_paths)
+
+      # Transition status in database to completed
+      await self._complete_delete_job_db_transition(job, tier_paths, now)
+      logging.info("Successfully completed delete job %d in background", job.id)
+
+    except Exception as e:  # pylint: disable=broad-except
+      logging.exception(
+          "Failed to execute background delete for job %d", job.id
+      )
+      await self._fail_job_by_id(job.id, str(e))
 
 
 async def run_tiering_service_worker_loop(
     session_maker: sessionmaker | None,
     config: tiering_service_pb2.ServerConfig,
-    gcp_client: gcp_storage_client.GCPStorageClient | None = None,
     *,
     lease_duration_seconds: int = 60,
     poll_interval_seconds: int = 5,
@@ -379,7 +848,6 @@ async def run_tiering_service_worker_loop(
   worker = TieringServiceWorker(
       session_maker,
       config,
-      gcp_client,
       lease_duration_seconds=lease_duration_seconds,
       poll_interval_seconds=poll_interval_seconds,
   )

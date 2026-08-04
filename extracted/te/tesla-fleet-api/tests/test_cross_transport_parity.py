@@ -19,8 +19,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 from tesla_fleet_api.tesla.vehicle.bluetooth import VehicleBluetooth
 from tesla_fleet_api.tesla.vehicle.fleet import VehicleFleet
-from tesla_fleet_api.tesla.vehicle.proto.car_server_pb2 import Action, VehicleAction
-from tesla_fleet_api.tesla.vehicle.proto.universal_message_pb2 import RoutableMessage
+from tesla_protocol.command.car_server_pb2 import Action, VehicleAction
+from tesla_protocol.command.universal_message_pb2 import RoutableMessage
 
 from ble_mocked_transport import (
     MockedBleTransportTestCase,
@@ -124,6 +124,40 @@ class AdjustVolumeParityTests(MockedBleTransportTestCase):
         self.assertAlmostEqual(action.mediaUpdateVolume.volume_absolute_float, 5.0)
 
 
+class ClearPinToDriveAdminParityTests(MockedBleTransportTestCase):
+    """``clear_pin_to_drive_admin`` targets the same feature (PIN-to-Drive
+    admin reset) on both transports, though the wire forms now legitimately
+    differ - a documented, accepted gap, not a bug:
+
+    Fix (live-verified, see report history / task tfa-ble-pin-clear-verify):
+    BLE previously built ``DrivingClearSpeedLimitPinAction`` (the
+    Speed-Limit-Mode pin clear) instead of a PIN-to-Drive action at all -
+    confirmed by the vehicle rejecting a live call with reason
+    ``speed_limit_mode_active``. BLE now builds
+    ``VehicleControlResetPinToDriveAdminAction``, which has no pin field, so
+    ``pin`` is accepted (cross-transport signature parity) but not sent.
+    Cloud's REST endpoint still takes ``pin`` in the body - that divergence
+    is real but expected (same pattern as ``set_scheduled_departure``'s dead
+    args - see CLAUDE.md).
+    """
+
+    async def test_cloud_still_sends_pin_ble_ignores_it(self) -> None:
+        cloud, request = _make_fleet_vehicle(self.VIN)
+        await cloud.clear_pin_to_drive_admin(pin="1234")
+        assert request.await_args is not None
+        self.assertEqual(request.await_args.kwargs["json"], {"pin": "1234"})
+
+        ble, send = self.make_vehicle()
+        send.return_value = infotainment_action_ok_reply()
+        await ble.clear_pin_to_drive_admin(pin="1234")
+        action = _sent_vehicle_action(ble, send)
+        self.assertEqual(
+            action.WhichOneof("vehicle_action_msg"),
+            "vehicleControlResetPinToDriveAdminAction",
+        )
+        self.assertFalse(action.HasField("drivingClearSpeedLimitPinAction"))
+
+
 class NavigationGpsRequestParityTests(MockedBleTransportTestCase):
     """``navigation_gps_request``'s ``order`` must default identically on
     both transports.
@@ -161,3 +195,43 @@ class NavigationGpsRequestParityTests(MockedBleTransportTestCase):
         await ble.navigation_gps_request(37.3230, -122.0322, order=2)
         action = _sent_vehicle_action(ble, send)
         self.assertEqual(action.navigationGpsRequest.order, 2)
+
+
+class UpcomingCalendarEntriesParityTests(MockedBleTransportTestCase):
+    """``upcoming_calendar_entries`` must carry the same ``calendar_data`` string
+    on both the REST-only cloud path and its new signed-command BLE sibling."""
+
+    async def test_calendar_data_survives_on_both_transports(self) -> None:
+        cloud, request = _make_fleet_vehicle(self.VIN)
+        await cloud.upcoming_calendar_entries("some-ics-payload")
+        assert request.await_args is not None
+        self.assertEqual(
+            request.await_args.kwargs["json"], {"calendar_data": "some-ics-payload"}
+        )
+
+        ble, send = self.make_vehicle()
+        send.return_value = infotainment_action_ok_reply()
+        await ble.upcoming_calendar_entries("some-ics-payload")
+        action = _sent_vehicle_action(ble, send)
+        self.assertEqual(
+            action.uiSetUpcomingCalendarEntries.calendar_data, "some-ics-payload"
+        )
+
+
+class TakeDrivenoteParityTests(MockedBleTransportTestCase):
+    """``take_drivenote`` must carry the same ``note`` string on both the
+    REST-only cloud path and its new signed-command BLE sibling."""
+
+    async def test_note_survives_on_both_transports(self) -> None:
+        cloud, request = _make_fleet_vehicle(self.VIN)
+        await cloud.take_drivenote("brake noise up front")
+        assert request.await_args is not None
+        self.assertEqual(
+            request.await_args.kwargs["json"], {"note": "brake noise up front"}
+        )
+
+        ble, send = self.make_vehicle()
+        send.return_value = infotainment_action_ok_reply()
+        await ble.take_drivenote("brake noise up front")
+        action = _sent_vehicle_action(ble, send)
+        self.assertEqual(action.takeDrivenoteAction.note, "brake noise up front")

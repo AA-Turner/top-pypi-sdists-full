@@ -16,12 +16,10 @@ This test monkeypatches ``notebooklm._auth.storage.save_cookies_to_storage`` to
 ``time.sleep(0.5)``. While ``AuthTokens.from_storage`` is mid-save, a
 concurrently scheduled async task increments a counter every 50 ms.
 Pre-fix the counter is ~0–1 (loop frozen by the sync sleep); post-fix
-it is >= 5 (the sleep runs on a thread, loop keeps ticking).
+it ticks ~10 times (the sleep runs on a thread, loop keeps spinning).
 
-Why a unit-style test under ``tests/integration/concurrency/``: the
-wave-3 plan places every blocking-I/O regression under this directory
-even when the assertion is structural; the harness fixtures are
-re-usable but not required for this surface.
+These are unit-style regression tests under ``tests/unit/concurrency/`` so the
+blocking-I/O contract is exercised without the integration harness.
 """
 
 from __future__ import annotations
@@ -44,16 +42,21 @@ from notebooklm.auth import AuthTokens
 _SLEEP_SECONDS = 0.5
 
 # Heartbeat cadence for the sibling task that proves the loop is alive.
-# 50 ms gives ~10 ticks in the 0.5 s window; we assert >= 5 to allow for
-# scheduler jitter, CI noise, and the unavoidable initial round-trip
-# before the save site is reached.
+# 50 ms gives ~10 ticks in the 0.5 s window. The tick is a bare ``asyncio.sleep``
+# (see ``_heartbeat``) so per-tick overhead stays tiny even under coverage
+# instrumentation — an earlier ``wait_for(Event.wait())`` tick built a future +
+# timer and raised/caught a ``TimeoutError`` every iteration, and coverage.py
+# tracing that machinery inflated the period enough to drop the count to 4 on a
+# contended macOS CI runner (flaking a >=5 bound).
 _HEARTBEAT_INTERVAL = 0.05
 
-# Lower bound on observed heartbeats during the save window. Pre-fix
-# the synchronous sleep blocks the loop for ~0.5 s, so the counter
-# stays at 0 or 1 (one tick may sneak in before the save is entered).
-# Post-fix the loop is free; 5 is comfortably below the ~10 expected.
-_MIN_HEARTBEATS = 5
+# Lower bound on observed heartbeats during the save window. This test is a
+# FROZEN-vs-ALIVE discriminator, not a throughput benchmark: pre-fix the
+# synchronous sleep blocks the loop for ~0.5 s so the counter stays at 0 or 1
+# (one tick may sneak in before the save is entered); post-fix the loop is free
+# and ticks ~10 times. 3 sits cleanly above the frozen ceiling (1) with wide
+# margin below the healthy count — the number is a floor, not a target.
+_MIN_HEARTBEATS = 3
 
 
 @pytest.mark.asyncio
@@ -65,7 +68,7 @@ async def test_from_storage_save_does_not_block_event_loop(
     """``AuthTokens.from_storage`` must not freeze the loop on save.
 
     Wraps a ``time.sleep(0.5)`` over the storage save and asserts a
-    concurrently scheduled heartbeat ticks at least 5 times during the
+    concurrently scheduled heartbeat keeps ticking during the
     save window — proof that the save runs off the loop (i.e. via
     ``asyncio.to_thread``).
     """
@@ -110,10 +113,12 @@ async def test_from_storage_save_does_not_block_event_loop(
         """Increment a counter every _HEARTBEAT_INTERVAL until stopped."""
         nonlocal heartbeats
         while not stop.is_set():
-            try:
-                await asyncio.wait_for(stop.wait(), timeout=_HEARTBEAT_INTERVAL)
-            except asyncio.TimeoutError:
-                heartbeats += 1
+            # Bare sleep, not wait_for(Event) — a cheap tick keeps the count
+            # stable under coverage (see _HEARTBEAT_INTERVAL). Shutdown latency is
+            # one interval (the awaiting `finally` absorbs it); a frozen loop still
+            # can't fire this sleep during the save, so it stays the 0-1 baseline.
+            await asyncio.sleep(_HEARTBEAT_INTERVAL)
+            heartbeats += 1
 
     heartbeat_task = asyncio.create_task(_heartbeat())
     try:
@@ -142,7 +147,7 @@ async def test_fetch_tokens_with_domains_save_does_not_block_event_loop(
     monkeypatch,
     httpx_mock: HTTPXMock,
 ) -> None:
-    """``fetch_tokens_with_domains`` (auth.py:3204) must offload its save too.
+    """``fetch_tokens_with_domains`` in ``notebooklm._auth.refresh`` must offload its save too.
 
     Same protocol as the from_storage test but exercises the second
     documented call site so a regression that fixes only one of the two
@@ -171,10 +176,9 @@ async def test_fetch_tokens_with_domains_save_does_not_block_event_loop(
         # return is fine; mirror the real function's None-by-default.
         time.sleep(_SLEEP_SECONDS)
 
-    # ``fetch_tokens_with_domains`` calls ``save_cookies_to_storage`` via
-    # the module-local alias in ``notebooklm._auth.refresh``
-    # (_auth/refresh.py:58 + :814), so patch the consumer-side name on
-    # that module rather than the canonical home in ``_auth.storage``.
+    # ``fetch_tokens_with_domains`` resolves ``save_cookies_to_storage`` through the
+    # module-local alias in ``notebooklm._auth.refresh``, so patch the consumer-side
+    # name rather than the canonical home in ``_auth.storage``.
     monkeypatch.setattr(_auth_refresh, "save_cookies_to_storage", _blocking_save)
 
     heartbeats = 0
@@ -183,10 +187,12 @@ async def test_fetch_tokens_with_domains_save_does_not_block_event_loop(
     async def _heartbeat() -> None:
         nonlocal heartbeats
         while not stop.is_set():
-            try:
-                await asyncio.wait_for(stop.wait(), timeout=_HEARTBEAT_INTERVAL)
-            except asyncio.TimeoutError:
-                heartbeats += 1
+            # Bare sleep, not wait_for(Event) — a cheap tick keeps the count
+            # stable under coverage (see _HEARTBEAT_INTERVAL). Shutdown latency is
+            # one interval (the awaiting `finally` absorbs it); a frozen loop still
+            # can't fire this sleep during the save, so it stays the 0-1 baseline.
+            await asyncio.sleep(_HEARTBEAT_INTERVAL)
+            heartbeats += 1
 
     heartbeat_task = asyncio.create_task(_heartbeat())
     try:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unsloth_zoo
-Version: 2026.8.1
+Version: 2026.8.2
 Summary: Utils for Unsloth
 Author: Unsloth AI team
 Author-email: info@unsloth.ai
@@ -24,7 +24,7 @@ Requires-Dist: trl!=0.19.0,<=0.24.0,>=0.18.2; sys_platform != "darwin" or platfo
 Requires-Dist: peft!=0.11.0,>=0.18.0; sys_platform != "darwin" or platform_machine != "arm64"
 Requires-Dist: cut_cross_entropy; python_version >= "3.10" and (sys_platform != "darwin" or platform_machine != "arm64")
 Requires-Dist: mlx>=0.22.0; sys_platform == "darwin" and platform_machine == "arm64"
-Requires-Dist: mlx-lm>=0.28.3; sys_platform == "darwin" and platform_machine == "arm64"
+Requires-Dist: mlx-lm>=0.31.2; sys_platform == "darwin" and platform_machine == "arm64"
 Requires-Dist: mlx-vlm>=0.4.4; sys_platform == "darwin" and platform_machine == "arm64"
 Requires-Dist: packaging>=24.1
 Requires-Dist: transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.5.0,>=4.51.3
@@ -44,7 +44,7 @@ Requires-Dist: typing_extensions
 Requires-Dist: filelock
 Provides-Extra: mlx
 Requires-Dist: mlx>=0.22.0; extra == "mlx"
-Requires-Dist: mlx-lm>=0.28.3; extra == "mlx"
+Requires-Dist: mlx-lm>=0.31.2; extra == "mlx"
 Requires-Dist: mlx-vlm>=0.4.4; extra == "mlx"
 Provides-Extra: core
 Requires-Dist: packaging>=24.1; extra == "core"

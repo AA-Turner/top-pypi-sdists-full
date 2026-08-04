@@ -818,27 +818,55 @@ def cmd_serve(argv) -> int:
 REGISTRY = mcp.Registry()
 
 
+def _ranking_note(ranker: str) -> str:
+    """One line naming the ranking that actually produced this order.
+
+    `boost_search`'s own description promises an LLM rerank and quotes what it
+    buys — the right skill first 95% of the time against 79% without. When no
+    AI is configured that rerank degrades to the retrieval order, and the reply
+    was byte-for-byte the shape of a reranked one: same ten lines, same
+    confidence, 79%. An agent acts on the top result because the description
+    told it to.
+
+    `rag.rerank` already computes the only thing that distinguishes the two
+    cases, and its own comment says so — "the label is the only signal about
+    which engine" produced the order. This handler was discarding it.
+    """
+    if ranker == rag.LLM_RANKER:
+        return "\n(ranked by %s)" % ranker
+    return ("\n(ranked by %s — the LLM rerank named in this tool's description "
+            "did NOT run, so this is a shortlist to read rather than a verdict "
+            "to act on. Configure ANTHROPIC_API_KEY or the `claude` CLI to "
+            "enable it.)" % ranker)
+
+
 def _tool_search(args: dict):
     query = str(args.get("query", ""))
     rag.ensure()  # build the full-content index on first use (BM25 by default)
     # smart=True is stated, not inherited. It is `rag.search`'s default, so this
     # path was spending an LLM call per search by accident of a signature —
     # while the CLI makes the user ask for it with `--smart`. Measured on the
-    # 91-query golden set, the rerank moves hit@1 from 0.791 to 0.945, and an
-    # agent acts on the top result rather than scanning ten, so it is the one
-    # caller for whom the seconds are clearly worth it. Written down here so
+    # 91-query golden set over the SIX-repo corpus, the rerank moved hit@1 from
+    # 0.791 to 0.945; name the corpus, because the twenty-repo corpus that
+    # replaced it baselines at 0.4725 (tests/eval/baseline.json) and the
+    # reranked figure has not been re-measured there. The direction is what
+    # justifies the default: an agent acts on the top result rather than
+    # scanning ten, so it is the one caller for whom the seconds are clearly
+    # worth it. Written down here so
     # the asymmetry with the CLI is a decision someone can revisit, not a
     # default nobody chose. It degrades on its own when no AI is configured.
     rag_result = rag.search(query, limit=10, smart=True)
     if rag_result is not None:  # full-content index is built
-        hits, _ranker = rag_result
+        hits, ranker = rag_result
         if not hits:
             return "no skills match %r" % query, False
-        return "\n".join(
+        lines = [
             "%s — %s (%s)" % (h["entry"]["name"],
                               h["entry"].get("description", ""),
                               h["entry"]["tap"])
-            for h in hits), False
+            for h in hits]
+        lines.append(_ranking_note(ranker))
+        return "\n".join(lines), False
     # no index yet -> keep today's frontmatter search so nothing regresses
     scored = catalog.search(query)[:10]
     if not scored:

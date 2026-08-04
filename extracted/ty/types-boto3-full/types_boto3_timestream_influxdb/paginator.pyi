@@ -12,6 +12,7 @@ Usage::
 
     from types_boto3_timestream_influxdb.client import TimestreamInfluxDBClient
     from types_boto3_timestream_influxdb.paginator import (
+        ListDbBackupsPaginator,
         ListDbClustersPaginator,
         ListDbInstancesForClusterPaginator,
         ListDbInstancesPaginator,
@@ -21,6 +22,7 @@ Usage::
     session = Session()
     client: TimestreamInfluxDBClient = session.client("timestream-influxdb")
 
+    list_db_backups_paginator: ListDbBackupsPaginator = client.get_paginator("list_db_backups")
     list_db_clusters_paginator: ListDbClustersPaginator = client.get_paginator("list_db_clusters")
     list_db_instances_for_cluster_paginator: ListDbInstancesForClusterPaginator = client.get_paginator("list_db_instances_for_cluster")
     list_db_instances_paginator: ListDbInstancesPaginator = client.get_paginator("list_db_instances")
@@ -36,6 +38,8 @@ from typing import TYPE_CHECKING
 from botocore.paginate import PageIterator, Paginator
 
 from .type_defs import (
+    ListDbBackupsInputPaginateTypeDef,
+    ListDbBackupsOutputTypeDef,
     ListDbClustersInputPaginateTypeDef,
     ListDbClustersOutputTypeDef,
     ListDbInstancesForClusterInputPaginateTypeDef,
@@ -52,11 +56,30 @@ else:
     from typing_extensions import Unpack
 
 __all__ = (
+    "ListDbBackupsPaginator",
     "ListDbClustersPaginator",
     "ListDbInstancesForClusterPaginator",
     "ListDbInstancesPaginator",
     "ListDbParameterGroupsPaginator",
 )
+
+if TYPE_CHECKING:
+    _ListDbBackupsPaginatorBase = Paginator[ListDbBackupsOutputTypeDef]
+else:
+    _ListDbBackupsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListDbBackupsPaginator(_ListDbBackupsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/timestream-influxdb/paginator/ListDbBackups.html#TimestreamInfluxDB.Paginator.ListDbBackups)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_timestream_influxdb/paginators/#listdbbackupspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDbBackupsInputPaginateTypeDef]
+    ) -> PageIterator[ListDbBackupsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/timestream-influxdb/paginator/ListDbBackups.html#TimestreamInfluxDB.Paginator.ListDbBackups.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_timestream_influxdb/paginators/#listdbbackupspaginator)
+        """
 
 if TYPE_CHECKING:
     _ListDbClustersPaginatorBase = Paginator[ListDbClustersOutputTypeDef]

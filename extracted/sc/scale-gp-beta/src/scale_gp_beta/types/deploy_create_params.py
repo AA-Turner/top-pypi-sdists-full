@@ -13,8 +13,10 @@ __all__ = ["DeployCreateParams"]
 
 class DeployCreateParams(TypedDict, total=False):
     environment_config: Required[str]
+    """YAML content of environment configuration from the environment config file."""
 
     manifest_file: Required[str]
+    """YAML content of manifest configuration."""
 
     build_id: str
     """The build_id of the cloud build.

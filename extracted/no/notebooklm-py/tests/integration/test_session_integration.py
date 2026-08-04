@@ -5,8 +5,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from _helpers.client_factory import build_client_shell_for_tests
-from conftest import install_post_as_stream
 from notebooklm import AuthTokens, NotebookLMClient
 from notebooklm._runtime.helpers import is_auth_error
 from notebooklm.rpc import (
@@ -19,6 +17,8 @@ from notebooklm.rpc import (
     RPCTimeoutError,
     ServerError,
 )
+from tests._helpers.client_factory import build_client_shell_for_tests
+from tests.integration.conftest import install_post_as_stream
 
 # httpx-mock + MagicMock based core-layer tests; no real HTTP, no
 # cassette. Opt out of the tier-enforcement hook in tests/integration/conftest.py.
@@ -566,7 +566,7 @@ class TestBuildUrlHL:
     ``session_id`` / ``authuser`` / ``account_email`` from it rather
     than reading ``self.auth`` live). Tests construct a snapshot inline
     from the fixture's ``AuthTokens`` so the URL-construction logic is
-    exercised without spinning up ``_perform_authed_post``.
+    exercised without spinning up the shared authed transport path.
     """
 
     @staticmethod

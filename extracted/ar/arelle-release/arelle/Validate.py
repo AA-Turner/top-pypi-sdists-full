@@ -308,10 +308,10 @@ class Validate:
                         self.determineTestStatus(modelTestcaseVariation, modelVersReport.errors)
                         modelVersReport.close()
                 elif len(inputDTSes) == 2:
-                    ModelVersReport.ModelVersReport(self.modelXbrl).diffDTSes(  # type: ignore[no-untyped-call]
+                    ModelVersReport.ModelVersReport(self.modelXbrl).diffDTSes(
                         versReportFile,
-                        inputDTSes["from"],
-                        inputDTSes["to"]
+                        inputDTSes["from"],  # type: ignore[arg-type]
+                        inputDTSes["to"],  # type: ignore[arg-type]
                     )
                     modelTestcaseVariation.status = "generated"
                 else:
@@ -670,7 +670,7 @@ class Validate:
                     file=os.path.basename(modelTestcaseVariation.resultXbrlInstanceUri))  # type: ignore[type-var]
                 modelTestcaseVariation.status = "result infoset not loadable"
             else:   # check infoset
-                ValidateInfoset.validate(self.instValidator, modelXbrl, infoset)  # type: ignore[no-untyped-call]
+                ValidateInfoset.validate(self.instValidator, modelXbrl, infoset)
             infoset.close()
         if modelXbrl.hasTableRendering or modelTestcaseVariation.resultIsTable: # and self.modelXbrl.modelManager.validateInfoset:
             # diff (or generate) table infoset
@@ -795,20 +795,32 @@ class Validate:
             if not isinstance(expected, list):
                 expected = [expected]  # type: ignore[list-item]
             for testErr in _errors:
+                testErrPrefix = None
                 if isinstance(testErr, str) and testErr.startswith(("ESEF.", "NL.NL-KVK")): # compared as list of strings to QName localname
-                    testErrSuffix = testErr.rpartition(".")[2]
+                    testErrPrefix, __, testErrSuffix = testErr.rpartition(".")
                     if not testErrSuffix.isdigit():
                         testErr = testErrSuffix
                 for _exp in _expectedList:
                     _expMatched = False
                     if isinstance(_exp,QName) and isinstance(testErr,str):
                         errPrefix, sep, errLocalName = testErr.rpartition(":")
-                        if ((not sep and errLocalName in commaSpaceSplitPattern.split(_exp.localName.strip())) or # ESEF has comma separated list of localnames of errors
-                            (_exp == qname(XbrlConst.errMsgPrefixNS.get(errPrefix) or
+                        if (
+                                # ESEF has comma separated list of localnames of errors
+                                (not sep and errLocalName in commaSpaceSplitPattern.split(_exp.localName.strip())) or
+                                (_exp == qname(XbrlConst.errMsgPrefixNS.get(errPrefix) or
                                            (errPrefix == _exp.prefix and _exp.namespaceURI),
                                            errLocalName)) or
-                            # XDT xml schema tests expected results
-                            (_exp.namespaceURI == XbrlConst.xdtSchemaErrorNS and errPrefix == "xmlSchema")):
+                                # XDT xml schema tests expected results
+                                (_exp.namespaceURI == XbrlConst.xdtSchemaErrorNS and errPrefix == "xmlSchema") or
+                                # UKSEF conformance suite expects XML schema validation errors in format xbrl.core.xml.SchemaValidationError.*
+                                # Example: tests/FRC/FRC_08/index.xml:TC2_invalid
+                                (_exp.localName.startswith("xbrl.core.xml.SchemaValidationError.cvc") and errPrefix == "xmlSchema") or
+                                # ESEF.UK*: Actual (str): *:match, Expected (QName): {*}*.match
+                                (
+                                        testErrPrefix and testErrPrefix.startswith("ESEF.UK") and
+                                        errLocalName and errLocalName == _exp.localName.rpartition('.')[2]
+                                )
+                        ):
                             _expMatched = True
                     elif type(testErr) is type(_exp):
                         if isinstance(testErr,dict):

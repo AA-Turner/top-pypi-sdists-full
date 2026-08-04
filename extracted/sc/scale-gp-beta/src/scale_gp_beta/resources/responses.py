@@ -72,7 +72,17 @@ class ResponsesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ResponseCreateResponse:
         """
-        Responses
+        Runs inference using the OpenAI Responses API contract, taking an `input` rather
+        than a chat `messages` array.
+
+        This endpoint is restricted to OpenAI-vendor models: requests whose `model`
+        (`vendor/name`) resolves to any other vendor are rejected with an
+        unsupported-vendor error, unlike /v5/chat/completions and /v5/inference which
+        support many vendors. Use it when you specifically need Responses API features
+        such as `previous_response_id` chaining, `instructions`, or `store`; use
+        /v5/chat/completions for the standard messages-based chat contract. When
+        `stream` is set the response streams as server-sent events; otherwise a single
+        `response` object is returned.
 
         Args:
           model: model specified as `model_vendor/model`, for example `openai/gpt-4o`
@@ -199,7 +209,17 @@ class AsyncResponsesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ResponseCreateResponse:
         """
-        Responses
+        Runs inference using the OpenAI Responses API contract, taking an `input` rather
+        than a chat `messages` array.
+
+        This endpoint is restricted to OpenAI-vendor models: requests whose `model`
+        (`vendor/name`) resolves to any other vendor are rejected with an
+        unsupported-vendor error, unlike /v5/chat/completions and /v5/inference which
+        support many vendors. Use it when you specifically need Responses API features
+        such as `previous_response_id` chaining, `instructions`, or `store`; use
+        /v5/chat/completions for the standard messages-based chat contract. When
+        `stream` is set the response streams as server-sent events; otherwise a single
+        `response` object is returned.
 
         Args:
           model: model specified as `model_vendor/model`, for example `openai/gpt-4o`

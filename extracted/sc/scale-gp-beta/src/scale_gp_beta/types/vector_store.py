@@ -13,6 +13,9 @@ __all__ = ["VectorStore"]
 class VectorStore(BaseModel):
     """Response model for vector store operations."""
 
+    id: str
+    """The unique identifier of the vector store"""
+
     created_at: datetime
     """Timestamp of creation"""
 

@@ -2416,7 +2416,7 @@ def register_generated_tools(mcp, _get_client):
             from_date: Start of the METRICS date range (YYYY-MM-DD). Affects only the spend/impression numbers overlaid on each node, NOT which campaigns are returned. Defaults to 90 days ago.
             to_date: End of metrics date range (YYYY-MM-DD). Defaults to today. Max 730-day range.
             sort: Campaign-level sort order. `newest` (default) / `oldest` order by the campaign's newest-ad createdAt. `spend_desc` / `spend_asc` order by aggregated spend in the requested date range; campaigns with no spend land at the end.
-            time_increment: Set to `1` to also return a daily breakdown. Mirrors Meta Insights' `time_increment=1`: each node gains a `daily[]` array of per-day metrics (same fields as the aggregated `metrics`) alongside the range total, so you get per-entity daily trends in ONE call instead of calling the tree once per day. Only `1` (daily) is supported. The daily series covers the same date range and uses the same source data as `metrics`. See `dailyLevel` to control which levels carry it.
+            time_increment: Set to `1` to also return a daily breakdown. Mirrors Meta Insights' `time_increment=1`: each node gains a `daily[]` array of per-day metrics (same fields as the aggregated `metrics`) alongside the range total, so you get per-entity daily trends in ONE call instead of calling the tree once per day. Only `1` (daily) is supported. The daily series covers the same date range and uses the same source data as `metrics`, except Meta `reach`: the range total is Meta's de-duplicated value, so daily reach does not sum to it. See `dailyLevel` to control which levels carry it.
             daily_level: Which tree levels get the `daily[]` series when `timeIncrement=1`. `campaign` (default) attaches it on campaign nodes only — the common per-campaign-trend case, and the smallest payload. `adset` adds it on ad sets too; `ad` adds it on every ad in `ads[]` as well (heaviest — a long range × up to 100 ads per ad set). Scope with `campaignId` to keep `ad`-level responses small. Ignored when `timeIncrement` is unset."""
         client = _get_client()
         try:
@@ -2635,11 +2635,18 @@ def register_generated_tools(mcp, _get_client):
         GET /v1/ads/targeting/search?dimension=geo. City radius and lat/lng
         `customLocations` are Meta-only and preserve the boosted post's
         social proof (the ad references the existing post).
-                raw_targeting: Meta only. A verbatim Meta-native targeting spec (e.g.
-        `{ "geo_locations": { "cities": [{ "key": "...", "radius": 15, "distance_unit": "kilometer" }] } }`),
-        forwarded unchanged. Mutually exclusive with `targeting` (sending both is a 400).
-        Use for advanced fields the structured object does not expose (flexible_spec,
-        excluded audiences, business places).
+                raw_targeting: Meta only. A Meta-native targeting spec (e.g.
+        `{ "geo_locations": { "cities": [{ "key": "...", "radius": 15, "distance_unit": "kilometer" }] } }`).
+        Sent alone it is forwarded unchanged. Use for advanced fields the structured
+        object does not expose (flexible_spec, excluded audiences, business places,
+        user_os, wireless_carrier).
+
+        Can be combined with `targeting`: rawTargeting is the BASE layer and the
+        built camelCase spec is merged on top, key by key (camelCase wins on
+        collision). The merge goes one level deep inside `geo_locations` and
+        `excluded_geo_locations` (built sub-keys win; raw-only sub-keys such as
+        `location_types` survive). Array values (`flexible_spec`, ...) are replaced
+        as a whole key, never element-merged.
                 bid_strategy: Meta bid strategy applied to the ad set. On TikTok, mapped to
         `bid_type` / `bid_price` / `deep_bid_type` automatically.
                 bid_amount: Bid cap in WHOLE currency units (USD: 5 = $5.00; JPY: 100 = ¥100). Required when
@@ -2852,7 +2859,7 @@ def register_generated_tools(mcp, _get_client):
                 description: Meta only (facebook/instagram). Link description — the secondary text shown below the headline (Meta's link_data.description; on video creatives mapped to video_data.link_description). When omitted, Meta auto-pulls the destination URL's OpenGraph description. Applies on legacy, attach, and placementAssets shapes; for multi-creative use creatives[].description (this field is the shared fallback). For multi-text variations use dynamicCreative.descriptions instead.
                 call_to_action: Required on legacy + attach shapes for Meta. Honoured on TikTok (passes through to the Spark Ad creative's `call_to_action`) and on LinkedIn (the CTA button on the ad; defaults to LEARN_MORE when `linkUrl` is set). LinkedIn accepts: LEARN_MORE, SIGN_UP, DOWNLOAD, SUBSCRIBE, REGISTER, JOIN, ATTEND, REQUEST_DEMO, VIEW_QUOTE, APPLY, SEE_MORE, SHOP_NOW, BUY_NOW. Ignored by Google, Pinterest, and X/Twitter.
                 link_url: Required on legacy + attach shapes (skip for multi-creative). On LinkedIn it's the ad's destination URL; required for `traffic` ads, optional for `engagement` / `awareness`. NOT required when `goal` is `lead_generation` (the ad opens a Lead Gen form instead of a destination). On LinkedIn, `imageUrl` + `linkUrl` publishes an ARTICLE-content creative; this is LinkedIn's article ad format, with the image as thumbnail and `longHeadline` as description. Required for OpenAI Ads (the chat card's target_url).
-                lead_gen_form_id: Meta Lead Gen forms only (facebook/instagram). The leadgen_forms ID to attach to the ad's creative — create one via POST /v1/ads/lead-forms. REQUIRED when `goal` is `lead_generation`, and on every ATTACH (`adSetId`) call that targets a lead ad set (the form attaches per-ad; Meta rejects a formless ad in a lead ad set). Ignored otherwise. The ad set's promoted_object.page_id + LEAD_GENERATION optimization + destination_type ON_AD are derived automatically from the goal. Both `placementAssets` (per-placement creative) and `dynamicCreative` (multi-text / multi-asset pool, e.g. multiple headlines and primary texts) ARE supported on instant-form lead ads — the form is attached for you, and for `dynamicCreative` the ad set is created as a Dynamic Creative ad set automatically (Meta requires that for any multi-text feed; there is no non-DCO multi-text path). Send a single `imageUrls` entry plus your text variations to get Meta's "Multiple Text Options" behavior on a lead ad.
+                lead_gen_form_id: Meta Lead Gen forms only (facebook/instagram). The leadgen_forms ID to attach to the ad's creative — create one via POST /v1/ads/lead-forms. REQUIRED when `goal` is `lead_generation`, and on every ATTACH (`adSetId`) call that targets a lead ad set (the form attaches per-ad; Meta rejects a formless ad in a lead ad set). Ignored otherwise. The ad set's promoted_object.page_id + LEAD_GENERATION optimization + destination_type ON_AD are derived automatically from the goal. Both `placementAssets` (per-placement creative) and `dynamicCreative` (multi-text / multi-asset pool, e.g. multiple headlines and primary texts) ARE supported on instant-form lead ads — the form is attached for you, and for `dynamicCreative` the ad set is created as a Dynamic Creative ad set automatically (Meta requires that for any multi-text feed; there is no non-DCO multi-text path). Send a single `imageUrls` (or `videoUrls`) entry plus your text variations to get Meta's "Multiple Text Options" behavior on a lead ad.
                 image_url: Image creative for Meta/Google/Pinterest/LinkedIn on legacy + attach shapes (mutually exclusive with `video`). Required for LinkedIn ads unless `video` is set. Not required for Google Search campaigns. For TikTok, this field carries the VIDEO URL (the TikTok ads endpoint is video-only; the field retains the `imageUrl` name for cross-platform consistency). Ignored for X/Twitter. For Google Display, treated as the landscape image (alias of `images.landscape`); supply `images.square` alongside or the request is rejected. For LinkedIn the image is uploaded to LinkedIn under the authoring Company Page (see `organizationId`); recommended ratio 1.91:1 (e.g. 1200×627). Required for OpenAI Ads (uploaded as the chat card's image; OpenAI has no video ad format).
                 images: Google Display (Responsive Display Ads) only. Google RDA requires both a landscape (1.91:1) and a square (1:1) marketing image; sending only one is rejected upstream as 'Too few.' (NOT_ENOUGH_*_MARKETING_IMAGE_ASSET). Supply both URLs here. Either this field or the legacy `imageUrl` can provide the landscape, but `square` has no legacy counterpart so it must be set here for Display.
                 video: Meta (facebook, instagram) and LinkedIn. When set, creates a VIDEO ad on the legacy (or, for Meta, attach) shape. Mutually exclusive with `imageUrl`. For Meta multi-creative, set `video` per entry inside `creatives[]` instead. For LinkedIn the video is uploaded to LinkedIn under the authoring Company Page (see `organizationId`) and the campaign format is set to SINGLE_VIDEO; LinkedIn ignores `thumbnailUrl` (it auto-generates the poster frame) — supply MP4 H.264/AAC, 3s-30min, 75KB-500MB.
@@ -2942,14 +2949,24 @@ def register_generated_tools(mcp, _get_client):
                 saved_targeting_id: ID of a `saved_targeting` audience (created via POST /v1/ads/audiences). When set, its stored
         TargetingSpec is expanded as the base targeting; inline fields on this body merge on top. Lets you
         reuse a named targeting preset without re-sending every field.
-                raw_targeting: Meta only. A raw Meta-native targeting spec passed to the ad set VERBATIM (snake_case:
-        `geo_locations`, `age_min`, `excluded_custom_audiences`, `flexible_spec`, `targeting_automation`,
-        business places, etc.) — exactly the shape `GET /v1/ads/{adId}` returns for external ads. Use it to
-        clone a campaign's targeting EXACTLY, preserving advanced fields the camelCase targeting fields can't
-        model. Mutually exclusive with the camelCase targeting fields (countries/regions/cities/interests/
-        ageMin/...), `audienceId`, and `savedTargetingId` (sending both → 422). Sent as-is; Meta validates and
-        surfaces any errors. If cloning an EU campaign, also pass `dsaBeneficiary` / `dsaPayor` (those are
-        separate fields, not part of targeting).
+                raw_targeting: Meta only. A raw Meta-native targeting spec (snake_case: `geo_locations`, `age_min`,
+        `excluded_custom_audiences`, `flexible_spec`, `targeting_automation`, `user_os`,
+        `wireless_carrier`, business places, etc.) — exactly the shape `GET /v1/ads/{adId}` returns for
+        external ads. Sent alone it reaches the ad set VERBATIM (the clone-a-campaign's-targeting-exactly
+        path). Meta validates and surfaces any errors.
+
+        Can be combined with the camelCase targeting fields (countries/regions/cities/interests/ageMin/...,
+        `targeting`, `savedTargetingId`, `audienceId`): rawTargeting is the BASE layer and the built
+        camelCase spec is merged on top, key by key, with the camelCase side winning on collision (the
+        camelCase precedence chain stays `savedTargetingId` < `targeting` < flat fields). The merge goes
+        one level deep inside `geo_locations` and `excluded_geo_locations`: built sub-keys win, raw-only
+        sub-keys such as `location_types` survive alongside built `countries`. Array values
+        (`flexible_spec`, ...) are replaced as a WHOLE key when the camelCase spec builds them, never
+        element-merged. When rawTargeting is present the defaults the camelCase builder normally injects
+        (US geo, `targeting_automation.advantage_audience: 0`) are suppressed, so raw's values are not
+        clobbered — include `targeting_automation` in the raw spec (or send `advantageAudience`) as Meta
+        requires it on create. If cloning an EU campaign, also pass `dsaBeneficiary` / `dsaPayor` (those
+        are separate fields, not part of targeting).
                 special_ad_categories: Meta only. Declares the ad's special category, required for housing, employment, credit, or
         political/social-issue ads (Meta enforces restricted targeting for these). Note: setting a special
         category disables income/zip targeting on Meta.
@@ -2969,8 +2986,9 @@ def register_generated_tools(mcp, _get_client):
         optimises them into the best-performing variations within a single ad (mapped to the
         creative's `asset_feed_spec`). When set, the top-level single-creative fields
         (`imageUrl`, `headline`, `body`, `linkUrl`, `callToAction`) are ignored. Mutually
-        exclusive with the `creatives[]` multi-creative shape. Meta limits: ≤10 images,
-        ≤5 bodies / titles / descriptions.
+        exclusive with the `creatives[]` multi-creative shape. Exactly ONE of `imageUrls` /
+        `videoUrls` is required (Meta allows one ad format per asset feed; sending both →
+        400). Meta limits: ≤10 images or ≤10 videos, ≤5 bodies / titles / descriptions.
                 carousel_cards: Meta only. Hand-built carousel: 2-10 authored cards in DETERMINISTIC order, mapped to
         the creative's `link_data.child_attachments`. Unlike `dynamicCreative`,
         you control the card order and per-card copy/link. Requires top-level `body`,
@@ -9941,6 +9959,7 @@ def register_generated_tools(mcp, _get_client):
         message: str | None = None,
         skip_dm_check: bool = False,
         template_name: str | None = None,
+        category: str | None = None,
         template_language: str | None = None,
         template_params: list[str] | None = None,
         header_media: dict[str, Any] | None = None,
@@ -9951,9 +9970,10 @@ def register_generated_tools(mcp, _get_client):
             account_id: The social account ID to send from (required)
             participant_id: Recipient identifier. For X this is the numeric user ID; for WhatsApp, the recipient phone number in international format (digits, country code included). Provide either this or participantUsername.
             participant_username: Recipient handle/username — an X or Bluesky handle (with or without @) or a Reddit username (with or without u/). Resolved via lookup. Provide either this or participantId.
-            message: Text content of the message. At least one of message, attachment, or (for WhatsApp) templateName is required.
+            message: Text content of the message. At least one of message, attachment, or (for WhatsApp) templateName is required. Required when category is set (a Direct Send utility message is a text message).
             skip_dm_check: X/Twitter only. Skip the receives_your_dm eligibility check before sending. Use if you have already verified the recipient accepts DMs.
-            template_name: WhatsApp only. Name of the approved template to start the conversation with (required for WhatsApp).
+            template_name: WhatsApp only. Name of the approved template to start the conversation with. Required for WhatsApp unless category is used instead (Direct Send). Cannot be combined with category.
+            category: WhatsApp only (Meta Direct Send). Combined with message and without templateName, starts the conversation with a business-initiated UTILITY message and no pre-approved template; Meta matches or auto-creates a template asynchronously. The WhatsApp Business Account must be eligible for Direct Send, otherwise the send fails with an error telling you to use an approved message template instead. Cannot be combined with templateName (templates are already categorized at creation). Utility messages only; marketing content is not allowed under this category. Accepted on the JSON body only, not on multipart requests.
             template_language: WhatsApp only. Template language code (e.g. en_US).
             template_params: WhatsApp only. Template variable values as one flat array, in the order the variables appear across the whole template: text-header variables first, then body variables, then one value per dynamic URL button (in button order). Works with positional placeholders ({{1}}, {{2}}, ...) and with named placeholders ({{name}}, {{company}} - how Meta Business Manager creates templates), where values fill the named slots in order of appearance. Example - a body with {{1}}, {{2}} plus a URL button https://example.com/{{1}} takes three values: [body1, body2, buttonSuffix]. Media headers (image, video, document) are filled automatically from the approved template and take no value here (use headerMedia to override the header asset per send).
             header_media: WhatsApp only. Overrides a media-header template's header asset for THIS send, so a template with an image/video/document header can carry a different asset per message (e.g. each recipient their own invoice PDF). Without it, the template's approved sample asset is sent. Provide exactly one of link or id."""
@@ -9966,6 +9986,7 @@ def register_generated_tools(mcp, _get_client):
                 message=message,
                 skip_dm_check=skip_dm_check,
                 template_name=template_name,
+                category=category,
                 template_language=template_language,
                 template_params=template_params,
                 header_media=header_media,
@@ -10118,6 +10139,7 @@ def register_generated_tools(mcp, _get_client):
         account_id: str,
         message: str | None = None,
         attachment_url: str | None = None,
+        category: str | None = None,
         attachment_type: str | None = None,
         attachment_name: str | None = None,
         voice_note: bool | None = None,
@@ -10139,6 +10161,7 @@ def register_generated_tools(mcp, _get_client):
                 account_id: Social account ID (required)
                 message: Message text
                 attachment_url: URL of the attachment to send (image, video, audio, or file). The URL must be publicly accessible. For binary file uploads, use multipart/form-data instead.
+                category: WhatsApp only (Meta Direct Send). Sends this message as a business-initiated UTILITY message without an approved template, for example outside the 24-hour customer service window; Meta matches or auto-creates a template asynchronously. The WhatsApp Business Account must be eligible for Direct Send, otherwise the send fails with an error telling you to use an approved message template instead. Supported only for text messages (link preview ok) and interactive messages (reply buttons, CTA URL buttons, voice-call button, header of text/image/video/document). Cannot be combined with template, attachments, location, or contacts. Utility messages only; marketing content is not allowed under this category. Accepted on the JSON body only, not on multipart requests.
                 attachment_type: Type of attachment. Defaults to file if not specified.
                 attachment_name: WhatsApp only. Display name for a document sent via attachmentUrl with attachmentType: file (e.g. "Report.pdf"). Maps to the recipient's file name; without it WhatsApp derives the name from the URL and shows "Untitled". Ignored for image/video/audio and for binary uploads (which use the uploaded file's name).
                 voice_note: WhatsApp only. When `true` on an audio attachment, the message is sent
@@ -10236,6 +10259,7 @@ def register_generated_tools(mcp, _get_client):
                 account_id=account_id,
                 message=message,
                 attachment_url=attachment_url,
+                category=category,
                 attachment_type=attachment_type,
                 attachment_name=attachment_name,
                 voice_note=voice_note,
@@ -11333,8 +11357,8 @@ def register_generated_tools(mcp, _get_client):
                 mentions: Stored for reference only. This field does NOT automatically create @mentions when publishing. For LinkedIn @mentions, use the /v1/accounts/{accountId}/linkedin-mentions endpoint to resolve profile URLs to URNs, then embed the returned mentionFormat directly in the post content field.
                 crossposting_enabled
                 metadata
-                tiktok_settings: Root-level TikTok settings applied to all TikTok platforms. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence.
-                facebook_settings: Root-level Facebook settings applied to all Facebook platforms. Merged into each platform's platformSpecificData.facebookSettings, with platform-specific settings taking precedence.
+                tiktok_settings: Root-level TikTok settings applied to the TikTok platforms sent in the same request. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence.
+                facebook_settings: Root-level Facebook settings applied to the Facebook platforms sent in the same request. Merged into each platform's platformSpecificData.facebookSettings, with platform-specific settings taking precedence.
                 recycling
                 queued_from_profile: Profile ID to schedule via queue. When provided without scheduledFor, the post is auto-assigned to the next available slot. Do not call /v1/queue/next-slot and use that time in scheduledFor, as that bypasses queue locking.
                 queue_id: Specific queue ID to use when scheduling via queue.
@@ -11436,8 +11460,8 @@ def register_generated_tools(mcp, _get_client):
             metadata
             queued_from_profile: Profile ID to schedule via queue.
             queue_id: Specific queue ID to use when scheduling via queue.
-            tiktok_settings: Root-level TikTok settings applied to all TikTok platforms. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence.
-            facebook_settings: Root-level Facebook settings applied to all Facebook platforms. Merged into each platform's platformSpecificData.facebookSettings, with platform-specific settings taking precedence.
+            tiktok_settings: Root-level TikTok settings applied to the TikTok platforms sent in the same request. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence. Returns 400 if sent without a platforms array.
+            facebook_settings: Root-level Facebook settings applied to the Facebook platforms sent in the same request. Merged into each platform's platformSpecificData.facebookSettings, with platform-specific settings taking precedence. Returns 400 if sent without a platforms array.
             recycling"""
         client = _get_client()
         try:

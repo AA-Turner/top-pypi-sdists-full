@@ -8,7 +8,7 @@ from jsonschema_rs import CanonicalSchema, ValidationError, canonical, canonical
 DRAFT202012 = "https://json-schema.org/draft/2020-12/schema"
 # `anyOf` annotates whichever branch the instance matched, which no `additional*` twin spells,
 # so this stays raw. Each construct canonicalization learns needs a still-unmodeled stand-in here.
-UNMODELED = {"anyOf": [{}], "unevaluatedProperties": False}
+UNMODELED = {"if": {}, "unevaluatedProperties": False}
 
 
 @pytest.mark.parametrize(
@@ -487,3 +487,120 @@ def test_large_pattern_with_raised_size_limit(options):
 def test_pattern_options_rejects_other_types():
     with pytest.raises(TypeError):
         canonicalize(LARGE_PATTERN_SCHEMA, pattern_options=object())
+
+
+@pytest.mark.parametrize(
+    ("left", "right", "expected"),
+    [
+        (
+            {"type": "string"},
+            {"minLength": 4},
+            {"$schema": DRAFT202012, "type": "string", "minLength": 4},
+        ),
+        ({"const": "A"}, {"pattern": "^A$"}, {"$schema": DRAFT202012, "const": "A"}),
+        ({"const": "A"}, {"const": "B"}, {"$schema": DRAFT202012, "not": {}}),
+    ],
+)
+def test_intersect(left, right, expected):
+    result = canonicalize(left).intersect(canonicalize(right))
+    assert isinstance(result, CanonicalSchema)
+    assert result.to_json_schema() == expected
+
+
+def test_intersect_keeps_references_resolvable():
+    root = canonicalize(
+        {
+            "$defs": {"A": {"type": "string"}, "B": {"minLength": 4}},
+            "allOf": [{"$ref": "#/$defs/A"}, {"$ref": "#/$defs/B"}],
+        }
+    )
+    left, right = root.view().branches
+    result = left.intersect(right)
+    assert result.definitions().keys() == root.definitions().keys()
+
+
+@pytest.mark.parametrize("swap", [False, True])
+def test_intersect_rejects_unmodeled_operand(swap):
+    raw = canonicalize(UNMODELED)
+    modeled = canonicalize({"type": "string"})
+    left, right = (modeled, raw) if swap else (raw, modeled)
+    with pytest.raises(canonical.UnmodeledOperand):
+        left.intersect(right)
+
+
+@pytest.mark.parametrize(
+    ("left", "right"),
+    [
+        ({"type": "string"}, {"type": "string"}),
+        ({"$defs": {"A": {"type": "string"}}, "$ref": "#/$defs/A"}, {"type": "string"}),
+    ],
+)
+def test_intersect_rejects_draft_mismatch(left, right):
+    with pytest.raises(canonical.IncompatibleOperands):
+        canonicalize(left, draft=7).intersect(canonicalize(right, draft=20))
+
+
+def test_intersect_rejects_distinct_definition_maps():
+    left = canonicalize({"$defs": {"A": {"type": "string"}}, "$ref": "#/$defs/A"})
+    right = canonicalize({"$defs": {"B": {"minLength": 4}}, "$ref": "#/$defs/B"})
+    with pytest.raises(canonical.IncompatibleOperands):
+        left.intersect(right)
+
+
+def test_definition():
+    schema = canonicalize({"$defs": {"A": {"type": "string"}}, "$ref": "#/$defs/A"})
+    uri, target = next(iter(schema.definitions().items()))
+    assert schema.definition(uri) == target
+    assert schema.definition("#/$defs/absent") is None
+
+
+@pytest.mark.parametrize(
+    ("schema", "expected"),
+    [
+        (
+            {"type": "string", "minLength": 5},
+            {
+                "$schema": DRAFT202012,
+                "anyOf": [
+                    {"type": ["null", "boolean", "number", "array", "object"]},
+                    {"type": "string", "maxLength": 4},
+                ],
+            },
+        ),
+        (
+            {"type": "number", "minimum": 5},
+            {
+                "$schema": DRAFT202012,
+                "anyOf": [
+                    {"type": ["null", "boolean", "string", "array", "object"]},
+                    {"type": "number", "exclusiveMaximum": 5},
+                ],
+            },
+        ),
+    ],
+)
+def test_negate(schema, expected):
+    result = canonicalize(schema).negate()
+    assert isinstance(result, CanonicalSchema)
+    assert result.to_json_schema() == expected
+
+
+# The decline set is contract: a caller sizes its fallback on it.
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"type": "integer"},
+        {"type": "integer", "minimum": 0},
+        {"$schema": "http://json-schema.org/draft-04/schema#", "type": "integer", "enum": [1, 2]},
+        UNMODELED,
+    ],
+)
+def test_negate_declines(schema):
+    assert canonicalize(schema).negate() is None
+
+
+def test_negate_keeps_a_reference_symbolic():
+    schema = canonicalize({"$defs": {"A": {"type": "string"}}, "$ref": "#/$defs/A"})
+    complement = schema.negate()
+    assert complement.kind == "not"
+    assert complement.definition("#/$defs/A") == schema.definition("#/$defs/A")

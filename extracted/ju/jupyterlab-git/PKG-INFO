@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyterlab_git
-Version: 0.54.0
+Version: 0.54.1
 Dynamic: Keywords
 Summary: A JupyterLab extension for version control using git
 Project-URL: Homepage, https://github.com/jupyterlab/jupyterlab-git

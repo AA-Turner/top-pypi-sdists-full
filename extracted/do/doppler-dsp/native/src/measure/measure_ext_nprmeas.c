@@ -302,9 +302,12 @@ NPRMeasure_getprop_rbw (NPRMeasureObject *self, void *Py_UNUSED (closure))
 }
 
 static PyGetSetDef NPRMeasure_getset[]
-    = { { "n", (getter)NPRMeasure_getprop_n, NULL, "N.\n", NULL },
-        { "nfft", (getter)NPRMeasure_getprop_nfft, NULL, "Nfft.\n", NULL },
-        { "fs", (getter)NPRMeasure_getprop_fs, NULL, "Fs.\n", NULL },
+    = { { "n", (getter)NPRMeasure_getprop_n, NULL,
+          "Window / frame length (samples).\n", NULL },
+        { "nfft", (getter)NPRMeasure_getprop_nfft, NULL,
+          "Zero-padded transform length.\n", NULL },
+        { "fs", (getter)NPRMeasure_getprop_fs, NULL, "Sample rate, Hz.\n",
+          NULL },
         { "rbw", (getter)NPRMeasure_getprop_rbw, NULL, "Rbw.\n", NULL },
         { NULL } };
 
@@ -340,7 +343,7 @@ NPRMeasureObj_exit (NPRMeasureObject *self, PyObject *args)
 
 static PyMethodDef NPRMeasureObj_methods[] = {
   { "reset", (PyCFunction)NPRMeasureObj_reset, METH_NOARGS,
-    "Reset state to post-create defaults." },
+    "Reset the analyser (a no-op: each analyze() call is independent)." },
 
   { "analyze", (PyCFunction)(void *)NPRMeasureObj_analyze,
     METH_VARARGS | METH_KEYWORDS,
@@ -354,20 +357,77 @@ static PyMethodDef NPRMeasureObj_methods[] = {
     "DC-centred dBFS magnitude spectrum of a capture (length nfft, for "
     "plots).\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import NPRMeasure\n"
-    "    >>> obj = NPRMeasure(8192, 1.0, 1.0, 0, 0.0)\n"
-    "    >>> y = obj.spectrum_dbfs(np.zeros(4))\n"
-    "    >>> y.dtype\n"
-    "    dtype('float32')\n" },
+    "The same windowed, zero-padded PSD the NPR metrics are read off, laid\n"
+    "out DC-centred (fftshifted) and normalised to dBFS for an\n"
+    "analyzer-display backdrop. Use it to see the notch and the active band\n"
+    "that analyze() integrates over.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.float32]\n"
+    "    Real time-domain capture (length x_len).\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.float32]\n"
+    "    DC-centred dBFS magnitude spectrum, one value per FFT bin (nfft).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.measure import NPRMeasure\n"
+    ">>> import numpy as np\n"
+    ">>> rng = np.random.default_rng(0)\n"
+    ">>> x = (0.3*rng.standard_normal(8192)).astype(np.float32)   # noise "
+    "capture\n"
+    ">>> s = NPRMeasure(n=8192, fs=1.0).spectrum_dbfs(x)      # DC-centred "
+    "dBFS\n"
+    ">>> s.shape                                              # zero-padded "
+    "nfft\n"
+    "(16384,)\n"
+    ">>> round(float(np.median(s)), 0)   # broadband floor, well below 0 "
+    "dBFS\n"
+    "-48.0\n" },
   { "spectrum_dbfs_max_out", (PyCFunction)NPRMeasureObj_spectrum_dbfs_max_out,
     METH_NOARGS,
     "spectrum_dbfs_max_out() -> int\n\nMax output length spectrum_dbfs() can "
     "produce for the current state.\nUse to size the ``out=`` buffer." },
   { "destroy", (PyCFunction)NPRMeasureObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)NPRMeasureObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)NPRMeasureObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)NPRMeasureObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a Nprmeas be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "Nprmeas\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)NPRMeasureObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the Nprmeas.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

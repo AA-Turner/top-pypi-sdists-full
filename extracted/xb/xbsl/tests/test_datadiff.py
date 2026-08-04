@@ -167,3 +167,26 @@ def test_render_markdown_is_uncapped_and_structured():
 
 def test_prune_drops_empty_branches():
     assert datadiff._prune({"a": {"b": []}, "c": {"d": {"e": None}}, "keep": ["x"]}) == {"keep": ["x"]}
+
+def test_a_member_that_changed_kind_is_a_move_not_a_removal():
+    """A newer documentation gave events a section of their own, and the diff of the datasets reported
+    dozens of them as REMOVED - a Button without its OnClick, an Edit without its OnChange -
+    while the API had not changed at all. A member that left one kind and joined another is
+    reported as a move, and neither half is counted as a change of the API."""
+    old = {"type_members": {"Кнопка": {"properties": ["Заголовок", "ПриНажатии"]}}, "bases": {}}
+    new = {"type_members": {"Кнопка": {"properties": ["Заголовок"], "events": ["ПриНажатии"]}},
+           "bases": {}}
+
+    report = datadiff.diff_stdlib(old, new)
+
+    assert report["members"]["Кнопка"] == {"moved": {"ПриНажатии": ["properties", "events"]}}
+
+
+def test_a_member_that_really_went_away_is_still_a_removal():
+    """The control: without a place to move to, a disappearance stays a disappearance."""
+    old = {"type_members": {"Кнопка": {"properties": ["Заголовок", "Устаревшее"]}}, "bases": {}}
+    new = {"type_members": {"Кнопка": {"properties": ["Заголовок"]}}, "bases": {}}
+
+    report = datadiff.diff_stdlib(old, new)
+
+    assert report["members"]["Кнопка"] == {"properties": {"removed": ["Устаревшее"]}}

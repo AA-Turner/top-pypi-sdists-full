@@ -1,15 +1,12 @@
     def __del__(self) -> None:
-        try:
-            if self.cb:
-                libvirtmod.virStreamEventRemoveCallback(self._o)
-        except AttributeError:
-            pass
+        if hasattr(self, "cb"):
+            libvirtmod.virStreamEventRemoveCallback(self._o)
 
         if self._o is not None:
             libvirtmod.virStreamFree(self._o)
         self._o = None
 
-    def _dispatchStreamEventCallback(self, events: int, cbData: Dict[str, Any]) -> int:
+    def _dispatchStreamEventCallback(self, events: int, cbData: dict[str, Any]) -> int:
         """
         Dispatches events to python user's stream event callbacks
         """
@@ -127,7 +124,7 @@
             raise libvirtError('virStreamSend() failed')
         return ret
 
-    def recvHole(self, flags: int = 0) -> int:
+    def recvHole(self, flags: Optional[int] = 0) -> int:
         """This method is used to determine the length in bytes
         of the empty space to be created in a stream's target
         file when uploading or downloading sparsely populated
@@ -138,7 +135,7 @@
             raise libvirtError('virStreamRecvHole() failed')
         return ret
 
-    def sendHole(self, length: int, flags: int = 0) -> int:
+    def sendHole(self, length: int, flags: Optional[int] = 0) -> int:
         """Rather than transmitting empty file space, this method
         directs the stream target to create length bytes of empty
         space.  This method would be used when uploading or
@@ -150,7 +147,7 @@
             raise libvirtError('virStreamSendHole() failed')
         return ret
 
-    def recvFlags(self, nbytes: int, flags: int = 0) -> Union[bytes, int]:
+    def recvFlags(self, nbytes: int, flags: Optional[int] = 0) -> Union[bytes, int]:
         """Reads a series of bytes from the stream. This method may
         block the calling application for an arbitrary amount
         of time. This is just like recv except it has flags
@@ -221,7 +218,7 @@
                 self.abort()
                 raise RuntimeError("sparseRecvAll handler returned %d" % ret_data)
 
-    def sparseSendAll(self, handler: Callable[['virStream', int, _T], Union[bytes, int]], holeHandler: Callable[['virStream', _T], Tuple[bool, int]], skipHandler: Callable[['virStream', int, _T], int], opaque: _T) -> None:
+    def sparseSendAll(self, handler: Callable[['virStream', int, _T], Union[bytes, int]], holeHandler: Callable[['virStream', _T], tuple[bool, int]], skipHandler: Callable[['virStream', int, _T], int], opaque: _T) -> None:
         """Send the entire data stream, reading the data from the
         requested data source. This is simply a convenient
         alternative to virStreamSend, for apps that do

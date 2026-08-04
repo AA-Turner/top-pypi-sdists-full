@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dttlib
-Version: 0.10.8
+Version: 0.10.9
 License-File: COPYING
 License-File: COPYING-GPL-3
 Summary: Advanced LIGO core library for online and offline frequency-domain diagnostics tool.

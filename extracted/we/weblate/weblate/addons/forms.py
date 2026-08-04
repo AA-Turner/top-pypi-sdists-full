@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, TypedDict, cast
 from urllib.parse import urlparse
 
 import regex
@@ -89,6 +89,19 @@ if TYPE_CHECKING:
         DetectedDiscoveryPresetValues,
     )
     from weblate.trans.models import Component, Project
+
+
+class BuiltinDiscoveryUIPreset(TypedDict):
+    id: str
+    kind: str
+    title: str
+    details: str
+    file_format_label: str
+    base_file_label: str
+    examples: tuple[str, ...]
+    label: str
+    description: str
+    values: DetectedDiscoveryPresetValues
 
 
 class BaseAddonForm[StoredConfigurationT, AddonT: BaseAddon](forms.Form):
@@ -279,6 +292,15 @@ class BaseXgettextExtractPotForm(BaseExtractPotForm):
             "Optional extra keyword passed to xgettext using --keyword."
         ),
     )
+    keyword_exclusive = forms.BooleanField(
+        label=gettext_lazy("Use keywords exclusively"),
+        required=False,
+        help_text=gettext_lazy(
+            "When enabled, passes --keyword without a value to xgettext before "
+            "the additional keyword, disabling all default keywords so that only "
+            "the keyword specified above is recognized."
+        ),
+    )
 
     def __init__(self, *args, **kwargs) -> None:
         data = self.ensure_default_bound_value(
@@ -298,6 +320,15 @@ class BaseXgettextExtractPotForm(BaseExtractPotForm):
             comment_tag = ""
         cleaned_data["comment_tag"] = comment_tag
         cleaned_data["keyword"] = cleaned_data.get("keyword", "").strip()
+        keyword_exclusive = bool(cleaned_data.get("keyword_exclusive"))
+        if keyword_exclusive and not cleaned_data["keyword"]:
+            self.add_error(
+                "keyword_exclusive",
+                gettext(
+                    "An additional keyword is required when using keywords exclusively."
+                ),
+            )
+        cleaned_data["keyword_exclusive"] = keyword_exclusive
         cleaned_data["location_mode"] = cleaned_data.get("location_mode", "file")
         return cleaned_data
 
@@ -372,6 +403,7 @@ class XgettextExtractPotForm(BaseXgettextExtractPotForm):
             Field("comment_tag"),
             Field("checks"),
             Field("keyword"),
+            Field("keyword_exclusive"),
             Field("location_mode"),
         ]
 
@@ -446,6 +478,7 @@ class MesonExtractPotForm(BaseXgettextExtractPotForm):
             Field("comment_tag"),
             Field("checks"),
             Field("keyword"),
+            Field("keyword_exclusive"),
             Field("location_mode"),
         )
 
@@ -940,7 +973,7 @@ class DiscoveryForm(BaseAddonForm):
         preset_id: str,
         label: str,
         description: str,
-    ) -> dict[str, object]:
+    ) -> BuiltinDiscoveryUIPreset:
         values = cls.PRESETS[preset_id]
         file_format_label = cls.render_preset_file_format_label(values)
         base_file_label = cls.render_preset_base_file_label(values)
@@ -991,7 +1024,7 @@ class DiscoveryForm(BaseAddonForm):
         }
 
     @classmethod
-    def get_builtin_ui_presets(cls) -> list[dict[str, object]]:
+    def get_builtin_ui_presets(cls) -> list[BuiltinDiscoveryUIPreset]:
         return [
             cls.render_builtin_ui_preset(
                 cls.PRESET_FOLDER_PER_LANGUAGE,
@@ -1110,13 +1143,15 @@ class DiscoveryForm(BaseAddonForm):
         return detected
 
     @cached_property
-    def generic_ui_presets(self) -> list[dict[str, object]]:
+    def generic_ui_presets(self) -> list[BuiltinDiscoveryUIPreset]:
         if self._addon.instance.pk is not None:
             return []
         return self.get_builtin_ui_presets()
 
     @cached_property
-    def guided_presets(self) -> list[dict[str, object]]:
+    def guided_presets(
+        self,
+    ) -> list[dict[str, object] | BuiltinDiscoveryUIPreset]:
         return [*self.detected_ui_presets, *self.generic_ui_presets]
 
     @cached_property
@@ -1145,7 +1180,9 @@ class DiscoveryForm(BaseAddonForm):
             )
         return sections
 
-    def get_ui_presets(self) -> list[dict[str, object]]:
+    def get_ui_presets(
+        self,
+    ) -> list[dict[str, object] | BuiltinDiscoveryUIPreset]:
         return self.guided_presets
 
     @cached_property

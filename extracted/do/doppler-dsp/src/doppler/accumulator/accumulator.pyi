@@ -14,16 +14,13 @@ class AccF32:
 
     Examples
     --------
-    Create with defaults:
-
     >>> from doppler.accumulator import AccF32
     >>> obj = AccF32(0.0)
     >>> obj.get_acc()
     0.0
-
-    Reset restores defaults:
-
-    >>> obj.set_acc(1.0)
+    >>> obj.set_acc(5.0)
+    >>> obj.get_acc()
+    5.0
     >>> obj.reset()
     >>> obj.get_acc()
     0.0
@@ -189,23 +186,135 @@ class AccF32:
         """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the AccF32 has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the AccF32 has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the AccF32 has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
     def get_acc(self) -> float:
-        """Return current acc."""
+        """Return the current accumulator value without modifying state. Use this when you need to read the running sum mid-accumulation without disturbing it. For a read-and-reset in one call use ``acc_f32_dump``.
+
+        Returns
+        -------
+        float
+            Current value of ``acc`` (float).
+
+        Examples
+        --------
+        >>> from doppler.accumulator import AccF32
+        >>> obj = AccF32(0.0)
+        >>> obj.step(4.0)
+        >>> obj.get_acc()          # non-destructive read
+        4.0
+        >>> obj.get_acc()          # still there — get_acc never drains
+        4.0
+
+        """
 
     def set_acc(self, value: float) -> None:
-        """Set acc."""
+        """Overwrite the accumulator with a new value. Useful for seeding the accumulator to a known baseline before processing a new segment without a full ``reset``; subsequent ``step`` / ``steps`` samples accumulate on top of the seeded value.
+
+        Parameters
+        ----------
+        value : float
+            New accumulator value.
+
+        Examples
+        --------
+        >>> from doppler.accumulator import AccF32
+        >>> obj = AccF32(0.0)
+        >>> obj.set_acc(10.0)      # seed a running baseline
+        >>> obj.step(2.5)          # later samples fold in on top
+        >>> obj.get_acc()
+        12.5
+
+        """
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "AccF32": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "AccF32":
+        """Enter a context manager, returning this object.
+
+        Lets a AccF32 be used in a `with` statement so its C resources are
+        released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        AccF32
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the AccF32.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
 
 @final
 class AccCf64:
@@ -218,16 +327,13 @@ class AccCf64:
 
     Examples
     --------
-    Create with defaults:
-
     >>> from doppler.accumulator import AccCf64
     >>> obj = AccCf64(0j)
     >>> obj.get_acc()
     0j
-
-    Reset restores defaults:
-
-    >>> obj.set_acc(0.0)
+    >>> obj.set_acc(3+4j)
+    >>> obj.get_acc()
+    (3+4j)
     >>> obj.reset()
     >>> obj.get_acc()
     0j
@@ -393,23 +499,135 @@ class AccCf64:
         """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the AccCf64 has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the AccCf64 has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the AccCf64 has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
     def get_acc(self) -> complex:
-        """Return current acc."""
+        """Return the current accumulator value without modifying state. Use this when you need to read the running sum mid-accumulation without disturbing it. For a read-and-reset in one call use ``acc_cf64_dump``.
+
+        Returns
+        -------
+        complex
+            Current value of ``acc`` (complex).
+
+        Examples
+        --------
+        >>> from doppler.accumulator import AccCf64
+        >>> obj = AccCf64(0j)
+        >>> obj.step(1+2j)
+        >>> obj.get_acc()          # non-destructive read
+        (1+2j)
+        >>> obj.get_acc()          # still there — get_acc never drains
+        (1+2j)
+
+        """
 
     def set_acc(self, value: complex) -> None:
-        """Set acc."""
+        """Overwrite the accumulator with a new complex value. Useful for seeding the accumulator to a known baseline before processing a new segment without a full ``reset``; subsequent ``step`` / ``steps`` samples accumulate on top of the seeded value.
+
+        Parameters
+        ----------
+        value : complex
+            New accumulator value (complex).
+
+        Examples
+        --------
+        >>> from doppler.accumulator import AccCf64
+        >>> obj = AccCf64(0j)
+        >>> obj.set_acc(5+6j)      # seed a complex baseline
+        >>> obj.step(1+1j)         # later samples fold in on top
+        >>> obj.get_acc()
+        (6+7j)
+
+        """
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "AccCf64": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "AccCf64":
+        """Enter a context manager, returning this object.
+
+        Lets a AccCf64 be used in a `with` statement so its C resources are
+        released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        AccCf64
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the AccCf64.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
 
 @final
 class AccTrace:
@@ -426,10 +644,10 @@ class AccTrace:
 
     Examples
     --------
-    Create with defaults:
-
     >>> from doppler.accumulator import AccTrace
-    >>> obj = AccTrace(n=1024, mode="mean", alpha=0.1)
+    >>> acc = AccTrace(n=8, mode="mean")
+    >>> acc.n, acc.count
+    (8, 0)
 
     """
     def __init__(self, n: int = ..., mode: Literal["mean", "exp", "maxhold", "minhold"] = "mean", alpha: float = ...) -> None: ...
@@ -482,44 +700,136 @@ class AccTrace:
         >>> import numpy as np
         >>> from doppler.accumulator import AccTrace
         >>> acc = AccTrace(n=3, mode="maxhold")
+        >>> acc.value() is None            # empty until the first frame
+        True
         >>> acc.accumulate(np.array([1, 5, 2], dtype=np.float32))
         >>> acc.accumulate(np.array([4, 3, 6], dtype=np.float32))
-        >>> acc.value().tolist()
+        >>> acc.value().tolist()           # per-bin running maximum
         [4.0, 5.0, 6.0]
 
         """
 
-    def value_max_out(self) -> int:
-        """Max output length value() can produce for the current state."""
+    def value_max_out(self, n: int) -> int:
+        """Output capacity hint for value(); equals the trace length n.
+
+        Parameters
+        ----------
+        n : int
+            Input.
+
+        Returns
+        -------
+        int
+            Output.
+        """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the AccTrace has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the AccTrace has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the AccTrace has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def n(self) -> int:
-        """N."""
+        """Trace length (bins)."""
 
     @property
     def alpha(self) -> float:
-        """Alpha."""
+        """EMA smoothing factor (exp mode)."""
     @alpha.setter
     def alpha(self, value: float) -> None: ...
 
     @property
     def count(self) -> int:
-        """Count."""
+        """Frames folded in so far."""
 
     @property
     def mode(self) -> int:
-        """Mode."""
+        """Reduction mode."""
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "AccTrace": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "AccTrace":
+        """Enter a context manager, returning this object.
+
+        Lets a AccTrace be used in a `with` statement so its C resources are
+        released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        AccTrace
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the AccTrace.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """

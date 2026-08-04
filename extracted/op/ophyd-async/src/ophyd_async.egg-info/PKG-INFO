@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ophyd-async
-Version: 0.20.1
+Version: 0.21.0
 Summary: Asynchronous Bluesky hardware abstraction code, compatible with control systems like EPICS and Tango
 Author-email: Tom Cobb <tom.cobb@diamond.ac.uk>
 License: BSD 3-Clause License
@@ -50,7 +50,7 @@ Requires-Dist: colorlog
 Requires-Dist: pydantic>=2.0
 Requires-Dist: pydantic-numpy
 Requires-Dist: stamina>=23.1.0
-Requires-Dist: scanspec>=0.8
+Requires-Dist: scanspec>=1.0.0
 Requires-Dist: velocity-profile
 Provides-Extra: sim
 Requires-Dist: h5py; extra == "sim"

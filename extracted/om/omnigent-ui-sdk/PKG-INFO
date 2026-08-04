@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: omnigent-ui-sdk
-Version: 0.7.0
+Version: 0.8.1
 Summary: Terminal UI components (Rich + prompt_toolkit) for building omnigent frontends
 Requires-Python: >=3.12
-Requires-Dist: omnigent-client==0.7.0
+Requires-Dist: omnigent-client==0.8.1
 Requires-Dist: prompt-toolkit>=3
 Requires-Dist: pyyaml<7,>=6.0
 Requires-Dist: rich>=13

@@ -39,11 +39,11 @@ import time
 import httpx
 import pytest
 
-from _fixtures.kernel_test_helpers import install_http_client_for_test
-from _helpers.client_factory import build_client_shell_for_tests
 from notebooklm.auth import AuthTokens
 from notebooklm.client import NotebookLMClient
 from notebooklm.rpc import RPCMethod
+from tests._fixtures.kernel_test_helpers import install_http_client_for_test
+from tests._helpers.client_factory import build_client_shell_for_tests
 
 from .conftest import ConcurrentMockTransport
 
@@ -69,8 +69,9 @@ async def _open_core_with_transport(transport: ConcurrentMockTransport) -> Noteb
     """Open a ``NotebookLMClient`` and swap in the mock transport.
 
     Mirrors the documented pattern from ``tests/unit/conftest.py``:
-    ``NotebookLMClient.open()`` builds its own ``httpx.AsyncClient`` and we
-    can't override the transport via the constructor. So we open
+    ``NotebookLMClient.__aenter__()`` calls ``ClientLifecycle.open()``, which
+    builds its own ``httpx.AsyncClient`` and we can't override the transport via
+    the constructor. So we open
     normally, then close-and-replace the underlying client with one
     that routes through our recording transport.
 

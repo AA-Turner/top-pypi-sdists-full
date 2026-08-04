@@ -108,6 +108,7 @@ class PermissionName(str, Enum):
     PROJECT_CREATE_MODEL_TASK = 'project_create_model_task'
     PROJECT_CREATE_MODEL_LINK_TASK = 'project_create_model_link_task'
     MODEL_READ = 'model_read'
+    MODEL_READ_GOVERNANCE = 'model_read_governance'
     MODEL_UPDATE = 'model_update'
     MODEL_DELETE = 'model_delete'
     MODEL_PUT_METRIC_CONFIG = 'model_put_metric_config'
@@ -226,6 +227,11 @@ class PermissionName(str, Enum):
     ORGANIZATION_LIST_AGENT_TOOLS = 'organization_list_agent_tools'
     ORGANIZATION_LIST_AGENT_LLM_MODELS = 'organization_list_agent_llm_models'
     ORGANIZATION_LIST_MODELS = 'organization_list_models'
+    WORKSPACE_CREATE_DASHBOARD = 'workspace_create_dashboard'
+    WORKSPACE_LIST_DASHBOARDS = 'workspace_list_dashboards'
+    DASHBOARD_READ = 'dashboard_read'
+    DASHBOARD_UPDATE = 'dashboard_update'
+    DASHBOARD_DELETE = 'dashboard_delete'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

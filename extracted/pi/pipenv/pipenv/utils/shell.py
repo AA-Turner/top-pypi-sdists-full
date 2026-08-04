@@ -11,7 +11,7 @@ from functools import lru_cache
 from pathlib import Path, PurePath
 
 from pipenv.utils import err
-from pipenv.utils.fileutils import normalize_drive
+from pipenv.utils.fileutils import normalize_drive  # noqa: F401 (re-export for back-compat; external callers import it from here)
 from pipenv.vendor.pythonfinder.utils import ensure_path, parse_python_version
 
 from .constants import FALSE_VALUES, SCHEME_LIST, TRUE_VALUES
@@ -99,18 +99,6 @@ def load_path(python):
         return json.loads(c.stdout.strip())
     else:
         return []
-
-
-def path_to_url(path):
-    """
-    Convert a file system path to a URI.
-
-    First normalizes drive letter case on Windows, then converts to absolute path,
-    and finally to a URI.
-    """
-    path_obj = Path(path).resolve()
-    normalized_path = normalize_drive(str(path_obj))
-    return Path(normalized_path).as_uri()
 
 
 def get_windows_path(*args):
@@ -419,7 +407,15 @@ def is_virtual_environment(path):
     if not path.is_dir():
         return False
     for bindir_name in ("bin", "Scripts"):
-        for python in path.joinpath(bindir_name).glob("python*"):
+        bindir = path.joinpath(bindir_name)
+        # Windows' Path.glob raises FileNotFoundError when the directory
+        # does not exist (Unix returns an empty iterator). Guard explicitly
+        # so a directory under WORKON_HOME that lacks a bindir — e.g. a
+        # partially torn-down sibling venv during a parallel test run —
+        # is treated as "not a virtualenv" instead of crashing the caller.
+        if not bindir.is_dir():
+            continue
+        for python in bindir.glob("python*"):
             try:
                 exeness = python.is_file() and os.access(str(python), os.X_OK)
             except OSError:
@@ -625,7 +621,7 @@ def is_env_truthy(name):
 
 def project_python(project, system=False):
     if not system:
-        python = project._which("python")
+        python = project.venv_locator._which("python")
     # When --system --python was used, PIPENV_PYTHON holds the resolved path
     # to the target interpreter so we install to its site-packages (#3593).
     elif project and project.s and project.s.PIPENV_PYTHON:

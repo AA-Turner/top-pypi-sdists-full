@@ -468,12 +468,31 @@ static PyMethodDef DdcrObj_methods[] = {
     "\n"
     "Down-convert a block of real float32 samples to CF32 baseband.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import Ddcr\n"
-    "    >>> obj = Ddcr(0.0, 0.25)\n"
-    "    >>> y = obj.execute(np.zeros(4))\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex64')\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.float32]\n"
+    "    Input.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex64]\n"
+    "    Number of output samples written (C-only).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.ddc import Ddcr\n"
+    ">>> import numpy as np\n"
+    ">>> ddcr = Ddcr(norm_freq=-0.7, rate=0.25)\n"
+    ">>> t = np.arange(4096)\n"
+    ">>> x = np.cos(2 * np.pi * 0.1 * t).astype(np.float32)\n"
+    ">>> out = np.empty(len(x), dtype=np.complex64)\n"
+    ">>> y = ddcr.execute(x, out)\n"
+    ">>> y.shape\n"
+    "(1024,)\n"
+    ">>> y.dtype\n"
+    "dtype('complex64')\n"
+    ">>> round(float(abs(y[500])), 2)   # one-sided cosine amplitude ≈ 0.5\n"
+    "0.5\n" },
   { "execute_max_out", (PyCFunction)DdcrObj_execute_max_out, METH_NOARGS,
     "execute_max_out() -> int\n\nMax output length execute() can produce for "
     "the current state.\nUse to size the ``out=`` buffer." },
@@ -506,20 +525,114 @@ static PyMethodDef DdcrObj_methods[] = {
     "\n"
     "Zero halfband history, LO phase and filter history.\n"
     "\n"
-    "    >>> from doppler import Ddcr\n"
-    "    >>> obj = Ddcr(0.0, 0.25)\n"
-    "    >>> obj.reset()\n" },
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.ddc import Ddcr\n"
+    ">>> import numpy as np\n"
+    ">>> ddcr = Ddcr(norm_freq=0.0, rate=0.25)\n"
+    ">>> x = np.ones(64, dtype=np.float32)\n"
+    ">>> out = np.empty(64, dtype=np.complex64)\n"
+    ">>> y1 = ddcr.execute(x, out).copy()\n"
+    ">>> ddcr.reset()\n"
+    ">>> y2 = ddcr.execute(x, out)\n"
+    ">>> bool(np.array_equal(y1, y2))\n"
+    "True\n" },
   { "state_bytes", (PyCFunction)DdcrObj_state_bytes, METH_NOARGS,
-    "Serialized state size in bytes." },
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the DdcrObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
   { "get_state", (PyCFunction)DdcrObj_get_state, METH_NOARGS,
-    "Serialize the engine's mutable state to bytes." },
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the DdcrObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
   { "set_state", (PyCFunction)DdcrObj_set_state, METH_O,
-    "Restore mutable state from a get_state() blob." },
-  { "close", (PyCFunction)DdcrObj_destroy, METH_NOARGS, "Release resources." },
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the DdcrObj has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
+  { "close", (PyCFunction)DdcrObj_destroy, METH_NOARGS,
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
   { "destroy", (PyCFunction)DdcrObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)DdcrObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)DdcrObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)DdcrObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a Ddcr be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "Ddcr\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)DdcrObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the Ddcr.\n"
+    "\n"
+    "Equivalent to calling `close()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

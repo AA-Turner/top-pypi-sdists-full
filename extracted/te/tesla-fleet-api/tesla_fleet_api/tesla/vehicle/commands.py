@@ -2,6 +2,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 import struct
+from collections import deque
 from random import randbytes
 from typing import (
     Any,
@@ -26,6 +27,8 @@ from tesla_fleet_api.exceptions import (
     MESSAGE_FAULTS,
     SIGNED_MESSAGE_INFORMATION_FAULTS,
     NotOnWhitelistFault,
+    SessionInfoAuthenticationFault,
+    SignedCommandResponseReplayed,
     TeslaFleetError,
     # TeslaFleetMessageFaultInvalidSignature,
     TeslaFleetMessageFaultIncorrectEpoch,
@@ -43,17 +46,28 @@ from tesla_fleet_api.const import (
     CabinOverheatProtectionTemp,
     SunRoofCommand,
     WindowCommand,
+    TemperatureUnit,
+    DistanceUnit,
+    TimeDisplayFormat,
+    TirePressureUnit,
+    EnergyDisplayFormat,
+    PhoneFontSize,
+    VehicleImageType,
 )
 
 # Protocol
-from tesla_fleet_api.tesla.vehicle.proto.errors_pb2 import GenericError_E
-from tesla_fleet_api.tesla.vehicle.proto.car_server_pb2 import (
+from tesla_protocol.command.errors_pb2 import GenericError_E
+from tesla_protocol.command.car_server_pb2 import (
     AutoStwHeatAction,
     BoomboxAction,
     DrivingClearSpeedLimitPinAdminAction,
+    GetVehicleData,
+    GetVehicleImageState,
     Response,
+    VehicleImageDataChunkRequest,
+    VehicleImageRequest,
 )
-from tesla_fleet_api.tesla.vehicle.proto.signatures_pb2 import (
+from tesla_protocol.command.signatures_pb2 import (
     Session_Info_Status,
     SignatureType,
     Tag,
@@ -62,7 +76,7 @@ from tesla_fleet_api.tesla.vehicle.proto.signatures_pb2 import (
     SessionInfo,
     SignatureData,
 )
-from tesla_fleet_api.tesla.vehicle.proto.universal_message_pb2 import (
+from tesla_protocol.command.universal_message_pb2 import (
     OperationStatus_E,
     Destination,
     Domain,
@@ -70,11 +84,11 @@ from tesla_fleet_api.tesla.vehicle.proto.universal_message_pb2 import (
     SessionInfoRequest,
     Flags,
 )
-from tesla_fleet_api.tesla.vehicle.proto.vcsec_pb2 import (
+from tesla_protocol.command.vcsec_pb2 import (
     FromVCSECMessage,
     VehicleStatus,
 )
-from tesla_fleet_api.tesla.vehicle.proto.car_server_pb2 import (
+from tesla_protocol.command.car_server_pb2 import (
     Action,
     MediaPlayAction,
     VehicleAction,
@@ -122,32 +136,26 @@ from tesla_fleet_api.tesla.vehicle.proto.car_server_pb2 import (
     NavigationRequest,
     NavigationSuperchargerRequest,
     NavigationWaypointsRequest,
-    # Group 1: Steering wheel heat level
     StwHeatLevelAction,
-    # Group 2: General infotainment
     HvacRecirculationAction,
     DashcamSaveClipAction,
     SetSuspensionLevelAction,
     StartLightShowAction,
     StopLightShowAction,
     CancelSohTestAction,
-    # Group 3: Schedules
     RemoveChargeScheduleAction,
     RemovePreconditionScheduleAction,
     BatchRemoveChargeSchedulesAction,
     BatchRemovePreconditionSchedulesAction,
-    # Group 4: Powershare
     SetPowershareFeatureAction,
     SetPowershareRequestAction,
     SetPowershareDischargeLimitAction,
-    # Group 5: Outlets & power feeds
     SetOutletsOnOffAction,
     SetOutletTimerAction,
     SetOutletSocLimitAction,
     SetPowerFeedOnOffAction,
     SetPowerFeedTimerAction,
     SetPowerFeedSocLimitAction,
-    # Group 6: Lighting
     SetLightbarBrightnessAction,
     SetLightbarMiddleAction,
     SetLightbarDitchAction,
@@ -155,41 +163,67 @@ from tesla_fleet_api.tesla.vehicle.proto.car_server_pb2 import (
     SetTrailerLightTestStartStopAction,
     SetTruckBedLightAutoStateAction,
     SetTruckBedLightBrightnessAction,
-    # Group 7: Tent mode
     SetTentModeRequestAction,
-    # Group 8: Parental controls
     ParentalControlsAction,
     ParentalControlsClearPinAction,
     ParentalControlsClearPinAdminAction,
     ParentalControlsEnableSettingsAction,
     ParentalControlsSetSpeedLimitAction,
-    # Group 9: Charge on solar
     UpdateChargeOnSolarFeatureRequest,
     GetChargeOnSolarFeatureRequest,
     ChargeOnSolarFeature,
-    # Group 10: Navigation
     NavigationGpsDestinationRequest,
-    # Group 11: Admin
     VehicleControlResetPinToDriveAdminAction,
-    # Group 12: Power modes
     SetLowPowerModeAction,
     SetKeepAccessoryPowerModeAction,
+    PiiKeyRequest,
+    PseudonymSyncRequest,
+    TeslaAuthResponseAction,
+    SetupCloudProfileWithLocalProfileUuidAction,
+    GetLocalProfilesForVaultUuidAction,
+    DeleteDashcamClipsAction,
+    FormatUSBAction,
+    SetTemperatureUnitAction,
+    SetDistanceUnitAction,
+    SetTimeDisplayFormatAction,
+    SetTirePressureUnitAction,
+    SetEnergyDisplayFormatAction,
+    SetPhoneSettingPreferencesAction,
+    PhoneUnitPreferences,
+    UiSetUpcomingCalendarEntries,
+    TakeDrivenoteAction,
+    VideoRequestAction,
+    NavigationRouteAction,
+    GetMessagesAction,
+    SetRateTariffRequest,
+    GetRateTariffRequest,
+    AddManagedChargingSiteRequest,
+    RemoveManagedChargingSiteRequest,
+    GetManagedChargingSitesRequest,
+    SetDischargeLimitAction,
+    ManagedChargingSite,
+    ManagerType,
+    SiteController,
+    BluetoothClassicPairingRequest,
+    BandwidthTest,
+    FetchKeysInfoAction,
 )
-from tesla_fleet_api.tesla.vehicle.proto.vehicle_pb2 import (
+from google.protobuf.timestamp_pb2 import Timestamp
+from tesla_protocol.command.vehicle_pb2 import (
     VehicleData,
     VehicleState,
     ClimateState,
 )
-from tesla_fleet_api.tesla.vehicle.proto.vcsec_pb2 import (
+from tesla_protocol.command.vcsec_pb2 import (
     UnsignedMessage,
     RKEAction_E,
     ClosureMoveRequest,
     ClosureMoveType_E,
 )
-from tesla_fleet_api.tesla.vehicle.proto.signatures_pb2 import (
+from tesla_protocol.command.signatures_pb2 import (
     HMAC_Personalized_Signature_Data,
 )
-from tesla_fleet_api.tesla.vehicle.proto.common_pb2 import (
+from tesla_protocol.command.common_pb2 import (
     LatLong,
     Void,
     PreconditioningTimes,
@@ -280,6 +314,8 @@ def _log_command_error(name: str, transport: str, exc: BaseException) -> None:
 class Session(Generic[CommandParentT]):
     """A connect to a domain"""
 
+    _response_counter_cache_size = 256
+
     def __init__(self, parent: Commands[CommandParentT], domain: Domain):
         self.parent: Commands[CommandParentT] = parent
         self.domain: Domain = domain
@@ -289,6 +325,11 @@ class Session(Generic[CommandParentT]):
         self.sharedKey: bytes | None = None
         self.hmac: bytes | None = None
         self.publicKey: bytes | None = None
+        self.session_info_key: bytes | None = None
+        self.response_counters: deque[tuple[bytes, int]] = deque(
+            maxlen=self._response_counter_cache_size
+        )
+        self._last_authenticated_clock_time: int | None = None
         self.lock: Lock = Lock()
 
     @property
@@ -298,18 +339,67 @@ class Session(Generic[CommandParentT]):
             self.epoch is not None and self.hmac is not None and self.delta is not None
         )
 
-    def update(self, sessionInfo: SessionInfo):
-        """Update the session with new information"""
+    def keys_for(self, vehicle_public_key: bytes) -> tuple[bytes, bytes, bytes]:
+        """Derive (shared_key, command_hmac_key, session_info_key) for a candidate vehicle public key.
 
-        self.counter = sessionInfo.counter
-        self.epoch = sessionInfo.epoch
-        self.delta = int(time.time()) - sessionInfo.clock_time
-        if not self.ready or self.publicKey != sessionInfo.publicKey:
-            self.publicKey = sessionInfo.publicKey
-            self.sharedKey = self.parent.shared_key(sessionInfo.publicKey)
-            self.hmac = hmac.new(
-                self.sharedKey, "authenticated command".encode(), hashlib.sha256
-            ).digest()
+        Pure and side-effect free - it does not touch any session state, so a
+        caller must authenticate a reply against the returned keys before
+        deciding whether to commit them via ``commit()``.
+        """
+        shared_key = self.parent.shared_key(vehicle_public_key)
+        hmac_key = hmac.new(
+            shared_key, "authenticated command".encode(), hashlib.sha256
+        ).digest()
+        session_info_key = hmac.new(
+            shared_key, "session info".encode(), hashlib.sha256
+        ).digest()
+        return shared_key, hmac_key, session_info_key
+
+    def commit(
+        self,
+        session_info: SessionInfo,
+        shared_key: bytes,
+        hmac_key: bytes,
+        session_info_key: bytes,
+    ) -> bool:
+        """Commit an already-authenticated SessionInfo plus its ``keys_for`` result.
+
+        The anti-replay counter never rolls back within the same epoch, and a
+        clock time that regresses within the same epoch marks the reply as
+        stale/replayed - returns False without mutating any state so the
+        caller can discard it.
+        """
+        same_epoch = self.epoch is not None and self.epoch == session_info.epoch
+        if (
+            same_epoch
+            and self._last_authenticated_clock_time is not None
+            and session_info.clock_time < self._last_authenticated_clock_time
+        ):
+            return False
+
+        self.counter = (
+            max(self.counter, session_info.counter)
+            if same_epoch
+            else session_info.counter
+        )
+        self.epoch = session_info.epoch
+        self.delta = int(time.time()) - session_info.clock_time
+        self._last_authenticated_clock_time = session_info.clock_time
+        self.publicKey = session_info.publicKey
+        self.sharedKey = shared_key
+        self.hmac = hmac_key
+        self.session_info_key = session_info_key
+        if not same_epoch:
+            self.response_counters.clear()
+        return True
+
+    def record_response_counter(self, request_hash: bytes, counter: int) -> bool:
+        """Record an authenticated response counter if it has not been seen."""
+        identity = (request_hash, counter)
+        if identity in self.response_counters:
+            return False
+        self.response_counters.append(identity)
+        return True
 
     def hmac_personalized(self) -> HMAC_Personalized_Signature_Data:
         """Sign a command and return session metadata"""
@@ -403,21 +493,86 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
         """
         raise NotImplementedError
 
-    def validate_msg(self, msg: RoutableMessage) -> None:
-        """Validate the message."""
+    def validate_msg(self, msg: RoutableMessage, request_uuid: bytes) -> None:
+        """Validate the message.
+
+        ``request_uuid`` is the uuid of the outstanding request ``msg``
+        answers; it authenticates any piggy-backed ``session_info`` as the
+        TAG_CHALLENGE bound into that reply's HMAC tag before any field of it
+        is trusted.
+        """
         if msg.session_info:
-            info = SessionInfo.FromString(msg.session_info)
-            if (
-                info.status
-                == Session_Info_Status.SESSION_INFO_STATUS_KEY_NOT_ON_WHITELIST
-            ):
-                raise NotOnWhitelistFault
-            self._sessions[msg.from_destination.domain].update(info)
+            self._authenticate_session_info(msg, request_uuid)
 
         if msg.signedMessageStatus.signed_message_fault > 0:
             exception = MESSAGE_FAULTS[msg.signedMessageStatus.signed_message_fault]
             if exception:
                 raise exception
+
+    def _authenticate_session_info(
+        self, msg: RoutableMessage, request_uuid: bytes
+    ) -> None:
+        """Authenticate and commit a piggy-backed ``SessionInfo`` reply.
+
+        A ``SessionInfo`` is untrusted wire data until its ``session_info_tag``
+        is verified: the tag is an HMAC over the exact bytes received, keyed
+        by a key derived from the *candidate* vehicle public key carried
+        inside that same ``SessionInfo``, and bound to this request's
+        ``request_uuid`` as a challenge - so a captured older reply can't be
+        replayed against a newer request. Only once that tag checks out do we
+        act on anything the message claims, including its own whitelist
+        status, and even then ``Session.commit`` still refuses a clock time
+        that regresses within the same epoch.
+
+        VCSEC typically leaves the wire-level ``request_uuid`` field empty on
+        real hardware (memory constraints) - its absence must never be
+        treated as a rejection. Only cross-check the echo when the vehicle
+        chose to populate it.
+        """
+        if msg.request_uuid and msg.request_uuid != request_uuid:
+            raise SessionInfoAuthenticationFault(
+                "Session info reply does not match an outstanding request."
+            )
+
+        session = self._sessions[msg.from_destination.domain]
+        info = SessionInfo.FromString(msg.session_info)
+        shared_key, hmac_key, session_info_key = session.keys_for(info.publicKey)
+
+        tag = msg.signature_data.session_info_tag.tag
+        if not tag:
+            raise SessionInfoAuthenticationFault(
+                "Session info reply is missing its authentication tag."
+            )
+
+        metadata = bytes(
+            [
+                Tag.TAG_SIGNATURE_TYPE,
+                1,
+                SignatureType.SIGNATURE_TYPE_HMAC,
+                Tag.TAG_PERSONALIZATION,
+                17,
+                *self.vin.encode(),
+                Tag.TAG_CHALLENGE,
+                len(request_uuid),
+                *request_uuid,
+                Tag.TAG_END,
+            ]
+        )
+        expected_tag = hmac.new(
+            session_info_key, metadata + msg.session_info, hashlib.sha256
+        ).digest()
+        if not hmac.compare_digest(expected_tag, tag):
+            raise SessionInfoAuthenticationFault(
+                "Session info reply failed authentication (invalid tag)."
+            )
+
+        if info.status == Session_Info_Status.SESSION_INFO_STATUS_KEY_NOT_ON_WHITELIST:
+            raise NotOnWhitelistFault
+
+        if not session.commit(info, shared_key, hmac_key, session_info_key):
+            raise SessionInfoAuthenticationFault(
+                "Session info reply is stale (clock regressed within the same epoch)."
+            )
 
     async def _command(
         self,
@@ -511,6 +666,8 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
                 else:
                     raise ValueError("Invalid request signature data")
 
+                response_counter = resp.signature_data.AES_GCM_Response_data.counter
+
                 metadata = bytes(
                     [
                         Tag.TAG_SIGNATURE_TYPE,
@@ -553,6 +710,8 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
                     + resp.signature_data.AES_GCM_Response_data.tag,
                     aad.finalize(),
                 )
+                if not session.record_response_counter(request_hash, response_counter):
+                    raise SignedCommandResponseReplayed
 
             if resp.from_destination.domain == Domain.DOMAIN_VEHICLE_SECURITY:
                 try:
@@ -826,6 +985,99 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
         _log_command_result(name, self._transport_name, reply)
         return reply["response"]
 
+    async def vehicle_image_state(
+        self,
+        image_type: VehicleImageType | int,
+        *,
+        chunk_size: int = 16384,
+    ) -> bytes:
+        """Fetch a rendered vehicle image (e.g. AP visualization wrap or
+        license-plate placement) over the signed-command channel and return
+        its assembled bytes.
+
+        Unlike every other ``GetVehicleData`` sub-state, image data is
+        transferred in paged chunks rather than a single reply: this first
+        requests the image's metadata (an ``ID`` request, which reports its
+        total size), then issues ``DATA`` requests advancing by
+        ``chunk_size`` until the full byte range has been retrieved,
+        reassembling the chunks in order. Works over both the BLE and
+        Fleet API signed transports since it only relies on
+        ``_getInfotainment``.
+        """
+        if (
+            not isinstance(chunk_size, int)  # pyright: ignore[reportUnnecessaryIsInstance]
+            or isinstance(chunk_size, bool)
+            or chunk_size <= 0
+        ):
+            raise ValueError("chunk_size must be a positive integer")
+
+        id_reply = await self._getInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    getVehicleData=GetVehicleData(
+                        getVehicleImageState=GetVehicleImageState(
+                            imageRequests=[
+                                VehicleImageRequest(
+                                    dataType=VehicleImageRequest.Type.ID,
+                                    imageType=image_type,  # pyright: ignore[reportArgumentType]
+                                )
+                            ]
+                        )
+                    )
+                )
+            )
+        )
+        total_size = id_reply.vehicle_image_state.vehicle_images[0].total_image_size
+
+        data = bytearray()
+        offset = 0
+        while offset < total_size:
+            chunk_reply = await self._getInfotainment(
+                Action(
+                    vehicleAction=VehicleAction(
+                        getVehicleData=GetVehicleData(
+                            getVehicleImageState=GetVehicleImageState(
+                                imageRequests=[
+                                    VehicleImageRequest(
+                                        dataType=VehicleImageRequest.Type.DATA,
+                                        imageType=image_type,  # pyright: ignore[reportArgumentType]
+                                        chunkRequest=VehicleImageDataChunkRequest(
+                                            chunk_offset=offset,
+                                            chunk_size=min(
+                                                chunk_size, total_size - offset
+                                            ),
+                                        ),
+                                    )
+                                ]
+                            )
+                        )
+                    )
+                )
+            )
+            asset_data = chunk_reply.vehicle_image_state.vehicle_images[0].asset_data
+            if asset_data.start_offset != offset:
+                raise ValueError(
+                    f"Unexpected vehicle image chunk offset "
+                    f"{asset_data.start_offset}; expected {offset}"
+                )
+            chunk = asset_data.data
+            if not chunk:
+                raise ValueError(
+                    f"Vehicle image ended after {offset} of {total_size} bytes"
+                )
+            data += chunk
+            offset += len(chunk)
+            if offset > total_size:
+                raise ValueError(
+                    f"Vehicle image exceeded declared size of {total_size} bytes"
+                )
+
+        if len(data) != total_size:
+            raise ValueError(
+                f"Vehicle image contained {len(data)} of {total_size} bytes"
+            )
+        return bytes(data)
+
     async def handshakeVehicleSecurity(self) -> None:
         """Perform a handshake with the vehicle security domain."""
         await self._handshake(Domain.DOMAIN_VEHICLE_SECURITY)
@@ -987,17 +1239,23 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
             )
         )
 
-    async def clear_pin_to_drive_admin(self, pin: str | None = None):
-        """Deactivates PIN to Drive and resets the associated PIN for vehicles running firmware versions 2023.44+. This command is only accessible to fleet managers or owners."""
-        return await self._sendInfotainment(
-            Action(
-                vehicleAction=VehicleAction(
-                    drivingClearSpeedLimitPinAction=DrivingClearSpeedLimitPinAction(
-                        pin=pin
-                    )
-                )
-            )
-        )
+    async def clear_pin_to_drive_admin(self, pin: str | None = None) -> dict[str, Any]:
+        """Deactivates PIN to Drive and resets the associated PIN for vehicles running firmware versions 2023.44+. This command is only accessible to fleet managers or owners.
+
+        ``pin`` is accepted for cross-transport signature parity with the
+        cloud REST endpoint, but the signed ``VehicleControlResetPinToDriveAdminAction``
+        has no pin field, so it is not sent (same pattern as other documented
+        cross-transport form gaps - see CLAUDE.md). Live-verified: the
+        previous implementation built ``DrivingClearSpeedLimitPinAction``,
+        the Speed-Limit-Mode pin clear, not a PIN-to-Drive action at all -
+        confirmed by the vehicle itself rejecting a live call with reason
+        ``speed_limit_mode_active``, a condition meaningful only to Speed
+        Limit Mode. This action requires proof of Tesla account credentials
+        (fleet-manager/owner tier) - calling it over raw BLE signing (no
+        OAuth session) always raises ``TeslaFleetMessageFaultCommandRequiresAccountCredentials``;
+        use the Fleet-API-relayed ``VehicleSigned`` transport instead.
+        """
+        return await self.reset_pin_to_drive_admin()
 
     async def door_lock(self) -> dict[str, Any]:
         """Locks the vehicle."""
@@ -1817,8 +2075,6 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
     # fleet_telemetry_config_get doesnt require signing
     # fleet_telemetry_config_delete doesnt require signing
 
-    # Group 2: New infotainment commands — general
-
     async def set_recirculation(self, on: bool) -> dict[str, Any]:
         """Sets HVAC recirculation mode on/off."""
         return await self._sendInfotainment(
@@ -1887,8 +2143,6 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
                 vehicleAction=VehicleAction(cancelSohTestAction=CancelSohTestAction())
             )
         )
-
-    # Group 3: Schedule commands
 
     async def add_charge_schedule(
         self,
@@ -2006,8 +2260,6 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
             )
         )
 
-    # Group 4: Cybertruck — powershare
-
     async def set_powershare_feature(self, on: bool) -> dict[str, Any]:
         """Enables or disables the Powershare feature."""
         return await self._sendInfotainment(
@@ -2051,8 +2303,6 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
                 )
             )
         )
-
-    # Group 5: Cybertruck — outlets & power feeds
 
     async def set_outlets(self, request: int) -> dict[str, Any]:
         """Sets outlets on/off (0=off, 1=cabin+bed, 2=cabin)."""
@@ -2119,8 +2369,6 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
                 )
             )
         )
-
-    # Group 6: Cybertruck — lighting
 
     async def set_lightbar_brightness(self, brightness: int) -> dict[str, Any]:
         """Sets the lightbar brightness."""
@@ -2218,8 +2466,6 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
             )
         )
 
-    # Group 7: Cybertruck — tent mode
-
     async def set_tent_mode(self, on: bool) -> dict[str, Any]:
         """Enables or disables tent mode."""
         return await self._sendInfotainment(
@@ -2229,8 +2475,6 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
                 )
             )
         )
-
-    # Group 8: Parental controls
 
     async def parental_controls(self, activate: bool, pin: str) -> dict[str, Any]:
         """Activates or deactivates parental controls with PIN."""
@@ -2295,8 +2539,6 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
             )
         )
 
-    # Group 9: Charge on solar
-
     async def update_charge_on_solar(
         self, enabled: bool, lower_charge_limit: float, upper_charge_limit: float
     ) -> dict[str, Any]:
@@ -2326,8 +2568,6 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
             mutating=False,
         )
 
-    # Group 10: Navigation
-
     async def navigation_gps_destination_request(
         self, lat: float, lon: float, destination: str, order: int
     ) -> dict[str, Any]:
@@ -2349,8 +2589,6 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
             )
         )
 
-    # Group 11: Admin
-
     async def reset_pin_to_drive_admin(self) -> dict[str, Any]:
         """Resets PIN to Drive as admin (fleet manager/owner). Requires firmware 2023.44+."""
         return await self._sendInfotainment(
@@ -2360,8 +2598,6 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
                 )
             )
         )
-
-    # Group 12: VCSEC — closures & RKE
 
     async def open_tonneau(self) -> dict[str, Any]:
         """Opens the tonneau cover."""
@@ -2397,4 +2633,394 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
         """Auto secures the vehicle (locks, closes windows, etc.)."""
         return await self._sendVehicleSecurity(
             UnsignedMessage(RKEAction=RKEAction_E.RKE_ACTION_AUTO_SECURE_VEHICLE)
+        )
+
+    #
+    # Included per the captain's full-proto-coverage directive; each has no
+    # known third-party consumer use case today, unlike every other command
+    # in this file. See AGENTS.md for detail on why each is niche.
+
+    async def pii_key_request(
+        self, subscriber_public_key: str, pii_key_expiration: int
+    ) -> dict[str, Any]:
+        """Requests a PII (privacy/telemetry pseudonymization) key.
+
+        ``pii_key_expiration`` is a Unix timestamp in seconds.
+        """
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    piiKeyRequest=PiiKeyRequest(
+                        subscriber_public_key=subscriber_public_key,
+                        pii_key_expiration=Timestamp(seconds=pii_key_expiration),
+                    )
+                )
+            )
+        )
+
+    async def pseudonym_sync_request(
+        self, last_known_pseudonym_hashed: bytes
+    ) -> dict[str, Any]:
+        """Syncs the vehicle's privacy/telemetry pseudonym with a previously known hashed value."""
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    pseudonymSyncRequest=PseudonymSyncRequest(
+                        last_known_pseudonym_hashed=last_known_pseudonym_hashed
+                    )
+                )
+            )
+        )
+
+    async def tesla_auth_response(
+        self,
+        client_id: str,
+        scope: str,
+        access_token: str,
+        refresh_token: str,
+        expiry_timestamp: int,
+        error: str = "",
+        scoped_token: str = "",
+    ) -> dict[str, Any]:
+        """Passes a completed "Sign in with Tesla" OAuth response to the vehicle screen.
+
+        This is a pass-through: the caller must already have a completed OAuth
+        response from elsewhere in their own auth flow; the library cannot
+        originate these fields itself.
+        """
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    teslaAuthResponseAction=TeslaAuthResponseAction(
+                        client_id=client_id,
+                        scope=scope,
+                        access_token=access_token,
+                        refresh_token=refresh_token,
+                        expiry_timestamp=expiry_timestamp,
+                        error=error,
+                        scoped_token=scoped_token,
+                    )
+                )
+            )
+        )
+
+    async def setup_cloud_profile_with_local_profile_uuid(
+        self,
+        cloud_vault_uuid: str,
+        local_profile_uuid: str,
+        delete_local_profile_after_setup: bool = False,
+    ) -> dict[str, Any]:
+        """Links a local Tesla profile to a cloud vault profile UUID."""
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    setupCloudProfileWithLocalProfileUuidAction=SetupCloudProfileWithLocalProfileUuidAction(
+                        cloud_vault_uuid=cloud_vault_uuid,
+                        local_profile_uuid=local_profile_uuid,
+                        delete_local_profile_after_setup=delete_local_profile_after_setup,
+                    )
+                )
+            )
+        )
+
+    async def get_local_profiles_for_vault_uuid(
+        self, vault_uuid: str
+    ) -> dict[str, Any]:
+        """Gets local Tesla profiles associated with a cloud vault UUID."""
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    getLocalProfilesForVaultUuidAction=GetLocalProfilesForVaultUuidAction(
+                        vault_uuid=vault_uuid
+                    )
+                )
+            ),
+            mutating=False,
+        )
+
+    # No confirmation guard, matching the existing erase_user_data()
+    # precedent: this library exposes the signed command as-is and leaves
+    # any confirmation UX to the caller.
+
+    async def format_usb(self) -> dict[str, Any]:
+        """Formats the USB drive connected to the vehicle, erasing all files on it. Irreversible."""
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    formatUsbAction=FormatUSBAction(format_usb=True)
+                )
+            )
+        )
+
+    async def delete_dashcam_clips(self) -> dict[str, Any]:
+        """Deletes all dashcam clips stored on the vehicle. Irreversible."""
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    deleteDashcamClipsAction=DeleteDashcamClipsAction(delete_clips=True)
+                )
+            )
+        )
+
+    async def set_temperature_unit(self, unit: TemperatureUnit | int) -> dict[str, Any]:
+        """Sets the vehicle's displayed temperature unit."""
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    setTemperatureUnitAction=SetTemperatureUnitAction(
+                        unit=unit  # pyright: ignore[reportArgumentType]
+                    )
+                )
+            )
+        )
+
+    async def set_distance_unit(self, unit: DistanceUnit | int) -> dict[str, Any]:
+        """Sets the vehicle's displayed distance unit."""
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    setDistanceUnitAction=SetDistanceUnitAction(
+                        unit=unit  # pyright: ignore[reportArgumentType]
+                    )
+                )
+            )
+        )
+
+    async def set_time_display_format(
+        self, format: TimeDisplayFormat | int
+    ) -> dict[str, Any]:
+        """Sets the vehicle's displayed clock format (12h/24h)."""
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    setTimeDisplayFormatAction=SetTimeDisplayFormatAction(
+                        format=format  # pyright: ignore[reportArgumentType]
+                    )
+                )
+            )
+        )
+
+    async def set_tire_pressure_unit(
+        self, unit: TirePressureUnit | int
+    ) -> dict[str, Any]:
+        """Sets the vehicle's displayed tire pressure unit."""
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    setTirePressureUnitAction=SetTirePressureUnitAction(
+                        unit=unit  # pyright: ignore[reportArgumentType]
+                    )
+                )
+            )
+        )
+
+    async def set_energy_display_format(
+        self, format: EnergyDisplayFormat | int
+    ) -> dict[str, Any]:
+        """Sets the vehicle's displayed energy/range unit (percentage/distance)."""
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    setEnergyDisplayFormatAction=SetEnergyDisplayFormatAction(
+                        format=format  # pyright: ignore[reportArgumentType]
+                    )
+                )
+            )
+        )
+
+    async def set_phone_setting_preferences(
+        self,
+        font_size: PhoneFontSize | int = PhoneFontSize.STANDARD,
+        *,
+        distance_unit: DistanceUnit | int | None = None,
+        temperature_unit: TemperatureUnit | int | None = None,
+    ) -> dict[str, Any]:
+        """Sets paired-phone display preferences: font size and, optionally, distance/temperature units."""
+        action = SetPhoneSettingPreferencesAction(
+            font_size=font_size  # pyright: ignore[reportArgumentType]
+        )
+        if distance_unit is not None or temperature_unit is not None:
+            unit_kwargs: dict[str, Any] = {}
+            if distance_unit is not None:
+                unit_kwargs["distance_unit"] = distance_unit
+            if temperature_unit is not None:
+                unit_kwargs["temperature_unit"] = temperature_unit
+            action.unit_preferences.CopyFrom(PhoneUnitPreferences(**unit_kwargs))
+        return await self._sendInfotainment(
+            Action(vehicleAction=VehicleAction(setPhoneSettingPreferencesAction=action))
+        )
+
+    async def upcoming_calendar_entries(self, calendar_data: str) -> dict[str, Any]:
+        """Sends upcoming calendar entries to the vehicle.
+
+        Signed-command sibling of the REST-only ``VehicleFleet.upcoming_calendar_entries``.
+        """
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    uiSetUpcomingCalendarEntries=UiSetUpcomingCalendarEntries(
+                        calendar_data=calendar_data
+                    )
+                )
+            )
+        )
+
+    async def take_drivenote(self, note: str) -> dict[str, Any]:
+        """Records a drive note.
+
+        Signed-command sibling of the REST-only ``VehicleFleet.take_drivenote``.
+        """
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    takeDrivenoteAction=TakeDrivenoteAction(note=note)
+                )
+            )
+        )
+
+    async def video_request(self, url: str) -> dict[str, Any]:
+        """Requests the vehicle open a video stream from the given URL (e.g. sentry/dashcam viewer)."""
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    videoRequestAction=VideoRequestAction(url=url)
+                )
+            )
+        )
+
+    async def navigation_route(self) -> dict[str, Any]:
+        """Triggers vehicle route navigation."""
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    navigationRouteAction=NavigationRouteAction()
+                )
+            )
+        )
+
+    async def get_messages(self) -> dict[str, Any]:
+        """Gets vehicle in-car messages."""
+        return await self._sendInfotainment(
+            Action(vehicleAction=VehicleAction(getMessagesAction=GetMessagesAction())),
+            mutating=False,
+        )
+
+    async def set_rate_tariff(
+        self,
+        seasons: SetRateTariffRequest.Seasons,
+        tariff: SetRateTariffRequest.Tariff | None = None,
+    ) -> dict[str, Any]:
+        """Sets a time-of-use rate tariff schedule for charge-on-solar-style optimization.
+
+        ``seasons``/``tariff`` are ``tesla_protocol`` message types
+        (``SetRateTariffRequest.Seasons``/``.Tariff``) - the tariff schedule is
+        deeply nested (up to 5 named seasons, each with 4 time-of-use period
+        types), so construct them directly rather than through a parallel
+        flattened API.
+        """
+        action = SetRateTariffRequest(seasons=seasons)
+        if tariff is not None:
+            action.tariff.CopyFrom(tariff)
+        return await self._sendInfotainment(
+            Action(vehicleAction=VehicleAction(setRateTariffRequest=action))
+        )
+
+    async def get_rate_tariff(self) -> dict[str, Any]:
+        """Gets the current time-of-use rate tariff schedule."""
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(getRateTariffRequest=GetRateTariffRequest())
+            ),
+            mutating=False,
+        )
+
+    async def add_managed_charging_site(
+        self, public_key: str, lat: float, lon: float
+    ) -> dict[str, Any]:
+        """Registers a managed charging site (utility managed-charging program) for this vehicle."""
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    addManagedChargingSiteRequest=AddManagedChargingSiteRequest(
+                        site=ManagedChargingSite(
+                            public_key=public_key,
+                            manager_type=ManagerType(site_controller=SiteController()),
+                            lat_lon=LatLong(latitude=lat, longitude=lon),
+                        )
+                    )
+                )
+            )
+        )
+
+    async def remove_managed_charging_site(self, public_key: str) -> dict[str, Any]:
+        """Removes a previously-registered managed charging site by its public key."""
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    removeManagedChargingSiteRequest=RemoveManagedChargingSiteRequest(
+                        public_key=public_key
+                    )
+                )
+            )
+        )
+
+    async def get_managed_charging_sites(self) -> dict[str, Any]:
+        """Gets the list of registered managed charging sites."""
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    getManagedChargingSitesRequest=GetManagedChargingSitesRequest()
+                )
+            ),
+            mutating=False,
+        )
+
+    async def set_discharge_limit(self, discharge_limit: int) -> dict[str, Any]:
+        """Sets the vehicle's general discharge limit.
+
+        Not the same feature as ``set_powershare_discharge_limit``
+        (``SetPowershareDischargeLimitAction``, a distinct proto message).
+        """
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    setDischargeLimitAction=SetDischargeLimitAction(
+                        discharge_limit=discharge_limit
+                    )
+                )
+            )
+        )
+
+    async def bluetooth_classic_pairing_request(
+        self, name: str, mac_address: bytes
+    ) -> dict[str, Any]:
+        """Requests Bluetooth Classic (not BLE) pairing with a phone for calls/audio."""
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    bluetoothClassicPairingRequest=BluetoothClassicPairingRequest(
+                        utf8_name=name,
+                        mac_address=mac_address,
+                    )
+                )
+            )
+        )
+
+    async def bandwidth_test(self, requested_size: int) -> dict[str, Any]:
+        """Runs a diagnostic bandwidth test of the given size in bytes."""
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(
+                    bandwidthTest=BandwidthTest(requested_size=requested_size)
+                )
+            )
+        )
+
+    async def fetch_keys_info(self) -> dict[str, Any]:
+        """Gets information about keys paired with the vehicle."""
+        return await self._sendInfotainment(
+            Action(
+                vehicleAction=VehicleAction(fetchKeysInfoAction=FetchKeysInfoAction())
+            ),
+            mutating=False,
         )

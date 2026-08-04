@@ -58,9 +58,31 @@ class ModelsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InferenceModel:
         """
-        Create Model
+        Create a custom model record in your account and begin deploying it through a
+        supported serving vendor.
+
+        A model here is a record for a model you deploy and serve through Scale's own
+        inference vendors: only the `launch` and `llmengine` vendors are accepted and
+        any other vendor is rejected. This is distinct from
+        `GET /v5/chat/completions/models`, which lists the models already available to
+        call for chat completions rather than creating or managing these records. The
+        call is asynchronous — the record is created in a deploying status, a deployment
+        job is recorded, and a Temporal workflow is started to perform the deployment,
+        so the model is not ready for inference when this returns. A model name must be
+        unique per vendor within your account; if a model with the same name and vendor
+        already exists the request fails unless `on_conflict` is set to `update`, in
+        which case the existing model is updated instead.
 
         Args:
+          model: Register a model already served by an external / proxy-served vendor (e.g. an
+              OpenAI-compatible self-hosted model behind the inference proxy).
+
+              Unlike launch/llmengine, no Scale-side deployment is performed: the record is
+              created READY and is immediately callable via /v5/chat/completions. Accepted
+              only when NATIVE_OPENAI_INFERENCE_GATEWAY is enabled. The discriminator
+              (model_vendor) covers every vendor except launch/llmengine, and no
+              vendor_configuration applies.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -90,7 +112,13 @@ class ModelsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InferenceModel:
         """
-        Get Model
+        Retrieve a single custom model record by its ID.
+
+        Returns the model record — including its vendor, configuration, and current
+        deployment status — for a model managed through this API and owned by the
+        caller's account. This is distinct from `GET /v5/chat/completions/models`, which
+        lists the models available to call for chat completions rather than returning a
+        single managed record.
 
         Args:
           extra_headers: Send extra headers
@@ -124,7 +152,20 @@ class ModelsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InferenceModel:
         """
-        Update Model
+        Update a custom model record; vendor-configuration changes are applied
+        asynchronously by redeploying the model.
+
+        This supports three kinds of update: changing model metadata only, renaming the
+        model, and changing the vendor configuration. A vendor-configuration change is
+        asynchronous — it puts the model back into a deploying status, records an update
+        job, and starts a Temporal workflow to redeploy, so the new configuration is not
+        live when this returns; metadata-only and rename changes take effect
+        immediately. The vendor configuration supplied must match the model's own vendor
+        (`launch` or `llmengine`), and only those two vendors are supported. A model
+        that is currently deploying cannot be modified and the request fails until
+        deployment finishes. When renaming with `on_conflict` set to `swap`, the name is
+        exchanged with an existing model of the same name and vendor instead of failing
+        on the uniqueness constraint.
 
         Args:
           extra_headers: Send extra headers
@@ -164,7 +205,15 @@ class ModelsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPage[InferenceModel]:
         """
-        List Models
+        List the custom model records registered in your account.
+
+        Returns a paginated list of the model records managed through this API — models
+        your account deploys through the `launch` or `llmengine` serving vendors —
+        optionally filtered by name and by model vendor, and scoped to the caller's
+        account. This is different from `GET /v5/chat/completions/models`, which lists
+        the models available to invoke for chat completions; this endpoint returns the
+        managed records along with their deployment status, not the catalog of callable
+        completion models.
 
         Args:
           extra_headers: Send extra headers
@@ -211,7 +260,16 @@ class ModelsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ModelDeleteResponse:
         """
-        Delete Model
+        Permanently delete a custom model record and tear down its deployment at the
+        serving vendor.
+
+        This is a hard delete: the model row is removed from your account entirely and
+        cannot be restored afterward. Before the record is removed, if the model has an
+        associated vendor deployment that deployment is torn down at its serving vendor.
+        A model that is currently deploying cannot be deleted and the request fails
+        until deployment finishes. This operates on the model records managed by this
+        API, distinct from the `GET /v5/chat/completions/models` catalog of models
+        callable for chat completions.
 
         Args:
           extra_headers: Send extra headers
@@ -265,9 +323,31 @@ class AsyncModelsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InferenceModel:
         """
-        Create Model
+        Create a custom model record in your account and begin deploying it through a
+        supported serving vendor.
+
+        A model here is a record for a model you deploy and serve through Scale's own
+        inference vendors: only the `launch` and `llmengine` vendors are accepted and
+        any other vendor is rejected. This is distinct from
+        `GET /v5/chat/completions/models`, which lists the models already available to
+        call for chat completions rather than creating or managing these records. The
+        call is asynchronous — the record is created in a deploying status, a deployment
+        job is recorded, and a Temporal workflow is started to perform the deployment,
+        so the model is not ready for inference when this returns. A model name must be
+        unique per vendor within your account; if a model with the same name and vendor
+        already exists the request fails unless `on_conflict` is set to `update`, in
+        which case the existing model is updated instead.
 
         Args:
+          model: Register a model already served by an external / proxy-served vendor (e.g. an
+              OpenAI-compatible self-hosted model behind the inference proxy).
+
+              Unlike launch/llmengine, no Scale-side deployment is performed: the record is
+              created READY and is immediately callable via /v5/chat/completions. Accepted
+              only when NATIVE_OPENAI_INFERENCE_GATEWAY is enabled. The discriminator
+              (model_vendor) covers every vendor except launch/llmengine, and no
+              vendor_configuration applies.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -297,7 +377,13 @@ class AsyncModelsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InferenceModel:
         """
-        Get Model
+        Retrieve a single custom model record by its ID.
+
+        Returns the model record — including its vendor, configuration, and current
+        deployment status — for a model managed through this API and owned by the
+        caller's account. This is distinct from `GET /v5/chat/completions/models`, which
+        lists the models available to call for chat completions rather than returning a
+        single managed record.
 
         Args:
           extra_headers: Send extra headers
@@ -331,7 +417,20 @@ class AsyncModelsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InferenceModel:
         """
-        Update Model
+        Update a custom model record; vendor-configuration changes are applied
+        asynchronously by redeploying the model.
+
+        This supports three kinds of update: changing model metadata only, renaming the
+        model, and changing the vendor configuration. A vendor-configuration change is
+        asynchronous — it puts the model back into a deploying status, records an update
+        job, and starts a Temporal workflow to redeploy, so the new configuration is not
+        live when this returns; metadata-only and rename changes take effect
+        immediately. The vendor configuration supplied must match the model's own vendor
+        (`launch` or `llmengine`), and only those two vendors are supported. A model
+        that is currently deploying cannot be modified and the request fails until
+        deployment finishes. When renaming with `on_conflict` set to `swap`, the name is
+        exchanged with an existing model of the same name and vendor instead of failing
+        on the uniqueness constraint.
 
         Args:
           extra_headers: Send extra headers
@@ -371,7 +470,15 @@ class AsyncModelsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[InferenceModel, AsyncCursorPage[InferenceModel]]:
         """
-        List Models
+        List the custom model records registered in your account.
+
+        Returns a paginated list of the model records managed through this API — models
+        your account deploys through the `launch` or `llmengine` serving vendors —
+        optionally filtered by name and by model vendor, and scoped to the caller's
+        account. This is different from `GET /v5/chat/completions/models`, which lists
+        the models available to invoke for chat completions; this endpoint returns the
+        managed records along with their deployment status, not the catalog of callable
+        completion models.
 
         Args:
           extra_headers: Send extra headers
@@ -418,7 +525,16 @@ class AsyncModelsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ModelDeleteResponse:
         """
-        Delete Model
+        Permanently delete a custom model record and tear down its deployment at the
+        serving vendor.
+
+        This is a hard delete: the model row is removed from your account entirely and
+        cannot be restored afterward. Before the record is removed, if the model has an
+        associated vendor deployment that deployment is torn down at its serving vendor.
+        A model that is currently deploying cannot be deleted and the request fails
+        until deployment finishes. This operates on the model records managed by this
+        API, distinct from the `GET /v5/chat/completions/models` catalog of models
+        callable for chat completions.
 
         Args:
           extra_headers: Send extra headers

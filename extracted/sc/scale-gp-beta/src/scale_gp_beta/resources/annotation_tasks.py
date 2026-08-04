@@ -58,7 +58,24 @@ class AnnotationTasksResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AnnotationTaskBatchUpdateResponse:
         """
-        Batch Update Annotation Tasks
+        Update many annotation tasks in one request, operating in one of two mutually
+        exclusive modes.
+
+        In ids mode, provide a list of task IDs together with an `assigned_to` and/or a
+        `status` (limited to `pending_redo` or `completed`) to apply those field changes
+        to each listed task; only tasks that currently exist are affected and IDs that
+        do not resolve are silently skipped. In audit_assignment mode, provide an
+        evaluation ID, queue ID, and evaluation item IDs to assign Level 1 and/or Level
+        2 auditors for those items, creating the underlying audit tasks when they do not
+        yet exist; a Level 2 auditor cannot be assigned unless a Level 1 auditor is
+        already present. Exactly one of `ids` or `audit_assignment` must be supplied,
+        and `assigned_to`/`status` are only valid in ids mode. Access and state checks
+        run before any write, so the request is rejected as a whole with nothing
+        persisted if any task is inaccessible, if a status change is attempted without a
+        modification role, or if an already-completed task would be reassigned; audit
+        assignment also requires a modification role. Reassigning a task to a new user
+        emits a task-start lineage event, and the response returns the affected
+        annotation tasks.
 
         Args:
           extra_headers: Send extra headers
@@ -122,7 +139,24 @@ class AsyncAnnotationTasksResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AnnotationTaskBatchUpdateResponse:
         """
-        Batch Update Annotation Tasks
+        Update many annotation tasks in one request, operating in one of two mutually
+        exclusive modes.
+
+        In ids mode, provide a list of task IDs together with an `assigned_to` and/or a
+        `status` (limited to `pending_redo` or `completed`) to apply those field changes
+        to each listed task; only tasks that currently exist are affected and IDs that
+        do not resolve are silently skipped. In audit_assignment mode, provide an
+        evaluation ID, queue ID, and evaluation item IDs to assign Level 1 and/or Level
+        2 auditors for those items, creating the underlying audit tasks when they do not
+        yet exist; a Level 2 auditor cannot be assigned unless a Level 1 auditor is
+        already present. Exactly one of `ids` or `audit_assignment` must be supplied,
+        and `assigned_to`/`status` are only valid in ids mode. Access and state checks
+        run before any write, so the request is rejected as a whole with nothing
+        persisted if any task is inaccessible, if a status change is attempted without a
+        modification role, or if an already-completed task would be reassigned; audit
+        assignment also requires a modification role. Reassigning a task to a new user
+        emits a task-start lineage event, and the response returns the affected
+        annotation tasks.
 
         Args:
           extra_headers: Send extra headers

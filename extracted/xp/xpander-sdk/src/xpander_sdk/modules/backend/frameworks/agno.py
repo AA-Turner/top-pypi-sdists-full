@@ -134,8 +134,13 @@ from agno.guardrails import PromptInjectionGuardrail
 from agno.guardrails import OpenAIModerationGuardrail
 from agno.models.base import Model
 
+from xpander_sdk.utils.agno_output_parsing import install_agno_output_parsing_patch
 from xpander_sdk.utils.cache import backend_config_cache, scope_token
 from xpander_sdk.utils.event_loop import run_sync
+
+# agno's structured-output cleaner turns literal newlines into spaces, flattening markdown
+if not install_agno_output_parsing_patch():
+    logger.warning("[agno-parsing] inactive - markdown answers may arrive flattened")
 
 # Feature flags
 USE_HEADROOM: bool = True
@@ -1662,7 +1667,14 @@ async def build_agent_args(
 
     _mem_user = task.input.user if task and task.input else None
     _mem_enabled = args.pop("_xpander_memory_enabled", True)
-    if task and _mem_user and _mem_user.id and not xpander_agent.is_a_team and _mem_enabled:
+    if (
+        task
+        and _mem_user
+        and _mem_user.id
+        and not xpander_agent.is_a_team
+        and _mem_enabled
+        and not _declares_memory_ops(task)
+    ):
         _listed_memories = _parse_listed_memories(args.get("additional_context") or "")
         args["tools"].append(
             _build_memory_tool(
@@ -4303,7 +4315,7 @@ def _sanitize_memory(text: Any) -> str:
     return re.sub(r"\s+", " ", cleaned).strip()[:MEMORY_MAX_CHARS]
 
 
-def _render_memories_block(bundle: Dict[str, Any]) -> str:
+def _render_memories_block(bundle: Dict[str, Any], declare_only: bool = False) -> str:
     """Render the xpander memories bundle as the context block, or "" when empty."""
     if not bool((bundle.get("settings") or {}).get("enabled", True)):
         return ""
@@ -4323,10 +4335,15 @@ def _render_memories_block(bundle: Dict[str, Any]) -> str:
             out.append(f"- [{mem_id}] ({meta}) {_sanitize_memory(row.get('memory'))}")
         return out
 
-    parts = [
-        '<memories note="Durable memories. Do not re-save facts already listed; '
-        'use manage_memory with the id to update or delete.">'
-    ]
+    note = (
+        "Durable memories. Do not re-save facts already listed. You have NO memory tool on "
+        "this run: to change one, put an entry in the memory_ops field of your final output "
+        "(the id is the code in square brackets); the platform applies it after you finish."
+        if declare_only
+        else "Durable memories. Do not re-save facts already listed; use manage_memory with "
+        "the id to update or delete."
+    )
+    parts = [f'<memories note="{note}">']
     if user_rows:
         parts.append("USER (about this user, shared across all agents):")
         parts.extend(_lines(user_rows, with_writer=True))
@@ -4335,6 +4352,18 @@ def _render_memories_block(bundle: Dict[str, Any]) -> str:
         parts.extend(_lines(agent_rows, with_writer=False))
     parts.append("</memories>")
     return "\n".join(parts)
+
+
+def _declares_memory_ops(task: Optional[Task]) -> bool:
+    """True when the output schema carries `memory_ops` - the run declares memory changes.
+
+    A gateway-dispatched child writes nothing itself: it names the changes in that field and the
+    platform applies them after the run, so it gets no memory tool and cannot loop on one.
+    """
+    schema = getattr(task, "output_schema", None) if task else None
+    if not isinstance(schema, dict):
+        return False
+    return "memory_ops" in (schema.get("properties") or {})
 
 
 def _build_memory_tool(
@@ -4632,7 +4661,7 @@ async def _configure_user_memories(
                 timeout=_MEMORY_FETCH_TIMEOUT_S,
             )
             if isinstance(bundle, dict):
-                block = _render_memories_block(bundle)
+                block = _render_memories_block(bundle, declare_only=_declares_memory_ops(task))
                 # honor the user's master toggle: no block AND no save tool when off
                 args["_xpander_memory_enabled"] = bool(
                     (bundle.get("settings") or {}).get("enabled", True)

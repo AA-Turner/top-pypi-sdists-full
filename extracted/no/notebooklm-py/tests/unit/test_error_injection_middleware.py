@@ -16,9 +16,9 @@ and ADR-0009 §"Chain ordering":
   that lets the OUTER ``RetryMiddleware`` retry, restoring ADR-0009
   §"ErrorInjection inside Retry — synthetic transient failures trigger
   retry" (codex iter-1 catch on PR 12.7).
-- **Return synthetic response for expired_csrf (HTTP 400).** That mode
-  surfaces as a returned :class:`RpcResponse` until PR 12.8's
-  ``AuthRefreshMiddleware`` intercepts and drives refresh-then-retry.
+- **Raise raw ``httpx.HTTPStatusError`` for expired_csrf (HTTP 400).** That
+  mode lets the OUTER ``AuthRefreshMiddleware`` catch via ``is_auth_error`` and
+  drive refresh-then-retry.
 - **Request shape preserved on the wrapped response.** The wrapped
   :class:`httpx.Response` (whether returned or carried in a raised
   exception) has a ``response.request`` attached whose
@@ -43,14 +43,15 @@ from __future__ import annotations
 import httpx
 import pytest
 
-# pytest puts ``tests/`` on ``sys.path``; ``_fixtures.chain`` is the canonical
-# import path documented in ``tests/_fixtures/__init__.py``.
-from _fixtures.chain import make_request
-from cassette_patterns import build_synthetic_error_response
 from notebooklm._error_injection import ERROR_INJECT_ENV_VAR
 from notebooklm._middleware.core import NextCall, RpcRequest, RpcResponse, build_chain
 from notebooklm._middleware.error_injection import ErrorInjectionMiddleware
 from notebooklm._transport_errors import TransportRateLimited, TransportServerError
+
+# The ``tests/`` package chain is complete; ``tests._fixtures.chain`` is the
+# fully-qualified import path documented in ``tests/_fixtures/__init__.py``.
+from tests._fixtures.chain import make_request
+from tests.cassette_patterns import build_synthetic_error_response
 
 
 def _static_terminal(response: httpx.Response) -> NextCall:

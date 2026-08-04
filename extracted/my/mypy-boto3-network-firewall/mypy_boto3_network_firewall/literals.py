@@ -52,6 +52,7 @@ __all__ = (
     "ListenerPropertyTypeType",
     "LogDestinationTypeType",
     "LogTypeType",
+    "NatGatewayAttachmentStatusType",
     "NetworkFirewallServiceName",
     "OverrideActionType",
     "PaginatorName",
@@ -113,6 +114,7 @@ ListVpcEndpointAssociationsPaginatorName = Literal["list_vpc_endpoint_associatio
 ListenerPropertyTypeType = Literal["HTTP", "HTTPS"]
 LogDestinationTypeType = Literal["CloudWatchLogs", "KinesisDataFirehose", "S3"]
 LogTypeType = Literal["ALERT", "FLOW", "TLS"]
+NatGatewayAttachmentStatusType = Literal["CREATING", "DELETING", "FAILED", "READY", "UPDATING"]
 OverrideActionType = Literal["DROP_TO_ALERT"]
 PerObjectSyncStatusType = Literal[
     "CAPACITY_CONSTRAINED", "DEPRECATED", "IN_SYNC", "NOT_SUBSCRIBED", "PENDING"

@@ -13,8 +13,8 @@ interactions:
         HSID=SCRUBBED; SSID=SCRUBBED; APISID=SCRUBBED; SAPISID=SCRUBBED; __Secure-1PAPISID=SCRUBBED;
         __Secure-3PAPISID=SCRUBBED; __Secure-1PSIDTS=SCRUBBED; __Secure-3PSIDTS=SCRUBBED;
         SIDCC=SCRUBBED; __Secure-1PSIDCC=SCRUBBED; __Secure-3PSIDCC=SCRUBBED; OSID=SCRUBBED;
-        __Secure-OSID=SCRUBBED; _gcl_au=1.1.1583381276.1778846987; _ga=GA1.1.1567240762.1778846987;
-        _ga_W0LDH41ZCB=GS2.1.s1778846986$o1$g0$t1778846986$j60$l0$h0
+        __Secure-OSID=SCRUBBED; _gcl_au=SCRUBBED; _ga=SCRUBBED;
+        _ga_W0LDH41ZCB=SCRUBBED
       Host:
       - notebooklm.google.com
       User-Agent:
@@ -1861,7 +1861,7 @@ interactions:
       code: 200
       message: OK
 - request:
-    body: f.req=%5B%5B%5B%22rLM1Ne%22%2C%22%5B%5C%22bb00c9e3-656c-4fd2-b890-2b71e1cf3814%5C%22%2Cnull%2C%5B2%5D%2Cnull%2C0%5D%22%2Cnull%2C%22generic%22%5D%5D%5D&at=SCRUBBED_CSRF%3A1778934741655&
+    body: f.req=%5B%5B%5B%22rLM1Ne%22%2C%22%5B%5C%22bb00c9e3-656c-4fd2-b890-2b71e1cf3814%5C%22%2Cnull%2C%5B2%2Cnull%2Cnull%2C%5B1%2Cnull%2Cnull%2Cnull%2Cnull%2Cnull%2Cnull%2Cnull%2Cnull%2Cnull%2C%5B1%5D%5D%5D%2Cnull%2C0%5D%22%2Cnull%2C%22generic%22%5D%5D%5D&at=SCRUBBED_CSRF%3A1778934741655&
     headers:
       Accept:
       - '*/*'
@@ -1878,8 +1878,8 @@ interactions:
         HSID=SCRUBBED; SSID=SCRUBBED; APISID=SCRUBBED; SAPISID=SCRUBBED; __Secure-1PAPISID=SCRUBBED;
         __Secure-3PAPISID=SCRUBBED; __Secure-1PSIDTS=SCRUBBED; __Secure-3PSIDTS=SCRUBBED;
         SIDCC=SCRUBBED; __Secure-1PSIDCC=SCRUBBED; __Secure-3PSIDCC=SCRUBBED; OSID=SCRUBBED;
-        __Secure-OSID=SCRUBBED; _gcl_au=1.1.1583381276.1778846987; _ga=GA1.1.1567240762.1778846987;
-        _ga_W0LDH41ZCB=GS2.1.s1778846986$o1$g0$t1778846986$j60$l0$h0
+        __Secure-OSID=SCRUBBED; _gcl_au=SCRUBBED; _ga=SCRUBBED;
+        _ga_W0LDH41ZCB=SCRUBBED
       Host:
       - notebooklm.google.com
       User-Agent:
@@ -1971,8 +1971,8 @@ interactions:
         HSID=SCRUBBED; SSID=SCRUBBED; APISID=SCRUBBED; SAPISID=SCRUBBED; __Secure-1PAPISID=SCRUBBED;
         __Secure-3PAPISID=SCRUBBED; __Secure-1PSIDTS=SCRUBBED; __Secure-3PSIDTS=SCRUBBED;
         SIDCC=SCRUBBED; __Secure-1PSIDCC=SCRUBBED; __Secure-3PSIDCC=SCRUBBED; OSID=SCRUBBED;
-        __Secure-OSID=SCRUBBED; _gcl_au=1.1.1583381276.1778846987; _ga=GA1.1.1567240762.1778846987;
-        _ga_W0LDH41ZCB=GS2.1.s1778846986$o1$g0$t1778846986$j60$l0$h0
+        __Secure-OSID=SCRUBBED; _gcl_au=SCRUBBED; _ga=SCRUBBED;
+        _ga_W0LDH41ZCB=SCRUBBED
       Host:
       - notebooklm.google.com
       User-Agent:
@@ -5177,8 +5177,8 @@ interactions:
         HSID=SCRUBBED; SSID=SCRUBBED; APISID=SCRUBBED; SAPISID=SCRUBBED; __Secure-1PAPISID=SCRUBBED;
         __Secure-3PAPISID=SCRUBBED; __Secure-1PSIDTS=SCRUBBED; __Secure-3PSIDTS=SCRUBBED;
         SIDCC=SCRUBBED; __Secure-1PSIDCC=SCRUBBED; __Secure-3PSIDCC=SCRUBBED; OSID=SCRUBBED;
-        __Secure-OSID=SCRUBBED; _gcl_au=1.1.1583381276.1778846987; _ga=GA1.1.1567240762.1778846987;
-        _ga_W0LDH41ZCB=GS2.1.s1778846986$o1$g0$t1778846986$j60$l0$h0
+        __Secure-OSID=SCRUBBED; _gcl_au=SCRUBBED; _ga=SCRUBBED;
+        _ga_W0LDH41ZCB=SCRUBBED
       Host:
       - notebooklm.google.com
       User-Agent:

@@ -189,6 +189,11 @@ class MintRequest(msgspec.Struct, frozen=True, kw_only=True):
     #: pgw#848: where the child rewrites its live phase table, so a mint the
     #: parent KILLS still leaves its measurements behind. Empty = no snapshot.
     phases_snapshot: str = ""
+    #: pgw#848 item 5: the CROSS-ATTEMPT resume bank root (``aot_resume``).
+    #: Deliberately NOT under the per-attempt ``child-<n>`` workdir — that is
+    #: precisely why a crash at entry 30 of 36 used to discard ~5.2 h of
+    #: compile. Empty = this mint does not resume and behaves as it did before.
+    resume: str = ""
     #: pgw#848: one ENTRY child's measured host high-water, banked by the
     #: parent from a previous mint on this pod (``mint_budget.entry_peak_rss``).
     #: 0 = never measured here, and the pool's width falls back to its
@@ -196,6 +201,18 @@ class MintRequest(msgspec.Struct, frozen=True, kw_only=True):
     #: INSIDE the mint child, whose memory dies with it — the same reason
     #: ``vram_cap_bytes`` is computed parent-side and handed down.
     entry_peak_rss_bytes: int = 0
+    #: pgw#877: the DEVICE twin of the field above, and the fix for the defect
+    #: that made the per-entry device ask a permanent estimate. ONE ENTRY
+    #: child's measured device high-water, banked by the parent from a
+    #: previous mint of this (family, lane).
+    #:
+    #: It has to travel HERE for exactly the reason the RSS figure does, and
+    #: the asymmetry between the two was the proof: `mint_budget._CHILD_PEAKS`
+    #: is written only in the SERVING PARENT, while the width is computed
+    #: INSIDE the mint child, where that dict is empty by construction. A bank
+    #: read in a process that can never have written it is not a bank.
+    #: 0 = never measured here, and the ask falls back to the estimate.
+    entry_device_peak_bytes: int = 0
     #: The hub-resolved execution lane (``ctx.lane``) and the effective
     #: declared-parameter values per function (th#1087). Both STEER the warm
     #: forwards, so both must be the parent's values — a child warming at
@@ -232,9 +249,15 @@ class MintReport(msgspec.Struct, frozen=True, kw_only=True):
     detail: str = ""
     phase: str = ""
     #: Measured, so the NEXT mint's co-residency ask is a fact rather than
-    #: an estimate (§1: no magic numbers).
+    #: an estimate (§1: no magic numbers). Read by
+    #: ``mint_delegate.record_child_peak``.
+    #:
+    #: pgw#877: there was a `peak_rss_bytes` beside it, written from
+    #: `getrusage(SELF)+getrusage(CHILDREN)` on both minted termini and read by
+    #: NOTHING — the parent banks the host high-water from
+    #: `mint_phases["pool"]["peak_child_rss_bytes"]`, which is a per-entry
+    #: VmHWM tree sum and the number `entry_workers` actually divides by.
     peak_vram_bytes: int = 0
-    peak_rss_bytes: int = 0
     elapsed_s: float = 0.0
     #: th#1322: per-phase seconds, measured by the CHILD (`load`,
     #: `warmup_forward`, `inductor_compile`, `seal_publish`, `finalize`). The

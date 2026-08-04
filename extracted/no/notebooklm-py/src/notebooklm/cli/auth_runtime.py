@@ -257,6 +257,68 @@ def with_auth_and_errors(
         return result
 
 
+def resolve_client_factory(
+    ctx: click.Context | None,
+    default: Callable[..., AbstractAsyncContextManager[Any]] | None = None,
+) -> Callable[..., AbstractAsyncContextManager[Any]]:
+    """Resolve the ``NotebookLMClient`` factory for a CLI command.
+
+    Resolution order, evaluated at call time:
+
+    1. An injected factory in ``ctx.obj["client_factory"]`` -- the CLI seam tests
+       use this to substitute a fake client. ``ctx.obj`` is the CLI adapter's
+       client seam; a future MCP/HTTP front-end injects through the neutral
+       ``_app`` ``execute_<verb>(plan, client)`` signature, not this key (ADR-0021).
+    2. The ``default`` supplied by the call site -- during the de-monkeypatch
+       migration this is the command module's still-patchable ``NotebookLMClient``
+       name, so legacy ``patch("...X_cmd.NotebookLMClient")`` seams keep working.
+    3. A lazy import of the real :class:`~notebooklm.client.NotebookLMClient` --
+       the production fallback once the module-level default is dropped.
+
+    Null-safe: a bare ``click.Context`` has ``obj is None`` (mirrors the guard in
+    :func:`_auth_context`). The returned factory is invoked as
+    ``factory(client_auth, **client_kwargs)``, so it is typed to accept keyword
+    arguments (the ``source add`` / ``chat ask`` timeout passthrough).
+    """
+    if ctx is not None and isinstance(ctx.obj, dict):
+        injected = ctx.obj.get("client_factory")
+        if injected is not None:
+            return injected
+    if default is not None:
+        return default
+    from ..client import NotebookLMClient
+
+    return NotebookLMClient
+
+
+def auth_check_notebook_count(ctx: click.Context) -> int | None:
+    """Best-effort live notebook count for ``auth check --test``; ``None`` on any
+    failure.
+
+    Both :func:`get_auth_tokens` and the client open run their own ``run_async``
+    (the CLI's single-top-level-loop invariant), so this MUST be called from sync
+    code -- never from inside ``run_async(run_auth_check(...))``, which would nest
+    event loops. The count never affects the exit code: ``token_fetch`` is the
+    authoritative validity check, so any failure here just leaves ``None``.
+    """
+    helpers = _helpers_facade()
+    try:
+        auth = get_auth_tokens(ctx)
+    except Exception as exc:  # auth resolution failed -- skip the optional count
+        logger.debug("auth check notebook-count: auth resolution failed: %s", exc)
+        return None
+
+    async def _count() -> int:
+        async with resolve_client_factory(ctx)(auth) as client:
+            return len(await client.notebooks.list())
+
+    try:
+        return helpers.run_async(_count())
+    except Exception as exc:
+        logger.debug("auth check notebook-count probe failed: %s", exc)
+        return None
+
+
 def run_client_workflow(
     ctx: click.Context,
     *,
@@ -264,7 +326,7 @@ def run_client_workflow(
     json_output: bool,
     body: Callable[[Any], Awaitable[T]],
     auth_loader: Callable[[click.Context], AuthTokens] | None = None,
-    client_factory: Callable[[AuthTokens], AbstractAsyncContextManager[Any]] | None = None,
+    client_factory: Callable[..., AbstractAsyncContextManager[Any]] | None = None,
     body_error_handler: Callable[[Exception], T] | None = None,
 ) -> T:
     """Run a CLI workflow with shared auth, client lifetime, and error handling.
@@ -273,11 +335,13 @@ def run_client_workflow(
     ``NotebookLMClient`` rather than raw ``AuthTokens``. ``with_auth_and_errors``
     remains the lower-level primitive for commands that intentionally manage
     client lifetime themselves.
+
+    When ``client_factory`` is not supplied, the factory is resolved from
+    ``ctx.obj`` (falling back to the real client) via
+    :func:`resolve_client_factory`, so injected test factories reach this path too.
     """
     if client_factory is None:
-        from ..client import NotebookLMClient
-
-        client_factory = NotebookLMClient
+        client_factory = resolve_client_factory(ctx)
 
     async def workflow(auth: AuthTokens) -> T:
         async with client_factory(auth) as client:

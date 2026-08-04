@@ -22,6 +22,7 @@ torch/safetensors imports are deferred so importing gen_worker.convert stays che
 from __future__ import annotations
 
 import json
+import logging
 import math
 import re
 import shutil
@@ -37,6 +38,7 @@ from gen_worker.models.w8a8 import detect_w8a8_artifact
 if TYPE_CHECKING:
     import torch
 
+logger = logging.getLogger(__name__)
 
 
 class ConversionImplementationError(RuntimeError):
@@ -298,7 +300,7 @@ _ST_FLOAT_DTYPES: frozenset[str] = frozenset(
     {"F64", "F32", "F16", "BF16", "F8_E4M3", "F8_E5M2"})
 
 
-def _stream_reencode(
+def stream_reencode(
     input_path: Path,
     out_dir: Path,
     *,
@@ -406,7 +408,7 @@ def streaming_dtype_cast(
             return t.to(dtype=target_dtype)
         return t
 
-    return _stream_reencode(
+    return stream_reencode(
         Path(input_path), Path(out_dir),
         out_st_dtype_for=out_st_dtype_for, transform=transform,
         output_stem=output_stem,
@@ -497,7 +499,7 @@ def streaming_fp8_storage_cast(
             return t.clamp(-_FP8_E4M3_MAX, _FP8_E4M3_MAX).to(torch.float8_e4m3fn)
         return t
 
-    return _stream_reencode(
+    return stream_reencode(
         Path(input_path), Path(out_dir),
         out_st_dtype_for=out_st_dtype_for, transform=transform,
         output_stem=output_stem,
@@ -557,7 +559,7 @@ def streaming_w8a8_cast(
 ) -> dict[str, Any]:
     """Per-channel-scaled fp8 requant of one weight set, streaming.
 
-    Two passes like :func:`_stream_reencode`, but eligible weights emit TWO
+    Two passes like :func:`stream_reencode`, but eligible weights emit TWO
     output tensors — the fp8 ``weight`` and its F32 [out] ``weight_scale``
     (``scale = amax(row)/448``, ``q = round(w/scale)`` in fp32; the probe's
     exact recipe). Peak anonymous memory ~ the largest single tensor.
@@ -730,8 +732,21 @@ def _link_or_copy(src: Path, dst: Path) -> None:
 
 
 def copy_non_weight_files(source_dir: Path, out_dir: Path, *, skip_components: set[str]) -> None:
-    """Hardlink every non-weight file into the output tree; weight files and
-    their sharded indexes for converted components are skipped."""
+    """Materialize the PASSTHROUGH half of a produced tree: hardlink every file
+    the caller is not writing itself. Weight files and sharded indexes of the
+    components named in ``skip_components`` are skipped — the caller writes
+    those.
+
+    A passthrough component that arrives as an HF shard set is COLLAPSED here
+    (th#1362). This is the only door untouched weights enter a tree we produce,
+    and every caller is one of our producers, so the one-file-per-component
+    invariant is satisfied at the door rather than at each of the callers. The
+    source is untouched: what is unlinked is this tree's hardlink, and the
+    merge verifies the bytes against the index it consumed, so a klein-4b-class
+    index/shard disagreement fails the produce instead of publishing an
+    unloadable component.
+    """
+    copied_indexes: list[Path] = []
     for f in sorted(source_dir.rglob("*")):
         if not f.is_file():
             continue
@@ -746,6 +761,11 @@ def copy_non_weight_files(source_dir: Path, out_dir: Path, *, skip_components: s
         if name == ".civitai.json":
             continue
         _link_or_copy(f, out_dir / rel)
+        if name.endswith(".safetensors.index.json"):
+            copied_indexes.append(out_dir / rel)
+    for index_path in copied_indexes:
+        if index_path.is_file():
+            deshard_indexed_safetensors(index_path)
 
 
 # pgw#654: scheduler config overrides per checkpoint objective/distilled
@@ -778,7 +798,7 @@ def apply_objective_scheduler_config(
     cfg_path.write_text(json.dumps(cfg, indent=2, sort_keys=True), encoding="utf-8")
 
 
-def _component_output_stem(entry: Path) -> str:
+def component_output_stem(entry: Path) -> str:
     stem = entry.name
     for suffix in (".safetensors.index.json", ".safetensors"):
         if stem.endswith(suffix):
@@ -806,7 +826,7 @@ def streaming_cast_snapshot(
         result = streaming_dtype_cast(
             entry, (out_dir / comp) if comp else out_dir,
             target_dtype=target_dtype,
-            output_stem=_component_output_stem(entry),
+            output_stem=component_output_stem(entry),
         )
         tensor_count += int(result["tensor_count"])
         converted += int(result["converted_count"])
@@ -824,7 +844,7 @@ def fp8_te_components() -> tuple[str, ...]:
     return text_encoder_components()
 
 
-def _component_stored_tensor_names(component_dir: Path) -> frozenset[str]:
+def component_stored_tensor_names(component_dir: Path) -> frozenset[str]:
     """Tensor names as stored in the component's safetensors file(s)."""
     names: set[str] = set()
     idx = sorted(component_dir.glob("*.safetensors.index.json"))
@@ -921,7 +941,7 @@ def te_fp8_castable_keys(component_dir: Path) -> frozenset[str]:
     graph_keys = {
         n for n, p in model.named_parameters() if id(p) in castable}
 
-    stored = _component_stored_tensor_names(component_dir)
+    stored = component_stored_tensor_names(component_dir)
     if not stored:
         raise ConversionImplementationError(
             f"no safetensors tensor names found in {component_dir}")
@@ -958,7 +978,7 @@ def streaming_fp8_te_cast(
             return t.clamp(-_FP8_E4M3_MAX, _FP8_E4M3_MAX).to(torch.float8_e4m3fn)
         return t
 
-    return _stream_reencode(
+    return stream_reencode(
         Path(input_path), Path(out_dir),
         out_st_dtype_for=out_st_dtype_for, transform=transform,
         output_stem=output_stem,
@@ -1002,7 +1022,7 @@ def streaming_fp8_snapshot(
         entry = root_groups[0][1]
         result = streaming_fp8_storage_cast(
             entry, out_dir,
-            output_stem=_component_output_stem(entry),
+            output_stem=component_output_stem(entry),
             block_scope=True,
         )
         if not int(result["converted_count"]):
@@ -1027,12 +1047,12 @@ def streaming_fp8_snapshot(
             result = streaming_fp8_te_cast(
                 entry, out_dir / comp,
                 castable_keys=te_fp8_castable_keys(source_dir / comp),
-                output_stem=_component_output_stem(entry),
+                output_stem=component_output_stem(entry),
             )
         else:
             result = streaming_fp8_storage_cast(
                 entry, out_dir / comp,
-                output_stem=_component_output_stem(entry),
+                output_stem=component_output_stem(entry),
             )
         tensor_count += int(result["tensor_count"])
         converted += int(result["converted_count"])
@@ -1134,7 +1154,7 @@ def streaming_w8a8_snapshot(
         for rel, entry, members in selected:
             result = streaming_w8a8_cast(
                 entry, out_dir / Path(rel).parent,
-                output_stem=_component_output_stem(entry),
+                output_stem=component_output_stem(entry),
             )
             tensor_count += int(result["tensor_count"])
             converted += int(result["converted_count"])
@@ -1176,7 +1196,7 @@ def streaming_w8a8_snapshot(
         if comp in denoiser_set:
             result = streaming_w8a8_cast(
                 entry, out_dir / comp,
-                output_stem=_component_output_stem(entry),
+                output_stem=component_output_stem(entry),
             )
             if not int(result["converted_count"]):
                 raise ConversionImplementationError(
@@ -1188,7 +1208,7 @@ def streaming_w8a8_snapshot(
             result = streaming_fp8_te_cast(
                 entry, out_dir / comp,
                 castable_keys=te_fp8_castable_keys(source_dir / comp),
-                output_stem=_component_output_stem(entry),
+                output_stem=component_output_stem(entry),
             )
         tensor_count += int(result["tensor_count"])
         converted += int(result["converted_count"])
@@ -1540,6 +1560,85 @@ def merge_safetensors_by_offset(
             os.close(fd)
 
 
+def deshard_indexed_safetensors(index_path: Path) -> Path:
+    """Collapse ONE HF shard set into a single ``<prefix>.safetensors``.
+
+    th#1362: bytes WE own are normalised to one file per component — mirrors we
+    ingest AND the passthrough components of the flavors we produce, which are
+    the same bytes one step later. Chunked CAS already gives resumable,
+    parallel, partial-failure-tolerant transfer BELOW the file, so the shard set
+    buys nothing and costs an index that can disagree with the bytes it names —
+    the bug that made klein-4b publish an unloadable text_encoder.
+
+    Provenance is unaffected: upstream per-file digests are recorded by the
+    provenance layer regardless of the layout we store.
+    """
+    payload = json.loads(index_path.read_text(encoding="utf-8"))
+    weight_map = payload.get("weight_map")
+    if not isinstance(weight_map, dict) or not weight_map:
+        raise ValueError(f"invalid safetensors index: {index_path}")
+    member_names: list[str] = []
+    for name in weight_map.values():
+        name = str(name)
+        if Path(name).name != name:
+            raise ValueError(
+                f"safetensors index member must be a basename: {index_path}")
+        if name not in member_names:
+            member_names.append(name)
+    members = [index_path.parent / name for name in member_names]
+    missing = [m for m in members if not m.is_file()]
+    if missing:
+        raise ValueError(f"safetensors index references a missing shard: {index_path}")
+
+    prefix = index_path.name.removesuffix(".safetensors.index.json")
+    merged = index_path.parent / f"{prefix}.safetensors"
+    if merged.exists() and merged not in members:
+        raise ValueError(f"deshard destination already exists: {merged}")
+    merge_safetensors_by_offset(members, merged)
+
+    # The merged header must name exactly the tensors the index claimed — the
+    # index-vs-bytes disagreement this whole change exists to kill is caught
+    # here, at ingest, instead of at load time on a GPU pod.
+    with open(merged, "rb") as f:
+        header_len = int.from_bytes(f.read(8), "little")
+        header = json.loads(f.read(header_len).decode("utf-8"))
+    got = {k for k in header if k != "__metadata__"}
+    want = {str(k) for k in weight_map}
+    if got != want:
+        merged.unlink(missing_ok=True)
+        raise ValueError(
+            f"deshard of {index_path} produced {len(got)} tensors, index names "
+            f"{len(want)} (missing={sorted(want - got)[:5]}, "
+            f"extra={sorted(got - want)[:5]})")
+
+    for member in members:
+        if member != merged:
+            member.unlink()
+    index_path.unlink()
+    logger.info("deshard index=%s shards=%d -> %s",
+                index_path.name, len(members), merged.name)
+    return merged
+
+
+def tree_has_sharded_safetensors(tree: Path) -> bool:
+    """Does this tree carry an HF shard set that mirror ingest must collapse?"""
+    return any(Path(tree).rglob("*.safetensors.index.json"))
+
+
+def deshard_mirror_tree(tree: Path) -> int:
+    """De-shard every HF shard set in a tree, in place.
+
+    One component at a time, unlinking each set's members as soon as its merged
+    file is verified, so the peak extra disk is the LARGEST component and not
+    the whole tree.
+    """
+    n = 0
+    for index_path in sorted(Path(tree).rglob("*.safetensors.index.json")):
+        deshard_indexed_safetensors(index_path)
+        n += 1
+    return n
+
+
 # ---------------------------------------------------------------------------
 # Canonical published filenames (gw#466 / gw#522)
 # ---------------------------------------------------------------------------
@@ -1617,6 +1716,9 @@ __all__ = [
     "normalize_variant_filenames",
     "list_shard_files_from_index",
     "merge_safetensors_by_offset",
+    "deshard_indexed_safetensors",
+    "deshard_mirror_tree",
+    "tree_has_sharded_safetensors",
     "NEVER_SHARD_MAX_SIZE",
     "find_producer_shards",
     "assert_one_file_per_component",
@@ -1637,6 +1739,9 @@ __all__ = [
     "verify_w8a8_snapshot",
     "snapshot_weight_groups",
     "copy_non_weight_files",
+    "component_output_stem",
+    "component_stored_tensor_names",
+    "stream_reencode",
     "fp8_cast_eligible",
     "FP8_SKIP_TENSOR_PATTERNS",
     "fp8_default_components",

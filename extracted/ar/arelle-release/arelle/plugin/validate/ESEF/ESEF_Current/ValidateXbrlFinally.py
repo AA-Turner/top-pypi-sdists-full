@@ -26,7 +26,7 @@ from arelle.ModelValue import QName
 from arelle.ModelValue import qname
 from arelle.ModelXbrl import ModelXbrl
 
-from arelle.utils.validate.ContextIssues import getContextIssues
+from arelle.utils.validate.ContextIssues import getContextIssues, getContextsByEntityIdentifier
 from arelle.utils.validate.ESEFImage import ImageValidationParameters, checkSVGContentElt, validateImageAndLog
 from arelle.utils.validate.ValidationUtil import etreeIterWithDepth
 from arelle.PythonUtil import isLegacyAbs, normalizeSpace
@@ -65,8 +65,8 @@ from ..Const import (
     styleCssHiddenPattern,
     supportedImgTypes,
     untransformableTypes,
-    reportBasenamePattern,
-    reportBasenameRegex
+    reportDefaultFileNamePattern,
+    reportDefaultFileNameRegex
 )
 from ..Dimensions import checkFilingDimensions
 from ..Util import (
@@ -98,6 +98,13 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
     prefixedNamespaces = modelXbrl.prefixedNamespaces
 
     reportPackageMaxMB = val.authParam["reportPackageMaxMB"]
+    reportFileNamePattern = val.authParam["reportFileNamePattern"]
+    reportFileNameRegex = val.authParam["reportFileNameRegex"]
+    if reportFileNameRegex:
+        reportFileNameRegex = re.compile(reportFileNameRegex)
+    if not reportFileNamePattern:
+        reportFileNamePattern = reportDefaultFileNamePattern
+        reportFileNameRegex = reportDefaultFileNameRegex
     if reportPackageMaxMB is not None and modelXbrl.fileSource.fs: # must be a zip to be a report package
         assert isinstance(modelXbrl.fileSource.fs, zipfile.ZipFile)
 
@@ -303,11 +310,11 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
                                 ".html: %(fileName)s (Document file not in correct place in package)"),
                                 modelObject=doc, fileName=doc.basename)
                     elif esefDisclosureSystemYear >= 2025:
-                        m = reportBasenameRegex.match(_baseName)
+                        m = reportFileNameRegex.match(doc.basename)
                         if not m:
                             modelXbrl.warning("ESEF.2.6.3.incorrectNamingConventionReportPackageReportFile",
                                 _("Inline XBRL document filename SHOULD match %(pattern)s"),
-                                modelObject=doc, fileName=doc.basename, pattern=reportBasenamePattern)
+                                modelObject=doc, fileName=doc.basename, pattern=reportFileNamePattern)
                 else: # non-consolidated
                     if docTypeMatch:
                         if not docTypeMatch.group(1) or docTypeMatch.group(1).lower() == "html":
@@ -612,10 +619,6 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
 
         # Shared context validation (period format, segment/scenario structure)
         contextIssues = getContextIssues(modelXbrl, esefYear=esefDisclosureSystemYear)
-        contextIdentifiers = defaultdict(list)
-        for context in modelXbrl.contexts.values():
-            contextIdentifiers[context.entityIdentifier].append(context)
-
         if contextIssues.contextsWithSegments:
             modelXbrl.error("ESEF.2.1.3.segmentUsed",
                 _("xbrli:segment container MUST NOT be used in contexts: %(contextIds)s"),
@@ -624,12 +627,15 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
             modelXbrl.error("ESEF.2.1.3.scenarioContainsNonDimensionalContent",
                 _("xbrli:scenario in contexts MUST NOT contain any other content than defined in XBRL Dimensions specification: %(contextIds)s"),
                 modelObject=contextIssues.contextsWithImproperContent, contextIds=", ".join(c.id for c in contextIssues.contextsWithImproperContent if c.id is not None))
-        if len(contextIdentifiers) > 1:
+
+        contextsByEntityIdentifier = getContextsByEntityIdentifier(modelXbrl)
+        if len(contextsByEntityIdentifier) > 1:
             modelXbrl.error("ESEF.2.1.4.multipleIdentifiers",
                 _("All entity identifiers in contexts MUST have identical content: %(contextIds)s"),
-                modelObject=modelXbrl, contextIds=", ".join(i[1] for i in contextIdentifiers))
+                modelObject=modelXbrl, contextIds=", ".join(i[1] for i in contextsByEntityIdentifier))
+
         requiredScheme = val.authParam["identifierScheme"]
-        for (contextScheme, contextIdentifier), contextElts in contextIdentifiers.items():
+        for (contextScheme, contextIdentifier), contextElts in contextsByEntityIdentifier.items():
             if contextScheme != requiredScheme:
                 modelXbrl.warning("ESEF.2.1.1.nonLEIContextScheme" if requiredScheme == iso17442 else "UK.ESEF.2.1.1.contextScheme",
                     _("The scheme attribute of the xbrli:identifier element should have \"%(requiredScheme)s\" as its content: %(contextScheme)s"),

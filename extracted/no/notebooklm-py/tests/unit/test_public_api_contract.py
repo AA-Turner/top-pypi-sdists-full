@@ -12,9 +12,8 @@ every public namespace and asserts the return-shape rules the contract fixes:
 * every public ``get`` is either non-``Optional`` (the target end state) **or**
   carried in the reason-tagged :data:`GET_OPTIONAL_EXEMPTIONS` allowlist below.
 
-The allowlist exists because flipping ``get()`` to raise ``*NotFoundError`` (and
-drop its ``| None``) is deferred to issue #1247; this test passes against today's
-surface and the allowlist must *shrink* — never grow — as that flip lands.
+Public ``get()`` methods must stay non-Optional after #1247;
+``GET_OPTIONAL_EXEMPTIONS`` is an empty regression sentinel.
 
 This walk is deliberately independent of ``scripts/audit_public_api_compat.py``.
 The two former coverage holes in that comparator are now closed (issue #1378:
@@ -38,12 +37,14 @@ from collections.abc import Callable
 import pytest
 
 # Every public client namespace, enumerated explicitly (ADR-0019 Tier-1 requires
-# the walk cover the whole surface, including ``mind_maps`` which the
-# ``audit_public_api_compat`` collector under-covers). Imported from the private
-# implementation modules rather than constructing a live ``NotebookLMClient`` so
-# the walk needs no auth, event loop, or network.
+# the walk cover the whole surface, including ``mind_maps``, even though the
+# compat collector now covers it too, because this test asserts absolute
+# return-shape rules rather than release-to-release diffs). Imported from the
+# private implementation modules rather than constructing a live
+# ``NotebookLMClient`` so the walk needs no auth, event loop, or network.
 from notebooklm._artifacts import ArtifactsAPI
 from notebooklm._chat.api import ChatAPI
+from notebooklm._labels import LabelsAPI
 from notebooklm._mind_maps_api import MindMapsAPI
 from notebooklm._notebooks import NotebooksAPI
 from notebooklm._notes import NotesAPI
@@ -60,30 +61,23 @@ NAMESPACES: dict[str, type] = {
     "artifacts": ArtifactsAPI,
     "notes": NotesAPI,
     "mind_maps": MindMapsAPI,
+    "labels": LabelsAPI,
     "chat": ChatAPI,
     "research": ResearchAPI,
     "sharing": SharingAPI,
     "settings": SettingsAPI,
 }
 
-# The five namespaces that expose the resource-lookup surface (``get`` /
+# The six namespaces that expose the resource-lookup surface (``get`` /
 # ``get_or_none`` / ``delete``). ``chat``/``research``/``sharing``/``settings``
 # are intentionally absent — they expose none of the three. Pinned so a rename or
 # removal that makes a method silently undiscoverable fails loudly rather than
 # shrinking the parametrisation to a still-green subset.
-LOOKUP_NAMESPACES = frozenset({"notebooks", "sources", "artifacts", "notes", "mind_maps"})
+LOOKUP_NAMESPACES = frozenset({"notebooks", "sources", "artifacts", "notes", "mind_maps", "labels"})
 
-# Public ``get()`` methods still annotated ``X | None`` because the flip to
-# raising ``*NotFoundError`` (and dropping ``| None``) is deferred to #1247.
-# Reason-tagged so every gap is visible; this set must SHRINK as #1247 lands and
-# must never gain an entry. (``notebooks.get`` already returns the non-Optional
-# ``Notebook`` and is intentionally absent.)
-GET_OPTIONAL_EXEMPTIONS: dict[str, str] = {
-    "sources": "get() still returns Source | None; flip to raise deferred to #1247",
-    "artifacts": "get() still returns Artifact | None; flip to raise deferred to #1247",
-    "notes": "get() still returns Note | None; flip to raise deferred to #1247",
-    "mind_maps": "get() still returns MindMap | None; flip to raise deferred to #1247",
-}
+# Empty as of #1247: every namespace ``get()`` now returns a non-Optional type
+# and raises its ``*NotFoundError`` on a miss. The set can never gain an entry.
+GET_OPTIONAL_EXEMPTIONS: dict[str, str] = {}
 
 
 def _method(namespace: str, name: str) -> Callable[..., object]:
@@ -207,13 +201,7 @@ def test_delete_returns_none(namespace: str) -> None:
 
 @pytest.mark.parametrize("namespace", _GET_NAMESPACES)
 def test_get_is_non_optional_or_exempt(namespace: str) -> None:
-    """Public ``get`` is non-``Optional`` unless reason-tagged in the #1247 allowlist.
-
-    The ``get()``-raises flip (which drops ``| None``) is deferred to #1247, so a
-    still-Optional ``get`` is tolerated *only* while it carries an exemption. The
-    allowlist must shrink as #1247 lands; this asserts every Optional ``get`` is
-    accounted for and that no exemption is stale.
-    """
+    """Public ``get`` stays non-``Optional`` after #1247."""
     annotation = _require_return(namespace, "get")
     if _is_optional(annotation):
         assert namespace in GET_OPTIONAL_EXEMPTIONS, (
@@ -240,6 +228,16 @@ def test_get_optional_exemptions_are_live(namespace: str) -> None:
     assert _is_optional(annotation), (
         f"GET_OPTIONAL_EXEMPTIONS lists {namespace}.get as Optional, but it is "
         f"now {annotation!r}; remove the stale exemption (#1247)."
+    )
+
+
+def test_get_optional_exemptions_is_empty() -> None:
+    """#1247 has landed: every namespace get() is non-Optional, so the
+    exemption set must stay empty — it can shrink to empty but never regain a
+    member (re-adding one re-introduces an Optional get())."""
+    assert GET_OPTIONAL_EXEMPTIONS == {}, (
+        "GET_OPTIONAL_EXEMPTIONS must stay empty after #1247: every namespace "
+        f"get() raises *NotFoundError and is non-Optional. Found: {GET_OPTIONAL_EXEMPTIONS}"
     )
 
 

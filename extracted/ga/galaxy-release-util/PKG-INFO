@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: galaxy-release-util
-Version: 0.4.1
+Version: 0.4.2
 Summary: Utlity for various tasks around creating Galaxy releases
 Home-page: https://github.com/galaxyproject/galaxy-release-util
 Author: Galaxy Project and Community
@@ -29,7 +29,7 @@ Requires-Dist: click
 Requires-Dist: python-dateutil
 Requires-Dist: docutils
 Requires-Dist: packaging
-Requires-Dist: PyGithub
+Requires-Dist: PyGithub>=2.6
 Requires-Dist: requests
 Requires-Dist: twine
 
@@ -66,6 +66,19 @@ History
 
 .. to_doc
 
+
+------------------
+0.4.2 (03-08-2026)
+------------------
+* Resolve commits to pull requests in batched GraphQL queries by @mvdbeek in https://github.com/galaxyproject/galaxy-release-util/pull/56
+* Fix meta package dependencies after PEP 621 migration by @mvdbeek in https://github.com/galaxyproject/galaxy-release-util/pull/57
+
+Commit-to-pull-request lookups are now batched through GraphQL and run concurrently,
+reducing large release runs from thousands of REST requests to a few dozen queries.
+
+Meta-package dependency generation now supports both static PEP 621 metadata and the
+transitional ``setup.cfg`` layout, and ignores blank lines, comments, and pip options
+when assembling dependencies.
 
 ------------------
 0.4.1 (02-08-2026)

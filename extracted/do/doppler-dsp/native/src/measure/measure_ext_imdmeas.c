@@ -279,9 +279,12 @@ IMDMeasure_getprop_fs (IMDMeasureObject *self, void *Py_UNUSED (closure))
 }
 
 static PyGetSetDef IMDMeasure_getset[]
-    = { { "n", (getter)IMDMeasure_getprop_n, NULL, "N.\n", NULL },
-        { "nfft", (getter)IMDMeasure_getprop_nfft, NULL, "Nfft.\n", NULL },
-        { "fs", (getter)IMDMeasure_getprop_fs, NULL, "Fs.\n", NULL },
+    = { { "n", (getter)IMDMeasure_getprop_n, NULL,
+          "Window / frame length (samples).\n", NULL },
+        { "nfft", (getter)IMDMeasure_getprop_nfft, NULL,
+          "Zero-padded transform length.\n", NULL },
+        { "fs", (getter)IMDMeasure_getprop_fs, NULL, "Sample rate, Hz.\n",
+          NULL },
         { NULL } };
 
 static PyObject *
@@ -316,7 +319,7 @@ IMDMeasureObj_exit (IMDMeasureObject *self, PyObject *args)
 
 static PyMethodDef IMDMeasureObj_methods[] = {
   { "reset", (PyCFunction)IMDMeasureObj_reset, METH_NOARGS,
-    "Reset state to post-create defaults." },
+    "Reset the analyser (a no-op: each analyze() call is independent)." },
 
   { "analyze", (PyCFunction)IMDMeasureObj_analyze, METH_VARARGS,
     "analyze(x) -> IMDMetrics record (f1, f2, p1_dbfs, p2_dbfs, imd2_dbc, "
@@ -329,20 +332,77 @@ static PyMethodDef IMDMeasureObj_methods[] = {
     "DC-centred dBFS magnitude spectrum of a capture (length nfft, for "
     "plots).\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import IMDMeasure\n"
-    "    >>> obj = IMDMeasure(8192, 1.0, 1.0, 0, 0.0)\n"
-    "    >>> y = obj.spectrum_dbfs(np.zeros(4))\n"
-    "    >>> y.dtype\n"
-    "    dtype('float32')\n" },
+    "The same windowed, zero-padded PSD the IMD metrics are read off, laid\n"
+    "out DC-centred (fftshifted) and normalised to dBFS for an\n"
+    "analyzer-display backdrop. Use it to see the two fundamentals and the\n"
+    "intermodulation products that analyze() integrates.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.float32]\n"
+    "    Real time-domain capture (length x_len).\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.float32]\n"
+    "    DC-centred dBFS magnitude spectrum, one value per FFT bin (nfft).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.measure import IMDMeasure\n"
+    ">>> import numpy as np\n"
+    ">>> t = np.arange(4096)\n"
+    ">>> x = (0.5*np.cos(2*np.pi*200*t/4096)\n"
+    "...      + 0.5*np.cos(2*np.pi*250*t/4096)).astype(np.float32)   # two "
+    "tones\n"
+    ">>> s = IMDMeasure(n=4096, fs=1.0).spectrum_dbfs(x)   # DC-centred "
+    "spectrum\n"
+    ">>> s.shape\n"
+    "(8192,)\n"
+    ">>> round(float(s.max()), 1)   # each half-scale tone splits into two "
+    "images\n"
+    "-12.0\n" },
   { "spectrum_dbfs_max_out", (PyCFunction)IMDMeasureObj_spectrum_dbfs_max_out,
     METH_NOARGS,
     "spectrum_dbfs_max_out() -> int\n\nMax output length spectrum_dbfs() can "
     "produce for the current state.\nUse to size the ``out=`` buffer." },
   { "destroy", (PyCFunction)IMDMeasureObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)IMDMeasureObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)IMDMeasureObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)IMDMeasureObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a Imdmeas be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "Imdmeas\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)IMDMeasureObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the Imdmeas.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

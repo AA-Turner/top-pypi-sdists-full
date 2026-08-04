@@ -624,15 +624,18 @@ static PyGetSetDef MpskReceiverR_getset[]
     = { { "norm_freq", (getter)MpskReceiverR_getprop_norm_freq,
           (setter)MpskReceiverR_setprop_norm_freq,
           "Tracked carrier, cycles/sample at the REAL input rate.\n", NULL },
-        { "lock", (getter)MpskReceiverR_getprop_lock, NULL, "Lock.\n", NULL },
+        { "lock", (getter)MpskReceiverR_getprop_lock, NULL,
+          "EMA of the carrier lock signal.\n", NULL },
         { "timing_rate", (getter)MpskReceiverR_getprop_timing_rate, NULL,
           "Timing rate.\n", NULL },
         { "tracking", (getter)MpskReceiverR_getprop_tracking, NULL,
-          "Tracking.\n", NULL },
-        { "m", (getter)MpskReceiverR_getprop_m, NULL, "M.\n", NULL },
-        { "sps", (getter)MpskReceiverR_getprop_sps, NULL, "Sps.\n", NULL },
-        { "m_out", (getter)MpskReceiverR_getprop_m_out, NULL, "M out.\n",
-          NULL },
+          "0 = NDA acquire, 1 = decision.\n", NULL },
+        { "m", (getter)MpskReceiverR_getprop_m, NULL,
+          "constellation order M (2, 4, 8).\n", NULL },
+        { "sps", (getter)MpskReceiverR_getprop_sps, NULL,
+          "samples per symbol at the receiver's input.\n", NULL },
+        { "m_out", (getter)MpskReceiverR_getprop_m_out, NULL,
+          "terminal outputs per symbol.\n", NULL },
         { "clipped", (getter)MpskReceiverR_getprop_clipped, NULL,
           "Has the cascade's CIC stage clipped its input since the last "
           "reset? A CIC bounds its input to |Re|, |Im| <= 1.0 and clips "
@@ -714,13 +717,37 @@ static PyMethodDef MpskReceiverRObj_methods[] = {
     "ambiguity); resolve it with bits(differential) or a sync word. Read "
     "norm_freq for the tracked carrier and lock for the carrier lock metric.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import MpskReceiverR\n"
-    "    >>> obj = MpskReceiverR(4, 32.0, 8, \"iandd\", 0.35, 8, 0.01, 0.707, "
-    "0.01, 0, 0.5, 0.0, 100, 0, 1024, \"strobe\")\n"
-    "    >>> y = obj.steps(np.zeros(4))\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex64')\n" },
+    "As mpsk_receiver_steps(), taking real samples: the R2C halfband makes\n"
+    "them complex before anything else touches them.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.float32]\n"
+    "    Real f32 input samples.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex64]\n"
+    "    Number of symbols written.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.track import MpskReceiverR\n"
+    ">>> rng = np.random.default_rng(3)\n"
+    ">>> idx = rng.integers(0, 4, 2400)                  # QPSK symbols\n"
+    ">>> bb = np.repeat(np.exp(2j * np.pi * idx / 4), 32)  # 32 "
+    "samples/symbol\n"
+    ">>> n = np.arange(bb.size)\n"
+    ">>> x = (0.4 * bb * np.exp(2j * np.pi * 0.25 * n)).real   # real IF, "
+    "fs/4\n"
+    ">>> x = np.ascontiguousarray(x.astype(np.float32))\n"
+    ">>> rx = MpskReceiverR(m=4, sps=32, m_out=8, init_norm_freq=0.25)\n"
+    ">>> sym = rx.steps(x)\n"
+    ">>> sym.size                                        # ~ x_len / sps\n"
+    "2398\n"
+    ">>> round(rx.lock, 2)                               # carrier locked\n"
+    "0.99\n" },
   { "steps_max_out", (PyCFunction)MpskReceiverRObj_steps_max_out, METH_NOARGS,
     "steps_max_out() -> int\n\nMax output length steps() can produce for the "
     "current state.\nUse to size the ``out=`` buffer." },
@@ -735,13 +762,39 @@ static PyMethodDef MpskReceiverRObj_methods[] = {
     "(rotation-invariant — resolves the m-fold carrier ambiguity at ~2x the "
     "symbol-error rate). Same per-sample carrier/timing recovery as steps().\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import MpskReceiverR\n"
-    "    >>> obj = MpskReceiverR(4, 32.0, 8, \"iandd\", 0.35, 8, 0.01, 0.707, "
-    "0.01, 0, 0.5, 0.0, 100, 0, 1024, \"strobe\")\n"
-    "    >>> y = obj.bits(np.zeros(4))\n"
-    "    >>> y.dtype\n"
-    "    dtype('uint8')\n" },
+    "As mpsk_receiver_bits(), taking real samples.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.float32]\n"
+    "    Real f32 input samples.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.uint8]\n"
+    "    Number of bits written.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.track import MpskReceiverR\n"
+    ">>> rng = np.random.default_rng(3)\n"
+    ">>> idx = rng.integers(0, 2, 2400)                  # BPSK payload bits\n"
+    ">>> bb = np.repeat(np.exp(1j * np.pi * idx), 32)\n"
+    ">>> n = np.arange(bb.size)\n"
+    ">>> x = (0.4 * bb * np.exp(2j * np.pi * 0.25 * n)).real   # real IF, "
+    "fs/4\n"
+    ">>> x = np.ascontiguousarray(x.astype(np.float32))\n"
+    ">>> rx = MpskReceiverR(m=2, sps=32, m_out=8, init_norm_freq=0.25,\n"
+    "...                    bn_carrier=0.005)\n"
+    ">>> b = rx.bits(x)                                  # 1 hard bit/symbol\n"
+    ">>> b.size\n"
+    "2398\n"
+    ">>> # settled tail matches the payload up to the BPSK inversion "
+    "ambiguity\n"
+    ">>> tail = np.mean(b[1500:2300] != idx[1500:2300])\n"
+    ">>> round(float(min(tail, 1 - tail)), 3)\n"
+    "0.0\n" },
   { "bits_max_out", (PyCFunction)MpskReceiverRObj_bits_max_out, METH_NOARGS,
     "bits_max_out() -> int\n\nMax output length bits() can produce for the "
     "current state.\nUse to size the ``out=`` buffer." },
@@ -759,31 +812,150 @@ static PyMethodDef MpskReceiverRObj_methods[] = {
     "already have. A live handover survives the re-tune; the in-flight verify "
     "run restarts.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import MpskReceiverR\n"
-    "    >>> obj = MpskReceiverR(4, 32.0, 8, \"iandd\", 0.35, 8, 0.01, 0.707, "
-    "0.01, 0, 0.5, 0.0, 100, 0, 1024, \"strobe\")\n"
-    "    >>> obj.configure_lock(0.0, 0.0, 0, 0)\n" },
+    "The real-input twin of mpsk_receiver_configure_lock(), whose contract "
+    "it\n"
+    "shares exactly: a split declare/drop threshold pair on the carrier lock\n"
+    "EMA (level hysteresis) plus both verify counts (time hysteresis). A "
+    "live\n"
+    "handover survives the re-tune; the in-flight verify run restarts.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "up_thresh : float\n"
+    "    Declare threshold on the carrier lock EMA.\n"
+    "down_thresh : float\n"
+    "    Drop threshold; choose <= up_thresh for level hysteresis.\n"
+    "n_up : int\n"
+    "    Consecutive above-threshold symbols to hand over to the\n"
+    "    decision-directed discriminator; clamped >= 1.\n"
+    "n_down : int\n"
+    "    Consecutive below-threshold symbols to fall back to NDA "
+    "acquisition;\n"
+    "    clamped >= 1.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.track import MpskReceiverR\n"
+    ">>> rx = MpskReceiverR(m=4, sps=10, m_out=2, acq_to_track=1)\n"
+    ">>> rx.tracking\n"
+    "0\n"
+    ">>> rx.configure_lock(0.9, 0.72, 4, 16)   # tighter declare, faster "
+    "drop\n" },
   { "reset", (PyCFunction)MpskReceiverRObj_reset, METH_NOARGS,
     "reset() -> None\n"
     "\n"
     "Re-seed the carrier and symbol-timing loops to their create-time state; "
     "preserve configuration.\n"
     "\n"
-    "    >>> from doppler import MpskReceiverR\n"
-    "    >>> obj = MpskReceiverR(4, 32.0, 8, \"iandd\", 0.35, 8, 0.01, 0.707, "
-    "0.01, 0, 0.5, 0.0, 100, 0, 1024, \"strobe\")\n"
-    "    >>> obj.reset()\n" },
+    "Identical in effect to mpsk_receiver_reset() — clears the R2C halfband\n"
+    "and cascade memory, the carrier and timing NCOs, the loop integrators\n"
+    "and the lock detectors, and returns the carrier estimate to\n"
+    "init_norm_freq. Configuration is untouched, so a burst fed twice around\n"
+    "a reset reproduces bit-for-bit.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.track import MpskReceiverR\n"
+    ">>> rng = np.random.default_rng(0)\n"
+    ">>> idx = rng.integers(0, 4, 300)\n"
+    ">>> bb = np.repeat(np.exp(2j * np.pi * idx / 4), 32)\n"
+    ">>> n = np.arange(bb.size)\n"
+    ">>> x = (0.4 * bb * np.exp(2j * np.pi * 0.25 * n)).real   # real IF, "
+    "fs/4\n"
+    ">>> x = np.ascontiguousarray(x.astype(np.float32))\n"
+    ">>> rx = MpskReceiverR(m=4, sps=32, m_out=8, init_norm_freq=0.25)\n"
+    ">>> first = rx.steps(x)\n"
+    ">>> rx.reset()                                # back to the cold state\n"
+    ">>> np.array_equal(first, rx.steps(x))        # same input, same output\n"
+    "True\n" },
   { "state_bytes", (PyCFunction)MpskReceiverRObj_state_bytes, METH_NOARGS,
-    "Serialized state size in bytes." },
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the MpskReceiverRObj has already been\n"
+    "destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
   { "get_state", (PyCFunction)MpskReceiverRObj_get_state, METH_NOARGS,
-    "Serialize the engine's mutable state to bytes." },
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the MpskReceiverRObj has already been\n"
+    "destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
   { "set_state", (PyCFunction)MpskReceiverRObj_set_state, METH_O,
-    "Restore mutable state from a get_state() blob." },
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the MpskReceiverRObj has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
   { "destroy", (PyCFunction)MpskReceiverRObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)MpskReceiverRObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)MpskReceiverRObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)MpskReceiverRObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a MpskReceiverR be used in a `with` statement so its C resources\n"
+    "are released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "MpskReceiverR\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)MpskReceiverRObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the MpskReceiverR.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

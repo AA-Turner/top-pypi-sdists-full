@@ -1,5 +1,6 @@
 # wfm/wfm_reader.pyi — type stubs for the wfm_reader C extension.
 from typing import Any, final, Literal
+import os
 import numpy as np
 from numpy.typing import NDArray
 
@@ -9,15 +10,39 @@ class Reader:
 
     Parameters
     ----------
-    path : str
+    path : str | os.PathLike
         file to read -- a `str` or any `os.PathLike` from Python. For a DETACHED BLUE capture this is normally the HEADER file -- `<base>.tmp` or `<base>.prm` per BLUE 3.1.1.4 (this library's own writer emits `<base>.hdr`) -- whose HCB `detached` field points at the collocated `<base>.det` payload; the extension does not decide, `detached` does. Passing the `<base>.det` directly also works (its header sibling is resolved). A SigMF `.sigmf-data` file resolves its `.sigmf-meta` sidecar the same way.
     sample_type : Literal["cf32", "cf64", "ci32", "ci16", "ci8"], default "cf32"
         the wire sample type, used only as a HINT for the headerless file types (raw, CSV) -- BLUE and SigMF carry their own and ignore it. `"cf32"`, `"cf64"`, `"ci32"`, `"ci16"` or `"ci8"` from Python; the matching 0..4 from C. A wrong hint does not fail; see ::wfm_reader_get_trailing_bytes.
     endian : Literal["le", "be"], default "le"
         byte order, likewise a hint that only headerless raw uses; `"le"` or `"be"` from Python, 0 or 1 from C.
 
+    Examples
+    --------
+    >>> import pathlib, tempfile
+    >>> from doppler.wfm import Composer, Reader, Segment, Writer
+    >>> tmp = tempfile.TemporaryDirectory()
+    >>> p = pathlib.Path(tmp.name) / "capture.blue"
+    >>> x = Composer([Segment("qpsk", sps=8, num_samples=1024)]).compose()
+    >>> w = Writer(p, file_type="blue", sample_type="ci16", fs=2.4e6)
+    >>> w.add_keyword("NAME", "A", "demo")   # tag the header
+    >>> _ = w.write(x)
+    >>> w.close()
+    >>> r = Reader(p)                         # file type auto-detected
+    >>> r.file_type, r.sample_type, r.fs
+    ('blue', 'ci16', 2400000.0)
+    >>> r.keywords["NAME"]                    # keyword round-trips
+    'demo'
+    >>> total = 0
+    >>> while len(block := r.read(256)):      # read returns 0 at EOF
+    ...     total += len(block)
+    >>> total == r.num_samples == 1024
+    True
+    >>> r.close()
+    >>> tmp.cleanup()
+
     """
-    def __init__(self, path: str, sample_type: Literal["cf32", "cf64", "ci32", "ci16", "ci8"] = "cf32", endian: Literal["le", "be"] = "le") -> None: ...
+    def __init__(self, path: str | os.PathLike, sample_type: Literal["cf32", "cf64", "ci32", "ci16", "ci8"] = "cf32", endian: Literal["le", "be"] = "le") -> None: ...
 
     def reset(self) -> None:
         """Rewind to the first sample of the capture.
@@ -69,8 +94,25 @@ class Reader:
 
         """
 
-    def read_max_out(self) -> int:
-        """Max output length read() can produce for the current state."""
+    def read_max_out(self, n: int) -> int:
+        """Maximum samples one read(n) yields: n (fewer at EOF).
+
+        A reader streams, so a read of n produces at most n samples; the binding
+
+        sizes its buffer to this per-call bound (gh-607) and resizes down to the
+
+        actual count, never pre-allocating the whole capture.
+
+        Parameters
+        ----------
+        n : int
+            Input.
+
+        Returns
+        -------
+        int
+            Output.
+        """
 
     @property
     def file_type(self) -> Literal["raw", "csv", "blue", "sigmf"]:
@@ -117,11 +159,53 @@ class Reader:
         """The BLUE header control block as a {field: value} dict, under the names the format itself uses -- `version`, `head_rep`, `data_rep`, `detached`, `protected`, `pipe`, `ext_start`, `ext_size`, `data_start`, `data_size`, `type`, `format`, `flagmask`, `timecode`, `inlet`, `outlets`, `outmask`, `pipeloc`, `pipesize`, `in_byte`, `out_byte`, `outbytes`, `keylength`, and the type-1000 adjunct `xstart`, `xdelta`, `xunits`. Empty for a non-BLUE file type. Nothing is renamed or omitted, so what you see is what the file holds; the decoded keywords are in `keywords`."""
 
     def close(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
+
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
+
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "Reader": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "Reader":
+        """Enter a context manager, returning this object.
+
+        Lets a Reader be used in a `with` statement so its C resources are
+        released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        Reader
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the Reader.
+
+        Equivalent to calling `close()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """

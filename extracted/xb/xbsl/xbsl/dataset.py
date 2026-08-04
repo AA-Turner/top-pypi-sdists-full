@@ -21,6 +21,11 @@ from pathlib import Path
 
 from xbsl import i18n, plugins
 
+#: The member kinds a stdlib type declares. Events have a section of their own in the newer
+#: documents; older ones listed them among the properties, so a dataset without the section is
+#: not "an API without events" - see the extractor.
+MEMBER_KINDS = ("properties", "methods", "events")
+
 BUNDLED_DATA_ROOT = Path(__file__).parent / "data" / "element"
 _ENV_VERSION = "XBSL_ELEMENT_VERSION"
 _ENV_DATA_DIR = "XBSL_DATA_DIR"
@@ -237,17 +242,14 @@ def _expand_inherited(data: dict) -> dict:
     own_members = data.get("type_members") or {}
     full_members: dict[str, dict[str, list[str]]] = {}
     for name, own in own_members.items():
-        props, methods = set(own.get("properties", ())), set(own.get("methods", ()))
+        by_kind = {kind: set(own.get(kind, ())) for kind in MEMBER_KINDS}
         for base in bases.get(name, ()):
             base_own = own_members.get(base, {})
-            props.update(base_own.get("properties", ()))
-            methods.update(base_own.get("methods", ()))
-        entry: dict[str, list[str]] = {}
-        if props:
-            entry["properties"] = sorted(props)
-        if methods:
-            entry["methods"] = sorted(methods)
-        full_members[name] = entry
+            for kind in MEMBER_KINDS:
+                by_kind[kind].update(base_own.get(kind, ()))
+        full_members[name] = {
+            kind: sorted(by_kind[kind]) for kind in MEMBER_KINDS if by_kind[kind]
+        }
     own_returns = data.get("member_types") or {}
     full_returns: dict[str, dict[str, str]] = {}
     for name, own in own_returns.items():

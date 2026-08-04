@@ -145,10 +145,11 @@ def _synthetic_error_mode(request, monkeypatch):
     auto-reverted on teardown). Without the marker, the env var is left
     untouched — preserving the spec's "opt-in" contract.
 
-    Set BEFORE the client constructs its HTTP transport (markers are read at
-    setup time): the transport wrapper in ``_core.py:_get_error_injection_mode``
-    reads the env var only during ``Session.open()``, so the var must be
-    in place before the fixture under test enters its ``async with`` block.
+    Set before the client constructs its runtime and enters the middleware chain
+    (markers are read at setup time): ``_error_injection._get_error_injection_mode``
+    is consulted by the construction guard and by ``ErrorInjectionMiddleware``, so
+    the var must be in place before the fixture under test enters its
+    ``async with`` block.
 
     Production behavior is unchanged when the marker is absent.
     """
@@ -167,7 +168,7 @@ def _synthetic_error_mode(request, monkeypatch):
             f"@pytest.mark.synthetic_error: invalid mode {mode!r}; valid modes are {sorted(valid)}."
         )
     # Import the env-var name from the production module so a future rename
-    # in ``_core.py`` cascades automatically; the constant is also exposed
+    # in ``_error_injection.py`` cascades automatically; the constant is also exposed
     # from ``tests/vcr_config.py`` but importing from the canonical seam
     # is the production-faithful path.
     from notebooklm._error_injection import ERROR_INJECT_ENV_VAR
@@ -201,6 +202,49 @@ def _mock_keepalive_poke(request):
         is_reusable=True,
         status_code=200,
     )
+
+
+def pytest_addoption(parser):
+    """Register the dev-only ``--update-baselines`` regen flag (ADR-0022).
+
+    When set, the regenerable-baseline freeze test
+    (``test_baseline_matches_committed_file``) REWRITES each committed baseline
+    file from ``derive()`` instead of asserting. ``scripts/regen_baselines.py``
+    is the discoverable wrapper that shells ``pytest ... --update-baselines``.
+
+    **Dev-only-regen invariant (ADR-0022):** CI must NEVER pass this flag — it
+    only ever diffs. The ``update_baselines`` fixture additionally refuses to
+    regenerate when a CI environment is detected, so wiring the flag into a CI
+    command can't silently rewrite baselines; it fails loudly instead.
+    """
+    parser.addoption(
+        "--update-baselines",
+        action="store_true",
+        default=False,
+        help=(
+            "DEV ONLY: rewrite committed baseline fixtures from live code instead "
+            "of asserting against them. CI must never pass this (it only diffs). "
+            "Prefer `python scripts/regen_baselines.py`."
+        ),
+    )
+
+
+@pytest.fixture
+def update_baselines(request) -> bool:
+    """Whether the dev-only baseline regen was requested (``--update-baselines``).
+
+    Enforces the dev-only-regen invariant: if the flag is set while a CI
+    environment is detected (``CI`` env var truthy, as GitHub Actions and most
+    CI providers set), this fails the test rather than silently rewriting the
+    committed baselines. Locally (no ``CI``), the flag enables regen.
+    """
+    requested = bool(request.config.getoption("--update-baselines"))
+    if requested and os.environ.get("CI", "").strip():
+        raise pytest.UsageError(
+            "--update-baselines must not be used in CI: baselines are dev-only "
+            "regenerated and CI only diffs (ADR-0022). Unset CI or drop the flag."
+        )
+    return requested
 
 
 def pytest_configure(config):
@@ -344,7 +388,7 @@ def build_rpc_response():
 
 @pytest.fixture
 def mock_get_conversation_id(httpx_mock, build_rpc_response):
-    """Register a batchexecute response for ``ChatAPI.get_conversation_id``.
+    """Register batchexecute responses for an existing conversation.
 
     After issue #659, ``ChatAPI.ask`` calls ``get_conversation_id``
     (wire-level ``hPTbtc``) post-ask for new conversations to recover the
@@ -352,7 +396,8 @@ def mock_get_conversation_id(httpx_mock, build_rpc_response):
     chat response. Any test that exercises the new-conversation path
     through ``client.chat.ask(...)`` without a ``conversation_id``
     argument must register a response, or the SDK will time out retrying
-    the unmocked call.
+    the unmocked call. The optional ``khqZz`` response gives that id one
+    existing turn when ``ask`` probes implicit follow-up state (#1973).
 
     Usage::
 
@@ -379,9 +424,42 @@ def mock_get_conversation_id(httpx_mock, build_rpc_response):
             method="POST",
             is_reusable=reusable,
         )
+        turns_response = build_rpc_response(
+            RPCMethod.GET_CONVERSATION_TURNS,
+            [[[None, None, 1, "Existing question?"]]],
+        )
+        httpx_mock.add_response(
+            url=re.compile(r".*batchexecute.*rpcids=khqZz.*"),
+            content=turns_response.encode(),
+            method="POST",
+            is_optional=True,
+            is_reusable=True,
+        )
         return conv_id
 
     return _add
+
+
+@pytest.fixture
+def legacy_vcr_follow_up_probe(monkeypatch):
+    """Supply the pre-existing turn omitted from chat cassettes recorded before #1973.
+
+    The old recordings contain the current-conversation lookup and chat POST,
+    but not the new pre-POST ``khqZz`` probe. Keep those recordings immutable;
+    dedicated characterization tests exercise the real probe request and its
+    empty, non-empty, and failure branches.
+    """
+    from notebooklm._chat import ChatAPI
+
+    original = ChatAPI.get_conversation_turns
+
+    async def _get_conversation_turns(self, notebook_id: str, conversation_id: str, limit: int = 2):
+        """Replay legacy chat cassettes without changing the production signature."""
+        if limit == 1:
+            return [[[None, None, 1, "Existing cassette conversation turn"]]]
+        return await original(self, notebook_id, conversation_id, limit)
+
+    monkeypatch.setattr(ChatAPI, "get_conversation_turns", _get_conversation_turns)
 
 
 @pytest.fixture

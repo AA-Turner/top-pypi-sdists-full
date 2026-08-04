@@ -54,7 +54,7 @@ import warnings
 
 import libvirt
 
-from typing import Any, Callable, Dict, Generator, Optional, TypeVar  # noqa F401
+from typing import Any, Callable, Generator, Optional, TypeVar  # noqa F401
 _T = TypeVar('_T')
 
 __author__ = 'Wojtek Porczyk <woju@invisiblethingslab.com>'
@@ -106,7 +106,7 @@ class Descriptor(object):
     def __init__(self, impl: "virEventAsyncIOImpl", fd: int) -> None:
         self.impl = impl
         self.fd = fd
-        self.callbacks = {}  # type: Dict
+        self.callbacks = {}  # type: dict
 
     def _handle(self, event: int) -> None:
         '''Dispatch the event to the descriptors
@@ -224,13 +224,13 @@ class TimeoutCallback(Callback):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.timeout = -1
-        self._task = None
+        self._task = None # type: Optional[asyncio.Task[Generator[Any, None, None]]]
 
     def __repr__(self) -> str:
         return '<{} iden={} timeout={}>'.format(
             self.__class__.__name__, self.iden, self.timeout)
 
-    async def _timer(self) -> Generator[Any, None, None]:
+    async def _timer(self):
         '''An actual timer running on the event loop.
 
         This is a coroutine.
@@ -284,9 +284,9 @@ class virEventAsyncIOImpl(object):
     If *loop* is not specified, the current (or default) event loop is used.
     '''
 
-    def __init__(self, loop: asyncio.AbstractEventLoop = None) -> None:
+    def __init__(self, loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
         self.loop = loop or asyncio.get_event_loop()
-        self.callbacks = {}  # type: Dict[int, Callback]
+        self.callbacks = {}  # type: dict[int, Callback]
         self.descriptors = DescriptorDict(self)
         self.log = logging.getLogger(self.__class__.__name__)
 
@@ -294,7 +294,7 @@ class virEventAsyncIOImpl(object):
         # Transient asyncio.Event instance dynamically created
         # and destroyed by drain()
         # NOTE invariant: _finished.is_set() iff _pending == 0
-        self._finished = None
+        self._finished = None # type: Optional[asyncio.Event]
 
     def __repr__(self) -> str:
         return '<{} callbacks={} descriptors={}>'.format(
@@ -481,7 +481,7 @@ def getCurrentImpl() -> Optional[virEventAsyncIOImpl]:
     return _current_impl
 
 
-def virEventRegisterAsyncIOImpl(loop: asyncio.AbstractEventLoop = None) -> virEventAsyncIOImpl:
+def virEventRegisterAsyncIOImpl(loop: Optional[asyncio.AbstractEventLoop] = None) -> virEventAsyncIOImpl:
     '''Arrange for libvirt's callbacks to be dispatched via asyncio event loop
 
     The implementation object is returned, but in normal usage it can safely be

@@ -688,14 +688,18 @@ def _extract_entries(obj: Any, module_name: str) -> List[Dict[str, Any]]:
         # Every binding carries the endpoint's architecture family, when
         # known, so the hub's th#586 gate can family-police any LoRA
         # overlay attached at that slot (pgw#523: unconditional-when-known,
-        # not allow_lora-triggered). pgw#520:
-        # a Slot-declared binding with no Compile(family=...) may still carry
-        # a family via its own default_config preset's registration — that's what
-        # es.slot_family reconciles (Compile(family=) wins when both exist).
+        # not allow_lora-triggered). For Slot-declared bindings the slot map is
+        # AUTHORITATIVE: it already reconciles the function family with the
+        # slot's explicit intent. Bare bindings have no slot declaration and
+        # retain the function-level compile family fallback.
         compile_family = es.compile.family if es.compile is not None else ""
         for key, block in bindings_block.items():
-            slot_family = es.slot_family.get(key, "") if es.slot_family else ""
-            _stamp_family(block, compile_family or slot_family)
+            family = (
+                es.slot_family.get(key, "")
+                if key in es.slots
+                else compile_family
+            )
+            _stamp_family(block, family)
 
         # pgw#747: `es.slot_family` is AUTHORITATIVE per slot — it already
         # folds in Compile(family=...), and it deliberately holds "" for an
@@ -796,6 +800,14 @@ def _extract_entries(obj: Any, module_name: str) -> List[Dict[str, Any]]:
         # th#1050: opt-in declared lane bodies (behavioral divergence marker).
         if es.handles:
             fn["handles"] = list(es.handles)
+        # Paul 2026-08-02: the WEIGHT-SET declaration the placement side reads
+        # to decide whether a cached volume can help this endpoint. OMITTED
+        # when undeclared — the consumer must be able to tell "the author said
+        # per_request" from "nobody said", because a cached volume lives in
+        # exactly ONE datacenter and attaching one that cannot be used
+        # collapses placement rather than merely wasting disk.
+        if es.weight_set is not None:
+            fn["weight_set"] = es.weight_set
         # th#1087: declared config parameters + env names — the hub persists
         # these as the release's declared surface and 422s config writes
         # outside it.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipenv
-Version: 2026.6.2
+Version: 2026.7.1
 Summary: Python Development Workflow for Humans.
 Author-email: Pipenv maintainer team <matteius@gmail.com>
 License: MIT License (MIT)
@@ -24,7 +24,7 @@ License-File: NOTICES
 Requires-Dist: certifi
 Requires-Dist: packaging>=22
 Requires-Dist: setuptools>=67
-Requires-Dist: virtualenv>=20.24.2
+Requires-Dist: virtualenv>=20.26.6
 Provides-Extra: completion
 Requires-Dist: argcomplete>=3.1; extra == "completion"
 Provides-Extra: dev
@@ -428,7 +428,7 @@ pipenv shell
 
 If you would like to convert a project that currently uses a requirements.txt file to use Pipenv, install Pipenv and run:
 
-pipenv install requirements.txt
+pipenv install -r requirements.txt
 
 This will create a Pipfile and install the specified requirements.
 

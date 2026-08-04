@@ -1882,6 +1882,7 @@ class SQLResolverSettings(_message.Message):
         "escaped_param_name_to_fqn",
         "field_types",
         "use_native_sql",
+        "is_chalk_sql_source",
     )
     class FieldsRootFqnEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -1913,12 +1914,14 @@ class SQLResolverSettings(_message.Message):
     ESCAPED_PARAM_NAME_TO_FQN_FIELD_NUMBER: _ClassVar[int]
     FIELD_TYPES_FIELD_NUMBER: _ClassVar[int]
     USE_NATIVE_SQL_FIELD_NUMBER: _ClassVar[int]
+    IS_CHALK_SQL_SOURCE_FIELD_NUMBER: _ClassVar[int]
     finalizer: Finalizer
     incremental_settings: IncrementalSettings
     fields_root_fqn: _containers.ScalarMap[str, str]
     escaped_param_name_to_fqn: _containers.ScalarMap[str, str]
     field_types: _containers.ScalarMap[str, str]
     use_native_sql: bool
+    is_chalk_sql_source: bool
     def __init__(
         self,
         finalizer: _Optional[_Union[Finalizer, str]] = ...,
@@ -1927,6 +1930,7 @@ class SQLResolverSettings(_message.Message):
         escaped_param_name_to_fqn: _Optional[_Mapping[str, str]] = ...,
         field_types: _Optional[_Mapping[str, str]] = ...,
         use_native_sql: bool = ...,
+        is_chalk_sql_source: bool = ...,
     ) -> None: ...
 
 class IncrementalSettings(_message.Message):

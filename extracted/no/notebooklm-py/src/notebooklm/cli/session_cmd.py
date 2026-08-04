@@ -7,20 +7,15 @@ Commands:
     clear   Clear current notebook context
     auth    Authentication management (logout / inspect / check / refresh)
 
-This module is split into thin Click handlers over four service
-modules:
+This module is split into thin Click handlers over service modules for
+Playwright login, browser-cookie login/refresh, session context,
+auth diagnostics, and auth-source precedence. Command-side wrappers in
+:mod:`notebooklm.cli.playwright_login_io` provide the concrete rendering,
+exit, and async-runner seams for the Playwright and browser-cookie login
+services.
 
-* :mod:`notebooklm.cli.services.playwright_login` — Playwright login flow
-* :mod:`notebooklm.cli.services.session_context` — ``use`` / ``status``
-* :mod:`notebooklm.cli.services.auth_diagnostics` — ``auth check``
-* :mod:`notebooklm.cli.services.auth_source` — auth-source precedence
-
-Body-used names that *moved* into those services are re-imported here as
-the command layer's own bindings. A handful are also bound on the
-``notebooklm.cli.session_cmd`` namespace by tests that pre-date ADR-0008's
-services-side patching convention (e.g. ``_sync_server_language_to_config``,
-``_login_browser_cookies_single``); those names stay because they are
-referenced from this module's body.
+Body-used names that moved into services are re-imported here as command-layer
+bindings and legacy patch seams.
 """
 
 from __future__ import annotations
@@ -28,42 +23,51 @@ from __future__ import annotations
 import functools
 import logging
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
 
 import click
 import httpx
-from rich.markup import render as render_markup
-from rich.table import Table
 
-from ..client import NotebookLMClient
 from ..exceptions import AuthError, NotebookNotFoundError
 from ..paths import get_storage_path
-from .auth_runtime import handle_auth_error, run_client_workflow
+
+# Cookie-JSON import helpers (split out to keep this module under the size budget).
+from ._cookie_import import _import_cookie_json, _read_auth_json_input
+
+# Render helpers stay in a sibling module; command registration calls them here.
+from ._session_render import (
+    _render_auth_check_result,
+    _render_auth_inspect,
+    _render_auth_inspect_error,
+    _render_logout_outcome,
+    _render_status,
+    _use_notebook_table,
+)
+from .auth_runtime import (
+    auth_check_notebook_count,
+    handle_auth_error,
+    resolve_client_factory,
+    run_client_workflow,
+)
 from .context import clear_context, set_current_notebook
 from .error_handler import _output_error, exit_with_code, handle_errors
 from .playwright_login_io import (
+    _verify_token_fetch_after_refresh,
     prepare_paths_or_exit,
     repair_after_refresh,
     run_login,
     validate_flags_or_exit,
 )
-from .rendering import console, json_output_response
+from .rendering import console, json_error_response, json_output_response
 from .resolve import resolve_notebook_id
 from .runtime import run_async
 from .services.auth_diagnostics import (
-    AuthCheckResult,
     plan_from_click_context,
     run_auth_check,
 )
-from .services.auth_source import AUTH_JSON_ENV_NAME, has_env_auth_json
+from .services.auth_source import AUTH_JSON_ENV_NAME, auth_source_from_ctx, has_env_auth_json
 
 # Direct imports replace the D1-PR-3-retired forwarding wrappers; see ADR-0008.
-# These names are all called from this module's body. Several also serve as
-# ``notebooklm.cli.session_cmd.*`` monkeypatch surfaces for tests that pre-date
-# ADR-0008's services-side patching convention (e.g.
-# ``_sync_server_language_to_config``, ``_login_browser_cookies_single``,
-# ``_refresh_from_browser_cookies``, ``_enumerate_browser_accounts``); those
-# patches keep working because the body-used name stays bound here.
 from .services.login import (
     _enumerate_browser_accounts,
     _login_all_accounts_from_browser,
@@ -71,9 +75,7 @@ from .services.login import (
     _refresh_from_browser_cookies,
     _sync_server_language_to_config,
 )
-from .services.login import (
-    cookie_domains as _cookie_domains,
-)
+from .services.login import cookie_domains as _cookie_domains
 from .services.login.exceptions import LoginConfigurationError
 from .services.login.outcomes import BrowserCookieOutcome, NetworkFailure
 from .services.playwright_login import (
@@ -83,13 +85,14 @@ from .services.playwright_login import (
     PlaywrightLoginPlan,
 )
 from .services.session_context import (
-    LogoutOutcome,
-    StatusReport,
     UseNotebookResult,
     execute_logout,
     read_status,
     verify_and_set_notebook,
 )
+
+if TYPE_CHECKING:
+    from ..client import NotebookLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -165,341 +168,6 @@ def _warn_missing_optional_domains(include_domains: set[str]) -> None:
     _cookie_domains._warn_missing_optional_domains(include_domains, warn=console.print)
 
 
-def _use_notebook_table() -> Table:
-    t = Table()
-    t.add_column("ID", style="cyan")
-    t.add_column("Title", style="green")
-    t.add_column("Owner")
-    t.add_column("Created", style="dim")
-    return t
-
-
-def _render_status(report: StatusReport, *, json_output: bool) -> None:
-    """Render a :class:`StatusReport` to the configured console.
-
-    Lives here rather than in
-    :mod:`notebooklm.cli.services.session_context` so the service layer
-    does not reach into ``..rendering`` (ADR-0008). Supports ``--paths``
-    (resolved configuration paths) and ``--json`` (machine-readable
-    envelope).
-    """
-    if report.paths is not None:
-        # --paths flag was set; render the paths view and stop.
-        if json_output:
-            json_output_response({"paths": report.paths})
-            return
-
-        table = Table(title="Configuration Paths")
-        table.add_column("File", style="dim")
-        table.add_column("Path", style="cyan")
-        table.add_column("Source", style="green")
-
-        path_info = report.paths
-        table.add_row(
-            "Profile",
-            path_info.get("profile", "default"),
-            path_info.get("profile_source", ""),
-        )
-        table.add_row("Home Directory", path_info["home_dir"], path_info["home_source"])
-        table.add_row("Profile Directory", path_info.get("profile_dir", ""), "")
-        table.add_row("Storage State", path_info["storage_path"], "")
-        table.add_row("Context", path_info["context_path"], "")
-        table.add_row("Browser Profile", path_info["browser_profile_dir"], "")
-
-        if report.has_env_auth:
-            console.print(
-                f"[yellow]Note: {AUTH_JSON_ENV_NAME} is set (inline auth active)[/yellow]\n"
-            )
-
-        console.print(table)
-        return
-
-    ctx_view = report.context
-
-    if not ctx_view.has_context:
-        if json_output:
-            json_output_response({"has_context": False, "notebook": None, "conversation_id": None})
-            return
-        console.print(
-            "[yellow]No notebook selected. Use 'notebooklm use <id>' to set one.[/yellow]"
-        )
-        return
-
-    if not ctx_view.payload_readable:
-        # Context file existed but couldn't be parsed; surface minimal info.
-        if json_output:
-            json_output_response(
-                {
-                    "has_context": True,
-                    "notebook": {
-                        "id": ctx_view.notebook_id,
-                        "title": None,
-                        "is_owner": None,
-                    },
-                    "conversation_id": None,
-                }
-            )
-            return
-
-        table = Table(title="Current Context")
-        table.add_column("Property", style="dim")
-        table.add_column("Value", style="cyan")
-        table.add_row("Notebook ID", ctx_view.notebook_id or "")
-        table.add_row("Title", "-")
-        table.add_row("Ownership", "-")
-        table.add_row("Created", "-")
-        table.add_row("Conversation", "[dim]None[/dim]")
-        console.print(table)
-        return
-
-    if json_output:
-        json_output_response(
-            {
-                "has_context": True,
-                "notebook": {
-                    "id": ctx_view.notebook_id,
-                    "title": ctx_view.title if ctx_view.title and ctx_view.title != "-" else None,
-                    "is_owner": ctx_view.is_owner if ctx_view.is_owner is not None else True,
-                },
-                "conversation_id": ctx_view.conversation_id,
-            }
-        )
-        return
-
-    table = Table(title="Current Context")
-    table.add_column("Property", style="dim")
-    table.add_column("Value", style="cyan")
-
-    table.add_row("Notebook ID", ctx_view.notebook_id or "")
-    table.add_row("Title", str(ctx_view.title or "-"))
-    is_owner = ctx_view.is_owner if ctx_view.is_owner is not None else True
-    owner_status = "Owner" if is_owner else "Shared"
-    table.add_row("Ownership", owner_status)
-    table.add_row("Created", ctx_view.created_at or "-")
-    if ctx_view.conversation_id:
-        table.add_row("Conversation", ctx_view.conversation_id)
-    else:
-        table.add_row("Conversation", "[dim]None (will auto-select on next ask)[/dim]")
-    console.print(table)
-
-
-def _render_logout_outcome(outcome: LogoutOutcome) -> None:
-    """Render a :class:`LogoutOutcome` and apply its exit policy.
-
-    Owns the presentation + exit policy for the ``run_logout`` flow,
-    keeping the service function Click-free. On per-step
-    :class:`OSError` failures, prints the diagnostic and then exits 1; on
-    success prints either the green "Logged out." line or the yellow
-    "No active session found." no-op line and returns normally.
-    """
-    if outcome.env_auth_remains:
-        console.print(
-            f"[yellow]Note: {AUTH_JSON_ENV_NAME} is set — env-based auth will "
-            "remain active after logout. Unset it to fully log out.[/yellow]"
-        )
-
-    failure = outcome.failure
-    if failure is not None:
-        if failure.kind == "storage":
-            console.print(
-                f"[red]Cannot remove auth file: {failure.error_message}[/red]\n"
-                "Close any running notebooklm commands and try again.\n"
-                f"If the problem persists, manually delete: {failure.path}"
-            )
-        elif failure.kind == "browser_profile":
-            partial = (
-                "[yellow]Note: Auth file was removed, but browser profile "
-                "could not be deleted.[/yellow]\n"
-                if failure.partial_storage_removed
-                else ""
-            )
-            console.print(
-                f"{partial}"
-                f"[red]Cannot remove browser profile: {failure.error_message}[/red]\n"
-                "Close any open browser windows and try again.\n"
-                f"If the problem persists, manually delete: {failure.path}"
-            )
-        else:  # failure.kind == "context"
-            console.print(
-                f"[red]Cannot remove context file: {failure.error_message}[/red]\n"
-                "Close any running notebooklm commands and try again.\n"
-                f"If the problem persists, manually delete: {failure.path}"
-            )
-        exit_with_code(1)
-
-    if outcome.removed_any:
-        console.print("[green]Logged out.[/green] Run 'notebooklm login' to sign in again.")
-    else:
-        console.print("[yellow]No active session found.[/yellow] Already logged out.")
-
-
-def _render_auth_check_result(result: AuthCheckResult) -> None:
-    """Render an :class:`AuthCheckResult` (table or JSON) and exit on failure.
-
-    The presentation + exit-code policy lives here in the command layer
-    so ``services/auth_diagnostics.py`` can stay free of rendering and
-    exit imports (ADR-0008 boundary).
-    """
-    plan = result.plan
-    all_passed = result.all_passed
-    checks = result.checks
-    details = result.details
-
-    if plan.json_output:
-        json_output_response(
-            {
-                "status": "ok" if all_passed else "error",
-                "checks": checks,
-                "details": details,
-            }
-        )
-        if not all_passed:
-            exit_with_code(1)
-        return
-
-    # Rich-table render.
-    table = Table(title="Authentication Check")
-    table.add_column("Check", style="dim")
-    table.add_column("Status")
-    table.add_column("Details", style="cyan")
-
-    def status_icon(val: bool | None) -> str:
-        if val is None:
-            return "[dim]⊘ skipped[/dim]"
-        return "[green]✓ pass[/green]" if val else "[red]✗ fail[/red]"
-
-    table.add_row(
-        "Storage exists",
-        status_icon(checks["storage_exists"]),
-        details["auth_source"],
-    )
-    table.add_row("JSON valid", status_icon(checks["json_valid"]), "")
-    table.add_row(
-        "Cookies present",
-        status_icon(checks["cookies_present"]),
-        f"{len(details.get('cookies_found', []))} cookies" if checks["cookies_present"] else "",
-    )
-    table.add_row(
-        "SID cookie",
-        status_icon(checks["sid_cookie"]),
-        ", ".join(details.get("cookie_domains", [])[:3]) or "",
-    )
-    table.add_row(
-        "Token fetch",
-        status_icon(checks["token_fetch"]),
-        "use --test to check" if checks["token_fetch"] is None else "",
-    )
-
-    console.print(table)
-
-    cookies_by_domain = details.get("cookies_by_domain", {})
-    if cookies_by_domain:
-        console.print()
-        cookie_table = Table(title="Cookies by Domain")
-        cookie_table.add_column("Domain", style="cyan")
-        cookie_table.add_column("Cookies")
-
-        key_cookies = {"SID", "HSID", "SSID", "APISID", "SAPISID", "SIDCC"}
-
-        def format_cookie_name(name: str) -> str:
-            if name in key_cookies:
-                return f"[green]{name}[/green]"
-            if name.startswith("__Secure-"):
-                return f"[blue]{name}[/blue]"
-            return f"[dim]{name}[/dim]"
-
-        for domain in sorted(cookies_by_domain.keys()):
-            cookie_names = cookies_by_domain[domain]
-            formatted = [format_cookie_name(name) for name in sorted(cookie_names)]
-            cookie_table.add_row(domain, ", ".join(formatted))
-
-        console.print(cookie_table)
-
-    if details.get("error"):
-        console.print(f"\n[red]Error:[/red] {details['error']}")
-
-    if all_passed:
-        console.print("\n[green]Authentication is valid.[/green]")
-    elif not checks["storage_exists"]:
-        console.print("\n[yellow]Run 'notebooklm login' to authenticate.[/yellow]")
-    elif checks["token_fetch"] is False:
-        console.print(
-            "\n[yellow]Cookies may be expired. Run 'notebooklm login' to refresh.[/yellow]"
-        )
-
-
-def _render_auth_inspect(
-    browser_name: str,
-    accounts: list[Any],
-    *,
-    json_output: bool,
-    verbose: bool,
-) -> None:
-    """Render ``auth inspect`` results (text table or JSON envelope).
-
-    Moved here from ``services/auth_diagnostics.py`` so the service module
-    stays free of rendering imports (ADR-0008 boundary).
-    """
-    if json_output:
-        json_output_response(
-            {
-                "browser": browser_name,
-                "accounts": [
-                    {
-                        "email": a.email,
-                        "is_default": a.is_default,
-                        "browser_profile": a.browser_profile,
-                    }
-                    for a in accounts
-                ],
-            }
-        )
-        return
-
-    console.print(f"\n[bold]Browser:[/bold] {browser_name}")
-    console.print(f"[bold]Found {len(accounts)} signed-in Google account(s):[/bold]\n")
-    show_browser_profile = verbose and any(a.browser_profile for a in accounts)
-    table = Table(show_header=True, header_style="bold")
-    table.add_column("email")
-    if show_browser_profile:
-        table.add_column(f"{browser_name} user")
-    table.add_column("default", justify="center")
-    for a in accounts:
-        row = [a.email]
-        if show_browser_profile:
-            row.append(a.browser_profile or "")
-        row.append("[green]✓[/green]" if a.is_default else "")
-        table.add_row(*row)
-    console.print(table)
-    hint = (
-        f"Pick one with: [cyan]notebooklm login --browser-cookies "
-        f"{browser_name} --account EMAIL[/cyan]\n"
-        f"Or extract them all: [cyan]notebooklm login --browser-cookies "
-        f"{browser_name} --all-accounts[/cyan]"
-    )
-    if not verbose and any(a.browser_profile for a in accounts):
-        hint = (
-            "[dim]Pass -v to see which browser user-profile each account came from.[/dim]\n" + hint
-        )
-    console.print("\n" + hint)
-
-
-def _render_auth_inspect_error(outcome: BrowserCookieOutcome, *, json_output: bool) -> NoReturn:
-    """Render a browser-cookie discovery failure for ``auth inspect``."""
-    if json_output:
-        extra: dict[str, Any] = {}
-        name = getattr(outcome, "name", None)
-        if isinstance(name, str):
-            extra["browser"] = name
-        supported = getattr(outcome, "supported", None)
-        if supported is not None:
-            extra["supported"] = list(supported)
-        _output_error(render_markup(outcome.message).plain, outcome.code, True, 1, extra=extra)
-
-    console.print(outcome.message)
-    exit_with_code(1)
-
-
 def register_session_commands(cli):
     """Register session commands on the main CLI group."""
 
@@ -542,7 +210,8 @@ def register_session_commands(cli):
         default=None,
         help=(
             "Pick a signed-in Google account by email when several are present "
-            "in the browser. Only valid with --browser-cookies."
+            "in the browser. Required with --master-token; otherwise only valid "
+            "with --browser-cookies."
         ),
     )
     @click.option(
@@ -598,6 +267,51 @@ def register_session_commands(cli):
             "labels: youtube, docs, myaccount, mail, all."
         ),
     )
+    @click.option(
+        "--master-token",
+        "master_token",
+        is_flag=True,
+        default=False,
+        help=(
+            "Headless auth: bootstrap a durable Google master token (one browser "
+            "sign-in), then mint web cookies from it with no per-session browser. "
+            "Requires --account EMAIL. Needs pip install 'notebooklm-py[headless]'; "
+            "the browser oauth_token capture also needs [browser] — or skip it by "
+            "passing --oauth-token. See docs/installation.md#headless."
+        ),
+    )
+    @click.option(
+        "--master-token-refresh",
+        "master_token_refresh",
+        is_flag=True,
+        default=False,
+        help="Re-mint web cookies from the stored master token (no prompt). For recovery / cron.",
+    )
+    @click.option(
+        "--oauth-token",
+        "oauth_token",
+        default=None,
+        help="Single-use EmbeddedSetup oauth_token for --master-token (else captured via browser).",
+    )
+    @click.option(
+        "--android-id",
+        "android_id",
+        default=None,
+        help="Override the per-install Android id for --master-token (default: generated/persisted).",
+    )
+    @click.option(
+        "--cdp-url",
+        "cdp_url",
+        default=None,
+        help="Attach oauth_token capture to a running Chrome via CDP (e.g. http://localhost:9222).",
+    )
+    @click.option(
+        "--force",
+        "force",
+        is_flag=True,
+        default=False,
+        help="With --master-token: overwrite even if the profile belongs to a different account.",
+    )
     @click.pass_context
     def login(
         ctx,
@@ -610,6 +324,12 @@ def register_session_commands(cli):
         profile_name,
         fresh,
         include_domains_raw,
+        master_token,
+        master_token_refresh,
+        oauth_token,
+        android_id,
+        cdp_url,
+        force,
     ):
         """Log in to NotebookLM via browser.
 
@@ -637,6 +357,22 @@ def register_session_commands(cli):
                     f"  2. Continue using {AUTH_JSON_ENV_NAME} for authentication"
                 )
                 exit_with_code(1)
+
+            if master_token or master_token_refresh:
+                from .master_token_login import run_master_token_login
+
+                run_master_token_login(
+                    ctx,
+                    storage=storage,
+                    browser=browser,
+                    account_email=account_email,
+                    oauth_token=oauth_token,
+                    android_id=android_id,
+                    cdp_url=cdp_url,
+                    refresh=master_token_refresh,
+                    force=force,
+                )
+                return
 
             validate_flags_or_exit(
                 browser_cookies=browser_cookies,
@@ -789,7 +525,7 @@ def register_session_commands(cli):
             command_name="session_use",
             json_output=json_output,
             body=_get,
-            client_factory=NotebookLMClient,
+            client_factory=resolve_client_factory(ctx),
             body_error_handler=_handle_use_verification_error,
         )
 
@@ -809,6 +545,7 @@ def register_session_commands(cli):
                         "title": nb.title,
                         "is_owner": nb.is_owner,
                         "created_at": nb.created_at.isoformat() if nb.created_at else None,
+                        "modified_at": nb.modified_at.isoformat() if nb.modified_at else None,
                     },
                 }
             )
@@ -834,9 +571,17 @@ def register_session_commands(cli):
         _render_status(report, json_output=json_output)
 
     @cli.command("clear")
-    def clear_cmd():
+    @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+    def clear_cmd(json_output):
         """Clear current notebook context."""
-        clear_context()
+        cleared = clear_context()
+        if json_output:
+            # Preserve the actual outcome so automation can tell a real clear
+            # from a no-op (the text path stays idempotent for humans).
+            json_output_response(
+                {"status": "cleared" if cleared else "already_clear", "cleared": cleared}
+            )
+            return
         console.print("[green]Context cleared[/green]")
 
     @cli.group("auth")
@@ -845,8 +590,9 @@ def register_session_commands(cli):
         pass
 
     @auth_group.command("logout")
+    @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
     @click.pass_context
-    def auth_logout(ctx):
+    def auth_logout(ctx, json_output):
         """Log out by clearing saved authentication.
 
         Removes both the saved cookie file (storage_state.json) and the
@@ -860,7 +606,7 @@ def register_session_commands(cli):
           notebooklm --storage A.json auth logout      # Clear the override auth file
         """
         outcome = execute_logout(ctx)
-        _render_logout_outcome(outcome)
+        _render_logout_outcome(outcome, json_output=json_output)
 
     @auth_group.command("inspect")
     @click.option(
@@ -940,13 +686,99 @@ def register_session_commands(cli):
         _, accounts = enum_result
         _render_auth_inspect(browser_name, list(accounts), json_output=json_output, verbose=verbose)
 
+    @auth_group.command("import-cookies")
+    @click.argument("json_path", type=click.Path(exists=False))
+    @click.option(
+        "--include-domains",
+        "include_domains_raw",
+        multiple=True,
+        default=(),
+        help=(
+            "Opt in to persisting sibling-product cookies. Same syntax as "
+            "'notebooklm login --include-domains': youtube, docs, myaccount, "
+            "mail, all. By default, only required Google auth/Drive/NotebookLM "
+            "cookie domains are kept."
+        ),
+    )
+    @click.option(
+        "--include-optional",
+        is_flag=True,
+        default=False,
+        help="Persist all optional sibling-product cookie domains.",
+    )
+    @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+    @click.option("--quiet", "quiet", is_flag=True, help="Suppress success output")
+    @click.pass_context
+    def auth_import_cookies(
+        ctx, json_path, include_domains_raw, include_optional, json_output, quiet
+    ):
+        """Import authentication cookies from JSON and save them persistently.
+
+        Accepts either a Playwright ``storage_state`` object (``{"cookies": [...]}``)
+        or a bare JSON list of cookie objects, including JSON exported from many
+        browser-cookie tools. Use ``-`` to read JSON from stdin.
+
+        The imported cookies are filtered through the same domain allowlist used
+        by browser login, validated locally for NotebookLM-required cookies, and
+        written atomically to the active profile's ``storage_state.json`` (or the
+        root ``--storage`` override) with private file permissions.
+
+        Examples:
+          notebooklm auth import-cookies cookies.json
+          notebooklm -p work auth import-cookies playwright-storage-state.json
+          cat cookies.json | notebooklm auth import-cookies -
+        """
+        with handle_errors(json_output=json_output):
+            auth_source = auth_source_from_ctx(ctx)
+            if auth_source.has_env_auth:
+                raise click.ClickException(  # cli-input-validation: import-cookies env-auth conflict
+                    f"'auth import-cookies' is incompatible with {AUTH_JSON_ENV_NAME}. "
+                    "Unset the env var first so the imported cookies can be used "
+                    "from storage_state.json."
+                )
+
+            include_domains = _parse_include_domains(include_domains_raw)
+            storage_path = auth_source.storage_path_for_diagnostics()
+
+            imported, backup_path = _import_cookie_json(
+                payload=_read_auth_json_input(json_path),
+                storage_path=storage_path,
+                include_domains=include_domains,
+                include_optional=include_optional,
+            )
+
+            if json_output:
+                json_output_response(
+                    {
+                        "success": True,
+                        "storage_path": str(storage_path),
+                        "cookie_count": len(imported.get("cookies", [])),
+                        "backup_path": str(backup_path) if backup_path else None,
+                    }
+                )
+            elif not quiet:
+                console.print(
+                    f"[green]ok[/green] imported {len(imported.get('cookies', []))} "
+                    f"cookies to: {storage_path}"
+                )
+                if backup_path:
+                    console.print(f"[dim]previous session backed up to: {backup_path}[/dim]")
+
     @auth_group.command("check")
     @click.option(
         "--test", "test_fetch", is_flag=True, help="Test token fetch (makes network request)"
     )
+    @click.option(
+        "--passive",
+        is_flag=True,
+        help=(
+            "With --test, validate read-only: never run NOTEBOOKLM_REFRESH_CMD, "
+            "rotate cookies, or write to disk. For unattended health checks."
+        ),
+    )
     @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
     @click.pass_context
-    def auth_check(ctx, test_fetch, json_output):
+    def auth_check(ctx, test_fetch, passive, json_output):
         """Check authentication status and diagnose issues.
 
         Validates that authentication is properly configured by checking:
@@ -956,16 +788,46 @@ def register_session_commands(cli):
         - Cookie domains are correct
 
         Use --test to also verify tokens can be fetched from NotebookLM
-        (requires network access).
+        (requires network access). Add --passive so that token test is strictly
+        read-only — it never triggers NOTEBOOKLM_REFRESH_CMD, rotates cookies,
+        or writes storage, which is what a passive readiness probe wants.
+
+        Exits 0 only when every executed check passes; non-zero otherwise, in
+        both text and --json modes.
 
         \b
         Examples:
-          notebooklm auth check           # Quick local validation
-          notebooklm auth check --test    # Full validation with network test
-          notebooklm auth check --json    # Machine-readable output
+          notebooklm auth check                  # Quick local validation
+          notebooklm auth check --test           # Full validation with network test
+          notebooklm auth check --test --passive # Read-only probe (no refresh/no write)
+          notebooklm auth check --json           # Machine-readable output
         """
-        plan = plan_from_click_context(ctx, test_fetch=test_fetch, json_output=json_output)
+        if passive and not test_fetch:
+            # The local cookie checks are already side-effect-free, so --passive
+            # only changes the optional --test token fetch. Warn (don't fail) so
+            # a caller does not mistake a local-only run for a network probe.
+            click.echo(
+                "Note: --passive has no effect without --test "
+                "(the local cookie checks never run a refresh command or write to disk).",
+                err=True,
+            )
+        plan = plan_from_click_context(
+            ctx, test_fetch=test_fetch, json_output=json_output, passive=passive
+        )
         result = run_async(run_auth_check(plan))
+
+        # Live notebook count: a "the API really accepts this session" signal
+        # beyond the homepage token round-trip. Computed here (not in the neutral
+        # core, which never opens a client) and only when the token fetch already
+        # passed. Skipped for --passive: opening a client may rotate/persist
+        # cookies, which the read-only contract (issue #1569) forbids.
+        if test_fetch and not passive and result.checks["token_fetch"] is True:
+            # cli-rpc-unenveloped: the notebook count is a best-effort liveness
+            # probe whose failures degrade to null, so this RPC must NOT route
+            # through the error envelope (a failed count must not fail the auth
+            # check or hijack its exit code).
+            result.details["notebook_count"] = auth_check_notebook_count(ctx)
+
         _render_auth_check_result(result)
 
     @auth_group.command("refresh")
@@ -998,56 +860,95 @@ def register_session_commands(cli):
     @click.option(
         "--quiet", "-q", is_flag=True, help="Suppress success output (only print on error)"
     )
+    @click.option(
+        "--verify",
+        is_flag=True,
+        help=(
+            "After refreshing, confirm a token fetch actually succeeds (read-only "
+            "passive probe). Exit non-zero if the post-refresh cookies still fail."
+        ),
+    )
+    @click.option("--json", "json_output", is_flag=True, help="Output as JSON")
     @click.pass_context
-    def auth_refresh(ctx, browser_cookies, include_domains_raw, quiet):
-        """Refresh stored cookies by exercising the auth path once.
+    def auth_refresh(ctx, browser_cookies, include_domains_raw, quiet, verify, json_output):
+        """Refresh stored cookies by exercising the auth path once or reading browser cookies.
 
-        One-shot keepalive: opens a session, runs the layer-1 poke against
-        ``accounts.google.com`` to elicit ``__Secure-1PSIDTS`` rotation,
-        fetches CSRF + session ID from ``notebooklm.google.com`` (discarded;
-        their side effect is the cookie jar), and persists the rotated jar
-        to ``storage_state.json`` on close. Designed to be scheduled by the
-        OS (launchd / systemd / cron) so that an otherwise-idle profile
-        does not stale out between user-driven calls.
+        Default mode is a one-shot keepalive: opens a session, runs the
+        layer-1 poke against ``accounts.google.com`` to elicit
+        ``__Secure-1PSIDTS`` rotation, fetches CSRF + session ID from
+        ``notebooklm.google.com`` (discarded; their side effect is the cookie
+        jar), and persists the rotated jar to ``storage_state.json`` on close.
 
-        Cadence: 15-20 minutes is the recommended interval. Tighter is
-        wasteful; significantly looser may cross the SIDTS server-side
-        validity window for your account/region.
+        With ``--browser-cookies``, re-extracts cookies from the selected
+        installed browser, matches the stored profile account, rewrites the
+        profile's ``storage_state.json``, and refreshes account metadata.
+
+        Designed to be scheduled by the OS (launchd / systemd / cron) so
+        that an otherwise-idle profile does not stale out between
+        user-driven calls.
+
+        Cadence: 15-20 minutes is the recommended interval for the default
+        keepalive path. Tighter is wasteful; significantly looser may cross
+        the SIDTS server-side validity window for your account/region.
 
         Transient errors (e.g. ``httpx.RequestError`` from a flaky network)
         are surfaced as exit 1 rather than retried in-process; the OS
         scheduler's next firing is the retry mechanism.
 
+        With ``--verify``, after the refresh completes a read-only passive token
+        fetch confirms the resulting cookies actually authenticate, exiting
+        non-zero if not. A successful refresh command alone does not prove the
+        post-refresh cookies work (they may still redirect to sign-in).
+
         \b
         Examples:
           notebooklm auth refresh                 # one-shot, exit 0/1
-          notebooklm auth refresh --browser-cookies chrome
+          notebooklm auth refresh --verify        # refresh, then confirm token fetch works
+          notebooklm auth refresh --browser-cookies chrome --verify
           notebooklm --profile work auth refresh  # against a named profile
           watch -n 1200 notebooklm auth refresh   # quick in-terminal loop
 
         See docs/troubleshooting.md ("Cookie freshness for long-running /
         unattended use") for launchd / systemd / cron recipes.
         """
-        with handle_errors():
+
+        def _fail(code: str, message: str) -> NoReturn:
+            # --json -> envelope on stdout (NoReturn); else human stderr. Both exit 1.
+            if json_output:
+                json_error_response(code, message)
+            click.echo(f"Error: {message}", err=True)
+            exit_with_code(1)
+
+        with handle_errors(json_output=json_output):
             if has_env_auth_json():
-                click.echo(
-                    f"Error: 'auth refresh' is incompatible with {AUTH_JSON_ENV_NAME}. "
+                _fail(
+                    "auth_json_env_conflict",
+                    f"'auth refresh' is incompatible with {AUTH_JSON_ENV_NAME}. "
                     "The keepalive needs a writable storage_state.json to persist "
                     "rotated cookies. Either unset the env var for this "
                     "process and use a profile-backed storage file, or arrange for "
                     "the env var to be refreshed externally.",
-                    err=True,
                 )
-                exit_with_code(1)
 
             include_domains = _parse_include_domains(include_domains_raw)
             if include_domains and browser_cookies is None:
-                click.echo(
-                    "Error: --include-domains only applies when --browser-cookies "
+                _fail(
+                    "include_domains_without_browser_cookies",
+                    "--include-domains only applies when --browser-cookies "
                     "is also set (the keepalive-only path does not re-extract cookies).",
-                    err=True,
                 )
-                exit_with_code(1)
+
+            # --json is keepalive-only (--browser-cookies prints to stdout) — refuse.
+            if json_output and browser_cookies is not None:
+                _fail(
+                    "json_unsupported_with_browser_cookies",
+                    "--json is not supported with --browser-cookies; use the "
+                    "default keepalive refresh with --json instead.",
+                )
+
+            # --json suppresses human status lines (like --quiet); a verify failure
+            # emits the error envelope on stdout in --json mode, else on stderr.
+            quiet = quiet or json_output
 
             profile = ctx.obj.get("profile") if ctx.obj else None
             storage_path = get_storage_path(profile=profile)
@@ -1060,19 +961,28 @@ def register_session_commands(cli):
                     quiet=quiet,
                     include_domains=include_domains,
                 )
-                return
+            else:
+                run_async(fetch_tokens_with_domains(storage_path, profile))
 
-            run_async(fetch_tokens_with_domains(storage_path, profile))
+                from ..auth import read_account_metadata
 
-            from ..auth import read_account_metadata
+                if storage_path.exists():
+                    metadata = read_account_metadata(storage_path)
+                    if not _is_valid_account_metadata(metadata):
+                        repair_after_refresh(storage_path, quiet=quiet)
 
-            if storage_path.exists():
-                metadata = read_account_metadata(storage_path)
-                if not _is_valid_account_metadata(metadata):
-                    repair_after_refresh(storage_path, quiet=quiet)
+                if not quiet:
+                    console.print(f"[green]ok[/green] refreshed: {storage_path}")
 
-            if not quiet:
-                console.print(f"[green]ok[/green] refreshed: {storage_path}")
+            if verify:
+                _verify_token_fetch_after_refresh(
+                    storage_path, profile, quiet=quiet, json_output=json_output
+                )
+
+            if json_output:
+                json_output_response(
+                    {"status": "ok", "storage_path": str(storage_path), "verified": verify}
+                )
 
 
 # Backward-compat constant kept at module scope for tests that import it

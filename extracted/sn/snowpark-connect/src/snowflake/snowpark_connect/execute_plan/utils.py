@@ -1,6 +1,9 @@
 #
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
+import json
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Optional
 
 import numpy
@@ -12,6 +15,7 @@ from pyarrow import Table
 from pyspark.sql.pandas.types import _dedup_names
 
 from snowflake.snowpark import types as sf_types
+from snowflake.snowpark._internal.utils import is_in_stored_procedure
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.type_mapping import (
@@ -19,6 +23,7 @@ from snowflake.snowpark_connect.type_mapping import (
     SnowparkToArrowMapper,
     SnowparkToArrowTempSchemaMapper,
 )
+from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
 )
@@ -174,6 +179,143 @@ def pandas_to_arrow_batches_bytes(pandas_df: pandas.DataFrame) -> bytes:
     return sink.getvalue().to_pybytes()
 
 
+_SNOWFLAKE_TIMESTAMP_FORMATS = (
+    "%Y-%m-%d %H:%M:%S.%f %z",
+    "%Y-%m-%d %H:%M:%S %z",
+    "%Y-%m-%d %H:%M:%S.%f",
+    "%Y-%m-%d %H:%M:%S",
+)
+
+
+def _parse_snowflake_timestamp(text: str) -> datetime:
+    """Parse Snowflake's JSON rendering of a timestamp.
+
+    ``TIMESTAMP_NTZ`` values carry no offset and parse to a naive datetime;
+    ``TIMESTAMP_LTZ``/``TIMESTAMP_TZ`` values carry a numeric offset and parse to
+    a tz-aware datetime, so the instant is preserved when pyarrow stores it as
+    the target's UTC-based timestamp type.
+    """
+    text = text.strip()
+    for fmt in _SNOWFLAKE_TIMESTAMP_FORMATS:
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+    raise ValueError(f"unrecognized timestamp format: {text!r}")
+
+
+def _json_to_arrow_value(value: object, pa_type: pa.DataType) -> object:
+    """Convert a JSON-decoded value into one pyarrow can build with ``pa_type``.
+
+    Element scalars that Snowflake serializes as text (timestamps, dates, binary)
+    or as JSON numbers that need exact precision (decimals) are converted to the
+    matching Python object; nested list/struct/map values recurse; ``None`` passes
+    through. Any format we do not recognize raises, and the caller keeps the
+    original string column (never-regress).
+    """
+    if value is None:
+        return None
+    if pa.types.is_list(pa_type) or pa.types.is_large_list(pa_type):
+        return [_json_to_arrow_value(item, pa_type.value_type) for item in value]
+    if pa.types.is_struct(pa_type):
+        by_lower_name = {str(k).lower(): v for k, v in value.items()}
+        return {
+            field.name: _json_to_arrow_value(
+                by_lower_name.get(field.name.lower()), field.type
+            )
+            for field in pa_type
+        }
+    if pa.types.is_map(pa_type):
+        return {k: _json_to_arrow_value(v, pa_type.item_type) for k, v in value.items()}
+    if pa.types.is_decimal(pa_type):
+        return value if isinstance(value, Decimal) else Decimal(str(value))
+    if pa.types.is_timestamp(pa_type):
+        return _parse_snowflake_timestamp(value)
+    if pa.types.is_date(pa_type):
+        return date.fromisoformat(value)
+    if pa.types.is_binary(pa_type) or pa.types.is_large_binary(pa_type):
+        return bytes.fromhex(value)
+    if pa.types.is_floating(pa_type):
+        return float(value)
+    return value
+
+
+def _is_structured_sp_eligible(sp_type: sf_types.DataType) -> bool:
+    """Return True if this column type can arrive as a JSON string in an
+    EXECUTE AS OWNER stored procedure and should be deserialized."""
+    if isinstance(sp_type, sf_types.ArrayType):
+        return sp_type.structured and sp_type.element_type is not None
+    if isinstance(sp_type, sf_types.MapType):
+        return sp_type.structured
+    if isinstance(sp_type, sf_types.StructType):
+        return sp_type.structured and len(sp_type.fields) > 0
+    return False
+
+
+def _deserialize_structured_string_columns(
+    table: pa.Table, snowpark_schema: sf_types.StructType
+) -> pa.Table:
+    """Rebuild structured columns the server returned as JSON strings in SPs.
+
+    SNOW-3746128: inside an ``EXECUTE AS OWNER`` stored procedure the
+    ``ENABLE_STRUCTURED_TYPES_IN_SNOWPARK_CONNECT_RESPONSE`` parameter resolves
+    from the owner's *account-level* value — it is not in the owner's-rights
+    parameter allowlist, and SCOS cannot set it there (``ALTER SESSION`` is
+    skipped/blocked). When it is off the server does not emit structured-type
+    metadata, so the connector delivers structured ``ArrayType``, ``MapType``,
+    and ``StructType`` columns as prettified JSON text.
+
+    TODO(SNOW-3746128): the cleaner long-term fix is platform-side — allow
+    ``ENABLE_STRUCTURED_TYPES_IN_SNOWPARK_CONNECT_RESPONSE`` to be honored from a
+    user-level (or owner's-rights-inherited) setting so an EXECUTE AS OWNER
+    procedure can opt in without an account-wide change. If that lands, this
+    client-side deserialization can be retired.
+
+    This runs only inside a stored procedure and only for columns whose Snowpark
+    schema is a structured complex type (ArrayType/MapType/StructType) but whose
+    Arrow column actually came back as a string — the exact mismatch that occurs
+    when the parameter is off. It is a no-op everywhere else.
+
+    If a cell fails to parse or an element value cannot be reconstructed for the
+    target type, the original string column is kept — behavior is never worse
+    than before the fix.
+    """
+    if not is_in_stored_procedure():
+        return table
+
+    fields = snowpark_schema.fields
+    mapper = SnowparkToArrowEmptyTableMapper()
+    for i in range(min(len(fields), table.num_columns)):
+        sp_type = fields[i].datatype
+        if not _is_structured_sp_eligible(sp_type):
+            continue
+        column = table.column(i)
+        if not pa.types.is_string(column.type):
+            continue
+        field_name = table.schema.field(i).name
+        try:
+            target_type = mapper.map(sp_type, pa.null())
+            parsed = [
+                _json_to_arrow_value(
+                    json.loads(value, parse_float=Decimal), target_type
+                )
+                if value is not None
+                else None
+                for value in column.to_pylist()
+            ]
+            rebuilt = pa.array(parsed, type=target_type)
+        except Exception as exc:  # never regress: keep the original string column
+            logger.debug(
+                "SNOW-3746128: keeping column %s as string; could not deserialize "
+                "structured array (%s)",
+                field_name,
+                exc,
+            )
+            continue
+        table = table.set_column(i, pa.field(field_name, target_type), rebuilt)
+    return table
+
+
 def arrow_table_to_arrow_bytes(
     table: pa.Table, snowpark_schema: sf_types.StructType, spark_columns: list
 ) -> bytes:
@@ -181,6 +323,8 @@ def arrow_table_to_arrow_bytes(
     Serialize a pyarrow.table as Pyarrow encoded bytes according to provided snowpark schema.
     """
     assert table.num_rows > 0, "Table must have at least one row"
+
+    table = _deserialize_structured_string_columns(table, snowpark_schema)
 
     pa_schema_temp = pa.schema(
         SnowparkToArrowTempSchemaMapper().map_schema(

@@ -52,11 +52,105 @@ from snowflake.snowpark_connect.utils.telemetry import (
 )
 from snowflake.snowpark_connect.utils.temporary_view_helper import get_temp_view
 
-ICEBERG_METADATA_TABLE_QUERIES = {
+# SNOW-3581131 / SNOW-3853933: `.entries` (current snapshot) and `.all_entries`
+# (all snapshots) share one projection and differ only in the
+# ICEBERG_TABLE_MANIFEST_ENTRIES `num_snapshots` argument, so both are built from a
+# single template to keep them in sync.
+_ICEBERG_CURRENT_SNAPSHOT = 1
+_ICEBERG_ALL_SNAPSHOTS = -1
+
+
+def _iceberg_entries_query(num_snapshots: int) -> str:
+    # Envelope + data_file struct; spec_id via JOIN to ICEBERG_TABLE_MANIFESTS.
+    # REDUCE types the data_file metric maps; `readable_metrics` is omitted
+    # (separate gap). num_snapshots: 1 = current snapshot, -1 = all snapshots.
+    return f"""
+        WITH manifest_entries AS (
+            SELECT
+                REGEXP_SUBSTR(MANIFEST_FILE_NAME, '[^/]+$')   AS manifest_basename,
+                MANIFEST_ENTRIES:status::INT                  AS status,
+                MANIFEST_ENTRIES:snapshot_id::NUMBER          AS snapshot_id,
+                MANIFEST_ENTRIES:sequence_number::NUMBER      AS sequence_number,
+                MANIFEST_ENTRIES:file_sequence_number::NUMBER AS file_sequence_number,
+                MANIFEST_ENTRIES:data_file                    AS df
+            FROM TABLE(ICEBERG_TABLE_MANIFEST_ENTRIES(?, NULL, {num_snapshots}, TRUE))
+        ),
+        entry_manifests AS (
+            SELECT DISTINCT
+                REGEXP_SUBSTR(manifest_file:manifest_path::STRING, '[^/]+$') AS manifest_basename,
+                manifest_file:partition_spec_id::INT                         AS spec_id
+            FROM TABLE(ICEBERG_TABLE_MANIFESTS(?))
+        )
+        SELECT
+            e.status,
+            e.snapshot_id,
+            e.sequence_number,
+            e.file_sequence_number,
+            CAST(OBJECT_CONSTRUCT_KEEP_NULL(
+                'content',            e.df:content::INT,
+                'file_path',          e.df:file_path::STRING,
+                'file_format',        e.df:file_format::STRING,
+                'spec_id',            m.spec_id,
+                'partition',          e.df:partition,
+                'record_count',       e.df:record_count::NUMBER,
+                'file_size_in_bytes', e.df:file_size_in_bytes::NUMBER,
+                'column_sizes',       REDUCE(e.df:column_sizes, OBJECT_CONSTRUCT(),
+                    (acc, x) -> OBJECT_INSERT(acc, x:key::STRING, x:value)),
+                'value_counts',       REDUCE(e.df:value_counts, OBJECT_CONSTRUCT(),
+                    (acc, x) -> OBJECT_INSERT(acc, x:key::STRING, x:value)),
+                'null_value_counts',  REDUCE(e.df:null_value_counts, OBJECT_CONSTRUCT(),
+                    (acc, x) -> OBJECT_INSERT(acc, x:key::STRING, x:value)),
+                'nan_value_counts',   REDUCE(e.df:nan_value_counts, OBJECT_CONSTRUCT(),
+                    (acc, x) -> OBJECT_INSERT(acc, x:key::STRING, x:value)),
+                'lower_bounds',       REDUCE(e.df:lower_bounds, OBJECT_CONSTRUCT(),
+                    (acc, x) -> OBJECT_INSERT(acc, x:key::STRING, TO_BINARY(x:value::STRING, 'HEX'))),
+                'upper_bounds',       REDUCE(e.df:upper_bounds, OBJECT_CONSTRUCT(),
+                    (acc, x) -> OBJECT_INSERT(acc, x:key::STRING, TO_BINARY(x:value::STRING, 'HEX'))),
+                'key_metadata',       TRY_CAST(e.df:key_metadata::STRING AS BINARY),
+                'split_offsets',      e.df:split_offsets,
+                'equality_ids',       e.df:equality_ids,
+                'sort_order_id',      e.df:sort_order_id::INT,
+                'referenced_data_file', e.df:referenced_data_file::STRING,
+                -- V3 row-lineage / deletion-vector fields not exposed by the
+                -- Snowflake manifest functions; NULL to match Spark's schema.
+                'first_row_id',       CAST(NULL AS BIGINT),
+                'content_offset',     CAST(NULL AS BIGINT),
+                'content_size_in_bytes', CAST(NULL AS BIGINT)
+            ) AS OBJECT(
+                content               INT,
+                file_path             VARCHAR,
+                file_format           VARCHAR,
+                spec_id               INT,
+                partition             VARIANT,
+                record_count          NUMBER,
+                file_size_in_bytes    NUMBER,
+                column_sizes          MAP(INT, BIGINT),
+                value_counts          MAP(INT, BIGINT),
+                null_value_counts     MAP(INT, BIGINT),
+                nan_value_counts      MAP(INT, BIGINT),
+                lower_bounds          MAP(INT, BINARY),
+                upper_bounds          MAP(INT, BINARY),
+                key_metadata          BINARY,
+                split_offsets         ARRAY(BIGINT),
+                equality_ids          ARRAY(INT),
+                sort_order_id         INT,
+                first_row_id          BIGINT,
+                referenced_data_file  VARCHAR,
+                content_offset        BIGINT,
+                content_size_in_bytes BIGINT
+            )) AS data_file
+        FROM manifest_entries e
+        LEFT JOIN entry_manifests m USING (manifest_basename)
+    """
+
+
+def _iceberg_files_query(num_snapshots: int) -> str:
     # SNOW-3471789: `.files` returns Spark's Iceberg `.files` schema (not the
     # Snowflake-native ICEBERG_TABLE_FILES columns). REDUCE folds Iceberg's
     # array-of-{key,value} metric fields into the object that MAP casts cleanly.
-    "files": """
+    # `.data_files`/`.delete_files` (current snapshot) and `.all_data_files`
+    # (all snapshots) reuse this projection, differing only in num_snapshots.
+    return f"""
         WITH manifest_entries AS (
             SELECT
                 REGEXP_SUBSTR(MANIFEST_FILE_NAME, '[^/]+$')            AS manifest_basename,
@@ -81,8 +175,14 @@ ICEBERG_METADATA_TABLE_QUERIES = {
                 TRY_CAST(MANIFEST_ENTRIES:data_file:key_metadata::STRING AS BINARY)    AS key_metadata,
                 CAST(MANIFEST_ENTRIES:data_file:split_offsets AS ARRAY(BIGINT))        AS split_offsets,
                 CAST(MANIFEST_ENTRIES:data_file:equality_ids  AS ARRAY(INT))          AS equality_ids,
-                MANIFEST_ENTRIES:data_file:sort_order_id::NUMBER       AS sort_order_id
-            FROM TABLE(ICEBERG_TABLE_MANIFEST_ENTRIES(?, NULL, 1, TRUE))
+                MANIFEST_ENTRIES:data_file:sort_order_id::NUMBER       AS sort_order_id,
+                MANIFEST_ENTRIES:data_file:referenced_data_file::STRING AS referenced_data_file,
+                -- V3 row-lineage / deletion-vector fields not exposed by the
+                -- Snowflake manifest functions; NULL to match Spark's schema.
+                CAST(NULL AS BIGINT)                                   AS first_row_id,
+                CAST(NULL AS BIGINT)                                   AS content_offset,
+                CAST(NULL AS BIGINT)                                   AS content_size_in_bytes
+            FROM TABLE(ICEBERG_TABLE_MANIFEST_ENTRIES(?, NULL, {num_snapshots}, TRUE))
             WHERE MANIFEST_ENTRIES:status::NUMBER != 2
         ),
         entry_manifests AS (
@@ -108,25 +208,44 @@ ICEBERG_METADATA_TABLE_QUERIES = {
             e.key_metadata,
             e.split_offsets,
             e.equality_ids,
-            e.sort_order_id
+            e.sort_order_id,
+            e.first_row_id,
+            e.referenced_data_file,
+            e.content_offset,
+            e.content_size_in_bytes
         FROM manifest_entries e
         LEFT JOIN entry_manifests m USING (manifest_basename)
-    """,
-    # SNOW-3471788: ICEBERG_TABLE_SNAPSHOTS replaces the earlier
-    # ICEBERG_TABLE_METADATA + LATERAL FLATTEN approach; the dedicated
-    # function returns Spark-compatible column names directly.
-    "snapshots": (
-        "SELECT"
-        "  committed_at,"
-        "  snapshot_id,"
-        "  parent_id,"
-        "  operation,"
-        "  manifest_list,"
-        "  CAST(summary AS MAP(VARCHAR, VARCHAR)) AS summary"
-        " FROM TABLE(INFORMATION_SCHEMA.ICEBERG_TABLE_SNAPSHOTS(?))"
-    ),
-    "manifests": """
+    """
+
+
+_MANIFESTS_REFERENCE_SNAPSHOT_ID = "REGEXP_SUBSTR(MANIFEST_LIST_FILE_NAME, 'snap-(-{0,1}[0-9]+)-', 1, 1, 'e', 1)::NUMBER"
+
+
+def _iceberg_manifests_query(*, all_snapshots: bool) -> str:
+    # SNOW-3527660: ICEBERG_TABLE_MANIFESTS returns every snapshot's manifest-list
+    # entries, keyed by MANIFEST_LIST_FILE_NAME (`snap-<snapshot-id>-<n>-<uuid>`).
+    # `.all_manifests` keeps every row and exposes that snapshot id as
+    # `reference_snapshot_id`; `.manifests` is current-snapshot only, so it hides
+    # that column and restricts to the manifest list whose embedded snapshot id
+    # equals the current snapshot. Both share this projection so they stay in sync.
+    reference_column = (
+        f",\n            {_MANIFESTS_REFERENCE_SNAPSHOT_ID} AS reference_snapshot_id"
+        if all_snapshots
+        else ""
+    )
+    current_snapshot_filter = (
+        ""
+        if all_snapshots
+        else (
+            f"\n        WHERE {_MANIFESTS_REFERENCE_SNAPSHOT_ID} = ("
+            '\n            SELECT METADATA:"current-snapshot-id"::NUMBER'
+            "\n            FROM TABLE(INFORMATION_SCHEMA.ICEBERG_TABLE_METADATA(?))"
+            "\n        )"
+        )
+    )
+    return f"""
         SELECT
+            manifest_file:content::INT                                    AS content,
             manifest_file:manifest_path::STRING                           AS path,
             manifest_file:manifest_length::NUMBER                         AS length,
             manifest_file:partition_spec_id::INT                          AS partition_spec_id,
@@ -142,9 +261,27 @@ ICEBERG_METADATA_TABLE_QUERIES = {
                 contains_nan  BOOLEAN,
                 lower_bound   VARCHAR,
                 upper_bound   VARCHAR
-            )))                                                           AS partition_summaries
-        FROM TABLE(ICEBERG_TABLE_MANIFESTS(?))
-    """,
+            )))                                                           AS partition_summaries{reference_column}
+        FROM TABLE(ICEBERG_TABLE_MANIFESTS(?)){current_snapshot_filter}
+    """
+
+
+ICEBERG_METADATA_TABLE_QUERIES = {
+    "files": _iceberg_files_query(_ICEBERG_CURRENT_SNAPSHOT),
+    # SNOW-3471788: ICEBERG_TABLE_SNAPSHOTS replaces the earlier
+    # ICEBERG_TABLE_METADATA + LATERAL FLATTEN approach; the dedicated
+    # function returns Spark-compatible column names directly.
+    "snapshots": (
+        "SELECT"
+        "  committed_at,"
+        "  snapshot_id,"
+        "  parent_id,"
+        "  operation,"
+        "  manifest_list,"
+        "  CAST(summary AS MAP(VARCHAR, VARCHAR)) AS summary"
+        " FROM TABLE(INFORMATION_SCHEMA.ICEBERG_TABLE_SNAPSHOTS(?))"
+    ),
+    "manifests": _iceberg_manifests_query(all_snapshots=False),
     "refs": """
         SELECT
             ref.key AS name,
@@ -258,22 +395,68 @@ ICEBERG_METADATA_TABLE_QUERIES = {
         LEFT JOIN snapshots_flat s ON a.latest_snapshot_id = s.snapshot_id
         ORDER BY a.timestamp
     """,
+    "entries": _iceberg_entries_query(_ICEBERG_CURRENT_SNAPSHOT),
 }
 
-# Times the base table name is bound (one per `?`). `files` calls two table
-# functions; the rest bind once. Explicit so a literal `?` in a regex/comment
-# can't miscount the binding. Kept in sync by a unit test.
-ICEBERG_METADATA_TABLE_BIND_COUNTS = {"files": 2}
+# SNOW-3834853: `.data_files` = `.files` restricted to data files (content 0;
+# NULL on V1). Reuses the `.files` projection so the two stay in sync.
+ICEBERG_METADATA_TABLE_QUERIES["data_files"] = (
+    "SELECT * FROM ("
+    + ICEBERG_METADATA_TABLE_QUERIES["files"]
+    + ") WHERE COALESCE(content, 0) = 0"
+)
+
+# SNOW-3852580: `.delete_files` = `.files` restricted to delete files
+# (position deletes content 1, equality deletes content 2). Mirror of
+# `.data_files`; reuses the `.files` projection so the two stay in sync.
+ICEBERG_METADATA_TABLE_QUERIES["delete_files"] = (
+    "SELECT * FROM ("
+    + ICEBERG_METADATA_TABLE_QUERIES["files"]
+    + ") WHERE COALESCE(content, 0) != 0"
+)
+
+# SNOW-3853933: `.all_entries` is `.entries` across all snapshots (both data and
+# delete files) - same projection, differing only in the num_snapshots argument.
+ICEBERG_METADATA_TABLE_QUERIES["all_entries"] = _iceberg_entries_query(
+    _ICEBERG_ALL_SNAPSHOTS
+)
+
+# SNOW-3527661: `.all_data_files` = `.data_files` across all snapshots. Same
+# projection as `.files`/`.data_files`; only the ICEBERG_TABLE_MANIFEST_ENTRIES
+# num_snapshots arg changes (1 = current snapshot, -1 = all), then restricted to
+# data files (content 0). Derived from `.files` so the projections stay in sync.
+ICEBERG_METADATA_TABLE_QUERIES["all_data_files"] = (
+    "SELECT * FROM ("
+    + _iceberg_files_query(_ICEBERG_ALL_SNAPSHOTS)
+    + ") WHERE COALESCE(content, 0) = 0"
+)
+
+# SNOW-3527660: `.all_manifests` spans all snapshots and exposes
+# reference_snapshot_id; `.manifests` (current snapshot) shares the same
+# projection. Both are built by _iceberg_manifests_query.
+ICEBERG_METADATA_TABLE_QUERIES["all_manifests"] = _iceberg_manifests_query(
+    all_snapshots=True
+)
+
+# Times the base table name is bound (one per `?`). `files`/`entries`/`data_files`/
+# `delete_files`/`all_entries`/`all_data_files` call two table functions; `manifests`
+# now also binds ICEBERG_TABLE_METADATA for the current-snapshot filter;
+# `all_manifests` binds once. Explicit so a literal `?` in a regex/comment can't
+# miscount the binding. Kept in sync by a unit test.
+ICEBERG_METADATA_TABLE_BIND_COUNTS = {
+    "files": 2,
+    "entries": 2,
+    "data_files": 2,
+    "delete_files": 2,
+    "all_entries": 2,
+    "all_data_files": 2,
+    "manifests": 2,
+}
 
 WAP_BRANCH_SPARK_CONFIG = "spark.wap.branch"
 
 UNSUPPORTED_ICEBERG_METADATA_TABLES = {
-    "all_data_files",
     "all_delete_files",
-    "all_entries",
-    "all_manifests",
-    "delete_files",
-    "entries",
     "partitions",
     "position_deletes",
 }
@@ -854,7 +1037,7 @@ def _resolve_iceberg_dataframe_as_of_aliases(
     """Expand Iceberg's DataFrame-form ``VERSION AS OF`` / ``TIMESTAMP
     AS OF`` aliases (``versionAsOf`` / ``timestampAsOf``) into the
     canonical option keys the rest of the pipeline understands
-    (``snapshot-id`` / ``tag`` / ``as-of-timestamp``).
+    (``snapshot-id`` / ``version-ref`` / ``as-of-timestamp``).
 
     Iceberg's ``SparkReadOptions`` exposes these as a DataFrame-side
     spelling of the SQL time-travel surface (see iceberg/spark/v3.5/
@@ -866,10 +1049,12 @@ def _resolve_iceberg_dataframe_as_of_aliases(
     Both share the SQL surface's value-overloading semantics:
 
     * ``versionAsOf``: a value that parses as a signed 64-bit integer is
-      a snapshot id; anything else is a tag name. Same heuristic the SQL
-      ``RelationTimeTravel`` resolver uses (see
+      a snapshot id; anything else is a named ref (tag, branch, or other
+      Iceberg ref) routed like SQL ``VERSION AS OF '<name>'`` via
+      ``version-ref`` → ``AT(VERSION_REF => ...)``. Same heuristic the
+      SQL ``RelationTimeTravel`` resolver uses (see
       ``iceberg_sql_time_travel._resolve_version`` for the rationale and
-      the all-digit-tag-name ambiguity).
+      the all-digit-ref-name ambiguity).
     * ``timestampAsOf``: a value that parses as a signed 64-bit integer
       is millis-since-epoch (canonical Iceberg wire encoding); anything
       else is a wall-clock string parsed via the same routine the SQL
@@ -878,7 +1063,7 @@ def _resolve_iceberg_dataframe_as_of_aliases(
     Returns a *new* dict with the aliases expanded. Raises
     ``AnalysisException`` (INVALID_INPUT) when an alias conflicts with
     the corresponding canonical option already set by the customer
-    (``option("versionAsOf", "v1").option("tag", "v2")``) — silently
+    (``option("versionAsOf", "v1").option("version-ref", "v2")``) — silently
     picking either side would be the kind of silent fallthrough this
     whole pipeline is designed to prevent.
 
@@ -904,7 +1089,7 @@ def _resolve_iceberg_dataframe_as_of_aliases(
         if raw is None or not str(raw).strip():
             exception = AnalysisException(
                 "Iceberg 'versionAsOf' option must be a non-empty snapshot "
-                f"id or tag name; got {raw!r}."
+                f"id or ref name; got {raw!r}."
             )
             attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
             raise exception
@@ -912,12 +1097,36 @@ def _resolve_iceberg_dataframe_as_of_aliases(
         try:
             snapshot_id = int(stripped)
         except (TypeError, ValueError):
-            # Non-integer -> tag name. Reject if a canonical ``tag`` is
-            # already present with a different value (silent collapse
-            # would lose one of the customer's two intents).
+            # SNOW-3859177: Previously mapped non-integer versionAsOf to
+            # canonical_keys=("tag",) → AT(VERSION_TAG => ...); changed to
+            # version-ref → AT(VERSION_REF => ...) for parity with SQL
+            # VERSION AS OF string overloading.
+            #
+            # Non-integer -> named ref (same as SQL VERSION AS OF string).
+            # Snowflake ``AT(VERSION_REF => '<name>')`` resolves *both*
+            # Iceberg tag and branch names — the unified overload form
+            # Spark uses for string ``VERSION AS OF`` / ``versionAsOf``.
+            # Explicit ``option("tag", ...)`` / ``option("branch", ...)``
+            # remain on ``VERSION_TAG`` / ``BRANCH`` and must not be
+            # combined with ``versionAsOf``.
+            _named_ref_surface_conflicts = {
+                "tag": "use option('tag', ...) alone for VERSION_TAG reads.",
+                "branch": "use option('branch', ...) alone for BRANCH reads.",
+            }
+            for key in resolved:
+                kind = key.lower()
+                if kind in _named_ref_surface_conflicts:
+                    exception = AnalysisException(
+                        f"Iceberg 'versionAsOf' option conflicts with "
+                        f"'{key}' option set to {resolved[key]!r}. "
+                        "'versionAsOf' maps to VERSION_REF time travel; "
+                        f"{_named_ref_surface_conflicts[kind]}"
+                    )
+                    attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+                    raise exception
             _inject_alias_value(
                 resolved,
-                canonical_keys=("tag",),
+                canonical_keys=("version-ref", "version_ref"),
                 alias_name="versionAsOf",
                 alias_value=stripped,
             )
@@ -1059,7 +1268,7 @@ def _extract_iceberg_version_tag(options: dict[str, str]) -> str | None:
 
     Iceberg's DataFrame-form alias ``versionAsOf`` (non-numeric value)
     is handled upstream by ``_resolve_iceberg_dataframe_as_of_aliases``,
-    which rewrites it into ``tag`` before this extractor runs.
+    which rewrites it into ``version-ref`` before this extractor runs.
     """
     raw: str | None = None
     for k, v in options.items():
@@ -1093,6 +1302,36 @@ def _extract_iceberg_version_tag(options: dict[str, str]) -> str | None:
     # mask a real divergence on any tag name that happened to be
     # padded by an upstream serializer.
     return stripped
+
+
+def _extract_iceberg_version_ref(options: dict[str, str]) -> str | None:
+    """Pull the SQL ``VERSION AS OF '<name>'`` ref out of a read options dict.
+
+    Only the SQL rewrite path (``map_sql`` → ``RelationTimeTravel``) injects
+    the ``version-ref`` key. Explicit DataFrame ``option("tag", ...)`` and
+    ``option("branch", ...)`` use their own keys and Snowflake clauses
+    (``VERSION_TAG`` / ``BRANCH``).
+
+    SCOS translates this option to Snowflake's unified named-ref form via
+    Snowpark's ``read.option("version_ref", "<name>").table(...)``, which
+    emits ``AT(VERSION_REF => '<name>')``.
+    """
+    raw: str | None = None
+    for k, v in options.items():
+        if k.lower() in ("version-ref", "version_ref"):
+            raw = v
+            break
+    if raw is None:
+        return None
+    ref = str(raw).strip()
+    if not ref:
+        exception = AnalysisException(
+            "Iceberg 'version-ref' option must be a non-empty ref name; got "
+            "an empty or whitespace-only string."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+    return ref
 
 
 def _extract_iceberg_branch(options: dict[str, str]) -> str | None:
@@ -1191,6 +1430,7 @@ def get_table_from_name(
     iceberg_snapshot_id: int | None = None,
     iceberg_as_of_timestamp: datetime.datetime | None = None,
     iceberg_version_tag: str | None = None,
+    iceberg_version_ref: str | None = None,
     iceberg_start_snapshot_id: int | None = None,
     iceberg_end_snapshot_id: int | None = None,
     iceberg_branch: str | None = None,
@@ -1219,11 +1459,20 @@ def get_table_from_name(
     Without that, Snowflake falls back to its query-history-based time
     travel and the timestamp won't track Iceberg snapshot commit times.
 
-    When ``iceberg_version_tag`` or ``iceberg_branch`` is set, the table is
-    read at the snapshot referenced by an Iceberg tag or WAP branch via
-    Snowpark's ``read.option("version_tag" | "branch", ...).table(...)``
-    surface, which emits ``AT(VERSION_TAG => '<name>')`` or
-    ``AT(BRANCH => '<name>')``.
+    When ``iceberg_version_tag`` is set, the table is read at the snapshot
+    referenced by an explicit Iceberg tag via Snowpark's
+    ``read.option("version_tag", ...).table(...)`` surface, which emits
+    ``AT(VERSION_TAG => '<name>')``.
+
+    When ``iceberg_branch`` is set, the table is read at a WAP branch via
+    Snowpark's ``read.option("branch", ...).table(...)`` surface, which
+    emits ``AT(BRANCH => '<name>')``.
+
+    When ``iceberg_version_ref`` is set (SQL ``VERSION AS OF '<name>'`` or
+    DataFrame ``option("versionAsOf", "<name>")`` for non-integer values),
+    the named ref is emitted via ``read.option("version_ref", ...)``, which
+    maps to ``AT(VERSION_REF => '<name>')``. Integer ``VERSION AS OF N`` /
+    ``versionAsOf`` values use ``iceberg_snapshot_id`` → ``AT(VERSION => N)``.
 
     The time-travel inputs are mutually exclusive — Spark Iceberg
     rejects any combination at plan time, and so do we, with a clear
@@ -1252,6 +1501,7 @@ def get_table_from_name(
         "snapshot-id": iceberg_snapshot_id,
         "as-of-timestamp": iceberg_as_of_timestamp,
         "tag": iceberg_version_tag,
+        "version-ref": iceberg_version_ref,
         "branch": iceberg_branch,
     }
     incremental_inputs = {
@@ -1266,7 +1516,8 @@ def get_table_from_name(
             f"same read; got {set_time_travel!r}. Choose one: 'snapshot-id' "
             "for a specific snapshot id, 'as-of-timestamp' for the "
             "snapshot current at a given wall-clock time, 'tag' for a "
-            "named Iceberg tag, or 'branch' for a WAP branch read."
+            "named Iceberg tag, 'version-ref' for SQL VERSION AS OF "
+            "string refs, or 'branch' for a WAP branch read."
         )
         attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
         raise exception
@@ -1300,8 +1551,9 @@ def get_table_from_name(
 
     base_table_parts, metadata_table_name = _split_iceberg_metadata_table_name(parts)
     if metadata_table_name is not None:
-        # SNOW-3471788: time travel options (snapshot-id, as-of-timestamp, tag,
-        # branch, start/end-snapshot-id) are silently ignored on metadata tables
+        # SNOW-3471788: time travel options (snapshot-id, as-of-timestamp,
+        # tag, version-ref, branch, start/end-snapshot-id) are silently
+        # ignored on metadata tables
         # — matching OSS Spark+Iceberg behaviour. Metadata tables always reflect
         # current state. Previous behaviour raised AnalysisException; callers
         # relying on that error will no longer receive it.
@@ -1337,6 +1589,13 @@ def get_table_from_name(
         if iceberg_version_tag is not None:
             exception = AnalysisException(
                 "Iceberg tag time travel is not supported on temporary views."
+            )
+            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+            raise exception
+        if iceberg_version_ref is not None:
+            exception = AnalysisException(
+                "Iceberg version-ref time travel is not supported on "
+                "temporary views."
             )
             attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
             raise exception
@@ -1398,6 +1657,10 @@ def get_table_from_name(
         df = session.read.option("version_tag", iceberg_version_tag).table(
             snowpark_name
         )
+    elif iceberg_version_ref is not None:
+        df = session.read.option("version_ref", iceberg_version_ref).table(
+            snowpark_name
+        )
     else:
         df = session.read.table(snowpark_name)
     return post_process_df(df, plan_id, table_name)
@@ -1427,6 +1690,7 @@ def map_read_table(
     iceberg_snapshot_id: int | None = None
     iceberg_as_of_timestamp: datetime.datetime | None = None
     iceberg_version_tag: str | None = None
+    iceberg_version_ref: str | None = None
     iceberg_start_snapshot_id: int | None = None
     iceberg_end_snapshot_id: int | None = None
     iceberg_branch: str | None = None
@@ -1467,6 +1731,7 @@ def map_read_table(
         iceberg_snapshot_id = _extract_iceberg_snapshot_id(options)
         iceberg_as_of_timestamp = _extract_iceberg_as_of_timestamp(options)
         iceberg_version_tag = _extract_iceberg_version_tag(options)
+        iceberg_version_ref = _extract_iceberg_version_ref(options)
         (
             iceberg_start_snapshot_id,
             iceberg_end_snapshot_id,
@@ -1477,6 +1742,7 @@ def map_read_table(
                 iceberg_snapshot_id,
                 iceberg_as_of_timestamp,
                 iceberg_version_tag,
+                iceberg_version_ref,
                 iceberg_start_snapshot_id,
                 iceberg_end_snapshot_id,
             )
@@ -1496,6 +1762,7 @@ def map_read_table(
         iceberg_snapshot_id=iceberg_snapshot_id,
         iceberg_as_of_timestamp=iceberg_as_of_timestamp,
         iceberg_version_tag=iceberg_version_tag,
+        iceberg_version_ref=iceberg_version_ref,
         iceberg_start_snapshot_id=iceberg_start_snapshot_id,
         iceberg_end_snapshot_id=iceberg_end_snapshot_id,
         iceberg_branch=iceberg_branch,

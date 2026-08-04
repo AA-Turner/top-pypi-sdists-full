@@ -31,6 +31,7 @@ class RolloverContractRequest(google.protobuf.message.Message):
     PENDING_CHANGE_FIELD_NUMBER: builtins.int
     TAX_TRANSACTION_CODE_FIELD_NUMBER: builtins.int
     IMMEDIATE_FIELD_NUMBER: builtins.int
+    START_NEW_TERM_FIELD_NUMBER: builtins.int
     contract_id: builtins.int
     tax_transaction_code: builtins.str
     """The tax provider's reference for the tax document opened for this invoice.
@@ -40,13 +41,10 @@ class RolloverContractRequest(google.protobuf.message.Message):
     """
     immediate: builtins.bool
     """Roll the contract over as of now instead of at its period end: the current
-    contract is closed immediately and the new contract starts now. Used for
-    contract changes that take effect immediately (e.g. checkout upgrades).
-    The request's pending_change is applied to the new contract regardless of
-    whether the term was due to renew; a change that keeps the billing
-    interval stays co-terminous with the current term, while an interval
-    change (or an already-ended term) starts a fresh term now.
+    contract is closed immediately and the new contract starts now.
     """
+    start_new_term: builtins.bool
+    """Whether the requested change should result in a new billing period."""
     @property
     def last_usage_ts(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
     @property
@@ -69,9 +67,10 @@ class RolloverContractRequest(google.protobuf.message.Message):
         pending_change: sentry_protos.billing.v1.common.v1.pending_change_pb2.PendingChange | None = ...,
         tax_transaction_code: builtins.str | None = ...,
         immediate: builtins.bool = ...,
+        start_new_term: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["_pending_change", b"_pending_change", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "last_usage_ts", b"last_usage_ts", "pending_change", b"pending_change", "tax_transaction_code", b"tax_transaction_code"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_pending_change", b"_pending_change", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "contract_id", b"contract_id", "immediate", b"immediate", "last_usage_ts", b"last_usage_ts", "line_items", b"line_items", "pending_change", b"pending_change", "tax_transaction_code", b"tax_transaction_code"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["_pending_change", b"_pending_change", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "contract_id", b"contract_id", "immediate", b"immediate", "last_usage_ts", b"last_usage_ts", "line_items", b"line_items", "pending_change", b"pending_change", "start_new_term", b"start_new_term", "tax_transaction_code", b"tax_transaction_code"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_pending_change", b"_pending_change"]) -> typing.Literal["pending_change"] | None: ...
     @typing.overload

@@ -1,10 +1,18 @@
 """CLI contract baseline: pins the public command tree, options, and help.
 
 This file characterizes public CLI behavior so later refactors (and intentional
-surface changes) can be compared against the JSON baseline generated from
-``build_cli_contract``. Regenerate the baseline after an intended change with::
+surface changes) can be compared against the committed JSON baseline. The
+deterministic introspection that produces the contract, ``build_cli_contract``,
+lives in ``tests/_baselines/cli_contract.py`` (a non-test module so the baseline
+registry can import it without a cross-test import); the ``cli_contract`` baseline
+is registered in ``tests/_baselines/registry.py`` (ADR-0022).
 
-    uv run python tests/unit/cli/test_cli_contract.py > tests/fixtures/cli_contract_baseline.json
+Regenerate the baseline after an intended change with the registry-driven flow::
+
+    python scripts/regen_baselines.py
+
+The ``__main__`` printer below still emits the contract to stdout for ad-hoc
+inspection.
 """
 
 from __future__ import annotations
@@ -17,9 +25,10 @@ import click
 import pytest
 from click.testing import CliRunner
 
+import notebooklm.cli.helpers as helpers_module
+import notebooklm.client as client_module
 from notebooklm.notebooklm_cli import cli
-
-ROOT_COMMAND = "notebooklm"
+from tests._baselines.cli_contract import _command_for, build_cli_contract
 
 
 def _find_repo_root() -> Path:
@@ -32,42 +41,6 @@ def _find_repo_root() -> Path:
 
 BASELINE_PATH = _find_repo_root() / "tests/fixtures/cli_contract_baseline.json"
 
-TRACKED_GROUPS = (
-    "download",
-    "source",
-    "generate",
-    "artifact",
-    "session",
-    "profile",
-    "notebook",
-    "chat",
-    "note",
-    "share",
-    "research",
-)
-
-CLICK_GROUPS = (
-    "agent",
-    "download",
-    "source",
-    "generate",
-    "artifact",
-    "language",
-    "profile",
-    "note",
-    "share",
-    "research",
-    "skill",
-)
-
-TOP_LEVEL_SURFACES = {
-    "session": ("login", "auth", "use", "status", "clear"),
-    "notebook": ("list", "create", "delete", "rename", "metadata", "summary"),
-    "chat": ("ask", "configure", "history"),
-}
-
-EXTRA_TOP_LEVEL_COMMANDS = ("completion", "doctor")
-
 HELP_SNIPPETS = {
     "": ("NotebookLM CLI", "notebooklm login", "completion"),
     "completion": ("Print the shell completion script", "bash", "zsh", "fish"),
@@ -76,6 +49,7 @@ HELP_SNIPPETS = {
     "source add": ("--follow-symlinks", "--mime-type", "--json"),
     "share public": ("--enable", "--disable", "--json"),
     "research wait": ("--import-all", "--cited-only", "--timeout"),
+    "label generate": ("--scope", "all", "unlabeled", "--yes"),
 }
 
 
@@ -95,167 +69,6 @@ def _ctx_with_notebook(notebook_id: str = "nb_contract") -> _CompletionCtx:
     return _CompletionCtx(notebook_id)
 
 
-def _command_for(path: str) -> click.Command:
-    cmd: click.Command = cli
-    if not path or path == ROOT_COMMAND:
-        return cmd
-    for part in path.split():
-        if not isinstance(cmd, click.Group):
-            raise AssertionError(f"{path!r} traversed through non-group {cmd!r}")
-        next_cmd = cmd.get_command(click.Context(cmd), part)
-        if next_cmd is None:
-            raise AssertionError(f"missing command path: {path!r}")
-        cmd = next_cmd
-    return cmd
-
-
-def _json_default(value):
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return value
-    if isinstance(value, tuple):
-        return [_json_default(v) for v in value]
-    if isinstance(value, list):
-        return [_json_default(v) for v in value]
-    return str(value)
-
-
-def _type_contract(param_type: click.ParamType) -> dict[str, object]:
-    data: dict[str, object] = {"name": param_type.name}
-    if isinstance(param_type, click.Choice):
-        data["choices"] = list(param_type.choices)
-        data["case_sensitive"] = param_type.case_sensitive
-    if isinstance(param_type, click.IntRange):
-        data["min"] = param_type.min
-        data["max"] = param_type.max
-        data["clamp"] = param_type.clamp
-    if isinstance(param_type, click.Path):
-        data["exists"] = param_type.exists
-        data["file_okay"] = param_type.file_okay
-        data["dir_okay"] = param_type.dir_okay
-        data["writable"] = param_type.writable
-        data["readable"] = param_type.readable
-        data["executable"] = param_type.executable
-        data["resolve_path"] = param_type.resolve_path
-        data["allow_dash"] = param_type.allow_dash
-    return data
-
-
-def _has_custom_shell_complete(param: click.Option) -> bool:
-    return getattr(param, "_custom_shell_complete", None) is not None
-
-
-def _visible_command_names(group: click.Group) -> list[str]:
-    ctx = click.Context(group)
-    names = group.list_commands(ctx)
-    return [name for name in names if not getattr(group.get_command(ctx, name), "hidden", False)]
-
-
-def _param_contract(param: click.Parameter) -> dict[str, object]:
-    base: dict[str, object] = {
-        "name": param.name,
-        "required": param.required,
-        "type": _type_contract(param.type),
-    }
-    if isinstance(param, click.Option):
-        base.update(
-            {
-                "kind": "option",
-                "opts": list(param.opts),
-                "secondary_opts": list(param.secondary_opts),
-                "default": _json_default(param.default),
-                "envvar": _json_default(param.envvar),
-                "is_flag": param.is_flag,
-                "multiple": param.multiple,
-                "help": param.help,
-                "has_custom_shell_complete": _has_custom_shell_complete(param),
-            }
-        )
-    else:
-        base.update({"kind": "argument", "nargs": param.nargs})
-    return base
-
-
-def _command_contract(path: str) -> dict[str, object]:
-    cmd = _command_for(path)
-    data: dict[str, object] = {
-        "class": type(cmd).__name__,
-        "params": [_param_contract(param) for param in cmd.params],
-        "short_help": cmd.get_short_help_str(),
-    }
-    if isinstance(cmd, click.Group):
-        data["commands"] = _visible_command_names(cmd)
-    return data
-
-
-def _option_by_name(path: str, name: str) -> click.Option:
-    for param in _command_for(path).params:
-        if isinstance(param, click.Option) and param.name == name:
-            return param
-    raise AssertionError(f"{path!r} has no option named {name!r}")
-
-
-def _iter_command_paths(path: str) -> list[str]:
-    cmd = _command_for(path)
-    paths = [path]
-    if isinstance(cmd, click.Group):
-        for child in _visible_command_names(cmd):
-            child_path = f"{path} {child}" if path else child
-            paths.extend(_iter_command_paths(child_path))
-    return paths
-
-
-def _tracked_command_paths() -> list[str]:
-    paths: list[str] = [ROOT_COMMAND]
-    for group in CLICK_GROUPS:
-        paths.extend(_iter_command_paths(group))
-    for commands in TOP_LEVEL_SURFACES.values():
-        for name in commands:
-            paths.extend(_iter_command_paths(name))
-    for name in EXTRA_TOP_LEVEL_COMMANDS:
-        paths.extend(_iter_command_paths(name))
-    return sorted(set(paths))
-
-
-def _same_params(left: click.Command, right: click.Command) -> bool:
-    return [_param_contract(p) for p in left.params] == [_param_contract(p) for p in right.params]
-
-
-def build_cli_contract() -> dict[str, object]:
-    """Return the deterministic public CLI inventory used by the baseline."""
-    download_cinematic_video = _command_for("download cinematic-video")
-    download_video = _command_for("download video")
-    generate_cinematic_video = _command_for("generate cinematic-video")
-    generate_video = _command_for("generate video")
-    return {
-        "schema_version": 1,
-        "tracked_surfaces": list(TRACKED_GROUPS),
-        "root_commands": _visible_command_names(cli),
-        "top_level_surfaces": {key: list(value) for key, value in TOP_LEVEL_SURFACES.items()},
-        "click_groups": {
-            group: _visible_command_names(_command_for(group)) for group in CLICK_GROUPS
-        },
-        "aliases": {
-            "download cinematic-video": {
-                "canonical": "download video",
-                "same_callback": download_cinematic_video.callback is download_video.callback,
-                "same_params": _same_params(download_cinematic_video, download_video),
-            },
-            "generate cinematic-video": {
-                "canonical": "generate video --format cinematic",
-                "same_callback": generate_cinematic_video.callback is generate_video.callback,
-                "same_params": _same_params(generate_cinematic_video, generate_video),
-            },
-        },
-        "completion_callbacks": {
-            "notebook": _has_custom_shell_complete(_option_by_name("source list", "notebook_id")),
-            "download_artifact": _has_custom_shell_complete(
-                _option_by_name("download audio", "artifact_id")
-            ),
-        },
-        "commands": {path: _command_contract(path) for path in _tracked_command_paths()},
-    }
-
-
 def test_cli_contract_matches_baseline() -> None:
     """Public command tree, options, defaults, help, and aliases match the baseline."""
     expected = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
@@ -273,7 +86,7 @@ def test_representative_help_snippets_remain_visible(path: str, snippets: tuple[
 
 
 def test_completion_callbacks_return_value_help_shape_and_50_row_caps() -> None:
-    from notebooklm.cli import options
+    from notebooklm.cli import completion, options
 
     fake_client = AsyncMock()
     fake_client.__aenter__.return_value = fake_client
@@ -286,9 +99,9 @@ def test_completion_callbacks_return_value_help_shape_and_50_row_caps() -> None:
     )
 
     with (
-        patch.object(options, "_resolve_notebook_for_completion", return_value="nb_contract"),
-        patch("notebooklm.cli.helpers.get_auth_tokens", return_value=object()),
-        patch("notebooklm.client.NotebookLMClient", return_value=fake_client),
+        patch.object(completion, "resolve_notebook", return_value="nb_contract"),
+        patch.object(helpers_module, "get_auth_tokens", return_value=object()),
+        patch.object(client_module, "NotebookLMClient", return_value=fake_client),
     ):
         source_items = options._complete_sources(_ctx_with_notebook(), None, "src_")
         artifact_items = options._complete_artifacts(_ctx_with_notebook(), None, "art_")
@@ -302,9 +115,9 @@ def test_completion_callbacks_return_value_help_shape_and_50_row_caps() -> None:
 
 
 def test_completion_callbacks_are_silent_on_failures(capsys: pytest.CaptureFixture[str]) -> None:
-    from notebooklm.cli import options
+    from notebooklm.cli import completion, options
 
-    with patch("notebooklm.cli.helpers.get_auth_tokens", side_effect=RuntimeError("no auth")):
+    with patch.object(helpers_module, "get_auth_tokens", side_effect=RuntimeError("no auth")):
         assert options._complete_notebooks(_ctx_with_notebook(), None, "nb_") == []
 
     fake_client = AsyncMock()
@@ -314,9 +127,9 @@ def test_completion_callbacks_are_silent_on_failures(capsys: pytest.CaptureFixtu
     fake_client.artifacts.list = AsyncMock(side_effect=RuntimeError("offline"))
 
     with (
-        patch.object(options, "_resolve_notebook_for_completion", return_value="nb_contract"),
-        patch("notebooklm.cli.helpers.get_auth_tokens", return_value=object()),
-        patch("notebooklm.client.NotebookLMClient", return_value=fake_client),
+        patch.object(completion, "resolve_notebook", return_value="nb_contract"),
+        patch.object(helpers_module, "get_auth_tokens", return_value=object()),
+        patch.object(client_module, "NotebookLMClient", return_value=fake_client),
     ):
         assert options._complete_sources(_ctx_with_notebook(), None, "src_") == []
         assert options._complete_artifacts(_ctx_with_notebook(), None, "art_") == []
@@ -345,7 +158,7 @@ def test_json_stdout_routing_and_exit_codes_for_download_runtime(
     from notebooklm.auth import AuthTokens
     from notebooklm.exceptions import RateLimitError
 
-    from .conftest import create_mock_client
+    from .conftest import create_mock_client, inject_client
 
     auth = AuthTokens(
         cookies={
@@ -366,20 +179,17 @@ def test_json_stdout_routing_and_exit_codes_for_download_runtime(
     elif setup == "runtime_error":
         mock_client.artifacts.list = AsyncMock(side_effect=RuntimeError("boom"))
 
-    with (
-        patch("notebooklm.cli.helpers.get_auth_tokens") as mock_get_auth_tokens,
-        patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls,
-    ):
+    with patch.object(helpers_module, "get_auth_tokens") as mock_get_auth_tokens:
         if setup == "missing_storage":
             mock_get_auth_tokens.side_effect = FileNotFoundError("Storage file not found")
         else:
             mock_get_auth_tokens.return_value = auth
-            mock_client_cls.return_value = mock_client
 
         result = CliRunner().invoke(
             cli,
             ["download", "audio", "--json", "-n", "nb_123"],
             catch_exceptions=False,
+            obj=inject_client(mock_client),
         )
 
     assert result.exit_code == expected_exit, case_id
@@ -424,6 +234,11 @@ def test_json_stdout_routing_and_exit_codes_for_download_runtime(
 # (``agent show`` / ``skill install`` / ``profile``); the concrete commands
 # that actually carry ``--json`` today and bypass the error envelope are:
 JSON_CONTRACT_EXEMPTIONS: dict[str, str] = {
+    "auth logout": "Local auth-state mutation: clears on-disk creds, no auth required.",
+    "auth refresh": "Local keepalive: rotates/rewrites the on-disk cookie jar, not an auth-gated RPC.",
+    "clear": "Local context reset: clears the active-notebook file, no auth required.",
+    "skill package": "Local artifact build: zips the packaged skill to disk, no auth required.",
+    "skill status": "Local install introspection: reads on-disk skill targets, no auth required.",
     "auth check": "Diagnostic command: emits a status report payload and exits 0.",
     "doctor": "Diagnostic/repair command: emits a checks report payload, not the error envelope.",
     "language get": "Settings read: emits the resolved language, no auth required.",
@@ -443,6 +258,14 @@ _JSON_CONTRACT_DUMMY_ARGS = {
     "code": "en",
     "email": "person@example.com",
     "content": "body",
+    # label group positional ARGUMENTS only (Click options like --scope/--emoji/
+    # --yes do NOT get entries here — this table is for arguments).
+    "label_ref": "lbl_1",
+    "label_refs": "lbl_1",
+    "name": "My Label",
+    "new_name": "Renamed",
+    "emoji_value": "📄",
+    "source_ids": "src_1",
 }
 
 
@@ -550,8 +373,9 @@ def test_json_error_envelope_and_exit_code_are_uniform(command_path: str) -> Non
     argv = _build_json_invocation(command_path)
     runner = _split_stderr_runner()
 
-    with patch(
-        "notebooklm.cli.helpers.get_auth_tokens",
+    with patch.object(
+        helpers_module,
+        "get_auth_tokens",
         side_effect=FileNotFoundError("Storage file not found"),
     ):
         result = runner.invoke(cli, argv, catch_exceptions=False)

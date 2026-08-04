@@ -254,7 +254,8 @@ InterpolatedTableObj_exit (InterpolatedTableObject *self, PyObject *args)
 
 static PyMethodDef InterpolatedTableObj_methods[] = {
   { "reset", (PyCFunction)InterpolatedTableObj_reset, METH_NOARGS,
-    "Reset state to post-create defaults." },
+    "No-op: InterpolatedTable is purely a function of (table, method, point) "
+    "with no running state to reset." },
 
   { "execute", (PyCFunction)(void *)InterpolatedTableObj_execute,
     METH_VARARGS | METH_KEYWORDS,
@@ -262,21 +263,72 @@ static PyMethodDef InterpolatedTableObj_methods[] = {
     "\n"
     "Evaluate the table at each of n_in points via periodic interpolation.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import InterpolatedTable\n"
-    "    >>> obj = InterpolatedTable(np.zeros(1, dtype=np.complex128), "
-    "\"linear\")\n"
-    "    >>> y = obj.execute(1.0)\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex128')\n" },
+    "Each point is wrapped mod the table length (any real value, any sign)\n"
+    "and evaluated per the configured method:\n"
+    "\n"
+    "- floor:   nearest index below (`table[floor(point) mod n]`)\n"
+    "- nearest: closer of the floor/next index (0.5 ties pick floor)\n"
+    "- linear:  linear fit across the two bracketing indices\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : float\n"
+    "    Input.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex128]\n"
+    "    min(n_in, max_out) interpolated points.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.interp import InterpolatedTable\n"
+    ">>> import numpy as np\n"
+    ">>> ramp = InterpolatedTable(\n"
+    "...     np.array([0.0, 1.0, 2.0], dtype=np.complex128))\n"
+    ">>> ramp.execute(np.array([0.5, 1.1]))\n"
+    "array([0.5+0.j, 1.1+0.j])\n" },
   { "execute_max_out", (PyCFunction)InterpolatedTableObj_execute_max_out,
     METH_NOARGS,
     "execute_max_out() -> int\n\nMax output length execute() can produce for "
     "the current state.\nUse to size the ``out=`` buffer." },
   { "destroy", (PyCFunction)InterpolatedTableObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)InterpolatedTableObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)InterpolatedTableObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)InterpolatedTableObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a InterpTable be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "InterpTable\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)InterpolatedTableObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the InterpTable.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

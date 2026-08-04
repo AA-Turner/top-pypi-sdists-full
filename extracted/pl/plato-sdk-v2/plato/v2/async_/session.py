@@ -51,6 +51,7 @@ from plato._generated.api.v2.sessions import snapshot as sessions_snapshot
 from plato._generated.api.v2.sessions import snapshot_store as sessions_snapshot_store
 from plato._generated.api.v2.sessions import state as sessions_state
 from plato._generated.api.v2.sessions import wait_for_ready as sessions_wait_for_ready
+from plato._generated.errors import NotFoundError
 from plato._generated.models import (
     AddJobRequest,
     AddSSHKeyRequest,
@@ -1426,6 +1427,12 @@ class Session:
 
                 public_url = await self._public_url(env, port=port)
                 login_flow = await self._fetch_login_flow(env, flow)
+                if login_flow is None:
+                    # Pre-authenticated sim (no flows defined): nothing to
+                    # execute, but the page must still land on the sim URL —
+                    # that is the same end state a successful login produces.
+                    await page.goto(public_url)
+                    continue
 
                 flow_executor = FlowExecutor(
                     page,
@@ -1462,23 +1469,43 @@ class Session:
 
         return LoginResult(context=context, pages=pages)
 
-    async def _fetch_login_flow(self, env: Environment, flow_name: str) -> Flow:
-        """Fetch the flow named ``flow_name`` for ``env``."""
+    async def _fetch_login_flow(self, env: Environment, flow_name: str) -> Flow | None:
+        """Fetch the flow named ``flow_name`` for ``env``.
+
+        Returns ``None`` when the env legitimately has no login flow to run:
+        pre-authenticated sims (the cloned-SaaS family — hubspot, salesforce,
+        amazon, ...) ship baked-in auth cookies, have no login page to drive,
+        and define no flows.yaml, so the server 404s the fetch. Callers skip
+        login for that env and leave its page on the sim URL. Genuine failures
+        (network errors, 5xx) still raise, as does a missing NAMED flow other
+        than "login" — a sim that defines flows but not the requested dataset
+        flow is a config mismatch, and skipping silently would run against the
+        wrong dataset state.
+        """
         try:
             flows_response = await jobs_get_flows.asyncio(
                 client=self._http,
                 job_id=env.job_id,
                 x_api_key=self._api_key,
             )
+        except NotFoundError:
+            logger.info("Skipping login for %s (artifact has no flows; pre-authenticated sim)", env.alias)
+            return None
         except Exception as e:
             raise RuntimeError(f"Failed to get flows for env {env.alias}: {e}") from e
 
         if not flows_response:
-            raise RuntimeError(f"No flows found for env {env.alias}")
+            logger.info("Skipping login for %s (empty flows list)", env.alias)
+            return None
 
         flows_list = [Flow.model_validate(f) for f in flows_response]
         match = next((f for f in flows_list if f.name == flow_name), None)
         if not match:
+            if flow_name == "login":
+                # Sims that define flows but no 'login' flow exist; the CDP
+                # world path has always warned and continued for this case.
+                logger.info("Skipping login for %s (no 'login' flow defined)", env.alias)
+                return None
             raise RuntimeError(f"No flow named '{flow_name}' found for env {env.alias}")
         return match
 

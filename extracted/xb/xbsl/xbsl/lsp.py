@@ -1228,12 +1228,37 @@ def _make_server() -> "LanguageServer":
             reader=_buffer_reader,
         )
 
+    @server.feature("xbsl/httpMethods")
+    def _http_methods(_params: object) -> dict:
+        """The HTTP verbs a route may declare, in the platform's order.
+
+        The editor offers them in its pick list; keeping the list here means there is one
+        copy of it, and a client that cannot ask (an older engine) falls back to free text
+        rather than to a stale copy of its own.
+        """
+        return {"methods": list(scaffold.HTTP_METHODS)}
+
     @server.feature("xbsl/metaAddRoute")
     def _meta_add_route(params: object) -> dict:
+        """Flat params {path, routes} or {path, template, methods} - the same operation.
+
+        The second form is for a caller that has the template and the verbs apart (the tree
+        of the editor, where one is the node and the others come from a pick): composing the
+        routes string is the engine's business, not the client's.
+        """
+        routes = str(_param(params, "routes", "") or "")
+        if not routes:
+            methods = _param(params, "methods") or []
+            try:
+                routes = scaffold.routes_for(
+                    str(_param(params, "template", "") or ""), [str(m) for m in methods]
+                )
+            except scaffold.ScaffoldError as exc:
+                return {"error": str(exc)}
         return _meta_op(
             scaffold.op_add_route,
             Path(str(_param(params, "path"))),
-            str(_param(params, "routes")),
+            routes,
             reader=_buffer_reader,
         )
 
@@ -1452,6 +1477,61 @@ def _make_server() -> "LanguageServer":
         }
         if plan.created:
             out["moduleText"] = plan.new_module_text
+        if plan.notes:
+            out["notes"] = list(plan.notes)
+        return out
+
+    @server.feature("xbsl/addModuleMethod")
+    def _add_module_method(params: object) -> dict:
+        """Flat params {uri, method, key?} -> the module-only plan.
+
+        The metadata counterpart of xbsl/addHandler. A metadata handler (the Handler of an
+        HTTP method, of a job, of a log event) sits at a yaml OFFSET rather than at a
+        component node, and the panel writes that property the way it writes any other one -
+        so the engine is asked for the code alone. With `key` the stub is shaped after a
+        handler already bound to the same key elsewhere in the yaml: nothing declares the
+        signature of a metadata handler, but the neighbouring handlers of the same element
+        are written against the same contract.
+
+        Response: method, created (the module FILE is new - moduleText carries its content),
+        methodAdded (False - the module already had the method, nothing was written),
+        moduleUri, moduleEdits, cursor {uri, offset} of the method name, like - the
+        neighbour the signature came from, notes.
+        """
+        try:
+            yaml_path = _form_path(params)
+            module_path = formhandlers.module_path_for(yaml_path)
+            module_text = _form_reader(module_path) if module_path.is_file() else None
+            method = str(_param(params, "method", "") or "")
+            key = str(_param(params, "key", "") or "")
+            like = ""
+            shape: list[tuple[str, str | None]] = []
+            returns: str | None = None
+            if key and module_text is not None:
+                methods, _errors = formhandlers.module_methods(module_text)
+                shape, returns, like = formhandlers.signature_like(
+                    _form_reader(yaml_path), key, methods, exclude=method
+                )
+            plan = formhandlers.add_module_method(module_text, method, shape, returns)
+        except scaffold.ScaffoldError as exc:
+            return {"error": str(exc)}
+        except OSError as exc:
+            return {"error": str(exc)}
+        module_uri = path_to_uri(module_path)
+        out = {
+            "method": plan.method,
+            "created": plan.created,
+            "methodAdded": plan.method_added,
+            "moduleUri": module_uri,
+            "moduleEdits": [
+                {"start": e.start, "end": e.end, "newText": e.new_text} for e in plan.module_edits
+            ],
+            "cursor": {"uri": module_uri, "offset": plan.cursor_offset},
+        }
+        if plan.created:
+            out["moduleText"] = plan.new_module_text
+        if like:
+            out["like"] = like
         if plan.notes:
             out["notes"] = list(plan.notes)
         return out

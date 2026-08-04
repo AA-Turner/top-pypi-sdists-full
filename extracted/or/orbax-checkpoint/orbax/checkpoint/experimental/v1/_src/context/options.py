@@ -16,10 +16,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import contextvars
 import dataclasses
 import enum
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 
 from etils import epath
 import numpy as np
@@ -115,7 +116,9 @@ class AsyncOptions(_ActiveContextGuard):
     return v0_options_lib.AsyncOptions(
         timeout_secs=self.timeout_secs,
         post_finalization_callback=self.post_finalization_callback,
-        create_directories_asynchronously=self.create_directories_asynchronously,
+        create_directories_asynchronously=(
+            self.create_directories_asynchronously
+        ),
     )
 
 
@@ -484,8 +487,10 @@ class CheckpointablesOptions(_ActiveContextGuard):
   """
 
   registry: registration.CheckpointableHandlerRegistry = dataclasses.field(
-      default_factory=lambda: registration.ReadOnlyCheckpointableHandlerRegistry(
-          registration.local_registry(include_global_registry=True)
+      default_factory=lambda: (
+          registration.ReadOnlyCheckpointableHandlerRegistry(
+              registration.local_registry(include_global_registry=True)
+          )
       )
   )
 
@@ -592,13 +597,33 @@ class MemoryOptions(_ActiveContextGuard):
 class SafetensorsOptions(_ActiveContextGuard):
   """Options for configuring Safetensors loading.
 
+  In-flight read bytes are bounded by `MemoryOptions.read_concurrent_bytes`,
+  shared with the rest of restore (the loader falls back to a 2 GiB default
+  when it is unset, since its streaming path needs a finite budget).
+
   Attributes:
-    ignore_load_sharding: If True, skips sharding of the tensors across
-      hosts/devices during load. Whole tensors will be present on each host,
-      allowing for efficient conversion.
+    max_over_read_ratio: Maximum tolerated `block_size / needed_bytes` when
+      coalescing per-host byte runs from one file into a single read. A higher
+      value collapses more requests at the cost of more over-read; a value of
+      1.0 disables any over-read. Worst-case per-host bytes from one file are
+      bounded at `max_over_read_ratio * ideal_bytes`. `None` (the default) picks
+      the ratio per file from the planned reads: no over-read when the target
+      sharding already maps to few contiguous ranges, whole-span reads when the
+      plan would otherwise fragment into a very large number of small strided
+      requests (a warning reports the over-read cost of the sharding in that
+      case).
+    read_chunk_bytes: Target size of one ranged read. Coalesced blocks are split
+      at this size and the pieces are read concurrently, so it trades storage
+      request count against read parallelism: larger values issue fewer requests
+      (gentler on request-rate quotas), smaller values fetch with more parallel
+      streams. The effective chunk never exceeds the in-flight budget
+      (`MemoryOptions.read_concurrent_bytes`), which also caps concurrent
+      requests at `budget / read_chunk_bytes` per host. `None` selects an
+      implementation default (currently 128 MiB).
   """
 
-  ignore_load_sharding: bool = False
+  max_over_read_ratio: float | None = None
+  read_chunk_bytes: int | None = None
 
 
 class CheckpointLayout(enum.Enum):
@@ -608,10 +633,26 @@ class CheckpointLayout(enum.Enum):
   support for other layouts is available, as a means of supporting
   interoperatibility with other checkpointing libraries.
 
+  The Safetensors format, commonly used by checkpoints on HuggingFace,
+  is supported by Orbax for loading as a tree of `jax.Array`. Standard Orbax
+  usages apply, where a tree of `jax.ShapeDtypeStruct` may be specified to
+  dictate shardings. An abstract state is required when loading in a multi-host
+  setting; if not specified in a single-host setting, arrays will be loaded in
+  memory as numpy arrays.
+
+  Example usage for loading a Safetensors checkpoint::
+
+    ctx = ocp.Context()
+    ctx.checkpoint_layout = 'safetensors'
+    with ctx:
+      ocp.load(path, ...)
+
+
+
   Currently supported layouts are:
     ORBAX: Orbax's own layout.
     SAFETENSORS: https://huggingface.co/docs/safetensors/en/index
   """
 
-  ORBAX = 'Orbax'
-  SAFETENSORS = 'SafeTensors'
+  ORBAX = 'orbax'
+  SAFETENSORS = 'safetensors'

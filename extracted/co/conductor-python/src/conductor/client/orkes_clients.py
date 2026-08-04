@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Optional, TYPE_CHECKING
 
+from conductor.client.agent_client import AgentClient
 from conductor.client.authorization_client import AuthorizationClient
 from conductor.client.configuration.configuration import Configuration
 
@@ -63,6 +64,16 @@ class OrkesClients:
 
     def get_schema_client(self) -> SchemaClient:
         return OrkesSchemaClient(self.configuration)
+
+    def get_agent_client(self) -> AgentClient:
+        """Client for the ``/agent/*`` control-plane endpoints (start/deploy/
+        compile/status/execution/respond/stop/signal/SSE), built on the shared
+        ``ApiClient`` token machinery like every other Orkes client."""
+        # Imported lazily: this module is on virtually every SDK program's import
+        # path and must not grow import-time weight for the agent surface.
+        from conductor.client.orkes.orkes_agent_client import OrkesAgentClient
+
+        return OrkesAgentClient(self.configuration)
 
 
 ConductorClients = OrkesClients

@@ -7,8 +7,10 @@
 import sys
 from io import StringIO
 from typing import cast
+from unittest import SkipTest
+from unittest.mock import Mock, patch
 
-import requests
+import httpx2
 from django.core.management import call_command
 from django.core.management.base import CommandError, SystemCheckError
 from django.test import SimpleTestCase, TestCase
@@ -33,6 +35,7 @@ from weblate.trans.tests.utils import (
     create_another_user,
     create_test_user,
     get_test_file,
+    require_github,
 )
 from weblate.vcs.mercurial import HgRepository
 
@@ -495,14 +498,44 @@ class UnLockTranslationTest(WeblateComponentCommandTestCase):
 
 class ImportDemoTestCase(TestCase):
     def test_import(self) -> None:
-        try:
-            requests.get("https://github.com/", timeout=1)
-        except requests.exceptions.ConnectionError as error:
-            self.skipTest(f"GitHub not reachable: {error}")
+        require_github("https://github.com/WeblateOrg/demo.git")
         output = StringIO()
         call_command("import_demo", stdout=output)
         self.assertEqual(output.getvalue(), "")
         self.assertEqual(Component.objects.count(), 5)
+
+
+class RequireGitHubTest(SimpleTestCase):
+    repository = "https://github.com/WeblateOrg/demo.git"
+
+    @patch("weblate.trans.tests.utils.fetch_url")
+    def test_success(self, fetch_url: Mock) -> None:
+        require_github(self.repository)
+
+        fetch_url.assert_called_once_with("get", self.repository, timeout=1)
+
+    @patch("weblate.trans.tests.utils.fetch_url")
+    def test_request_errors(self, fetch_url: Mock) -> None:
+        for exception in (
+            httpx2.ConnectError,
+            httpx2.TimeoutException,
+            httpx2.HTTPError,
+        ):
+            with self.subTest(exception=exception):
+                fetch_url.side_effect = exception("unavailable")
+                with self.assertRaisesRegex(SkipTest, "GitHub not reachable"):
+                    require_github(self.repository)
+
+    @patch("weblate.trans.tests.utils.fetch_url")
+    def test_http_error(self, fetch_url: Mock) -> None:
+        fetch_url.side_effect = httpx2.HTTPStatusError(
+            "unavailable",
+            request=httpx2.Request("GET", self.repository),
+            response=httpx2.Response(500),
+        )
+
+        with self.assertRaisesRegex(SkipTest, "GitHub not reachable"):
+            require_github(self.repository)
 
 
 class CleanupTestCase(TestCase):
@@ -758,6 +791,16 @@ class ImportCommandTest(RepoTestCase):
 
 
 class DocumentationCommandTest(TestCase):
+    def test_change_event_metadata(self) -> None:
+        self.assertEqual(ActionEvents.UPDATE.value, 0)
+        self.assertEqual(ActionEvents.UPDATE.label, "Resource updated")
+        self.assertEqual(
+            ActionEvents.UPDATE.description,
+            "A translation file was synchronized with its repository.",
+        )
+        self.assertEqual(ActionEvents.choices[0], (0, "Resource updated"))
+        self.assertTrue(all(str(event.description) for event in ActionEvents))
+
     def test_list_file_format_params(self) -> None:
         class TestJSONFileFormatParam(BaseFileFormatParam):
             name = "json-test"
@@ -782,3 +825,7 @@ class DocumentationCommandTest(TestCase):
         self.assertIn("``83``", result)
         self.assertIn("``forced_synchronization_of_translations``", result)
         self.assertIn("Forced synchronization of translations", result)
+        self.assertIn("Description", result)
+        self.assertIn(
+            "Translation files were forcibly synchronized with the repository.", result
+        )

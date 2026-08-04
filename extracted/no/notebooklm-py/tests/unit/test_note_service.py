@@ -7,7 +7,7 @@ download path uses).
 
 The classifier behaviour, CRUD wire payloads, and the audit §28
 cancel-shielded ``create_note`` are all exercised here; Phase 6
-(refactor-history.md Step 9, ADR-0013) retired the legacy
+(docs/refactor-history.md Step 9, ADR-0013) retired the legacy
 ``test_mind_map_service.py`` tests because the underlying
 ``MindMapService`` class is gone.
 """
@@ -20,11 +20,11 @@ from unittest.mock import AsyncMock, call
 
 import pytest
 
-from _fixtures.fake_core import FakeSession, make_fake_core
 from notebooklm._note_service import NoteRowKind, NoteService
-from notebooklm.exceptions import RPCError
+from notebooklm.exceptions import DecodingError, RPCError
 from notebooklm.rpc import RPCMethod
 from notebooklm.types import Note
+from tests._fixtures.fake_core import FakeSession, make_fake_core
 
 
 @pytest.fixture
@@ -82,6 +82,18 @@ class TestFetchNoteRows:
         assert await service.fetch_note_rows("nb_123") == []
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("payload", ["drift-string", {"oops": 1}, 42])
+    async def test_fetch_note_rows_raises_on_truthy_non_list_drift(
+        self, service: NoteService, mock_session: FakeSession, payload: object
+    ) -> None:
+        # A truthy non-list payload is schema drift, not an empty notebook (#1344):
+        # raise so notes/mind_maps get()/get_or_none can tell a miss from drift
+        # instead of silently collapsing to ``[]``.
+        mock_session.rpc_executor.rpc_call.return_value = payload
+        with pytest.raises(DecodingError):
+            await service.fetch_note_rows("nb_123")
+
+    @pytest.mark.asyncio
     async def test_fetch_note_rows_accepts_flat_row_container(
         self, service: NoteService, mock_session: FakeSession
     ) -> None:
@@ -130,7 +142,7 @@ class TestClassifyRow:
     def test_saved_chat_with_unrecognized_metadata_falls_back_to_note(
         self, service: NoteService
     ) -> None:
-        """Per refactor-history.md §Risks: when saved-chat metadata is not
+        """Per docs/refactor-history.md §Risks: when saved-chat metadata is not
         positively detectable, the classifier must default to NOTE so
         the row never silently drops out of ``NotesAPI.list()``.
         """
@@ -255,7 +267,7 @@ class TestCrud:
 class TestCreateNoteCancellation:
     """Audit item §28: cancel mid-UPDATE_NOTE must not leave an orphan row.
 
-    Moved to ``NoteService`` in Phase 6 (refactor-history.md Step 9, ADR-0013).
+    Moved to ``NoteService`` in Phase 6 (docs/refactor-history.md Step 9, ADR-0013).
     The legacy ``_mind_map.MindMapService.create_note`` path that
     previously owned the shield + best-effort cleanup contract was
     retired in the same phase; the contract itself lives here now.

@@ -31,6 +31,7 @@ from weblate.trans.models import (
     Project,
     Translation,
     Unit,
+    WorkflowSetting,
 )
 from weblate.trans.models.component import ComponentQuerySet
 from weblate.trans.tests.test_views import ViewTestCase
@@ -48,6 +49,26 @@ from weblate.workspaces.models import Workspace
 
 
 class SettingsTest(ViewTestCase):
+    @modify_settings(INSTALLED_APPS={"remove": "weblate.billing"})
+    def test_restricted_component_permission_denial(self) -> None:
+        self.project.add_user(self.user, "Administration")
+
+        form = ComponentSettingsForm(self.get_request(), instance=self.component)
+
+        field = form.fields["restricted"]
+        self.assertTrue(field.disabled)
+        self.assertFalse(field.widget.is_hidden)
+        self.assertEqual(
+            field.help_text,
+            "You need explicit access to this component before enabling restricted access; otherwise, you would lock yourself out.",
+        )
+
+        data = get_form_data(form.initial)
+        data["restricted"] = True
+        form = ComponentSettingsForm(self.get_request(), data, instance=self.component)
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertFalse(form.cleaned_data["restricted"])
+
     def test_default_message_templates_render(self) -> None:
         validators = (
             (defaults.DEFAULT_COMMIT_MESSAGE, validate_render_commit),
@@ -55,7 +76,7 @@ class SettingsTest(ViewTestCase):
             (defaults.DEFAULT_DELETE_MESSAGE, validate_render_commit),
             (defaults.DEFAULT_MERGE_MESSAGE, validate_render_component),
             (defaults.DEFAULT_ADDON_MESSAGE, validate_render_addon),
-            (defaults.DEFAULT_PULL_MESSAGE, validate_render_addon),
+            (defaults.DEFAULT_PULL_MESSAGE, validate_render_component),
         )
         for template, validator in validators:
             with self.subTest(template=template):
@@ -86,25 +107,28 @@ class SettingsTest(ViewTestCase):
         migration.repair_license_inheritance(apps, None)
 
     def assert_huge_inherited_settings_deferred(self, component: Component) -> None:
+        workspace = component.project.workspace
+        assert workspace is not None
+        category = component.category
+        if component.category_id:
+            assert category is not None
         for field in ("commit_message",):
             self.assertIn(field, component.get_deferred_fields())
             self.assertIn(field, component.project.get_deferred_fields())
-            self.assertIn(field, component.project.workspace.get_deferred_fields())
-            if component.category_id:
-                self.assertIn(field, component.category.get_deferred_fields())
+            self.assertIn(field, workspace.get_deferred_fields())
+            if category is not None:
+                self.assertIn(field, category.get_deferred_fields())
         for field in ("agreement",):
             self.assertNotIn(field, component.get_deferred_fields())
             self.assertNotIn(field, component.project.get_deferred_fields())
-            self.assertNotIn(field, component.project.workspace.get_deferred_fields())
-            if component.category_id:
-                self.assertNotIn(field, component.category.get_deferred_fields())
+            self.assertNotIn(field, workspace.get_deferred_fields())
+            if category is not None:
+                self.assertNotIn(field, category.get_deferred_fields())
         self.assertNotIn("check_flags", component.get_deferred_fields())
         self.assertNotIn("check_flags", component.project.get_deferred_fields())
-        self.assertNotIn(
-            "check_flags", component.project.workspace.get_deferred_fields()
-        )
-        if component.category_id:
-            self.assertNotIn("check_flags", component.category.get_deferred_fields())
+        self.assertNotIn("check_flags", workspace.get_deferred_fields())
+        if category is not None:
+            self.assertNotIn("check_flags", category.get_deferred_fields())
 
     def test_defer_huge_inherited_settings(self) -> None:
         workspace = Workspace.objects.create(name="Settings workspace")
@@ -123,7 +147,7 @@ class SettingsTest(ViewTestCase):
         self.assert_huge_inherited_settings_deferred(translation.component)
 
         unit_id = self.translation.unit_set.values_list("pk", flat=True).first()
-        self.assertIsNotNone(unit_id)
+        assert unit_id is not None
         unit = Unit.objects.filter(pk=unit_id).prefetch().get()
         self.assert_huge_inherited_settings_deferred(unit.translation.component)
 
@@ -938,14 +962,27 @@ class SettingsTest(ViewTestCase):
         self.assertContains(response, "Settings")
         response = self.client.post(
             url,
-            {"workflow-enable": 1, "workflow-suggestion_autoaccept": 0},
+            {
+                "workflow-enable": 1,
+                "workflow-restrict_direct_editing": 1,
+                "workflow-suggestion_autoaccept": 0,
+            },
             follow=True,
         )
         self.assertContains(response, "Settings saved")
-        self.assertIsNotNone(
+        workflow_settings = (
             Project.objects.get(pk=self.project.pk)
             .project_languages[self.translation.language]
             .workflow_settings
+        )
+        self.assertIsNotNone(workflow_settings)
+        self.assertTrue(workflow_settings.restrict_direct_editing)
+        self.assertTrue(
+            WorkflowSetting.objects.filter(
+                project=self.project,
+                language=self.translation.language,
+                restrict_direct_editing=True,
+            ).exists()
         )
         response = self.client.post(
             url, {"workflow-suggestion_autoaccept": 0}, follow=True
@@ -1413,9 +1450,11 @@ class SettingsTest(ViewTestCase):
             name="Settings linked lock", slug="settings-linked-lock"
         )
         new_target = self.create_po(name="settings-new-target", project=self.project)
+        source_language_id = linked_component.source_language_id
+        assert source_language_id is not None
         translation = (
             linked_component.translation_set.exclude(filename="")
-            .exclude(language_id=linked_component.source_language_id)
+            .exclude(language_id=source_language_id)
             .first()
         )
         if translation is None:

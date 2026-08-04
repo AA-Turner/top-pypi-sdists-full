@@ -10,9 +10,14 @@ Exit codes:
     2 - Authentication or infrastructure failure (not an RPC problem)
     3 - One or more RPC methods returned a non-transient ERROR
         (timeouts, parse failures, unexpected HTTP errors)
+    4 - Studio-customization cohort flip: the ``sqTeoe`` tripwire
+        (GetArtifactCustomizationChoices) returned non-null, meaning our
+        account migrated to the new customization surface and the VideoStyle /
+        format codes must be re-captured. GATED-null is the expected steady
+        state and is NOT a failure.
 
 Priority order when multiple statuses are present:
-    MISMATCH (1) > AUTH (2) > non-transient ERROR (3) > OK (0)
+    MISMATCH (1) > AUTH (2) > non-transient ERROR (3) > cohort MIGRATED (4) > OK (0)
 
 Transient errors that still exit 0 are limited to rate-limit signals
 (HTTP 429, gRPC ``RESOURCE_EXHAUSTED``, and the decoder's user-displayable
@@ -52,6 +57,10 @@ from uuid import uuid4
 import httpx
 
 from notebooklm._artifact.payloads import build_retry_artifact_params
+from notebooklm._chat.wire import (
+    build_streaming_chat_request,
+    parse_streaming_chat_response,
+)
 from notebooklm._env import get_default_language
 from notebooklm._logging import scrub_secrets
 from notebooklm._notebooks import build_create_notebook_params
@@ -62,6 +71,7 @@ from notebooklm.auth import (
     get_authuser_for_storage,
     load_auth_from_storage,
 )
+from notebooklm.exceptions import ChatError, ChatResponseParseError, DecodingError
 from notebooklm.paths import get_storage_path
 from notebooklm.rpc import (
     RPCError,
@@ -76,6 +86,7 @@ from notebooklm.rpc.decoder import (
     parse_chunked_response,
     strip_anti_xssi,
 )
+from notebooklm.rpc.types import _QUERY_ENDPOINT_PATH
 
 
 class CheckStatus(str, Enum):
@@ -85,6 +96,28 @@ class CheckStatus(str, Enum):
     MISMATCH = "MISMATCH"
     ERROR = "ERROR"
     SKIPPED = "SKIPPED"
+
+
+class CohortStatus(str, Enum):
+    """Result of the ``sqTeoe`` studio-customization cohort tripwire.
+
+    ``GetArtifactCustomizationChoices`` (rpc id ``sqTeoe``) is gated off for our
+    consumer cohort and returns ``null`` unconditionally today (``GATED`` — the
+    expected steady state, NOT a failure). The day it starts returning a
+    non-null payload our account has been migrated to the new studio-customization
+    surface (``MIGRATED`` — a loud signal: the VideoStyle/format codes must be
+    re-captured). ``UNKNOWN`` covers a transient/transport failure on the probe
+    itself (no cohort conclusion drawn — never an alarm).
+    """
+
+    GATED = "GATED"
+    MIGRATED = "MIGRATED"
+    UNKNOWN = "UNKNOWN"
+
+
+# Studio-customization cohort tripwire RPC. NOT in ``RPCMethod`` (it is gated off
+# for our consumer cohort, so there is no typed/public path), called by raw id.
+_CUSTOMIZATION_CHOICES_RPC_ID = "sqTeoe"
 
 
 @dataclass
@@ -455,19 +488,6 @@ def get_test_params(method: RPCMethod, notebook_id: str | None) -> list[Any] | N
         # Use "en" as safe language code
         return [[[None, [[None, None, None, None, ["en"]]]]]]
 
-    # GET_USER_TIER: read subscription tier from homepage context (no notebook required)
-    # Params mirror build_get_user_tier_params() in src/notebooklm/_settings.py.
-    if method == RPCMethod.GET_USER_TIER:
-        return [
-            [
-                [
-                    [None, "1", 627],
-                    [None, None, None, None, None, None, None, None, None, [None, None, 2]],
-                    1,
-                ]
-            ]
-        ]
-
     # Methods that require a notebook ID
     if not notebook_id:
         return None
@@ -507,9 +527,37 @@ def get_test_params(method: RPCMethod, notebook_id: str | None) -> list[Any] | N
     if method == RPCMethod.GET_CONVERSATION_TURNS:
         return [[], None, None, "placeholder_conv_id", 2]
 
+    # SUGGEST_PROMPTS (GeneratePromptSuggestions): like GET_SUGGESTED_REPORTS,
+    # suggestions only exist once a notebook has indexed sources, so route to a
+    # stable read-only notebook when one is configured. The required mode enum
+    # (1..10) is set to the default 4; an empty source-id list scopes to all of
+    # the notebook's sources server-side. The canary only verifies the RPC ID
+    # echoes back, so empty source ids are sufficient.
+    if method == RPCMethod.SUGGEST_PROMPTS:
+        stable_id = (
+            os.environ.get("NOTEBOOKLM_READ_ONLY_NOTEBOOK_ID")
+            or os.environ.get("NOTEBOOKLM_GENERATION_NOTEBOOK_ID")
+            or notebook_id
+        )
+        return [
+            [2, None, None, [1, None, None, None, None, None, None, None, None, None, [1]]],
+            stable_id,
+            [],
+            4,
+            None,
+            None,
+        ]
+
     # LIST_ARTIFACTS has special params
     if method == RPCMethod.LIST_ARTIFACTS:
         return [[2], notebook_id, 'NOT artifact.status = "ARTIFACT_STATUS_SUGGESTED"']
+
+    # LIST_LABELS: list a notebook's source labels (read-only; OPTS wrapper + nb id)
+    if method == RPCMethod.LIST_LABELS:
+        return [
+            [2, None, None, [1, None, None, None, None, None, None, None, None, None, [1]]],
+            notebook_id,
+        ]
 
     # Notebook operations (read-only - rename to same name is a no-op)
     if method == RPCMethod.RENAME_NOTEBOOK:
@@ -673,6 +721,258 @@ async def check_method(
     )
 
 
+@dataclass
+class _ChatQueryProbe:
+    """Method-like sentinel for the ``GenerateFreeFormStreamed`` chat probe.
+
+    The streamed-chat orchestration endpoint is NOT a batchexecute RPC ID — it
+    is a ``PATH_NOT_METHOD`` ``v1`` URL segment (see ``_QUERY_ENDPOINT_PATH`` in
+    ``rpc/types.py``), so it has no :class:`RPCMethod` enum member and cannot be
+    probed by ``make_rpc_call``/``check_method`` like the obfuscated method IDs.
+    This ducktype gives the probe's :class:`CheckResult` the ``.name`` /
+    ``.value`` attributes that ``print_summary`` / ``format_check_output`` /
+    ``partition_errors`` read, so the chat result flows through the existing
+    summary + exit-code machinery unchanged (an ``ERROR`` here is classified
+    and reported as drift exactly like a method-ID probe).
+    """
+
+    name: str = "GENERATE_FREE_FORM_STREAMED"
+    value: str = _QUERY_ENDPOINT_PATH
+
+
+# Singleton sentinel reused for every chat-probe CheckResult.
+CHAT_QUERY_PROBE = _ChatQueryProbe()
+
+
+async def check_chat_query(
+    client: httpx.AsyncClient,
+    auth: AuthTokens,
+    notebook_id: str | None,
+) -> CheckResult:
+    """Probe the streamed-chat ``GenerateFreeFormStreamed`` orchestration RPC.
+
+    This is the chat surface's drift canary. Unlike the batchexecute method-ID
+    probes, the chat endpoint is a hardcoded ``v1`` path with no obfuscated RPC
+    ID to echo back, so liveness is asserted on the *wire shape* instead: issue
+    one minimal request and require an HTTP 200 plus a recognizable stream frame
+    (a ``wrb.fr`` envelope or a server ``"er"`` frame).
+
+    Classification mirrors the method-ID probes:
+
+    * Parseable stream (an answer, or a server-side ``ChatError`` frame the
+      parser recognizes — including a rate-limit / rejected frame) -> ``OK``:
+      the wire contract is intact, the server merely declined this request.
+    * Zero parseable chunks (:class:`ChatResponseParseError`) -> ``ERROR``: the
+      response body was empty or the wire format drifted. This is the schema
+      drift the canary exists to catch.
+    * Non-200 / transport failure -> ``ERROR`` (rate-limit / ReadTimeout text is
+      still classified as transient downstream by ``is_transient_error``).
+
+    Skipped when no notebook ID is configured (the request needs one for
+    server-side conversation persistence).
+    """
+    if not notebook_id:
+        return CheckResult(
+            method=CHAT_QUERY_PROBE,  # type: ignore[arg-type]
+            status=CheckStatus.SKIPPED,
+            expected_id=CHAT_QUERY_PROBE.value,
+            found_ids=[],
+            error="No notebook ID provided (chat probe needs one)",
+        )
+
+    url, body, extra_headers = build_streaming_chat_request(
+        snapshot=auth,
+        notebook_id=notebook_id,
+        question="RPC health check ping.",
+        source_ids=[],
+        conversation_history=None,
+        conversation_id=None,
+        reqid=int(uuid4().int % 1_000_000),
+    )
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Cookie": auth.cookie_header,
+        **extra_headers,
+    }
+
+    try:
+        response = await client.post(url, content=body, headers=headers)
+        response.raise_for_status()
+    except httpx.HTTPStatusError as e:
+        return CheckResult(
+            method=CHAT_QUERY_PROBE,  # type: ignore[arg-type]
+            status=CheckStatus.ERROR,
+            expected_id=CHAT_QUERY_PROBE.value,
+            found_ids=[],
+            error=f"HTTP {e.response.status_code}",
+        )
+    except httpx.RequestError as e:
+        # ``httpx.ReadTimeout`` can stringify to ``""``; fall back to the class
+        # name so the downstream transient classifier (and the operator) sees a
+        # usable signal — same posture as ``make_rpc_request`` (#864).
+        return CheckResult(
+            method=CHAT_QUERY_PROBE,  # type: ignore[arg-type]
+            status=CheckStatus.ERROR,
+            expected_id=CHAT_QUERY_PROBE.value,
+            found_ids=[],
+            error=str(e) or type(e).__name__,
+        )
+
+    try:
+        parse_streaming_chat_response(response.text)
+    except (ChatResponseParseError, DecodingError, json.JSONDecodeError) as e:
+        # Zero parseable chunks (empty/drifted body), a structurally malformed
+        # JSON body (``json.JSONDecodeError`` — a ``ValueError`` subclass we
+        # catch specifically so a bare ``ValueError`` from a real bug still
+        # propagates), OR strict positional drift raising DecodingError /
+        # UnknownRPCMethodError from the wire decoder: all are the schema-drift
+        # signal the canary exists to surface. Catch them here so a drifted
+        # response returns a clean ERROR result rather than crashing the canary.
+        return CheckResult(
+            method=CHAT_QUERY_PROBE,  # type: ignore[arg-type]
+            status=CheckStatus.ERROR,
+            expected_id=CHAT_QUERY_PROBE.value,
+            found_ids=[],
+            error=f"Parse error: {e}",
+        )
+    except ChatError as e:
+        # A recognized server-side ``"er"`` / rate-limit frame: the wire shape
+        # is INTACT (the parser identified the frame), the server simply
+        # declined this request. Treat as OK — the contract is healthy. The
+        # message is preserved for the operator (and so a rate-limit frame
+        # stays visible), but it does not fail the canary.
+        return CheckResult(
+            method=CHAT_QUERY_PROBE,  # type: ignore[arg-type]
+            status=CheckStatus.OK,
+            expected_id=CHAT_QUERY_PROBE.value,
+            found_ids=[CHAT_QUERY_PROBE.value],
+            error=f"Server declined (recognized frame): {e}",
+        )
+
+    return CheckResult(
+        method=CHAT_QUERY_PROBE,  # type: ignore[arg-type]
+        status=CheckStatus.OK,
+        expected_id=CHAT_QUERY_PROBE.value,
+        found_ids=[CHAT_QUERY_PROBE.value],
+    )
+
+
+def build_customization_choices_params(notebook_id: str) -> list[Any]:
+    """Build ``sqTeoe`` (GetArtifactCustomizationChoices) params for ``notebook_id``.
+
+    Reverse-engineered (live-verified) request shape: ``[nbctx, None, artifact_type]``
+    where ``nbctx`` is the standard notebook-context options wrapper and
+    ``artifact_type`` is ``3`` (video) — the surface whose VideoStyle/format codes
+    we most want an early migration signal for. Extracted as a helper so the wire
+    shape is testable without a live call.
+    """
+    nbctx = [
+        2,
+        None,
+        None,
+        [1, None, None, None, None, None, None, None, None, None, [1]],
+        [notebook_id],
+    ]
+    artifact_type = 3  # video
+    return [nbctx, None, artifact_type]
+
+
+async def make_raw_rpc_request(
+    client: httpx.AsyncClient,
+    auth: AuthTokens,
+    rpc_id: str,
+    params: list[Any],
+    source_path: str = "/",
+) -> tuple[str | None, str | None]:
+    """Issue a batchexecute call by *raw* rpc id (for methods not in ``RPCMethod``).
+
+    The cohort tripwire probes ``sqTeoe``, which has no ``RPCMethod`` member (it
+    is gated for our cohort), so it cannot go through ``make_rpc_request``. This
+    mirrors that function's wire assembly but threads the id straight into both
+    the ``rpcids=`` query param and ``encode_rpc_request``'s ``rpc_id_override``
+    (the two MUST stay in sync). It calls the executor directly — there is no
+    idempotency registry in this script, so no retries to disable.
+    """
+    query_params = {
+        "rpcids": rpc_id,
+        "source-path": source_path,
+        "f.sid": auth.session_id,
+        "hl": get_default_language(),
+        "rt": "c",
+    }
+    if auth.account_email or auth.authuser:
+        query_params["authuser"] = auth.account_route
+    url = f"{get_batchexecute_url()}?{urlencode(query_params)}"
+    # Any RPCMethod member works as the first arg — ``rpc_id_override`` is what
+    # actually lands in the body, kept identical to the ``rpcids=`` query param.
+    rpc_request = encode_rpc_request(RPCMethod.LIST_NOTEBOOKS, params, rpc_id_override=rpc_id)
+    body = build_request_body(rpc_request, auth.csrf_token)
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Cookie": auth.cookie_header,
+    }
+    try:
+        response = await client.post(url, content=body, headers=headers)
+        response.raise_for_status()
+        return response.text, None
+    except httpx.HTTPStatusError as e:
+        return None, f"HTTP {e.response.status_code}"
+    except httpx.RequestError as e:
+        # httpx.RequestError subclasses can stringify the failed request URL,
+        # which carries f.sid; scrub before it reaches a live print site.
+        return None, scrub_secrets(str(e) or type(e).__name__)
+
+
+async def check_customization_cohort(
+    client: httpx.AsyncClient,
+    auth: AuthTokens,
+    notebook_id: str | None,
+) -> tuple[CohortStatus, str]:
+    """Probe ``sqTeoe`` to detect a studio-customization cohort flip.
+
+    ``GetArtifactCustomizationChoices`` returns ``null`` for our gated consumer
+    cohort. We decode with ``allow_null=True`` so a genuine null payload is
+    ``GATED`` (the steady state, not a failure) — but the *absent-id* drift guard
+    inside ``decode_response`` still fires if the id stopped being echoed (that
+    surfaces as a parse error here and is reported as ``UNKNOWN``, not silently
+    swallowed). A non-null payload means our account was migrated to the new
+    customization surface (``MIGRATED`` — re-capture VideoStyle codes).
+
+    Returns ``(status, detail)``. ``UNKNOWN`` is drawn for any transport/parse
+    failure so the tripwire never alarms on a transient flake; only a clean,
+    decoded non-null result is ``MIGRATED``.
+    """
+    if not notebook_id:
+        return CohortStatus.UNKNOWN, "No notebook ID provided (cohort tripwire needs one)"
+
+    response_text, error = await make_raw_rpc_request(
+        client,
+        auth,
+        _CUSTOMIZATION_CHOICES_RPC_ID,
+        build_customization_choices_params(notebook_id),
+        source_path=f"/notebook/{notebook_id}",
+    )
+    if error is not None:
+        return CohortStatus.UNKNOWN, error
+    if response_text is None:
+        return CohortStatus.UNKNOWN, "Empty response from server"
+
+    # RPCError (incl. UnknownRPCMethodError from the absent-id drift guard) must
+    # propagate so the tripwire LOUDLY surfaces an id rotation / protocol break
+    # rather than degrading it to a quiet UNKNOWN. Bare ValueError likewise
+    # propagates — it signals a code bug (e.g. an invalid int() conversion), not
+    # API shape drift. Only a genuinely unreadable/malformed JSON root is caught
+    # and reported as UNKNOWN here.
+    try:
+        data = decode_response(response_text, _CUSTOMIZATION_CHOICES_RPC_ID, allow_null=True)
+    except (json.JSONDecodeError, TypeError) as e:
+        return CohortStatus.UNKNOWN, f"Parse error: {scrub_secrets(e)}"
+
+    if data is None:
+        return CohortStatus.GATED, "null (gated — expected steady state)"
+    return CohortStatus.MIGRATED, "non-null payload (cohort migrated)"
+
+
 async def setup_temp_resources(
     client: httpx.AsyncClient,
     auth: AuthTokens,
@@ -682,7 +982,8 @@ async def setup_temp_resources(
 
     Tests CREATE_NOTEBOOK, ADD_SOURCE, ADD_SOURCE_FILE, START_FAST_RESEARCH,
     CREATE_NOTE, and CREATE_ARTIFACT RPC methods.
-    Polls for artifact completion before testing DELETE_ARTIFACT in cleanup.
+    Gives artifact generation a short grace period before testing DELETE_ARTIFACT
+    in cleanup.
     """
     temp = TempResources()
 
@@ -852,18 +1153,20 @@ async def setup_temp_resources(
                 preview = scrub_secrets(repr(data))[:200]
                 print(f"  WARNING: CREATE_ARTIFACT ID extraction failed. Response: {preview}")
 
-        # Poll for artifact completion
+        # Probe LIST_ARTIFACTS briefly so artifact generation gets a grace
+        # period before DELETE_ARTIFACT cleanup.
         if temp.artifact_id:
-            # Poll up to 30 seconds for flashcard generation to complete
+            # Probe for up to 30 seconds before cleanup.
             max_polls = 15
             poll_interval = 2.0
-            artifact_ready = False
+            artifact_list_live = False
             polls_done = 0
 
             for _ in range(max_polls):
                 await asyncio.sleep(poll_interval)
                 polls_done += 1
-                # Use LIST_ARTIFACTS and find by ID (no poll-by-ID RPC exists)
+                # LIST_ARTIFACTS is the available liveness probe; there is no
+                # poll-by-ID RPC here.
                 poll_result = await test_rpc_method(
                     client,
                     auth,
@@ -871,17 +1174,18 @@ async def setup_temp_resources(
                     [[2], temp.notebook_id, 'NOT artifact.status = "ARTIFACT_STATUS_SUGGESTED"'],
                     source_path=f"/notebook/{temp.notebook_id}",
                 )
-                # Check if status indicates completion (status code 3 = ready)
-                # We don't add poll results to avoid cluttering output
+                # We only need the method to succeed; poll results are omitted
+                # to keep output focused on the primary checks.
                 if poll_result.status == CheckStatus.OK:
-                    artifact_ready = True
+                    artifact_list_live = True
                     break
 
-            if artifact_ready:
-                print(f"  Artifact ready after {polls_done * poll_interval:.0f}s polling")
+            if artifact_list_live:
+                print(f"  Artifact list live after {polls_done * poll_interval:.0f}s polling")
             else:
                 print(
-                    f"  Artifact not ready after {max_polls * poll_interval:.0f}s (continuing anyway)"
+                    f"  Artifact list not live after {max_polls * poll_interval:.0f}s "
+                    "(continuing anyway)"
                 )
     else:
         # Skip artifact tests - no source_id available
@@ -963,8 +1267,13 @@ async def cleanup_temp_resources(
         print(f"WARNING: Notebook {temp.notebook_id} may need manual cleanup", file=sys.stderr)
 
 
-async def run_health_check(full_mode: bool = False) -> list[CheckResult]:
-    """Run health check on all RPC methods."""
+async def run_health_check(full_mode: bool = False) -> tuple[list[CheckResult], CohortStatus]:
+    """Run health check on all RPC methods.
+
+    Returns ``(results, cohort_status)``: the per-method ``CheckResult`` list plus
+    the ``sqTeoe`` studio-customization cohort tripwire verdict (reported and
+    exit-coded separately from RPC drift; see :class:`CohortStatus`).
+    """
     storage_path = resolve_storage_path()
     cookies = load_auth()
 
@@ -977,6 +1286,7 @@ async def run_health_check(full_mode: bool = False) -> list[CheckResult]:
 
     results: list[CheckResult] = []
     temp_resources = TempResources()
+    cohort_status = CohortStatus.UNKNOWN
 
     print("Fetching auth tokens...")
     try:
@@ -1036,13 +1346,38 @@ async def run_health_check(full_mode: bool = False) -> list[CheckResult]:
                 if i < total and result.status != CheckStatus.SKIPPED:
                     await asyncio.sleep(CALL_DELAY)
 
+            # Probe the streamed-chat orchestration RPC. It is not an
+            # ``RPCMethod`` (it is a ``PATH_NOT_METHOD`` ``v1`` URL segment),
+            # so it is checked separately from the method-ID loop above — but
+            # its ``CheckResult`` flows through the same summary + exit-code
+            # machinery so chat drift fails the canary like any other probe.
+            chat_result = await check_chat_query(client, auth, notebook_id)
+            results.append(chat_result)
+            chat_icon = STATUS_ICONS[chat_result.status]
+            chat_line = f"{chat_icon:8} {chat_result.method.name} ({chat_result.expected_id})"
+            if chat_result.error and chat_result.status != CheckStatus.OK:
+                chat_line += f" - {scrub_secrets(chat_result.error)}"
+            print(chat_line)
+
+            # Studio-customization cohort tripwire. Distinct from the RPC-drift
+            # probes: GATED-null is the expected steady state (NOT a failure),
+            # MIGRATED is a loud signal that the customization surface flipped and
+            # the VideoStyle/format codes must be re-captured.
+            cohort_status, cohort_detail = await check_customization_cohort(
+                client, auth, notebook_id
+            )
+            print(
+                "COHORT   sqTeoe customization choices: "
+                f"{cohort_status.value} - {scrub_secrets(cohort_detail)}"
+            )
+
         finally:
             if full_mode and temp_resources.notebook_id:
                 print()
                 print("Testing DELETE operations during cleanup...")
                 await cleanup_temp_resources(client, auth, temp_resources, results)
 
-    return results
+    return results, cohort_status
 
 
 # Substrings that mark an ERROR as a transient signal. Keep this list
@@ -1112,6 +1447,7 @@ def partition_errors(
 def compute_exit_code(
     counts: Counter[CheckStatus],
     non_transient_errors: list[CheckResult],
+    cohort_status: CohortStatus = CohortStatus.UNKNOWN,
 ) -> int:
     """Compute the script exit code from result counts.
 
@@ -1119,16 +1455,26 @@ def compute_exit_code(
         1. MISMATCH  -> 1
         2. AUTH      -> 2 (signaled by the caller via sys.exit, never reached here)
         3. non-transient ERROR -> 3
-        4. OK        -> 0
+        4. cohort MIGRATED -> 4 (sqTeoe tripwire flipped; loud but not RPC drift)
+        5. OK        -> 0
+
+    The cohort flip sits *below* the RPC-drift codes so a run that has both real
+    drift AND a cohort flip still surfaces the higher-severity drift exit; the
+    flip is reported in the summary either way.
     """
     if counts[CheckStatus.MISMATCH] > 0:
         return 1
     if non_transient_errors:
         return 3
+    if cohort_status == CohortStatus.MIGRATED:
+        return 4
     return 0
 
 
-def print_summary(results: list[CheckResult]) -> int:
+def print_summary(
+    results: list[CheckResult],
+    cohort_status: CohortStatus = CohortStatus.UNKNOWN,
+) -> int:
     """Print summary and return exit code."""
     print()
     print("=" * 60)
@@ -1181,10 +1527,14 @@ def print_summary(results: list[CheckResult]) -> int:
             print(f"  [transient]     {r.method.name} ({r.expected_id}): {scrub_secrets(r.error)}")
         print()
 
+    # Cohort tripwire line. GATED-null is the expected steady state (a PASS, not
+    # a failure); MIGRATED is the loud flip the canary exists to surface.
+    print(f"COHORT:   sqTeoe customization choices = {cohort_status.value}")
+
     # Return exit code.
-    # Priority: MISMATCH (1) > non-transient ERROR (3) > OK (0).
+    # Priority: MISMATCH (1) > non-transient ERROR (3) > cohort MIGRATED (4) > OK (0).
     # AUTH (2) is signaled earlier via sys.exit(2) and never reaches here.
-    exit_code = compute_exit_code(counts, non_transient_errors)
+    exit_code = compute_exit_code(counts, non_transient_errors, cohort_status)
 
     if exit_code == 1:
         print("RESULT: FAIL - RPC ID mismatches detected")
@@ -1194,6 +1544,10 @@ def print_summary(results: list[CheckResult]) -> int:
         print(f"RESULT: FAIL - non-transient ERROR detected in methods: {affected}")
         print("       These are real failures (not rate-limit transients).")
         return 3
+    if exit_code == 4:
+        print("RESULT: COHORT FLIP - sqTeoe returned non-null (studio customization migrated)")
+        print("       Re-capture VideoStyle / format codes in src/notebooklm/rpc/types.py.")
+        return 4
     if transient_errors:
         print("RESULT: PASS - Only transient errors observed (rate-limits / ReadTimeouts)")
         print("       Review ERROR DETAILS above for affected methods.")
@@ -1219,8 +1573,8 @@ def main() -> int:
     print("=" * 60)
     print()
 
-    results = asyncio.run(run_health_check(full_mode=args.full))
-    return print_summary(results)
+    results, cohort_status = asyncio.run(run_health_check(full_mode=args.full))
+    return print_summary(results, cohort_status)
 
 
 if __name__ == "__main__":

@@ -56,7 +56,6 @@ from orbax.checkpoint._src.serialization import type_handlers
 from orbax.checkpoint._src.tree import utils as tree_utils
 import tensorstore as ts
 
-
 PyTree = Any
 
 
@@ -286,19 +285,19 @@ def setup_sharded_pytree(
     devices = jax.devices()
   num_devices = len(devices)
   if reverse_devices:
-    devices = np.asarray(list(reversed(devices)))
+    devices = np.asarray(list(reversed(devices)))  # pyrefly: ignore[bad-assignment]
   else:
-    devices = np.asarray(devices)
+    devices = np.asarray(devices)  # pyrefly: ignore[bad-assignment]
 
   mesh_2d = jax.sharding.Mesh(
-      devices.reshape((2, num_devices // 2)), ('x', 'y')
+      devices.reshape((2, num_devices // 2)), ('x', 'y')  # pyrefly: ignore[missing-attribute]
   )
   mesh_axes_2d = jax.sharding.PartitionSpec('x', 'y')
-  mesh_1d = jax.sharding.Mesh(devices, ('x',))
+  mesh_1d = jax.sharding.Mesh(devices, ('x',))  # pyrefly: ignore[bad-argument-type]
   mesh_axes_1d = jax.sharding.PartitionSpec(
       'x',
   )
-  mesh_0d = jax.sharding.Mesh(devices, ('x',))
+  mesh_0d = jax.sharding.Mesh(devices, ('x',))  # pyrefly: ignore[bad-argument-type]
   mesh_axes_0d = jax.sharding.PartitionSpec(
       None,
   )
@@ -483,7 +482,7 @@ def set_tensorstore_driver_for_test():
   # Sets TS driver for testing. Within Google, this defaults to `gfile`, which
   # results in issues writing to the OCDBT manifest. When using `gfile` on the
   # local filesystem, write operations are not atomic.
-  ts_utils.DEFAULT_DRIVER = 'file'
+  ts_utils.DEFAULT_DRIVER = 'file'  # pyrefly: ignore[bad-assignment]
 
 
 class PyTreeCheckpointHandler(
@@ -526,7 +525,7 @@ class ErrorCheckpointHandler(async_checkpoint_handler.AsyncCheckpointHandler):
         raise SystemError()
       return 42
 
-    return commit_futures + [self._executor.submit(error_commit)]
+    return commit_futures + [self._executor.submit(error_commit)]  # pyrefly: ignore[unsupported-operation]
 
   def finalize(self, directory: epath.Path):
     self._handler.finalize(directory)
@@ -591,20 +590,29 @@ def ocdbt_checkpoint_context(use_ocdbt: bool, ts_context: Any):
       )
 
 
+@contextlib.contextmanager
+def _patch_unique_barrier_key(test_instance):
+  with mock.patch.object(
+      multihost,
+      '_unique_barrier_key',
+      new=lambda key: f'{key}.{test_instance.id()}',
+  ):
+    yield
+
+
 def _get_test_wrapper_function(test_func):
   """Creates a function to wrap a test method with custom patches."""
+  if inspect.iscoroutinefunction(test_func):
 
-  def test_wrapper(self, *args, **kwargs):
+    async def test_wrapper(self, *args, **kwargs):
+      with _patch_unique_barrier_key(self):
+        return await test_func(self, *args, **kwargs)
 
-    def _get_unique_barrier_key(key: str) -> str:
-      return f'{key}.{self.id()}'
+  else:
 
-    with mock.patch.object(
-        multihost,
-        '_unique_barrier_key',
-        new=_get_unique_barrier_key,
-    ):
-      return test_func(self, *args, **kwargs)
+    def test_wrapper(self, *args, **kwargs):
+      with _patch_unique_barrier_key(self):
+        return test_func(self, *args, **kwargs)
 
   return test_wrapper
 
@@ -652,8 +660,7 @@ def ensure_atomic_save(
             temp_ckpt_dir,
             final_ckpt_dir,
             checkpoint_metadata_store=metadata_store,
-        ).finalize(
-        )
+        ).finalize()
     )
   else:
     asyncio_utils.run_sync(
@@ -661,8 +668,7 @@ def ensure_atomic_save(
             temp_ckpt_dir,
             final_ckpt_dir,
             checkpoint_metadata_store=metadata_store,
-        ).finalize(
-        )
+        ).finalize()
     )
 
 

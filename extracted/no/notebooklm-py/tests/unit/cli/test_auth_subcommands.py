@@ -7,20 +7,410 @@ helpers live in ``_session_helpers.py``; the proxy-block-aware
 """
 
 import json
+import stat
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 
+import notebooklm.auth as auth_module
+import notebooklm.cli._firefox_containers as firefox_containers
 import notebooklm.cli.services.session_context as _sc
-from _fixtures import patch_session_login_dual
 from notebooklm.notebooklm_cli import cli
+from tests._fixtures import patch_session_login_dual
 
 from ._session_helpers import (
     _multiaccount_rookiepy_mock,
     _read_account,
 )
+
+
+def _valid_cookie_export(extra_cookies=None):
+    cookies = [
+        {"name": "SID", "value": "fixture-sid", "domain": ".google.com", "path": "/"},
+        {
+            "name": "__Secure-1PSIDTS",
+            "value": "fixture-psidts",
+            "domain": ".google.com",
+            "path": "/",
+        },
+        {"name": "APISID", "value": "fixture-apisid", "domain": ".google.com", "path": "/"},
+        {"name": "SAPISID", "value": "fixture-sapisid", "domain": ".google.com", "path": "/"},
+    ]
+    if extra_cookies:
+        cookies.extend(extra_cookies)
+    return cookies
+
+
+class TestAuthImportCookiesCommand:
+    """Tests for the 'auth import-cookies' command."""
+
+    def test_import_cookies_accepts_bare_cookie_list_and_storage_override(self, runner, tmp_path):
+        input_path = tmp_path / "cookies.json"
+        storage_path = tmp_path / "storage_state.json"
+        input_path.write_text(
+            json.dumps(
+                _valid_cookie_export(
+                    [
+                        {
+                            "name": "UNRELATED",
+                            "value": "should-not-persist",
+                            "domain": ".example.com",
+                            "path": "/",
+                        }
+                    ]
+                )
+            ),
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(
+            cli, ["--storage", str(storage_path), "auth", "import-cookies", str(input_path)]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "imported" in result.output
+        stored = json.loads(storage_path.read_text(encoding="utf-8"))
+        stored_names = {cookie["name"] for cookie in stored["cookies"]}
+        assert {"SID", "__Secure-1PSIDTS", "APISID", "SAPISID"} <= stored_names
+        assert "UNRELATED" not in stored_names
+
+    def test_import_cookies_accepts_playwright_storage_state_from_stdin(self, runner, tmp_path):
+        storage_path = tmp_path / "storage_state.json"
+        payload = {"cookies": _valid_cookie_export(), "origins": []}
+
+        result = runner.invoke(
+            cli,
+            ["--storage", str(storage_path), "auth", "import-cookies", "-", "--json"],
+            input=json.dumps(payload),
+        )
+
+        assert result.exit_code == 0, result.output
+        output = json.loads(result.output)
+        assert output["success"] is True
+        assert output["cookie_count"] == 4
+        assert json.loads(storage_path.read_text(encoding="utf-8"))["cookies"]
+
+    def test_import_cookies_drops_origins_from_playwright_storage_state(self, runner, tmp_path):
+        input_path = tmp_path / "playwright-storage-state.json"
+        storage_path = tmp_path / "storage_state.json"
+        input_path.write_text(
+            json.dumps(
+                {
+                    "cookies": _valid_cookie_export(),
+                    "origins": [
+                        {
+                            "origin": "https://evil.example.com",
+                            "localStorage": [{"name": "token", "value": "do-not-persist"}],
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(
+            cli, ["--storage", str(storage_path), "auth", "import-cookies", str(input_path)]
+        )
+
+        assert result.exit_code == 0, result.output
+        stored = json.loads(storage_path.read_text(encoding="utf-8"))
+        assert stored["cookies"]
+        assert stored["origins"] == []
+
+    def test_import_cookies_rejects_env_auth_json_interlock(self, runner, tmp_path, monkeypatch):
+        input_path = tmp_path / "cookies.json"
+        input_path.write_text(json.dumps(_valid_cookie_export()), encoding="utf-8")
+        monkeypatch.setenv("NOTEBOOKLM_AUTH_JSON", json.dumps({"cookies": []}))
+
+        result = runner.invoke(cli, ["auth", "import-cookies", str(input_path)])
+
+        assert result.exit_code != 0
+        assert "auth import-cookies" in result.output
+        assert "NOTEBOOKLM_AUTH_JSON" in result.output
+
+    def test_import_cookies_rejects_malformed_json(self, runner, tmp_path):
+        input_path = tmp_path / "cookies.json"
+        storage_path = tmp_path / "storage_state.json"
+        input_path.write_text("{not valid json", encoding="utf-8")
+
+        result = runner.invoke(
+            cli, ["--storage", str(storage_path), "auth", "import-cookies", str(input_path)]
+        )
+
+        assert result.exit_code != 0
+        assert "Invalid JSON" in result.output
+        assert not storage_path.exists()
+
+    def test_import_cookies_rejects_unsupported_json_shape(self, runner, tmp_path):
+        input_path = tmp_path / "cookies.json"
+        storage_path = tmp_path / "storage_state.json"
+        input_path.write_text(json.dumps({"not_cookies": []}), encoding="utf-8")
+
+        result = runner.invoke(
+            cli, ["--storage", str(storage_path), "auth", "import-cookies", str(input_path)]
+        )
+
+        assert result.exit_code != 0
+        assert "Cookie JSON must be either" in result.output
+        assert not storage_path.exists()
+
+    def test_import_cookies_include_domains_opts_into_sibling_product_cookies(
+        self, runner, tmp_path
+    ):
+        input_path = tmp_path / "cookies.json"
+        storage_path = tmp_path / "storage_state.json"
+        input_path.write_text(
+            json.dumps(
+                _valid_cookie_export(
+                    [
+                        {
+                            "name": "DOCS_PREF",
+                            "value": "docs-cookie",
+                            "domain": "docs.google.com",
+                            "path": "/",
+                        }
+                    ]
+                )
+            ),
+            encoding="utf-8",
+        )
+
+        result_default = runner.invoke(
+            cli, ["--storage", str(storage_path), "auth", "import-cookies", str(input_path)]
+        )
+
+        assert result_default.exit_code == 0, result_default.output
+        default_names = {
+            cookie["name"]
+            for cookie in json.loads(storage_path.read_text(encoding="utf-8"))["cookies"]
+        }
+        assert "DOCS_PREF" not in default_names
+
+        result_optin = runner.invoke(
+            cli,
+            [
+                "--storage",
+                str(storage_path),
+                "auth",
+                "import-cookies",
+                str(input_path),
+                "--include-domains",
+                "docs",
+            ],
+        )
+
+        assert result_optin.exit_code == 0, result_optin.output
+        optin_names = {
+            cookie["name"]
+            for cookie in json.loads(storage_path.read_text(encoding="utf-8"))["cookies"]
+        }
+        assert "DOCS_PREF" in optin_names
+
+    def test_import_cookies_sets_private_file_and_directory_permissions(self, runner, tmp_path):
+        if sys.platform == "win32":
+            pytest.skip("POSIX permission bits are not stable on Windows")
+        input_path = tmp_path / "cookies.json"
+        auth_dir = tmp_path / "profile"
+        storage_path = auth_dir / "storage_state.json"
+        input_path.write_text(json.dumps(_valid_cookie_export()), encoding="utf-8")
+
+        result = runner.invoke(
+            cli, ["--storage", str(storage_path), "auth", "import-cookies", str(input_path)]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert stat.S_IMODE(auth_dir.stat().st_mode) == 0o700
+        assert stat.S_IMODE(storage_path.stat().st_mode) == 0o600
+
+    def test_import_cookies_rejects_empty_required_cookie_values(self, runner, tmp_path):
+        input_path = tmp_path / "cookies.json"
+        storage_path = tmp_path / "storage_state.json"
+        cookies = _valid_cookie_export()
+        for cookie in cookies:
+            if cookie["name"] == "SID":
+                cookie["value"] = ""
+        input_path.write_text(json.dumps(cookies), encoding="utf-8")
+
+        result = runner.invoke(
+            cli, ["--storage", str(storage_path), "auth", "import-cookies", str(input_path)]
+        )
+
+        assert result.exit_code != 0
+        assert "Required cookies must have non-empty string values" in result.output
+        assert "SID" in result.output
+        assert not storage_path.exists()
+
+    def test_import_cookies_rejects_missing_required_cookies_without_leaking_values(
+        self, runner, tmp_path
+    ):
+        input_path = tmp_path / "cookies.json"
+        storage_path = tmp_path / "storage_state.json"
+        secret_value = "super-secret-cookie-value"
+        input_path.write_text(
+            json.dumps(
+                [
+                    {
+                        "name": "APISID",
+                        "value": secret_value,
+                        "domain": ".google.com",
+                        "path": "/",
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(
+            cli, ["--storage", str(storage_path), "auth", "import-cookies", str(input_path)]
+        )
+
+        assert result.exit_code != 0
+        assert "Missing required cookies" in result.output
+        assert secret_value not in result.output
+        assert not storage_path.exists()
+
+    def test_import_cookies_backs_up_existing_storage_state(self, runner, tmp_path):
+        input_path = tmp_path / "cookies.json"
+        storage_path = tmp_path / "storage_state.json"
+        storage_path.write_text(json.dumps({"cookies": [], "origins": []}), encoding="utf-8")
+        input_path.write_text(json.dumps(_valid_cookie_export()), encoding="utf-8")
+
+        result = runner.invoke(
+            cli, ["--storage", str(storage_path), "auth", "import-cookies", str(input_path)]
+        )
+
+        assert result.exit_code == 0, result.output
+        backup_path = storage_path.with_name(storage_path.name + ".bak")
+        assert backup_path.exists(), "previous storage_state should be backed up"
+        # The backup holds the PRIOR contents; the live file holds the import.
+        assert json.loads(backup_path.read_text(encoding="utf-8"))["cookies"] == []
+        assert json.loads(storage_path.read_text(encoding="utf-8"))["cookies"]
+        assert "backed up to" in result.output
+        if sys.platform != "win32":
+            # The .bak holds credentials too — it must be private (0o600).
+            assert stat.S_IMODE(backup_path.stat().st_mode) == 0o600
+
+    def test_import_cookies_no_backup_when_target_absent(self, runner, tmp_path):
+        input_path = tmp_path / "cookies.json"
+        storage_path = tmp_path / "storage_state.json"
+        input_path.write_text(json.dumps(_valid_cookie_export()), encoding="utf-8")
+
+        result = runner.invoke(
+            cli,
+            ["--storage", str(storage_path), "auth", "import-cookies", str(input_path), "--json"],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.output)["backup_path"] is None
+        assert not storage_path.with_name(storage_path.name + ".bak").exists()
+
+    def test_import_cookies_forces_secure_on_secure_prefixed_cookie(self, runner, tmp_path):
+        input_path = tmp_path / "cookies.json"
+        storage_path = tmp_path / "storage_state.json"
+        # __Secure-1PSIDTS arrives with secure omitted (bare-list export style).
+        cookies = [c for c in _valid_cookie_export() if c["name"] != "__Secure-1PSIDTS"]
+        cookies.append(
+            {
+                "name": "__Secure-1PSIDTS",
+                "value": "fixture-psidts",
+                "domain": ".google.com",
+                "path": "/",
+                "secure": False,
+            }
+        )
+        input_path.write_text(json.dumps(cookies), encoding="utf-8")
+
+        result = runner.invoke(
+            cli, ["--storage", str(storage_path), "auth", "import-cookies", str(input_path)]
+        )
+
+        assert result.exit_code == 0, result.output
+        stored = json.loads(storage_path.read_text(encoding="utf-8"))
+        secure_cookie = next(c for c in stored["cookies"] if c["name"] == "__Secure-1PSIDTS")
+        assert secure_cookie["secure"] is True
+
+    def test_import_cookies_rejects_present_but_empty_secondary_binding(self, runner, tmp_path):
+        input_path = tmp_path / "cookies.json"
+        storage_path = tmp_path / "storage_state.json"
+        # SID + __Secure-1PSIDTS present and non-empty, but the secondary binding
+        # (APISID/SAPISID) is present-with-empty values and there is no OSID:
+        # the name-level check would pass, so the value-level guard must catch it.
+        cookies = [
+            {"name": "SID", "value": "fixture-sid", "domain": ".google.com", "path": "/"},
+            {
+                "name": "__Secure-1PSIDTS",
+                "value": "fixture-psidts",
+                "domain": ".google.com",
+                "path": "/",
+            },
+            {"name": "APISID", "value": "", "domain": ".google.com", "path": "/"},
+            {"name": "SAPISID", "value": "", "domain": ".google.com", "path": "/"},
+        ]
+        input_path.write_text(json.dumps(cookies), encoding="utf-8")
+
+        result = runner.invoke(
+            cli, ["--storage", str(storage_path), "auth", "import-cookies", str(input_path)]
+        )
+
+        assert result.exit_code != 0
+        assert "present but have empty values" in result.output
+        assert "OSID" in result.output
+        assert not storage_path.exists()
+
+    def test_import_cookies_allows_missing_secondary_binding(self, runner, tmp_path):
+        # No secondary-binding cookie present at all: like the login flow (which
+        # only warns), import-cookies must NOT hard-reject this — it persists.
+        input_path = tmp_path / "cookies.json"
+        storage_path = tmp_path / "storage_state.json"
+        cookies = [
+            {"name": "SID", "value": "fixture-sid", "domain": ".google.com", "path": "/"},
+            {
+                "name": "__Secure-1PSIDTS",
+                "value": "fixture-psidts",
+                "domain": ".google.com",
+                "path": "/",
+            },
+        ]
+        input_path.write_text(json.dumps(cookies), encoding="utf-8")
+
+        result = runner.invoke(
+            cli, ["--storage", str(storage_path), "auth", "import-cookies", str(input_path)]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert storage_path.exists()
+
+    def test_import_cookies_rejects_non_object_cookie_entry(self, runner, tmp_path):
+        # A bare list containing a non-object element must fail cleanly at the
+        # normalization boundary, not crash in the downstream extractor.
+        input_path = tmp_path / "cookies.json"
+        storage_path = tmp_path / "storage_state.json"
+        input_path.write_text(json.dumps([*_valid_cookie_export(), "not-an-object"]), "utf-8")
+
+        result = runner.invoke(
+            cli, ["--storage", str(storage_path), "auth", "import-cookies", str(input_path)]
+        )
+
+        assert result.exit_code != 0
+        assert "must be a JSON object" in result.output
+        assert not storage_path.exists()
+
+    def test_import_cookies_json_error_output_is_json(self, runner, tmp_path):
+        # The handle_errors(json_output=...) fix: a failure under --json must
+        # render the JSON error envelope, not plain text.
+        input_path = tmp_path / "bad.json"
+        storage_path = tmp_path / "storage_state.json"
+        input_path.write_text("not valid json", encoding="utf-8")
+
+        result = runner.invoke(
+            cli,
+            ["--storage", str(storage_path), "auth", "import-cookies", str(input_path), "--json"],
+        )
+
+        assert result.exit_code != 0
+        assert json.loads(result.output)["error"] is True  # parses as JSON
 
 
 class TestAuthCheckCommand:
@@ -33,6 +423,167 @@ class TestAuthCheckCommand:
         with patch_session_login_dual("get_storage_path", return_value=storage_file):
             yield storage_file
 
+    def _write_valid_storage(self, path):
+        """A storage_state that passes every local check, with in-band account."""
+        path.write_text(
+            json.dumps(
+                {
+                    "cookies": [
+                        {"name": n, "value": f"{n}-v", "domain": ".google.com", "path": "/"}
+                        for n in ("SID", "__Secure-1PSIDTS", "APISID", "SAPISID")
+                    ],
+                    "notebooklm": {"account": {"email": "you@gmail.com", "authuser": 0}},
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    def test_auth_check_identity_fields_parity_rich_vs_json(self, runner, mock_storage_path):
+        """Every identity/location fact is shown in BOTH the table and --json,
+        sourced from one result so the two surfaces never disagree (issue #1640)."""
+        self._write_valid_storage(mock_storage_path)
+        auth_module.write_master_token(
+            mock_storage_path.with_name("master_token.json"),
+            email="you@gmail.com",
+            master_token="aas_et/secret",
+            android_id="0123456789abcdef",
+        )
+        master_path = str(mock_storage_path.with_name("master_token.json"))
+
+        json_result = runner.invoke(cli, ["auth", "check", "--json"])
+        assert json_result.exit_code == 0, json_result.output
+        payload = json.loads(json_result.output)
+
+        # JSON exposes the identity facts at top level.
+        assert payload["account"]["email"] == "you@gmail.com"
+        assert payload["storage_path"] == str(mock_storage_path)
+        assert payload["master_token"]["path"] == master_path
+        assert payload["master_token"]["present"] is True
+        assert payload["psidts"]["present"] is True
+
+        rich_result = runner.invoke(cli, ["auth", "check"])
+        assert rich_result.exit_code == 0, rich_result.output
+        text = rich_result.output
+
+        # Parity: each identity fact in the JSON also appears in the table. Paths
+        # can wrap in the Rich table, so compare on the filename, not the full
+        # path string.
+        assert payload["account"]["email"] in text
+        assert "master_token.json" in text
+        assert "__Secure-1PSIDTS" in text
+        assert "Account" in text and "Master token" in text
+
+    def test_auth_check_test_json_includes_live_notebook_count(self, runner, tmp_path):
+        """notebook_count flows through the REAL command wiring on --test --json.
+
+        Regression for the nested-event-loop bug: the count probe must run from
+        sync context (after run_auth_check's loop closes), not inside it, or
+        run_async would raise and the count would silently be null. Uses an
+        explicit --storage path so both the core check and the probe's auth
+        loader resolve the same file.
+        """
+        storage = tmp_path / "storage_state.json"
+        self._write_valid_storage(storage)
+
+        class _FakeNotebooks:
+            async def list(self):
+                return [object(), object(), object()]  # 3 notebooks
+
+        class _FakeClient:
+            notebooks = _FakeNotebooks()
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *exc):
+                return False
+
+        def factory(auth=None, **kwargs):
+            return _FakeClient()
+
+        with patch.object(
+            auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+        ) as mock_fetch:
+            mock_fetch.return_value = ("csrf_token", "session_id")
+            result = runner.invoke(
+                cli,
+                ["--storage", str(storage), "auth", "check", "--test", "--json"],
+                obj={"client_factory": factory},
+            )
+
+        assert result.exit_code == 0, result.output
+        output = json.loads(result.output)
+        assert output["notebook_count"] == 3
+
+    def test_auth_check_never_leaks_secret_values(self, runner, tmp_path):
+        """auth check must surface identity (names, domains, paths, email) but
+        NEVER a secret value — no cookie values, no master_token value — in either
+        the Rich table or --json. Security invariant for issue #1640."""
+        storage = tmp_path / "storage_state.json"
+        secrets = {
+            "SID": "SID_SECRET_VALUE_abc123",
+            "__Secure-1PSIDTS": "PSIDTS_SECRET_VALUE_xyz789",
+            "APISID": "APISID_SECRET_VALUE",
+            "SAPISID": "SAPISID_SECRET_VALUE",
+        }
+        storage.write_text(
+            json.dumps(
+                {
+                    "cookies": [
+                        {"name": n, "value": v, "domain": ".google.com", "path": "/"}
+                        for n, v in secrets.items()
+                    ],
+                    "notebooklm": {"account": {"email": "you@gmail.com", "authuser": 0}},
+                }
+            ),
+            encoding="utf-8",
+        )
+        master_secret = "aas_et/MASTER_TOKEN_SECRET_DO_NOT_LEAK"
+        auth_module.write_master_token(
+            storage.with_name("master_token.json"),
+            email="you@gmail.com",
+            master_token=master_secret,
+            android_id="0123456789abcdef",
+        )
+        forbidden = [master_secret, *secrets.values()]
+
+        for args in (
+            ["--storage", str(storage), "auth", "check"],
+            ["--storage", str(storage), "auth", "check", "--json"],
+        ):
+            result = runner.invoke(cli, args)
+            assert result.exit_code == 0, result.output
+            leaked = [s for s in forbidden if s in result.output]
+            assert not leaked, f"auth check leaked secret value(s) {leaked} via {args}"
+
+    def test_auth_check_master_token_psidts_hint(self, runner, mock_storage_path):
+        """Missing PSIDTS on a master-token profile shows the corrected guidance,
+        not the browser-extraction / App-Bound Encryption hint."""
+        # SID + secondary binding but no __Secure-1PSIDTS.
+        mock_storage_path.write_text(
+            json.dumps(
+                {
+                    "cookies": [
+                        {"name": n, "value": f"{n}-v", "domain": ".google.com", "path": "/"}
+                        for n in ("SID", "APISID", "SAPISID")
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        auth_module.write_master_token(
+            mock_storage_path.with_name("master_token.json"),
+            email="you@gmail.com",
+            master_token="aas_et/secret",
+            android_id="0123456789abcdef",
+        )
+
+        result = runner.invoke(cli, ["auth", "check", "--json"])
+        assert result.exit_code != 0
+        payload = json.loads(result.output)
+        assert "master_token.json is present" in payload["details"]["error"]
+        assert "App-Bound Encryption" not in payload["details"]["error"]
+
     def test_auth_check_storage_not_found(self, runner, mock_storage_path):
         """Test auth check when storage file doesn't exist."""
         # Ensure file doesn't exist
@@ -41,7 +592,8 @@ class TestAuthCheckCommand:
 
         result = runner.invoke(cli, ["auth", "check"])
 
-        assert result.exit_code == 0
+        # Failed check ⇒ non-zero exit in text mode too (issue #1569).
+        assert result.exit_code != 0
         assert "Storage exists" in result.output
         assert "fail" in result.output.lower() or "✗" in result.output
 
@@ -68,7 +620,8 @@ class TestAuthCheckCommand:
 
         result = runner.invoke(cli, ["auth", "check"])
 
-        assert result.exit_code == 0
+        # Failed check ⇒ non-zero exit in text mode too (issue #1569).
+        assert result.exit_code != 0
         assert "JSON valid" in result.output
         assert "fail" in result.output.lower() or "✗" in result.output
 
@@ -102,8 +655,9 @@ class TestAuthCheckCommand:
         directory as text raises ``IsADirectoryError``, a subclass of
         ``OSError``.
 
-        Contract: text mode shows the checks table (no traceback) and
-        exits 0 just like the existing invalid-JSON case.
+        Contract: text mode shows the checks table (no traceback) and exits
+        non-zero on the failed ``json_valid`` check, matching --json mode and
+        the invalid-JSON case (issue #1569).
         """
         # The fixture yields a path under tmp_path but does not create the
         # file. Make the path a directory so `read_text` raises
@@ -114,9 +668,10 @@ class TestAuthCheckCommand:
 
         result = runner.invoke(cli, ["auth", "check"])
 
-        # No traceback should leak.
-        assert result.exit_code == 0, (
-            f"unexpected traceback / non-zero text-mode exit: "
+        # Failed check ⇒ non-zero exit, but via a clean SystemExit — no
+        # traceback should leak to the caller.
+        assert result.exit_code != 0, (
+            f"expected non-zero text-mode exit on failed check: "
             f"stdout={result.output!r} exc={result.exception!r}"
         )
         assert result.exception is None or isinstance(result.exception, SystemExit), (
@@ -189,7 +744,8 @@ class TestAuthCheckCommand:
 
         result = runner.invoke(cli, ["auth", "check"])
 
-        assert result.exit_code == 0
+        # Missing SID cookie is a failed check ⇒ non-zero exit (issue #1569).
+        assert result.exit_code != 0
         assert "SID" in result.output or "cookie" in result.output.lower()
 
     def test_auth_check_valid_storage(self, runner, mock_storage_path):
@@ -271,8 +827,8 @@ class TestAuthCheckCommand:
         }
         mock_storage_path.write_text(json.dumps(storage_data))
 
-        with patch(
-            "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+        with patch.object(
+            auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
         ) as mock_fetch:
             mock_fetch.return_value = ("csrf_token_abc", "session_id_xyz")
 
@@ -292,14 +848,16 @@ class TestAuthCheckCommand:
         }
         mock_storage_path.write_text(json.dumps(storage_data))
 
-        with patch(
-            "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+        with patch.object(
+            auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
         ) as mock_fetch:
             mock_fetch.side_effect = ValueError("Authentication expired")
 
             result = runner.invoke(cli, ["auth", "check", "--test"])
 
-        assert result.exit_code == 0
+        # Text mode must exit non-zero on a failed executed check, matching
+        # --json mode, so unattended automation can fail-fast (issue #1569).
+        assert result.exit_code != 0
         assert "Token fetch" in result.output
         assert "fail" in result.output.lower() or "✗" in result.output
         assert "expired" in result.output.lower() or "refresh" in result.output.lower()
@@ -314,8 +872,8 @@ class TestAuthCheckCommand:
         }
         mock_storage_path.write_text(json.dumps(storage_data))
 
-        with patch(
-            "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+        with patch.object(
+            auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
         ) as mock_fetch:
             mock_fetch.return_value = ("csrf_12345", "sess_67890")
 
@@ -327,6 +885,78 @@ class TestAuthCheckCommand:
         assert output["checks"]["token_fetch"] is True
         assert output["details"]["csrf_length"] == 10
         assert output["details"]["session_id_length"] == 10
+
+    def test_auth_check_passive_uses_passive_fetch(self, runner, mock_storage_path):
+        """``--test --passive`` routes through the read-only passive fetch.
+
+        The passive path must NOT touch ``fetch_tokens_with_domains`` (which
+        runs NOTEBOOKLM_REFRESH_CMD, rotates cookies, and persists to disk).
+        Issue #1569: a readiness probe must be side-effect-free.
+        """
+        storage_data = {
+            "cookies": [
+                {"name": "SID", "value": "test_sid", "domain": ".google.com"},
+                {"name": "__Secure-1PSIDTS", "value": "test_1psidts", "domain": ".google.com"},
+            ]
+        }
+        mock_storage_path.write_text(json.dumps(storage_data), encoding="utf-8")
+
+        with (
+            patch.object(
+                auth_module, "fetch_tokens_passive", new_callable=AsyncMock
+            ) as mock_passive,
+            patch.object(
+                auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_active,
+        ):
+            mock_passive.return_value = ("csrf_token_abc", "session_id_xyz")
+
+            result = runner.invoke(cli, ["auth", "check", "--test", "--passive"])
+
+        assert result.exit_code == 0
+        mock_passive.assert_awaited_once()
+        mock_active.assert_not_called()
+        assert "Token fetch" in result.output
+        assert "pass" in result.output.lower() or "✓" in result.output
+
+    def test_auth_check_passive_failure_exits_nonzero(self, runner, mock_storage_path):
+        """``--test --passive`` still fails loud (non-zero) when the probe fails."""
+        storage_data = {
+            "cookies": [
+                {"name": "SID", "value": "test_sid", "domain": ".google.com"},
+                {"name": "__Secure-1PSIDTS", "value": "test_1psidts", "domain": ".google.com"},
+            ]
+        }
+        mock_storage_path.write_text(json.dumps(storage_data), encoding="utf-8")
+
+        with patch.object(
+            auth_module, "fetch_tokens_passive", new_callable=AsyncMock
+        ) as mock_passive:
+            mock_passive.side_effect = ValueError("Authentication expired")
+
+            result = runner.invoke(cli, ["auth", "check", "--test", "--passive", "--json"])
+
+        assert result.exit_code != 0
+        output = json.loads(result.output)
+        assert output["status"] == "error"
+        assert output["checks"]["token_fetch"] is False
+
+    def test_auth_check_passive_without_test_warns_no_effect(self, runner, mock_storage_path):
+        """``--passive`` without ``--test`` is a no-op on already-passive local
+        checks; warn (not fail) so the caller is not misled."""
+        storage_data = {
+            "cookies": [
+                {"name": "SID", "value": "test_sid", "domain": ".google.com"},
+                {"name": "__Secure-1PSIDTS", "value": "test_1psidts", "domain": ".google.com"},
+            ]
+        }
+        mock_storage_path.write_text(json.dumps(storage_data), encoding="utf-8")
+
+        result = runner.invoke(cli, ["auth", "check", "--passive"])
+
+        # Still succeeds (local checks all pass), but the note is surfaced.
+        assert result.exit_code == 0
+        assert "no effect without --test" in result.output
 
     def test_auth_check_env_var_takes_precedence(self, runner, mock_storage_path, monkeypatch):
         """Test auth check uses NOTEBOOKLM_AUTH_JSON when set."""
@@ -348,6 +978,35 @@ class TestAuthCheckCommand:
         output = json.loads(result.output)
         assert output["status"] == "ok"
         assert output["details"]["auth_source"] == "NOTEBOOKLM_AUTH_JSON"
+
+    def test_auth_check_passive_with_env_auth_passes_none_path(
+        self, runner, mock_storage_path, monkeypatch
+    ):
+        """``--test --passive`` under NOTEBOOKLM_AUTH_JSON routes the passive
+        probe with ``token_path=None`` (read-from-env), like the active path."""
+        if mock_storage_path.exists():
+            mock_storage_path.unlink()
+        env_storage = {
+            "cookies": [
+                {"name": "SID", "value": "env_sid", "domain": ".google.com"},
+                {"name": "__Secure-1PSIDTS", "value": "test_1psidts", "domain": ".google.com"},
+            ]
+        }
+        monkeypatch.setenv("NOTEBOOKLM_AUTH_JSON", json.dumps(env_storage))
+
+        with patch.object(
+            auth_module, "fetch_tokens_passive", new_callable=AsyncMock
+        ) as mock_passive:
+            mock_passive.return_value = ("csrf_env", "session_env")
+
+            result = runner.invoke(cli, ["auth", "check", "--test", "--passive", "--json"])
+
+        assert result.exit_code == 0
+        # has_env_auth ⇒ token_path is None (the env-var read signal), profile arg follows.
+        mock_passive.assert_awaited_once()
+        assert mock_passive.await_args.args[0] is None
+        output = json.loads(result.output)
+        assert output["checks"]["token_fetch"] is True
 
     def test_auth_check_shows_cookie_domains(self, runner, mock_storage_path):
         """Test auth check displays cookie domains."""
@@ -479,7 +1138,7 @@ class TestLoginBrowserCookies:
         with (
             patch.dict("sys.modules", {"rookiepy": mock_rookiepy}),
             patch_session_login_dual("get_storage_path", return_value=storage_file),
-            patch("notebooklm.cli.session_cmd._sync_server_language_to_config"),
+            patch_session_login_dual("_sync_server_language_to_config"),
             patch_session_login_dual(
                 "fetch_tokens_with_domains",
                 new_callable=AsyncMock,
@@ -620,7 +1279,7 @@ class TestLoginBrowserCookies:
         with (
             patch.dict("sys.modules", {"rookiepy": mock_rookiepy}),
             patch_session_login_dual("get_storage_path", return_value=storage_file),
-            patch("notebooklm.cli.session_cmd._sync_server_language_to_config"),
+            patch_session_login_dual("_sync_server_language_to_config"),
             patch_session_login_dual(
                 "fetch_tokens_with_domains",
                 new_callable=AsyncMock,
@@ -684,20 +1343,23 @@ class TestLoginBrowserCookies:
         mock_rookiepy = MagicMock()
         with (
             patch.dict("sys.modules", {"rookiepy": mock_rookiepy}),
-            patch(
-                "notebooklm.cli._firefox_containers.find_firefox_profile_path",
+            patch.object(
+                firefox_containers,
+                "find_firefox_profile_path",
                 return_value=tmp_path / "ff_profile",
             ),
-            patch(
-                "notebooklm.cli._firefox_containers.resolve_container_id",
+            patch.object(
+                firefox_containers,
+                "resolve_container_id",
                 return_value=2,
             ),
-            patch(
-                "notebooklm.cli._firefox_containers.extract_firefox_container_cookies",
+            patch.object(
+                firefox_containers,
+                "extract_firefox_container_cookies",
                 return_value=mock_cookies,
             ) as mock_extract,
             patch_session_login_dual("get_storage_path", return_value=storage_file),
-            patch("notebooklm.cli.session_cmd._sync_server_language_to_config"),
+            patch_session_login_dual("_sync_server_language_to_config"),
             patch_session_login_dual(
                 "fetch_tokens_with_domains",
                 new_callable=AsyncMock,
@@ -741,16 +1403,18 @@ class TestLoginBrowserCookies:
         ]
         with (
             patch.dict("sys.modules", {"rookiepy": MagicMock()}),
-            patch(
-                "notebooklm.cli._firefox_containers.find_firefox_profile_path",
+            patch.object(
+                firefox_containers,
+                "find_firefox_profile_path",
                 return_value=tmp_path / "ff_profile",
             ),
-            patch(
-                "notebooklm.cli._firefox_containers.extract_firefox_container_cookies",
+            patch.object(
+                firefox_containers,
+                "extract_firefox_container_cookies",
                 return_value=mock_cookies,
             ) as mock_extract,
             patch_session_login_dual("get_storage_path", return_value=storage_file),
-            patch("notebooklm.cli.session_cmd._sync_server_language_to_config"),
+            patch_session_login_dual("_sync_server_language_to_config"),
             patch_session_login_dual(
                 "fetch_tokens_with_domains",
                 new_callable=AsyncMock,
@@ -769,12 +1433,14 @@ class TestLoginBrowserCookies:
         """Unknown container name shows a helpful error and exits non-zero."""
         with (
             patch.dict("sys.modules", {"rookiepy": MagicMock()}),
-            patch(
-                "notebooklm.cli._firefox_containers.find_firefox_profile_path",
+            patch.object(
+                firefox_containers,
+                "find_firefox_profile_path",
                 return_value=tmp_path / "ff_profile",
             ),
-            patch(
-                "notebooklm.cli._firefox_containers.resolve_container_id",
+            patch.object(
+                firefox_containers,
+                "resolve_container_id",
                 side_effect=ValueError(
                     "Firefox container 'Nope' not found. Available containers: 'Work', 'Personal'."
                 ),
@@ -793,8 +1459,9 @@ class TestLoginBrowserCookies:
         """Missing Firefox install shows a friendly error, not a stack trace."""
         with (
             patch.dict("sys.modules", {"rookiepy": MagicMock()}),
-            patch(
-                "notebooklm.cli._firefox_containers.find_firefox_profile_path",
+            patch.object(
+                firefox_containers,
+                "find_firefox_profile_path",
                 return_value=None,
             ),
             patch_session_login_dual(
@@ -855,16 +1522,18 @@ class TestLoginBrowserCookies:
         mock_rookiepy.firefox = MagicMock(return_value=mock_cookies)
         with (
             patch.dict("sys.modules", {"rookiepy": mock_rookiepy}),
-            patch(
-                "notebooklm.cli._firefox_containers.find_firefox_profile_path",
+            patch.object(
+                firefox_containers,
+                "find_firefox_profile_path",
                 return_value=tmp_path / "ff_profile",
             ),
-            patch(
-                "notebooklm.cli._firefox_containers.has_container_cookies_in_use",
+            patch.object(
+                firefox_containers,
+                "has_container_cookies_in_use",
                 return_value=True,
             ),
             patch_session_login_dual("get_storage_path", return_value=storage_file),
-            patch("notebooklm.cli.session_cmd._sync_server_language_to_config"),
+            patch_session_login_dual("_sync_server_language_to_config"),
             patch_session_login_dual(
                 "fetch_tokens_with_domains",
                 new_callable=AsyncMock,
@@ -904,16 +1573,18 @@ class TestLoginBrowserCookies:
         mock_rookiepy.firefox = MagicMock(return_value=mock_cookies)
         with (
             patch.dict("sys.modules", {"rookiepy": mock_rookiepy}),
-            patch(
-                "notebooklm.cli._firefox_containers.find_firefox_profile_path",
+            patch.object(
+                firefox_containers,
+                "find_firefox_profile_path",
                 return_value=tmp_path / "ff_profile",
             ),
-            patch(
-                "notebooklm.cli._firefox_containers.has_container_cookies_in_use",
+            patch.object(
+                firefox_containers,
+                "has_container_cookies_in_use",
                 return_value=False,
             ),
             patch_session_login_dual("get_storage_path", return_value=storage_file),
-            patch("notebooklm.cli.session_cmd._sync_server_language_to_config"),
+            patch_session_login_dual("_sync_server_language_to_config"),
             patch_session_login_dual(
                 "fetch_tokens_with_domains",
                 new_callable=AsyncMock,
@@ -931,6 +1602,95 @@ class TestLoginBrowserCookies:
 
 
 class TestAuthLogoutCommand:
+    def test_auth_logout_storage_override_removes_only_matching_state(self, runner, tmp_path):
+        """Custom-storage logout leaves other and ambient browser profiles intact."""
+        storage_a = tmp_path / "A.json"
+        storage_a.write_text('{"cookies": []}')
+        context_a = tmp_path / "A.json.context.json"
+        context_a.write_text('{"notebook_id": "A"}')
+        browser_a = tmp_path / "A.json.browser_profile"
+        browser_a.mkdir()
+        (browser_a / ".notebooklm-owned").touch()
+
+        storage_b = tmp_path / "B.json"
+        storage_b.write_text('{"cookies": []}')
+        context_b = tmp_path / "B.json.context.json"
+        context_b.write_text('{"notebook_id": "B"}')
+        browser_b = tmp_path / "B.json.browser_profile"
+        browser_b.mkdir()
+        (browser_b / ".notebooklm-owned").touch()
+
+        ambient_browser = _sc.get_browser_profile_dir()
+        ambient_browser.mkdir(parents=True)
+
+        result = runner.invoke(cli, ["--storage", str(storage_a), "auth", "logout"])
+
+        assert result.exit_code == 0, result.output
+        assert not storage_a.exists()
+        assert not context_a.exists()
+        assert not browser_a.exists()
+        assert storage_b.exists()
+        assert context_b.exists()
+        assert browser_b.exists()
+        assert ambient_browser.exists()
+
+    def test_auth_logout_storage_override_preserves_unmarked_browser_profile(
+        self, runner, tmp_path
+    ):
+        """Custom-storage logout never deletes a pre-existing unowned sidecar."""
+        storage = tmp_path / "A.json"
+        storage.write_text('{"cookies": []}')
+        context = tmp_path / "A.json.context.json"
+        context.write_text('{"notebook_id": "A"}')
+        browser_profile = tmp_path / "A.json.browser_profile"
+        browser_profile.mkdir()
+        payload = browser_profile / "keep-me"
+        payload.write_text("external")
+
+        result = runner.invoke(cli, ["--storage", str(storage), "auth", "logout"])
+
+        assert result.exit_code == 0, result.output
+        assert not storage.exists()
+        assert not context.exists()
+        assert payload.read_text() == "external"
+        assert "preserved" in result.output.lower()
+        assert browser_profile.name in result.output
+
+    def test_auth_logout_json_reports_preserved_unowned_browser_profile(self, runner, tmp_path):
+        storage = tmp_path / "A.json"
+        storage.write_text('{"cookies": []}')
+        browser_profile = tmp_path / "A.json.browser_profile"
+        browser_profile.mkdir()
+
+        result = runner.invoke(
+            cli,
+            ["--storage", str(storage), "auth", "logout", "--json"],
+        )
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        assert payload["browser_profile_preserved"] == str(browser_profile)
+        assert browser_profile.is_dir()
+
+    def test_auth_logout_explicit_named_profile_removes_unmarked_browser_profile(
+        self, runner, tmp_path, monkeypatch
+    ):
+        home = tmp_path / "home"
+        monkeypatch.setenv("NOTEBOOKLM_HOME", str(home))
+        profile_dir = home / "profiles" / "work"
+        profile_dir.mkdir(parents=True)
+        storage = profile_dir / "storage_state.json"
+        storage.write_text('{"cookies": []}')
+        browser_profile = profile_dir / "browser_profile"
+        browser_profile.mkdir()
+        (browser_profile / "session").write_text("managed")
+
+        result = runner.invoke(cli, ["--storage", str(storage), "auth", "logout"])
+
+        assert result.exit_code == 0, result.output
+        assert not browser_profile.exists()
+        assert "preserved" not in result.output.lower()
+
     def test_auth_logout_deletes_storage_and_browser_profile(
         self, runner, tmp_path, mock_context_file, monkeypatch
     ):
@@ -1130,8 +1890,9 @@ class TestAuthLogoutCommand:
         monkeypatch.setattr(_sc, "get_browser_profile_dir", mock_browser_dir)
         with (
             patch_session_login_dual("get_storage_path", return_value=storage_file),
-            patch(
-                "notebooklm.cli.services.session_context.clear_context",
+            patch.object(
+                _sc,
+                "clear_context",
                 side_effect=OSError("file in use"),
             ),
         ):
@@ -1172,8 +1933,8 @@ class TestAuthRefreshCommand:
 
     def test_auth_refresh_success(self, runner, mock_storage_path):
         """auth refresh exits 0 and prints `ok` on a successful token fetch."""
-        with patch(
-            "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+        with patch.object(
+            auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
         ) as mock_fetch:
             mock_fetch.return_value = ("csrf_ok", "session_ok")
             result = runner.invoke(cli, ["auth", "refresh"])
@@ -1181,10 +1942,52 @@ class TestAuthRefreshCommand:
         assert "ok" in result.output.lower()
         mock_fetch.assert_awaited_once()
 
+    def test_auth_refresh_json_success(self, runner, mock_storage_path):
+        """--json emits a single structured keepalive result on stdout."""
+        with patch.object(
+            auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+        ) as mock_fetch:
+            mock_fetch.return_value = ("csrf_ok", "session_ok")
+            result = runner.invoke(cli, ["auth", "refresh", "--json"])
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        assert payload["status"] == "ok"
+        assert payload["verified"] is False
+
+    def test_auth_refresh_json_verify_success(self, runner, mock_storage_path):
+        """``--json --verify`` success emits a single document with verified=True —
+        the human '[green]ok[/green] verified' line must NOT leak onto stdout."""
+        with (
+            patch.object(
+                auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch,
+            patch.object(
+                auth_module, "fetch_tokens_passive", new_callable=AsyncMock
+            ) as mock_passive,
+        ):
+            mock_fetch.return_value = ("csrf_ok", "session_ok")
+            mock_passive.return_value = ("csrf_ok", "session_ok")
+            result = runner.invoke(cli, ["auth", "refresh", "--verify", "--json"])
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.stdout)  # raises if a stray line preceded the JSON
+        assert payload["status"] == "ok"
+        assert payload["verified"] is True
+        assert "verified:" not in result.stdout  # no human line leaked
+
+    def test_auth_refresh_json_with_browser_cookies_is_refused(self, runner, mock_storage_path):
+        """``--json`` + ``--browser-cookies`` returns the error envelope, never the
+        interactive login-IO output (which writes Rich text to stdout and would
+        corrupt the single-JSON-document contract)."""
+        result = runner.invoke(cli, ["auth", "refresh", "--browser-cookies", "chrome", "--json"])
+        assert result.exit_code == 1, result.output
+        payload = json.loads(result.output)
+        assert payload["error"] is True
+        assert payload["code"] == "json_unsupported_with_browser_cookies"
+
     def test_auth_refresh_quiet_suppresses_success_output(self, runner, mock_storage_path):
         """--quiet keeps stdout clean when refresh succeeds (cron-friendly)."""
-        with patch(
-            "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+        with patch.object(
+            auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
         ) as mock_fetch:
             mock_fetch.return_value = ("csrf_ok", "session_ok")
             result = runner.invoke(cli, ["auth", "refresh", "--quiet"])
@@ -1200,8 +2003,8 @@ class TestAuthRefreshCommand:
         (exit 2) and the user sees a friendly 'Unexpected error: <msg>' line
         rather than a Python traceback.
         """
-        with patch(
-            "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+        with patch.object(
+            auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
         ) as mock_fetch:
             mock_fetch.side_effect = ValueError("Authentication expired or invalid.")
             result = runner.invoke(cli, ["auth", "refresh"])
@@ -1222,8 +2025,8 @@ class TestAuthRefreshCommand:
 
         Regression guard for the error-handler polish.
         """
-        with patch(
-            "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+        with patch.object(
+            auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
         ) as mock_fetch:
             mock_fetch.side_effect = httpx.ConnectTimeout("")  # empty message
             result = runner.invoke(cli, ["auth", "refresh"])
@@ -1261,12 +2064,84 @@ class TestAuthRefreshCommand:
         assert "Unexpected error" in result.output
         assert "rookiepy could not read cookies" in result.output
 
+    def test_auth_refresh_verify_success(self, runner, mock_storage_path):
+        """``--verify`` runs a passive token fetch after refresh; exit 0 on success."""
+        with (
+            patch.object(
+                auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch,
+            patch.object(
+                auth_module, "fetch_tokens_passive", new_callable=AsyncMock
+            ) as mock_passive,
+        ):
+            mock_fetch.return_value = ("csrf_ok", "session_ok")
+            mock_passive.return_value = ("csrf_ok", "session_ok")
+            result = runner.invoke(cli, ["auth", "refresh", "--verify"])
+        assert result.exit_code == 0
+        mock_passive.assert_awaited_once()
+        assert "verified" in result.output.lower()
+
+    def test_auth_refresh_verify_failure_exits_nonzero(self, runner, mock_storage_path):
+        """Refresh can succeed while the post-refresh token fetch still fails.
+
+        ``--verify`` makes that fail loud (exit 1) so a scheduler can rely on
+        the exit code rather than trusting refresh success alone (issue #1569).
+        """
+        with (
+            patch.object(
+                auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch,
+            patch.object(
+                auth_module, "fetch_tokens_passive", new_callable=AsyncMock
+            ) as mock_passive,
+        ):
+            mock_fetch.return_value = ("csrf_ok", "session_ok")
+            mock_passive.side_effect = ValueError("Authentication expired or invalid.")
+            result = runner.invoke(cli, ["auth", "refresh", "--verify"])
+        assert result.exit_code == 1
+        assert "post-refresh token fetch failed" in result.output.lower()
+        assert "Traceback (most recent call last)" not in result.output
+
+    def test_auth_refresh_verify_failure_json_envelope(self, runner, mock_storage_path):
+        """``--verify`` failure under ``--json`` emits the error envelope on stdout
+        (exit 1), not a human stderr line — the json contract holds on this path."""
+        with (
+            patch.object(
+                auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch,
+            patch.object(
+                auth_module, "fetch_tokens_passive", new_callable=AsyncMock
+            ) as mock_passive,
+        ):
+            mock_fetch.return_value = ("csrf_ok", "session_ok")
+            mock_passive.side_effect = ValueError("Authentication expired or invalid.")
+            result = runner.invoke(cli, ["auth", "refresh", "--verify", "--json"])
+        assert result.exit_code == 1, result.output
+        payload = json.loads(result.output)
+        assert payload["error"] is True
+        assert payload["code"] == "post_refresh_token_fetch_failed"
+
+    def test_auth_refresh_verify_after_browser_cookies(self, runner, mock_storage_path):
+        """``--verify`` also gates the ``--browser-cookies`` rewrite path."""
+        with (
+            patch_session_login_dual("_refresh_from_browser_cookies"),
+            patch.object(
+                auth_module, "fetch_tokens_passive", new_callable=AsyncMock
+            ) as mock_passive,
+        ):
+            mock_passive.return_value = ("csrf_ok", "session_ok")
+            result = runner.invoke(
+                cli, ["auth", "refresh", "--browser-cookies", "chrome", "--verify"]
+            )
+        assert result.exit_code == 0
+        mock_passive.assert_awaited_once()
+
     def test_auth_refresh_rejects_env_var_auth(self, runner, monkeypatch, mock_storage_path):
         """NOTEBOOKLM_AUTH_JSON has no writable backing store; refreshing it
         would silently rotate SIDTS but persist nothing. Refuse loudly."""
         monkeypatch.setenv("NOTEBOOKLM_AUTH_JSON", '{"cookies":[]}')
-        with patch(
-            "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+        with patch.object(
+            auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
         ) as mock_fetch:
             result = runner.invoke(cli, ["auth", "refresh"])
         assert result.exit_code == 1
@@ -1304,8 +2179,8 @@ class TestAuthRefreshCommand:
 
         with (
             patch_session_login_dual("get_storage_path", side_effect=fake_storage_path),
-            patch(
-                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            patch.object(
+                auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
             ) as mock_fetch,
         ):
             mock_fetch.return_value = ("csrf_ok", "session_ok")
@@ -1340,7 +2215,7 @@ class TestAuthRefreshCommand:
         with (
             patch.dict("sys.modules", {"rookiepy": mock_rk}),
             patch_session_login_dual("get_storage_path", return_value=storage),
-            patch("notebooklm.auth.enumerate_accounts", new=_enum),
+            patch.object(auth_module, "enumerate_accounts", new=_enum),
             patch_session_login_dual("_sync_server_language_to_config") as mock_sync,
             patch_session_login_dual(
                 "fetch_tokens_with_domains",
@@ -1385,7 +2260,7 @@ class TestAuthRefreshCommand:
         with (
             patch.dict("sys.modules", {"rookiepy": mock_rk}),
             patch_session_login_dual("get_storage_path", return_value=storage),
-            patch("notebooklm.auth.enumerate_accounts", new=_enum),
+            patch.object(auth_module, "enumerate_accounts", new=_enum),
             patch_session_login_dual(
                 "fetch_tokens_with_domains",
                 new_callable=AsyncMock,
@@ -1420,9 +2295,9 @@ class TestAuthInspect:
         the async bridge is now the injected sink's ``run_async``. This pins
         that the helper routes the account-enumeration probe through the sink.
         """
-        from _fixtures.login_io import make_recording_io
         from notebooklm.auth import Account
         from notebooklm.cli.services.login import _enumerate_one_jar
+        from tests._fixtures.login_io import make_recording_io
 
         raw_cookies = _multiaccount_rookiepy_mock().chrome.return_value
         accounts = [Account(authuser=0, email="alice@example.com", is_default=True)]
@@ -1432,7 +2307,7 @@ class TestAuthInspect:
             return accounts
 
         io = make_recording_io(run_async=MagicMock(side_effect=fake_run_async))
-        with patch("notebooklm.auth.enumerate_accounts", return_value=object()):
+        with patch.object(auth_module, "enumerate_accounts", return_value=object()):
             result = _enumerate_one_jar(raw_cookies, "chrome", browser_profile=None, io=io)
 
         assert result == accounts
@@ -1447,7 +2322,7 @@ class TestAuthInspect:
         async def fail_enumerate(*args, **kwargs):
             raise httpx.RequestError("offline")
 
-        with patch("notebooklm.auth.enumerate_accounts", new=fail_enumerate):
+        with patch.object(auth_module, "enumerate_accounts", new=fail_enumerate):
             result = _enumerate_one_jar(raw_cookies, "chrome", browser_profile=None)
 
         assert isinstance(result, NetworkFailure)
@@ -1456,9 +2331,9 @@ class TestAuthInspect:
         assert "offline" in message
 
     def test_select_account_without_marked_default_uses_first_account(self, caplog):
-        from _fixtures.login_io import RecordingLoginIO
         from notebooklm.auth import Account
         from notebooklm.cli.services.login import _select_account
+        from tests._fixtures.login_io import RecordingLoginIO
 
         accounts = [
             Account(authuser=0, email="alice@example.com", is_default=False),
@@ -1480,9 +2355,9 @@ class TestAuthInspect:
         assert "alice@example.com" in caplog.text
 
     def test_select_account_empty_accounts_returns_user_message(self):
-        from _fixtures.login_io import make_recording_io
         from notebooklm.cli.services.login.cookie_writes import _select_account
         from notebooklm.cli.services.login.outcomes import CookieValidationFailure
+        from tests._fixtures.login_io import make_recording_io
 
         result = _select_account(make_recording_io(), [], account_email=None)
 
@@ -1518,7 +2393,7 @@ class TestAuthInspect:
         # enough — the real ``run_async`` drives the (already-async) stub.
         with (
             patch.dict("sys.modules", {"rookiepy": mock_rk}),
-            patch("notebooklm.auth.enumerate_accounts", new=_enum),
+            patch.object(auth_module, "enumerate_accounts", new=_enum),
         ):
             result = runner.invoke(cli, ["auth", "inspect", "--browser", "chrome"])
         assert result.exit_code == 0, result.output
@@ -1537,7 +2412,7 @@ class TestAuthInspect:
 
         with (
             patch.dict("sys.modules", {"rookiepy": mock_rk}),
-            patch("notebooklm.auth.enumerate_accounts", new=_enum),
+            patch.object(auth_module, "enumerate_accounts", new=_enum),
         ):
             result = runner.invoke(cli, ["auth", "inspect", "--browser", "chrome", "--json"])
         assert result.exit_code == 0, result.output

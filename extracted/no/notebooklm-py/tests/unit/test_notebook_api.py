@@ -7,7 +7,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from notebooklm._notebooks import NotebooksAPI, build_create_notebook_params
+from notebooklm._notebooks import (
+    NotebooksAPI,
+    build_create_notebook_params,
+    build_get_notebook_params,
+)
 from notebooklm._source.listing import SourceLister
 from notebooklm.auth import AuthTokens
 from notebooklm.client import NotebookLMClient
@@ -30,7 +34,7 @@ def _make_core(rpc_call: AsyncMock | None = None):
     assignment pattern. Callers that need to control the dispatch
     behaviour pass a pre-built ``rpc_call`` here.
     """
-    from _fixtures.fake_core import make_fake_core
+    from tests._fixtures.fake_core import make_fake_core
 
     return make_fake_core(rpc_call=rpc_call if rpc_call is not None else AsyncMock())
 
@@ -66,7 +70,7 @@ def _create_invalid_argument_error(
     *, method_id: str = RPCMethod.CREATE_NOTEBOOK.value, rpc_code: int = 3
 ) -> RPCError:
     return RPCError(
-        "RPC CCqFvf returned null result with status code 3 (Invalid argument).",
+        "The server rejected this request (invalid argument).",
         method_id=method_id,
         rpc_code=rpc_code,
     )
@@ -79,6 +83,20 @@ def test_build_create_notebook_params_matches_live_payload() -> None:
         None,
         None,
         [2, None, None, [1, None, None, None, None, None, None, None, None, None, [1]]],
+    ]
+
+
+def test_build_get_notebook_params_matches_live_payload() -> None:
+    # #1549: the read-path tail also migrated to the nested template block.
+    # Live-verified forward-compatible (decoded notebook + sources byte-identical
+    # to the old flat ``[2]`` on an un-migrated account). The trailing ``None, 0``
+    # is unchanged — only position 2 migrates.
+    assert build_get_notebook_params("nb_abc") == [
+        "nb_abc",
+        None,
+        [2, None, None, [1, None, None, None, None, None, None, None, None, None, [1]]],
+        None,
+        0,
     ]
 
 
@@ -254,46 +272,20 @@ async def test_get_metadata_does_not_warn_when_empty_notebook_listing_is_empty(
     assert caplog.records == []
 
 
-@pytest.mark.asyncio
-async def test_share_sends_exact_share_artifact_payload_and_returns_deep_link(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.delenv("NOTEBOOKLM_BASE_URL", raising=False)
+def test_share_method_removed_in_v080() -> None:
+    """NotebooksAPI.share() was removed in v0.8.0 (#1363).
+
+    The deprecated no-behavior-change wrapper over ``client.sharing.set_public``
+    is gone; the SHARE_ARTIFACT payload wiring it forwarded to lives in
+    ``ShareManager.share`` (independently tested). Callers use
+    ``client.sharing.set_public`` for the toggle and ``get_share_url`` for the
+    deep-link URL.
+    """
     api = _make_api()
 
-    with pytest.warns(DeprecationWarning, match="NotebooksAPI.share"):
-        result = await api.share("nb_123", public=True, artifact_id="art_456")
-
-    assert result == {
-        "public": True,
-        "url": "https://notebooklm.google.com/notebook/nb_123?artifactId=art_456",
-        "artifact_id": "art_456",
-    }
-    api._rpc.rpc_call.assert_awaited_once_with(
-        RPCMethod.SHARE_ARTIFACT,
-        [[1], "nb_123", "art_456"],
-        source_path="/notebook/nb_123",
-        allow_null=True,
-    )
-
-
-@pytest.mark.asyncio
-async def test_share_private_sends_disable_payload_and_returns_no_url(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.delenv("NOTEBOOKLM_BASE_URL", raising=False)
-    api = _make_api()
-
-    with pytest.warns(DeprecationWarning, match="NotebooksAPI.share"):
-        result = await api.share("nb_123", public=False)
-
-    assert result == {"public": False, "url": None, "artifact_id": None}
-    api._rpc.rpc_call.assert_awaited_once_with(
-        RPCMethod.SHARE_ARTIFACT,
-        [[0], "nb_123"],
-        source_path="/notebook/nb_123",
-        allow_null=True,
-    )
+    assert not hasattr(api, "share")
+    with pytest.raises(AttributeError):
+        api.share  # type: ignore[attr-defined]  # noqa: B018
 
 
 def test_get_share_url_remains_sync_url_formatter(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -538,6 +530,7 @@ class TestCreateNotebookQuotaDetection:
             notebook_limit=500,
             source_limit=300,
             raw_limits=(6, 500, 300, 500000, 2),
+            tier=2,
         )
         api._rpc.rpc_call.assert_awaited_once_with(
             RPCMethod.GET_USER_SETTINGS,
@@ -630,3 +623,59 @@ class TestGetNotebookFailsClosed:
         err = NotebookNotFoundError("nb_x", method_id="rwIQyf")
         assert err.notebook_id == "nb_x"
         assert err.method_id == "rwIQyf"
+
+
+class TestListNotebooksPayloadDispatch:
+    """``list()`` wrapped-envelope dispatch — absence soft, malformed raises.
+
+    Mirrors the ``_artifact/listing.py::list_raw`` fail-loud pattern (#1485):
+    an empty/``None`` payload and a ``None`` row-list slot are legitimate "no
+    notebooks" shapes, while a truthy payload that doesn't match the
+    ``[[row, ...]]`` envelope is schema drift — it used to flow garbage rows
+    into ``Notebook.from_api_response`` and silently fabricate empty-id
+    notebooks.
+    """
+
+    @pytest.mark.asyncio
+    async def test_wrapped_envelope_parses_rows(self):
+        api = _make_api(
+            rpc_call=AsyncMock(
+                return_value=[[["Notebook A", [], "nb_a", "📓"], ["Notebook B", [], "nb_b", "📓"]]]
+            )
+        )
+
+        notebooks = await api.list()
+
+        assert [(nb.id, nb.title) for nb in notebooks] == [
+            ("nb_a", "Notebook A"),
+            ("nb_b", "Notebook B"),
+        ]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("payload", [None, []])
+    async def test_empty_payload_is_soft_empty(self, payload):
+        api = _make_api(rpc_call=AsyncMock(return_value=payload))
+        assert await api.list() == []
+
+    @pytest.mark.asyncio
+    async def test_null_row_list_slot_is_soft_empty(self):
+        """A ``None`` where the row list belongs is absence, not drift."""
+        api = _make_api(rpc_call=AsyncMock(return_value=[None]))
+        assert await api.list() == []
+
+    @pytest.mark.asyncio
+    async def test_truthy_non_list_payload_raises_decoding_error(self):
+        from notebooklm.exceptions import DecodingError
+
+        api = _make_api(rpc_call=AsyncMock(return_value="garbage"))
+        with pytest.raises(DecodingError):
+            await api.list()
+
+    @pytest.mark.asyncio
+    async def test_truthy_non_list_row_slot_raises_decoding_error(self):
+        """A moved wrapper (non-list where the row list belongs) is drift."""
+        from notebooklm.exceptions import DecodingError
+
+        api = _make_api(rpc_call=AsyncMock(return_value=["garbage", "rows"]))
+        with pytest.raises(DecodingError):
+            await api.list()

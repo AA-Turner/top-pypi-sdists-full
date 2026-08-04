@@ -40,8 +40,13 @@ return_type = "ppe_result_t"
 nogil = true
 single = true
 record_name = "PolynomialPhaseEstimate"
+record_doc = "Polynomial-phase estimate: carrier frequency, chirp rate, and a rough SNR confidence."
 record_module = "doppler.dsss"
-result_fields = [{ name = "freq_norm", type = "double" }, { name = "rate_norm", type = "double" }, { name = "snr_db", type = "double" }]
+result_fields = [
+    { name = "freq_norm", type = "double" },
+    { name = "rate_norm", type = "double" },
+    { name = "snr_db", type = "double" },
+]
 
 [[ppe.properties]]
 name = "max_len"

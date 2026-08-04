@@ -626,33 +626,54 @@ _SynthEngine_set_state (_SynthEngineObject *self, PyObject *arg)
 
 static PyMethodDef _SynthEngine_methods[] = {
   { "reset", (PyCFunction)_SynthEngine_reset, METH_NOARGS,
-    "Reset state to post-create defaults." },
+    "Reset Synth to its post-create state. Resets the LO phase accumulator, "
+    "AWGN internal state, and PN LFSR register to their initial values so the "
+    "output sequence is perfectly reproducible from sample 0." },
   { "step", (PyCFunction)_SynthEngine_step, METH_NOARGS,
     "step() -> float complex\n"
     "\n"
-    "Generate one output sample from internal state.\n"
+    "Generate one output sample from internal state. Advances the PN LFSR "
+    "(modulated types only, on symbol boundaries), the LO phase accumulator, "
+    "and the AWGN engine, then returns the mixed result: ``sym * carrier + "
+    "noise``.  Inlined and hot-path annotated so tight per-sample loops pay "
+    "no call overhead.\n"
     "\n"
-    "    >>> from doppler import _SynthEngine\n"
-    "    >>> obj = _SynthEngine(\"tone\", \"auto\", 1000000.0, 0.0, "
-    "100.0, 1, 8, 7, "
-    "0)\n"
-    "    >>> obj.step()\n"
-    "    0j\n" },
+    "Returns\n"
+    "-------\n"
+    "complex\n"
+    "    Next output sample (float complex).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.wfm import _SynthEngine\n"
+    ">>> s = _SynthEngine(type=\"tone\", fs=1.0, freq=0.0, snr=100.0)\n"
+    ">>> s.step()\n"
+    "(1+0j)\n"
+    "\n" },
   { "steps", (PyCFunction)_SynthEngine_steps, METH_VARARGS,
     "steps(n=1) -> ndarray\n"
     "\n"
-    "Generate n output samples.\n"
+    "Generate a block of output samples. Calls wfm_synth_step() in a tight "
+    "loop, writing each cf32 sample into ``output``.  The Python binding "
+    "returns a freshly allocated NumPy complex64 array; ownership is "
+    "transferred to the caller.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import _SynthEngine\n"
-    "    >>> obj = _SynthEngine(\"tone\", \"auto\", 1000000.0, 0.0, "
-    "100.0, 1, 8, 7, "
-    "0)\n"
-    "    >>> y = obj.steps(4)\n"
-    "    >>> y.shape\n"
-    "    (4,)\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex64')\n" },
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex64]\n"
+    "    Output sample.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.wfm import _SynthEngine\n"
+    ">>> import numpy as np\n"
+    ">>> s = _SynthEngine(type=\"tone\", fs=1.0, freq=0.0, snr=100.0)\n"
+    ">>> x = s.steps(4)\n"
+    ">>> x.shape, x.dtype\n"
+    "((4,), dtype('complex64'))\n"
+    ">>> x.tolist()\n"
+    "[(1+0j), (1+0j), (1+0j), (1+0j)]\n"
+    "\n" },
 
   { "set_rrc", (PyCFunction)_SynthEngine_set_rrc, METH_VARARGS,
     "set_rrc(taps) -> None\n"
@@ -693,34 +714,130 @@ static PyMethodDef _SynthEngine_methods[] = {
     "Attach a user bit pattern (array of 0/1) to a type='bits' synth.\n"
     "modulation: 0=none (0/1), 1=bpsk (+-1), 2=qpsk (2 bits/symbol).\n" },
   { "get_wtype", (PyCFunction)_SynthEngine_get_wtype, METH_NOARGS,
-    "Get wtype." },
+    "Return the active waveform type discriminant. Maps to the WFM_SYNTH_* "
+    "enum: 0=tone, 1=noise, 2=pn, 3=bpsk, 4=qpsk. Use this to inspect which "
+    "synthesis path is active at runtime.\n" },
   { "set_wtype", (PyCFunction)_SynthEngine_set_wtype, METH_VARARGS,
-    "Set wtype." },
-  { "get_nsps", (PyCFunction)_SynthEngine_get_nsps, METH_NOARGS, "Get nsps." },
+    "Override the waveform type discriminant in-place. Changing wtype does "
+    "not reinitialise sub-objects; use with care.\n" },
+  { "get_nsps", (PyCFunction)_SynthEngine_get_nsps, METH_NOARGS,
+    "Return the samples-per-symbol count. For modulated types (BPSK, QPSK, "
+    "PN) each symbol is held for nsps consecutive output samples.  For "
+    "tone/noise this field is present but unused by the synthesis path.\n" },
   { "set_nsps", (PyCFunction)_SynthEngine_set_nsps, METH_VARARGS,
-    "Set nsps." },
+    "Override the samples-per-symbol count in-place. Does not flush the "
+    "symbol-position counter (sym_pos); set sym_pos=0 as well when changing "
+    "sps mid-stream.\n" },
   { "get_sym_pos", (PyCFunction)_SynthEngine_get_sym_pos, METH_NOARGS,
-    "Get sym_pos." },
+    "Return the current position within the current symbol (0..nsps-1). "
+    "Reaches nsps and wraps to 0 each time a new symbol is consumed from the "
+    "PN LFSR.  Useful for frame alignment: sym_pos==0 on a step boundary "
+    "means the very next sample begins a fresh symbol.\n" },
   { "set_sym_pos", (PyCFunction)_SynthEngine_set_sym_pos, METH_VARARGS,
-    "Set sym_pos." },
+    "Override the symbol-position counter in-place. Injecting 0 forces the "
+    "next wfm_synth_step() to latch a new PN chip; any other value "
+    "fast-forwards into the middle of the current symbol hold.\n" },
   { "get_cur_re", (PyCFunction)_SynthEngine_get_cur_re, METH_NOARGS,
-    "Get cur_re." },
+    "Return the real part of the current held symbol. For modulated types "
+    "this is the I component latched at the last symbol boundary (±1 for "
+    "BPSK/PN, ±1/√2 for QPSK).  For tone the synthesiser initialises cur_re "
+    "to 1.0 so that the held symbol is a clean unit-power carrier; for noise "
+    "it is 0.0 (noise has no held symbol).\n" },
   { "set_cur_re", (PyCFunction)_SynthEngine_set_cur_re, METH_VARARGS,
-    "Set cur_re." },
+    "Override the held-symbol real (I) component in-place. Takes effect on "
+    "the next wfm_synth_step() within the current symbol hold.\n" },
   { "get_cur_im", (PyCFunction)_SynthEngine_get_cur_im, METH_NOARGS,
-    "Get cur_im." },
+    "Return the imaginary part of the current held symbol. For QPSK this is "
+    "the Q component (±1/√2); for BPSK/PN it is always 0; for tone/noise it "
+    "is 0.\n" },
   { "set_cur_im", (PyCFunction)_SynthEngine_set_cur_im, METH_VARARGS,
-    "Set cur_im." },
+    "Override the held-symbol imaginary (Q) component in-place. Takes effect "
+    "on the next wfm_synth_step() within the current symbol hold.\n" },
   { "destroy", (PyCFunction)_SynthEngine_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)_SynthEngine_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)_SynthEngine_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)_SynthEngine_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a WfmSynth be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "WfmSynth\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)_SynthEngine_exit, METH_VARARGS,
+    "Exit a context manager, releasing the WfmSynth.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { "state_bytes", (PyCFunction)_SynthEngine_state_bytes, METH_NOARGS,
-    "Serialized state size in bytes." },
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the _SynthEngine has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
   { "get_state", (PyCFunction)_SynthEngine_get_state, METH_NOARGS,
-    "Serialize the engine's mutable state to bytes." },
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the _SynthEngine has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
   { "set_state", (PyCFunction)_SynthEngine_set_state, METH_O,
-    "Restore mutable state from a get_state() blob." },
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the _SynthEngine has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
   { NULL }
 };
 

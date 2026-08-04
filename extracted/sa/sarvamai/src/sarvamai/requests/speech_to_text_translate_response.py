@@ -19,7 +19,7 @@ class SpeechToTextTranslateResponseParams(typing_extensions.TypedDict):
 
     diarized_transcript: typing_extensions.NotRequired[DiarizedTranscriptParams]
     """
-    Diarized transcript of the provided speech
+    Diarized transcript of the provided speech. Always `null` on the REST API — diarization is only available via the Batch API.
     """
 
     language_probability: typing_extensions.NotRequired[float]

@@ -113,6 +113,7 @@ from snowflake.snowpark_connect.utils.cache import (
     df_cache_map_put_if_absent,
     pending_persist_add,
     pending_persist_discard,
+    sql_plan_cache_clear_session,
 )
 from snowflake.snowpark_connect.utils.context import (
     clean_request_external_tables,
@@ -489,6 +490,7 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
             _handle_exception(context, e)
         finally:
             analyze_memo_clear_session(request.session_id)
+            sql_plan_cache_clear_session(request.session_id)
             if span_context_manager:
                 span_context_manager.__exit__(None, None, None)  # End the span
             if snowpark_context_token is not None:
@@ -986,6 +988,7 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
 
             if any(not name.startswith("cache") for name in pending_artifacts.keys()):
                 clear_spark_session_cache(get_spark_session_id())
+                sql_plan_cache_clear_session(get_spark_session_id())
 
         if artifact_hashes_to_cache:
             artifacts_store.cache_hashes(artifact_hashes_to_cache)
@@ -1860,10 +1863,19 @@ def _is_running_in_snowpark_submit() -> bool:
 def _get_default_app_name() -> str:
     """Derive a default app name from the caller's filename.
 
-    Walks the call stack to find the first frame outside the snowpark_connect
-    package.  If that frame's filename ends with ``.py`` or ``.ipynb``, uses it
-    as the app name prefix; otherwise falls back to a generic label.
+    Prefers ``SNOWFLAKE_MAIN_FILE_PATH`` when set (Snowflake notebook containers
+    expose the real notebook path there; stack frames often point at a temp
+    execution file). Otherwise walks the call stack to find the first frame
+    outside the snowpark_connect package. If that frame's filename ends with
+    ``.py`` or ``.ipynb``, uses it as the app name; otherwise falls back to a
+    generic label.
     """
+    main_file_path = os.environ.get("SNOWFLAKE_MAIN_FILE_PATH")
+    if main_file_path:
+        main_file = os.path.basename(main_file_path.strip())
+        if main_file:
+            return main_file
+
     frame = inspect.currentframe()
     try:
         caller = frame

@@ -8,7 +8,7 @@ import libvirt
 import libxml2
 import getpass
 from argparse import ArgumentParser
-from typing import Any, List
+from typing import Any
 
 
 # This is the callback method passed to libvirt.openAuth() (see below).
@@ -25,7 +25,7 @@ from typing import Any, List
 #
 # The user_data argument is the user data item of the auth argument (see below)
 # passed to libvirt.openAuth().
-def request_credentials(credentials: List[List], user_data: Any) -> int:
+def request_credentials(credentials: list[list], user_data: Any) -> int:
     for credential in credentials:
         if credential[0] == libvirt.VIR_CRED_AUTHNAME:
             # prompt the user to input a authname. display the provided message

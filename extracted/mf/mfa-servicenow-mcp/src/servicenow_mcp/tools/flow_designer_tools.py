@@ -9,15 +9,20 @@ Provides read-only tools for analyzing Flow Designer flows:
 """
 
 import hashlib
+import json
 import logging
+from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple
+from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field
 
 from servicenow_mcp.auth.auth_manager import AuthManager
 from servicenow_mcp.utils.config import AuthType, ServerConfig
 
+from ..utils.response_budget import byte_len
 from .sn_api import invalidate_query_cache, sn_count, sn_count_by_group, sn_query_page
+from .sn_batch import batch_get, batch_rows, table_query_url
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +106,7 @@ class GetFlowDetailsParams(BaseModel):
     flow_id: str = Field(..., description="Flow sys_id from sys_hub_flow table")
     include_structure: bool = Field(
         default=False,
-        description="Include flow structure (actions, logic, subflows with nesting tree)",
+        description="Include structure; a large tree goes to disk, exact counts stay inline",
     )
     include_triggers: bool = Field(
         default=False,
@@ -175,17 +180,57 @@ def _get_snapshot_id(
     auth_manager: AuthManager,
     flow_id: str,
 ) -> Optional[str]:
-    """Get the published snapshot sys_id for a flow."""
+    """The published snapshot sys_id for a flow, or None.
+
+    The filter used to name ``master_flow``, which does not exist on
+    ``sys_hub_flow_snapshot`` — the reference to the flow is ``parent_flow``.
+    ServiceNow does not reject an unknown field in an encoded query; it DROPS
+    the condition. `master_flow=<id>^ORsys_id=<id>` therefore degenerated to
+    "everything OR that one row", and the read came back with the whole table:
+    measured on a live instance, 808 rows for a query meant to match one.
+
+    The function then returned the first row whose status displayed as
+    "Published" — an arbitrary snapshot belonging to an unrelated flow. So the
+    Table-API structure fallback did not report an empty flow, it reported
+    SOMEBODY ELSE'S flow, with no indication anything was wrong.
+
+    Every row is therefore checked against what was asked for. A dropped
+    condition cannot come back as a confident answer twice: if the rows do not
+    belong to this flow, that is a failure, not a pick.
+
+    Both spellings are kept in the query on purpose, and that is safe for a
+    reason worth writing down, because it is not obvious. A condition naming an
+    unknown field is dropped — and when it is the ONLY condition, nothing is
+    left to filter on, which is why the old query returned the whole table.
+    Beside a valid condition it simply disappears. Measured, on the same flow:
+
+        parent_flow=F                     ->  21 rows
+        master_flow=F        (no such col) -> 808 rows   (i.e. unfiltered)
+        parent_flow=F^ORmaster_flow=F      ->  21 rows
+
+    So an OR of both spellings filters correctly on either release. Newest
+    first, because a flow here has 21 snapshots and "the published one" without
+    an order is whichever row came back first.
+    """
     try:
         snapshots, _ = sn_query_page(
             config,
             auth_manager,
             table=FLOW_SNAPSHOT_TABLE,
-            query=f"master_flow={flow_id}^ORsys_id={flow_id}",
-            fields="sys_id,name,status",
+            # Both spellings of the flow reference, for the same reason as the
+            # component field lists: an unknown field has its condition dropped,
+            # so on a release that calls it `parent_flow` the `master_flow` term
+            # disappears and vice versa. Whichever one exists does the filtering;
+            # the ownership check below is what makes that safe rather than
+            # merely lucky.
+            query=(
+                f"parent_flow={flow_id}^ORmaster_flow={flow_id}^ORsys_id={flow_id}"
+                "^ORDERBYDESCsys_created_on"
+            ),
+            fields="sys_id,name,status,parent_flow,master_flow,sys_created_on",
             limit=5,
             offset=0,
-            display_value=True,
+            display_value=False,
             fail_silently=False,
         )
     except Exception as e:
@@ -194,30 +239,73 @@ def _get_snapshot_id(
     if not snapshots:
         logger.warning("No snapshot found for flow %s in %s", flow_id, FLOW_SNAPSHOT_TABLE)
         return None
-    # Prefer published snapshot
-    for snap in snapshots:
-        if snap.get("status") == "Published":
-            return snap["sys_id"]
-    # Fallback to first available
-    return snapshots[0]["sys_id"]
+
+    # Belt and braces against the same class of mistake: keep only rows that
+    # actually answer the question. If the filter silently stopped filtering
+    # again, this empties the list instead of handing back a stranger's flow.
+    mine = [
+        snap
+        for snap in snapshots
+        if snap.get("sys_id") == flow_id
+        or _display_of(snap.get("parent_flow")) == flow_id
+        or _display_of(snap.get("master_flow")) == flow_id
+    ]
+    if not mine:
+        logger.warning(
+            "%s returned %d row(s) for flow %s, none of which belong to it — "
+            "treating as no snapshot rather than picking one",
+            FLOW_SNAPSHOT_TABLE,
+            len(snapshots),
+            flow_id,
+        )
+        return None
+
+    # Prefer a published snapshot. Compared case-insensitively against the RAW
+    # value: display labels are capitalised ("Published") while the stored value
+    # is not, so an exact match here depends on which of the two the read asked
+    # for — a coupling that has no business deciding which version is returned.
+    for snap in mine:
+        if str(snap.get("status") or "").strip().lower() == "published":
+            return str(snap["sys_id"])
+    return str(mine[0]["sys_id"])
+
+
+def _display_of(value: Any) -> str:
+    """Raw value of a reference field, whether or not display values are on."""
+    if isinstance(value, dict):
+        return str(value.get("value") or "")
+    return str(value or "")
 
 
 def _build_component_tree(components: List[Dict]) -> List[Dict]:
-    """Build a nested tree from flat component list using nesting_parent."""
-    by_id = {}
-    roots = []
+    """Nest the flat component list on the parent link the tables actually carry.
 
-    # Index all components
-    for comp in sorted(components, key=lambda c: int(c.get("order", 0))):
+    The nesting key is ``ui_id`` / ``parent_ui_id``, not ``sys_id`` /
+    ``nesting_parent``. Measured against a live instance: none of
+    ``sys_hub_action_instance_v2``, ``sys_hub_flow_logic_instance_v2`` or
+    ``sys_hub_sub_flow_instance_v2`` has a ``nesting_parent`` column at all, so
+    the lookup could never match and EVERY component was returned as a root —
+    a flow with nested If/For-each blocks rendered flat, with no error and no
+    empty result to notice.
+
+    ``sys_id`` is still accepted as a parent key so a caller that already has a
+    tree keyed that way (the processflow path) keeps working.
+    """
+    by_key: Dict[str, Dict] = {}
+    roots: List[Dict] = []
+
+    ordered = sorted(components, key=lambda c: _safe_int(c.get("order")))
+    for comp in ordered:
         comp["children"] = []
-        by_id[comp["sys_id"]] = comp
+        for key in (comp.get("ui_id"), comp.get("sys_id")):
+            if key:
+                by_key[str(key)] = comp
 
-    # Build tree
-    for comp in sorted(components, key=lambda c: int(c.get("order", 0))):
-        parent_id = comp.get("nesting_parent", "")
-        # nesting_parent can be a display value or sys_id
-        if parent_id and parent_id in by_id:
-            by_id[parent_id]["children"].append(comp)
+    for comp in ordered:
+        parent_key = str(comp.get("parent_ui_id") or comp.get("nesting_parent") or "")
+        parent = by_key.get(parent_key)
+        if parent is not None and parent is not comp:
+            parent["children"].append(comp)
         else:
             roots.append(comp)
 
@@ -1136,6 +1224,73 @@ def _build_summary_index(
     }
 
 
+_STRUCTURE_INLINE_BUDGET_BYTES = 12_000
+
+# The node set, rendered three ways. Offloading only `tree` leaves the same bulk
+# behind under two other names — measured 78KB split 31/27/20 across them — so
+# they travel together. What stays inline is the part that is actually an answer:
+# counts, integrity, warnings.
+_BULK_STRUCTURE_KEYS = ("tree", "orphans", "tree_text", "summary_index")
+
+
+def _structure_file_path(config: ServerConfig, flow_id: str) -> Path:
+    """Where a flow's full structure lands, following the temp/<instance> layout."""
+    instance = (urlparse(config.instance_url).hostname or "instance").split(".")[0]
+    return Path.cwd() / "temp" / instance / "_flow_structure" / f"{flow_id}.json"
+
+
+def _offload_structure_if_large(
+    structure: Dict[str, Any], config: ServerConfig, flow_id: str
+) -> Dict[str, Any]:
+    """Keep the counts in context and put the node tree on disk.
+
+    A real flow's tree is not summary-shaped: 142 nodes measured 79KB, which is
+    over the response budget, past the client's own ceiling, and — the part that
+    matters — of no use to a reader who asked what the flow DOES. It is bulk
+    source, and this package already has one answer for bulk source: write it to
+    disk and return the summary, the way ``download_*`` does for a widget body.
+
+    Trimming it to fit was the wrong repair twice over. It spends the context it
+    is trying to save, and a tail cut off a tree is not a smaller tree, it is a
+    flow that appears to end early. Nothing is dropped here: the counts stay
+    exact, the whole tree is on disk, and the path says where.
+
+    Small structures are left inline — a flow with six nodes is an answer, not a
+    payload, and a file for it would be a round trip for nothing.
+    """
+    if byte_len(structure) <= _STRUCTURE_INLINE_BUDGET_BYTES:
+        return structure
+
+    tree = structure.get("tree")
+    orphans = structure.get("orphans")
+    compact = {k: v for k, v in structure.items() if k not in _BULK_STRUCTURE_KEYS}
+    node_count = (len(tree) if isinstance(tree, list) else 0) + (
+        len(orphans) if isinstance(orphans, list) else 0
+    )
+
+    path = _structure_file_path(config, flow_id)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(structure, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError as exc:
+        # Degrade toward the expensive answer: say the tree exists and could not
+        # be written, rather than returning counts that read as the whole story.
+        compact["tree_omitted"] = True
+        compact["structure_file_error"] = (
+            f"{node_count} nodes could not be written to {path}: {exc}. "
+            "Re-run with include_structure=False, or fix the path, to proceed."
+        )
+        return compact
+
+    compact["tree_omitted"] = True
+    compact["structure_file"] = str(path)
+    compact["structure_file_note"] = (
+        f"{node_count} nodes written to disk in full — nothing was dropped. Read the file "
+        "for the tree; the counts above are exact and need no follow-up."
+    )
+    return compact
+
+
 def _build_flow_summary(structure: Dict[str, Any], include_scripts: bool = False) -> Dict[str, Any]:
     """Flat tree summary (depth + full conditions) for analysis use cases.
 
@@ -1735,8 +1890,10 @@ def get_flow_details(
                     "runtime": _flow_runtime_status(config, auth_manager, flow_id),
                 }
                 if params.include_structure:
-                    result["structure"] = (
-                        _build_flow_summary(detail) if params.summary_format else detail
+                    result["structure"] = _offload_structure_if_large(
+                        _build_flow_summary(detail) if params.summary_format else detail,
+                        config,
+                        flow_id,
                     )
                 if params.include_triggers:
                     # Compact by default; summary_format=False keeps the raw rows.
@@ -1790,9 +1947,11 @@ def get_flow_details(
         if params.include_structure:
             structure = _fetch_flow_structure(config, auth_manager, flow_id)
             if params.summary_format and structure.get("success") and "actions" in structure:
-                result["structure"] = _build_flow_summary(structure)
+                result["structure"] = _offload_structure_if_large(
+                    _build_flow_summary(structure), config, flow_id
+                )
             else:
-                result["structure"] = structure
+                result["structure"] = _offload_structure_if_large(structure, config, flow_id)
             if not structure.get("success"):
                 result["structure_error"] = structure.get("error", "unknown")
 
@@ -1921,7 +2080,6 @@ def _fetch_subflow_bindings(
     instances_raw = []
     display_map: Dict[str, Dict] = {}
     for inst in instances_all:
-        sid = inst.get("sys_id", "")
         raw_inst: Dict[str, Any] = {}
         disp_inst: Dict[str, Any] = {}
         for k, v in inst.items():
@@ -1932,9 +2090,22 @@ def _fetch_subflow_bindings(
                 raw_inst[k] = v
                 disp_inst[k] = v
         instances_raw.append(raw_inst)
-        display_map[sid] = disp_inst
+        # Keyed off the UNWRAPPED sys_id. With display_value="all" every field
+        # arrives as {"value", "display_value"} — sys_id included — so reading it
+        # before this loop yielded a dict, and using a dict as a key raises
+        # TypeError. The path only runs for a snapshot that HAS subflow
+        # instances, and until the snapshot lookup above was fixed it was
+        # resolving unrelated (empty) snapshots, so this never got the chance to
+        # fire: one bug was hiding the other.
+        display_map[str(raw_inst.get("sys_id", ""))] = disp_inst
 
-    # 2. Batch-resolve snapshot references → master_flow (single query with display_value=all)
+    # 2. Batch-resolve snapshot references → parent flow (single query with display_value=all)
+    #
+    # The field is `parent_flow`. `master_flow` does not exist on this table, so
+    # `s.get("master_flow", {})` returned {} for every row and the parent flow of
+    # a subflow was ALWAYS unresolved — reported as a subflow with no origin
+    # rather than as a read that asked for the wrong column. Same root cause as
+    # the query in `_get_snapshot_id`; see its docstring.
     snapshot_ids = list({inst.get("subflow", "") for inst in instances_raw if inst.get("subflow")})
     snapshot_map: Dict[str, Dict] = {}
     master_flow_ids: set = set()
@@ -1945,14 +2116,17 @@ def _fetch_subflow_bindings(
             auth_manager,
             table=FLOW_SNAPSHOT_TABLE,
             query=f"sys_idIN{','.join(snapshot_ids)}",
-            fields="sys_id,name,master_flow",
+            fields="sys_id,name,parent_flow",
             limit=100,
             offset=0,
             display_value="all",
         )
         for s in snapshots_all:
-            sid = s.get("sys_id", "")
-            master_ref = s.get("master_flow", {})
+            # Unwrapped, for the same reason as the instance loop above: with
+            # display_value="all" the sys_id arrives as {"value", "display_value"}
+            # and a dict cannot be a key.
+            sid = _display_of(s.get("sys_id", ""))
+            master_ref = s.get("parent_flow", {})
             if isinstance(master_ref, dict) and "value" in master_ref:
                 master_id = master_ref["value"]
                 master_display = master_ref.get("display_value", "")
@@ -2123,63 +2297,125 @@ def _fetch_flow_structure(
         )
         label_cache = flow_records[0].get("label_cache", "") if flow_records else ""
 
-        actions, _ = sn_query_page(
+        # The three component families differ only by table and field list — same
+        # snapshot, same limit — so they ride ONE round trip instead of three.
+        # Each still falls back to its own GET if the batch is unavailable or
+        # that sub-request did not come back: a fused read must return exactly
+        # what the sequential one did, never a shorter tree that looks like a
+        # flow with fewer steps.
+        # Field lists measured against the live tables. The previous ones asked
+        # for `name`, `position`, `nesting_parent`, `compilable_type` and (on
+        # logic) `type` — NONE of which exist on these tables. ServiceNow omits
+        # an unknown field from the payload instead of failing, so every
+        # component came back with an empty label, no type and no parent, and the
+        # tree rendered flat and nameless while reporting success.
+        #
+        #   name            -> display_text
+        #   nesting_parent  -> parent_ui_id   (keyed by ui_id, not sys_id)
+        #   type (logic)    -> logic_definition
+        #   position        -> no equivalent; `order` already carries the sequence
+        #
+        # BOTH spellings are requested on purpose. A column name is a property of
+        # the release in front of you, not of this repo, and the same "omit what
+        # you do not recognise" behaviour that hid the bug makes asking for both
+        # free: whichever exists comes back, the other is simply absent, and the
+        # readers below take the first one present. Pinning a single name would
+        # trade this instance's bug for the next instance's.
+        families = (
+            (
+                "actions",
+                ACTION_V2_TABLE,
+                "sys_id,display_text,name,order,action_type,ui_id,parent_ui_id,nesting_parent",
+                "action",
+            ),
+            (
+                "logic",
+                LOGIC_V2_TABLE,
+                "sys_id,display_text,name,order,logic_definition,type,ui_id,parent_ui_id,nesting_parent",
+                "logic",
+            ),
+            (
+                "subflows",
+                SUBFLOW_V2_TABLE,
+                "sys_id,display_text,name,order,subflow,ui_id,parent_ui_id,nesting_parent",
+                "subflow",
+            ),
+        )
+        snapshot_query = f"flow={snapshot_id}"
+        served = batch_get(
             config,
             auth_manager,
-            table=ACTION_V2_TABLE,
-            query=f"flow={snapshot_id}",
-            fields="sys_id,name,order,action_type,position,nesting_parent,compilable_type",
-            limit=100,
-            offset=0,
-            display_value=True,
+            [
+                (
+                    rid,
+                    table_query_url(table, snapshot_query, fields, limit=100, display_value=True),
+                )
+                for rid, table, fields, _kind in families
+            ],
         )
-        for a in actions:
-            a["component_type"] = "action"
 
-        logic_nodes, _ = sn_query_page(
-            config,
-            auth_manager,
-            table=LOGIC_V2_TABLE,
-            query=f"flow={snapshot_id}",
-            fields="sys_id,name,order,type,position,nesting_parent,compilable_type",
-            limit=100,
-            offset=0,
-            display_value=True,
-        )
-        for node in logic_nodes:
-            node["component_type"] = "logic"
+        fetched: Dict[str, List[Dict[str, Any]]] = {}
+        for rid, table, fields, kind in families:
+            rows = batch_rows((served or {}).get(rid))
+            if rows is None:
+                rows, _ = sn_query_page(
+                    config,
+                    auth_manager,
+                    table=table,
+                    query=snapshot_query,
+                    fields=fields,
+                    limit=100,
+                    offset=0,
+                    display_value=True,
+                )
+            for row in rows:
+                row["component_type"] = kind
+            fetched[rid] = rows
 
-        subflows, _ = sn_query_page(
-            config,
-            auth_manager,
-            table=SUBFLOW_V2_TABLE,
-            query=f"flow={snapshot_id}",
-            fields="sys_id,name,order,position,nesting_parent,compilable_type",
-            limit=100,
-            offset=0,
-            display_value=True,
-        )
-        for s in subflows:
-            s["component_type"] = "subflow"
+        actions = fetched["actions"]
+        logic_nodes = fetched["logic"]
+        subflows = fetched["subflows"]
 
         all_components = actions + logic_nodes + subflows
-        all_components.sort(key=lambda c: int(c.get("order", 0)))
+        all_components.sort(key=lambda c: _safe_int(c.get("order")))
 
         tree = _build_component_tree(all_components)
 
         flat_summary = []
         for comp in all_components:
+            kind = str(comp.get("component_type") or "")
+            # What the step is called. On the measured instance the label column
+            # is `display_text` (`name` is not a column on these tables at all,
+            # which is why every entry used to be blank) — but both are requested
+            # and either is accepted, because a column can be renamed between
+            # releases and the response simply omits whichever does not exist.
+            #
+            # Flow Designer only fills the label in when a step has been renamed;
+            # all 66 components of the flow measured here were unnamed. So fall
+            # back to what the step IS: its action type, its logic type, or the
+            # subflow it calls. An unnamed row in a structure listing is not more
+            # honest than a typed one, only less useful.
+            type_label = str(
+                comp.get("action_type")
+                or comp.get("logic_definition")
+                or comp.get("type")
+                or comp.get("subflow")
+                or ""
+            )
             entry: Dict[str, Any] = {
                 "order": comp.get("order"),
-                "type": comp.get("component_type"),
-                "name": comp.get("name", ""),
+                "type": kind,
+                "name": str(comp.get("display_text") or comp.get("name") or "") or type_label,
             }
-            if comp.get("component_type") == "action":
+            if kind == "action":
                 entry["action_type"] = comp.get("action_type", "")
-            elif comp.get("component_type") == "logic":
-                entry["logic_type"] = comp.get("type", comp.get("compilable_type", ""))
-            if comp.get("nesting_parent"):
-                entry["parent"] = comp["nesting_parent"]
+            elif kind == "logic":
+                entry["logic_type"] = comp.get("logic_definition") or comp.get("type") or ""
+            elif kind == "subflow":
+                entry["subflow"] = comp.get("subflow", "")
+            parent = comp.get("parent_ui_id") or comp.get("nesting_parent")
+            if parent:
+                entry["parent"] = parent
             flat_summary.append(entry)
 
         result: Dict[str, Any] = {

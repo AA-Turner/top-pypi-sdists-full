@@ -14,10 +14,13 @@ class Resampler:
 
     Examples
     --------
-    Create with defaults:
-
     >>> from doppler.resample import Resampler
-    >>> obj = Resampler(rate=0.0)
+    >>> import numpy as np
+    >>> r = Resampler(rate=2.0)
+    >>> r.num_phases, r.num_taps
+    (4096, 19)
+    >>> r.rate
+    2.0
 
     """
     def __init__(self, rate: float = ...) -> None: ...
@@ -33,7 +36,8 @@ class Resampler:
         Returns
         -------
         NDArray[np.complex64]
-            CF32 output array; length is approximately x_len * rate, capped at max_out.
+            CF32 output array; length is approximately x_len * rate, capped at
+            max_out.
 
         Examples
         --------
@@ -46,8 +50,19 @@ class Resampler:
 
         """
 
-    def execute_max_out(self) -> int:
-        """Max output length execute() can produce for the current state."""
+    def execute_max_out(self, x_len: int) -> int:
+        """Always returns RESAMPLER_MAX_OUT.
+
+        Parameters
+        ----------
+        x_len : int
+            Input.
+
+        Returns
+        -------
+        int
+            Output.
+        """
 
     def execute_ctrl(self, x: NDArray[np.complex64], ctrl: NDArray[np.complex64]) -> NDArray[np.complex64]:
         """Resample with per-sample additive rate deviations. Effective rate for sample i is base_rate + real(`ctrl[i]`). Uses a unified double-precision accumulator that handles both interpolation and decimation in a single code path — suitable for Doppler-shift simulation and fractional-sample timing correction. ctrl and x must have the same length.
@@ -57,12 +72,14 @@ class Resampler:
         x : NDArray[np.complex64]
             CF32 input samples.
         ctrl : NDArray[np.complex64]
-            CF32 array, same length as x; only the real part is used as a per-sample rate addend.
+            CF32 array, same length as x; only the real part is used as a
+            per-sample rate addend.
 
         Returns
         -------
         NDArray[np.complex64]
-            CF32 output array; length depends on accumulated rate deviations, capped at max_out.
+            CF32 output array; length depends on accumulated rate deviations,
+            capped at max_out.
 
         Examples
         --------
@@ -96,11 +113,56 @@ class Resampler:
         """<<MANUAL_STUB>> hand-write this signature/docstring in the .pyi — jm preserves it verbatim on future regens."""
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the Resampler has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the Resampler has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the Resampler has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def rate(self) -> float:
@@ -117,14 +179,48 @@ class Resampler:
         """Taps per polyphase branch. Total prototype filter length is num_phases * num_taps - 1. The built-in bank uses 19 taps per branch."""
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "Resampler": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "Resampler":
+        """Enter a context manager, returning this object.
+
+        Lets a Resampler be used in a `with` statement so its C resources are
+        released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        Resampler
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the Resampler.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
 
 @final
-class Halfbanddecimator:
+class HalfbandDecimator:
     """Create a HalfbandDecimator with caller-supplied FIR taps. Implements a 2:1 polyphase halfband decimator over CF32 IQ. The caller provides the FIR branch coefficient array h; use ``doppler.resample.kaiser_num_taps(2, atten, pb, sb)`` to size it and scipy or the built-in bank helper to design the prototype. Output length is approximately x_len / 2 per execute() call.
 
     Parameters
@@ -132,8 +228,18 @@ class Halfbanddecimator:
     h : NDArray[np.float32]
         Float32 FIR branch coefficients, length num_taps. Must be a symmetric halfband prototype (antisymmetric even-indexed taps zeroed).
 
+    Examples
+    --------
+    >>> from doppler.resample import HalfbandDecimator
+    >>> import numpy as np
+    >>> h = np.array([0.0625, 0.25, 0.375, 0.25, 0.0625],
+    ...              dtype=np.float32)
+    >>> hb = HalfbandDecimator(h=h)
+    >>> hb.num_taps, hb.rate
+    (5, 0.5)
+
     """
-    def __init__(self, h: NDArray[np.float32] = ...) -> None: ...
+    def __init__(self, h: NDArray[np.float32]) -> None: ...
 
     def execute(self, x: NDArray[np.complex64], out: NDArray[np.complex64] | None = None) -> NDArray[np.complex64]:
         """Decimate x by 2 using the polyphase halfband FIR filter. Processes every second input sample through the FIR branch and passes the other branch through the all-pass (zero-delay) path. State persists between calls — contiguous blocks give identical output to one large block. Output length is floor(x_len / 2).
@@ -141,7 +247,8 @@ class Halfbanddecimator:
         Parameters
         ----------
         x : NDArray[np.complex64]
-            CF32 input array.  Length must be even for exact half-rate output; odd lengths write floor(x_len/2).
+            CF32 input array. Length must be even for exact half-rate output;
+            odd lengths write floor(x_len/2).
 
         Returns
         -------
@@ -161,8 +268,19 @@ class Halfbanddecimator:
 
         """
 
-    def execute_max_out(self) -> int:
-        """Max output length execute() can produce for the current state."""
+    def execute_max_out(self, x_len: int) -> int:
+        """Always returns HBDECIM_MAX_OUT.
+
+        Parameters
+        ----------
+        x_len : int
+            Input.
+
+        Returns
+        -------
+        int
+            Output.
+        """
 
     def reset(self) -> None:
         """Zero all delay lines.  Coefficients and num_taps preserved. Call between signal bursts to suppress transient ringing from prior filter state. The next execute() after reset produces the same output as a freshly created decimator fed the same input.
@@ -182,11 +300,58 @@ class Halfbanddecimator:
         """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the HalfbandDecimator has already been
+        destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the HalfbandDecimator has already been
+        destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the HalfbandDecimator has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def rate(self) -> float:
@@ -197,11 +362,46 @@ class Halfbanddecimator:
         """Number of FIR branch taps as passed to create. The all-pass (even-phase) branch has no taps; only the odd-phase FIR branch has length num_taps. The total prototype length is 2 * num_taps - 1."""
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "Halfbanddecimator": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "HalfbandDecimator":
+        """Enter a context manager, returning this object.
+
+        Lets a HalfbandDecimator be used in a `with` statement so its C
+        resources are released deterministically on exit rather than at
+        collection time.
+
+        Returns
+        -------
+        HalfbandDecimator
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the HalfbandDecimator.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
 
 @final
 class CIC:
@@ -214,10 +414,10 @@ class CIC:
 
     Examples
     --------
-    Create with defaults:
-
     >>> from doppler.resample import CIC
-    >>> obj = CIC(R=16)
+    >>> cic = CIC(R=16)
+    >>> cic.R, cic.shift
+    (16, 16)
 
     """
     def __init__(self, R: int = ...) -> None: ...
@@ -241,7 +441,7 @@ class CIC:
         Parameters
         ----------
         R : int
-            New decimation ratio.  Same constraints as cic_create().
+            New decimation ratio. Same constraints as cic_create().
 
         Examples
         --------
@@ -256,11 +456,6 @@ class CIC:
     def decimate(self, x: NDArray[np.complex64], out: NDArray[np.complex64] | None = None) -> NDArray[np.complex64]:
         """Decimate a block of CF32 samples through the CIC pipeline. Each sample is converted to offset-binary UQ16, pushed through CIC_N integrators (unsigned wrapping), and when the phase counter reaches R the integrated value is passed through CIC_N M=1 comb stages and converted back to CF32.  State persists between calls. Feeding blocks that are multiples of R gives predictable output counts (exactly n_in/R samples per block).
 
-        @note **Input amplitude is bounded: |Re| and |Im| <= 1.0.** A component
-        beyond +-1.0 is clipped at the boundary before filtering; the sample
-        stream gives no sign of it, so check the sticky clipped flag. Scale the
-        input into range first; see the file header.
-
         Parameters
         ----------
         x : NDArray[np.complex64]
@@ -269,7 +464,15 @@ class CIC:
         Returns
         -------
         NDArray[np.complex64]
-            CF32 output array; length is min(floor((phase + n_in) / R), max_out).
+            CF32 output array; length is min(floor((phase + n_in) / R),
+            max_out).
+
+        Notes
+        -----
+        **Input amplitude is bounded: |Re| and |Im| <= 1.0.** A component beyond
+        +-1.0 is clipped at the boundary before filtering; the sample stream
+        gives no sign of it, so check the sticky clipped flag. Scale the input
+        into range first; see the file header.
 
         Examples
         --------
@@ -284,15 +487,77 @@ class CIC:
 
         """
 
-    def decimate_max_out(self) -> int:
-        """Max output length decimate() can produce for the current state."""
+    def decimate_max_out(self, n_in: int) -> int:
+        """Upper bound on decimate output — returns 0 (lazy-alloc signal).
+
+        The Python extension allocates n_in elements on the first call.
+
+        Since n_in >= ceil(n_in/R) = n_out for all R >= 1, the buffer is
+
+        always large enough as long as block size stays consistent.
+
+        Parameters
+        ----------
+        n_in : int
+            Input.
+
+        Returns
+        -------
+        int
+            Output.
+        """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the CIC has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the CIC has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the CIC has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def R(self) -> int:
@@ -307,11 +572,45 @@ class CIC:
         """True if any input component has exceeded the +-1.0 bound since the last reset(). Sticky, and free to read: the CIC's boundary comparisons run on every sample anyway, so it records something the sample stream cannot tell you -- a clipped stream still looks entirely plausible (finite, no NaN, merely distorted), so this flag is the only reliable check."""
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "CIC": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "CIC":
+        """Enter a context manager, returning this object.
+
+        Lets a CIC be used in a `with` statement so its C resources are released
+        deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        CIC
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the CIC.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
 
 @final
 class RateConverter:
@@ -326,10 +625,10 @@ class RateConverter:
 
     Examples
     --------
-    Create with defaults:
-
     >>> from doppler.resample import RateConverter
-    >>> obj = RateConverter(rate=1.0, compensate=0)
+    >>> rc = RateConverter(rate=0.5, compensate=0)
+    >>> rc.rate
+    0.5
 
     """
     def __init__(self, rate: float = ..., compensate: int = ...) -> None: ...
@@ -358,8 +657,23 @@ class RateConverter:
 
         """
 
-    def execute_max_out(self) -> int:
-        """Max output length execute() can produce for the current state."""
+    def execute_max_out(self, x_len: int) -> int:
+        """Upper bound on execute output for a standard 65536-sample block.
+
+        Returns (size_t)(65536 * max(rate, 1.0)) + 2. The Python extension uses
+
+        this to pre-allocate the output buffer on the first execute call.
+
+        Parameters
+        ----------
+        x_len : int
+            Input.
+
+        Returns
+        -------
+        int
+            Output.
+        """
 
     def execute_ctrl(self, x: NDArray[np.complex64], ctrl: float) -> NDArray[np.complex64]:
         """Convert a block, steering the cascade's fractional stage by ctrl.
@@ -383,14 +697,27 @@ class RateConverter:
         Parameters
         ----------
         x : NDArray[np.complex64]
-            Input.
+            CF32 input block.
         ctrl : float
             Rate deviation added to the terminal Resampler stage's rate.
 
         Returns
         -------
         NDArray[np.complex64]
-            CF32 output count.
+            CF32 output array; length tracks the accumulated effective rate.
+
+        Examples
+        --------
+        >>> from doppler.resample import RateConverter
+        >>> import numpy as np
+        >>> rc = RateConverter(rate=0.8, compensate=0)   # ends in Resampler(0.8)
+        >>> x = np.ones(1000, dtype=np.complex64)
+        >>> rc.execute_ctrl(x, 0.0).shape[0]             # base rate: 1000 -> 800
+        800
+        >>> rc2 = RateConverter(rate=0.8, compensate=0)
+        >>> rc2.execute_ctrl(x, 0.05).shape[0]           # +ctrl speeds the tail up
+        850
+
         """
 
     def execute_ctrl_push(self, x: complex, ctrl: float) -> NDArray[np.complex64]:
@@ -414,12 +741,24 @@ class RateConverter:
         x : complex
             One CF32 input sample.
         ctrl : float
-            Rate deviation added to the terminal stage's rate for this input (referenced to the terminal, post-decimation rate).
+            Rate deviation added to the terminal stage's rate for this input
+            (referenced to the terminal, post-decimation rate).
 
         Returns
         -------
         NDArray[np.complex64]
-            Number of outputs written to out (0, 1, or more).
+            CF32 array of the outputs completed by this input (0, 1, or more).
+
+        Examples
+        --------
+        >>> from doppler.resample import RateConverter
+        >>> import numpy as np
+        >>> rc = RateConverter(rate=0.8, compensate=0)   # ends in Resampler(0.8)
+        >>> x = (np.arange(10, dtype=np.float32) + 1).astype(np.complex64)
+        >>> # a decimator emits 0 between strobes, 1 on a strobe:
+        >>> [rc.execute_ctrl_push(complex(v), 0.0).shape[0] for v in x]
+        [0, 1, 1, 1, 1, 0, 1, 1, 1, 1]
+
         """
 
     def reset(self) -> None:
@@ -436,11 +775,56 @@ class RateConverter:
         """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the RateConverter has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the RateConverter has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the RateConverter has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def rate(self) -> float:
@@ -465,22 +849,56 @@ class RateConverter:
         """`[num_phases, num_taps]` of the terminal polyphase stage, or `[]` when the cascade ends in an integer decimator and so has no bank to describe. `num_taps` is the per-output MAC count and, times `num_phases`, the bank's size in floats. With a pulse selected it is set by the terminal stage's rate rather than the input rate -- which is what keeps a matched filter affordable at a high input samples-per-symbol: the same 34 taps per arm at 4 samples/symbol and at 256, where filtering at the input rate would need 4225."""
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "RateConverter": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "RateConverter":
+        """Enter a context manager, returning this object.
+
+        Lets a RateConverter be used in a `with` statement so its C resources
+        are released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        RateConverter
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the RateConverter.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
 
 @final
 class MatchedRateConverter:
-    """MatchedRateConverter component.
+    """Create a rate converter for the given output/input rate ratio. Selects the cheapest cascade of CIC, HalfbandDecimator, and/or polyphase Resampler stages at construction time (see file header for the selection table). Setting compensate=1 appends a closed-form Molnar-Vucic CIC droop-compensating FIR after any CIC stage, which improves passband flatness at the cost of one extra FIR stage.
 
     Parameters
     ----------
     rate : float, default 1.0
-        rate constructor parameter.
+        Output-to-input sample rate ratio. Any positive float.
     compensate : int, default 1
-        compensate constructor parameter.
+        Non-zero to append a CIC passband-droop compensating FIR after any CIC stage.
     pulse : Literal["iandd", "rrc"], default "rrc"
         pulse constructor parameter.
     beta : float, default 0.35
@@ -494,39 +912,212 @@ class MatchedRateConverter:
 
     Examples
     --------
-    Create with defaults:
-
-    >>> from doppler.resample import MatchedRateConverter
-    >>> obj = MatchedRateConverter(rate=1.0, compensate=1, pulse="rrc", beta=0.35, span=8, pulse_sps=2.0, num_phases=1024)
+    >>> from doppler.resample import RateConverter
+    >>> rc = RateConverter(rate=0.5, compensate=0)
+    >>> rc.rate
+    0.5
 
     """
     def __init__(self, rate: float = ..., compensate: int = ..., pulse: Literal["iandd", "rrc"] = "rrc", beta: float = ..., span: int = ..., pulse_sps: float = ..., num_phases: int = ...) -> None: ...
 
     def execute(self, x: NDArray[np.complex64], out: NDArray[np.complex64] | None = None) -> NDArray[np.complex64]:
-        """Execute."""
+        """Convert a block of CF32 samples through the cascade. Passes input through each stage in order, ping-ponging between two intermediate buffers. State persists between calls, so contiguous calls on sequential blocks give the same result as one large call. Output length is approximately n_in * rate.
 
-    def execute_max_out(self) -> int:
-        """Max output length execute() can produce for the current state."""
+        Parameters
+        ----------
+        x : NDArray[np.complex64]
+            Input.
+
+        Returns
+        -------
+        NDArray[np.complex64]
+            CF32 output array; length is approximately n_in * rate.
+
+        Examples
+        --------
+        >>> from doppler.resample import RateConverter
+        >>> import numpy as np
+        >>> rc = RateConverter(rate=0.5, compensate=0)
+        >>> y = rc.execute(np.zeros(1024, dtype=np.complex64))
+        >>> y.shape, y.dtype
+        ((512,), dtype('complex64'))
+
+        """
+
+    def execute_max_out(self, x_len: int) -> int:
+        """Upper bound on execute output for a standard 65536-sample block.
+
+        Returns (size_t)(65536 * max(rate, 1.0)) + 2. The Python extension uses
+
+        this to pre-allocate the output buffer on the first execute call.
+
+        Parameters
+        ----------
+        x_len : int
+            Input.
+
+        Returns
+        -------
+        int
+            Output.
+        """
 
     def execute_ctrl(self, x: NDArray[np.complex64], ctrl: float) -> NDArray[np.complex64]:
-        """Execute ctrl."""
+        """Convert a block, steering the cascade's fractional stage by ctrl.
+
+        The control-port form of RateConverter_execute(): the fixed integer
+        stages (HalfbandDecimator / CIC) run unchanged, and the scalar rate
+        deviation ctrl is forwarded to the **terminal polyphase Resampler
+        stage's** accumulator (via resamp_execute_ctrl_push) — so its effective
+        rate becomes `stage_rate + ctrl` for this call. This exposes the
+        fractional tail's control port that RateConverter_execute() hides: a
+        timing/rate-tracking loop can decimate a high input rate cheaply through
+        the HB/CIC stages and then arbitrary-rate + strobe-align in the last
+        stage, updating ctrl per block.
+
+        `ctrl` is referenced to the terminal stage's (post-decimation) rate, not
+        the overall rate. It is meaningful only when the cascade actually ends
+        in a Resampler stage; a pure integer HB/CIC cascade has no fractional
+        stage to steer, so this **falls through to RateConverter_execute()**
+        (ctrl ignored).
+
+        Parameters
+        ----------
+        x : NDArray[np.complex64]
+            CF32 input block.
+        ctrl : float
+            Rate deviation added to the terminal Resampler stage's rate.
+
+        Returns
+        -------
+        NDArray[np.complex64]
+            CF32 output array; length tracks the accumulated effective rate.
+
+        Examples
+        --------
+        >>> from doppler.resample import RateConverter
+        >>> import numpy as np
+        >>> rc = RateConverter(rate=0.8, compensate=0)   # ends in Resampler(0.8)
+        >>> x = np.ones(1000, dtype=np.complex64)
+        >>> rc.execute_ctrl(x, 0.0).shape[0]             # base rate: 1000 -> 800
+        800
+        >>> rc2 = RateConverter(rate=0.8, compensate=0)
+        >>> rc2.execute_ctrl(x, 0.05).shape[0]           # +ctrl speeds the tail up
+        850
+
+        """
 
     def execute_ctrl_push(self, x: complex, ctrl: float) -> NDArray[np.complex64]:
-        """Execute ctrl push."""
+        """Push ONE input sample; emit whatever outputs it completes.
+
+        The per-input streaming form of RateConverter_execute_ctrl(), and the
+        only form a closed loop can use: a block call must know its whole `ctrl`
+        history up front, whereas a timing loop computes each correction *from*
+        the outputs already emitted. Feeding a stream one sample at a time
+        through this reproduces RateConverter_execute_ctrl() on the same block
+        bit-for-bit when ctrl is held constant (the cascade is block-boundary
+        invariant), so the cheap block form stays correct for open-loop use.
+
+        The integer HB/CIC stages consume the sample and emit at most one
+        intermediate sample each; the terminal Resampler stage then emits 0
+        outputs (a decimator between strobes — the common case), 1, or several
+        (an interpolator). A cascade with no terminal Resampler ignores ctrl.
+
+        Parameters
+        ----------
+        x : complex
+            One CF32 input sample.
+        ctrl : float
+            Rate deviation added to the terminal stage's rate for this input
+            (referenced to the terminal, post-decimation rate).
+
+        Returns
+        -------
+        NDArray[np.complex64]
+            CF32 array of the outputs completed by this input (0, 1, or more).
+
+        Examples
+        --------
+        >>> from doppler.resample import RateConverter
+        >>> import numpy as np
+        >>> rc = RateConverter(rate=0.8, compensate=0)   # ends in Resampler(0.8)
+        >>> x = (np.arange(10, dtype=np.float32) + 1).astype(np.complex64)
+        >>> # a decimator emits 0 between strobes, 1 on a strobe:
+        >>> [rc.execute_ctrl_push(complex(v), 0.0).shape[0] for v in x]
+        [0, 1, 1, 1, 1, 0, 1, 1, 1, 1]
+
+        """
 
     def reset(self) -> None:
-        """Reset."""
+        """Zero all sub-stage filter memories. Rate, stage count, and stage types are preserved. Processing from a reset state produces the same output as a freshly created converter fed the same input. Use between signal bursts to suppress transient artefacts from prior filter memory.
+
+        Examples
+        --------
+        >>> from doppler.resample import RateConverter
+        >>> rc = RateConverter(rate=0.5, compensate=0)
+        >>> rc.reset()
+        >>> rc.rate
+        0.5
+
+        """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the MatchedRateConverter has already been
+        destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the MatchedRateConverter has already been
+        destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the MatchedRateConverter has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def rate(self) -> float:
-        """Rate."""
+        """Get / set the output-to-input sample rate ratio. The setter rebuilds the entire cascade (new stage selection, new sub-objects) and resets all filter memories — equivalent to destroying and recreating with the new rate. Setting rate <= 0 is silently ignored."""
     @rate.setter
     def rate(self, value: float) -> None: ...
 
@@ -547,11 +1138,46 @@ class MatchedRateConverter:
         """`[num_phases, num_taps]` of the terminal polyphase stage, or `[]` when the cascade ends in an integer decimator and so has no bank to describe. `num_taps` is the per-output MAC count and, times `num_phases`, the bank's size in floats. With a pulse selected it is set by the terminal stage's rate rather than the input rate -- which is what keeps a matched filter affordable at a high input samples-per-symbol: the same 34 taps per arm at 4 samples/symbol and at 256, where filtering at the input rate would need 4225."""
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "MatchedRateConverter": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "MatchedRateConverter":
+        """Enter a context manager, returning this object.
+
+        Lets a MatchedRateConverter be used in a `with` statement so its C
+        resources are released deterministically on exit rather than at
+        collection time.
+
+        Returns
+        -------
+        MatchedRateConverter
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the MatchedRateConverter.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
 
 @final
 class Farrow:
@@ -575,43 +1201,164 @@ class Farrow:
     def delay(self, x: NDArray[np.complex64], mu: float) -> NDArray[np.complex64]:
         """Apply a constant fractional delay of `mu` samples to a cf32 block via the Farrow interpolator; output[i] is the input interpolated at i - group_delay + mu. The first group_delay samples are filling-transient.
 
+        Pushes each input sample through the delay line and evaluates the
+        interpolator at the same fixed offset, so the whole block is delayed by
+        a constant, non-integer amount. Output sample i is the input
+        interpolated at `i - group_delay + mu`, i.e. the stream shifted later by
+        `group_delay - mu` samples; the first group_delay outputs are the
+        delay-line filling transient and should be discarded. Because the offset
+        is held constant this is the open-loop use of the interpolator — a
+        timing loop instead steers mu per sample via
+        farrow_push()/farrow_eval().
+
         Parameters
         ----------
         x : NDArray[np.complex64]
-            Input.
+            CF32 input samples.
         mu : float
-            Input.
+            Fractional delay in samples; the offset in `[0,1)` into the
+            interpolation interval (values outside extrapolate).
 
         Returns
         -------
         NDArray[np.complex64]
-            Output.
+            CF32 output array, same length as x, each sample delayed by
+            `group_delay - mu`.
+
+        Examples
+        --------
+        >>> from doppler.resample import Farrow
+        >>> import numpy as np
+        >>> f = Farrow(order="cubic")
+        >>> x = np.arange(8, dtype=np.complex64)   # a ramp: exactly interpolable
+        >>> y = f.delay(x, 0.5)                     # delay by group_delay - 0.5
+        >>> [round(float(v.real), 4) for v in y]    # first 2 are fill transient
+        [0.0, -0.0625, 0.4375, 1.5, 2.5, 3.5, 4.5, 5.5]
+
         """
 
     def reset(self) -> None:
         """Clear the interpolator delay line.
+
+        Zeroes the 4-tap delay line so the next block starts from a filling
+        transient again, exactly as a freshly created interpolator would. The
+        order (linear / parabolic / cubic) is preserved, so the same object can
+        be reused across independent bursts without rebuilding the polynomial.
+        Call it between unrelated signal segments to stop the tail of one
+        leaking into the head of the next.
+
+        Examples
+        --------
+        >>> from doppler.resample import Farrow
+        >>> import numpy as np
+        >>> f = Farrow(order="cubic")
+        >>> _ = f.delay(np.ones(8, dtype=np.complex64), 0.25)  # leaves state
+        >>> f.reset()                                          # back to pristine
+        >>> x = np.arange(8, dtype=np.complex64)
+        >>> f.delay(x, 0.5)[3:].real.tolist()   # steady part == ramp shifted 1.5
+        [1.5, 2.5, 3.5, 4.5, 5.5]
+
         """
 
     def delay_max_out(self, *args: Any, **kwargs: Any) -> Any:
         """<<MANUAL_STUB>> hand-write this signature/docstring in the .pyi — jm preserves it verbatim on future regens."""
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the Farrow has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the Farrow has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the Farrow has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def group_delay(self) -> int:
         """Group delay."""
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "Farrow": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "Farrow":
+        """Enter a context manager, returning this object.
+
+        Lets a Farrow be used in a `with` statement so its C resources are
+        released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        Farrow
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the Farrow.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
 
 @final
 class HalfbandDecimatorQ15:
@@ -622,8 +1369,19 @@ class HalfbandDecimatorQ15:
     h : NDArray[np.float32]
         Float FIR branch coefficients of length num_taps. Must be symmetric (`h[k]` == `h[num_taps-1-k]`).
 
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from doppler.resample import HalfbandDecimatorQ15
+    >>> h = np.array([0.25, 0.5, 0.25], dtype=np.float32)
+    >>> dec = HalfbandDecimatorQ15(h)
+    >>> dec.num_taps
+    3
+    >>> dec.rate
+    0.5
+
     """
-    def __init__(self, h: NDArray[np.float32] = ...) -> None: ...
+    def __init__(self, h: NDArray[np.float32]) -> None: ...
 
     def execute(self, x: NDArray[np.int16], out: NDArray[np.int16] | None = None) -> NDArray[np.int16]:
         """Decimate a block of interleaved IQ int16 samples by 2. Input must be interleaved int16_t IQ pairs (I₀ Q₀ I₁ Q₁ …); pass a 1-D array of 2*n_complex elements.  Each pair of complex input samples produces one complex output sample, so an array of length 2N yields at most N output pairs (2N int16 output values).  If n_in is odd the trailing IQ pair is buffered and consumed on the next call.
@@ -636,7 +1394,8 @@ class HalfbandDecimatorQ15:
         Returns
         -------
         NDArray[np.int16]
-            min(available, max_out) COMPLEX samples -- twice that many int16_t values.
+            min(available, max_out) COMPLEX samples -- twice that many int16_t
+            values.
 
         Examples
         --------
@@ -655,8 +1414,24 @@ class HalfbandDecimatorQ15:
 
         """
 
-    def execute_max_out(self) -> int:
-        """Max output length execute() can produce for the current state."""
+    def execute_max_out(self, x_len: int) -> int:
+        """Maximum output samples for a given input length.
+
+        Returns 0 to trigger the lazy-alloc path in the Python glue: the
+
+        output buffer is sized to n_in on first call (always sufficient for
+        2:1).
+
+        Parameters
+        ----------
+        x_len : int
+            Input.
+
+        Returns
+        -------
+        int
+            Output.
+        """
 
     def reset(self) -> None:
         """Zero all delay rings and clear the pending-sample flag. After a reset the decimator behaves identically to a freshly constructed instance: the four dual-write delay rings are zeroed and has_pending is cleared, so no partial IQ pair carries over.  Call this between unrelated signal segments to prevent inter-segment leakage.
@@ -677,11 +1452,58 @@ class HalfbandDecimatorQ15:
         """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the HalfbandDecimatorQ15 has already been
+        destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the HalfbandDecimatorQ15 has already been
+        destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the HalfbandDecimatorQ15 has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def num_taps(self) -> int:
@@ -692,11 +1514,46 @@ class HalfbandDecimatorQ15:
         """The sample-rate reduction factor; always 0.5 for 2:1 decimation. Exposed as a read-only property so pipelines can query the rate of each stage programmatically without hard-coding the 2:1 assumption."""
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "HalfbandDecimatorQ15": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "HalfbandDecimatorQ15":
+        """Enter a context manager, returning this object.
+
+        Lets a HalfbandDecimatorQ15 be used in a `with` statement so its C
+        resources are released deterministically on exit rather than at
+        collection time.
+
+        Returns
+        -------
+        HalfbandDecimatorQ15
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the HalfbandDecimatorQ15.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
 
 def ciccompmf(N: int, R: int, M: int) -> NDArray[np.float64]:
     """Design a CIC passband-droop compensator FIR filter. Implements the closed-form Bernoulli-series maximally-flat-error method from Molnar & Vucic (IEEE TCAS-II 58(12):926-930, 2011, DOI 10.1109/TCSII.2011.2172522). The compensator runs at the *decimated* (output) rate and should be applied after the CIC stage. DC gain is exactly 1.0. Odd M gives symmetric linear-phase taps; even M gives half-sample-shifted linear-phase taps.

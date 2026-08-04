@@ -13,4 +13,6 @@ __all__ = [
     "claude_agent_sdk",
     "langchain",
     "langgraph",
+    "openai_agents",
+    "strands",
 ]

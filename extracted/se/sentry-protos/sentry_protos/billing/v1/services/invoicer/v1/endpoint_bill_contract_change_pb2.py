@@ -26,7 +26,7 @@ from sentry_protos.billing.v1.common.v1 import pending_change_pb2 as sentry__pro
 from sentry_protos.billing.v1.services.contract.v1 import invoice_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v1_dot_invoice__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nQsentry_protos/billing/v1/services/invoicer/v1/endpoint_bill_contract_change.proto\x12-sentry_protos.billing.v1.services.invoicer.v1\x1a\x37sentry_protos/billing/v1/common/v1/pending_change.proto\x1a;sentry_protos/billing/v1/services/contract/v1/invoice.proto\"\xc7\x01\n\x19\x42illContractChangeRequest\x12\x13\n\x0b\x63ontract_id\x18\x01 \x01(\x04\x12R\n\nline_items\x18\x02 \x03(\x0b\x32>.sentry_protos.billing.v1.services.contract.v1.InvoiceLineItem\x12\x41\n\x06\x63hange\x18\x03 \x01(\x0b\x32\x31.sentry_protos.billing.v1.common.v1.PendingChange\"0\n\x1a\x42illContractChangeResponse\x12\x12\n\ninvoice_id\x18\x01 \x01(\x04\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nQsentry_protos/billing/v1/services/invoicer/v1/endpoint_bill_contract_change.proto\x12-sentry_protos.billing.v1.services.invoicer.v1\x1a\x37sentry_protos/billing/v1/common/v1/pending_change.proto\x1a;sentry_protos/billing/v1/services/contract/v1/invoice.proto\"\xdf\x01\n\x19\x42illContractChangeRequest\x12\x13\n\x0b\x63ontract_id\x18\x01 \x01(\x04\x12R\n\nline_items\x18\x02 \x03(\x0b\x32>.sentry_protos.billing.v1.services.contract.v1.InvoiceLineItem\x12\x41\n\x06\x63hange\x18\x03 \x01(\x0b\x32\x31.sentry_protos.billing.v1.common.v1.PendingChange\x12\x16\n\x0estart_new_term\x18\x04 \x01(\x08\"0\n\x1a\x42illContractChangeResponse\x12\x12\n\ninvoice_id\x18\x01 \x01(\x04\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -34,7 +34,7 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.se
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_BILLCONTRACTCHANGEREQUEST']._serialized_start=251
-  _globals['_BILLCONTRACTCHANGEREQUEST']._serialized_end=450
-  _globals['_BILLCONTRACTCHANGERESPONSE']._serialized_start=452
-  _globals['_BILLCONTRACTCHANGERESPONSE']._serialized_end=500
+  _globals['_BILLCONTRACTCHANGEREQUEST']._serialized_end=474
+  _globals['_BILLCONTRACTCHANGERESPONSE']._serialized_start=476
+  _globals['_BILLCONTRACTCHANGERESPONSE']._serialized_end=524
 # @@protoc_insertion_point(module_scope)

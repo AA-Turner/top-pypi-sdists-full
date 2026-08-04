@@ -327,7 +327,11 @@ FIRObj_exit (FIRObject *self, PyObject *args)
 
 static PyMethodDef FIRObj_methods[] = {
   { "reset", (PyCFunction)FIRObj_reset, METH_NOARGS,
-    "Reset state to post-create defaults." },
+    "Zero the delay line; preserve taps and scratch capacity. After a reset "
+    "the filter behaves identically to a freshly constructed instance of the "
+    "same length, without paying the allocation cost again. Call this between "
+    "unrelated signal segments to prevent inter-segment leakage through the "
+    "delay line." },
 
   { "execute", (PyCFunction)(void *)FIRObj_execute,
     METH_VARARGS | METH_KEYWORDS,
@@ -340,25 +344,119 @@ static PyMethodDef FIRObj_methods[] = {
     "or overlap.  The scratch buffer is grown lazily on the first call and "
     "reused on subsequent calls of the same size.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import FIR\n"
-    "    >>> obj = FIR(np.zeros(1, dtype=np.complex64))\n"
-    "    >>> y = obj.execute(1.0 + 0.0j)\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex64')\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : complex\n"
+    "    Input.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex64]\n"
+    "    Number of output samples written (always == n_in).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.filter import FIR\n"
+    ">>> taps = np.array([0.25+0j, 0.5+0j, 0.25+0j], dtype=np.complex64)\n"
+    ">>> fir = FIR(taps)\n"
+    ">>> x = np.array([1+0j, 0+0j, 0+0j], dtype=np.complex64)\n"
+    ">>> y = fir.execute(x)\n"
+    ">>> y.dtype\n"
+    "dtype('complex64')\n"
+    ">>> y.shape\n"
+    "(3,)\n"
+    ">>> [round(float(v.real), 4) for v in y]\n"
+    "[0.25, 0.5, 0.25]\n" },
   { "execute_max_out", (PyCFunction)FIRObj_execute_max_out, METH_NOARGS,
     "execute_max_out() -> int\n\nMax output length execute() can produce for "
     "the current state.\nUse to size the ``out=`` buffer." },
   { "state_bytes", (PyCFunction)FIRObj_state_bytes, METH_NOARGS,
-    "Serialized state size in bytes." },
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the FIRObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
   { "get_state", (PyCFunction)FIRObj_get_state, METH_NOARGS,
-    "Serialize the engine's mutable state to bytes." },
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the FIRObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
   { "set_state", (PyCFunction)FIRObj_set_state, METH_O,
-    "Restore mutable state from a get_state() blob." },
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the FIRObj has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
   { "destroy", (PyCFunction)FIRObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)FIRObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)FIRObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)FIRObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a Fir be used in a `with` statement so its C resources are "
+    "released\n"
+    "deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "Fir\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)FIRObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the Fir.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

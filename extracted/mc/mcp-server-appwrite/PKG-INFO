@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: mcp-server-appwrite
-Version: 0.8.27
+Version: 0.8.28
 Summary: MCP (Model Context Protocol) server for Appwrite
 License-File: LICENSE
 Requires-Python: >=3.12
 Requires-Dist: anyio>=4.0.0
-Requires-Dist: appwrite<23,>=22.2.0
+Requires-Dist: appwrite-console<0.3,>=0.2.1
 Requires-Dist: docstring-parser>=0.16
 Requires-Dist: httpx>=0.27.0
 Requires-Dist: mcp[cli]<3,>=2

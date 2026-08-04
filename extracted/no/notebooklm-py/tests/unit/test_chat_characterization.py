@@ -1,5 +1,4 @@
 """Characterization tests for ChatAPI.
-
 These tests pin current observable behavior of the ChatAPI surface against
 hand-rolled streaming stubs and synthetic ``build_rpc_response`` payloads.
 They intentionally stay in ``tests/unit/`` (not ``tests/integration/``)
@@ -18,7 +17,7 @@ from pytest_httpx import HTTPXMock
 
 from notebooklm import NotebookLMClient
 from notebooklm.rpc import ChatGoal, ChatResponseLength, RPCMethod
-from notebooklm.types import ChatMode
+from notebooklm.types import ChatMode, ChatSettings
 
 pytestmark = pytest.mark.characterization
 
@@ -51,10 +50,8 @@ class TestChatAPI:
             [[["conv_001"]]],
         )
         httpx_mock.add_response(content=response.encode())
-
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.chat.get_conversation_id("nb_123")
-
         assert result == "conv_001"
         request = httpx_mock.get_request()
         assert RPCMethod.GET_LAST_CONVERSATION_ID in str(request.url)
@@ -87,10 +84,8 @@ class TestChatAPI:
         )
         httpx_mock.add_response(content=id_response.encode())
         httpx_mock.add_response(content=turns_response.encode())
-
         async with NotebookLMClient(auth_tokens) as client:
             qa_pairs = await client.chat.get_history("nb_123")
-
         # get_history reverses API order to return oldest-first
         assert len(qa_pairs) == 2
         assert qa_pairs[0] == ("First question?", "Answer to first question.")
@@ -104,7 +99,6 @@ class TestChatAPI:
         build_rpc_response,
     ):
         """Test getting conversation turns for a specific conversation.
-
         The khqZz RPC returns Q&A turns for a conversation:
           turn[2] == 1: user question, text at turn[3]
           turn[2] == 2: AI answer, text at turn[4][0][0]
@@ -120,22 +114,17 @@ class TestChatAPI:
             ],
         )
         httpx_mock.add_response(content=response.encode())
-
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.chat.get_conversation_turns("nb_123", "conv_001", limit=2)
-
         assert result is not None
         turns = result[0]
         assert len(turns) == 2
-
         # Turn type 1: user question
         assert turns[0][2] == 1
         assert turns[0][3] == "What is machine learning?"
-
         # Turn type 2: AI answer
         assert turns[1][2] == 2
         assert turns[1][4][0][0] == "Machine learning is a branch of AI."
-
         request = httpx_mock.get_request()
         assert RPCMethod.GET_CONVERSATION_TURNS in str(request.url)
 
@@ -152,10 +141,8 @@ class TestChatAPI:
             [[]],
         )
         httpx_mock.add_response(content=response.encode())
-
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.chat.get_conversation_turns("nb_123", "conv_001")
-
         assert result is not None
         assert result[0] == []
 
@@ -169,10 +156,8 @@ class TestChatAPI:
         """Test getting empty conversation history when no conversations exist."""
         response = build_rpc_response(RPCMethod.GET_LAST_CONVERSATION_ID, [])
         httpx_mock.add_response(content=response.encode())
-
         async with NotebookLMClient(auth_tokens) as client:
             qa_pairs = await client.chat.get_history("nb_123")
-
         assert qa_pairs == []
 
     @pytest.mark.asyncio
@@ -185,10 +170,8 @@ class TestChatAPI:
         """Test configuring chat with default settings."""
         response = build_rpc_response(RPCMethod.RENAME_NOTEBOOK, None)
         httpx_mock.add_response(content=response.encode())
-
         async with NotebookLMClient(auth_tokens) as client:
             await client.chat.configure("nb_123")
-
         request = httpx_mock.get_request()
         assert RPCMethod.RENAME_NOTEBOOK in str(request.url)
 
@@ -202,14 +185,12 @@ class TestChatAPI:
         """Test configuring chat as learning guide."""
         response = build_rpc_response(RPCMethod.RENAME_NOTEBOOK, None)
         httpx_mock.add_response(content=response.encode())
-
         async with NotebookLMClient(auth_tokens) as client:
             await client.chat.configure(
                 "nb_123",
                 goal=ChatGoal.LEARNING_GUIDE,
                 response_length=ChatResponseLength.LONGER,
             )
-
         request = httpx_mock.get_request()
         assert RPCMethod.RENAME_NOTEBOOK in str(request.url)
 
@@ -236,14 +217,12 @@ class TestChatAPI:
         """Test configuring chat with custom prompt."""
         response = build_rpc_response(RPCMethod.RENAME_NOTEBOOK, None)
         httpx_mock.add_response(content=response.encode())
-
         async with NotebookLMClient(auth_tokens) as client:
             await client.chat.configure(
                 "nb_123",
                 goal=ChatGoal.CUSTOM,
                 custom_prompt="You are a helpful tutor.",
             )
-
         request = httpx_mock.get_request()
         assert RPCMethod.RENAME_NOTEBOOK in str(request.url)
 
@@ -257,12 +236,68 @@ class TestChatAPI:
         """Test setting chat mode with predefined config."""
         response = build_rpc_response(RPCMethod.RENAME_NOTEBOOK, None)
         httpx_mock.add_response(content=response.encode())
-
         async with NotebookLMClient(auth_tokens) as client:
             await client.chat.set_mode("nb_123", ChatMode.CONCISE)
-
         request = httpx_mock.get_request()
         assert RPCMethod.RENAME_NOTEBOOK in str(request.url)
+
+    @pytest.mark.asyncio
+    async def test_get_settings_decodes_custom_persona(
+        self,
+        auth_tokens,
+        httpx_mock: HTTPXMock,
+        build_rpc_response,
+    ):
+        """get_settings reads GET_NOTEBOOK and decodes the nb_info[7] block (#1751)."""
+        nb_info = [0, 1, 2, 3, 4, 5, 6, [[2, "chemistry tutor"], [4]]]
+        response = build_rpc_response(RPCMethod.GET_NOTEBOOK, [nb_info])
+        httpx_mock.add_response(content=response.encode())
+        async with NotebookLMClient(auth_tokens) as client:
+            settings = await client.chat.get_settings("nb_123")
+        assert settings == ChatSettings(
+            goal=ChatGoal.CUSTOM,
+            response_length=ChatResponseLength.LONGER,
+            custom_prompt="chemistry tutor",
+        )
+        request = httpx_mock.get_request()
+        assert RPCMethod.GET_NOTEBOOK in str(request.url)
+
+    @pytest.mark.asyncio
+    async def test_get_settings_never_configured_is_defaults(
+        self,
+        auth_tokens,
+        httpx_mock: HTTPXMock,
+        build_rpc_response,
+    ):
+        """A never-configured notebook returns null at nb_info[7] → DEFAULT/DEFAULT."""
+        nb_info = [0, 1, 2, 3, 4, 5, 6, None]
+        response = build_rpc_response(RPCMethod.GET_NOTEBOOK, [nb_info])
+        httpx_mock.add_response(content=response.encode())
+        async with NotebookLMClient(auth_tokens) as client:
+            settings = await client.chat.get_settings("nb_123")
+        assert settings == ChatSettings(
+            goal=ChatGoal.DEFAULT,
+            response_length=ChatResponseLength.DEFAULT,
+            custom_prompt=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_settings_unknown_enum_code_raises_drift(
+        self,
+        auth_tokens,
+        httpx_mock: HTTPXMock,
+        build_rpc_response,
+    ):
+        """An unknown goal/length code (new server enum) surfaces as decode drift."""
+        from notebooklm.exceptions import UnknownRPCMethodError
+
+        # goal_code 7 is not a known ChatGoal member.
+        nb_info = [0, 1, 2, 3, 4, 5, 6, [[7], [1]]]
+        response = build_rpc_response(RPCMethod.GET_NOTEBOOK, [nb_info])
+        httpx_mock.add_response(content=response.encode())
+        async with NotebookLMClient(auth_tokens) as client:
+            with pytest.raises(UnknownRPCMethodError):
+                await client.chat.get_settings("nb_123")
 
     def test_get_cached_turns_empty(self, auth_tokens):
         """Test getting cached turns for new conversation."""
@@ -378,35 +413,29 @@ class TestChatReferences:
         inner_json = json.dumps(inner_data)
         chunk_json = json.dumps([["wrb.fr", None, inner_json]])
         response_body = f")]}}'\n{len(chunk_json)}\n{chunk_json}\n"
-
         httpx_mock.add_response(
             url=re.compile(r".*GenerateFreeFormStreamed.*"),
             content=response_body.encode(),
             method="POST",
         )
         mock_get_conversation_id()  # issue #659 post-ask round-trip
-
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.chat.ask(
                 notebook_id="test_nb",
                 question="What is machine learning?",
                 source_ids=["src_001"],
             )
-
         # Verify answer
         assert "Machine learning" in result.answer
         assert "[1]" in result.answer
         assert "[2]" in result.answer
-
         # Verify references
         assert len(result.references) == 2
-
         # First reference
         ref1 = result.references[0]
         assert ref1.source_id == "11111111-1111-1111-1111-111111111111"
         assert ref1.citation_number == 1
         assert "artificial intelligence" in ref1.cited_text
-
         # Second reference
         ref2 = result.references[1]
         assert ref2.source_id == "22222222-2222-2222-2222-222222222222"
@@ -436,21 +465,18 @@ class TestChatReferences:
         inner_json = json.dumps(inner_data)
         chunk_json = json.dumps([["wrb.fr", None, inner_json]])
         response_body = f")]}}'\n{len(chunk_json)}\n{chunk_json}\n"
-
         httpx_mock.add_response(
             url=re.compile(r".*GenerateFreeFormStreamed.*"),
             content=response_body.encode(),
             method="POST",
         )
         mock_get_conversation_id()
-
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.chat.ask(
                 notebook_id="test_nb",
                 question="Simple question",
                 source_ids=["src_001"],
             )
-
         assert result.answer == "This is a simple answer without any source citations."
         assert len(result.references) == 0
 
@@ -504,21 +530,18 @@ class TestChatReferences:
         inner_json = json.dumps(inner_data)
         chunk_json = json.dumps([["wrb.fr", None, inner_json]])
         response_body = f")]}}'\n{len(chunk_json)}\n{chunk_json}\n"
-
         httpx_mock.add_response(
             url=re.compile(r".*GenerateFreeFormStreamed.*"),
             content=response_body.encode(),
             method="POST",
         )
         mock_get_conversation_id()
-
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.chat.ask(
                 notebook_id="test_nb",
                 question="Question",
                 source_ids=["src_001"],
             )
-
         assert len(result.references) == 1
         ref = result.references[0]
         assert ref.start_char == 1000
@@ -533,7 +556,6 @@ class TestChatReferences:
         mock_get_conversation_id,
     ):
         """Test ask() extracts answer when API response lacks type_info[-1]==1 marker.
-
         Regression test for issue #118: Google's API may change or omit the answer
         marker, causing the parser to fall back to the longest unmarked text chunk.
         """
@@ -553,24 +575,23 @@ class TestChatReferences:
         inner_json = json.dumps(inner_data)
         chunk_json = json.dumps([["wrb.fr", None, inner_json]])
         response_body = f")]}}'\n{len(chunk_json)}\n{chunk_json}\n"
-
         httpx_mock.add_response(
             url=re.compile(r".*GenerateFreeFormStreamed.*"),
             content=response_body.encode(),
             method="POST",
         )
         mock_get_conversation_id()
-
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.chat.ask(
                 notebook_id="test_nb",
                 question="What does this say?",
                 source_ids=["src_001"],
             )
-
         assert result.answer == "This is a valid answer returned without the answer marker."
         assert result.conversation_id is not None
-        assert result.is_follow_up is False
+        # The pre-POST hPTbtc resolve returns a current conversation id, so this
+        # null ask resumes an existing conversation → a follow-up (#1965).
+        assert result.is_follow_up is True
 
     @pytest.mark.asyncio
     async def test_ask_prefers_marked_over_unmarked_in_streaming_response(
@@ -580,7 +601,6 @@ class TestChatReferences:
         mock_get_conversation_id,
     ):
         """Test ask() picks the marked answer when response has both marked and unmarked chunks.
-
         Streaming responses can contain multiple chunks. The marked answer chunk
         (type_info[-1]==1) must win even when an unmarked chunk has longer text.
         """
@@ -614,32 +634,30 @@ class TestChatReferences:
             return f"{len(chunk_json)}\n{chunk_json}"
 
         response_body = f")]}}'\n{make_chunk(preamble)}\n{make_chunk(answer)}\n"
-
         httpx_mock.add_response(
             url=re.compile(r".*GenerateFreeFormStreamed.*"),
             content=response_body.encode(),
             method="POST",
         )
         mock_get_conversation_id()
-
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.chat.ask(
                 notebook_id="test_nb",
                 question="What is the answer?",
                 source_ids=["src_001"],
             )
-
         assert result.answer == "The real answer."
 
 
 class TestChatAskErrorHandling:
-    """Tests for ask() HTTP error handling (lines 127-158, 170)."""
+    """Tests for ask() HTTP error handling ."""
 
     @pytest.mark.asyncio
     async def test_ask_timeout_raises_network_error(
         self,
         auth_tokens,
         httpx_mock: HTTPXMock,
+        mock_get_conversation_id,
     ):
         """Test ask() raises NetworkError on httpx.TimeoutException."""
         import re
@@ -648,11 +666,13 @@ class TestChatAskErrorHandling:
 
         from notebooklm.exceptions import NetworkError
 
+        # A null ask resolves the notebook's current conversation via hPTbtc
+        # before the POST (issue #1875); mock it so the POST is what fails.
+        mock_get_conversation_id()
         httpx_mock.add_exception(
             httpx.TimeoutException("timed out"),
             url=re.compile(r".*GenerateFreeFormStreamed.*"),
         )
-
         # ``server_error_max_retries=0`` pins the original immediate-raise
         # contract; the default retries 5xx + RequestError 3x.
         async with NotebookLMClient(auth_tokens, server_error_max_retries=0) as client:
@@ -668,9 +688,9 @@ class TestChatAskErrorHandling:
         self,
         auth_tokens,
         httpx_mock: HTTPXMock,
+        mock_get_conversation_id,
     ):
         """Test ask() raises ChatError on httpx.HTTPStatusError.
-
         After the chat-path refactor, the chat path uses
         :func:`_chat.transport.chat_aware_authed_post` which routes
         through the shared transport pipeline. Auth-shaped statuses
@@ -683,12 +703,14 @@ class TestChatAskErrorHandling:
 
         from notebooklm.exceptions import ChatError
 
+        # A null ask resolves the notebook's current conversation via hPTbtc
+        # before the POST (issue #1875); mock it so the POST is what fails.
+        mock_get_conversation_id()
         httpx_mock.add_response(
             url=re.compile(r".*GenerateFreeFormStreamed.*"),
             status_code=500,
             method="POST",
         )
-
         async with NotebookLMClient(auth_tokens, server_error_max_retries=0) as client:
             with pytest.raises(ChatError, match="500"):
                 await client.chat.ask(
@@ -702,6 +724,7 @@ class TestChatAskErrorHandling:
         self,
         auth_tokens,
         httpx_mock: HTTPXMock,
+        mock_get_conversation_id,
     ):
         """Test ask() raises NetworkError on httpx.RequestError."""
         import re
@@ -710,11 +733,13 @@ class TestChatAskErrorHandling:
 
         from notebooklm.exceptions import NetworkError
 
+        # A null ask resolves the notebook's current conversation via hPTbtc
+        # before the POST (issue #1875); mock it so the POST is what fails.
+        mock_get_conversation_id()
         httpx_mock.add_exception(
             httpx.ConnectError("connection refused"),
             url=re.compile(r".*GenerateFreeFormStreamed.*"),
         )
-
         async with NotebookLMClient(auth_tokens, server_error_max_retries=0) as client:
             with pytest.raises(NetworkError, match="connection refused"):
                 await client.chat.ask(
@@ -729,7 +754,7 @@ class TestChatAskErrorHandling:
         httpx_mock: HTTPXMock,
         mock_get_conversation_id,
     ):
-        """Test ask() without csrf_token omits the 'at' param (line 127 branch)."""
+        """Test ask() without csrf_token omits the 'at' param."""
         import json
         import re
 
@@ -741,7 +766,6 @@ class TestChatAskErrorHandling:
             csrf_token=None,
             session_id=None,
         )
-
         inner_data = [
             [
                 "Answer without csrf.",
@@ -754,21 +778,18 @@ class TestChatAskErrorHandling:
         inner_json = json.dumps(inner_data)
         chunk_json = json.dumps([["wrb.fr", None, inner_json]])
         response_body = f")]}}'\n{len(chunk_json)}\n{chunk_json}\n"
-
         httpx_mock.add_response(
             url=re.compile(r".*GenerateFreeFormStreamed.*"),
             content=response_body.encode(),
             method="POST",
         )
         mock_get_conversation_id()
-
         async with NotebookLMClient(auth_no_csrf) as client:
             result = await client.chat.ask(
                 "nb_123",
                 "What is this?",
                 source_ids=["src_001"],
             )
-
         assert result.answer == "Answer without csrf."
 
     @pytest.mark.asyncio
@@ -777,7 +798,7 @@ class TestChatAskErrorHandling:
         httpx_mock: HTTPXMock,
         mock_get_conversation_id,
     ):
-        """Test ask() with session_id adds f.sid param (line 140-143)."""
+        """Test ask() with session_id adds f.sid param."""
         import json
         import re
 
@@ -788,7 +809,6 @@ class TestChatAskErrorHandling:
             csrf_token="test_token",
             session_id="my_session_id",
         )
-
         inner_data = [
             [
                 "Answer with session.",
@@ -801,21 +821,18 @@ class TestChatAskErrorHandling:
         inner_json = json.dumps(inner_data)
         chunk_json = json.dumps([["wrb.fr", None, inner_json]])
         response_body = f")]}}'\n{len(chunk_json)}\n{chunk_json}\n"
-
         httpx_mock.add_response(
             url=re.compile(r".*GenerateFreeFormStreamed.*"),
             content=response_body.encode(),
             method="POST",
         )
         mock_get_conversation_id()
-
         async with NotebookLMClient(auth_with_session) as client:
             result = await client.chat.ask(
                 "nb_123",
                 "What is this?",
                 source_ids=["src_001"],
             )
-
         assert result.answer == "Answer with session."
         # Two HTTP calls now fire (chat-ask + post-ask hPTbtc, issue #659);
         # assert f.sid is on the chat-ask leg specifically.
@@ -831,9 +848,7 @@ class TestChatAskErrorHandling:
         httpx_mock: HTTPXMock,
     ):
         """Empty answer on a follow-up must not append a turn to the cache.
-
         Two paths reach this assertion under the current contract:
-
         * **Unparseable response body** (e.g. just the XSSI prefix, garbage,
           or wire-drift): now raises ``ChatResponseParseError`` instead of
           silently returning an empty answer. The "no cache poisoning"
@@ -843,7 +858,6 @@ class TestChatAskErrorHandling:
           legitimate empty answer from the model): still returns
           ``answer == ""``, preserves the caller-supplied conversation_id,
           and skips the cache append.
-
         This test covers the second path — the first is covered in
         ``tests/unit/test_chat.py::test_streaming_empty_raises``.
         """
@@ -858,13 +872,11 @@ class TestChatAskErrorHandling:
         inner_json = json.dumps(inner_data)
         chunk_json = json.dumps([["wrb.fr", None, inner_json]])
         response_body = f")]}}'\n{len(chunk_json)}\n{chunk_json}\n"
-
         httpx_mock.add_response(
             url=re.compile(r".*GenerateFreeFormStreamed.*"),
             content=response_body.encode(),
             method="POST",
         )
-
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.chat.ask(
                 "nb_123",
@@ -872,7 +884,6 @@ class TestChatAskErrorHandling:
                 source_ids=["src_001"],
                 conversation_id="existing-conv-id",
             )
-
         # Empty answer: turn_number equals len(turns) (0), not len(turns)+1
         assert result.answer == ""
         assert result.turn_number == 0
@@ -885,7 +896,7 @@ class TestChatAskErrorHandling:
         auth_tokens,
         httpx_mock: HTTPXMock,
     ):
-        """Test ask() with existing conversation_id sets is_follow_up=True (line 170)."""
+        """Test ask() with existing conversation_id sets is_follow_up=True ."""
         import json
         import re
 
@@ -901,13 +912,11 @@ class TestChatAskErrorHandling:
         inner_json = json.dumps(inner_data)
         chunk_json = json.dumps([["wrb.fr", None, inner_json]])
         response_body = f")]}}'\n{len(chunk_json)}\n{chunk_json}\n"
-
         httpx_mock.add_response(
             url=re.compile(r".*GenerateFreeFormStreamed.*"),
             content=response_body.encode(),
             method="POST",
         )
-
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.chat.ask(
                 "nb_123",
@@ -915,17 +924,14 @@ class TestChatAskErrorHandling:
                 source_ids=["src_001"],
                 conversation_id="existing-conv-id",
             )
-
         assert result.is_follow_up is True
         assert result.conversation_id == "existing-conv-id"
 
 
 class TestAskServerAssignedConversationId:
     """Regression tests for issue #659.
-
     CLI-created conversations must be visible in the NotebookLM web UI. Live
     API investigation revealed two facts that drive this contract:
-
     1. ``params[4]`` (the conversation_id slot in the streamed-chat request)
        must be ``null`` for new conversations. A client-minted UUID there
        orphans the turn from the web UI conversation list.
@@ -933,7 +939,6 @@ class TestAskServerAssignedConversationId:
        query id, **not** a real conversation_id (querying ``khqZz`` with it
        returns 0 turns). The real conversation_id can only be obtained from
        ``hPTbtc`` (``ChatAPI.get_conversation_id``) after the ask completes.
-
     So ``ask()`` for a new conversation must:
       - send ``null`` at ``params[4]`` (verified at the wire level here)
       - call ``hPTbtc`` after the ask and surface that id as
@@ -981,33 +986,35 @@ class TestAskServerAssignedConversationId:
         inner_json = json.dumps(inner_data)
         chunk_json = json.dumps([["wrb.fr", None, inner_json]])
         chat_response_body = f")]}}'\n{len(chunk_json)}\n{chunk_json}\n"
-
         httpx_mock.add_response(
             url=re.compile(r".*GenerateFreeFormStreamed.*"),
             content=chat_response_body.encode(),
             method="POST",
         )
-
-        # Post-ask hPTbtc returns the REAL conversation_id. AskResult
-        # must adopt this, NOT first[2][0].
-        real_conv = "real-1111-2222-3333-444444444444"
-        hptbtc_response = build_rpc_response(
-            RPCMethod.GET_LAST_CONVERSATION_ID,
-            [[[real_conv]]],
-        )
+        # Genuine new conversation: the pre-POST hPTbtc resolve finds no current
+        # conversation (empty envelope → None), so ask() creates a fresh one and
+        # keeps is_follow_up False (#1965)...
         httpx_mock.add_response(
-            url=re.compile(r".*batchexecute.*"),
-            content=hptbtc_response.encode(),
+            url=re.compile(r".*batchexecute.*rpcids=hPTbtc.*"),
+            content=build_rpc_response(RPCMethod.GET_LAST_CONVERSATION_ID, [[[]]]).encode(),
             method="POST",
         )
-
+        # ...then recovers the REAL conversation_id via the post-POST hPTbtc
+        # round-trip. AskResult must adopt this, NOT first[2][0].
+        real_conv = "real-1111-2222-3333-444444444444"
+        httpx_mock.add_response(
+            url=re.compile(r".*batchexecute.*rpcids=hPTbtc.*"),
+            content=build_rpc_response(
+                RPCMethod.GET_LAST_CONVERSATION_ID, [[[real_conv]]]
+            ).encode(),
+            method="POST",
+        )
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.chat.ask(
                 "nb_123",
                 "What is this?",
                 source_ids=["src_001"],
             )
-
         # Wire shape check on the first request (chat-ask)
         chat_request = next(
             r for r in httpx_mock.get_requests() if "GenerateFreeFormStreamed" in str(r.url)
@@ -1018,7 +1025,6 @@ class TestAskServerAssignedConversationId:
             f"{params[4]!r}. Sending a client-generated UUID orphans the "
             "conversation from the web UI conversation list (issue #659)."
         )
-
         # AskResult adopts the hPTbtc id, not the stream id.
         assert result.conversation_id == real_conv
         assert result.conversation_id != stream_id, (
@@ -1027,10 +1033,173 @@ class TestAskServerAssignedConversationId:
             "follow-ups using it produce ghost turns — issue #659)."
         )
         assert result.is_follow_up is False
-
         # And the SDK must have made the hPTbtc call.
         assert any("batchexecute" in str(r.url) for r in httpx_mock.get_requests()), (
             "SDK must call hPTbtc after a new-conversation ask to obtain the real conversation_id."
+        )
+
+    @pytest.mark.asyncio
+    async def test_empty_current_conversation_is_not_a_follow_up(
+        self,
+        auth_tokens,
+        httpx_mock: HTTPXMock,
+        build_rpc_response,
+    ):
+        """An auto-created current conversation with no turns is still fresh (#1973)."""
+        import json
+        import re
+
+        current_id = "empty-current-conversation"
+        inner_json = json.dumps(
+            [["First answer.", None, ["stream-id", 12345], None, [[], None, None, [], 1]]]
+        )
+        chunk_json = json.dumps([["wrb.fr", None, inner_json]])
+        httpx_mock.add_response(
+            url=re.compile(r".*GenerateFreeFormStreamed.*"),
+            content=f")]}}'\n{len(chunk_json)}\n{chunk_json}\n".encode(),
+            method="POST",
+        )
+        httpx_mock.add_response(
+            url=re.compile(r".*batchexecute.*rpcids=hPTbtc.*"),
+            content=build_rpc_response(
+                RPCMethod.GET_LAST_CONVERSATION_ID, [[[current_id]]]
+            ).encode(),
+            method="POST",
+        )
+        httpx_mock.add_response(
+            url=re.compile(r".*batchexecute.*rpcids=khqZz.*"),
+            content=build_rpc_response(RPCMethod.GET_CONVERSATION_TURNS, [[]]).encode(),
+            method="POST",
+        )
+
+        async with NotebookLMClient(auth_tokens) as client:
+            result = await client.chat.ask("nb_123", "First question?", source_ids=["src_001"])
+
+        assert result.conversation_id == current_id
+        assert result.turn_number == 1
+        assert result.is_follow_up is False
+        assert any("rpcids=khqZz" in str(r.url) for r in httpx_mock.get_requests())
+
+    @pytest.mark.asyncio
+    async def test_current_conversation_with_turns_is_a_follow_up(
+        self,
+        auth_tokens,
+        httpx_mock: HTTPXMock,
+        build_rpc_response,
+    ):
+        """A cold cache still detects prior server-side conversation turns."""
+        import json
+        import re
+
+        current_id = "existing-current-conversation"
+        inner_json = json.dumps(
+            [["Next answer.", None, ["stream-id", 12345], None, [[], None, None, [], 1]]]
+        )
+        chunk_json = json.dumps([["wrb.fr", None, inner_json]])
+        httpx_mock.add_response(
+            url=re.compile(r".*GenerateFreeFormStreamed.*"),
+            content=f")]}}'\n{len(chunk_json)}\n{chunk_json}\n".encode(),
+            method="POST",
+        )
+        httpx_mock.add_response(
+            url=re.compile(r".*batchexecute.*rpcids=hPTbtc.*"),
+            content=build_rpc_response(
+                RPCMethod.GET_LAST_CONVERSATION_ID, [[[current_id]]]
+            ).encode(),
+            method="POST",
+        )
+        httpx_mock.add_response(
+            url=re.compile(r".*batchexecute.*rpcids=khqZz.*"),
+            content=build_rpc_response(
+                RPCMethod.GET_CONVERSATION_TURNS,
+                [[[None, None, 1, "Earlier question?"]]],
+            ).encode(),
+            method="POST",
+        )
+
+        async with NotebookLMClient(auth_tokens) as client:
+            result = await client.chat.ask("nb_123", "Continue?", source_ids=["src_001"])
+
+        assert result.conversation_id == current_id
+        assert result.turn_number == 1
+        assert result.is_follow_up is True
+        assert any("rpcids=khqZz" in str(r.url) for r in httpx_mock.get_requests())
+
+    @pytest.mark.asyncio
+    async def test_server_probe_overrides_stale_cached_turns(
+        self,
+        auth_tokens,
+        httpx_mock: HTTPXMock,
+        build_rpc_response,
+    ):
+        """A warm cache cannot override an externally emptied conversation."""
+        import json
+        import re
+
+        current_id = "externally-emptied-conversation"
+        inner_json = json.dumps(
+            [["Fresh answer.", None, ["stream-id", 12345], None, [[], None, None, [], 1]]]
+        )
+        chunk_json = json.dumps([["wrb.fr", None, inner_json]])
+        httpx_mock.add_response(
+            url=re.compile(r".*GenerateFreeFormStreamed.*"),
+            content=f")]}}'\n{len(chunk_json)}\n{chunk_json}\n".encode(),
+            method="POST",
+        )
+        httpx_mock.add_response(
+            url=re.compile(r".*batchexecute.*rpcids=hPTbtc.*"),
+            content=build_rpc_response(
+                RPCMethod.GET_LAST_CONVERSATION_ID, [[[current_id]]]
+            ).encode(),
+            method="POST",
+        )
+        httpx_mock.add_response(
+            url=re.compile(r".*batchexecute.*rpcids=khqZz.*"),
+            content=build_rpc_response(RPCMethod.GET_CONVERSATION_TURNS, [[]]).encode(),
+            method="POST",
+        )
+
+        async with NotebookLMClient(auth_tokens) as client:
+            client.chat._cache.cache_conversation_turn(
+                current_id, "Cached question?", "Cached answer.", turn_number=1
+            )
+            result = await client.chat.ask("nb_123", "Fresh question?", source_ids=["src_001"])
+
+        assert result.is_follow_up is False
+        assert any("rpcids=khqZz" in str(r.url) for r in httpx_mock.get_requests())
+
+    @pytest.mark.asyncio
+    async def test_conversation_probe_failure_raises_before_chat_post(
+        self,
+        auth_tokens,
+        httpx_mock: HTTPXMock,
+        build_rpc_response,
+    ):
+        """A failed history probe aborts before generating an answer."""
+        import re
+
+        from notebooklm.exceptions import ServerError
+
+        current_id = "unavailable-current-conversation"
+        httpx_mock.add_response(
+            url=re.compile(r".*batchexecute.*rpcids=hPTbtc.*"),
+            content=build_rpc_response(
+                RPCMethod.GET_LAST_CONVERSATION_ID, [[[current_id]]]
+            ).encode(),
+            method="POST",
+        )
+        httpx_mock.add_response(
+            url=re.compile(r".*batchexecute.*rpcids=khqZz.*"),
+            status_code=500,
+            method="POST",
+        )
+
+        async with NotebookLMClient(auth_tokens, server_error_max_retries=0) as client:
+            with pytest.raises(ServerError, match="500"):
+                await client.chat.ask("nb_123", "Continue?", source_ids=["src_001"])
+
+        assert not any(
+            "GenerateFreeFormStreamed" in str(request.url) for request in httpx_mock.get_requests()
         )
 
     @pytest.mark.asyncio
@@ -1061,21 +1230,24 @@ class TestAskServerAssignedConversationId:
         inner_json = json.dumps(inner_data)
         chunk_json = json.dumps([["wrb.fr", None, inner_json]])
         chat_response_body = f")]}}'\n{len(chunk_json)}\n{chunk_json}\n"
-
         httpx_mock.add_response(
             url=re.compile(r".*GenerateFreeFormStreamed.*"),
             content=chat_response_body.encode(),
             method="POST",
         )
-
-        # hPTbtc returns an empty result -> get_conversation_id() -> None
+        # hPTbtc returns an empty result -> get_conversation_id() -> None.
+        # A null ask now does TWO hPTbtc lookups (issue #1875): a pre-POST
+        # resolve of the notebook's current conversation and the existing
+        # post-POST id recovery. Both hit this empty response, so mark it
+        # reusable — otherwise the second lookup is unmocked and the test
+        # would fail there instead of on the intended ChatError.
         empty_hptbtc = build_rpc_response(RPCMethod.GET_LAST_CONVERSATION_ID, [])
         httpx_mock.add_response(
             url=re.compile(r".*batchexecute.*"),
             content=empty_hptbtc.encode(),
             method="POST",
+            is_reusable=True,
         )
-
         async with NotebookLMClient(auth_tokens) as client:
             with pytest.raises(ChatError, match="hPTbtc"):
                 await client.chat.ask(
@@ -1108,13 +1280,11 @@ class TestAskServerAssignedConversationId:
         inner_json = json.dumps(inner_data)
         chunk_json = json.dumps([["wrb.fr", None, inner_json]])
         response_body = f")]}}'\n{len(chunk_json)}\n{chunk_json}\n"
-
         httpx_mock.add_response(
             url=re.compile(r".*GenerateFreeFormStreamed.*"),
             content=response_body.encode(),
             method="POST",
         )
-
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.chat.ask(
                 "nb_123",
@@ -1122,7 +1292,6 @@ class TestAskServerAssignedConversationId:
                 source_ids=["src_001"],
                 conversation_id="existing-conv-id",
             )
-
         chat_request = next(
             r for r in httpx_mock.get_requests() if "GenerateFreeFormStreamed" in str(r.url)
         )
@@ -1138,7 +1307,7 @@ class TestAskServerAssignedConversationId:
 
 
 class TestGetConversationIdEdgeCases:
-    """Tests for get_conversation_id edge cases (lines 231-235)."""
+    """Tests for get_conversation_id edge cases ."""
 
     @pytest.mark.asyncio
     async def test_get_conversation_id_returns_none_on_empty_response(
@@ -1150,10 +1319,8 @@ class TestGetConversationIdEdgeCases:
         """Test get_conversation_id returns None when RPC response is empty list."""
         response = build_rpc_response(RPCMethod.GET_LAST_CONVERSATION_ID, [])
         httpx_mock.add_response(content=response.encode())
-
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.chat.get_conversation_id("nb_123")
-
         assert result is None
 
     @pytest.mark.asyncio
@@ -1167,10 +1334,8 @@ class TestGetConversationIdEdgeCases:
         # Non-empty response but no valid conv_id in it
         response = build_rpc_response(RPCMethod.GET_LAST_CONVERSATION_ID, [[[]]])
         httpx_mock.add_response(content=response.encode())
-
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.chat.get_conversation_id("nb_123")
-
         assert result is None
 
     @pytest.mark.asyncio
@@ -1184,15 +1349,13 @@ class TestGetConversationIdEdgeCases:
         # Response with non-string first element in conv list
         response = build_rpc_response(RPCMethod.GET_LAST_CONVERSATION_ID, [[[42]]])
         httpx_mock.add_response(content=response.encode())
-
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.chat.get_conversation_id("nb_123")
-
         assert result is None
 
 
 class TestGetHistoryErrorHandling:
-    """Tests for get_history error handling (lines 266-279)."""
+    """Tests for get_history error handling ."""
 
     @pytest.mark.asyncio
     async def test_get_history_returns_empty_on_chat_error(
@@ -1206,7 +1369,6 @@ class TestGetHistoryErrorHandling:
 
         id_response = build_rpc_response(RPCMethod.GET_LAST_CONVERSATION_ID, [[["conv_001"]]])
         httpx_mock.add_response(content=id_response.encode())
-
         async with NotebookLMClient(auth_tokens) as client:
             with patch.object(
                 client.chat,
@@ -1215,7 +1377,6 @@ class TestGetHistoryErrorHandling:
                 side_effect=ChatError("API error"),
             ):
                 result = await client.chat.get_history("nb_123")
-
         assert result == []
 
     @pytest.mark.asyncio
@@ -1230,7 +1391,6 @@ class TestGetHistoryErrorHandling:
 
         id_response = build_rpc_response(RPCMethod.GET_LAST_CONVERSATION_ID, [[["conv_001"]]])
         httpx_mock.add_response(content=id_response.encode())
-
         async with NotebookLMClient(auth_tokens) as client:
             with patch.object(
                 client.chat,
@@ -1239,7 +1399,6 @@ class TestGetHistoryErrorHandling:
                 side_effect=NetworkError("connection error"),
             ):
                 result = await client.chat.get_history("nb_123")
-
         assert result == []
 
     @pytest.mark.asyncio
@@ -1252,11 +1411,35 @@ class TestGetHistoryErrorHandling:
         """Test get_history returns [] when get_conversation_id returns None."""
         response = build_rpc_response(RPCMethod.GET_LAST_CONVERSATION_ID, [])
         httpx_mock.add_response(content=response.encode())
-
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.chat.get_history("nb_123")
-
         assert result == []
+
+    @pytest.mark.asyncio
+    async def test_get_history_raises_on_malformed_turns_container(
+        self,
+        auth_tokens,
+        httpx_mock: HTTPXMock,
+        build_rpc_response,
+    ):
+        """A truthy non-list where the turn list belongs raises, not [] (#1485).
+        Historically this shape silently parsed to an empty history —
+        indistinguishable from a genuinely-empty conversation. The container
+        unwrap now raises ``UnknownRPCMethodError`` so wire drift is loud.
+        """
+        from notebooklm.exceptions import UnknownRPCMethodError
+
+        id_response = build_rpc_response(RPCMethod.GET_LAST_CONVERSATION_ID, [[["conv_001"]]])
+        httpx_mock.add_response(content=id_response.encode())
+        async with NotebookLMClient(auth_tokens) as client:
+            with patch.object(
+                client.chat,
+                "get_conversation_turns",
+                new_callable=AsyncMock,
+                return_value=["not-the-turn-list"],
+            ):
+                with pytest.raises(UnknownRPCMethodError):
+                    await client.chat.get_history("nb_123")
 
     @pytest.mark.asyncio
     async def test_get_history_reverses_turns(
@@ -1265,7 +1448,7 @@ class TestGetHistoryErrorHandling:
         httpx_mock: HTTPXMock,
         build_rpc_response,
     ):
-        """Test get_history reverses turns_data when turns_data[0][0] is a list (lines 272-279)."""
+        """Test get_history reverses turns_data when turns_data[0][0] is a list ."""
         id_response = build_rpc_response(RPCMethod.GET_LAST_CONVERSATION_ID, [[["conv_001"]]])
         # Newest-first: [A1, Q1]
         turns_response = build_rpc_response(
@@ -1279,10 +1462,8 @@ class TestGetHistoryErrorHandling:
         )
         httpx_mock.add_response(content=id_response.encode())
         httpx_mock.add_response(content=turns_response.encode())
-
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.chat.get_history("nb_123")
-
         assert len(result) == 1
         assert result[0] == ("The question?", "The answer.")
 
@@ -1304,16 +1485,14 @@ class TestGetHistoryErrorHandling:
             ],
         )
         httpx_mock.add_response(content=turns_response.encode())
-
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.chat.get_history("nb_123", conversation_id="conv_direct")
-
         assert len(result) == 1
         assert result[0] == ("Direct question?", "Direct answer.")
 
 
 class TestBuildConversationHistory:
-    """Tests for _build_conversation_history (line 422)."""
+    """Tests for _build_conversation_history ."""
 
     def test_build_conversation_history_returns_none_when_no_cached_turns(self, auth_tokens):
         """Test _build_conversation_history returns None for unknown conversation_id."""
@@ -1337,10 +1516,10 @@ class TestBuildConversationHistory:
 
 
 class TestParseAskResponseEdgeCases:
-    """Tests for _parse_ask_response_with_references edge cases (lines 439-489)."""
+    """Tests for _parse_ask_response_with_references edge cases ."""
 
     def test_parse_response_with_stripped_prefix(self, auth_tokens):
-        """Test that response starting with )]}' has the prefix stripped (line 439-442)."""
+        """Test that response starting with )]}' has the prefix stripped."""
         import json
 
         client = NotebookLMClient(auth_tokens)
@@ -1348,7 +1527,6 @@ class TestParseAskResponseEdgeCases:
         inner_json = json.dumps(inner_data)
         chunk_json = json.dumps([["wrb.fr", None, inner_json]])
         response_body = f")]}}'\n{len(chunk_json)}\n{chunk_json}\n"
-
         answer, refs, conv_id = client.chat._parse_ask_response_with_references(response_body)
         assert answer == "Answer text."
         assert conv_id is None
@@ -1362,14 +1540,12 @@ class TestParseAskResponseEdgeCases:
         inner_json = json.dumps(inner_data)
         chunk_json = json.dumps([["wrb.fr", None, inner_json]])
         response_body = f"{len(chunk_json)}\n{chunk_json}\n"
-
         answer, refs, conv_id = client.chat._parse_ask_response_with_references(response_body)
         assert answer == "Answer without prefix."
         assert conv_id is None
 
     def test_parse_empty_response_raises_chat_response_parse_error(self, auth_tokens):
         """A response with no parseable ``wrb.fr`` chunk raises.
-
         The XSSI-prefix-only body used to return an empty
         ``StreamingChatParseResult``. Zero parseable chunks now means
         wire-protocol drift / empty body, which is no longer the same
@@ -1384,7 +1560,7 @@ class TestParseAskResponseEdgeCases:
             client.chat._parse_ask_response_with_references(")]}'\n")
 
     def test_parse_response_no_marked_answer_falls_back_to_unmarked(self, auth_tokens):
-        """Test fallback to unmarked text when no marked answer exists (line 486)."""
+        """Test fallback to unmarked text when no marked answer exists ."""
         import json
 
         client = NotebookLMClient(auth_tokens)
@@ -1401,13 +1577,12 @@ class TestParseAskResponseEdgeCases:
         inner_json = json.dumps(inner_data)
         chunk_json = json.dumps([["wrb.fr", None, inner_json]])
         response_body = f")]}}'\n{len(chunk_json)}\n{chunk_json}\n"
-
         answer, refs, conv_id = client.chat._parse_ask_response_with_references(response_body)
         assert answer == "This is unmarked text content."
         assert conv_id is None
 
     def test_parse_response_assigns_citation_numbers(self, auth_tokens):
-        """Test that citation_number is assigned based on order of appearance (line 462-463)."""
+        """Test that citation_number is assigned based on order of appearance."""
         import json
 
         client = NotebookLMClient(auth_tokens)
@@ -1442,7 +1617,6 @@ class TestParseAskResponseEdgeCases:
         inner_json = json.dumps(inner_data)
         chunk_json = json.dumps([["wrb.fr", None, inner_json]])
         response_body = f")]}}'\n{len(chunk_json)}\n{chunk_json}\n"
-
         answer, refs, conv_id = client.chat._parse_ask_response_with_references(response_body)
         assert len(refs) == 1
         assert refs[0].citation_number == 1
@@ -1450,10 +1624,10 @@ class TestParseAskResponseEdgeCases:
 
 
 class TestExtractAnswerAndRefsFromChunk:
-    """Tests for _extract_answer_and_refs_from_chunk edge cases (lines 496-561)."""
+    """Tests for _extract_answer_and_refs_from_chunk edge cases ."""
 
     def test_invalid_json_returns_none(self, auth_tokens):
-        """Test that invalid JSON input returns (None, False, []) (line 496-527)."""
+        """Test that invalid JSON input returns (None, False, [])."""
         client = NotebookLMClient(auth_tokens)
         text, is_answer, refs, conv_id = client.chat._extract_answer_and_refs_from_chunk(
             "not-valid-json"
@@ -1464,7 +1638,7 @@ class TestExtractAnswerAndRefsFromChunk:
         assert conv_id is None
 
     def test_non_list_data_returns_none(self, auth_tokens):
-        """Test that non-list JSON data returns (None, False, []) (line 530)."""
+        """Test that non-list JSON data returns (None, False, []) ."""
         import json
 
         client = NotebookLMClient(auth_tokens)
@@ -1477,7 +1651,7 @@ class TestExtractAnswerAndRefsFromChunk:
         assert conv_id is None
 
     def test_item_not_wrb_fr_is_skipped(self, auth_tokens):
-        """Test that items where item[0] != 'wrb.fr' are skipped (line 540)."""
+        """Test that items where item[0] != 'wrb.fr' are skipped ."""
         import json
 
         client = NotebookLMClient(auth_tokens)
@@ -1489,7 +1663,7 @@ class TestExtractAnswerAndRefsFromChunk:
         assert conv_id is None
 
     def test_inner_json_not_string_is_skipped(self, auth_tokens):
-        """Test that non-string inner_json is skipped (line 544)."""
+        """Test that non-string inner_json is skipped ."""
         import json
 
         client = NotebookLMClient(auth_tokens)
@@ -1503,7 +1677,6 @@ class TestExtractAnswerAndRefsFromChunk:
 
     def test_inner_data_first_not_list_raises(self, auth_tokens):
         """A populated record whose answer row is not a list is drift.
-
         Previously this silently returned ``(None, ...)`` (the answer was
         dropped). Since the strict-decode migration of ``_chat.wire``
         (ADR-0011) a non-list answer row in a *populated* ``wrb.fr`` record is
@@ -1523,7 +1696,7 @@ class TestExtractAnswerAndRefsFromChunk:
             client.chat._extract_answer_and_refs_from_chunk(json.dumps(data))
 
     def test_inner_data_first_text_not_string_is_skipped(self, auth_tokens):
-        """Test that non-string first[0] text is skipped (line 546)."""
+        """Test that non-string first[0] text is skipped ."""
         import json
 
         client = NotebookLMClient(auth_tokens)
@@ -1537,7 +1710,7 @@ class TestExtractAnswerAndRefsFromChunk:
         assert conv_id is None
 
     def test_inner_json_invalid_json_continues(self, auth_tokens):
-        """Test that invalid inner JSON is caught and processing continues (line 560-561)."""
+        """Test that invalid inner JSON is caught and processing continues."""
         import json
 
         client = NotebookLMClient(auth_tokens)
@@ -1577,14 +1750,19 @@ class TestExtractAnswerAndRefsFromChunk:
 
 
 class TestParseCitationsEdgeCases:
-    """Tests for _parse_citations edge cases (lines 599-605)."""
+    """Tests for _parse_citations edge cases (absence soft, malformed loud)."""
 
-    def test_parse_citations_returns_empty_on_type_error(self, auth_tokens):
-        """Test _parse_citations returns [] when first causes TypeError (lines 599-605)."""
+    def test_parse_citations_raises_on_non_list_answer_row(self, auth_tokens):
+        """A non-list ``first`` is structural drift and raises (was a silent-DEBUG ``[]``).
+        Flipped under the #1505 absence-vs-malformed policy: the stream parser
+        already raises ``UnknownRPCMethodError`` for a non-list answer row, so
+        the direct-call surface now matches instead of swallowing a TypeError.
+        """
+        from notebooklm.exceptions import UnknownRPCMethodError
+
         client = NotebookLMClient(auth_tokens)
-        # Passing None triggers TypeError in len(first) at the guard check
-        refs = client.chat._parse_citations(None)  # type: ignore[arg-type]
-        assert refs == []
+        with pytest.raises(UnknownRPCMethodError):
+            client.chat._parse_citations(None)  # type: ignore[arg-type]
 
     def test_parse_citations_returns_empty_when_first_too_short(self, auth_tokens):
         """Test _parse_citations returns [] when first has <= 4 elements."""
@@ -1600,31 +1778,37 @@ class TestParseCitationsEdgeCases:
         refs = client.chat._parse_citations(first)
         assert refs == []
 
-    def test_parse_citations_returns_empty_when_type_info_3_not_list(self, auth_tokens):
-        """Test _parse_citations returns [] when type_info[3] is not a list."""
+    def test_parse_citations_raises_when_type_info_3_truthy_non_list(self, auth_tokens):
+        """A truthy non-list citation container is structural drift and raises.
+        Flipped under the #1505 absence-vs-malformed policy (was a silent
+        ``[]``): real traffic sends ``None`` (absence, still soft) or a list
+        here — a truthy non-list means the container itself was reshaped.
+        """
+        from notebooklm.exceptions import UnknownRPCMethodError
+
         client = NotebookLMClient(auth_tokens)
         first = ["text", None, None, None, [1, 2, 3, "not_a_list"]]
-        refs = client.chat._parse_citations(first)
-        assert refs == []
+        with pytest.raises(UnknownRPCMethodError):
+            client.chat._parse_citations(first)
 
 
 class TestParseSingleCitationEdgeCases:
-    """Tests for _parse_single_citation edge cases (lines 617, 621)."""
+    """Tests for _parse_single_citation edge cases ."""
 
     def test_parse_single_citation_returns_none_when_not_list(self, auth_tokens):
-        """Test _parse_single_citation returns None when cite is not a list (line 617)."""
+        """Test _parse_single_citation returns None when cite is not a list ."""
         client = NotebookLMClient(auth_tokens)
         result = client.chat._parse_single_citation("not a list")
         assert result is None
 
     def test_parse_single_citation_returns_none_when_too_short(self, auth_tokens):
-        """Test _parse_single_citation returns None when cite has len < 2 (line 617)."""
+        """Test _parse_single_citation returns None when cite has len < 2 ."""
         client = NotebookLMClient(auth_tokens)
         result = client.chat._parse_single_citation(["only_one"])
         assert result is None
 
     def test_parse_single_citation_returns_none_when_cite_inner_not_list(self, auth_tokens):
-        """Test _parse_single_citation returns None when cite[1] is not a list (line 621)."""
+        """Test _parse_single_citation returns None when cite[1] is not a list ."""
         client = NotebookLMClient(auth_tokens)
         result = client.chat._parse_single_citation([["chunk-id"], "not_a_list"])
         assert result is None
@@ -1641,7 +1825,7 @@ class TestParseSingleCitationEdgeCases:
         assert result is None
 
     def test_parse_single_citation_with_non_string_chunk_id(self, auth_tokens):
-        """Test _parse_single_citation with non-string first item in cite[0] (line 633)."""
+        """Test _parse_single_citation with non-string first item in cite[0] ."""
         client = NotebookLMClient(auth_tokens)
         # cite[0][0] is not a string, so chunk_id stays None
         valid_uuid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
@@ -1662,7 +1846,7 @@ class TestParseSingleCitationEdgeCases:
         assert result.chunk_id is None
 
     def test_parse_single_citation_with_empty_cite_0(self, auth_tokens):
-        """Test _parse_single_citation when cite[0] is empty list (line 631)."""
+        """Test _parse_single_citation when cite[0] is empty list ."""
         client = NotebookLMClient(auth_tokens)
         valid_uuid = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
         cite = [
@@ -1682,24 +1866,24 @@ class TestParseSingleCitationEdgeCases:
 
 
 class TestExtractTextPassagesEdgeCases:
-    """Tests for _extract_text_passages edge cases (lines 631-682)."""
+    """Tests for _extract_text_passages edge cases ."""
 
     def test_extract_text_passages_returns_none_when_too_short(self, auth_tokens):
-        """Test _extract_text_passages returns (None, None, None) when cite_inner too short (line 661-662)."""
+        """Test _extract_text_passages returns (None, None, None) when cite_inner too short."""
         client = NotebookLMClient(auth_tokens)
         cite_inner = [None, None, None, None]  # len == 4, no index 4
         result = client.chat._extract_text_passages(cite_inner)
         assert result == (None, None, None)
 
     def test_extract_text_passages_returns_none_when_index4_not_list(self, auth_tokens):
-        """Test _extract_text_passages returns (None, None, None) when cite_inner[4] is not a list (line 661-662)."""
+        """Test _extract_text_passages returns (None, None, None) when cite_inner[4] is not a list."""
         client = NotebookLMClient(auth_tokens)
         cite_inner = [None, None, None, None, "not_a_list"]
         result = client.chat._extract_text_passages(cite_inner)
         assert result == (None, None, None)
 
     def test_extract_text_passages_skips_non_list_passage_wrapper(self, auth_tokens):
-        """Test _extract_text_passages skips passage_wrapper that is not a list (line 669-670)."""
+        """Test _extract_text_passages skips passage_wrapper that is not a list."""
         client = NotebookLMClient(auth_tokens)
         # cite_inner[4] contains a non-list item
         cite_inner = [None, None, None, None, ["not_a_list_wrapper"]]
@@ -1707,7 +1891,7 @@ class TestExtractTextPassagesEdgeCases:
         assert result == (None, None, None)
 
     def test_extract_text_passages_skips_short_passage_data(self, auth_tokens):
-        """Test _extract_text_passages skips passage_data with len < 3 (line 672-673)."""
+        """Test _extract_text_passages skips passage_data with len < 3."""
         client = NotebookLMClient(auth_tokens)
         cite_inner = [None, None, None, None, [[[100, 200]]]]  # passage_data has len 2
         result = client.chat._extract_text_passages(cite_inner)
@@ -1715,10 +1899,10 @@ class TestExtractTextPassagesEdgeCases:
 
 
 class TestCollectTextsFromNested:
-    """Tests for _collect_texts_from_nested (lines 698, 709)."""
+    """Tests for _collect_texts_from_nested ."""
 
     def test_non_list_input_returns_immediately(self, auth_tokens):
-        """Test _collect_texts_from_nested returns immediately for non-list input (line 698)."""
+        """Test _collect_texts_from_nested returns immediately for non-list input ."""
         client = NotebookLMClient(auth_tokens)
         texts = []
         client.chat._collect_texts_from_nested("not a list", texts)
@@ -1740,7 +1924,7 @@ class TestCollectTextsFromNested:
         assert texts == []
 
     def test_text_val_is_list_extracts_strings(self, auth_tokens):
-        """Test _collect_texts_from_nested extracts strings when text_val is a list (line 709)."""
+        """Test _collect_texts_from_nested extracts strings when text_val is a list ."""
         client = NotebookLMClient(auth_tokens)
         texts = []
         # Structure: nested=[nested_group], nested_group=[inner], inner=[start, end, text_val]
@@ -1769,16 +1953,16 @@ class TestCollectTextsFromNested:
 
 
 class TestExtractUuidFromNested:
-    """Tests for _extract_uuid_from_nested (lines 728-743)."""
+    """Tests for _extract_uuid_from_nested ."""
 
     def test_max_depth_zero_returns_none_with_warning(self, auth_tokens):
-        """Test _extract_uuid_from_nested returns None when max_depth=0 (lines 728-729)."""
+        """Test _extract_uuid_from_nested returns None when max_depth=0 ."""
         client = NotebookLMClient(auth_tokens)
         result = client.chat._extract_uuid_from_nested("some-data", max_depth=0)
         assert result is None
 
     def test_none_data_returns_none(self, auth_tokens):
-        """Test _extract_uuid_from_nested returns None for None input (line 732)."""
+        """Test _extract_uuid_from_nested returns None for None input ."""
         client = NotebookLMClient(auth_tokens)
         result = client.chat._extract_uuid_from_nested(None)
         assert result is None
@@ -1797,7 +1981,7 @@ class TestExtractUuidFromNested:
         assert result is None
 
     def test_list_with_no_uuid_returns_none(self, auth_tokens):
-        """Test _extract_uuid_from_nested returns None when list contains no UUID (line 737-743)."""
+        """Test _extract_uuid_from_nested returns None when list contains no UUID."""
         client = NotebookLMClient(auth_tokens)
         result = client.chat._extract_uuid_from_nested(["no", "uuid", "here"])
         assert result is None
@@ -1810,14 +1994,14 @@ class TestExtractUuidFromNested:
         assert result == valid_uuid
 
     def test_integer_data_returns_none(self, auth_tokens):
-        """Test _extract_uuid_from_nested returns None for integer input (line 743 fallthrough)."""
+        """Test _extract_uuid_from_nested returns None for integer input."""
         client = NotebookLMClient(auth_tokens)
         result = client.chat._extract_uuid_from_nested(42)
         assert result is None
 
 
 class TestGetConversationIdNullRaw:
-    """Tests for get_conversation_id when rpc_call returns None/falsy (line 231->230)."""
+    """Tests for get_conversation_id when rpc_call returns None/falsy."""
 
     @pytest.mark.asyncio
     async def test_get_conversation_id_returns_none_when_raw_is_null(
@@ -1838,7 +2022,6 @@ class TestGetConversationIdNullRaw:
                 return_value=None,
             ):
                 result = await client.chat.get_conversation_id("nb_123")
-
         assert result is None
 
     @pytest.mark.asyncio
@@ -1852,10 +2035,8 @@ class TestGetConversationIdNullRaw:
         # Response has non-list items in the outer array (valid decode but no conv_id)
         response = build_rpc_response(RPCMethod.GET_LAST_CONVERSATION_ID, ["not_a_list"])
         httpx_mock.add_response(content=response.encode())
-
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.chat.get_conversation_id("nb_123")
-
         assert result is None
 
 
@@ -1878,15 +2059,13 @@ class TestGetHistoryTurnsDataNotReversed:
         )
         httpx_mock.add_response(content=id_response.encode())
         httpx_mock.add_response(content=turns_response.encode())
-
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.chat.get_history("nb_123")
-
         assert result == []
 
 
 class TestParseAskResponseNumericLengthPrefix:
-    """Tests for the numeric length-prefixed format in _parse_ask_response (lines 468-473)."""
+    """Tests for the numeric length-prefixed format in _parse_ask_response ."""
 
     def test_parse_response_with_length_prefix_at_end_of_lines(self, auth_tokens):
         """Test response with numeric line at end has no following line (arc 468->470)."""
@@ -1899,14 +2078,13 @@ class TestParseAskResponseNumericLengthPrefix:
         chunk_json = json.dumps([["wrb.fr", None, inner_json]])
         # Append a dangling numeric line at the end with no content following
         response_body = f")]}}'\n{len(chunk_json)}\n{chunk_json}\n99\n"
-
         answer, refs, conv_id = client.chat._parse_ask_response_with_references(response_body)
         # The valid chunk should still be parsed
         assert answer == "Valid answer."
         assert conv_id is None
 
     def test_parse_response_with_direct_json_line_no_prefix(self, auth_tokens):
-        """Test response where JSON lines are direct (not length-prefixed) (lines 471-473)."""
+        """Test response where JSON lines are direct (not length-prefixed) ."""
         import json
 
         client = NotebookLMClient(auth_tokens)
@@ -1916,7 +2094,6 @@ class TestParseAskResponseNumericLengthPrefix:
         chunk_json = json.dumps([["wrb.fr", None, inner_json]])
         # No length prefix - just direct JSON
         response_body = f")]}}'\n{chunk_json}\n"
-
         answer, refs, conv_id = client.chat._parse_ask_response_with_references(response_body)
         assert answer == "Direct JSON answer."
         assert conv_id is None
@@ -1942,10 +2119,10 @@ class TestExtractAnswerEmptyInnerData:
 
 
 class TestExtractTextPassagesMultiplePassages:
-    """Tests for _extract_text_passages with multiple passages (lines 676-682)."""
+    """Tests for _extract_text_passages with multiple passages ."""
 
     def test_extract_text_passages_multiple_passages_updates_end_char(self, auth_tokens):
-        """Test that end_char is updated for each valid passage (lines 678-682)."""
+        """Test that end_char is updated for each valid passage ."""
         client = NotebookLMClient(auth_tokens)
         # Two passage_wrappers: first sets start_char and end_char, second updates end_char
         cite_inner = [
@@ -2028,7 +2205,6 @@ class TestParseAskResponseBranchCoverage:
             ["This is the longer marked answer text.", None, [12345], None, [[], None, None, [], 1]]
         ]
         shorter_inner = [["Short.", None, [12346], None, [[], None, None, [], 1]]]
-
         longer_json = json.dumps(longer_inner)
         shorter_json = json.dumps(shorter_inner)
 
@@ -2038,7 +2214,6 @@ class TestParseAskResponseBranchCoverage:
 
         # Both chunks with marked answers
         response_body = f")]}}'\n{make_chunk(longer_json)}\n{make_chunk(shorter_json)}\n"
-
         answer, refs, conv_id = client.chat._parse_ask_response_with_references(response_body)
         # Longer marked answer wins
         assert answer == "This is the longer marked answer text."
@@ -2084,18 +2259,13 @@ class TestParseAskResponseBranchCoverage:
         ]
         inner_json = json.dumps(inner_data)
         chunk_json = json.dumps([["wrb.fr", None, inner_json]])
-        # Two identical chunks - second one produces a ref with citation_number already set
-        # But actually each call to _parse_ask_response creates fresh refs, so two chunks
-        # means two refs (same source), first gets 1, second gets 2 (both had citation_number=None)
-        # To trigger 496->495 we need ref.citation_number to already be set.
-        # This can happen if we manually set citation_number before the assignment loop.
-        # However, in the normal flow, refs from _parse_citations don't have citation_number set.
-        # The only way to get citation_number != None before the assignment loop is if
-        # somehow the code path sets it earlier - which it doesn't.
-        # So arc 496->495 requires citation_number to be not None from _parse_citations.
-        # Since _parse_citations creates ChatReference with citation_number=None by default,
-        # this arc may not be reachable in normal flow - it's a defensive check.
-        # Let's verify the assignment logic works correctly with multiple refs.
+        # Since the citation-hardening pass, _parse_citations stamps each
+        # surviving reference with its RAW wire ordinal (so a skipped
+        # malformed row leaves a hole instead of shifting [N] markers onto
+        # the wrong citation). The final assignment's preserve-non-None arc
+        # is therefore the NORMAL path now: it must keep the raw ordinal
+        # untouched. With nothing skipped, raw ordinal == dense ordinal,
+        # which is what this asserts (citation_number == 1 for the sole ref).
         response_body = f")]}}'\n{len(chunk_json)}\n{chunk_json}\n"
         answer, refs, conv_id = client.chat._parse_ask_response_with_references(response_body)
         assert len(refs) == 1
@@ -2144,7 +2314,6 @@ class TestChatHL:
         import re
 
         monkeypatch.setenv("NOTEBOOKLM_HL", "ja")
-
         inner_data = [
             [
                 "answer",
@@ -2157,7 +2326,6 @@ class TestChatHL:
         inner_json = json.dumps(inner_data)
         chunk_json = json.dumps([["wrb.fr", None, inner_json]])
         response_body = f")]}}'\n{len(chunk_json)}\n{chunk_json}\n"
-
         httpx_mock.add_response(
             url=re.compile(r".*GenerateFreeFormStreamed.*"),
             content=response_body.encode(),
@@ -2166,14 +2334,12 @@ class TestChatHL:
         # Configure hPTbtc with hl=ja too so the post-ask request also
         # honors the env var via the same code path.
         mock_get_conversation_id()
-
         async with NotebookLMClient(auth_tokens) as client:
             await client.chat.ask(
                 notebook_id="test_nb",
                 question="Q",
                 source_ids=["src_001"],
             )
-
         chat_request = next(
             r for r in httpx_mock.get_requests() if "GenerateFreeFormStreamed" in str(r.url)
         )
@@ -2192,7 +2358,6 @@ class TestChatHL:
         import re
 
         monkeypatch.delenv("NOTEBOOKLM_HL", raising=False)
-
         inner_data = [
             [
                 "answer",
@@ -2205,21 +2370,18 @@ class TestChatHL:
         inner_json = json.dumps(inner_data)
         chunk_json = json.dumps([["wrb.fr", None, inner_json]])
         response_body = f")]}}'\n{len(chunk_json)}\n{chunk_json}\n"
-
         httpx_mock.add_response(
             url=re.compile(r".*GenerateFreeFormStreamed.*"),
             content=response_body.encode(),
             method="POST",
         )
         mock_get_conversation_id()
-
         async with NotebookLMClient(auth_tokens) as client:
             await client.chat.ask(
                 notebook_id="test_nb",
                 question="Q",
                 source_ids=["src_001"],
             )
-
         chat_request = next(
             r for r in httpx_mock.get_requests() if "GenerateFreeFormStreamed" in str(r.url)
         )

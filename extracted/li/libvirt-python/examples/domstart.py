@@ -7,13 +7,12 @@ If the domain is not running, create it.
 import libvirt
 import libxml2
 from argparse import ArgumentParser
-from typing import Tuple
 
 
 # Parse the XML description of domU from FNAME
 # and return a tuple (name, xmldesc) where NAME
 # is the name of the domain, and xmldesc is the contetn of FNAME
-def read_domain(fname: str) -> Tuple[str, str]:
+def read_domain(fname: str) -> tuple[str, str]:
     fp = open(fname, "r")
     xmldesc = fp.read()
     fp.close()

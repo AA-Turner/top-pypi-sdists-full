@@ -340,13 +340,18 @@ Corr2D_getprop_count (Corr2DObject *self, void *Py_UNUSED (closure))
 }
 
 static PyGetSetDef Corr2D_getset[]
-    = { { "ny", (getter)Corr2D_getprop_ny, NULL, "Ny.\n", NULL },
-        { "nx", (getter)Corr2D_getprop_nx, NULL, "Nx.\n", NULL },
-        { "ny_out", (getter)Corr2D_getprop_ny_out, NULL, "Ny out.\n", NULL },
-        { "nx_out", (getter)Corr2D_getprop_nx_out, NULL, "Nx out.\n", NULL },
-        { "n_out", (getter)Corr2D_getprop_n_out, NULL, "N out.\n", NULL },
-        { "dwell", (getter)Corr2D_getprop_dwell, NULL, "Dwell.\n", NULL },
-        { "count", (getter)Corr2D_getprop_count, NULL, "Count.\n", NULL },
+    = { { "ny", (getter)Corr2D_getprop_ny, NULL, "Row count.\n", NULL },
+        { "nx", (getter)Corr2D_getprop_nx, NULL, "Column count.\n", NULL },
+        { "ny_out", (getter)Corr2D_getprop_ny_out, NULL,
+          "Output rows (== ny unless decoupled).\n", NULL },
+        { "nx_out", (getter)Corr2D_getprop_nx_out, NULL,
+          "Output columns (== nx unless decoupled).\n", NULL },
+        { "n_out", (getter)Corr2D_getprop_n_out, NULL,
+          "ny_out * nx_out — output element count.\n", NULL },
+        { "dwell", (getter)Corr2D_getprop_dwell, NULL, "Integration depth.\n",
+          NULL },
+        { "count", (getter)Corr2D_getprop_count, NULL,
+          "Frames accumulated (0 … dwell-1).\n", NULL },
         { NULL } };
 
 static PyObject *
@@ -381,7 +386,9 @@ Corr2DObj_exit (Corr2DObject *self, PyObject *args)
 
 static PyMethodDef Corr2DObj_methods[] = {
   { "reset", (PyCFunction)Corr2DObj_reset, METH_NOARGS,
-    "Reset state to post-create defaults." },
+    "Zero the accumulator and reset the integration counter to 0. Equivalent "
+    "to starting a fresh dwell cycle without rebuilding FFT plans or "
+    "recomputing ref_spec." },
 
   { "execute", (PyCFunction)(void *)Corr2DObj_execute,
     METH_VARARGS | METH_KEYWORDS,
@@ -397,25 +404,116 @@ static PyMethodDef Corr2DObj_methods[] = {
     "(ny, nx) CF32 ndarray; a dump returns a flat length-ny*nx ndarray, a "
     "no-dump returns None.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import Corr2D\n"
-    "    >>> obj = Corr2D(np.zeros(1, dtype=np.complex64), 1, 1, 0, 0)\n"
-    "    >>> y = obj.execute(1.0 + 0.0j)\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex64')\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : complex\n"
+    "    Input.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex64]\n"
+    "    ny*nx on a dump (or max_out if smaller), 0 otherwise (None in\n"
+    "    Python).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.spectral import Corr2D\n"
+    ">>> import numpy as np\n"
+    ">>> ref = np.zeros((2, 2), dtype=np.complex64); ref[0, 0] = 1.0\n"
+    ">>> c = Corr2D(ref=ref, dwell=2)\n"
+    ">>> x = np.ones((2, 2), dtype=np.complex64)\n"
+    ">>> c.execute(x) is None   # frame 1 — no dump\n"
+    "True\n"
+    ">>> c.execute(x).tolist()  # frame 2 — dump\n"
+    "[(2+0j), (2+0j), (2+0j), (2+0j)]\n" },
   { "execute_max_out", (PyCFunction)Corr2DObj_execute_max_out, METH_NOARGS,
     "execute_max_out() -> int\n\nMax output length execute() can produce for "
     "the current state.\nUse to size the ``out=`` buffer." },
   { "state_bytes", (PyCFunction)Corr2DObj_state_bytes, METH_NOARGS,
-    "Serialized state size in bytes." },
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the Corr2DObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
   { "get_state", (PyCFunction)Corr2DObj_get_state, METH_NOARGS,
-    "Serialize the engine's mutable state to bytes." },
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the Corr2DObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
   { "set_state", (PyCFunction)Corr2DObj_set_state, METH_O,
-    "Restore mutable state from a get_state() blob." },
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the Corr2DObj has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
   { "destroy", (PyCFunction)Corr2DObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)Corr2DObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)Corr2DObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)Corr2DObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a Corr2d be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "Corr2d\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)Corr2DObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the Corr2d.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

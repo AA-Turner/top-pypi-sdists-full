@@ -48,17 +48,18 @@ impl SockAddr {
     }
 }
 
-#[pyclass(frozen, module = "granian._granian")]
+#[pyclass(frozen, from_py_object, module = "granian._granian")]
 #[derive(Clone)]
 pub struct ListenerSpec {
     inp: (String, u16, i32),
     address: std::net::SocketAddr,
     domain: Domain,
     backlog: i32,
+    resolved_port: std::sync::OnceLock<u16>,
 }
 
 #[cfg(unix)]
-#[pyclass(frozen, module = "granian._granian")]
+#[pyclass(frozen, from_py_object, module = "granian._granian")]
 #[derive(Clone)]
 pub struct UnixListenerSpec {
     inp: (String, i32),
@@ -69,6 +70,11 @@ pub struct UnixListenerSpec {
 
 impl ListenerSpec {
     pub(crate) fn as_socket(&self) -> Result<Socket> {
+        let mut address = self.address;
+        if let Some(port) = self.resolved_port.get() {
+            address.set_port(*port);
+        }
+
         let socket = Socket::new(self.domain, Type::STREAM, Some(Protocol::TCP))?;
 
         #[cfg(not(windows))]
@@ -81,12 +87,29 @@ impl ListenerSpec {
         }
         socket.set_reuse_address(true)?;
         socket.set_tcp_nodelay(true)?;
-        socket.bind(&self.address.into())?;
+        socket.bind(&address.into())?;
+
+        if address.port() == 0
+            && let Some(local) = socket.local_addr()?.as_socket()
+        {
+            _ = self.resolved_port.set(local.port());
+        }
 
         #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
         socket.listen(self.backlog)?;
 
         Ok(socket)
+    }
+
+    pub(crate) fn as_listener(&self) -> Result<TcpListener> {
+        let socket = self.as_socket()?;
+        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+        socket.listen(self.backlog)?;
+        Ok(socket.into())
+    }
+
+    fn local_port(&self) -> u16 {
+        self.resolved_port.get().copied().unwrap_or(self.inp.1)
     }
 }
 
@@ -104,6 +127,7 @@ impl ListenerSpec {
             address,
             domain,
             backlog,
+            resolved_port: std::sync::OnceLock::new(),
         })
     }
 
@@ -111,8 +135,14 @@ impl ListenerSpec {
         SocketHolder::from_spec(self)
     }
 
+    pub fn is_uds(&self) -> bool {
+        false
+    }
+
     pub fn __getstate__(&self, py: Python) -> Py<PyAny> {
-        self.inp.clone().into_py_any(py).unwrap()
+        (self.inp.0.clone(), self.local_port(), self.inp.2)
+            .into_py_any(py)
+            .unwrap()
     }
 }
 
@@ -186,16 +216,28 @@ impl SocketHolder {
         })
     }
 
+    #[cfg(not(Py_GIL_DISABLED))]
     #[allow(clippy::unnecessary_wraps)]
     pub fn as_tcp_listener(&self) -> Result<TcpListener> {
         let listener = unsafe { TcpListener::from_raw_fd(self.socket.as_ref().unwrap().as_raw_fd()) };
         Ok(listener)
     }
 
+    #[cfg(Py_GIL_DISABLED)]
+    pub fn as_tcp_listener(&self) -> Result<TcpListener> {
+        Ok(self.socket.as_ref().unwrap().try_clone()?.into())
+    }
+
+    #[cfg(not(Py_GIL_DISABLED))]
     #[allow(clippy::unnecessary_wraps)]
     pub fn as_unix_listener(&self) -> Result<UnixListener> {
         let listener = unsafe { UnixListener::from_raw_fd(self.socket.as_ref().unwrap().as_raw_fd()) };
         Ok(listener)
+    }
+
+    #[cfg(Py_GIL_DISABLED)]
+    pub fn as_unix_listener(&self) -> Result<UnixListener> {
+        Ok(self.socket.as_ref().unwrap().try_clone()?.into())
     }
 }
 
@@ -267,11 +309,19 @@ impl SocketHolder {
         Ok(listener)
     }
 
+    #[cfg(not(Py_GIL_DISABLED))]
     pub fn as_unix_listener(&self) -> Result<UnixListener> {
         let socket = self.socket.as_ref().unwrap();
         socket.listen(self.backlog)?;
         let listener = unsafe { UnixListener::from_raw_fd(socket.as_raw_fd()) };
         Ok(listener)
+    }
+
+    #[cfg(Py_GIL_DISABLED)]
+    pub fn as_unix_listener(&self) -> Result<UnixListener> {
+        let socket = self.socket.as_ref().unwrap();
+        socket.listen(self.backlog)?;
+        Ok(socket.try_clone()?.into())
     }
 }
 

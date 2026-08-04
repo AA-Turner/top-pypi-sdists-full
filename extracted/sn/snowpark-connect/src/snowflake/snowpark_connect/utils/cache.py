@@ -178,3 +178,34 @@ def df_cache_map_put_if_absent(
 def df_cache_map_pop(key: Tuple[str, any]) -> None:
     with _cache_map_lock:
         df_cache_map.pop(key, None)
+
+
+# Per-session cache: (session_id, sql_proto_bytes) -> DataFrameContainer.
+# Keyed on the serialized bytes of the SQL sub-message (query + args, no plan_id),
+# so the same spark.sql(text) call reuses the plan across all 4 RPCs that follow it.
+_sql_plan_cache_lock = threading.RLock()
+_sql_plan_cache: Dict[Tuple[str, bytes], DataFrameContainer] = {}
+_SQL_PLAN_CACHE_DISABLED = os.environ.get(
+    "SNOWPARK_CONNECT_SQL_PLAN_CACHE_DISABLED", ""
+).lower() in ("1", "true", "yes")
+
+
+def sql_plan_cache_get(key: Tuple[str, bytes]) -> DataFrameContainer | None:
+    if _SQL_PLAN_CACHE_DISABLED:
+        return None
+    with _sql_plan_cache_lock:
+        return _sql_plan_cache.get(key)
+
+
+def sql_plan_cache_put(key: Tuple[str, bytes], value: DataFrameContainer) -> None:
+    if _SQL_PLAN_CACHE_DISABLED:
+        return
+    with _sql_plan_cache_lock:
+        _sql_plan_cache[key] = value
+
+
+def sql_plan_cache_clear_session(session_id: str) -> None:
+    with _sql_plan_cache_lock:
+        keys = [k for k in _sql_plan_cache if k[0] == session_id]
+        for k in keys:
+            del _sql_plan_cache[k]

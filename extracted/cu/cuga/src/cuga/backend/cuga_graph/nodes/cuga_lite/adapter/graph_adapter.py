@@ -29,8 +29,16 @@ from cuga.backend.cuga_graph.nodes.cuga_lite.nl_auto_continue_classifier import 
     classify_nl_auto_continue,
     normalize_assistant_text,
 )
+from cuga.backend.cuga_graph.utils.token_counter import clamp_watsonx_completion_for_messages
 from cuga.backend.llm.errors import extract_code_from_tool_use_failed
 from cuga.config import settings
+
+
+def _format_observed_tool_shapes_block(shapes: Dict[str, str]) -> str:
+    lines = ["", "---", "", "## Observed tool output shapes (this session)", ""]
+    for name, description in shapes.items():
+        lines.append(f"- `{name}`: {description}. Use this shape directly — no need to probe again.")
+    return "\n".join(lines) + "\n"
 
 
 class AgentGraphAdapter(CoreGraphAdapter):
@@ -69,6 +77,8 @@ class AgentGraphAdapter(CoreGraphAdapter):
         self._tools_context = tools_context if tools_context is not None else {}
         self._static_prompt = static_prompt
         self._thread_id = thread_id
+        self._weak_schema_tool_names: frozenset = frozenset()
+        self._observed_tool_shapes: Dict[str, str] = {}
 
     def get_messages(self, state: Any) -> List[BaseMessage]:
         return list(state.chat_messages or [])
@@ -90,11 +100,17 @@ class AgentGraphAdapter(CoreGraphAdapter):
 
     def prepare_system_content(self, state: Any, configurable: dict, base_prompt: str) -> str:
         if self._task_todos_ref:
-            return base_prompt + format_task_todos_system_block(self._task_todos_ref)
-        task_todos = getattr(state, "task_todos", None)
-        if task_todos:
-            return base_prompt + format_current_plan_section(task_todos)
-        return base_prompt
+            content = base_prompt + format_task_todos_system_block(self._task_todos_ref)
+        else:
+            task_todos = getattr(state, "task_todos", None)
+            content = base_prompt + format_current_plan_section(task_todos) if task_todos else base_prompt
+
+        if self._observed_tool_shapes:
+            content += _format_observed_tool_shapes_block(self._observed_tool_shapes)
+        return content
+
+    def get_tools_needing_probing(self) -> frozenset[str]:
+        return self._weak_schema_tool_names - self._observed_tool_shapes.keys()
 
     def get_tracker(self) -> Any:
         return self._tracker
@@ -105,6 +121,7 @@ class AgentGraphAdapter(CoreGraphAdapter):
 
     async def ainvoke_model(self, bound: Any, messages: list, invoke_config: dict) -> Any:
         try:
+            clamp_watsonx_completion_for_messages(bound, messages)
             return await bound.ainvoke(messages, config=invoke_config)
         except Exception as exc:
             code = extract_code_from_tool_use_failed(exc)

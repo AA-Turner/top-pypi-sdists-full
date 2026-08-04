@@ -328,7 +328,10 @@ AccF32_set_state (AccF32Object *self, PyObject *arg)
 
 static PyMethodDef AccF32_methods[] = {
   { "reset", (PyCFunction)AccF32_reset, METH_NOARGS,
-    "Reset state to post-create defaults." },
+    "Zero the accumulator, restoring the same state as a fresh "
+    "``AccF32(0.0)`` — regardless of the value supplied to "
+    "``acc_f32_create``. Subsequent ``get`` / ``dump`` calls return ``0.0`` "
+    "until new samples are processed." },
   { "step", (PyCFunction)AccF32_step, METH_VARARGS,
     "step(x) -> None\n"
     "\n"
@@ -337,9 +340,19 @@ static PyMethodDef AccF32_methods[] = {
     "``acc_f32_steps`` to amortise call overhead and allow "
     "auto-vectorisation.\n"
     "\n"
-    "    >>> from doppler import AccF32\n"
-    "    >>> obj = AccF32(0.0)\n"
-    "    >>> obj.step(1.0)\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : float\n"
+    "    Input sample (float).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.accumulator import AccF32\n"
+    ">>> obj = AccF32(0.0)\n"
+    ">>> obj.step(3.0)\n"
+    ">>> obj.get()\n"
+    "3.0\n"
+    "\n" },
   { "steps", (PyCFunction)AccF32_steps, METH_VARARGS,
     "steps(x[, out]) -> ndarray\n"
     "\n"
@@ -348,13 +361,31 @@ static PyMethodDef AccF32_methods[] = {
     "provide it (AVX-512 / AVX2 / SSE2). The loop uses JM_RESTRICT so the "
     "compiler can assume no aliasing between ``state`` and ``input``.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import AccF32\n"
-    "    >>> obj = AccF32(0.0)\n"
-    "    >>> y = obj.steps(np.zeros(4, dtype=np.float32))\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.float32]\n"
+    "    Input sample.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.accumulator import AccF32\n"
+    ">>> obj = AccF32(0.0)\n"
+    ">>> obj.steps(np.array([1.0, 2.0, 3.0], dtype=np.float32))\n"
+    ">>> obj.get()\n"
+    "6.0\n"
+    "\n" },
 
-  { "get_acc", (PyCFunction)AccF32_get_acc, METH_NOARGS, "Get acc." },
-  { "set_acc", (PyCFunction)AccF32_set_acc, METH_VARARGS, "Set acc." },
+  { "get_acc", (PyCFunction)AccF32_get_acc, METH_NOARGS,
+    "Return the current accumulator value without modifying state. Use this "
+    "when you need to read the running sum mid-accumulation without "
+    "disturbing it. For a read-and-reset in one call use "
+    "``acc_f32_dump``.\n" },
+  { "set_acc", (PyCFunction)AccF32_set_acc, METH_VARARGS,
+    "Overwrite the accumulator with a new value. Useful for seeding the "
+    "accumulator to a known baseline before processing a new segment without "
+    "a full ``reset``; subsequent ``step`` / ``steps`` samples accumulate on "
+    "top of the seeded value.\n" },
   { "get", (PyCFunction)AccF32_get, METH_NOARGS,
     "get() -> float\n"
     "\n"
@@ -363,10 +394,19 @@ static PyMethodDef AccF32_methods[] = {
     "call sites that need the value can be uniform with ``dump`` without a "
     "conditional.\n"
     "\n"
-    "    >>> from doppler import AccF32\n"
-    "    >>> obj = AccF32(0.0)\n"
-    "    >>> obj.get()\n"
-    "    0.0\n" },
+    "Returns\n"
+    "-------\n"
+    "float\n"
+    "    Current value of ``acc`` (float).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.accumulator import AccF32\n"
+    ">>> obj = AccF32(0.0)\n"
+    ">>> obj.step(2.0)\n"
+    ">>> obj.step(3.0)\n"
+    ">>> obj.get()\n"
+    "5.0\n" },
   { "dump", (PyCFunction)AccF32_dump, METH_NOARGS,
     "dump() -> float\n"
     "\n"
@@ -375,10 +415,21 @@ static PyMethodDef AccF32_methods[] = {
     "accumulation interval without a separate ``reset`` call. The zero-reset "
     "is unconditional and always writes 0.0f.\n"
     "\n"
-    "    >>> from doppler import AccF32\n"
-    "    >>> obj = AccF32(0.0)\n"
-    "    >>> obj.dump()\n"
-    "    0.0\n" },
+    "Returns\n"
+    "-------\n"
+    "float\n"
+    "    Value of ``acc`` just before the reset (float).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.accumulator import AccF32\n"
+    ">>> obj = AccF32(0.0)\n"
+    ">>> obj.step(3.0)\n"
+    ">>> obj.step(4.0)\n"
+    ">>> obj.dump()\n"
+    "7.0\n"
+    ">>> obj.get()\n"
+    "0.0\n" },
   { "madd", (PyCFunction)AccF32_madd, METH_VARARGS,
     "madd(x, h) -> None\n"
     "\n"
@@ -409,15 +460,90 @@ static PyMethodDef AccF32_methods[] = {
     "    >>> obj.madd2d(np.zeros(4, dtype=np.float32), np.zeros(4, "
     "dtype=np.float32))\n" },
   { "destroy", (PyCFunction)AccF32_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)AccF32_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)AccF32_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)AccF32_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a AccF32 be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "AccF32\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)AccF32_exit, METH_VARARGS,
+    "Exit a context manager, releasing the AccF32.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { "state_bytes", (PyCFunction)AccF32_state_bytes, METH_NOARGS,
-    "Serialized state size in bytes." },
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the AccF32 has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
   { "get_state", (PyCFunction)AccF32_get_state, METH_NOARGS,
-    "Serialize the engine's mutable state to bytes." },
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the AccF32 has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
   { "set_state", (PyCFunction)AccF32_set_state, METH_O,
-    "Restore mutable state from a get_state() blob." },
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the AccF32 has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
   { NULL }
 };
 

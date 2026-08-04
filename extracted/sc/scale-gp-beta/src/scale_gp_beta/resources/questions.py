@@ -58,7 +58,16 @@ class QuestionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Question:
         """
-        Create Question
+        Create a new question owned by the caller's account.
+
+        The question is one of six types selected by the required `question_type`
+        discriminator (categorical, rating, number, free_text, form, or timestamp), and
+        each type carries its own `configuration` block; `name` and `prompt` are
+        required for every type. Questions are the reusable units that are grouped into
+        question sets and referenced by rubrics, so create them before assembling a
+        question set. The created question is scoped to the caller's account and records
+        the creating identity. The question type and its configuration are set at
+        creation time and cannot be changed afterward through the update endpoint.
 
         Args:
           extra_headers: Send extra headers
@@ -93,7 +102,12 @@ class QuestionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Question:
         """
-        Get Question
+        Retrieve a single question in the caller's account by its ID.
+
+        Both active and archived questions are returned; the archived state is conveyed
+        by the `archived_at` field on the response. The lookup is scoped to the caller's
+        account, and a question that does not exist within that account results in a
+        not-found error.
 
         Args:
           extra_headers: Send extra headers
@@ -130,7 +144,12 @@ class QuestionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Question:
         """
-        Update Question
+        Update a question's display name.
+
+        Only the `name` is mutable through this endpoint; a question's type, prompt, and
+        type-specific configuration are fixed at creation and cannot be changed here.
+        Updating an archived question is rejected with a client error, so restore it
+        first if it needs to be edited. The update is scoped to the caller's account.
 
         Args:
           name: Display name for the question
@@ -175,7 +194,13 @@ class QuestionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPage[Question]:
         """
-        List Questions
+        Return a paginated list of the caller's account's questions.
+
+        Archived questions are excluded by default; set `include_archived` to true to
+        include them alongside active ones. Pass `ids` to restrict the result to a
+        specific set of question IDs. Results are paginated through the standard
+        pagination parameters. Use this to discover existing questions before adding
+        them to a question set, or to audit which questions have been archived.
 
         Args:
           extra_headers: Send extra headers
@@ -222,7 +247,13 @@ class QuestionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Question:
         """
-        Archive a question by setting archived_at in the db
+        Soft-delete a question by setting its `archived_at` timestamp.
+
+        This is not a permanent delete: the row is retained and can be brought back with
+        the restore endpoint. Once archived, the question is excluded from list results
+        by default (unless `include_archived` is set) and can no longer be updated until
+        it is restored. The archived question is returned in the response with its
+        `archived_at` populated.
 
         Args:
           extra_headers: Send extra headers
@@ -258,7 +289,12 @@ class QuestionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Question:
         """
-        Restore Archived Question
+        Restore a previously archived question, reversing an archive.
+
+        This clears the question's `archived_at` timestamp, returning it to the active
+        state so it reappears in default listings and becomes editable again. It is the
+        inverse of the archive (DELETE) operation and is intended for questions that
+        were archived by mistake or are needed again.
 
         Args:
           extra_headers: Send extra headers
@@ -315,7 +351,16 @@ class AsyncQuestionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Question:
         """
-        Create Question
+        Create a new question owned by the caller's account.
+
+        The question is one of six types selected by the required `question_type`
+        discriminator (categorical, rating, number, free_text, form, or timestamp), and
+        each type carries its own `configuration` block; `name` and `prompt` are
+        required for every type. Questions are the reusable units that are grouped into
+        question sets and referenced by rubrics, so create them before assembling a
+        question set. The created question is scoped to the caller's account and records
+        the creating identity. The question type and its configuration are set at
+        creation time and cannot be changed afterward through the update endpoint.
 
         Args:
           extra_headers: Send extra headers
@@ -350,7 +395,12 @@ class AsyncQuestionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Question:
         """
-        Get Question
+        Retrieve a single question in the caller's account by its ID.
+
+        Both active and archived questions are returned; the archived state is conveyed
+        by the `archived_at` field on the response. The lookup is scoped to the caller's
+        account, and a question that does not exist within that account results in a
+        not-found error.
 
         Args:
           extra_headers: Send extra headers
@@ -387,7 +437,12 @@ class AsyncQuestionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Question:
         """
-        Update Question
+        Update a question's display name.
+
+        Only the `name` is mutable through this endpoint; a question's type, prompt, and
+        type-specific configuration are fixed at creation and cannot be changed here.
+        Updating an archived question is rejected with a client error, so restore it
+        first if it needs to be edited. The update is scoped to the caller's account.
 
         Args:
           name: Display name for the question
@@ -432,7 +487,13 @@ class AsyncQuestionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Question, AsyncCursorPage[Question]]:
         """
-        List Questions
+        Return a paginated list of the caller's account's questions.
+
+        Archived questions are excluded by default; set `include_archived` to true to
+        include them alongside active ones. Pass `ids` to restrict the result to a
+        specific set of question IDs. Results are paginated through the standard
+        pagination parameters. Use this to discover existing questions before adding
+        them to a question set, or to audit which questions have been archived.
 
         Args:
           extra_headers: Send extra headers
@@ -479,7 +540,13 @@ class AsyncQuestionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Question:
         """
-        Archive a question by setting archived_at in the db
+        Soft-delete a question by setting its `archived_at` timestamp.
+
+        This is not a permanent delete: the row is retained and can be brought back with
+        the restore endpoint. Once archived, the question is excluded from list results
+        by default (unless `include_archived` is set) and can no longer be updated until
+        it is restored. The archived question is returned in the response with its
+        `archived_at` populated.
 
         Args:
           extra_headers: Send extra headers
@@ -515,7 +582,12 @@ class AsyncQuestionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Question:
         """
-        Restore Archived Question
+        Restore a previously archived question, reversing an archive.
+
+        This clears the question's `archived_at` timestamp, returning it to the active
+        state so it reappears in default listings and becomes editable again. It is the
+        inverse of the archive (DELETE) operation and is intended for questions that
+        were archived by mistake or are needed again.
 
         Args:
           extra_headers: Send extra headers

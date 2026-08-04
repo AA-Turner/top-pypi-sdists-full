@@ -14,6 +14,13 @@ from quack.blockscaled.utils import (
     scale_blocked_for_cublas,
     scale_view_for_kernel,
 )
+from quack.blockscaled.operand import (
+    MXFP4,
+    MXFP6_E2M3,
+    MXFP6_E2M3_PACKED,
+    MXFP8_E4M3,
+    NVFP4,
+)
 from quack.gemm_default_epi import GemmDefaultSm100
 from quack.blockscaled.quantize import to_blocked
 
@@ -68,10 +75,10 @@ def _run_blockscaled_gemm(compiled, args):
 
 
 def test_blockscaled_validation():
-    assert GemmDefaultSm100.can_implement_blockscaled(
-        cutlass.Float8E4M3FN,
-        cutlass.Float8E8M0FNU,
-        32,
+    assert GemmDefaultSm100.can_implement(
+        MXFP8_E4M3,
+        MXFP8_E4M3,
+        cutlass.Float32,
         cutlass.BFloat16,
         (128, 64),
         (1, 1),
@@ -83,10 +90,10 @@ def test_blockscaled_validation():
         "k",
         "n",
     )
-    assert GemmDefaultSm100.can_implement_blockscaled(
-        cutlass.Float8E4M3FN,
-        cutlass.Float8E8M0FNU,
-        32,
+    assert GemmDefaultSm100.can_implement(
+        MXFP8_E4M3,
+        MXFP8_E4M3,
+        cutlass.Float32,
         cutlass.BFloat16,
         (128, 192),
         (1, 1),
@@ -98,10 +105,10 @@ def test_blockscaled_validation():
         "k",
         "n",
     )
-    assert GemmDefaultSm100.can_implement_blockscaled(
-        cutlass.Float8E4M3FN,
-        cutlass.Float8E8M0FNU,
-        32,
+    assert GemmDefaultSm100.can_implement(
+        MXFP8_E4M3,
+        MXFP8_E4M3,
+        cutlass.Float32,
         cutlass.BFloat16,
         (128, 128),
         (1, 1),
@@ -113,10 +120,10 @@ def test_blockscaled_validation():
         "k",
         "n",
     )
-    assert GemmDefaultSm100.can_implement_blockscaled(
-        cutlass.Float4E2M1FN,
-        cutlass.Float8E8M0FNU,
-        32,
+    assert GemmDefaultSm100.can_implement(
+        MXFP4,
+        MXFP4,
+        cutlass.Float32,
         cutlass.Float32,
         (128, 128),
         (1, 1),
@@ -128,10 +135,10 @@ def test_blockscaled_validation():
         "k",
         "n",
     )
-    assert GemmDefaultSm100.can_implement_blockscaled(
-        cutlass.Float4E2M1FN,
-        cutlass.Float8E4M3FN,
-        16,
+    assert GemmDefaultSm100.can_implement(
+        NVFP4,
+        NVFP4,
+        cutlass.Float32,
         cutlass.Float32,
         (128, 192),
         (1, 1),
@@ -143,10 +150,10 @@ def test_blockscaled_validation():
         "k",
         "n",
     )
-    assert not GemmDefaultSm100.can_implement_blockscaled(
-        cutlass.Float8E4M3FN,
-        cutlass.Float8E8M0FNU,
-        32,
+    assert not GemmDefaultSm100.can_implement(
+        MXFP8_E4M3,
+        MXFP8_E4M3,
+        cutlass.Float32,
         cutlass.BFloat16,
         (256, 384),
         (2, 1),
@@ -158,10 +165,10 @@ def test_blockscaled_validation():
         "k",
         "n",
     )
-    assert not GemmDefaultSm100.can_implement_blockscaled(
-        cutlass.Float8E4M3FN,
-        cutlass.Float8E8M0FNU,
-        32,
+    assert not GemmDefaultSm100.can_implement(
+        MXFP8_E4M3,
+        MXFP8_E4M3,
+        cutlass.Float32,
         cutlass.Float32,
         (256, 224),
         (2, 1),
@@ -173,10 +180,10 @@ def test_blockscaled_validation():
         "k",
         "n",
     )
-    assert not GemmDefaultSm100.can_implement_blockscaled(
-        cutlass.Float4E2M1FN,
-        cutlass.Float8E8M0FNU,
-        32,
+    assert not GemmDefaultSm100.can_implement(
+        MXFP4,
+        MXFP4,
+        cutlass.Float32,
         cutlass.Float32,
         (256, 384),
         (2, 1),
@@ -188,10 +195,10 @@ def test_blockscaled_validation():
         "k",
         "n",
     )
-    assert not GemmDefaultSm100.can_implement_blockscaled(
-        cutlass.Float8E4M3FN,
-        cutlass.Float8E8M0FNU,
-        32,
+    assert not GemmDefaultSm100.can_implement(
+        MXFP8_E4M3,
+        MXFP8_E4M3,
+        cutlass.Float32,
         cutlass.BFloat16,
         (64, 128),
         (1, 1),
@@ -203,25 +210,19 @@ def test_blockscaled_validation():
         "k",
         "n",
     )
-    assert not GemmDefaultSm100.can_implement_blockscaled(
+    # fp4 with e4m3 scales at vec 32 is an illegal scale config that no
+    # registry format descriptor can express; check the dtype gate directly.
+    assert not GemmDefaultSm100.is_valid_dtypes_and_scale_factor_vec_size(
+        cutlass.Float4E2M1FN,
         cutlass.Float4E2M1FN,
         cutlass.Float8E4M3FN,
         32,
         cutlass.Float32,
-        (128, 128),
-        (1, 1),
-        256,
-        256,
-        256,
-        1,
-        "k",
-        "k",
-        "n",
     )
-    assert not GemmDefaultSm100.can_implement_blockscaled(
-        cutlass.Float8E4M3FN,
-        cutlass.Float8E8M0FNU,
-        32,
+    assert not GemmDefaultSm100.can_implement(
+        MXFP8_E4M3,
+        MXFP8_E4M3,
+        cutlass.Float32,
         cutlass.BFloat16,
         (256, 128),
         (1, 1),
@@ -233,6 +234,76 @@ def test_blockscaled_validation():
         "k",
         "n",
     )
+
+
+def test_can_implement_operand_kind_polymorphism():
+    """One preflight entry point for both kernels: plain cutlass dtypes select
+    the dense checks, BlockScaledFormat descriptors the blockscaled checks, and
+    one operand of each kind is rejected."""
+    common = ((128, 128), (1, 1), 256, 256, 256, 1, "k", "k", "n")
+    assert GemmDefaultSm100.can_implement(
+        cutlass.BFloat16, cutlass.BFloat16, cutlass.Float32, cutlass.BFloat16, *common
+    )
+    assert not GemmDefaultSm100.can_implement(
+        MXFP8_E4M3, cutlass.Float8E4M3FN, cutlass.Float32, cutlass.BFloat16, *common
+    )
+    assert not GemmDefaultSm100.can_implement(
+        cutlass.Float8E4M3FN, MXFP8_E4M3, cutlass.Float32, cutlass.BFloat16, *common
+    )
+
+
+@pytest.mark.parametrize("fmt_a", [MXFP4, MXFP6_E2M3_PACKED])
+def test_mixed_unpack_explicit_tile_k_validation(fmt_a):
+    common = ((1, 1), 256, 256, 512, 1, "k", "k", "n")
+    for tile_k in (32, 64, 96, 160):
+        assert not GemmDefaultSm100.can_implement(
+            fmt_a,
+            MXFP8_E4M3,
+            cutlass.Float32,
+            cutlass.BFloat16,
+            (128, 128, tile_k),
+            *common,
+        )
+    for tile_k in (128, 256):
+        assert GemmDefaultSm100.can_implement(
+            fmt_a,
+            MXFP8_E4M3,
+            cutlass.Float32,
+            cutlass.BFloat16,
+            (128, 128, tile_k),
+            *common,
+        )
+    # NVFP4 uses vec-16 scales, so its complete SF chunk is 64 K elements.
+    assert GemmDefaultSm100.can_implement(
+        NVFP4,
+        NVFP4,
+        cutlass.Float32,
+        cutlass.BFloat16,
+        (128, 128, 64),
+        *common,
+    )
+    assert not GemmDefaultSm100.can_implement(
+        MXFP6_E2M3,
+        MXFP8_E4M3,
+        cutlass.Float32,
+        cutlass.BFloat16,
+        (128, 128, 128),
+        *common,
+    )
+
+
+def test_direct_quantized_generator_rejects_packed_fp6():
+    """The direct TVM-FFI helper has no separate uint8-storage/FP6-MMA dtype."""
+    with pytest.raises(ValueError, match="init=quant does not support"):
+        create_blockscaled_operand_quantized(
+            1,
+            128,
+            256,
+            False,
+            32,
+            cutlass.Float6E2M3FN,
+            cutlass.Float8E8M0FNU,
+        )
 
 
 @pytest.mark.parametrize(
@@ -334,6 +405,20 @@ def test_blockscaled_validation():
             256,
             1,
         ),
+        # batched packed fp4: pins the generator's K-majorness for l > 1
+        # (a (mn, k/2, l) contiguous alloc would put stride 1 on L, not K)
+        (
+            cutlass.Float4E2M1FN,
+            cutlass.Float8E8M0FNU,
+            32,
+            cutlass.Float32,
+            (128, 128),
+            (1, 1),
+            256,
+            256,
+            256,
+            2,
+        ),
         (
             cutlass.Float4E2M1FN,
             cutlass.Float8E8M0FNU,
@@ -370,9 +455,28 @@ def test_blockscaled_validation():
             256,
             1,
         ),
-        # tile_n=192 with multiple N-tiles: exercises the overlapped-window SFB
-        # TMA remap for e4m3 scale factors (regression: was gated on e8m0 only,
-        # loading wrong SFB atoms for N-tile index >= 1)
+        # tile_n=192 with N=448: the last N-tile's SF window (atoms 3,4)
+        # straddles past the last allocated SF atom (ceil(448/128)=4).
+        # Regression: the old overlapped-window TMA remap presented atoms in
+        # groups of 4 and zero-filled past the presented extent, silently
+        # zeroing the last 64 output columns; the chunk-granular SFB load
+        # bounds-checks the atom-n dim and zero-fills only the truly
+        # out-of-range atom.
+        (
+            cutlass.Float8E4M3FN,
+            cutlass.Float8E8M0FNU,
+            32,
+            cutlass.BFloat16,
+            (128, 192),
+            (1, 1),
+            256,
+            448,
+            256,
+            1,
+        ),
+        # tile_n=192 with multiple N-tiles: exercises mid-atom SF window starts
+        # for e4m3 scale factors (regression: the old remap was gated on e8m0
+        # only, loading wrong SFB atoms for N-tile index >= 1)
         (
             cutlass.Float4E2M1FN,
             cutlass.Float8E4M3FN,
@@ -596,10 +700,10 @@ def test_blockscaled_mxfp8_major_modes(a_major, b_major):
     b_sc = pack_scale_2d_to_blocked_contig(sb_2d)
     _, mD = create_blockscaled_operand_tensor(l, m, n, False, cutlass.BFloat16, init="empty")
 
-    assert GemmDefaultSm100.can_implement_blockscaled(
-        cutlass.Float8E4M3FN,
-        cutlass.Float8E8M0FNU,
-        sf_vec,
+    assert GemmDefaultSm100.can_implement(
+        MXFP8_E4M3,
+        MXFP8_E4M3,
+        cutlass.Float32,
         cutlass.BFloat16,
         (128, 128),
         (1, 1),
@@ -635,7 +739,10 @@ def test_blockscaled_mxfp8_major_modes(a_major, b_major):
 VARLEN_FMT = {
     # format: (ab_dtype, sf_dtype, sf_vec_size)
     "mxfp8": (cutlass.Float8E4M3FN, cutlass.Float8E8M0FNU, 32),
+    "mxfp8_e5m2": (cutlass.Float8E5M2, cutlass.Float8E8M0FNU, 32),
     "mxfp4": (cutlass.Float4E2M1FN, cutlass.Float8E8M0FNU, 32),
+    "mxfp6_e2m3_packed": (cutlass.Float6E2M3FN, cutlass.Float8E8M0FNU, 32),
+    "mxfp6_e3m2_packed": (cutlass.Float6E3M2FN, cutlass.Float8E8M0FNU, 32),
     "nvfp4": (cutlass.Float4E2M1FN, cutlass.Float8E4M3FN, 16),
 }
 
@@ -803,6 +910,8 @@ def test_blockscaled_varlen_k_public_api(seqlens_k):
         cu_seqlens_k=cu_seqlens_k,
         SFA=a_sc_contig,
         SFB=b_sc_contig,
+        bs_format_a="mxfp8_e4m3",
+        bs_format_b="mxfp8_e4m3",
     )
     torch.cuda.synchronize()
 
@@ -810,6 +919,57 @@ def test_blockscaled_varlen_k_public_api(seqlens_k):
         ref_i = a_ref_list[i] @ b_ref_list[i].T
         err = (mD[i].float() - ref_i).abs().max().item()
         assert err < 5e-3, f"public API varlen_k seqlens_k={seqlens_k} expert={i} max_err={err}"
+
+
+@pytest.mark.parametrize(
+    "a_fmt,b_fmt",
+    [("mxfp8_e4m3", "mxfp8_e5m2"), ("mxfp8_e5m2", "mxfp8_e4m3")],
+)
+@pytest.mark.parametrize("seqlens_k", [[128, 128, 128], [96, 160, 128]])
+def test_blockscaled_varlen_k_mixed_dtype(seqlens_k, a_fmt, b_fmt):
+    """varlen_k with mixed fp8 operand dtypes (mxf8f6f4 kind). Only fp8 pairs
+    are possible here: varlen_k needs m-major A / n-major B, while packed
+    sub-byte (fp4/fp6) operands must be K-major."""
+    _skip_if_not_sm100()
+    from quack.gemm import gemm as gemm_public
+    from quack.blockscaled.operand import BLOCKSCALED_FORMAT_REGISTRY
+
+    a_dtype = BLOCKSCALED_FORMAT_REGISTRY[a_fmt].to_cutlass_dtype()
+    b_dtype = BLOCKSCALED_FORMAT_REGISTRY[b_fmt].to_cutlass_dtype()
+    num_experts = len(seqlens_k)
+    m, n, sf_vec = 256, 256, 32
+
+    torch.manual_seed(0)
+    a_ref_list, b_ref_list, mA, mB, a_sc_contig, b_sc_contig, cu_seqlens_k = (
+        create_blockscaled_varlen_k_operands(
+            num_experts, 0, m, n, sf_vec, a_dtype, seqlens_k=seqlens_k, b_dtype=b_dtype
+        )
+    )
+    mD = torch.empty(num_experts, m, n, dtype=torch.bfloat16, device="cuda")
+    gemm_public(
+        mA,  # (m, total_k) m-major
+        mB,  # (n, total_k) n-major
+        mD,  # (L, m, n); gemm() permutes to (m, n, L) internally
+        None,
+        None,
+        tile_M=128,
+        tile_N=128,
+        cluster_M=1,
+        cluster_N=1,
+        cu_seqlens_k=cu_seqlens_k,
+        SFA=a_sc_contig,
+        SFB=b_sc_contig,
+        bs_format_a=a_fmt,
+        bs_format_b=b_fmt,
+    )
+    torch.cuda.synchronize()
+
+    for i in range(num_experts):
+        ref_i = a_ref_list[i] @ b_ref_list[i].T
+        err = (mD[i].float() - ref_i).abs().max().item()
+        assert err < 5e-3, (
+            f"varlen_k mixed a={a_fmt} b={b_fmt} seqlens_k={seqlens_k} expert={i} max_err={err}"
+        )
 
 
 @pytest.mark.parametrize(
@@ -849,6 +1009,8 @@ def test_blockscaled_varlen_k_poisoned_sf_pad(seqlens_k, tile_cluster):
         cu_seqlens_k=cu_seqlens_k,
         SFA=SFA,
         SFB=SFB,
+        bs_format_a="mxfp8_e4m3",
+        bs_format_b="mxfp8_e4m3",
     )
     torch.cuda.synchronize()
     assert not mD.isnan().any(), "NaN leaked from poisoned SF pad into the output"
@@ -903,6 +1065,8 @@ def test_blockscaled_varlen_m_public_api(seqlens_m, b_major, fmt):
         cu_seqlens_m=cu_seqlens_m,
         SFA=SFA,
         SFB=SFB,
+        bs_format_a=fmt,  # from_name resolves the legacy "mxfp8" alias
+        bs_format_b=fmt,
     )
     torch.cuda.synchronize()
 
@@ -910,6 +1074,56 @@ def test_blockscaled_varlen_m_public_api(seqlens_m, b_major, fmt):
     ref = torch.cat([a_ref_dq[cu[i] : cu[i + 1]] @ b_ref_dq[i].T for i in range(num_experts)])
     err = (mD.float() - ref).abs().max().item()
     assert err < 5e-3, f"public API varlen_m {fmt} seqlens_m={seqlens_m} max_err={err}"
+
+
+@pytest.mark.parametrize("fmt", ["mxfp8_e5m2", "mxfp6_e2m3_packed", "mxfp6_e3m2_packed"])
+def test_blockscaled_varlen_m_extended_formats_public_api(fmt):
+    """The benchmark's varlen generator supports every advertised same-format input."""
+    _skip_if_not_sm100()
+    from quack.gemm import gemm as gemm_public
+
+    seqlens_m = [100, 156]
+    num_experts = len(seqlens_m)
+    n, k = 256, 256
+    ab_dtype, sf_dtype, sf_vec = VARLEN_FMT[fmt]
+
+    torch.manual_seed(0)
+    a_ref, b_ref, A, B, SFA, SFB, cu_seqlens_m = create_blockscaled_varlen_m_operands(
+        num_experts,
+        0,
+        n,
+        k,
+        sf_vec,
+        ab_dtype,
+        sf_dtype,
+        seqlens_m=seqlens_m,
+    )
+    if fmt.startswith("mxfp6"):
+        assert A.shape[1] == 3 * k // 4
+        assert B.shape[1] == 3 * k // 4
+
+    out = torch.empty(sum(seqlens_m), n, dtype=torch.bfloat16, device="cuda")
+    gemm_public(
+        A,
+        B.permute(2, 0, 1),
+        out,
+        None,
+        None,
+        tile_M=128,
+        tile_N=128,
+        cluster_M=1,
+        cluster_N=1,
+        cu_seqlens_m=cu_seqlens_m,
+        SFA=SFA,
+        SFB=SFB,
+        bs_format_a=fmt,
+        bs_format_b=fmt,
+    )
+    torch.cuda.synchronize()
+
+    cu = cu_seqlens_m.tolist()
+    ref = torch.cat([a_ref[cu[i] : cu[i + 1]] @ b_ref[i].T for i in range(num_experts)])
+    torch.testing.assert_close(out.float(), ref, atol=5e-3, rtol=1e-3)
 
 
 @pytest.mark.parametrize("rk_pad", [1, 3, 5])
@@ -989,3 +1203,108 @@ def test_blockscaled_mxfp8_strided_sf(rk_pad):
         f"strided-SF output differs from contig-SF: "
         f"max_abs_err={(mD_strided.float() - mD_contig.float()).abs().max().item()}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Split-K (MXFP8 block-scaled)
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("split_k_mode", ["serial", "parallel"])
+@pytest.mark.parametrize("split_k", [2, 4])
+@pytest.mark.parametrize("batched", [False, True])
+def test_mxfp8_split_k(batched, split_k, split_k_mode):
+    """MXFP8 block-scaled split-K: the dense finalizer-only split-K device path composes
+    with block-scaled as-is (the SF loads ride the same k_tile_start-offset copy list as
+    A/B; the accumulator is already descaled f32 before the epilogue). split-K must match
+    the plain (split_k=1) MXFP8 kernel to within ~1 bf16 ULP and stay deterministic for
+    serial."""
+    _skip_if_not_sm100()
+    from quack.blockscaled.operand import BlockScaledOperand
+    from quack.blockscaled.utils import blockscaled_quantize
+    from quack.gemm_config import SplitKMode
+    from quack.gemm_interface import gemm, gemm_blockscaled_ref
+
+    mode = SplitKMode[split_k_mode.upper()]
+    # Small M/N, large K -> the regime split-K targets. K a multiple of 32 (sf_vec).
+    M, N, K = 256, 256, 8192
+    L = 2 if batched else 1
+    torch.manual_seed(0)
+    shape_A = (L, M, K) if batched else (M, K)
+    shape_W = (L, N, K) if batched else (N, K)
+    A_hp = torch.randn(*shape_A, device="cuda", dtype=torch.bfloat16) * K**-0.5
+    W_hp = torch.randn(*shape_W, device="cuda", dtype=torch.bfloat16) * K**-0.5
+    A_q, A_sc = blockscaled_quantize(A_hp, "mxfp8")
+    W_q, W_sc = blockscaled_quantize(W_hp, "mxfp8")
+    A_op = BlockScaledOperand.from_parts(A_q, A_sc, "mxfp8")
+    B_op = BlockScaledOperand.from_parts(W_q, W_sc, "mxfp8").mT  # B = (..., K, N) K-contig view
+
+    ref = gemm_blockscaled_ref(A_op, B_op)
+    base = gemm(A_op, B_op, tuned=False)  # plain (split_k=1) MXFP8 kernel
+    out = gemm(A_op, B_op, split_k=split_k, split_k_mode=mode, tuned=False)
+    assert out.shape == ((L, M, N) if batched else (M, N))
+
+    # f32 partials accumulation -> split-K is no less accurate than the plain kernel.
+    err = (out.float() - ref.float()).abs().max().item()
+    base_err = (base.float() - ref.float()).abs().max().item()
+    assert err < 2 * base_err + 5e-3, f"split-K err={err} vs base_err={base_err}"
+    # Differs from the plain kernel only by f32 reassociation (~1 bf16 ULP at O(1)).
+    assert (out.float() - base.float()).abs().max().item() < 1e-2
+
+    if mode != SplitKMode.PARALLEL:  # arrival-order reduction is not deterministic
+        for _ in range(3):
+            out2 = gemm(A_op, B_op, split_k=split_k, split_k_mode=mode, tuned=False)
+            assert torch.equal(out, out2), "serial split-K is not bitwise deterministic"
+
+
+def test_mxfp8_split_k_staged_rejected():
+    """SEPARATE needs a block-scaled-reachable reduction kernel (not yet wired); it must
+    raise a clear error rather than silently misconfigure."""
+    _skip_if_not_sm100()
+    from quack.blockscaled.operand import BlockScaledOperand
+    from quack.blockscaled.utils import blockscaled_quantize
+    from quack.gemm_config import SplitKMode
+    from quack.gemm_interface import gemm
+
+    M, N, K = 256, 256, 2048
+    torch.manual_seed(0)
+    A_q, A_sc = blockscaled_quantize(
+        torch.randn(M, K, device="cuda", dtype=torch.bfloat16) * K**-0.5, "mxfp8"
+    )
+    W_q, W_sc = blockscaled_quantize(
+        torch.randn(N, K, device="cuda", dtype=torch.bfloat16) * K**-0.5, "mxfp8"
+    )
+    with pytest.raises(NotImplementedError, match="SEPARATE"):
+        gemm(
+            BlockScaledOperand.from_parts(A_q, A_sc, "mxfp8"),
+            BlockScaledOperand.from_parts(W_q, W_sc, "mxfp8").mT,
+            split_k=2,
+            split_k_mode=SplitKMode.SEPARATE,
+            tuned=False,
+        )
+
+
+def test_mma_kind_mirrors_kernel_inst_k():
+    """The tcgen05 kind rules are encoded at two layers that key on different
+    things: quack.blockscaled.operand.mma_kind_for_pair (format names, torch
+    layer) and GemmSm100._blockscaled_mma_inst_k (storage cutlass dtypes,
+    kernel layer). Pin the mirror so they cannot drift apart: every
+    hardware-representable pair must get the instruction K of its kind
+    (mxf4/mxf4nvf4 -> 64, mxf8f6f4 -> 32). Host-only, no GPU needed."""
+    from quack.blockscaled.operand import BLOCKSCALED_FORMAT_REGISTRY, mma_kind_for_pair
+    from quack.cute_dsl_utils import torch2cute_dtype_map
+
+    kind_inst_k = {"mxf4": 64, "mxf4nvf4": 64, "mxf8f6f4": 32}
+    fmts = list(BLOCKSCALED_FORMAT_REGISTRY.values())
+    for fmt_a in fmts:
+        for fmt_b in fmts:
+            try:
+                kind = mma_kind_for_pair(fmt_a, fmt_b)
+            except ValueError:
+                continue  # not hardware-representable; no instruction to agree on
+            inst_k = GemmDefaultSm100._blockscaled_mma_inst_k(
+                torch2cute_dtype_map[fmt_a.qdata_dtype],
+                torch2cute_dtype_map[fmt_b.qdata_dtype],
+            )
+            assert inst_k == kind_inst_k[kind], (
+                f"{fmt_a.name} x {fmt_b.name}: kind {kind} implies inst_k "
+                f"{kind_inst_k[kind]}, kernel derives {inst_k}"
+            )

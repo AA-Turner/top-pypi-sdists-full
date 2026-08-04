@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import contextlib
 import importlib
 import inspect
@@ -9,7 +10,7 @@ import re
 import sys
 import textwrap
 import types
-from typing import Any, get_type_hints
+from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar, TypeVarTuple, get_type_hints
 
 from sphinx.ext.autodoc.mock import mock
 from sphinx.util import logging
@@ -22,6 +23,9 @@ from ._util import get_obj_location
 
 if sys.version_info >= (3, 14):  # pragma: >=3.14 cover
     import annotationlib
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,24 +44,24 @@ _TYPE_GUARD_IMPORTS_RESOLVED: set[str] = set()
 
 
 def get_all_type_hints(
-    autodoc_mock_imports: list[str], obj: Any, name: str, localns: dict[Any, MyTypeAliasForwardRef]
+    autodoc_mock_imports: list[str], obj: Any, name: str, localns: Mapping[str, Any]
 ) -> dict[str, Any]:
     result = _get_type_hint(autodoc_mock_imports, name, obj, localns)
     if not result:
         stub_obj = _stub_target(obj) if inspect.isclass(obj) else obj
         result = backfill_type_hints(stub_obj, name)
         stub_localns: dict[str, Any] = {}
-        stub_alias_names: set[str] = set()
+        stub_crossref_names: set[str] = set()
         stub_owner_module: str = ""
         if not result:
             result = _backfill_from_stub(stub_obj)
             if result:
-                stub_localns, stub_alias_names, stub_owner_module = _get_stub_context(stub_obj)
+                stub_localns, stub_crossref_names, stub_owner_module = _get_stub_context(stub_obj)
         combined_localns = {**stub_localns, **localns}
-        for alias_name in stub_alias_names:
-            ref = MyTypeAliasForwardRef(alias_name)
+        for crossref_name in stub_crossref_names:
+            ref = MyTypeAliasForwardRef(crossref_name)
             ref.crossref = True
-            combined_localns[alias_name] = ref
+            combined_localns[crossref_name] = ref
         try:
             obj.__annotations__ = result
         except (AttributeError, TypeError):
@@ -89,11 +93,11 @@ def get_descriptor_type_hint(obj: Any) -> Any | None:
     """
     if (annotation := _backfill_descriptor_annotation(obj)) is None:
         return None
-    localns, alias_names, owner_module = _get_stub_context(obj)
-    for alias_name in alias_names:
-        ref = MyTypeAliasForwardRef(alias_name)
+    localns, crossref_names, owner_module = _get_stub_context(obj)
+    for crossref_name in crossref_names:
+        ref = MyTypeAliasForwardRef(crossref_name)
         ref.crossref = True
-        localns[alias_name] = ref
+        localns[crossref_name] = ref
     return _resolve_string_annotations(obj, {"return": annotation}, localns, owner_module)["return"]
 
 
@@ -122,9 +126,7 @@ def _resolve_string_annotations(
     return resolved
 
 
-def _get_type_hint(
-    autodoc_mock_imports: list[str], name: str, obj: Any, localns: dict[Any, MyTypeAliasForwardRef]
-) -> dict[str, Any]:
+def _get_type_hint(autodoc_mock_imports: list[str], name: str, obj: Any, localns: Mapping[str, Any]) -> dict[str, Any]:
     _resolve_type_guarded_imports(autodoc_mock_imports, obj)
     localns = _build_localns(obj, localns)
     try:
@@ -197,19 +199,28 @@ def _should_skip_guarded_import_resolution(obj: Any) -> bool:
 
 def _execute_guarded_code(autodoc_mock_imports: list[str], obj: Any, module_code: str) -> None:
     for _, part in _TYPE_GUARD_IMPORT_RE.findall(module_code):
-        guarded_code = textwrap.dedent(part)
         try:
-            _run_guarded_import(autodoc_mock_imports, obj, guarded_code)
-        except Exception as exc:  # ruff:ignore[blind-except]
-            module_name = getattr(obj, "__module__", None) or getattr(obj, "__name__", "?")
-            _LOGGER.warning(
-                "Failed guarded type import in %r: %r",
-                module_name,
-                exc,
-                type="sphinx_autodoc_typehints",
-                subtype="guarded_import",
-                location=get_obj_location(obj),
-            )
+            # One statement at a time, so an unimportable optional dependency cannot strand the names after it — #741
+            statements = [ast.unparse(node) for node in ast.parse(textwrap.dedent(part)).body]
+        except SyntaxError as exc:
+            _warn_guarded_import(obj, exc)
+            continue
+        for statement in statements:
+            try:
+                _run_guarded_import(autodoc_mock_imports, obj, statement)
+            except Exception as exc:  # ruff:ignore[blind-except]
+                _warn_guarded_import(obj, exc)
+
+
+def _warn_guarded_import(obj: Any, exc: Exception) -> None:
+    _LOGGER.warning(
+        "Failed guarded type import in %r: %r",
+        getattr(obj, "__module__", None) or getattr(obj, "__name__", "?"),
+        exc,
+        type="sphinx_autodoc_typehints",
+        subtype="guarded_import",
+        location=get_obj_location(obj),
+    )
 
 
 def _run_guarded_import(autodoc_mock_imports: list[str], obj: Any, guarded_code: str) -> None:
@@ -228,12 +239,12 @@ def _run_guarded_import(autodoc_mock_imports: list[str], obj: Any, guarded_code:
             pass
 
 
-def _build_localns(obj: Any, localns: dict[Any, MyTypeAliasForwardRef]) -> dict[Any, MyTypeAliasForwardRef]:
-    if type_params := getattr(obj, "__type_params__", None):
-        localns = {**localns, **{p.__name__: p for p in type_params}}
+def _build_localns(obj: Any, localns: Mapping[str, Any]) -> dict[str, Any]:
+    result = dict(localns)
+    result.update({p.__name__: p for p in _type_params(obj)})
     parts = (getattr(obj, "__qualname__", "") or "").split(".")
     if len(parts) <= 1:
-        return localns
+        return result
     if ns := (vars(module) if (module := inspect.getmodule(obj)) else getattr(obj, "__globals__", None)):
         current: Any = None
         for part in parts[:-1]:
@@ -245,10 +256,15 @@ def _build_localns(obj: Any, localns: dict[Any, MyTypeAliasForwardRef]) -> dict[
             if current is None:
                 break
             if inspect.isclass(current):
-                localns = {**localns, part: current}
-            if ancestor_params := getattr(current, "__type_params__", None):
-                localns = {**localns, **{p.__name__: p for p in ancestor_params}}
-    return localns
+                result[part] = current
+            result.update({p.__name__: p for p in _type_params(current)})
+    return result
+
+
+def _type_params(obj: Any) -> tuple[TypeVar | ParamSpec | TypeVarTuple, ...]:
+    # A class owning the __type_params__ slot itself (typing.TypeAliasType) hands back the descriptor, not a tuple
+    params = getattr(obj, "__type_params__", ())
+    return params if isinstance(params, tuple) else ()
 
 
 def _future_annotations_imported(obj: Any) -> bool:

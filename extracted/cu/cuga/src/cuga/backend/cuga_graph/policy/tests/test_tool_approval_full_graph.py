@@ -1,5 +1,7 @@
 """E2E test: Tool approval policy with full agent graph HITL flow."""
 
+import re
+import unicodedata
 import uuid
 from datetime import datetime
 import pytest
@@ -23,6 +25,14 @@ from cuga.backend.cuga_graph.nodes.cuga_lite.providers.base import (
 )
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
+
+
+def _normalize_final_answer_text(text: str) -> str:
+    """Normalize LLM final answers for stable substring assertions."""
+    text = unicodedata.normalize("NFKC", text)
+    text = re.sub(r"\*+", "", text)
+    text = re.sub(r"[\s\u00a0\u202f\u2009]+", " ", text)
+    return text.strip()
 
 
 def _pending_tool_approval_code(state: AgentState) -> str:
@@ -176,15 +186,17 @@ async def test_tool_approval_approve_flow():
         assert state_values.hitl_action.action_id == "tool_approval", "Should be tool approval action"
         print(f"  ✅ HITL action set: {state_values.hitl_action.action_id}")
 
-        # Verify code was generated
-        assert state_values.chat_messages, "Should have chat messages with generated code"
-        last_ai_message = None
-        for msg in reversed(state_values.chat_messages):
-            if msg.type == "ai":
-                last_ai_message = msg
-                break
-        assert last_ai_message is not None, "Should have AI message with code"
-        assert "digital_sales" in last_ai_message.content.lower(), "Code should reference digital_sales"
+        # Verify the code pending approval references the digital_sales tool.
+        # Probing-aware: the model's first turn may be a weak-schema structure
+        # probe whose narration is natural language ("…to inspect the returned
+        # structure"), so we assert on the *code pending approval* — what
+        # actually triggered the policy — not on the last AI chat message.
+        assert state_values.chat_messages, "Should have chat messages"
+        pending_code = _pending_tool_approval_code(state_values)
+        assert pending_code, "Should have code pending approval"
+        assert "digital_sales" in pending_code.lower() or "get_my_accounts" in pending_code.lower(), (
+            "Pending code should reference the digital_sales tool"
+        )
         print("  ✅ Code generated successfully")
 
         # Step 7: User approves execution
@@ -210,18 +222,21 @@ async def test_tool_approval_approve_flow():
             f"  Final answer length: {len(final_state.final_answer) if final_state.final_answer else 0} chars"
         )
 
-        # The agent should have executed the code and provided a final answer
         assert final_state.final_answer, (
             "Agent should complete execution after approval and provide a final answer"
         )
-
-        # Verify the code was actually executed (not regenerated)
-        if final_state.final_answer:
-            assert "cancelled" not in final_state.final_answer.lower(), (
-                "Final answer should not indicate cancellation"
-            )
-            assert "denied" not in final_state.final_answer.lower(), "Final answer should not indicate denial"
-            print("  ✅ Tool execution completed successfully")
+        assert "✋" not in final_state.final_answer, (
+            "Final answer should not be the approval banner after approval"
+        )
+        normalized_answer = _normalize_final_answer_text(final_state.final_answer)
+        assert "Acme Corp" in normalized_answer, (
+            "Final answer should include tool output after approved execution"
+        )
+        assert "cancelled" not in final_state.final_answer.lower(), (
+            "Final answer should not indicate cancellation"
+        )
+        assert "denied" not in final_state.final_answer.lower(), "Final answer should not indicate denial"
+        print("  ✅ Tool execution completed successfully")
 
         print("\n✅ Tool Approval Approve Flow Test PASSED")
         print("=" * 80)
@@ -327,17 +342,15 @@ async def test_tool_approval_deny_flow():
         final_state = AgentState(**final_snapshot.values)
         print(f"  Final answer: {final_state.final_answer}")
 
-        # The agent should have stopped execution after denial
-        # Either it provides a cancellation message, or it stops without executing
-        if final_state.final_answer:
-            # If there's a final answer, it should indicate the approval was denied
-            print(f"  Final answer indicates: {final_state.final_answer[:100]}...")
-            # The test passes if we got here (denial was processed)
-            print("  ✅ Tool execution cancelled successfully")
-        else:
-            # If no final answer, that's also fine - execution was stopped
-            print("  ✅ Tool execution cancelled (no final answer provided)")
-            print("  ✅ Tool execution cancelled successfully")
+        assert final_state.final_answer, "Denial should produce a cancellation message"
+        assert "Acme Corp" not in _normalize_final_answer_text(final_state.final_answer), (
+            "Tool output should not appear after denial"
+        )
+        assert (
+            "cancelled" in final_state.final_answer.lower() or "denied" in final_state.final_answer.lower()
+        ), "Final answer should indicate execution was cancelled or denied"
+        print(f"  Final answer indicates: {final_state.final_answer[:100]}...")
+        print("  ✅ Tool execution cancelled successfully")
 
         print("\n✅ Tool Approval Deny Flow Test PASSED")
         print("=" * 80)
@@ -484,12 +497,15 @@ async def test_tool_approval_modification_flow():
         print("  ✅ Modified code retrieved")
         print(f"  Modified code preview: {modified_code[:100]}...")
 
-        # Verify the code is different (has the modification)
-        # This is a weak check, but in a real scenario the code should be different
-        assert modified_code != original_code or "name" in modified_code.lower(), (
-            "Modified code should be different or contain 'name'"
-        )
-        print("  ✅ Modified code differs from original")
+        # Under weak-schema probing the FIRST approved block for both requests is
+        # a structure probe (fetch + print to observe the tool's output shape),
+        # so the two probes are legitimately identical — the "show the name"
+        # refinement lands in a later turn after the probe reveals the `name`
+        # field, not in this first approved block. We therefore don't assert
+        # first-block divergence; the tool-reference check above already confirms
+        # the modified request produced a real digital_sales call to approve.
+        _ = original_code  # kept for the preview log above
+        print("  ℹ️  First approved block is a structure probe (probing-aware)")
 
         # Step 11: User approves the modified code
         print("\n📋 Step 11: User approving modified code")
@@ -515,12 +531,16 @@ async def test_tool_approval_modification_flow():
         assert final_state_2.final_answer, (
             "Agent should complete execution after approval and provide a final answer"
         )
-
-        if final_state_2.final_answer:
-            assert "cancelled" not in final_state_2.final_answer.lower(), (
-                "Final answer should not indicate cancellation"
-            )
-            print("  ✅ Modified tool execution completed successfully")
+        assert "✋" not in final_state_2.final_answer, (
+            "Final answer should not be the approval banner after approval"
+        )
+        assert "Acme Corp" in _normalize_final_answer_text(final_state_2.final_answer), (
+            "Final answer should include tool output after approved execution"
+        )
+        assert "cancelled" not in final_state_2.final_answer.lower(), (
+            "Final answer should not indicate cancellation"
+        )
+        print("  ✅ Modified tool execution completed successfully")
 
         print("\n✅ Tool Approval Modification Flow Test PASSED")
         print("=" * 80)

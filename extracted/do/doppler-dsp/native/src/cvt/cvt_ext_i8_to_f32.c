@@ -181,45 +181,110 @@ I8ToF32Obj_exit (I8ToF32Object *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
-static PyMethodDef I8ToF32Obj_methods[]
-    = { { "reset", (PyCFunction)I8ToF32Obj_reset, METH_NOARGS,
-          "Reset state to post-create defaults." },
-        { "step", (PyCFunction)I8ToF32_step, METH_VARARGS,
-          "step(x) -> float\n"
-          "\n"
-          "Process one input sample.\n"
-          "\n"
-          "    >>> from doppler import I8ToF32\n"
-          "    >>> obj = I8ToF32(128.0)\n"
-          "    >>> obj.step(1)\n"
-          "    0.0\n" },
-        { "steps", (PyCFunction)(void *)I8ToF32_steps,
-          METH_VARARGS | METH_KEYWORDS,
-          "steps(x[, out]) -> ndarray\n"
-          "\n"
-          "Process a block of int8 samples to float32.\n"
-          "\n"
-          "    >>> import numpy as np\n"
-          "    >>> from doppler import I8ToF32\n"
-          "    >>> obj = I8ToF32(128.0)\n"
-          "    >>> y = obj.steps(np.zeros(4, dtype=np.int8))\n"
-          "    >>> y.shape\n"
-          "    (4,)\n"
-          "    >>> y.dtype\n"
-          "    dtype('float32')\n" },
+static PyMethodDef I8ToF32Obj_methods[] = {
+  { "reset", (PyCFunction)I8ToF32Obj_reset, METH_NOARGS,
+    "No-op reset, provided only for lifecycle symmetry." },
+  { "step", (PyCFunction)I8ToF32_step, METH_VARARGS,
+    "step(x) -> float\n"
+    "\n"
+    "Convert one signed int8 sample to a normalised float via 1/scale.\n"
+    "\n"
+    "Returns (float)x * iscale, a single multiply on the hot path. At the\n"
+    "default scale of 128 the full int8 range recovers `[-1.0, ~+1.0)` — the\n"
+    "front end of an 8-bit IQ path (e.g. a signed-8 RTL-SDR stream) into\n"
+    "normalised floats.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : int\n"
+    "    Signed int8 code in `[-128, 127]`.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "float\n"
+    "    Normalised float, `x / scale`.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.cvt import I8ToF32\n"
+    ">>> c = I8ToF32(scale=128.0)   # signed 8-bit -> normalised float\n"
+    ">>> round(c.step(64), 4)        # 64 / 128\n"
+    "0.5\n"
+    ">>> round(c.step(-128), 4)      # full-negative code -> -1.0\n"
+    "-1.0\n"
+    "\n" },
+  { "steps", (PyCFunction)(void *)I8ToF32_steps, METH_VARARGS | METH_KEYWORDS,
+    "steps(x[, out]) -> ndarray\n"
+    "\n"
+    "Process a block of int8 samples to float32.\n"
+    "\n"
+    "Applies step() to every element. Accepts an optional pre-allocated\n"
+    "output array; allocates a fresh one when output is NULL.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.int8]\n"
+    "    Input sample.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.float32]\n"
+    "    Output sample.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.cvt import I8ToF32\n"
+    ">>> import numpy as np\n"
+    ">>> I8ToF32().steps(np.array([0, 64, -128], dtype=np.int8)).tolist()\n"
+    "[0.0, 0.5, -1.0]\n"
+    "\n" },
 
-        { "destroy", (PyCFunction)I8ToF32Obj_destroy, METH_NOARGS,
-          "Release resources." },
-        { "__enter__", (PyCFunction)I8ToF32Obj_enter, METH_NOARGS, NULL },
-        { "__exit__", (PyCFunction)I8ToF32Obj_exit, METH_VARARGS, NULL },
-        { NULL } };
+  { "destroy", (PyCFunction)I8ToF32Obj_destroy, METH_NOARGS,
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)I8ToF32Obj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a I8ToF32 be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "I8ToF32\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)I8ToF32Obj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the I8ToF32.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
+  { NULL }
+};
 
 static PyTypeObject I8ToF32ObjType = {
   PyVarObject_HEAD_INIT (NULL, 0).tp_name = "cvt.I8ToF32",
   .tp_basicsize                           = sizeof (I8ToF32Object),
   .tp_dealloc                             = (destructor)I8ToF32Obj_dealloc,
   .tp_flags                               = Py_TPFLAGS_DEFAULT,
-  .tp_doc                                 = "I8ToF32 type.\n",
+  .tp_doc                                 = "Create a i8_to_f32 instance.\n",
   .tp_methods                             = I8ToF32Obj_methods,
   .tp_new                                 = I8ToF32Obj_new,
   .tp_init                                = (initproc)I8ToF32Obj_init,

@@ -36,6 +36,15 @@ PYEXT_DIR   ?= src/doppler
 PY_BUILD_DIR ?= $(BUILD_DIR)
 RUST_DIR    ?= ffi/rust
 DOCKER_IMAGE ?= doppler
+# Container images — the Makefile is the single driver for every docker build;
+# CI and release call the docker-* targets, never a raw `docker build` (a stray
+# context or a missing --target silently builds the wrong image). Tag + build
+# args are overridable; JM_VERSION is read from the manifest so the SDK image's
+# jm stays in lock-step with the repo pin.
+DOCKER_TAG          ?= dev
+DOCKER_VERSION      ?= $(shell grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
+JM_VERSION          ?= $(shell grep -m1 '^jm_version' just-makeit.toml | cut -d'"' -f2)
+EXAMPLES_DOCKERFILE := deploy/docker/Dockerfile.examples
 NPROC       ?= $(shell nproc 2>/dev/null || \
                        sysctl -n hw.logicalcpu 2>/dev/null || echo 4)
 CTEST       := ctest
@@ -202,31 +211,31 @@ WHEEL_CMD = $(UV) build --wheel
 ZENSICAL     = $(UV) run --group docs zensical
 DOCS_PREPARE = @rm -f zensical.toml
 
-# doppler's docs gate runs EVERY check and reports ALL failures in one pass —
-# the CI job stops at the first, so a later red can hide behind an earlier one.
-# That ordering is why the strict build lives in here rather than in
-# DOCS_CHECK_BUILD_CMD: the cheap script gates run first, the site is built in
-# the middle, and check_site_links runs last because it needs a built site.
-DOCS_CHECK_BUILD_CMD = :
-define DOCS_CHECK_CMD
-@fail=0; \
-for c in \
-  "python scripts/check_api_docs.py" \
-  "python scripts/check_nav_index.py" \
-  "python scripts/gen_related_pages.py --check" \
-  "python scripts/gen_readme.py --check" \
-  "python scripts/gen_install_scripts.py --check" \
-  "python scripts/gen_doc_versions.py --check" \
-  "python scripts/check_version_strings.py" \
-  "python scripts/check_serializable.py"; do \
-    echo "=== $$c ==="; uv run $$c || fail=1; \
-done; \
-echo "=== zensical build --strict ==="; rm -f zensical.toml; \
-  $(ZENSICAL) build --strict || fail=1; \
-echo "=== python scripts/check_site_links.py ==="; \
-  uv run python scripts/check_site_links.py || fail=1; \
-if [ "$$fail" = 0 ]; then echo "docs-check: ALL GATES PASS"; \
-else echo "docs-check: FAILURES above — fix, or run 'make docs-relink' for drift"; exit 1; fi
+# The docs gate: every check runs, every failure is reported in one pass. The
+# ordering is the point — cheap script gates first, so a drifted generated file
+# is reported without paying for a site build; then the strict build; then
+# check_site_links, which walks the freshly built site/ and cannot run before
+# it exists.
+#
+# These were one hand-rolled accumulator loop, with DOCS_CHECK_BUILD_CMD
+# neutered to `:` so the recipe could own the build's position. The standard
+# now expresses the shape directly, so the build line goes back to being the
+# standard's — one implementation again, which is what criterion 5 asked for.
+define DOCS_CHECK_PRE_CMDS
+uv run python scripts/check_api_docs.py
+uv run python scripts/check_docstring_coverage.py --check
+uv run python scripts/check_nav_index.py
+uv run python scripts/gen_related_pages.py --check
+uv run python scripts/gen_readme.py --check
+uv run python scripts/gen_install_scripts.py --check
+uv run python scripts/gen_doc_versions.py --check
+uv run python scripts/check_version_strings.py
+uv run python scripts/check_doc_targets.py
+uv run python scripts/check_serializable.py
+endef
+
+define DOCS_CHECK_POST_CMDS
+uv run python scripts/check_site_links.py
 endef
 
 # ── Doxygen ──────────────────────────────────────────────────────────────────
@@ -386,13 +395,30 @@ LOCAL_TARGETS = specan record-demo gallery blazing gen-c-api just-build \
                 test-examples-c test-examples-python test-example-downstream \
                 test-example-downstream-python \
                 test-stubs test-api-docs test-snippets \
-                abi-check link-check glibc-check specan-check \
+                check-docstring-coverage \
+                abi-check link-check consumer-faces-check \
+                glibc-check specan-check \
+                install-docs-deps \
+                wheel-check wheel-smoke release-smoke \
                 bench-interleaved bench-publish bench-docs bench-stream \
-                bench-report
+                bench-report \
+                docker-runtime docker-sdk docker-downstream docker-stream \
+                docker-examples
 
 include standard.mk
 
 # ── Everything below is genuinely doppler's own ──────────────────────────────
+
+# The docs system deps (doxygen, graphviz, LaTeX) — the `docs` group in
+# jb.toml. standard.mk's `install-deps` installs only the default groups
+# (runtime, dev) and is vendored, so it cannot take a group; this local target
+# is the one place CI's doxygen job and the Pages docs workflow both reach for
+# the docs group, keeping jb.toml the single dependency list. Bootstraps jbx
+# the same way standard.mk's install-deps does.
+install-docs-deps: ## Install the docs system deps (jb.toml `docs` group)
+	@command -v jbx >/dev/null 2>&1 \
+	    || curl -sSL https://just-buildit.github.io/get-jb.sh | bash
+	PATH="$$HOME/.local/bin:$$PATH" jbx install-deps -g docs
 
 specan: ## Launch the live spectrum analyzer in a browser
 	uv run doppler-specan
@@ -610,6 +636,89 @@ test-example-downstream: build ## Build the downstream jm example (C only)
 	    exit 1; \
 	fi
 
+# ── The release-path gates ───────────────────────────────────────────────────
+# These guard what users actually download. They ran only inside release.yml,
+# so they could not be rehearsed: the first time you learn a release gate is
+# wrong is while a release is failing. Each is now a target, and each was run
+# for real against v0.40.0 before being wired in.
+
+WHEEL_DIR ?= dist
+
+# A distributed wheel must run on any CPU of its arch. `-march=native` on the
+# build host sprays AVX2/AVX-512 across every function and SIGILLs on older
+# hardware -- doppler 0.5.1 shipped exactly that bug. Wide SIMD is legitimate
+# ONLY inside runtime-dispatched functions, which carry the ISA in their name
+# and sit behind a __builtin_cpu_supports() check.
+#
+# One target, not two: the x86 and aarch64 scans were separate CI steps with
+# separate `if:` conditions, but they differ only in the register pattern and
+# the allowed function-name substring. Detecting the arch here deletes the
+# duplication and the condition with it.
+wheel-check: ## Verify built wheels carry no -march/-mcpu=native SIMD leak
+	@arch="$$(uname -m)"; \
+	 case "$$arch" in \
+	   x86_64)  pat='%zmm[0-9]|%ymm[0-9]';        ok='avx512'; isa='AVX2/AVX-512';; \
+	   aarch64|arm64) pat='[ ,](z[0-9]+\.[bhsdq]|p[0-9]+/[mz])'; ok='sve'; isa='SVE';; \
+	   *) echo "wheel-check: no SIMD-leak pattern for $$arch — skipping"; exit 0;; \
+	 esac; \
+	 ls $(WHEEL_DIR)/*.whl > /dev/null 2>&1 \
+	   || { echo "wheel-check: no wheel in $(WHEEL_DIR)/ — run 'make wheel'"; exit 1; }; \
+	 fail=0; tmp="$$(mktemp -d)"; \
+	 for whl in $(WHEEL_DIR)/*.whl; do \
+	     unzip -q -o "$$whl" -d "$$tmp/x"; \
+	     find "$$tmp/x" \( -name '*.cpython-*.so' \
+	           -o -path '*/wfm/_bin/wfmgen' \) > "$$tmp/solist"; \
+	     while IFS= read -r so; do \
+	         bad=$$(objdump -d "$$so" 2>/dev/null | awk -v pat="$$pat" -v ok="$$ok" ' \
+	           /^[0-9a-f]+ <.*>:/ { fn=$$2; gsub(/[<>:]/, "", fn) } \
+	           $$0 ~ pat { if (fn !~ ok) { print fn; exit } }'); \
+	         if [ -n "$$bad" ]; then \
+	             echo "  FAIL $$(basename $$whl): $$(basename $$so) has $$isa in"; \
+	             echo "       non-dispatched function '$$bad' (built with -native?)"; \
+	             fail=1; \
+	         fi; \
+	     done < "$$tmp/solist"; \
+	     rm -rf "$$tmp/x"; \
+	 done; \
+	 rm -rf "$$tmp"; \
+	 if [ "$$fail" -ne 0 ]; then \
+	     echo "wheel-check: refusing a non-portable wheel — build without -DDOPPLER_NATIVE"; \
+	     exit 1; \
+	 fi; \
+	 echo "wheel-check: portable — $$isa only in runtime-dispatched *$$ok* functions"
+
+# Installs the built wheel into a THROWAWAY venv and runs the end-to-end from a
+# clean cwd, so `import doppler` can only resolve to the wheel and never to
+# ./src. CI installed into the job environment instead; a temp venv is what
+# makes the same check safe to run on a dev machine.
+#
+# The venv's bin/ must be on PATH, not just its python: two of the e2e's ten
+# checks shell out to the `wfmgen` CONSOLE SCRIPT, and calling
+# venv/bin/python directly leaves that off PATH. Running the target before
+# wiring it is what caught that -- it read as "the wheel is broken" (8/10)
+# when it was the harness.
+wheel-smoke: ## Install the built wheel in a temp venv and run the e2e
+	@ls $(WHEEL_DIR)/*.whl > /dev/null 2>&1 \
+	   || { echo "wheel-smoke: no wheel in $(WHEEL_DIR)/ — run 'make wheel'"; exit 1; }; \
+	 tmp="$$(mktemp -d)"; \
+	 $(UV) venv --quiet "$$tmp/venv"; \
+	 VIRTUAL_ENV="$$tmp/venv" $(UV) pip install --quiet $(WHEEL_DIR)/*.whl; \
+	 ( cd "$$tmp" && PATH="$$tmp/venv/bin:$$PATH" \
+	     "$$tmp/venv/bin/python" $(CURDIR)/deploy/validation/wfm_e2e.py ) \
+	   && "$$tmp/venv/bin/python" -c 'import doppler; print("doppler", doppler.__version__)' \
+	   && { rm -rf "$$tmp"; echo "wheel-smoke: OK"; } \
+	   || { rm -rf "$$tmp"; echo "wheel-smoke: FAILED"; exit 1; }
+
+# The published C tarball, fetched and exercised the way a consumer would.
+# Runnable against any released version, which is what makes it rehearsable:
+# `make release-smoke VERSION=0.40.0` after a release, or before touching the
+# script.
+release-smoke: ## Smoke-test a PUBLISHED C tarball (VERSION=x.y.z)
+ifndef VERSION
+	@echo "usage: make release-smoke VERSION=<x.y.z>"; exit 1
+endif
+	bash tests/install/release-smoke.sh "$(VERSION)"
+
 # ── The binary-hygiene gates ─────────────────────────────────────────────────
 # These inspect what the build actually produced, and each one exists because
 # the property it checks is invisible in source and expensive to discover late:
@@ -661,6 +770,18 @@ link-check: ## Smoke-test that a downstream links libdoppler.a with only -lm
 	     rm -rf "$$t"; exit 1; \
 	 fi
 
+# The three documented consumer faces (bare cc / CMake find_package /
+# pkg-config), built against a fresh install of THIS build tree and asserted
+# to produce identical output. build-three-ways.sh is the SSOT — the docs
+# --8<-- include its command regions, and release-smoke.sh runs the same
+# script against the PUBLISHED tarball. This target gives CI's per-commit path
+# and a local dev the exact same check without waiting for a release.
+consumer-faces-check: build ## Build a consumer via cc/CMake/pkg-config, assert identical output
+	@t=$$(mktemp -d); \
+	 $(CMAKE) --install $(BUILD_DIR) --prefix "$$t/pfx" > /dev/null \
+	 && bash tests/install/stream-consumer/build-three-ways.sh "$$t/pfx"; \
+	 rc=$$?; rm -rf "$$t"; exit $$rc
+
 # The oldest glibc a released .so may reference. Only meaningful against a
 # build made on that glibc — CI runs this in a Debian 10 container, and running
 # it on a modern distro will fail on the local build's newer symbols, which is
@@ -699,6 +820,18 @@ specan-check: ## Fail if specan changed without re-recording its demo frames
 test-stubs: ## Doctest every generated .pyi stub
 	uv run python -m pytest --doctest-glob='*.pyi' -q \
 	    $$(find $(PYEXT_DIR) -name '*.pyi')
+
+# Docstring-coverage burn-down meter. Scores BOTH doc faces: the .pyi stubs
+# (static, always) and the runtime __doc__ (needs the built extension, so this
+# reads both only after `make build`/`make pyext`; without a build it reports
+# the stub face and notes the runtime face was skipped). This target is the
+# human-facing both-face REPORT; the no-regression ratchet
+# (`--check` against docs/.docstring-coverage-baseline) runs inside the
+# docs-check gate (DOCS_CHECK_PRE_CMDS above), green from baseline and failing
+# only on backsliding. Refresh the baseline after improving coverage with
+# `python scripts/check_docstring_coverage.py --update-baseline`.
+check-docstring-coverage: ## Report docstring coverage across both Python faces
+	uv run python scripts/check_docstring_coverage.py
 
 test-api-docs: ## Doctest the docs/api/*.md reference pages
 	uv run python -m pytest --doctest-glob='*.md' -q docs/api/
@@ -777,3 +910,46 @@ bench-stream: ## Transport bench: NATS firehose + status-plane RTT
 
 bench-report: ## Portable-build trend across releases
 	uv run python scripts/bench_report.py
+
+# ── Container images ─────────────────────────────────────────────────────────
+# Three shapes, one job each (see deploy/docker/README.md). Each target builds
+# AND smoke-runs its image, so the target is the whole gate — CI just calls it.
+# Raw `docker build` is never invoked outside these rules; the flags live here.
+
+docker-runtime: ## Build+smoke the runtime "try it" image (needs the wheel on PyPI)
+	docker build -f deploy/docker/Dockerfile.cli \
+	    --build-arg DOPPLER_VERSION=$(DOCKER_VERSION) \
+	    -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
+	docker run --rm $(DOCKER_IMAGE):$(DOCKER_TAG) \
+	    python -c "import doppler; print('doppler', doppler.__version__)"
+
+docker-sdk: ## Build+smoke the SDK / develop image (doppler-sdk)
+	docker build -f $(EXAMPLES_DOCKERFILE) --target sdk \
+	    --build-arg JM_VERSION=$(JM_VERSION) \
+	    -t $(DOCKER_IMAGE)-sdk:$(DOCKER_TAG) .
+# The install is real only if a downstream can find + link it: build the
+# smallest consumer against it, from scratch, and run the result.
+	docker run --rm $(DOCKER_IMAGE)-sdk:$(DOCKER_TAG) bash -c \
+	    'pkg-config --modversion doppler && \
+	     cd examples/consumer && cmake -B build >/dev/null && \
+	     cmake --build build >/dev/null && ./build/consumer_shared'
+
+docker-downstream: ## Build+smoke the iqtools showcase image (doppler-downstream-jm)
+# The build itself runs `make test` inside the image, so a green build IS the
+# smoke; the run only confirms the shipped, pre-built package imports.
+	docker build -f $(EXAMPLES_DOCKERFILE) --target downstream-jm \
+	    --build-arg JM_VERSION=$(JM_VERSION) \
+	    -t $(DOCKER_IMAGE)-downstream-jm:$(DOCKER_TAG) .
+	docker run --rm $(DOCKER_IMAGE)-downstream-jm:$(DOCKER_TAG) \
+	    python3 -c "from iqtools.capture import Capture, RawCapture; \
+	                print('iqtools ok:', Capture.__name__, RawCapture.__name__)"
+
+docker-stream: ## Build+smoke the lean compose streaming-services image
+	docker build -f $(EXAMPLES_DOCKERFILE) --target stream-services \
+	    -t $(DOCKER_IMAGE)-stream-services:$(DOCKER_TAG) .
+	docker run --rm $(DOCKER_IMAGE)-stream-services:$(DOCKER_TAG) sh -c \
+	    'command -v transmitter && command -v receiver && \
+	     command -v spectrum_analyzer'
+
+docker-examples: docker-sdk docker-downstream docker-stream ## Build+smoke all build-on-doppler images
+	@echo "All build-on-doppler images built and smoked."

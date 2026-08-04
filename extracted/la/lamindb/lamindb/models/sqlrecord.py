@@ -286,8 +286,6 @@ class SQLRecordSettings:
                 experiments_registry.settings.single_space = False
                 experiments_registry.save()
 
-        .. versionadded:: 2.6.0
-            Before, one could by default add objects from different spaces to the same dynamic registry.
         """
         assert isinstance(self._sqlrecord, HasType), (
             "sqlrecord must be a HasType to use this setting"
@@ -1124,6 +1122,22 @@ class Registry(ModelBase):
         return cls._available_fields
 
 
+def check_key(key: str) -> None:
+    r"""Validate a storage/semantic key.
+
+    Rejects backslashes and `.` / `..` path segments (`./`, `/./`, `../`,
+    `/../`, etc.).
+    """
+    if "\\" in key:
+        raise ValueError(f"Backslashes are not allowed in key {key!r}.")
+
+    for segment in key.split("/"):
+        if segment in {".", ".."}:
+            raise ValueError(
+                f"Relative path segment {segment!r} detected in key {key!r}."
+            )
+
+
 class BaseSQLRecord(models.Model, metaclass=Registry):
     """Base SQL metadata record.
 
@@ -1163,6 +1177,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 kwargs.pop(fk_id_field, None)
                 return fk_record is not None
 
+            # check key if it is passed
+            if (key := kwargs.get("key")) is not None:
+                check_key(key)
             if not os.getenv("LAMINDB_MULTI_INSTANCE") == "true":
                 if issubclass(self.__class__, SQLRecord):
                     from lamindb import context as run_context

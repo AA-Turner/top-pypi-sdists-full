@@ -12,6 +12,7 @@ from typing import Any, NoReturn
 
 import click
 
+from .._app.errors import did_you_mean_hint
 from ..exceptions import (
     ArtifactTimeoutError,
     AuthError,
@@ -70,6 +71,7 @@ _NOT_FOUND_ID_ATTRS = (
     "artifact_id",
     "note_id",
     "mind_map_id",
+    "label_id",
 )
 
 
@@ -78,7 +80,8 @@ def _not_found_extra(error: NotFoundError) -> dict[str, Any]:
 
     Surfaces whichever resource-id attribute the concrete subclass carries
     (``source_id`` / ``artifact_id`` / ``note_id`` / ``mind_map_id`` /
-    ``notebook_id``) under both its native key and a generic ``id`` key, so
+    ``label_id`` / ``notebook_id``) under both its native key and a generic
+    ``id`` key, so
     automation can read the id without knowing the exact not-found subtype —
     mirroring the per-command ``source``/``artifact``/``note get`` payloads.
     Returns an empty dict when no known id attribute is present (e.g. a future
@@ -127,7 +130,7 @@ def _output_error(
     Note:
         Also exported as the public alias :func:`output_error`. The leading
         underscore name pre-dates the public-CLI-boundary contract enforced by
-        ``tests/unit/test_cli_boundary.py``; sibling ``cli/*`` modules may
+        ``tests/_guardrails/test_cli_boundary.py``; sibling ``cli/*`` modules may
         import the private name directly (intra-package, level-1 relative
         import), but ``cli/services/*`` and any other layer that crosses up
         through ``..error_handler`` must use the public alias to stay on the
@@ -148,7 +151,7 @@ def _output_error(
 #: Public alias for :func:`_output_error` — see the function docstring for the
 #: rationale. ``cli/services/*`` and other layers that must cross the CLI
 #: package boundary import this name to stay on the public side of the
-#: boundary contract enforced by ``tests/unit/test_cli_boundary.py``.
+#: boundary contract enforced by ``tests/_guardrails/test_cli_boundary.py``.
 output_error = _output_error
 
 
@@ -302,17 +305,23 @@ def handle_errors(verbose: bool = False, json_output: bool = False) -> Generator
         # emits the typed ``NOT_FOUND`` envelope (matching the per-command
         # ``source``/``artifact``/``note get`` convention) instead of the
         # generic ``NOTEBOOKLM_ERROR``. This makes the central handler faithful
-        # to the v0.8.0 raise-sites previewed by ``NOTEBOOKLM_FUTURE_ERRORS``
-        # (e.g. ``get()`` -> raise, ``rename``/``update`` on a missing target).
+        # to the v0.8.0 raise-sites (e.g. ``get()`` -> raise,
+        # ``rename``/``update`` on a missing target).
         nf_extra = _not_found_extra(e)
         if verbose and isinstance(e, RPCError) and e.method_id:
             nf_extra["method_id"] = e.method_id
+        # Near-miss "did you mean" candidates (issue #1787), read once and used for
+        # both the JSON envelope and the text-mode hint.
+        nf_candidates = list(getattr(e, "candidates", ()) or ())
+        if nf_candidates:
+            nf_extra["candidates"] = nf_candidates
         _output_error(
             f"Error: {e}",
             "NOT_FOUND",
             json_output,
             1,
             extra=nf_extra or None,
+            hint=did_you_mean_hint(nf_candidates) if nf_candidates else None,
         )
     except NotebookLMError as e:
         extra_info: dict[str, Any] | None = None

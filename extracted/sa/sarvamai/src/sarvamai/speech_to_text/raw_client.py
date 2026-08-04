@@ -38,6 +38,7 @@ class RawSpeechToTextClient:
         model: typing.Optional[SpeechToTextModel] = OMIT,
         mode: typing.Optional[Mode] = OMIT,
         language_code: typing.Optional[SpeechToTextLanguage] = OMIT,
+        with_timestamps: typing.Optional[bool] = OMIT,
         input_audio_codec: typing.Optional[InputAudioCodec] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[SpeechToTextResponse]:
@@ -54,7 +55,7 @@ class RawSpeechToTextClient:
         ### Note:
         - Pricing differs for REST and Batch APIs
         - Diarization is only available in Batch API with separate pricing
-        - Please refer to [here](https://docs.sarvam.ai/api-reference-docs/getting-started/pricing) for detailed pricing information
+        - Please refer to [here](https://docs.sarvam.ai/api-reference-docs/pricing) for detailed pricing information
 
         Parameters
         ----------
@@ -64,9 +65,9 @@ class RawSpeechToTextClient:
         model : typing.Optional[SpeechToTextModel]
             Specifies the model to use for speech-to-text conversion.
 
-            - **saarika:v2.5** (default): Transcribes audio in the spoken language.
+            - **saaras:v3** (default, recommended): State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
 
-            - **saaras:v3**: State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
+            - **saaras:v4** (latest): Flexible output formats across all modes (transcribe, translate, verbatim, translit, codemix), supporting Global + Indian English and 22 Indic languages.
 
         mode : typing.Optional[Mode]
             Mode of operation. **Only applicable when using saaras:v3 model.**
@@ -91,8 +92,6 @@ class RawSpeechToTextClient:
         language_code : typing.Optional[SpeechToTextLanguage]
             Specifies the language of the input audio in BCP-47 format.
 
-            **Note:** This parameter is optional for `saarika:v2.5` model.
-
             **Available Options:**
             - `unknown`: Use when the language is not known; the API will auto-detect.
             - `hi-IN`: Hindi
@@ -106,8 +105,6 @@ class RawSpeechToTextClient:
             - `te-IN`: Telugu
             - `en-IN`: English
             - `gu-IN`: Gujarati
-
-            **Additional Options (saaras:v3 only):**
             - `as-IN`: Assamese
             - `ur-IN`: Urdu
             - `ne-IN`: Nepali
@@ -120,6 +117,11 @@ class RawSpeechToTextClient:
             - `brx-IN`: Bodo
             - `mai-IN`: Maithili
             - `doi-IN`: Dogri
+
+        with_timestamps : typing.Optional[bool]
+            Enables chunk-level timestamps in the response. If set to `true`, the response includes a `timestamps` object with `words`, `start_time_seconds`, and `end_time_seconds` (each entry covers a sentence or phrase, not an individual word).
+
+            **Note:** Word-level timestamps are not supported. Speaker diarization is not supported on the REST API; use the Batch API for diarized, chunk-level timestamps.
 
         input_audio_codec : typing.Optional[InputAudioCodec]
             Input Audio codec/format of the input file. PCM files are supported only at 16kHz sample rate.
@@ -140,6 +142,7 @@ class RawSpeechToTextClient:
                 "model": model,
                 "mode": mode,
                 "language_code": language_code,
+                "with_timestamps": with_timestamps,
                 "input_audio_codec": input_audio_codec,
             },
             files={
@@ -252,7 +255,7 @@ class RawSpeechToTextClient:
         ### Note:
         - Pricing differs for REST and Batch APIs
         - Diarization is only available in Batch API with separate pricing
-        - Please refer to [here](https://docs.sarvam.ai/api-reference-docs/getting-started/pricing) for detailed pricing information
+        - Please refer to [here](https://docs.sarvam.ai/api-reference-docs/pricing) for detailed pricing information
 
         Parameters
         ----------
@@ -267,6 +270,8 @@ class RawSpeechToTextClient:
 
             - **saaras:v2.5** (default): Translation model that translates audio from any spoken Indic language to English.
               - Example: Hindi audio → English text output
+
+            For the latest model (saaras:v3), use the `/speech-to-text` endpoint with `mode="translate"`.
 
         input_audio_codec : typing.Optional[InputAudioCodec]
             Audio codec/format of the input file. Our API automatically detects all codec formats, but for PCM files specifically (pcm_s16le, pcm_l16, pcm_raw), you must pass this parameter. PCM files are supported only at 16kHz sample rate.
@@ -388,6 +393,7 @@ class AsyncRawSpeechToTextClient:
         model: typing.Optional[SpeechToTextModel] = OMIT,
         mode: typing.Optional[Mode] = OMIT,
         language_code: typing.Optional[SpeechToTextLanguage] = OMIT,
+        with_timestamps: typing.Optional[bool] = OMIT,
         input_audio_codec: typing.Optional[InputAudioCodec] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[SpeechToTextResponse]:
@@ -404,7 +410,7 @@ class AsyncRawSpeechToTextClient:
         ### Note:
         - Pricing differs for REST and Batch APIs
         - Diarization is only available in Batch API with separate pricing
-        - Please refer to [here](https://docs.sarvam.ai/api-reference-docs/getting-started/pricing) for detailed pricing information
+        - Please refer to [here](https://docs.sarvam.ai/api-reference-docs/pricing) for detailed pricing information
 
         Parameters
         ----------
@@ -414,9 +420,9 @@ class AsyncRawSpeechToTextClient:
         model : typing.Optional[SpeechToTextModel]
             Specifies the model to use for speech-to-text conversion.
 
-            - **saarika:v2.5** (default): Transcribes audio in the spoken language.
+            - **saaras:v3** (default, recommended): State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
 
-            - **saaras:v3**: State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
+            - **saaras:v4** (latest): Flexible output formats across all modes (transcribe, translate, verbatim, translit, codemix), supporting Global + Indian English and 22 Indic languages.
 
         mode : typing.Optional[Mode]
             Mode of operation. **Only applicable when using saaras:v3 model.**
@@ -441,8 +447,6 @@ class AsyncRawSpeechToTextClient:
         language_code : typing.Optional[SpeechToTextLanguage]
             Specifies the language of the input audio in BCP-47 format.
 
-            **Note:** This parameter is optional for `saarika:v2.5` model.
-
             **Available Options:**
             - `unknown`: Use when the language is not known; the API will auto-detect.
             - `hi-IN`: Hindi
@@ -456,8 +460,6 @@ class AsyncRawSpeechToTextClient:
             - `te-IN`: Telugu
             - `en-IN`: English
             - `gu-IN`: Gujarati
-
-            **Additional Options (saaras:v3 only):**
             - `as-IN`: Assamese
             - `ur-IN`: Urdu
             - `ne-IN`: Nepali
@@ -470,6 +472,11 @@ class AsyncRawSpeechToTextClient:
             - `brx-IN`: Bodo
             - `mai-IN`: Maithili
             - `doi-IN`: Dogri
+
+        with_timestamps : typing.Optional[bool]
+            Enables chunk-level timestamps in the response. If set to `true`, the response includes a `timestamps` object with `words`, `start_time_seconds`, and `end_time_seconds` (each entry covers a sentence or phrase, not an individual word).
+
+            **Note:** Word-level timestamps are not supported. Speaker diarization is not supported on the REST API; use the Batch API for diarized, chunk-level timestamps.
 
         input_audio_codec : typing.Optional[InputAudioCodec]
             Input Audio codec/format of the input file. PCM files are supported only at 16kHz sample rate.
@@ -490,6 +497,7 @@ class AsyncRawSpeechToTextClient:
                 "model": model,
                 "mode": mode,
                 "language_code": language_code,
+                "with_timestamps": with_timestamps,
                 "input_audio_codec": input_audio_codec,
             },
             files={
@@ -602,7 +610,7 @@ class AsyncRawSpeechToTextClient:
         ### Note:
         - Pricing differs for REST and Batch APIs
         - Diarization is only available in Batch API with separate pricing
-        - Please refer to [here](https://docs.sarvam.ai/api-reference-docs/getting-started/pricing) for detailed pricing information
+        - Please refer to [here](https://docs.sarvam.ai/api-reference-docs/pricing) for detailed pricing information
 
         Parameters
         ----------
@@ -617,6 +625,8 @@ class AsyncRawSpeechToTextClient:
 
             - **saaras:v2.5** (default): Translation model that translates audio from any spoken Indic language to English.
               - Example: Hindi audio → English text output
+
+            For the latest model (saaras:v3), use the `/speech-to-text` endpoint with `mode="translate"`.
 
         input_audio_codec : typing.Optional[InputAudioCodec]
             Audio codec/format of the input file. Our API automatically detects all codec formats, but for PCM files specifically (pcm_s16le, pcm_l16, pcm_raw), you must pass this parameter. PCM files are supported only at 16kHz sample rate.

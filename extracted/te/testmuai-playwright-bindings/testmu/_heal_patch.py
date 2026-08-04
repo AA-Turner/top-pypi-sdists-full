@@ -33,6 +33,16 @@ _in_engine: contextvars.ContextVar = contextvars.ContextVar(
     "testmu_in_engine", default=False
 )
 
+# Re-entry guard for the heal retry. The default heal, after resolving a fresh
+# locator, replays the SAME method on it — and that method is itself wrapped, so
+# if the fresh locator also fails the wrapper would heal again on a brand-new
+# locator object (not in the cache), recursing without bound. Set for the
+# duration of the retry so it runs the raw method: exactly one heal attempt per
+# original failure, then success or the real error.
+_in_heal: contextvars.ContextVar = contextvars.ContextVar(
+    "testmu_in_heal", default=False
+)
+
 # Resolve Playwright's errors once at import time.
 #
 # `playwright.async_api.TimeoutError` (a subclass of Playwright's internal
@@ -128,10 +138,11 @@ def _make_wrapper(name, original, heal_fn):
         fallback_coordinates = kwargs.pop("fallback_coordinates", None)
 
         # Re-entry short-circuit: the action engine calls back into
-        # ``locator.click(...)`` via its verb runners. Without this guard the
-        # wrapper would dispatch into the engine again → RecursionError. Inert
-        # on the autoheal path (default False).
-        if _in_engine.get():
+        # ``locator.click(...)`` via its verb runners, and the heal retry
+        # replays the method on a fresh locator. Without this guard the wrapper
+        # would recurse (engine → RecursionError; heal → unbounded re-heal on
+        # each fresh locator). Both default False — inert on the happy path.
+        if _in_engine.get() or _in_heal.get():
             # Capture the resolved element's bounding rect here so its coordinates are recorded on the happy path. Best-effort (swallows).
             await _capture_element_bounds(self, _current_step.get())
             return await original(self, *args, **kwargs)

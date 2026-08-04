@@ -12,6 +12,7 @@ from .sgp_file import SGPFile as SGPFile
 from .component import Component as Component
 from .container import Container as Container
 from .reasoning import Reasoning as Reasoning
+from .repo_spec import RepoSpec as RepoSpec
 from .span_type import SpanType as SpanType
 from .completion import Completion as Completion
 from .credential import Credential as Credential
@@ -44,6 +45,7 @@ from .inference_model import InferenceModel as InferenceModel
 from .number_question import NumberQuestion as NumberQuestion
 from .openai_response import OpenAIResponse as OpenAIResponse
 from .rating_question import RatingQuestion as RatingQuestion
+from .repo_spec_param import RepoSpecParam as RepoSpecParam
 from .rubric_response import RubricResponse as RubricResponse
 from .span_assessment import SpanAssessment as SpanAssessment
 from .tool_choice_mcp import ToolChoiceMcp as ToolChoiceMcp

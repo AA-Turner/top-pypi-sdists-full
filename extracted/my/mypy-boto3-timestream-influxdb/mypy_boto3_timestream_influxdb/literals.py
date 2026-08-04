@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_timestream_influxdb.literals import ClusterDeploymentTypeType
+    from mypy_boto3_timestream_influxdb.literals import AutomatedDbBackupTypeType
 
-    data: ClusterDeploymentTypeType = "MULTI_NODE_READ_REPLICAS"
+    data: AutomatedDbBackupTypeType = "CONTINUOUS"
     ```
 """
 
@@ -23,9 +23,12 @@ else:
 
 
 __all__ = (
+    "AutomatedDbBackupTypeType",
     "ClusterDeploymentTypeType",
     "ClusterStatusType",
     "DataFusionRuntimeTypeType",
+    "DbBackupStatusType",
+    "DbBackupTypeType",
     "DbInstanceTypeType",
     "DbStorageTypeType",
     "DeploymentTypeType",
@@ -33,6 +36,7 @@ __all__ = (
     "EngineTypeType",
     "FailoverModeType",
     "InstanceModeType",
+    "ListDbBackupsPaginatorName",
     "ListDbClustersPaginatorName",
     "ListDbInstancesForClusterPaginatorName",
     "ListDbInstancesPaginatorName",
@@ -41,7 +45,11 @@ __all__ = (
     "LogLevelType",
     "NetworkTypeType",
     "PaginatorName",
+    "ResourceDeploymentTypeType",
     "ResourceServiceName",
+    "ResourceTypeType",
+    "RestoreModeType",
+    "RestoreStatusType",
     "ServiceName",
     "StatusType",
     "TimestreamInfluxDBServiceName",
@@ -49,6 +57,9 @@ __all__ = (
 )
 
 
+AutomatedDbBackupTypeType = Literal[
+    "CONTINUOUS", "CUSTOM_SCHEDULE", "DAILY", "HOURLY", "MONTHLY", "WEEKLY"
+]
 ClusterDeploymentTypeType = Literal["MULTI_NODE_READ_REPLICAS"]
 ClusterStatusType = Literal[
     "AVAILABLE",
@@ -60,10 +71,16 @@ ClusterStatusType = Literal[
     "PARTIALLY_AVAILABLE",
     "REBOOTING",
     "REBOOT_FAILED",
+    "RESTORE_FAILED",
+    "RESTORING",
     "UPDATING",
     "UPDATING_INSTANCE_TYPE",
 ]
 DataFusionRuntimeTypeType = Literal["multi-thread", "multi-thread-alt"]
+DbBackupStatusType = Literal["COMPLETED", "DELETED", "DELETING", "FAILED", "IN_PROGRESS"]
+DbBackupTypeType = Literal[
+    "CONTINUOUS", "CUSTOM_SCHEDULE", "DAILY", "HOURLY", "MONTHLY", "ON_DEMAND", "WEEKLY"
+]
 DbInstanceTypeType = Literal[
     "db.influx.12xlarge",
     "db.influx.16xlarge",
@@ -81,6 +98,7 @@ DurationTypeType = Literal["days", "hours", "milliseconds", "minutes", "seconds"
 EngineTypeType = Literal["INFLUXDB_V2", "INFLUXDB_V3_CORE", "INFLUXDB_V3_ENTERPRISE"]
 FailoverModeType = Literal["AUTOMATIC", "NO_FAILOVER"]
 InstanceModeType = Literal["COMPACT", "INGEST", "PRIMARY", "PROCESS", "QUERY", "REPLICA", "STANDBY"]
+ListDbBackupsPaginatorName = Literal["list_db_backups"]
 ListDbClustersPaginatorName = Literal["list_db_clusters"]
 ListDbInstancesForClusterPaginatorName = Literal["list_db_instances_for_cluster"]
 ListDbInstancesPaginatorName = Literal["list_db_instances"]
@@ -88,6 +106,12 @@ ListDbParameterGroupsPaginatorName = Literal["list_db_parameter_groups"]
 LogFormatsType = Literal["full"]
 LogLevelType = Literal["debug", "error", "info"]
 NetworkTypeType = Literal["DUAL", "IPV4"]
+ResourceDeploymentTypeType = Literal[
+    "MULTI_NODE_READ_REPLICAS", "SINGLE_AZ", "WITH_MULTIAZ_STANDBY"
+]
+ResourceTypeType = Literal["DB_CLUSTER", "DB_INSTANCE"]
+RestoreModeType = Literal["NEW_RESOURCE", "REPLACE_EXISTING"]
+RestoreStatusType = Literal["RESTORING"]
 StatusType = Literal[
     "AVAILABLE",
     "CREATING",
@@ -98,6 +122,8 @@ StatusType = Literal[
     "MODIFYING",
     "REBOOTING",
     "REBOOT_FAILED",
+    "RESTORE_FAILED",
+    "RESTORING",
     "UPDATING",
     "UPDATING_DEPLOYMENT_TYPE",
     "UPDATING_INSTANCE_TYPE",
@@ -413,6 +439,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -535,6 +562,7 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "list_db_backups",
     "list_db_clusters",
     "list_db_instances",
     "list_db_instances_for_cluster",

@@ -2,7 +2,6 @@ import pytest
 import time
 import vcr
 
-
 @pytest.mark.vcr()
 def test_trending_tags(api):
     tags = api.trending_tags()

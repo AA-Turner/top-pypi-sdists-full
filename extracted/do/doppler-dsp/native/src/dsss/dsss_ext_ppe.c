@@ -174,13 +174,13 @@ PolynomialPhaseEstimator_getprop_n_rate (PolynomialPhaseEstimatorObject *self,
 
 static PyGetSetDef PolynomialPhaseEstimator_getset[]
     = { { "max_len", (getter)PolynomialPhaseEstimator_getprop_max_len, NULL,
-          "Max len.\n", NULL },
+          "max input length (sizes the plan/scratch).\n", NULL },
         { "nfft", (getter)PolynomialPhaseEstimator_getprop_nfft, NULL,
-          "Nfft.\n", NULL },
+          "zero-padded transform length (next pow2 of max_len).\n", NULL },
         { "max_rate", (getter)PolynomialPhaseEstimator_getprop_max_rate, NULL,
-          "Max rate.\n", NULL },
+          "chirp-rate search half-span (cycles/sample^2).\n", NULL },
         { "n_rate", (getter)PolynomialPhaseEstimator_getprop_n_rate, NULL,
-          "N rate.\n", NULL },
+          "number of chirp-rate hypotheses (1 if max_rate=0).\n", NULL },
         { NULL } };
 
 static PyObject *
@@ -218,18 +218,50 @@ PolynomialPhaseEstimatorObj_exit (PolynomialPhaseEstimatorObject *self,
 
 static PyMethodDef PolynomialPhaseEstimatorObj_methods[] = {
   { "reset", (PyCFunction)PolynomialPhaseEstimatorObj_reset, METH_NOARGS,
-    "Reset state to post-create defaults." },
+    "Do nothing — the estimator keeps no running state between calls." },
 
   { "estimate", (PyCFunction)PolynomialPhaseEstimatorObj_estimate,
     METH_VARARGS,
     "estimate(x) -> PolynomialPhaseEstimate record (freq_norm, rate_norm, "
     "snr_db)." },
   { "destroy", (PyCFunction)PolynomialPhaseEstimatorObj_destroy, METH_NOARGS,
-    "Release resources." },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
   { "__enter__", (PyCFunction)PolynomialPhaseEstimatorObj_enter, METH_NOARGS,
-    NULL },
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a Ppe be used in a `with` statement so its C resources are "
+    "released\n"
+    "deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "Ppe\n"
+    "    This same object, not a copy.\n" },
   { "__exit__", (PyCFunction)PolynomialPhaseEstimatorObj_exit, METH_VARARGS,
-    NULL },
+    "Exit a context manager, releasing the Ppe.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

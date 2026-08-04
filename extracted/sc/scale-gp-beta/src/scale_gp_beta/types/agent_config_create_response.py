@@ -5,6 +5,7 @@ from datetime import datetime
 from typing_extensions import Literal
 
 from .._models import BaseModel
+from .repo_spec import RepoSpec
 
 __all__ = ["AgentConfigCreateResponse"]
 
@@ -29,3 +30,7 @@ class AgentConfigCreateResponse(BaseModel):
     description: Optional[str] = None
 
     object: Optional[Literal["agent_config"]] = None
+
+    persistent_workspace: Optional[bool] = None
+
+    repos: Optional[List[RepoSpec]] = None

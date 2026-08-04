@@ -388,8 +388,10 @@ class RawSpeechToTextJobClient:
         Parameters
         ----------
         job_id : str
+            UUID of the bulk job returned from job initiation.
 
         files : typing.Sequence[str]
+            Required. Output filenames to download (e.g. "0.json"). Get these from the job status response: job_details[].outputs[].file_name after the job completes.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -498,13 +500,19 @@ class RawSpeechToTextJobClient:
         self, *, job_id: str, files: typing.Sequence[str], request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[FilesDownloadResponse]:
         """
-        Generate presigned download URLs for the transcription output files of a completed speech to text bulk job
+        Generate presigned download URLs for the transcription output files of a completed speech to text bulk job.
+
+        **Required body fields:** `job_id` and `files` (array of output filenames such as `"0.json"`). Obtain filenames from the job status response (`job_details[].outputs[].file_name`) after the job reaches `Completed` or `PartiallyCompleted`.
+
+        **Method:** POST only (GET returns 405).
 
         Parameters
         ----------
         job_id : str
+            UUID of the bulk job returned from job initiation.
 
         files : typing.Sequence[str]
+            Required. Output filenames to download (e.g. "0.json"). Get these from the job status response: job_details[].outputs[].file_name after the job completes.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -971,8 +979,10 @@ class AsyncRawSpeechToTextJobClient:
         Parameters
         ----------
         job_id : str
+            UUID of the bulk job returned from job initiation.
 
         files : typing.Sequence[str]
+            Required. Output filenames to download (e.g. "0.json"). Get these from the job status response: job_details[].outputs[].file_name after the job completes.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1081,13 +1091,19 @@ class AsyncRawSpeechToTextJobClient:
         self, *, job_id: str, files: typing.Sequence[str], request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[FilesDownloadResponse]:
         """
-        Generate presigned download URLs for the transcription output files of a completed speech to text bulk job
+        Generate presigned download URLs for the transcription output files of a completed speech to text bulk job.
+
+        **Required body fields:** `job_id` and `files` (array of output filenames such as `"0.json"`). Obtain filenames from the job status response (`job_details[].outputs[].file_name`) after the job reaches `Completed` or `PartiallyCompleted`.
+
+        **Method:** POST only (GET returns 405).
 
         Parameters
         ----------
         job_id : str
+            UUID of the bulk job returned from job initiation.
 
         files : typing.Sequence[str]
+            Required. Output filenames to download (e.g. "0.json"). Get these from the job status response: job_details[].outputs[].file_name after the job completes.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

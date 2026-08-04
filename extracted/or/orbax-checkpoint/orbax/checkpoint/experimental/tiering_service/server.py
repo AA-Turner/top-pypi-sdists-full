@@ -21,8 +21,10 @@ import contextlib
 import datetime
 import os
 import pprint
-import sys
+import uuid
 
+from absl import app
+from absl import flags
 from absl import logging
 import fire
 import grpc
@@ -30,6 +32,7 @@ from orbax.checkpoint.experimental.tiering_service import assets
 from orbax.checkpoint.experimental.tiering_service import auth
 from orbax.checkpoint.experimental.tiering_service import db_lib
 from orbax.checkpoint.experimental.tiering_service import db_schema
+from orbax.checkpoint.experimental.tiering_service import job_worker
 from orbax.checkpoint.experimental.tiering_service import server_config
 from orbax.checkpoint.experimental.tiering_service import storage_backend
 from orbax.checkpoint.experimental.tiering_service.proto import tiering_service_pb2
@@ -67,6 +70,11 @@ class TieringServiceServicer(tiering_service_pb2_grpc.TieringServiceServicer):
         class_=AsyncSession,
     )
     self._level0_backends: Sequence[db_schema.StorageBackend] | None = None
+
+  @property
+  def session_maker(self) -> sessionmaker:
+    """The session maker for the database."""
+    return self._session_maker
 
   async def initialize(self) -> None:
     """Initializes the servicer, loading static data."""
@@ -127,7 +135,10 @@ class TieringServiceServicer(tiering_service_pb2_grpc.TieringServiceServicer):
       return tiering_service_pb2.ReserveResponse()
 
     # Calculate resolved path and check GCS permission.
-    storage_path = storage_backend.get_storage_path(backend, request.path)
+    tp_uuid = str(uuid.uuid4())
+    storage_path = storage_backend.get_storage_path(
+        backend, request.path, tp_uuid
+    )
     token = await auth.get_oauth_token(context)
     if not await auth.has_write_permission(
         token, backend=backend, path=storage_path
@@ -145,7 +156,12 @@ class TieringServiceServicer(tiering_service_pb2_grpc.TieringServiceServicer):
     async with self._session_scope() as session:
       try:
         db_asset = await assets.create_or_fetch_asset(
-            session, request, backend, self._config
+            session,
+            request,
+            backend,
+            self._config,
+            tier_path_uuid=tp_uuid,
+            storage_path=storage_path,
         )
       except ValueError as e:
         logging.exception("Failed to reserve asset for path: %s", request.path)
@@ -154,9 +170,15 @@ class TieringServiceServicer(tiering_service_pb2_grpc.TieringServiceServicer):
         )
         return tiering_service_pb2.ReserveResponse()
 
+      tier_path_uuid = ""
+      for tp in db_asset.tier_paths:
+        if tp.storage_backend_id == backend.id:
+          tier_path_uuid = tp.tier_path_uuid
+          break
       return tiering_service_pb2.ReserveResponse(
           asset=assets.proto_from_db_asset(db_asset),
           keep_alive_interval_seconds=self._config.client_keep_alive_interval_seconds,
+          tier_path_uuid=tier_path_uuid,
       )
 
   async def ReserveKeepAlive(
@@ -249,6 +271,9 @@ class TieringServiceServicer(tiering_service_pb2_grpc.TieringServiceServicer):
         if db_asset is None:
           # This is unlikely to happen since we just finalized the asset.
           raise ValueError("Asset not found after finalize")
+
+        # default policy to preserve it from L0 to L1
+        await assets.trigger_l0_to_l1_copy(session, db_asset)
       except ValueError as e:
         logging.exception("Finalize failed for UUID: %s", request.uuid)
         await context.abort(
@@ -312,6 +337,12 @@ class TieringServiceServicer(tiering_service_pb2_grpc.TieringServiceServicer):
         return tiering_service_pb2.PrefetchResponse()
 
       for tp in db_asset.tier_paths:
+        if tp.state not in (
+            db_schema.TierPathState.PENDING,
+            db_schema.TierPathState.IN_PROGRESS,
+            db_schema.TierPathState.READY,
+        ):
+          continue
         if tp.storage_backend_id == closest_backend.id:
           # TODO: b/503445463 - Extend the expiration of the existing TierPath
           # if needed.
@@ -325,11 +356,13 @@ class TieringServiceServicer(tiering_service_pb2_grpc.TieringServiceServicer):
               keep_alive_interval_seconds=(
                   self._config.client_keep_alive_interval_seconds
               ),
+              closest_tier_path_uuid=tp.tier_path_uuid,
           )
 
       # No existing TierPath, we need to prefetch
+      tp_uuid = str(uuid.uuid4())
       storage_path = storage_backend.get_storage_path(
-          closest_backend, db_asset.path
+          closest_backend, db_asset.path, tp_uuid
       )
 
       token = await auth.get_oauth_token(context)
@@ -348,6 +381,7 @@ class TieringServiceServicer(tiering_service_pb2_grpc.TieringServiceServicer):
             db_asset,
             backend=closest_backend,
             storage_path=storage_path,
+            tier_path_uuid=tp_uuid,
             client_keep_alive_interval=datetime.timedelta(
                 seconds=self._config.client_keep_alive_interval_seconds
             ),
@@ -380,9 +414,22 @@ class TieringServiceServicer(tiering_service_pb2_grpc.TieringServiceServicer):
         await context.abort(grpc.StatusCode.NOT_FOUND, "Asset not found")
         return tiering_service_pb2.PrefetchResponse()
 
+      closest_tier_path_uuid = ""
+      for tp in db_asset.tier_paths:
+        if tp.state not in (
+            db_schema.TierPathState.PENDING,
+            db_schema.TierPathState.IN_PROGRESS,
+            db_schema.TierPathState.READY,
+        ):
+          continue
+        if tp.storage_backend_id == closest_backend.id:
+          closest_tier_path_uuid = tp.tier_path_uuid
+          break
+
       return tiering_service_pb2.PrefetchResponse(
           asset=assets.proto_from_db_asset(db_asset),
           keep_alive_interval_seconds=self._config.client_keep_alive_interval_seconds,
+          closest_tier_path_uuid=closest_tier_path_uuid,
       )
 
   async def PrefetchKeepAlive(
@@ -412,6 +459,11 @@ class TieringServiceServicer(tiering_service_pb2_grpc.TieringServiceServicer):
         )
         logging.warning(error_msg)
         await context.abort(grpc.StatusCode.FAILED_PRECONDITION, error_msg)
+        return tiering_service_pb2.PrefetchKeepAliveResponse()
+      except assets.PrefetchFailedError as e:
+        error_msg = f"PrefetchKeepAlive: Prefetch failed for TierPath: {e}"
+        logging.warning(error_msg)
+        await context.abort(grpc.StatusCode.ABORTED, error_msg)
         return tiering_service_pb2.PrefetchKeepAliveResponse()
       except Exception:  # pylint: disable=broad-except
         logging.exception(
@@ -541,17 +593,21 @@ async def setup_storage_backends(
 class CtsServer:
   """Checkpoint Tiering Service (CTS) Server CLI."""
 
-  async def serve(self, yaml_path: str) -> None:
+  async def serve(
+      self, yaml_path: str, start_tiering_service_worker: bool = False
+  ) -> None:
     """Starts the gRPC server.
 
     Args:
       yaml_path: Path to the YAML configuration file.
+      start_tiering_service_worker: Whether to start the tiering service worker.
     """
     config = server_config.load_config(yaml_path)
     await setup_storage_backends(config)
 
     server = grpc.aio.server(futures.ThreadPoolExecutor(max_workers=10))
     servicer = TieringServiceServicer(config)
+    worker = None
     try:
       await servicer.initialize()
       tiering_service_pb2_grpc.add_TieringServiceServicer_to_server(
@@ -563,18 +619,24 @@ class CtsServer:
       server.add_secure_port("[::]:50051", server_creds)
       await server.start()
 
-      # TODO: b/503445463 - Start background garbage collection task to handle
-      # expired assets.
+      # Start background worker
+      if start_tiering_service_worker:
+        worker = await job_worker.run_tiering_service_worker_loop(
+            servicer.session_maker, config
+        )
 
       await server.wait_for_termination()
     finally:
+      await server.stop(grace=0)
+      if worker:
+        await worker.stop()
       await servicer.close()
 
 
-def main(argv: Sequence[str] | None = None) -> None:
+def main(argv: Sequence[str]) -> None:
   """Main entry point for CTS server."""
-  if argv is None:
-    argv = sys.argv
+  logging.use_absl_handler()
+  logging.set_verbosity(logging.INFO)
   uvloop.install()
   try:
     asyncio.get_event_loop()
@@ -586,4 +648,4 @@ def main(argv: Sequence[str] | None = None) -> None:
 
 
 if __name__ == "__main__":
-  main()
+  app.run(main, flags_parser=lambda argv: flags.FLAGS(argv, known_only=True))

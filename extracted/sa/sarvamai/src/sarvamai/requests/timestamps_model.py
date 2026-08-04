@@ -8,15 +8,15 @@ import typing_extensions
 class TimestampsModelParams(typing_extensions.TypedDict):
     words: typing.Sequence[str]
     """
-    List of words in the transcript.
+    List of transcript chunks (sentence or phrase segments). Not individual words.
     """
 
     start_time_seconds: typing.Sequence[float]
     """
-    List of start times of words in seconds.
+    List of start times for each chunk in seconds.
     """
 
     end_time_seconds: typing.Sequence[float]
     """
-    List of end times of words in seconds.
+    List of end times for each chunk in seconds.
     """

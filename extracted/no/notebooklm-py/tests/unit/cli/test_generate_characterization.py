@@ -1,8 +1,8 @@
 """Characterization (golden-snapshot) tests for ``notebooklm generate`` commands.
 
 These tests lock in the exact byte-for-byte output of every ``generate``
-subcommand BEFORE the P3.T1 service-layer extraction lands, so the
-extraction commit can prove handler-regression-free behavior. They cover:
+subcommand before the service-layer extraction, so extraction work can prove
+handler-regression-free behavior. They cover:
 
 * happy-path text + JSON output for each of the 10 leaf generate commands
 * the rate-limited (retry-exhausted) error path
@@ -10,7 +10,7 @@ extraction commit can prove handler-regression-free behavior. They cover:
 * video / cinematic-video usage-error message text
 * report's "smart custom" format coercion and ``--append`` warning text
 
-Test discipline (phase-3.md → Characterization-Test Discipline):
+Characterization-test discipline:
 
 * This file MUST pass on the PR's branch base (main) **before** the
   extraction commit lands. Run with ``uv run pytest
@@ -34,10 +34,12 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from click.testing import CliRunner, Result
 
+import notebooklm.auth as auth_module
+import notebooklm.cli.helpers as helpers_module
 from notebooklm.notebooklm_cli import cli
 from notebooklm.types import GenerationStatus
 
-from .conftest import create_mock_client
+from .conftest import create_mock_client, inject_client
 
 # ---------------------------------------------------------------------------
 # Fixtures and helpers
@@ -82,19 +84,19 @@ def authed_invoke(
         if configure is not None:
             configure(mock_client)
         with (
-            patch("notebooklm.cli.generate_cmd.NotebookLMClient") as mock_cls,
-            patch(
-                "notebooklm.cli.helpers.load_auth_from_storage",
+            patch.object(
+                helpers_module,
+                "load_auth_from_storage",
                 return_value=_AUTH_PAYLOAD,
             ),
-            patch(
-                "notebooklm.auth.fetch_tokens_with_domains",
+            patch.object(
+                auth_module,
+                "fetch_tokens_with_domains",
                 new_callable=AsyncMock,
             ) as mock_fetch,
         ):
-            mock_cls.return_value = mock_client
             mock_fetch.return_value = ("csrf", "session")
-            return runner.invoke(cli, args)
+            return runner.invoke(cli, args, obj=inject_client(mock_client))
 
     yield _invoke
 
@@ -113,7 +115,7 @@ def _attach_async_return(method_name: str, value: Any) -> Callable[[Any], None]:
 # ---------------------------------------------------------------------------
 
 # Mapping (CLI subcommand, ``client.artifacts.*`` method name, extra args, task_id).
-# The 10 leaf generate commands per phase-3.md → P3.T1.
+# The 10 leaf generate commands covered by this characterization suite.
 HAPPY_PATH_CASES: list[tuple[str, str, list[str], str]] = [
     ("audio", "generate_audio", [], "task_audio"),
     ("video", "generate_video", [], "task_video"),
@@ -179,15 +181,16 @@ def test_generate_mind_map_json_snapshot(authed_invoke: Callable[..., Result]) -
     """Mind-map JSON output is the converged {mind_map, note_id, kind} payload.
 
     The additive ``kind`` key keeps note-backed consumers reading ``mind_map`` /
-    ``note_id`` working while marking the backing (issue #1256). ``--json``
-    suppresses the v0.8.0 default-transition notice.
+    ``note_id`` working while marking the backing (issue #1256). ``--kind
+    note-backed`` pins the note-backed shape (the interactive default is covered
+    by the routing tests in ``test_generate.py``).
     """
     payload = {
         "note_id": "n1",
         "mind_map": {"name": "Root", "children": [{"a": 1}, {"b": 2}]},
     }
     result = authed_invoke(
-        ["generate", "mind-map", "--json", "-n", "nb_123"],
+        ["generate", "mind-map", "--kind", "note-backed", "--json", "-n", "nb_123"],
         configure=_attach_async_return("generate_mind_map", payload),
     )
     assert result.exit_code == 0, result.output
@@ -197,8 +200,8 @@ def test_generate_mind_map_json_snapshot(authed_invoke: Callable[..., Result]) -
 def test_generate_mind_map_text_snapshot(authed_invoke: Callable[..., Result]) -> None:
     """Mind-map text output is the kind-agnostic ``ID / Kind / Root / Children`` block.
 
-    Passing ``--kind note-backed`` explicitly pins the note-backed shape and
-    suppresses the default-transition notice (covered separately).
+    Passing ``--kind note-backed`` explicitly pins the note-backed shape (the
+    interactive default is covered by the routing tests in ``test_generate.py``).
     """
     payload = {
         "note_id": "n1",

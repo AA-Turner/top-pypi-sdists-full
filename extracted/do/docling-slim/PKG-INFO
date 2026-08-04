@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling-slim
-Version: 2.117.0
+Version: 2.118.0
 Summary: Modular version of the Docling package: SDK and CLI for parsing PDF, DOCX, HTML, and more, to a unified document representation for powering downstream workflows such as gen AI applications.
 Project-URL: homepage, https://github.com/docling-project/docling
 Project-URL: repository, https://github.com/docling-project/docling
@@ -25,7 +25,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <4.0,>=3.10
 Requires-Dist: certifi>=2024.7.4
-Requires-Dist: docling-core<3.0.0,>=2.86.0
+Requires-Dist: docling-core<3.0.0,>=2.90.0
 Requires-Dist: filetype<2.0.0,>=1.2.0
 Requires-Dist: pluggy<2.0.0,>=1.0.0
 Requires-Dist: pydantic-settings<3.0.0,>=2.3.0

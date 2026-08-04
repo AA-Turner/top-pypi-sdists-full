@@ -16,6 +16,8 @@ from snowflake.snowpark_connect.utils.cache import (
     df_cache_map_get,
     df_cache_map_put_if_absent,
     pending_persist_discard,
+    sql_plan_cache_get,
+    sql_plan_cache_put,
 )
 from snowflake.snowpark_connect.utils.context import (
     _STARTING_SQL_PLAN_ID,
@@ -50,7 +52,13 @@ def _is_server_generated_plan_id(plan_id: int) -> bool:
 def _clone_container_for_reuse(
     cached_container: DataFrameContainer,
 ) -> DataFrameContainer:
-    """Clone a cached DataFrameContainer for execution-safe reuse."""
+    """Clone a cached DataFrameContainer for execution-safe reuse.
+
+    Carries over *every* DataFrameContainer field so a cache hit is
+    indistinguishable from a fresh parse. If you add a field to
+    DataFrameContainer, carry it here too — ``test_clone_container_for_reuse``
+    pins the container's attribute set and fails when one is left behind.
+    """
     cached_df = cached_container.dataframe
     result_df = copy.copy(cached_df)
     # Keep attribute IDs aligned with the original plan output for resolution.
@@ -63,6 +71,16 @@ def _clone_container_for_reuse(
         alias=cached_container.alias,
         cached_schema_getter=lambda: cached_df.schema,
         partition_hint=cached_container.partition_hint,
+        dataframe_hint=cached_container.dataframe_hint,
+        can_be_cached=cached_container.can_be_cached,
+        can_be_materialized=cached_container.can_be_materialized,
+        aggregate_metadata=cached_container._aggregate_metadata,
+        cached_local_relation_arrow_table=(
+            cached_container.cached_local_relation_arrow_table
+        ),
+        # Shallow copy: the tuples are immutable, but a fresh list keeps a later
+        # append on the reused container from mutating the cached original.
+        sort_exprs=copy.copy(cached_container.sort_exprs),
     )
     result_container._known_row_count = cached_container.known_row_count
     return result_container
@@ -346,7 +364,26 @@ def map_relation(
                             rel.sort
                         )  # TODO: follow this pattern elsewhere.
                     case "sql":
-                        result = map_sql.map_sql(rel)
+                        sql_key = (get_spark_session_id(), rel.sql.SerializeToString())
+                        cached_sql = sql_plan_cache_get(sql_key)
+                        if cached_sql is not None:
+                            result = _clone_container_for_reuse(cached_sql)
+                        else:
+                            result = map_sql.map_sql(rel)
+                            # Cache an isolated clone, not `result` itself: the caller
+                            # gets `result` back and may mutate it (e.g. its
+                            # column_map), which would otherwise corrupt later cache
+                            # hits that clone from the stored copy -- mirroring the
+                            # clone done on the hit path above.
+                            # get/put is intentionally not atomic: two threads racing
+                            # the same (session, sql) may both miss and parse. Like
+                            # df_cache_map_put_if_absent we accept that duplicate work
+                            # (only side-effect-free SELECTs reach here and the parsed
+                            # plan is equivalent) rather than hold a lock across the
+                            # parse.
+                            sql_plan_cache_put(
+                                sql_key, _clone_container_for_reuse(result)
+                            )
                     case "subquery_alias":
                         result = map_subquery_alias.map_alias(rel)
                     case "summary":

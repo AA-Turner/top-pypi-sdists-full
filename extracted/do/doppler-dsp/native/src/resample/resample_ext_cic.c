@@ -319,7 +319,10 @@ CICObj_exit (CICObject *self, PyObject *args)
 
 static PyMethodDef CICObj_methods[] = {
   { "reset", (PyCFunction)CICObj_reset, METH_NOARGS,
-    "Reset state to post-create defaults." },
+    "Zero all integrator and comb accumulators; preserve R and shift. The "
+    "first output sample after reset arrives after R more input samples, "
+    "matching post-create behaviour. Use between signal bursts to eliminate "
+    "transient artefacts caused by residual pipeline state." },
 
   { "reconfigure", (PyCFunction)(void *)CICObj_reconfigure,
     METH_VARARGS | METH_KEYWORDS,
@@ -331,10 +334,18 @@ static PyMethodDef CICObj_methods[] = {
     "with the new R. Silently ignores R values that are not a power-of-two in "
     "`[2, 4096]` — the state is left unchanged in that case.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import CIC\n"
-    "    >>> obj = CIC(16)\n"
-    "    >>> obj.reconfigure(0)\n" },
+    "Parameters\n"
+    "----------\n"
+    "R : int\n"
+    "    New decimation ratio. Same constraints as cic_create().\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.resample import CIC\n"
+    ">>> cic = CIC(R=4)\n"
+    ">>> cic.reconfigure(8)\n"
+    ">>> cic.R, cic.shift\n"
+    "(8, 12)\n" },
   { "decimate", (PyCFunction)(void *)CICObj_decimate,
     METH_VARARGS | METH_KEYWORDS,
     "decimate(x) -> ndarray\n"
@@ -347,25 +358,124 @@ static PyMethodDef CICObj_methods[] = {
     "of R gives predictable output counts (exactly n_in/R samples per "
     "block).\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import CIC\n"
-    "    >>> obj = CIC(16)\n"
-    "    >>> y = obj.decimate(1.0 + 0.0j)\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex64')\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : complex\n"
+    "    Input.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex64]\n"
+    "    CF32 output array; length is min(floor((phase + n_in) / R),\n"
+    "    max_out).\n"
+    "\n"
+    "Notes\n"
+    "-----\n"
+    "**Input amplitude is bounded: |Re| and |Im| <= 1.0.** A component "
+    "beyond\n"
+    "+-1.0 is clipped at the boundary before filtering; the sample stream\n"
+    "gives no sign of it, so check the sticky clipped flag. Scale the input\n"
+    "into range first; see the file header.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.resample import CIC\n"
+    ">>> import numpy as np\n"
+    ">>> cic = CIC(R=16)\n"
+    ">>> for _ in range(4):\n"
+    "...     _ = cic.decimate(np.zeros(16, dtype=np.complex64))\n"
+    ">>> y = cic.decimate(np.zeros(16, dtype=np.complex64))\n"
+    ">>> y.tolist(), y.dtype\n"
+    "([0j], dtype('complex64'))\n" },
   { "decimate_max_out", (PyCFunction)CICObj_decimate_max_out, METH_NOARGS,
     "decimate_max_out() -> int\n\nMax output length decimate() can produce "
     "for the current state.\nUse to size the ``out=`` buffer." },
   { "state_bytes", (PyCFunction)CICObj_state_bytes, METH_NOARGS,
-    "Serialized state size in bytes." },
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the CICObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
   { "get_state", (PyCFunction)CICObj_get_state, METH_NOARGS,
-    "Serialize the engine's mutable state to bytes." },
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the CICObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
   { "set_state", (PyCFunction)CICObj_set_state, METH_O,
-    "Restore mutable state from a get_state() blob." },
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the CICObj has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
   { "destroy", (PyCFunction)CICObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)CICObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)CICObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)CICObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a Cic be used in a `with` statement so its C resources are "
+    "released\n"
+    "deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "Cic\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)CICObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the Cic.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

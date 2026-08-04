@@ -10,6 +10,7 @@ import django.views.static
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth.decorators import login_not_required
+from django.shortcuts import redirect
 from django.urls import include, path, re_path
 from django.utils.module_loading import import_string
 from django.views.decorators.cache import cache_control, cache_page
@@ -72,6 +73,12 @@ handler403 = weblate.trans.views.error.denied
 handler404 = weblate.trans.views.error.not_found
 handler500 = weblate.trans.views.error.server_error
 
+
+def redirect_static(_request, filename: str, **kwargs):
+    stable_url = f"{settings.STATIC_URL.rstrip('/')}/{filename % kwargs}"
+    return redirect(stable_url, permanent=True)
+
+
 widget_pattern = "<word:widget>-<word:color>.<extension:extension>"
 
 URL_PREFIX = settings.URL_PREFIX
@@ -81,11 +88,21 @@ if URL_PREFIX:
 real_patterns = [
     path("", weblate.trans.views.dashboard.home, name="home"),
     path("projects/", weblate.trans.views.basic.list_projects, name="projects"),
+    path(
+        "workspaces/",
+        weblate.workspaces.views.WorkspaceListView.as_view(),
+        name="workspaces",
+    ),
     path("workspaces/<uuid:pk>/", weblate.workspaces.views.detail, name="workspace"),
     path(
         "workspaces/<uuid:pk>/access/",
         weblate.workspaces.views.access,
         name="workspace-access",
+    ),
+    path(
+        "workspaces/<uuid:pk>/remove/",
+        weblate.workspaces.views.remove,
+        name="workspace-remove",
     ),
     # Bulk accept all suggestions from a specific user
     path(
@@ -196,6 +213,16 @@ real_patterns = [
     path("counts/", weblate.trans.views.reports.get_counts, name="counts"),
     path("costs/", weblate.trans.views.reports.get_costs, name="costs"),
     path(
+        "translator-work/",
+        weblate.trans.views.reports.get_translator_work,
+        name="translator-work",
+    ),
+    path(
+        "reports/<int:pk>/",
+        weblate.trans.views.reports.report_detail,
+        name="report",
+    ),
+    path(
         "credits/<object_path:path>/",
         weblate.trans.views.reports.get_credits,
         name="credits",
@@ -209,6 +236,11 @@ real_patterns = [
         "costs/<object_path:path>/",
         weblate.trans.views.reports.get_costs,
         name="costs",
+    ),
+    path(
+        "translator-work/<object_path:path>/",
+        weblate.trans.views.reports.get_translator_work,
+        name="translator-work",
     ),
     path(
         "new-lang/<object_path:path>/",
@@ -643,6 +675,26 @@ real_patterns = [
         weblate.memory.views.DownloadView.as_view(),
         name="memory-download",
     ),
+    path(
+        "memory/workspace/<uuid:workspace>/",
+        weblate.memory.views.MemoryView.as_view(),
+        name="memory",
+    ),
+    path(
+        "memory/workspace/<uuid:workspace>/delete/",
+        weblate.memory.views.DeleteView.as_view(),
+        name="memory-delete",
+    ),
+    path(
+        "memory/workspace/<uuid:workspace>/rebuild/",
+        weblate.memory.views.RebuildView.as_view(),
+        name="memory-rebuild",
+    ),
+    path(
+        "memory/workspace/<uuid:workspace>/download/",
+        weblate.memory.views.DownloadView.as_view(),
+        name="memory-download",
+    ),
     # Machinery
     path(
         "manage/machinery/",
@@ -821,7 +873,6 @@ real_patterns = [
         ),
         name="js-catalog",
     ),
-    path("js/matomo/", weblate.trans.views.js.matomo, name="js-matomo"),
     path(
         "js/flags/",
         weblate.trans.views.js.flag_choices,
@@ -856,6 +907,11 @@ real_patterns = [
         "js/git/<object_path:path>/",
         weblate.trans.views.js.git_status,
         name="git_status",
+    ),
+    path(
+        "js/diagnostics/<object_path:path>/",
+        weblate.trans.views.js.diagnostics,
+        name="js-diagnostics",
     ),
     path(
         "js/zen/<object_path:path>/",
@@ -1020,24 +1076,18 @@ real_patterns = [
     # Aliases for static files
     re_path(
         r"^(android-chrome|favicon)-(?P<size>192|512)x(?P=size)\.png$",
-        RedirectView.as_view(
-            url=f"{settings.STATIC_URL}weblate-%(size)s.png",
-            permanent=True,
-        ),
+        redirect_static,
+        {"filename": "weblate-%(size)s.png"},
     ),
     path(
         "apple-touch-icon.png",
-        RedirectView.as_view(
-            url=f"{settings.STATIC_URL}weblate-180.png",
-            permanent=True,
-        ),
+        redirect_static,
+        {"filename": "weblate-180.png"},
     ),
     path(
         "favicon.ico",
-        RedirectView.as_view(
-            url=f"{settings.STATIC_URL}favicon.ico",
-            permanent=True,
-        ),
+        redirect_static,
+        {"filename": "favicon.ico"},
     ),
     path(
         "robots.txt",

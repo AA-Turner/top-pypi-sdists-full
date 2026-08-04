@@ -21,22 +21,33 @@ class AL_NodeManager(NodeManager):
             order_by = ["parent", "sib_order"]
         return super().get_queryset().order_by(*order_by)
 
-    def get_tree(self, parent=None):
+    def get_tree(self, parent=None, max_depth: int | None = None):
         """
-        :returns: A list of nodes ordered as DFS, including the parent. If
-                  no parent is given, the entire tree is returned.
+        :returns:
+
+            A list of nodes ordered as DFS, including the parent. If
+            no parent is given, the entire tree is returned.
+
+            If max_depth is set then the tree is limited to the specified depth, relative
+            to the parent (or the root if no parent is specified).
         """
         if parent:
             depth = parent.get_depth() + 1
             parent.node_has_children = self.get_children(parent).exists()
             results = [parent]
+            if max_depth:
+                max_depth += parent.get_depth()
         else:
             depth = 1
             results = []
-        self._get_tree_recursively(results, parent, depth)
+
+        self._get_tree_recursively(results, parent, depth, max_depth=max_depth)
         return results
 
-    def _get_tree_recursively(self, results, parent, depth):
+    def _get_tree_recursively(self, results, parent, depth, max_depth):
+        if max_depth and depth > max_depth:
+            return results
+
         if parent:
             qs = self.get_children(parent) if parent.node_has_children else self.none()
         else:
@@ -48,7 +59,7 @@ class AL_NodeManager(NodeManager):
         for node in qs:
             node._cached_depth = depth
             results.append(node)
-            self._get_tree_recursively(results, node, depth + 1)
+            self._get_tree_recursively(results, node, depth + 1, max_depth=max_depth)
 
     @transaction.atomic
     @check_create_args
@@ -66,16 +77,16 @@ class AL_NodeManager(NodeManager):
     @check_create_args
     def add_child(self, target, create_kwargs=None, *, instance=None):
         """Adds a child to the node."""
-        cls = self.tree_model
-
-        newobj = instance or cls(**create_kwargs)
+        newobj = instance or self.model(**create_kwargs)
 
         try:
             newobj._cached_depth = target._cached_depth + 1
         except AttributeError:
             pass
-        if not cls.node_order_by:
-            max = cls.objects.filter(parent=target).aggregate(max=Max("sib_order"))["max"] or 0
+        if not self.model.node_order_by:
+            max = (
+                self.model.objects.tree_model.objects.filter(parent=target).aggregate(max=Max("sib_order"))["max"] or 0
+            )
             newobj.sib_order = max + 1
         newobj.parent = target
         newobj.save(using=self._db)
@@ -87,7 +98,7 @@ class AL_NodeManager(NodeManager):
         """Adds a new node as a sibling to the current node object."""
         pos = self._prepare_pos_var_for_add_sibling(pos)
 
-        newobj = instance or self.tree_model(**create_kwargs)
+        newobj = instance or self.model(**create_kwargs)
         if not target.node_order_by:
             newobj.sib_order = self._get_new_sibling_order(pos, target)
         newobj.parent_id = target.parent_id
@@ -193,17 +204,24 @@ class AL_NodeManager(NodeManager):
             return self.tree_model.objects.filter(parent_id=node.parent_id)
         return self.get_root_nodes()
 
-    def get_descendants(self, node, include_self=False):
+    def get_descendants(self, node, include_self=False, max_depth: int | None = None):
         """
         :returns: A *list* of all the node's descendants, doesn't
             include the node itself if `include_self` is False
+
+            If max_depth is set then the tree is limited to the specified depth relative
+            to the node.
         """
-        tree = self.tree_model.objects.get_tree(node)
+        tree = self.tree_model.objects.get_tree(node, max_depth=max_depth)
         return tree if include_self else tree[1:]
 
-    def get_descendant_count(self, node):
-        """:returns: the number of descendants of a node"""
-        return len(self.get_descendants(node))
+    def get_descendant_count(self, node, max_depth: int | None = None):
+        """:returns: the number of descendants of a node
+
+        If max_depth is set then the count is limited to the specified depth relative
+        to the node.
+        """
+        return len(self.get_descendants(node, max_depth=max_depth))
 
     def get_prev_sibling(self, node):
         return self.get_siblings(node).filter(sib_order__lt=node.sib_order).last()

@@ -167,8 +167,13 @@ def _generate_jvm_sproc_sql(
     #     execute_jar's in-proc auto-skip (which may not be in the deployed
     #     package yet).
     #   * native_app_mode=true: so any Scala UDF the JAR registers uses relative
-    #     version-stage imports. Not a callback config key, so setting it off the
-    #     proc thread is safe.
+    #     version-stage imports. This IS a callback config key (see
+    #     GlobalConfig.snowpark_config_mapping): setting it here fires
+    #     _force_python_udxf_inline_on_native_app_mode on this proc thread, which
+    #     raises Snowpark's inline-closure and ARRAY_BIND_THRESHOLD so Python
+    #     UDxF closures / local createDataFrame data inline instead of hitting a
+    #     stage or temp table. That callback is a pure in-process attribute raise
+    #     (no ALTER SESSION, guarded imports), so it is safe under owner's rights.
     native_app_setup = (
         "    from snowflake.snowpark_connect import skip_session_configuration\n"
         "    skip_session_configuration(True)\n"

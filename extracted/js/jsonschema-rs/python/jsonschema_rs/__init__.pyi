@@ -613,6 +613,18 @@ class CanonicalSchema:
         """Return the single view object for this node; dispatch with ``match``."""
         ...
 
+    def intersect(self, other: CanonicalSchema) -> CanonicalSchema:
+        """Every value both schemas admit."""
+        ...
+
+    def negate(self) -> CanonicalSchema | None:
+        """Every value this schema rejects, or ``None`` where it cannot be spelled exactly."""
+        ...
+
+    def definition(self, uri: str) -> CanonicalSchema | None:
+        """The reference target registered under ``uri``."""
+        ...
+
     def definitions(self) -> dict[str, CanonicalSchema]:
         """Map of reference uri -> canonical target."""
         ...

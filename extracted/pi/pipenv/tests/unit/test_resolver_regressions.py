@@ -1,8 +1,16 @@
+import datetime
 from types import SimpleNamespace
 from unittest import mock
 
 import pytest
 
+from pipenv.patched.pip._internal.index.package_finder import (
+    LinkEvaluator,
+    LinkType,
+    PackageFinder,
+)
+from pipenv.patched.pip._internal.models.link import Link
+from pipenv.patched.pip._internal.models.target_python import TargetPython
 from pipenv.patched.pip._internal.resolution.resolvelib.provider import PipProvider
 from pipenv.patched.pip._vendor.resolvelib.structs import RequirementInformation
 from pipenv.utils.resolver import Resolver, _get_cool_down_timedelta
@@ -81,8 +89,8 @@ def _make_hash_resolver():
 @pytest.mark.utils
 def test_collect_hashes_does_not_warn_when_fallback_succeeds(monkeypatch):
     resolver = _make_hash_resolver()
-    resolver.project.get_hashes_from_pypi.return_value = None
-    resolver.project.get_hash_from_link.return_value = "sha256:abc123"
+    resolver.project.sources.get_hashes_from_pypi.return_value = None
+    resolver.project.sources.get_hash_from_link.return_value = "sha256:abc123"
 
     candidate = SimpleNamespace(link=mock.sentinel.link)
     best_candidate_result = SimpleNamespace(applicable_candidates=[candidate])
@@ -109,7 +117,7 @@ def test_collect_hashes_does_not_warn_when_fallback_succeeds(monkeypatch):
 @pytest.mark.utils
 def test_collect_hashes_warns_once_when_all_strategies_fail(monkeypatch):
     resolver = _make_hash_resolver()
-    resolver.project.get_hashes_from_pypi.return_value = None
+    resolver.project.sources.get_hashes_from_pypi.return_value = None
     best_candidate_result = SimpleNamespace(applicable_candidates=[])
     resolver.finder = mock.Mock(
         return_value=SimpleNamespace(
@@ -353,31 +361,59 @@ def test_prepare_index_lookup_is_cached():
     assert "bar" not in first
 
 
-@pytest.mark.utils
-def test_process_resolver_results_does_not_scan_reverse_dependencies():
-    from pipenv.resolver import process_resolver_results
-
-    project = mock.MagicMock()
-    project.parsed_pipfile = {"packages": {}}
-    project.environment.reverse_dependencies.side_effect = AssertionError(
-        "reverse dependencies should not be loaded while processing lock results"
-    )
-
-    resolver = mock.MagicMock()
-    resolver.index_lookup = {}
-    resolver.parsed_constraints = []
-
-    results = [{"name": "requests", "version": "==2.32.0"}]
-
-    processed = process_resolver_results(results, resolver, project, "packages")
-
-    assert processed == [{"name": "requests", "version": "==2.32.0"}]
-    project.environment.reverse_dependencies.assert_not_called()
+# T_F.3 Wave B1: ``test_process_resolver_results_does_not_scan_reverse_dependencies``
+# previously pinned ``pipenv.resolver.process_resolver_results``, which
+# constructed legacy ``Entry`` dataclasses and could (incorrectly) probe
+# ``project.environment.reverse_dependencies``.  Both ``Entry`` and
+# ``process_resolver_results`` were deleted in Wave B1; the typed
+# resolve pipeline never reaches ``project.environment`` at all, so the
+# regression the test guarded is structurally impossible in the new
+# world.  Replacement coverage at the schema level lives in
+# ``tests/unit/test_resolver_schema.py``.
 
 
 # ---------------------------------------------------------------------------
 # cool-down-period / --uploaded-prior-to tests
 # ---------------------------------------------------------------------------
+
+
+def _cool_down_link_evaluator():
+    return LinkEvaluator(
+        project_name="demo",
+        canonical_name="demo",
+        formats=frozenset({"binary", "source"}),
+        target_python=TargetPython(),
+        allow_yanked=True,
+        uploaded_prior_to=datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc),
+    )
+
+
+@pytest.mark.utils
+def test_cool_down_accepts_index_links_without_upload_time():
+    evaluator = _cool_down_link_evaluator()
+    link = Link(
+        "https://example.org/demo-1.0-py3-none-any.whl",
+        comes_from="https://example.org/simple/demo/",
+    )
+
+    candidate = PackageFinder.get_install_candidate(None, evaluator, link)
+
+    assert candidate is not None
+    assert str(candidate.version) == "1.0"
+
+
+@pytest.mark.utils
+def test_cool_down_still_rejects_recent_index_links():
+    evaluator = _cool_down_link_evaluator()
+    link = Link(
+        "https://example.org/demo-2.0-py3-none-any.whl",
+        comes_from="https://example.org/simple/demo/",
+        upload_time=datetime.datetime(2026, 2, 1, tzinfo=datetime.timezone.utc),
+    )
+
+    result, _ = evaluator.evaluate_link(link)
+
+    assert result == LinkType.upload_too_late
 
 def _make_project(cool_down_period):
     """Return a mock project whose [pipenv] section contains cool-down-period."""
@@ -441,3 +477,101 @@ def test_pip_options_sets_uploaded_prior_to_from_cool_down_period(monkeypatch):
     assert hasattr(pip_options, "uploaded_prior_to"), "uploaded_prior_to not set on pip_options"
     cutoff = pip_options.uploaded_prior_to
     assert before - datetime.timedelta(days=30, seconds=1) < cutoff < after - datetime.timedelta(days=30) + datetime.timedelta(seconds=1)
+
+
+# ---------------------------------------------------------------------------
+# PIPENV_RESOLVER_TIMEOUT_S subprocess hang protection
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.utils
+def test_resolve_raises_on_subprocess_timeout(monkeypatch):
+    """When the resolver subprocess exceeds PIPENV_RESOLVER_TIMEOUT_S, resolve()
+    must kill the child and raise ResolutionFailure with a message that names
+    the env var so the user knows how to extend the timeout.
+    """
+    import subprocess as _subprocess
+
+    from pipenv.exceptions import ResolutionFailure
+    from pipenv.utils import resolver as resolver_mod
+
+    # Fake Popen that never finishes: wait() always raises TimeoutExpired,
+    # poll() reports the process as still running, and kill() is recorded.
+    class _HangingPopen:
+        def __init__(self):
+            self.args = ["python", "-m", "pipenv.resolver"]
+            self.killed = False
+            self.wait_calls = 0
+            # Empty pipes -- reader threads see EOF and exit immediately so the
+            # test doesn't deadlock on join().
+            self.stdout = _ClosedStream()
+            self.stderr = _ClosedStream()
+
+        def wait(self, timeout=None):
+            self.wait_calls += 1
+            if not self.killed:
+                # First call (the real wait) hangs past the configured timeout.
+                raise _subprocess.TimeoutExpired(cmd=self.args, timeout=timeout)
+            # Post-kill drain wait succeeds.
+            return -9
+
+        def kill(self):
+            self.killed = True
+
+        def poll(self):
+            return None if not self.killed else -9
+
+    class _ClosedStream:
+        def read(self, _n):
+            return ""
+
+        def readline(self):
+            return ""
+
+    popen = _HangingPopen()
+    monkeypatch.setattr(resolver_mod, "subprocess_run", lambda *a, **kw: popen)
+
+    # Minimal state + project doubles.
+    st = SimpleNamespace(console=mock.MagicMock())
+    project = mock.MagicMock()
+    project.s.is_verbose.return_value = False
+    project.s.PIPENV_RESOLVER_TIMEOUT_S = 1  # value is opaque -- subprocess hangs anyway
+
+    with pytest.raises(ResolutionFailure) as exc_info:
+        resolver_mod.resolve(["python", "-m", "pipenv.resolver"], st, project)
+
+    assert popen.killed, "Resolver should kill the hung subprocess on timeout"
+    # User-facing message must name the env var so users can extend the timeout.
+    assert "PIPENV_RESOLVER_TIMEOUT_S" in str(exc_info.value)
+    assert "timed out" in str(exc_info.value).lower()
+
+
+@pytest.mark.utils
+def test_resolver_timeout_setting_defaults_when_env_invalid(monkeypatch):
+    """PIPENV_RESOLVER_TIMEOUT_S falls back to the default when unset or
+    when the user provides a value int() can't parse / a non-positive value.
+    """
+    from pipenv.environments import Setting
+
+    # Strip any inherited setting before each construction.
+    for var in ("PIPENV_RESOLVER_TIMEOUT_S",):
+        monkeypatch.delenv(var, raising=False)
+
+    # Unset -> default
+    s = Setting()
+    assert s.PIPENV_RESOLVER_TIMEOUT_S == 1800
+
+    # Garbage value -> default
+    monkeypatch.setenv("PIPENV_RESOLVER_TIMEOUT_S", "not-an-int")
+    s = Setting()
+    assert s.PIPENV_RESOLVER_TIMEOUT_S == 1800
+
+    # Non-positive -> default
+    monkeypatch.setenv("PIPENV_RESOLVER_TIMEOUT_S", "0")
+    s = Setting()
+    assert s.PIPENV_RESOLVER_TIMEOUT_S == 1800
+
+    # Valid override is honoured.
+    monkeypatch.setenv("PIPENV_RESOLVER_TIMEOUT_S", "60")
+    s = Setting()
+    assert s.PIPENV_RESOLVER_TIMEOUT_S == 60

@@ -703,6 +703,9 @@ def documentation(context: Context, page, anchor=""):
     """Return link to Weblate documentation."""
     # User might not be present on error pages
     user = context.get("user")
+    # Alert documentation can differ from other help resources
+    if hasattr(page, "get_documentation_url"):
+        return page.get_documentation_url(user=user)
     # Use object method get_doc_url if present
     if hasattr(page, "get_doc_url"):
         return page.get_doc_url(user=user)
@@ -713,7 +716,7 @@ def render_documentation_icon(doc_url: str, *, right: bool = False):
     if not doc_url:
         return ""
     return format_html(
-        """<a class="{} doc-link" href="{}" title="{}" target="_blank" rel="noopener" tabindex="-1">{}</a>""",
+        """<a class="{} doc-link" href="{}" title="{}" target="_blank" rel="noopener">{}</a>""",
         "float-end" if right else "",
         doc_url,
         gettext("Documentation"),
@@ -963,7 +966,12 @@ def unit_state_title(unit) -> str:
 
 
 def try_linkify_filename(
-    text, filename: str, line: str, unit, profile, link_class: str = ""
+    text,
+    filename: str,
+    line: str,
+    unit: Unit,
+    user: User | None,
+    link_class: str = "",
 ):
     """
     Attempt to convert `text` to a repo link to `filename:line`.
@@ -974,9 +982,9 @@ def try_linkify_filename(
     link = None
     if re.search(r"^https?://", text):
         link = text
-    elif profile:
+    elif user:
         link = unit.translation.component.get_repoweb_link(
-            filename, line, profile.editor_link
+            filename, line, user.profile.editor_link, user=user
         )
     if link:
         return format_html(SOURCE_LINK, link, text, link_class)
@@ -998,18 +1006,12 @@ def get_location_links(user: User | None, unit):
     if unit.location.isdigit():
         return gettext("string ID %s") % unit.location
 
-    profile = user.profile if user else None
-
     # Go through all locations separated by comma
     return format_html_join(
         mark_safe('\n<span class="divisor">•</span>\n'),
         "{}",
         (
-            (
-                try_linkify_filename(
-                    location, filename, line, unit, profile, "wrap-text"
-                ),
-            )
+            (try_linkify_filename(location, filename, line, unit, user, "wrap-text"),)
             for location, filename, line in unit.get_locations()
         ),
     )
@@ -1215,6 +1217,7 @@ def get_alerts(
     | Component
     | ProjectLanguage
     | Project
+    | Workspace
     | GhostProjectLanguageStats
     | GhostCategoryLanguageStats,
     translation: Translation | GhostTranslation | None,
@@ -1294,6 +1297,7 @@ def indicate_alerts(
     | Component
     | ProjectLanguage
     | Project
+    | Workspace
     | GhostProjectLanguageStats
     | GhostCategoryLanguageStats,
 ) -> str:
@@ -1359,6 +1363,11 @@ def indicate_alerts(
 @register.filter(is_safe=True)
 def markdown(text: str) -> str:
     return format_html('<div class="markdown">{}</div>', render_markdown(text))
+
+
+@register.filter
+def can_dismiss_alert(alert: Alert, user: User) -> bool:
+    return alert.can_user_dismiss(user)
 
 
 @register.filter
@@ -1580,12 +1589,14 @@ def get_workflow_flags(translation: Translation | None, component: Component):
             "suggestion_voting": translation.suggestion_voting,
             "suggestion_autoaccept": translation.suggestion_autoaccept,
             "enable_suggestions": translation.enable_suggestions,
+            "restrict_direct_editing": translation.restrict_direct_editing,
             "translation_review": translation.enable_review,
         }
     return {
         "suggestion_voting": component.suggestion_voting,
         "suggestion_autoaccept": component.suggestion_autoaccept,
         "enable_suggestions": component.enable_suggestions,
+        "restrict_direct_editing": False,
         "translation_review": component.project.translation_review,
     }
 
@@ -1697,6 +1708,7 @@ def list_objects_percent(
 def show_info(  # ruff: ignore[too-many-arguments]
     context: Context,
     *,
+    workspace: Workspace | None = None,
     project: Project | None = None,
     component: Component | None = None,
     translation: Translation | None = None,
@@ -1717,6 +1729,7 @@ def show_info(  # ruff: ignore[too-many-arguments]
     """
     return {
         "user": context["user"],
+        "workspace": workspace,
         "project": project,
         "component": component,
         "translation": translation,
@@ -1785,7 +1798,9 @@ def format_last_changes_content(
                     "can_block_user": can_block_user,
                 },
                 "ip_address": change.get_ip_address() if user.is_superuser else None,
-                "history_data": get_change_history_context(change),
+                "history_data": get_change_history_context(
+                    change, include_private_details=bool(user.is_authenticated)
+                ),
             }
         )
     return {

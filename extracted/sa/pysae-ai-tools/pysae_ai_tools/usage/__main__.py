@@ -6,7 +6,11 @@ Subcommands:
     prompt-hook — UserPromptSubmit hook handler (block the whole turn at the threshold)
     pricing — manage the live per-token pricing cache (show / refresh)
     setup   — install/uninstall/status of the hook in Claude Code settings
-    config  — persistent hook settings, re-read on every run (show / get / set / reset)
+    config  — persistent hook settings, re-read on every run (show / get / set / unset / reset)
+
+Every config command takes ``--account`` to target one Claude plan instead of the active
+one: without it the global values are read/written, with it only that account's overlay
+(``[usage.accounts.<key>]``) is.
 """
 
 import json
@@ -21,13 +25,21 @@ from . import account as account_mod
 from . import unblock as unblock_mod
 from .client import UsageSnapshot, Window, get_usage
 from .config import (
+    ACCOUNTS_KEY,
+    NO_ACCOUNT,
     USAGE_TABLE,
     UsageConfig,
     WorkHours,
+    account_overlay,
     dotted_fields,
     get_dotted,
     load_config,
+    load_global_config,
+    overlay_keys,
+    overlay_with_dotted,
+    overlay_without_dotted,
     reset_config,
+    save_account_overlay,
     save_config,
     with_dotted,
 )
@@ -90,33 +102,80 @@ def statusline(ctx: typer.Context) -> None:
     _statusline(ctx.args)
 
 
+_ACCOUNT_OPTION = typer.Option("--account", help="Cibler un forfait précis (email/uuid) au lieu du compte actif")
+_GLOBAL_OPTION = typer.Option("--global", help="Valeurs globales seules, sans aucune surcharge de compte")
+
+
+def _account_target(ref: str) -> tuple[str, str]:
+    """(clé, libellé) du compte visé par `--account`, ou le compte actif quand l'option est vide.
+
+    Sortie 2 sur une référence inconnue : mieux vaut refuser que d'écrire une surcharge sous
+    une clé qui ne sera jamais relue.
+    """
+    ref = ref or account_mod.env_ref()
+    if not ref:
+        active = account_mod.current_account()
+        return account_mod.account_key(active), active.label if active is not None else "compte par défaut"
+    target = account_mod.resolve(ref)
+    if target is None:
+        known = ", ".join(a.label for a in account_mod.list_accounts()) or "(aucun connu)"
+        typer.echo(f"Compte inconnu : {ref}. Comptes connus : {known}", err=True)
+        raise typer.Exit(2)
+    return target.key, target.label
+
+
+def _read_target(account: str, global_only: bool) -> tuple[str, str]:
+    """(clé, libellé) du périmètre de lecture : un compte, ou les valeurs globales seules."""
+    if global_only:
+        if account:
+            typer.echo("--global et --account sont exclusifs.", err=True)
+            raise typer.Exit(2)
+        return NO_ACCOUNT, "valeurs globales (héritées par tout compte sans surcharge)"
+    return _account_target(account)
+
+
+def _unknown_key(key: str) -> typer.Exit:
+    typer.echo(f"Réglage inconnu : {key} (voir `usage config show`).", err=True)
+    return typer.Exit(2)
+
+
 @config_app.command("show")
 def config_show(
     as_json: Annotated[bool, typer.Option("--json", help="Sortie JSON brute")] = False,
+    account: Annotated[str, _ACCOUNT_OPTION] = "",
+    global_only: Annotated[bool, _GLOBAL_OPTION] = False,
 ) -> None:
-    """Affiche la configuration effective du hook (fichier + défauts)."""
-    cfg = load_config()
+    """Affiche la configuration effective du hook (globale + surcharges du compte + défauts)."""
+    key, label = _read_target(account, global_only)
+    cfg = load_config(account_key=key)
     if as_json:
         print(cfg.model_dump_json())
         return
+    overridden = overlay_keys(account_overlay(key))
     typer.echo(f"Fichier : {CONFIG_FILE}  (table [{USAGE_TABLE}])")
+    typer.echo(f"Portée  : {label}" + (f"  ({len(overridden)} réglage(s) surchargé(s) *)" if overridden else ""))
     for name, value in cfg.model_dump().items():
         if isinstance(value, dict):
             typer.echo(f"  [{name}]")
             for sub, sub_value in value.items():
-                typer.echo(f"    {sub:<18} {sub_value}")
+                mark = " *" if f"{name}.{sub}" in overridden else ""
+                typer.echo(f"    {sub:<18} {sub_value}{mark}")
         else:
-            typer.echo(f"  {name:<20} {value}")
+            typer.echo(f"  {name:<20} {value}{' *' if name in overridden else ''}")
 
 
 @config_app.command("get")
-def config_get(key: Annotated[str, typer.Argument(help="Réglage (ex : five_hour.alert_from)")]) -> None:
-    """Affiche la valeur effective d'un réglage."""
+def config_get(
+    key: Annotated[str, typer.Argument(help="Réglage (ex : five_hour.alert_from)")],
+    account: Annotated[str, _ACCOUNT_OPTION] = "",
+    global_only: Annotated[bool, _GLOBAL_OPTION] = False,
+) -> None:
+    """Affiche la valeur effective d'un réglage pour un compte."""
+    target, _ = _read_target(account, global_only)
     try:
-        value = get_dotted(load_config(), key)
+        value = get_dotted(load_config(account_key=target), key)
     except KeyError:
-        typer.echo(f"Réglage inconnu : {key} (voir `usage config show`).", err=True)
-        raise typer.Exit(2) from None
+        raise _unknown_key(key) from None
     print(value)
 
 
@@ -124,28 +183,64 @@ def config_get(key: Annotated[str, typer.Argument(help="Réglage (ex : five_hour
 def config_set(
     key: Annotated[str, typer.Argument(help="Réglage (ex : five_hour.alert_from, seven_day.enabled)")],
     value: Annotated[str, typer.Argument(help="Nouvelle valeur (nombre, true/false, ou string ex work_hours.monday)")],
+    account: Annotated[str, _ACCOUNT_OPTION] = "",
 ) -> None:
     """Modifie un réglage et l'écrit dans le fichier de config.
 
-    La valeur brute est coercée selon le type du champ par Pydantic (bool, float ou string),
-    ce qui permet aussi de régler les champs texte comme ``work_hours.monday``."""
+    Sans `--account` la valeur globale est modifiée ; avec, seule la surcharge du compte visé
+    l'est ([usage.accounts.<clé>]), les autres comptes gardant la valeur globale. La valeur
+    brute est coercée selon le type du champ par Pydantic (bool, float ou string), ce qui
+    permet aussi de régler les champs texte comme ``work_hours.monday``."""
     if key not in dotted_fields():
-        typer.echo(f"Réglage inconnu : {key} (voir `usage config show`).", err=True)
-        raise typer.Exit(2)
+        raise _unknown_key(key)
+    target, label = _account_target(account)
+    base = load_config(account_key=target) if account else load_global_config()
     try:
-        cfg = with_dotted(load_config(), key, value)
+        cfg = with_dotted(base, key, value)
     except (ValueError, KeyError) as exc:
         typer.echo(f"Valeur invalide pour {key} : {value}", err=True)
         raise typer.Exit(2) from exc
+    coerced = get_dotted(cfg, key)
+    if account:
+        save_account_overlay(target, overlay_with_dotted(account_overlay(target), key, coerced))
+        typer.echo(f"{key} = {coerced}  →  {CONFIG_FILE} [{USAGE_TABLE}.{ACCOUNTS_KEY}.{target}]  ({label})")
+        return
     save_config(cfg)
-    typer.echo(f"{key} = {get_dotted(cfg, key)}  →  {CONFIG_FILE} [{USAGE_TABLE}]")
+    typer.echo(f"{key} = {coerced}  →  {CONFIG_FILE} [{USAGE_TABLE}]")
+
+
+@config_app.command("unset")
+def config_unset(
+    key: Annotated[str, typer.Argument(help="Réglage à ne plus surcharger (ex : work_hours.monday)")],
+    account: Annotated[str, _ACCOUNT_OPTION] = "",
+) -> None:
+    """Retire la surcharge d'un réglage pour un compte — il repasse à la valeur globale."""
+    if key not in dotted_fields():
+        raise _unknown_key(key)
+    target, label = _account_target(account)
+    overlay = account_overlay(target)
+    if key not in overlay_keys(overlay):
+        typer.echo(f"{key} n'est pas surchargé pour {label}.", err=True)
+        raise typer.Exit(2)
+    save_account_overlay(target, overlay_without_dotted(overlay, key))
+    typer.echo(f"{key} : surcharge retirée pour {label} → {get_dotted(load_config(account_key=target), key)}")
 
 
 @config_app.command("reset")
-def config_reset() -> None:
-    """Réinitialise tous les réglages aux défauts (supprime la table [usage] du config.toml)."""
+def config_reset(
+    account: Annotated[str, _ACCOUNT_OPTION] = "",
+) -> None:
+    """Réinitialise tous les réglages aux défauts (supprime la table [usage] du config.toml).
+
+    Avec `--account`, seules les surcharges du compte visé sont supprimées ; la configuration
+    globale et les autres comptes ne bougent pas."""
+    if account:
+        target, label = _account_target(account)
+        save_account_overlay(target, {})
+        typer.echo(f"Surcharges supprimées pour {label} — retour à la configuration globale.")
+        return
     reset_config()
-    typer.echo("Configuration réinitialisée aux défauts.")
+    typer.echo("Configuration réinitialisée aux défauts (surcharges par compte comprises).")
 
 
 def _fmt_ts(ts: float) -> str:
@@ -246,9 +341,15 @@ def _echo_prime_schedule(cfg: UsageConfig) -> None:
 
 
 @app.command("work-hours")
-def work_hours() -> None:
-    """Configure les heures de travail jour par jour (interactif)."""
-    cfg = load_config()
+def work_hours(
+    account: Annotated[str, _ACCOUNT_OPTION] = "",
+) -> None:
+    """Configure les heures de travail jour par jour (interactif).
+
+    Sans `--account` les heures globales sont modifiées ; avec, seuls les jours qui diffèrent
+    des heures globales sont enregistrés comme surcharges du compte visé."""
+    target, label = _account_target(account)
+    cfg = load_config(account_key=target) if account else load_global_config()
     current = cfg.work_hours
     typer.secho(
         "Heures de travail — format HH:MM-HH:MM (plusieurs créneaux séparés par des virgules,",
@@ -265,9 +366,25 @@ def work_hours() -> None:
                 break
             typer.secho("    ⨯ format invalide, réessaie (ex : 09:00-18:00)", fg=typer.colors.RED)
     cfg = cfg.model_copy(update={"work_hours": WorkHours(**values)})
-    save_config(cfg)
-    typer.echo("")
-    typer.secho(f"Enregistré → {CONFIG_FILE} [{USAGE_TABLE}.work_hours]", fg=typer.colors.GREEN)
+    if account:
+        globals_ = load_global_config().work_hours
+        overlay = account_overlay(target)
+        for field_name, value in values.items():
+            dotted = f"work_hours.{field_name}"
+            overlay = (
+                overlay_without_dotted(overlay, dotted)
+                if value == getattr(globals_, field_name)
+                else overlay_with_dotted(overlay, dotted, value)
+            )
+        save_account_overlay(target, overlay)
+        typer.echo("")
+        typer.secho(
+            f"Enregistré → {CONFIG_FILE} [{USAGE_TABLE}.{ACCOUNTS_KEY}.{target}]  ({label})", fg=typer.colors.GREEN
+        )
+    else:
+        save_config(cfg)
+        typer.echo("")
+        typer.secho(f"Enregistré → {CONFIG_FILE} [{USAGE_TABLE}.work_hours]", fg=typer.colors.GREEN)
     _echo_prime_schedule(cfg)
 
 

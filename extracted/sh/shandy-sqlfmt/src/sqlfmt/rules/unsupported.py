@@ -2,7 +2,13 @@ from functools import partial
 
 from sqlfmt import actions
 from sqlfmt.rule import Rule
-from sqlfmt.rules.common import NEWLINE, SQL_QUOTED_EXP, group
+from sqlfmt.rules.common import (
+    JINJA_START,
+    NEWLINE,
+    SQL_COMMENT_START,
+    SQL_QUOTED_EXP,
+    group,
+)
 from sqlfmt.rules.core import ALWAYS
 from sqlfmt.tokens import TokenType
 
@@ -21,7 +27,15 @@ UNSUPPORTED = [
     Rule(
         name="unsupported_line",
         priority=1000,
-        pattern=group(r"[^;\n]+?") + group(r";", NEWLINE, r"$"),
+        # a semicolon inside a string literal does not terminate the line, so
+        # quoted expressions have to be consumed whole before we look for the
+        # terminator
+        # similarly, a semicolon inside a comment doesn't terminate an expression,
+        # so we need to stop lexing at the start of a comment to let the higher-priority
+        # comment rule consume that comment.
+        pattern=group(rf"(?:{SQL_QUOTED_EXP}|[^;\n])+?")
+        + group(r"\s*")
+        + group(r";", NEWLINE, SQL_COMMENT_START, JINJA_START, r"$"),
         action=partial(
             actions.handle_reserved_keyword,
             action=partial(actions.add_node_to_buffer, token_type=TokenType.DATA),

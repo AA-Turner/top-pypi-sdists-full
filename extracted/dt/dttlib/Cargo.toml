@@ -7,7 +7,7 @@ authors = ["Erik von Reis <erik.vonreis@ligo.org>"]
 edition = "2024"
 homepage = "https://git.ligo.org/cds/software/cr-tools/dtt_rust"
 repository = "https://git.ligo.org/cds/software/cr-tools/dtt_rust"
-version = "0.10.8"
+version = "0.10.9"
 
 [package]
 name = "dttlib"
@@ -89,7 +89,7 @@ ligo_hires_gps_time = {workspace = true}
 dtt_macros = {path = "dtt_macros"}
 
 [build-dependencies]
-bindgen = { version = "0.71" }
+bindgen = { version = "0.72" }
 pyo3-build-config = {  version = "0.24.2"  }
 
 [features]

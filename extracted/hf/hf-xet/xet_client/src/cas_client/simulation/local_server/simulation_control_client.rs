@@ -229,8 +229,11 @@ impl Client for SimulationControlClient {
         &self,
         shard_data: Bytes,
         upload_permit: crate::cas_client::adaptive_concurrency::ConnectionPermit,
-    ) -> Result<bool> {
-        self.remote_client.upload_shard(shard_data, upload_permit).await
+        progress_callback: Option<crate::cas_client::interface::ShardUploadProgressCallback>,
+    ) -> Result<()> {
+        self.remote_client
+            .upload_shard(shard_data, upload_permit, progress_callback)
+            .await
     }
 
     /// Delegates XORB upload to the internal `RemoteClient`.
@@ -273,8 +276,8 @@ impl DirectAccessClient for SimulationControlClient {
         self.post_config("max_ranges_per_fetch", &max_ranges.to_string());
     }
 
-    fn disable_v2_reconstruction(&self, status_code: u16) {
-        self.post_config("disable_v2_reconstruction", &status_code.to_string());
+    fn disable_v2_endpoints(&self, status_code: u16) {
+        self.post_config("disable_v2_endpoints", &status_code.to_string());
     }
 
     async fn get_reconstruction_v1(

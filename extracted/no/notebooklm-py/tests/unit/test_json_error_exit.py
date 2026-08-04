@@ -21,10 +21,14 @@ import httpx
 import pytest
 from click.testing import CliRunner
 
+import notebooklm.auth as auth_module
+import notebooklm.cli._chromium_profiles as chromium_profiles
+import notebooklm.cli.helpers as helpers_module
 from notebooklm.notebooklm_cli import cli
 from notebooklm.types import (
     Artifact,
     GenerationStatus,
+    Label,
     Notebook,
     Source,
 )
@@ -56,14 +60,17 @@ def mock_auth_env(monkeypatch) -> Generator[None, None, None]:
     runner can't trip the "set but empty" pre-flight check.
     """
     monkeypatch.delenv("NOTEBOOKLM_AUTH_JSON", raising=False)
-    # Stub object that download commands hand to NotebookLMClient(auth); the
-    # client itself is patched, so the auth value is never inspected.
+    # Stub object that download commands hand to the injected client factory;
+    # the factory ignores the auth value and returns the mock client, so the
+    # auth is never inspected.
     stub_auth = MagicMock(name="AuthTokens-stub")
     with (
-        patch("notebooklm.cli.helpers.load_auth_from_storage") as mock_load,
-        patch("notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock) as mock_fetch,
-        patch(
-            "notebooklm.auth.AuthTokens.from_storage", new_callable=AsyncMock
+        patch.object(helpers_module, "load_auth_from_storage") as mock_load,
+        patch.object(
+            auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+        ) as mock_fetch,
+        patch.object(
+            auth_module.AuthTokens, "from_storage", new_callable=AsyncMock
         ) as mock_from_storage,
     ):
         mock_load.return_value = {
@@ -106,11 +113,14 @@ def _make_client(extra_setup=None) -> MagicMock:
         "research",
         "notes",
         "sharing",
+        "labels",
     ):
         setattr(client, ns, MagicMock())
     client.notebooks.list = AsyncMock(return_value=_stub_notebooks())
     client.notebooks.get = AsyncMock(return_value=_stub_notebooks()[0])
     client.sources.list = AsyncMock(return_value=_stub_sources())
+    # Default label list: resolve_label_id walks this; tests customize per-case.
+    client.labels.list = AsyncMock(return_value=[])
     client.artifacts.list = AsyncMock(return_value=[])
     client.research.poll = AsyncMock(return_value={"status": "no_research"})
     if extra_setup is not None:
@@ -118,36 +128,19 @@ def _make_client(extra_setup=None) -> MagicMock:
     return client
 
 
-def _patch_modules() -> list:
-    """Patch NotebookLMClient in every cli module that constructs it."""
-    modules = [
-        "notebooklm.cli.notebook_cmd",
-        "notebooklm.cli.chat_cmd",
-        "notebooklm.cli.session_cmd",
-        "notebooklm.cli.share_cmd",
-        "notebooklm.cli.source_cmd",
-        "notebooklm.cli.artifact_cmd",
-        "notebooklm.cli.research_cmd",
-        "notebooklm.cli.note_cmd",
-        "notebooklm.cli.generate_cmd",
-        "notebooklm.cli.download_cmd",
-    ]
-    # Post-P3.T0: `*_cmd` modules are not shadowed, so direct string-form
-    # `patch(...)` resolves correctly without importlib indirection.
-    return [patch(f"{name}.NotebookLMClient") for name in modules]
-
-
 def _run_with_mock_client(runner: CliRunner, args: list[str], client: MagicMock):
-    """Invoke the CLI with NotebookLMClient mocked in every relevant module."""
-    patches = _patch_modules()
-    try:
-        for p in patches:
-            cls = p.start()
-            cls.return_value = client
-        return runner.invoke(cli, args, catch_exceptions=False)
-    finally:
-        for p in patches:
-            p.stop()
+    """Invoke the CLI with ``client`` injected via ``ctx.obj``.
+
+    The dual-path resolver (``cli.auth_runtime.resolve_client_factory``) reads
+    ``ctx.obj["client_factory"]`` first, so seeding it makes every command
+    construct ``client`` instead of the real ``NotebookLMClient`` -- the
+    replacement for the old per-``*_cmd``-module ``patch(...)`` sweep.
+    """
+
+    def factory(auth=None, **kwargs):
+        return client
+
+    return runner.invoke(cli, args, obj={"client_factory": factory}, catch_exceptions=False)
 
 
 def _safe_stderr(result) -> str:
@@ -224,6 +217,10 @@ def _fail_chat_ask(client: MagicMock) -> None:
     client.chat.ask = AsyncMock(side_effect=RuntimeError("network unreachable"))
 
 
+def _fail_suggest_prompts(client: MagicMock) -> None:
+    client.notebooks.suggest_prompts = AsyncMock(side_effect=RuntimeError("network unreachable"))
+
+
 def _fail_artifact_list(client: MagicMock) -> None:
     client.artifacts.list = AsyncMock(side_effect=RuntimeError("auth: 401 Unauthorized"))
 
@@ -247,6 +244,13 @@ def _fail_notebook_list(client: MagicMock) -> None:
 def _research_no_research(client: MagicMock) -> None:
     # research wait + status both surface "no_research" as a failure.
     client.research.poll = AsyncMock(return_value={"status": "no_research"})
+
+
+def _fail_research_cancel(client: MagicMock) -> None:
+    # `research cancel` is fire-and-forget and never raises on an unknown id,
+    # but a genuine transport failure from the cancel RPC must still surface as
+    # the typed JSON error envelope (not a bare traceback).
+    client.research.cancel = AsyncMock(side_effect=RuntimeError("net down"))
 
 
 def _source_add_research_start_failed(client: MagicMock) -> None:
@@ -302,6 +306,33 @@ def _artifact_wait_timeout(client: MagicMock) -> None:
         ]
     )
     client.artifacts.wait_for_completion = AsyncMock(side_effect=TimeoutError("timed out"))
+
+
+def _fail_label_list(client: MagicMock) -> None:
+    client.labels.list = AsyncMock(side_effect=RuntimeError("net down"))
+
+
+def _fail_label_create(client: MagicMock) -> None:
+    client.labels.create = AsyncMock(side_effect=RuntimeError("create failed"))
+
+
+def _fail_label_generate(client: MagicMock) -> None:
+    client.labels.generate = AsyncMock(side_effect=RuntimeError("generate failed"))
+
+
+def _label_not_found(client: MagicMock) -> None:
+    """No labels exist, so resolve_label_id raises NOT_FOUND for the lookup verbs."""
+    client.labels.list = AsyncMock(return_value=[])
+
+
+def _label_ambiguous_name(client: MagicMock) -> None:
+    """Two labels share the name 'Dup', so resolve_label_id raises AMBIGUOUS_NAME."""
+    client.labels.list = AsyncMock(
+        return_value=[
+            Label(id="lblaaa111", name="Dup", emoji="📄", source_ids=["s1"]),
+            Label(id="lblbbb222", name="Dup", emoji="🧠", source_ids=[]),
+        ]
+    )
 
 
 def _fail_notebook_create(client: MagicMock) -> None:
@@ -447,6 +478,12 @@ JSON_ERROR_CASES: list[tuple[str, list[str], object]] = [
         ["research", "wait", "-n", "abc123def456ghi789jkl", "--json"],
         _research_no_research,
     ),
+    # research cancel: a transport failure surfaces as the typed JSON envelope.
+    (
+        "research_cancel_rpc_failure_json",
+        ["research", "cancel", "run_456", "-n", "abc123def456ghi789jkl", "--json"],
+        _fail_research_cancel,
+    ),
     # source add-research failure-to-start: ADR-0015 typed envelope on the
     # `start_failed` outcome from services/source_research.py.
     (
@@ -504,9 +541,63 @@ JSON_ERROR_CASES: list[tuple[str, list[str], object]] = [
     # note + share + notebook + chat: client raising trips @with_client's json
     # error path (which already exits 1 -> regression guard).
     ("note_list_failure", ["note", "list", "-n", "abc", "--json"], _fail_note_list),
+    # label group: list/create/generate raise on the client; the lookup verbs
+    # (sources/rename/emoji/add/delete) surface the resolver's NOT_FOUND when no
+    # label matches; the ambiguity case lists candidate ids (AMBIGUOUS_NAME).
+    ("label_list_failure", ["label", "list", "-n", "abc", "--json"], _fail_label_list),
+    (
+        "label_create_failure",
+        ["label", "create", "Papers", "-n", "abc", "--json"],
+        _fail_label_create,
+    ),
+    (
+        "label_generate_failure",
+        ["label", "generate", "-n", "abc", "--json"],
+        _fail_label_generate,
+    ),
+    (
+        "label_sources_not_found",
+        ["label", "sources", "lbl_missing", "-n", "abc", "--json"],
+        _label_not_found,
+    ),
+    (
+        "label_rename_not_found",
+        ["label", "rename", "lbl_missing", "New", "-n", "abc", "--json"],
+        _label_not_found,
+    ),
+    (
+        "label_emoji_not_found",
+        ["label", "emoji", "lbl_missing", "📄", "-n", "abc", "--json"],
+        _label_not_found,
+    ),
+    (
+        "label_add_not_found",
+        ["label", "add", "lbl_missing", "src_1", "-n", "abc", "--json"],
+        _label_not_found,
+    ),
+    (
+        "label_remove_not_found",
+        ["label", "remove", "lbl_missing", "src_1", "-n", "abc", "--json"],
+        _label_not_found,
+    ),
+    (
+        "label_delete_not_found",
+        ["label", "delete", "lbl_missing", "-n", "abc", "--yes", "--json"],
+        _label_not_found,
+    ),
+    (
+        "label_sources_ambiguous_name",
+        ["label", "sources", "Dup", "-n", "abc", "--json"],
+        _label_ambiguous_name,
+    ),
     ("share_status_failure", ["share", "status", "-n", "abc", "--json"], _fail_share_status),
     ("notebook_list_failure", ["list", "--json"], _fail_notebook_list),
     ("chat_ask_failure", ["ask", "hi", "-n", "abc", "--json"], _fail_chat_ask),
+    (
+        "suggest_prompts_failure",
+        ["suggest-prompts", "-n", "abc", "--json"],
+        _fail_suggest_prompts,
+    ),
     # notebook create: with_client + RuntimeError -> UNEXPECTED_ERROR envelope.
     (
         "notebook_create_failure",
@@ -678,8 +769,8 @@ def test_auth_inspect_network_failure(runner: CliRunner) -> None:
 
     with (
         patch.dict("sys.modules", {"rookiepy": mock_rookiepy}),
-        patch("notebooklm.cli._chromium_profiles.discover_chromium_profiles", return_value=[]),
-        patch("notebooklm.auth.enumerate_accounts", new=fail_enumerate),
+        patch.object(chromium_profiles, "discover_chromium_profiles", return_value=[]),
+        patch.object(auth_module, "enumerate_accounts", new=fail_enumerate),
     ):
         result = runner.invoke(
             cli,

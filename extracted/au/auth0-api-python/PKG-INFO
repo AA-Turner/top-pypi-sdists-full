@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: auth0-api-python
-Version: 1.0.0b9
+Version: 1.0.0b10
 Summary: SDK for verifying access tokens and securing APIs with Auth0, using Authlib.
 License: MIT
 License-File: LICENSE
 Author: Auth0
 Author-email: support@auth0.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.9.2
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -66,7 +65,7 @@ This library is part of Auth0's Python ecosystem for server-side authentication 
 
 ### 1. Install the SDK
 
-_This library requires Python 3.9+._
+_This library requires Python 3.9.2+._
 
 ```shell
 pip install auth0-api-python

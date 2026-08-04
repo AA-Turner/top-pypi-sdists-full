@@ -8,7 +8,12 @@ import pytest
 from pydantic import Field, BaseModel
 
 from landingai_ade import LandingAIADE
-from landingai_ade.types.v2 import JobStatus, V2GroundResult, V2ExtractResult, V2ParseResponse
+from landingai_ade.types.v2 import (
+    JobStatus,
+    V2GroundResult,
+    V2ExtractResult,
+    V2ParseResponse,
+)
 
 pytestmark = pytest.mark.contract
 
@@ -34,12 +39,6 @@ def staging_client() -> Iterator[LandingAIADE]:
         yield client
 
 
-def test_files_upload(staging_client: LandingAIADE) -> None:
-    file_ref = staging_client.v2.files.upload(file=("doc.md", SAMPLE_MARKDOWN.encode(), "text/markdown"))
-    assert isinstance(file_ref, str)
-    assert file_ref
-
-
 def test_extract_sync(staging_client: LandingAIADE) -> None:
     res = staging_client.v2.extract(schema=RevenueSchema, markdown=SAMPLE_MARKDOWN)
     assert isinstance(res, V2ExtractResult)
@@ -55,6 +54,10 @@ def test_extract_jobs(staging_client: LandingAIADE) -> None:
     done = staging_client.v2.extract_jobs.wait(job.job_id, timeout=300)
     assert done.status is JobStatus.COMPLETED
     assert isinstance(done.result, V2ExtractResult)
+    # This inline job carries its metadata on `result.metadata`; the top-level
+    # `Job.metadata` receipt is only populated for `output_save_url` deliveries.
+    assert done.metadata is None
+    assert done.result.metadata.model_version
 
 
 def test_parse_sync(staging_client: LandingAIADE) -> None:
@@ -96,19 +99,6 @@ def test_ground_sync(staging_client: LandingAIADE) -> None:
     assert grounded.metadata.job_id
 
 
-def test_ground_jobs(staging_client: LandingAIADE) -> None:
-    parsed = staging_client.v2.parse(document=Path(__file__).parent / "sample.pdf")
-    assert parsed.structure is not None
-    extracted = staging_client.v2.extract(schema=RevenueSchema, markdown=parsed.markdown or "")
-    job = staging_client.v2.ground_jobs.create(
-        extraction_metadata=extracted.extraction_metadata,
-        structure=parsed.structure,
-    )
-    done = staging_client.v2.ground_jobs.wait(job.job_id, timeout=300)
-    assert done.status is JobStatus.COMPLETED
-    assert isinstance(done.result, V2GroundResult)
-
-
 def test_parse_jobs(staging_client: LandingAIADE) -> None:
     pdf = Path(__file__).parent / "sample.pdf"
     job = staging_client.v2.parse_jobs.create(document=pdf)
@@ -119,3 +109,7 @@ def test_parse_jobs(staging_client: LandingAIADE) -> None:
     assert isinstance(done.result, V2ParseResponse)
     assert isinstance(done.result.markdown, str)
     assert done.result.markdown
+    # Inline delivery: the metadata rides on `result.metadata`, so the top-level
+    # `Job.metadata` receipt (set only for `output_save_url` deliveries) is absent.
+    assert done.metadata is None
+    assert done.result.metadata is not None

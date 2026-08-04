@@ -1473,6 +1473,7 @@ S3ServerSideEncryptionTypeType = Literal["SERVER_SIDE_ENCRYPTION_KMS", "SERVER_S
 S3StorageClassType = Literal[
     "DEEP_ARCHIVE",
     "GLACIER",
+    "GLACIER_IR",
     "INTELLIGENT_TIERING",
     "ONEZONE_IA",
     "REDUCED_REDUNDANCY",
@@ -1937,6 +1938,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -1954,6 +1956,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

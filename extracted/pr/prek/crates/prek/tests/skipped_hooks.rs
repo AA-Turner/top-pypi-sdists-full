@@ -411,7 +411,7 @@ fn orphan_project_early_match_still_hides_child_files_from_parent_install() -> R
 /// 2. `git diff` is not called when every hook is skipped
 ///
 /// Note: This test uses manual output capture instead of `cmd_snapshot!` because
-/// we need to count `get_diff` occurrences in trace-level stderr. Trace output
+/// we need to count `diff_worktree` occurrences in trace-level stderr. Trace output
 /// contains non-deterministic timestamps and timing data unsuitable for snapshots.
 #[test]
 fn all_hooks_skipped_multiple_priority_groups() -> Result<()> {
@@ -460,10 +460,10 @@ fn all_hooks_skipped_multiple_priority_groups() -> Result<()> {
 
     // Regression test for #1335: skipped hooks do not need modification checks.
     let stderr = String::from_utf8_lossy(&output.stderr);
-    let get_diff_calls = stderr.matches("get_diff").count();
+    let diff_worktree_calls = stderr.matches("diff_worktree").count();
     assert_eq!(
-        get_diff_calls, 0,
-        "Expected no get_diff calls when all hooks skip, found {get_diff_calls}.\n\
+        diff_worktree_calls, 0,
+        "Expected no diff_worktree calls when all hooks skip, found {diff_worktree_calls}.\n\
          Trace output:\n{stderr}"
     );
 
@@ -471,7 +471,7 @@ fn all_hooks_skipped_multiple_priority_groups() -> Result<()> {
 }
 
 #[test]
-fn may_modify_hook_without_changes_uses_quiet_diff_check() -> Result<()> {
+fn external_hook_without_changes_uses_quiet_diff_check() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
 
@@ -501,11 +501,10 @@ fn may_modify_hook_without_changes_uses_quiet_diff_check() -> Result<()> {
         "Expected one cheap worktree diff check, found {has_worktree_diff_calls}.\n\
          Trace output:\n{stderr}"
     );
-
-    let get_diff_calls = stderr.matches("get_diff").count();
+    let diff_worktree_calls = stderr.matches("diff_worktree").count();
     assert_eq!(
-        get_diff_calls, 0,
-        "Expected no full get_diff calls when the hook leaves files unchanged, found {get_diff_calls}.\n\
+        diff_worktree_calls, 0,
+        "Expected no full diff_worktree calls when the hook leaves files unchanged, found {diff_worktree_calls}.\n\
          Trace output:\n{stderr}"
     );
 
@@ -564,10 +563,10 @@ fn identical_rewrite_with_stat_change_is_not_modified() -> Result<()> {
          Trace output:\n{stderr}"
     );
 
-    let get_diff_calls = stderr.matches("get_diff").count();
+    let diff_worktree_calls = stderr.matches("diff_worktree").count();
     assert_eq!(
-        get_diff_calls, 1,
-        "Expected one content diff to filter out stat-only changes, found {get_diff_calls}.\n\
+        diff_worktree_calls, 1,
+        "Expected one content diff to filter out stat-only changes, found {diff_worktree_calls}.\n\
          Trace output:\n{stderr}"
     );
 
@@ -612,11 +611,68 @@ fn modifying_hook_uses_clean_baseline_diff_detection() -> Result<()> {
          Trace output:\n{stderr}"
     );
 
-    let get_diff_calls = stderr.matches("get_diff").count();
+    let diff_worktree_calls = stderr.matches("diff_worktree").count();
     assert_eq!(
-        get_diff_calls, 1,
-        "Expected one full get_diff call after detecting modifications, found {get_diff_calls}.\n\
+        diff_worktree_calls, 1,
+        "Expected one full diff_worktree call after detecting modifications, found {diff_worktree_calls}.\n\
          Trace output:\n{stderr}"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn binary_diff_snapshots_use_full_object_ids() -> Result<()> {
+    let context = TestContext::new();
+    let cwd = context.work_dir();
+    let status = git_cmd(cwd)
+        .args(["init", "--object-format=sha1"])
+        .status()?;
+    assert!(
+        status.success(),
+        "initializing SHA-1 repository should succeed"
+    );
+
+    context.write_pre_commit_config(indoc::indoc! {r#"
+        repos:
+          - repo: local
+            hooks:
+              - id: write-first
+                name: write-first
+                language: system
+                entry: python3 -c "from pathlib import Path; Path('binary.dat').write_bytes(b'variant-20663\n')"
+                pass_filenames: false
+                priority: 0
+              - id: write-second
+                name: write-second
+                language: system
+                entry: python3 -c "from pathlib import Path; Path('binary.dat').write_bytes(b'variant-30375\n')"
+                pass_filenames: false
+                priority: 1
+    "#});
+
+    // The two replacement blobs have distinct SHA-1s whose first seven
+    // hexadecimal digits are both `4b8e34c`.
+    cwd.child(".gitattributes")
+        .write_str("binary.dat -diff\n")?;
+    cwd.child("binary.dat").write_str("original\n")?;
+    context.git_add(".");
+
+    let status = git_cmd(cwd).args(["config", "core.abbrev", "7"]).status()?;
+    assert!(status.success(), "setting core.abbrev should succeed");
+
+    let output = context.run().output()?;
+    assert!(
+        !output.status.success(),
+        "both hooks should modify the file"
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(
+        stdout.matches("files were modified by this hook").count(),
+        2,
+        "both binary rewrites should produce distinct snapshots.\n\
+         stdout:\n{stdout}"
     );
 
     Ok(())
@@ -666,10 +722,10 @@ fn all_files_with_existing_unstaged_changes_uses_snapshot_baseline() -> Result<(
          Trace output:\n{stderr}"
     );
 
-    let get_diff_calls = stderr.matches("get_diff").count();
+    let diff_worktree_calls = stderr.matches("diff_worktree").count();
     assert_eq!(
-        get_diff_calls, 2,
-        "Expected a full before/after diff comparison for dirty `--all-files`, found {get_diff_calls}.\n\
+        diff_worktree_calls, 2,
+        "Expected a full before/after diff comparison for dirty `--all-files`, found {diff_worktree_calls}.\n\
          Trace output:\n{stderr}"
     );
 
@@ -829,12 +885,277 @@ fn read_only_builtin_hook_does_not_run_diff_detection() -> Result<()> {
     assert!(output.status.success(), "prek should succeed");
 
     let stderr = String::from_utf8_lossy(&output.stderr);
-    let get_diff_calls = stderr.matches("get_diff").count();
+    let diff_worktree_calls = stderr.matches("diff_worktree").count();
     assert_eq!(
-        get_diff_calls, 0,
-        "Expected no get_diff calls for read-only builtin hooks, found {get_diff_calls}.\n\
+        diff_worktree_calls, 0,
+        "Expected no diff_worktree calls for read-only builtin hooks, found {diff_worktree_calls}.\n\
          Trace output:\n{stderr}"
     );
+
+    Ok(())
+}
+
+#[test]
+fn read_only_languages_do_not_run_diff_detection() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    let cwd = context.work_dir();
+    context.write_pre_commit_config(indoc::indoc! {r"
+        repos:
+          - repo: local
+            hooks:
+              - id: fail
+                name: fail
+                language: fail
+                entry: expected failure
+                files: \.txt$
+              - id: pygrep
+                name: pygrep
+                language: pygrep
+                entry: not-present
+                files: \.txt$
+    "});
+
+    cwd.child("file.txt").write_str("original\n")?;
+    context.git_add(".");
+
+    let output = context
+        .run()
+        .arg("--all-files")
+        .env("RUST_LOG", "prek::git=trace")
+        .output()?;
+
+    assert!(!output.status.success(), "the fail hook should fail");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("fail") && stdout.contains("Failed"));
+    assert!(stdout.contains("pygrep") && stdout.contains("Passed"));
+    assert!(!stdout.contains("files were modified by this hook"));
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(
+        stderr.matches("has_worktree_diff").count(),
+        0,
+        "Read-only languages should not require a worktree diff check.\n\
+         Trace output:\n{stderr}"
+    );
+    assert_eq!(
+        stderr.matches("diff_worktree").count(),
+        0,
+        "Read-only languages should not require a full worktree diff.\n\
+         Trace output:\n{stderr}"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn same_group_known_modification_skips_diff_detection() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    let cwd = context.work_dir();
+    context.write_pre_commit_config(indoc::indoc! {r#"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: end-of-file-fixer
+                priority: 0
+          - repo: local
+            hooks:
+              - id: noop
+                name: noop
+                language: system
+                entry: python3 -c "pass"
+                pass_filenames: false
+                priority: 0
+    "#});
+
+    cwd.child("file.txt").write_str("missing newline")?;
+    context.git_add(".");
+
+    let output = context.run().env("RUST_LOG", "prek::git=trace").output()?;
+
+    assert!(
+        !output.status.success(),
+        "the builtin should report its modification"
+    );
+    assert_eq!(context.read("file.txt"), "missing newline\n");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout
+            .lines()
+            .any(|line| line.contains("noop") && line.contains("Passed"))
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(
+        stderr.matches("has_worktree_diff").count(),
+        0,
+        "A known modification should make the same-group quiet diff unnecessary.\n\
+         Trace output:\n{stderr}"
+    );
+    assert_eq!(
+        stderr.matches("diff_worktree").count(),
+        0,
+        "A known modification should make the same-group full diff unnecessary.\n\
+         Trace output:\n{stderr}"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn same_group_known_modification_rebaselines_later_external_hook() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    let cwd = context.work_dir();
+    context.write_pre_commit_config(indoc::indoc! {r#"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: end-of-file-fixer
+                priority: 0
+          - repo: local
+            hooks:
+              - id: same-group-noop
+                name: same-group-noop
+                language: system
+                entry: python3 -c "pass"
+                pass_filenames: false
+                priority: 0
+              - id: later-noop
+                name: later-noop
+                language: system
+                entry: python3 -c "pass"
+                pass_filenames: false
+                priority: 1
+    "#});
+
+    cwd.child("file.txt").write_str("missing newline")?;
+    context.git_add(".");
+
+    let output = context.run().env("RUST_LOG", "prek::git=trace").output()?;
+
+    assert!(
+        !output.status.success(),
+        "the builtin should report its modification"
+    );
+    assert_eq!(context.read("file.txt"), "missing newline\n");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout
+            .lines()
+            .any(|line| line.contains("later-noop") && line.contains("Passed"))
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(
+        stderr.matches("has_worktree_diff").count(),
+        0,
+        "The known modification should invalidate the clean baseline.\n\
+         Trace output:\n{stderr}"
+    );
+    assert_eq!(
+        stderr.matches("diff_worktree").count(),
+        2,
+        "The later external hook should capture and compare the modified worktree.\n\
+         Trace output:\n{stderr}"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn modifying_builtin_invalidates_baseline_for_later_external_hook() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    let cwd = context.work_dir();
+    context.write_pre_commit_config(indoc::indoc! {r#"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: end-of-file-fixer
+                priority: 0
+          - repo: local
+            hooks:
+              - id: noop
+                name: noop
+                language: system
+                entry: python3 -c "pass"
+                pass_filenames: false
+                priority: 1
+    "#});
+
+    cwd.child("file.txt").write_str("missing newline")?;
+    context.git_add(".");
+
+    let output = context.run().env("RUST_LOG", "prek::git=trace").output()?;
+
+    assert!(
+        !output.status.success(),
+        "the builtin should report its modification"
+    );
+    assert_eq!(context.read("file.txt"), "missing newline\n");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("end-of-file-fixer") && stdout.contains("files were modified by this hook")
+    );
+    assert!(stdout.contains("noop") && stdout.contains("Passed"));
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(
+        stderr.matches("has_worktree_diff").count(),
+        0,
+        "The builtin result and dirty baseline should avoid the clean-worktree check.\n\
+         Trace output:\n{stderr}"
+    );
+    assert_eq!(
+        stderr.matches("diff_worktree").count(),
+        2,
+        "The later external hook should snapshot the builtin's change, then compare against it.\n\
+         Trace output:\n{stderr}"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn failed_non_modifying_builtin_skips_diff_detection() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    let cwd = context.work_dir();
+    context.write_pre_commit_config(indoc::indoc! {r"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: mixed-line-ending
+                args: ['--fix=no']
+    "});
+
+    cwd.child("mixed.txt").write_str("first\r\nsecond\n")?;
+    context.git_add(".");
+
+    let output = context.run().env("RUST_LOG", "prek::git=trace").output()?;
+
+    assert!(
+        !output.status.success(),
+        "mixed-line-ending should report the validation failure"
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("mixed.txt: mixed line endings"));
+    assert!(!stdout.contains("files were modified by this hook"));
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(stderr.matches("has_worktree_diff").count(), 0);
+    assert_eq!(stderr.matches("diff_worktree").count(), 0);
 
     Ok(())
 }

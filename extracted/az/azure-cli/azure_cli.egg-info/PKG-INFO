@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-cli
-Version: 2.88.0
+Version: 2.89.0
 Summary: Microsoft Azure Command-Line Tools
 Home-page: https://github.com/Azure/azure-cli
 Author: Microsoft Corporation
@@ -20,14 +20,14 @@ Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.10.0
 License-File: LICENSE.txt
 Requires-Dist: antlr4-python3-runtime~=4.13.1
-Requires-Dist: azure-appconfiguration~=1.7.2
+Requires-Dist: azure-appconfiguration~=1.8.0
 Requires-Dist: azure-ai-projects~=1.0.0
 Requires-Dist: azure-batch==15.0.0b1
-Requires-Dist: azure-cli-core==2.88.0
+Requires-Dist: azure-cli-core==2.89.0
 Requires-Dist: azure-cosmos>=3.0.2,~=3.0
 Requires-Dist: azure-data-tables==12.4.0
 Requires-Dist: azure-datalake-store~=1.0.1
-Requires-Dist: azure-keyvault-administration==4.8.0b1
+Requires-Dist: azure-keyvault-administration==4.8.0b2
 Requires-Dist: azure-keyvault-certificates==4.7.0
 Requires-Dist: azure-keyvault-keys==4.12.0b2
 Requires-Dist: azure-keyvault-secrets==4.7.0
@@ -43,12 +43,12 @@ Requires-Dist: azure-mgmt-batch~=17.3.0
 Requires-Dist: azure-mgmt-billing==6.0.0
 Requires-Dist: azure-mgmt-botservice~=2.0.0b3
 Requires-Dist: azure-mgmt-cdn==12.0.0
-Requires-Dist: azure-mgmt-cognitiveservices~=15.0.0b2
+Requires-Dist: azure-mgmt-cognitiveservices~=15.0.0b4
 Requires-Dist: azure-mgmt-compute~=34.1.0
 Requires-Dist: azure-mgmt-containerinstance==10.2.0b1
-Requires-Dist: azure-mgmt-containerregistry==15.1.0b1
+Requires-Dist: azure-mgmt-containerregistry==15.1.0b2
 Requires-Dist: azure-mgmt-containerregistrytasks==1.0.0b1
-Requires-Dist: azure-mgmt-containerservice~=41.3.0
+Requires-Dist: azure-mgmt-containerservice~=41.5.0
 Requires-Dist: azure-mgmt-cosmosdb==9.9.0
 Requires-Dist: azure-mgmt-datalake-store~=1.1.0b1
 Requires-Dist: azure-mgmt-datamigration~=10.0.0
@@ -74,9 +74,9 @@ Requires-Dist: azure-mgmt-policyinsights==1.1.0b4
 Requires-Dist: azure-mgmt-postgresqlflexibleservers==3.0.0b2
 Requires-Dist: azure-mgmt-privatedns~=1.0.0
 Requires-Dist: azure-mgmt-rdbms==10.2.0b17
-Requires-Dist: azure-mgmt-mysqlflexibleservers==1.1.0b2
+Requires-Dist: azure-mgmt-mysqlflexibleservers==1.1.0b3
 Requires-Dist: azure-mgmt-recoveryservicesbackup~=9.2.0
-Requires-Dist: azure-mgmt-recoveryservices~=4.0.0
+Requires-Dist: azure-mgmt-recoveryservices~=4.1.0
 Requires-Dist: azure-mgmt-redhatopenshift~=3.0.0
 Requires-Dist: azure-mgmt-redis~=14.5.0
 Requires-Dist: azure-mgmt-resource==24.0.0

@@ -9,79 +9,62 @@ d_member/org_id:
     - r:organization/org_id
     - r:organization_name/org_id
 ws_viewer/org_id,ws_id:
+    - agent_viewer/org_id,ws_id
+    - connection_viewer/org_id,ws_id
     - r:workspace/org_id,ws_id
     - r:workspace_data/org_id,ws_id
     - r:workspace_routing_sandbox/org_id,ws_id
     - r:workspace_routing_production/org_id,ws_id
-    - r:workspace_connection/org_id,ws_id
-    - r:workspace_agent_management/org_id,ws_id,{type=*}
     - r:workspace_sandbox_endpoint/org_id,ws_id
     - r:workspace_test_endpoint/org_id,ws_id
     - r:workspace_job/org_id,ws_id
-    - r:workspace_management/org_id,ws_id,{env=*,type=*}
-    - r:workspace_feature_query/org_id,ws_id,{env=*,component=*,current_status_live=*}
+    - data_viewer/org_id,ws_id
 ws_reviewer/org_id,ws_id:
+    - agent_viewer/org_id,ws_id
+    - case_reviewer/org_id,ws_id
     - r:workspace/org_id,ws_id
     - r+w:workspace_data/org_id,ws_id
     - r+w:workspace_review_case/org_id,ws_id,{env=*}
-    - r+w:workspace_file/org_id,ws_id,{env=*}
-    - r:workspace_agent_management/org_id,ws_id,{type=*}
-    - r+w:workspace_agent_execution/org_id,ws_id,{env=*,type=copilot}
-    - r:workspace_case_queue/org_id,ws_id
-    - r:workspace_case/org_id,ws_id
-    - r:workspace_case_template/org_id,ws_id
+    - file_user/org_id,ws_id
+    - copilot_user/org_id,ws_id
 ws_editor/org_id,ws_id:
     - ws_viewer/org_id,ws_id
     - ws_reviewer/org_id,ws_id
+    - agent_editor/org_id,ws_id
+    - connection_user/org_id,ws_id
+    - dh_viewer_sandbox/org_id,ws_id
+    - dh_viewer_live/org_id,ws_id
     - w:workspace/org_id,ws_id
     - w:workspace_data/org_id,ws_id
     - w:workspace_routing_sandbox/org_id,ws_id
-    - r:workspace_decision_history/org_id,ws_id
+    # env=* kept: the dh viewer roles cover only sandbox+live
     - r:decision_history/org_id,ws_id,{env=*}
-    - r+w:workspace_connection_resource/org_id,ws_id
-    - w+d:workspace_agent_management/org_id,ws_id,{type=*}
     - r:workspace_endpoint/org_id,ws_id
     - r+w:workspace_sandbox_endpoint/org_id,ws_id
     - r+w:workspace_test_endpoint/org_id,ws_id
-    - r:workspace_agent_execution/org_id,ws_id,{env=*,type=agent}
-    - w:workspace_agent_execution/org_id,ws_id,{env=sandbox,type=agent}
     - r:workspace_api_keys/org_id,ws_id
-    - w+d:workspace_feature_query/org_id,ws_id,{env=*,component=definition,current_status_live=inactive}
-    - w:workspace_feature_query/org_id,ws_id,{env=sandbox,component=status,current_status_live=*}
+    - data_editor/org_id,ws_id
     - w+d:workspace_job/org_id,ws_id
     - w:workspace_sandbox_job_trigger/org_id,ws_id
     - w:workspace_test_job_trigger/org_id,ws_id
-    - r+w:workspace_file/org_id,ws_id,{env=*}
-    - r+w:workspace_case_template/org_id,ws_id
-    - r+w:workspace_case/org_id,ws_id
-    - r:workspace_case_queue/org_id,ws_id
-    - r:workspace_case_analytics/org_id,ws_id
+    - case_editor/org_id,ws_id
     - r+w:workspace_analytics_dashboard/org_id,ws_id
 ws_admin/org_id,ws_id:
     - ws_editor/org_id,ws_id
+    - agent_deployer/org_id,ws_id
+    - agent_execute_live/org_id,ws_id
+    - connection_editor/org_id,ws_id
     - w:workspace_endpoint/org_id,ws_id
-    - w:workspace_agent_execution/org_id,ws_id,{env=live,type=agent}
     - w:workspace_routing_production/org_id,ws_id
-    - w+d:workspace_connection/org_id,ws_id
-    - w+d:workspace_connection_resource/org_id,ws_id
-    - r+w+d:workspace_connection_tenant/org_id,ws_id
     - r:workspace_decision_history_api/org_id,ws_id
+    # delete stays admin-only: no granular persona for it in the PRD
     - d:workspace_decision_history/org_id,ws_id
     - w+d:workspace_api_keys/org_id,ws_id
     - w:workspace_live_job_trigger/org_id,ws_id
-    - w:workspace_connection_secret/org_id,ws_id
     - r+w+d:outcome_type_management/org_id,ws_id
-    - w+d:workspace_management/org_id,ws_id,{env=*,type=feature}
-    - w+d:workspace_management/org_id,ws_id,{env=*,type=event}
-    - w+d:workspace_management/org_id,ws_id,{env=*,type=entity}
-    - w:workspace_feature_query/org_id,ws_id,{env=live,component=status,current_status_live=*}
-    - r+w:workspace_file/org_id,ws_id,{env=*}
+    - data_admin/org_id,ws_id
     - r+w:workspace_wizard/org_id,ws_id,{env=*}
-    - r+w:workspace_case_template/org_id,ws_id
-    - r+w:workspace_case/org_id,ws_id
-    - r+w:workspace_case_queue/org_id,ws_id
-    - r:workspace_case_analytics/org_id,ws_id
-    - r+w:workspace_case_dashboard/org_id,ws_id,*
+    - case_admin/org_id,ws_id
 flow_viewer/org_id,ws_id,flow_folder_id:
     - r:flows/org_id,ws_id,flow_folder_id,{env=*}
     - r:decision_history/org_id,ws_id,{env=sandbox}
@@ -98,6 +81,81 @@ flow_editor/org_id,ws_id,flow_folder_id:
 flow_deployer/org_id,ws_id,flow_folder_id:
     - flow_editor/org_id,ws_id,flow_folder_id
     - deploy:flows/org_id,ws_id,flow_folder_id,{env=*}
+
+# P141c agent roles, carved verbatim from the ws_* roles (capability-neutral)
+agent_viewer/org_id,ws_id:
+    - r:workspace_agent_management/org_id,ws_id,{type=*}
+agent_execute_sandbox/org_id,ws_id:
+    - r+w:workspace_agent_execution/org_id,ws_id,{env=sandbox,type=agent}
+agent_execute_live/org_id,ws_id:
+    - r+w:workspace_agent_execution/org_id,ws_id,{env=live,type=agent}
+agent_editor/org_id,ws_id:
+    - agent_viewer/org_id,ws_id
+    - agent_execute_sandbox/org_id,ws_id
+    - w+d:workspace_agent_management/org_id,ws_id,{type=*}
+    - r:workspace_agent_execution/org_id,ws_id,{env=*,type=agent}
+agent_deployer/org_id,ws_id:
+    # placeholder until agent publish gets its own permission (today it checks
+    # w:workspace_agent_management, same as edit)
+    - agent_editor/org_id,ws_id
+copilot_user/org_id,ws_id:
+    - r+w:workspace_agent_execution/org_id,ws_id,{env=*,type=copilot}
+
+# P141c connect roles, carved verbatim from the ws_* roles (capability-neutral)
+connection_viewer/org_id,ws_id:
+    - r:workspace_connection/org_id,ws_id
+connection_user/org_id,ws_id:
+    # no env arg on connection resources yet, so no sandbox/live split
+    - r+w:workspace_connection_resource/org_id,ws_id
+connection_editor/org_id,ws_id:
+    - connection_viewer/org_id,ws_id
+    - connection_user/org_id,ws_id
+    - w+d:workspace_connection/org_id,ws_id
+    - w+d:workspace_connection_resource/org_id,ws_id
+    - r+w+d:workspace_connection_tenant/org_id,ws_id
+    - w:workspace_connection_secret/org_id,ws_id
+
+# P141c decision-history roles, carved verbatim from ws_editor (capability-neutral)
+dh_viewer_sandbox/org_id,ws_id:
+    - r:decision_history/org_id,ws_id,{env=sandbox}
+dh_viewer_live/org_id,ws_id:
+    # legacy env-unaware string: old call sites grant all envs, so live-only
+    - r:workspace_decision_history/org_id,ws_id
+    - r:decision_history/org_id,ws_id,{env=live}
+
+# P141c case-management roles, carved verbatim from the ws_* roles (capability-neutral)
+case_reviewer/org_id,ws_id:
+    - r:workspace_case/org_id,ws_id
+    - r:workspace_case_queue/org_id,ws_id
+    - r:workspace_case_template/org_id,ws_id
+case_editor/org_id,ws_id:
+    - case_reviewer/org_id,ws_id
+    - r+w:workspace_case_template/org_id,ws_id
+    - r+w:workspace_case/org_id,ws_id
+    - r:workspace_case_analytics/org_id,ws_id
+case_admin/org_id,ws_id:
+    - case_editor/org_id,ws_id
+    - r+w:workspace_case_queue/org_id,ws_id
+    - r+w:workspace_case_dashboard/org_id,ws_id,*
+
+# P141c data-layer roles (entities/events/features), carved verbatim from the ws_* roles (capability-neutral)
+data_viewer/org_id,ws_id:
+    - r:workspace_management/org_id,ws_id,{env=*,type=*}
+    - r:workspace_feature_query/org_id,ws_id,{env=*,component=*,current_status_live=*}
+data_editor/org_id,ws_id:
+    - data_viewer/org_id,ws_id
+    - w+d:workspace_feature_query/org_id,ws_id,{env=*,component=definition,current_status_live=inactive}
+    - w:workspace_feature_query/org_id,ws_id,{env=sandbox,component=status,current_status_live=*}
+data_admin/org_id,ws_id:
+    - data_editor/org_id,ws_id
+    - w+d:workspace_management/org_id,ws_id,{env=*,type=feature}
+    - w+d:workspace_management/org_id,ws_id,{env=*,type=event}
+    - w+d:workspace_management/org_id,ws_id,{env=*,type=entity}
+    - w:workspace_feature_query/org_id,ws_id,{env=live,component=status,current_status_live=*}
+
+# P141c file role, carved verbatim from the ws_* roles (capability-neutral)
+file_user/org_id,ws_id:
+    - r+w:workspace_file/org_id,ws_id,{env=*}
 
 # roles assignable via admin panel
 oncall_group:

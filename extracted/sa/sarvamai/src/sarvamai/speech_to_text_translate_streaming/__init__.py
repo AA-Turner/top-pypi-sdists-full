@@ -10,16 +10,12 @@ if typing.TYPE_CHECKING:
         SpeechToTextTranslateStreamingFlushSignal,
         SpeechToTextTranslateStreamingHighVadSensitivity,
         SpeechToTextTranslateStreamingInputAudioCodec,
-        SpeechToTextTranslateStreamingMode,
-        SpeechToTextTranslateStreamingModel,
         SpeechToTextTranslateStreamingVadSignals,
     )
 _dynamic_imports: typing.Dict[str, str] = {
     "SpeechToTextTranslateStreamingFlushSignal": ".types",
     "SpeechToTextTranslateStreamingHighVadSensitivity": ".types",
     "SpeechToTextTranslateStreamingInputAudioCodec": ".types",
-    "SpeechToTextTranslateStreamingMode": ".types",
-    "SpeechToTextTranslateStreamingModel": ".types",
     "SpeechToTextTranslateStreamingVadSignals": ".types",
 }
 
@@ -49,7 +45,5 @@ __all__ = [
     "SpeechToTextTranslateStreamingFlushSignal",
     "SpeechToTextTranslateStreamingHighVadSensitivity",
     "SpeechToTextTranslateStreamingInputAudioCodec",
-    "SpeechToTextTranslateStreamingMode",
-    "SpeechToTextTranslateStreamingModel",
     "SpeechToTextTranslateStreamingVadSignals",
 ]

@@ -20,6 +20,8 @@ class SpeechToTextTranslateJobParameters(UniversalBaseModel):
     
     - **saaras:v2.5** (default): Translation model that translates audio from any spoken Indic language to English.
       - Example: Hindi audio → English text output
+    
+    For the latest model (saaras:v3), use the `/speech-to-text` endpoint with `mode="translate"`.
     """
 
     with_diarization: typing.Optional[bool] = pydantic.Field(default=None)

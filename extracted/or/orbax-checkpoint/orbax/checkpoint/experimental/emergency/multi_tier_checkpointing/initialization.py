@@ -13,11 +13,13 @@
 # limitations under the License.
 
 """Initialization for multi-tier checkpointing."""
+
 # pylint: disable=logging-fstring-interpolation
+import logging as python_logging
 import os
 import re
 import time
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 from absl import logging
 from etils import epath
@@ -31,35 +33,108 @@ from orbax.checkpoint._src.multihost import dispatchers
 from orbax.checkpoint._src.multihost import multihost
 from orbax.checkpoint._src.multihost import multislice
 from orbax.checkpoint.experimental.emergency.multi_tier_checkpointing import (
+    colocated_utils,
+)
+from orbax.checkpoint.experimental.emergency.multi_tier_checkpointing import (
     pathways_topology,
+)
+from orbax.checkpoint.experimental.emergency.multi_tier_checkpointing.time_block import (
+    TimeBlock,
 )
 
 
 _REPLICATOR_FILE = 'replicator.yaml'
+_REPLICATOR_ERRORS_FILE = 'replicator.errors'
+_REPLICATOR_FAILED_FILE = 'replicator.failed'
 _TEMP_REPLICATOR_FILE_NAME = _REPLICATOR_FILE + '.tmp'
 _JAX_INIT_INFO_FILE = 'jax-init-info.txt'
 _RESTORE_DIR_RE = re.compile(r'^.+-s(?P<step>\d+)-n\d+-w\d+\.restore$')
-_PATHWAYS_REPLICATOR_FILE_TIMEOUT_SECONDS = 300
+_PATHWAYS_REPLICATOR_FILE_TIMEOUT_SECONDS = 600
+# Abseil maps standard levels below DEBUG to increasing VLOG levels.
+_VLOG2_LEVEL = python_logging.DEBUG - 1
 
 
 def _wait_for_replicator_file_to_disappear(
-    local_checkpoint_directory: epath.Path, *, timeout_seconds: int = 300
+    local_checkpoint_directory: epath.Path,
+    *,
+    timeout_seconds: int = 300,
+    check_for_errors: bool = True,
 ):
   """Waits for the MTC daemonset to consume `replicator.yaml`."""
   replicator_file = epath.Path(local_checkpoint_directory) / _REPLICATOR_FILE
-  logging.info(
-      f'Waiting for {replicator_file} to disappear '
-      f'(timeout={timeout_seconds}s)...'
-  )
-  for t in range(timeout_seconds):
-    if not replicator_file.exists():
-      logging.info('replicator.yaml no longer exists (waited %ds).', t)
-      return
-    time.sleep(1)
-  raise TimeoutError(
-      f'Timeout reached ({timeout_seconds} seconds) while waiting for'
-      f' {_REPLICATOR_FILE} to disappear.'
-  )
+  with TimeBlock(
+      f'Wait for {replicator_file} to disappear '
+      f'(timeout={timeout_seconds}s)',
+      level=_VLOG2_LEVEL,
+  ):
+    for _ in range(timeout_seconds):
+      if not replicator_file.exists():
+        # only AFTER replicator.yaml disappears we can be sure that
+        # errors are coming from current invocation of Replicator
+        if check_for_errors:
+          _check_for_replicator_errors(local_checkpoint_directory)
+        return
+      time.sleep(1)
+    raise TimeoutError(
+        f'Timeout reached ({timeout_seconds} seconds) while waiting for'
+        f' {_REPLICATOR_FILE} to disappear.'
+    )
+
+
+def _read_replicator_error_file(error_file: epath.Path) -> Optional[str]:
+  """Read replicator errors file."""
+  try:
+    error_data = epath.Path(error_file).read_text()
+    logging.info(f'Contents of replicator error file:\n{error_data}')
+    return error_data
+  except (OSError, ValueError) as e:
+    logging.info(
+        'check_for_replicator_errors: Failed to read contents of failed'
+        f' file: {e}'
+    )
+    return None
+
+
+def _cleanup_replicator_error_file(error_file: epath.Path) -> None:
+  """Clean up replicator errors file."""
+  try:
+    epath.Path(error_file).unlink()
+  except (OSError, ValueError) as e:
+    logging.info(
+        'check_for_replicator_errors: Failed to remove replicator errors'
+        f' file: {e}'
+    )
+
+
+def _process_replicator_error_file(error_file: epath.Path) -> Optional[str]:
+  """Handles replicator errors by reading, logging, cleaning the error file."""
+  error_text = None
+  if epath.Path(error_file).exists():
+    logging.info(f'check_for_replicator_errors: file found: {error_file}.')
+    error_text = _read_replicator_error_file(error_file)
+    _cleanup_replicator_error_file(error_file)
+
+  return error_text
+
+
+def _check_for_replicator_errors(
+    local_checkpoint_directory: epath.Path,
+) -> None:
+  """Check for errors in replicator service."""
+  local_dir = epath.Path(local_checkpoint_directory)
+
+  replicator_errors_file = local_dir / _REPLICATOR_ERRORS_FILE
+  errors = _process_replicator_error_file(replicator_errors_file)
+  if errors:
+    logging.error(f'Replicator errors: {errors}')
+    # continue, regular errors may be recoverable
+
+  replicator_failed_file = local_dir / _REPLICATOR_FAILED_FILE
+  fatal = _process_replicator_error_file(replicator_failed_file)
+  if fatal:
+    msg = f'Replicator fatal errors: {fatal}'
+    logging.log(python_logging.CRITICAL, msg)
+    raise RuntimeError(msg)
 
 
 def _validate_replicator_ranks(
@@ -139,13 +214,14 @@ def _create_replicator_file(
   final_yaml = '\n'.join(
       line.strip() for line in replicator_yaml.split('\n')
   )
-  logging.info(
+  logging.vlog(
+      2,
       f'Writing replicator file to {replicator_file} (via temp {temp_file})'
   )
-  logging.vlog(1, 'Replicator YAML contents:\n%s', final_yaml)
+  logging.info('Replicator YAML contents:\n%s', final_yaml)
   temp_file.write_text(final_yaml)
   os.replace(temp_file, replicator_file)
-  logging.info('Replicator file written and renamed successfully.')
+  logging.vlog(2, 'Replicator file written and renamed successfully.')
 
 
 def _initialize_mtc_colocated(
@@ -155,6 +231,7 @@ def _initialize_mtc_colocated(
     run_name: str,
     data_parallelism: int,
     timeout_seconds: int,
+    devices: Optional[Sequence[jax.Device]] = None,
 ) -> None:
   """Initializes multi-tier checkpointing with a colocated Python sidecar on all workers.
 
@@ -166,15 +243,17 @@ def _initialize_mtc_colocated(
     run_name: The run name.
     data_parallelism: The data parallelism.
     timeout_seconds: The timeout in seconds.
+    devices: Optional JAX devices to initialize on. If unset, all devices
+      visible to the controller are used.
   """
   logging.info(
       'Initializing colocated MTC setup: '
       f'process_count={jax.process_count()}, device_count={jax.device_count()}'
   )
   colocated_transport.install_pathways_colocated_serialization_patch()
-  all_devices = jax.devices()
+  all_devices = tuple(devices) if devices is not None else tuple(jax.devices())
 
-  topology = pathways_topology.Topology.from_devices(tuple(all_devices))
+  topology = pathways_topology.Topology.from_devices(all_devices)
   worker_cpu_devices = topology.worker_cpu_devices()
   worker_rank_in = topology.worker_rank_array(worker_cpu_devices)
   num_nodes = topology.num_workers
@@ -193,6 +272,17 @@ def _initialize_mtc_colocated(
       'from %d JAX devices.',
       len(worker_cpu_devices),
       len(all_devices),
+  )
+  logging.info(
+      'Pathways MTC initialization topology: num_nodes=%d, num_slices=%d, '
+      'data_parallelism=%d, worker_cpu_ids=%s, worker_tpu_ids=%s, '
+      'peer_ranks=%s.',
+      num_nodes,
+      num_slices,
+      data_parallelism,
+      colocated_utils.value_sample(worker_cpu_device_ids),
+      colocated_utils.nested_id_sample(worker_tpu_device_ids),
+      colocated_utils.nested_id_sample(peer_ranks_by_worker_rank),
   )
 
   dummy_in = dispatchers.get_dummy_input_array(worker_cpu_devices)
@@ -249,7 +339,7 @@ def _initialize_mtc_colocated(
     replicator_file = epath.Path(loc_dir) / _REPLICATOR_FILE
     try:
       replicator_file.unlink()
-      logging.info('Removed stale replicator.yaml from previous run.')
+      logging.vlog(2, 'Removed stale replicator.yaml from previous run.')
     except FileNotFoundError:
       pass
 
@@ -286,13 +376,12 @@ def _initialize_mtc_colocated(
       out_specs_fn=lambda dummy_arg, _worker_rank_arg: dummy_arg
   )
 
-  dispatch_start = time.time()
-  result = wrapped_setup_fn(dummy_in, worker_rank_in)
-  jax.block_until_ready(result)
-  logging.info(
-      'All shards ready (%.1fs total). Setup complete on all hosts.',
-      time.time() - dispatch_start,
-  )
+  with TimeBlock(
+      'Initialize colocated MTC on all workers',
+      level=python_logging.INFO,
+  ):
+    result = wrapped_setup_fn(dummy_in, worker_rank_in)
+    jax.block_until_ready(result)
 
 
 def _initialize_jax_from_mtc(
@@ -309,7 +398,8 @@ def _initialize_jax_from_mtc(
         'Data is missing from the JAX init info file: Current values:'
         f' process_id: {process_id}, coordinator_address: {coordinator_address}'
     )
-  logging.info(
+  logging.vlog(
+      2,
       'Using process_id %s and coordinator_address %s to initialize JAX'
       ' distributed runtime...',
       process_id,
@@ -333,6 +423,7 @@ def initialize_multi_tier_checkpointing(
     jax_initialization_timeout_seconds: int = 900,
     use_mtc_process_ids: bool = True,
     use_colocated_python: bool = False,
+    devices: Optional[Sequence[jax.Device]] = None,
 ):
   """Initializes multi-tier checkpointing.
 
@@ -348,6 +439,9 @@ def initialize_multi_tier_checkpointing(
     jax_initialization_timeout_seconds: The timeout for JAX initialization.
     use_mtc_process_ids: Use the MTC rank server to calculate process ids.
     use_colocated_python: Whether to use Colocated Python for initialization.
+    devices: Optional JAX devices for Colocated Python initialization. This is
+      useful when the caller has already filtered controller-visible devices,
+      such as after an elastic restart.
   """
   run_name = run_name if run_name else os.environ.get('JOBSET_NAME')
   if not run_name:
@@ -355,23 +449,42 @@ def initialize_multi_tier_checkpointing(
         'Run name is not set and JOBSET_NAME is not set in the environment.'
     )
 
-  if use_colocated_python:
-    num_slices = num_slices or multislice.slice_count()
-    data_parallelism = data_parallelism or num_slices
-    logging.info(
-        'Initializing multi-tier checkpointing via Colocated Python: '
-        f'run_name={run_name}, num_slices={num_slices}, '
-        f'data_parallelism={data_parallelism}.'
+  def _resolve_parallelism_args():
+    nonlocal num_slices, data_parallelism
+    num_slices = (
+        multislice.slice_count()
+        if num_slices is None or num_slices <= 0
+        else num_slices
     )
+    data_parallelism = (
+        num_slices
+        if data_parallelism is None or data_parallelism <= 0
+        else data_parallelism
+    )
+
+    logging.info(
+        'Initializing multi-tier checkpointing: '
+        f'{run_name=}, {num_slices=}, '
+        f'{data_parallelism=}, {use_colocated_python=}.'
+    )
+
+  if use_colocated_python:
+    _resolve_parallelism_args()
     _initialize_mtc_colocated(
         local_checkpoint_directory=local_checkpoint_directory,
         backup_interval_minutes=backup_interval_minutes,
-        num_slices=num_slices,
+        num_slices=num_slices,  # pyrefly: ignore[bad-argument-type]
         run_name=run_name,
-        data_parallelism=data_parallelism,
+        data_parallelism=data_parallelism,  # pyrefly: ignore[bad-argument-type]
         timeout_seconds=jax_initialization_timeout_seconds,
+        devices=devices,
     )
     return
+
+  if devices is not None:
+    raise ValueError(
+        '`devices` is only supported when use_colocated_python=True.'
+    )
 
   # Standard Multi-Controller Path
   if use_mtc_process_ids:
@@ -384,19 +497,19 @@ def initialize_multi_tier_checkpointing(
         initialization_timeout=jax_initialization_timeout_seconds,
     )
 
-  num_slices = num_slices or multislice.slice_count()
-  data_parallelism = data_parallelism or num_slices
-  logging.info(
-      'Initializing multi-tier checkpointing: '
-      f'run_name={run_name}, num_slices={num_slices}, '
-      f'data_parallelism={data_parallelism}.'
-  )
+  # must be called after jax.distributed.initialize
+  _resolve_parallelism_args()
 
   multihost.initialize_runtime_to_distributed_ids()
   multihost.initialize_distributed_to_device_ids()
+
+  # We haven't initialized Replicator yet, but it's possible that
+  # previous initialization of Replicator (not by us) is still pending,
+  # wait for it to finish and ignore errors
   _wait_for_replicator_file_to_disappear(
       local_checkpoint_directory,
       timeout_seconds=jax_initialization_timeout_seconds,
+      check_for_errors=False,
   )
   num_nodes = jax.process_count()
   if num_nodes % num_slices != 0:
@@ -420,7 +533,7 @@ def initialize_multi_tier_checkpointing(
   )
   if use_mtc_process_ids:
     logging.vlog(
-        1,
+        2,
         f'Mapping of IDs: jax-init-info.txt={process_id}, '
         f'JaxProcessId={jax_process_id}, NodeRank={node_rank}, '
         f'ProcessIndex={my_process_index}, '
@@ -428,7 +541,7 @@ def initialize_multi_tier_checkpointing(
     )
   else:
     logging.vlog(
-        1,
+        2,
         'Mapping of IDs (jax-init-info not used): '
         f'JaxProcessId={jax_process_id}, NodeRank={node_rank}, '
         f'ProcessIndex={my_process_index}, '
@@ -437,18 +550,18 @@ def initialize_multi_tier_checkpointing(
 
   my_in_pipeline_index = my_process_index % nodes_per_slice
   peer_ranks = []
-  for i in range(num_slices):
+  for i in range(num_slices):  # pyrefly: ignore[bad-argument-type]
     peer_process_index = i * nodes_per_slice + my_in_pipeline_index
     if peer_process_index != my_process_index:
       peer_process_rank = node_rank_by_process_index[peer_process_index]
       peer_ranks.append(peer_process_rank)
-  logging.vlog(1, 'Peers for NodeRank %s: %s', node_rank, peer_ranks)
+  logging.vlog(2, 'Peers for NodeRank %s: %s', node_rank, peer_ranks)
 
   _create_replicator_file(
       local_checkpoint_directory,
       run_name=run_name,
       num_nodes=num_nodes,
-      data_parallelism=data_parallelism,
+      data_parallelism=data_parallelism,  # pyrefly: ignore[bad-argument-type]
       node_rank=node_rank,
       peer_ranks=peer_ranks,
       backup_interval_minutes=backup_interval_minutes,
@@ -489,22 +602,25 @@ def _retrieve_jax_init_info(
       epath.Path(local_checkpoint_directory) / _JAX_INIT_INFO_FILE
   )
 
-  for i in range(timeout_seconds):
-    if local_jax_init_info_file.exists():
-      values = local_jax_init_info_file.read_text().split('\n')
-      if len(values) < 2:
-        raise ValueError(
-            "JAX init info file doesn't have required process id and"
-            f' coordinator address data: Current values: {values}'
-        )
-      logging.info('Found %s after %ds.', _JAX_INIT_INFO_FILE, i)
-      return values[:2]
-    if i % 30 == 0:
-      logging.info(f'Waiting for {_JAX_INIT_INFO_FILE}... elapsed={i}s')
-    time.sleep(1)
-  raise TimeoutError(
-      f'Unable to locate {_JAX_INIT_INFO_FILE} after {timeout_seconds} seconds,'
-  )
+  with TimeBlock(
+      f'Wait for {_JAX_INIT_INFO_FILE}', level=_VLOG2_LEVEL
+  ):
+    for i in range(timeout_seconds):
+      if local_jax_init_info_file.exists():
+        values = local_jax_init_info_file.read_text().split('\n')
+        if len(values) < 2:
+          raise ValueError(
+              "JAX init info file doesn't have required process id and"
+              f' coordinator address data: Current values: {values}'
+          )
+        return values[:2]
+      if i % 30 == 0:
+        logging.vlog(2, 'Waiting for %s.', _JAX_INIT_INFO_FILE)
+      time.sleep(1)
+    raise TimeoutError(
+        f'Unable to locate {_JAX_INIT_INFO_FILE} after {timeout_seconds} '
+        'seconds,'
+    )
 
 
 def _block_and_process_restore_dir(
@@ -535,60 +651,69 @@ def _block_and_process_restore_dir(
     except FileNotFoundError:
       pass
 
-  for elapsed_seconds in range(timeout_seconds):
-    marker_paths = sorted(
-        local_checkpoint_directory.glob('*.restore'), key=lambda p: p.name
-    )
-    files = [f.name for f in marker_paths]
-    if files:
-      logging.vlog(1, 'block_and_process_restore_dir: restore files: %s', files)
-    elif elapsed_seconds % 60 == 0:
-      logging.info(
-          'Waiting for MTC restore marker in %s... elapsed=%ds',
-          local_checkpoint_directory,
-          elapsed_seconds,
+  with TimeBlock(
+      f'Wait for MTC restore marker in {local_checkpoint_directory}',
+      level=_VLOG2_LEVEL,
+  ):
+    for elapsed_seconds in range(timeout_seconds):
+      marker_paths = sorted(
+          local_checkpoint_directory.glob('*.restore'), key=lambda p: p.name
       )
-    restore_markers = []
-    no_checkpoint_markers = []
-    for marker_path in marker_paths:
-      step = _extract_step(marker_path.name)
-      # Replicator writes a zero-sized file for "no checkpoint" and a symlink
-      # for an actual restore marker.
-      if step == '0' and marker_path.is_file():
-        no_checkpoint_markers.append(marker_path)
-      else:
-        restore_markers.append((int(step), marker_path))
-
-    if restore_markers:
-      step, marker_path = max(restore_markers, key=lambda item: item[0])
-      step_dir = local_checkpoint_directory / str(step)
-      os.replace(marker_path, step_dir)
-      logging.info(
-          'Found a restore directory at step %s and renamed it to %s.',
-          step,
-          step_dir,
-      )
-      for stale_marker_path in [
-          p for _, p in restore_markers if p != marker_path
-      ] + no_checkpoint_markers:
-        _remove_restore_marker(stale_marker_path)
-        logging.vlog(
-            1, 'Removed stale MTC restore marker %s.', stale_marker_path
-        )
-      return True
-
-    if no_checkpoint_markers:
-      for marker_path in no_checkpoint_markers:
-        _remove_restore_marker(marker_path)
+      files = [f.name for f in marker_paths]
+      if files:
         logging.info(
-            'Found MTC no-checkpoint restore marker %s and removed it.',
-            marker_path,
+            'block_and_process_restore_dir: restore files: %s', files
         )
-      return True
-    time.sleep(1)
-  raise TimeoutError(
-      f'{timeout_seconds} seconds have passed but no .restore file was found.'
-  )
+      elif elapsed_seconds % 60 == 0:
+        logging.vlog(
+            2,
+            'Waiting for MTC restore marker in %s.',
+            local_checkpoint_directory,
+        )
+
+      _check_for_replicator_errors(local_checkpoint_directory)
+
+      restore_markers = []
+      no_checkpoint_markers = []
+      for marker_path in marker_paths:
+        step = _extract_step(marker_path.name)
+        # Replicator writes a zero-sized file for "no checkpoint" and a symlink
+        # for an actual restore marker.
+        if step == '0' and marker_path.is_file():
+          no_checkpoint_markers.append(marker_path)
+        else:
+          restore_markers.append((int(step), marker_path))
+
+      if restore_markers:
+        step, marker_path = max(restore_markers, key=lambda item: item[0])
+        step_dir = local_checkpoint_directory / str(step)
+        os.replace(marker_path, step_dir)
+        logging.info(
+            'Found a restore directory at step %s and renamed it to %s.',
+            step,
+            step_dir,
+        )
+        for stale_marker_path in [
+            p for _, p in restore_markers if p != marker_path
+        ] + no_checkpoint_markers:
+          _remove_restore_marker(stale_marker_path)
+          logging.vlog(
+              2, 'Removed stale MTC restore marker %s.', stale_marker_path
+          )
+        return True
+
+      if no_checkpoint_markers:
+        for marker_path in no_checkpoint_markers:
+          _remove_restore_marker(marker_path)
+          logging.info(
+              'Found MTC no-checkpoint restore marker %s and removed it.',
+              marker_path,
+          )
+        return True
+      time.sleep(1)
+    raise TimeoutError(
+        f'{timeout_seconds} seconds have passed but no .restore file was found.'
+    )
 
 
 def _extract_step(f: str) -> str:

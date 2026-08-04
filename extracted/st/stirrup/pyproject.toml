@@ -1,20 +1,24 @@
 [project]
 name = "stirrup"
-version = "0.1.12"
+version = "0.2.0"
 description = "The lightweight foundation for building agents"
 readme = "README.md"
-license = { file = "LICENSE" }
-authors = [
-    { name = "Artificial Analysis, Inc.", email = "info@artificialanalysis.ai" },
-
-]
 requires-python = ">=3.12"
-keywords = ["ai", "agent", "llm", "openai", "anthropic", "tools", "framework"]
+keywords = [
+    "ai",
+    "agent",
+    "llm",
+    "openai",
+    "anthropic",
+    "tools",
+    "framework",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -23,9 +27,9 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "anyio>=4.0.0",
+    "anyio>=4.1.0",
     "filetype>=1.0.0",
-    "httpx>=0.20.0",
+    "httpx>=0.25.0",
     "json-schema-to-pydantic>=0.2.0",
     "moviepy>=2.0.0",
     "openai>=1.0.0",
@@ -36,11 +40,24 @@ dependencies = [
     "trafilatura>=1.9.0",
 ]
 
+[project.license]
+file = "LICENSE"
+
+[[project.authors]]
+name = "Artificial Analysis, Inc."
+email = "info@artificialanalysis.ai"
+
 [project.optional-dependencies]
 litellm = ["litellm>=1.79.3"]
 e2b = ["e2b-code-interpreter>=2.3.0"]
-e2b-throttle = ["stirrup[e2b]", "aiolimiter>=1.1.0"]
-docker = ["docker>=7.0.0", "python-dotenv>=1.0.0"]
+e2b-throttle = [
+    "stirrup[e2b]",
+    "aiolimiter>=1.1.0",
+]
+docker = [
+    "docker>=7.0.0",
+    "python-dotenv>=1.0.0",
+]
 mcp = ["mcp>=1.9.0"]
 browser = ["browser-use>=0.11.3"]
 slack = ["slack-bolt>=1.20.0"]
@@ -64,16 +81,19 @@ dev = [
     "pytest>=9.0.0",
     "rich>=13.0.0",
     "ruff>=0.14.4",
-    "ty>=0.0.1a32",
+    "ty>=0.0.56",
 ]
+
+[tool.uv]
+exclude-newer = "7 days"
 
 [tool.pytest.ini_options]
 addopts = ["--strict-markers"]
 anyio_mode = "auto"
 markers = [
-    "docker: marks tests as requiring the docker package (deselect with '-m \"not docker\"')",
-    "e2b: marks tests as requiring the e2b package (deselect with '-m \"not e2b\"')",
-    "browser: marks tests as requiring headless Chrome (deselect with '-m \"not browser\"')",
+    """docker: marks tests as requiring the docker package (deselect with '-m "not docker"')""",
+    """e2b: marks tests as requiring the e2b package (deselect with '-m "not e2b"')""",
+    """browser: marks tests as requiring headless Chrome (deselect with '-m "not browser"')""",
 ]
 
 [tool.ruff]
@@ -100,6 +120,6 @@ select = [
     "ASYNC",
 ]
 ignore = [
-    "E501",     # line too long
-    "ASYNC109", # timeout param in async fn - false positive when passing to external APIs
+    "E501",
+    "ASYNC109",
 ]

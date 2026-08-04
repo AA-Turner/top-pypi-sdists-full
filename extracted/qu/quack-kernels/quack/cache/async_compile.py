@@ -46,7 +46,42 @@ import os
 import pickle
 from concurrent.futures import Future, ProcessPoolExecutor
 from multiprocessing import get_context
-from typing import Optional
+from typing import NamedTuple, Optional
+
+
+class PoolPayload(NamedTuple):
+    """Out-of-band worker setup attached to a stable jit-cache argument.
+
+    ``identity`` commits the payload's semantics without putting the generally
+    non-deterministic serialized bytes in the persistent cache key. The
+    installer must validate it before making the payload visible to the
+    compile function.
+    """
+
+    installer_module: str
+    installer_qualname: str
+    identity: str
+    data: bytes
+
+
+def _collect_pool_payloads(obj, out: list[PoolPayload]) -> None:
+    """Walk nested tuples collecting ``__quack_pool_payload__`` side-channel
+    payloads the worker must install before compiling (e.g. shipping a
+    process-local epilogue definition by value). A provider raising means the
+    key cannot be shipped — the caller falls back to in-process compile."""
+    provider = getattr(obj, "__quack_pool_payload__", None)
+    if provider is not None:
+        payload = provider()
+        if payload is not None:
+            if not isinstance(payload, PoolPayload):
+                raise TypeError(
+                    f"{type(obj).__name__}.__quack_pool_payload__() must return PoolPayload or None"
+                )
+            out.append(payload)
+        return
+    if isinstance(obj, tuple):
+        for item in obj:
+            _collect_pool_payloads(item, out)
 
 
 def _flock_held_exclusively(lock_path: str) -> bool:
@@ -93,33 +128,78 @@ class CompilePending(BaseException):
 def _detect_arch_env() -> tuple[Optional[str], Optional[str]]:
     """Return (QUACK_ARCH, CUTE_DSL_ARCH) for GPU-blind pool workers.
 
-    An explicit ``QUACK_ARCH`` env override wins — CI cross-compiles for a
-    different arch than the runner's GPU (e.g. ``QUACK_ARCH=120`` on an
-    H100), and workers must compile for the *target* arch, not the physical
-    one. Otherwise detect from the parent's GPU. Either way the workers
-    themselves never touch the CUDA driver (no context per worker,
-    fork-safe).
+    The two overrides answer different questions. ``QUACK_ARCH`` is the
+    Python-side *dispatch* arch (which kernel class / configs get traced) and
+    is forwarded verbatim so worker-side dispatch matches the submitter.
+    ``CUTE_DSL_ARCH`` is the ptxas *target*, and it must be whatever the main
+    process compiles and loads: the explicit env override if set, else the
+    physical GPU. It must NOT be derived from ``QUACK_ARCH`` — on the CI
+    proxy legs (``QUACK_ARCH=120`` on an H100) the main process still
+    compiles the SM120-dispatched code for sm_90a, the only arch the runner
+    can load; a worker .o targeting sm_120a would fail cuModuleLoad and
+    demote every pool compile to an in-process recompile. Only on a GPU-less
+    box (the CPU-only cross-compile workflow) does ``QUACK_ARCH`` double as
+    the target. The workers themselves never touch the CUDA driver (no
+    context per worker, fork-safe) — this detection runs in the parent.
     """
     quack_arch = os.environ.get("QUACK_ARCH")
-    if quack_arch is not None:
-        cute_arch = os.environ.get("CUTE_DSL_ARCH")
-        if cute_arch is None:
-            from quack.cute_dsl_utils import _parse_arch_str
+    cute_arch = os.environ.get("CUTE_DSL_ARCH")
+    if cute_arch is None:
+        try:
+            import torch
 
-            major, minor = _parse_arch_str(quack_arch)
-            cc = f"{major}{minor}"
-            cute_arch = f"sm_{cc}a" if major >= 9 else f"sm_{cc}"
-        return quack_arch, cute_arch
-    try:
-        import torch
+            if torch.cuda.is_available():
+                major, minor = torch.cuda.get_device_capability()
+                cc = f"{major}{minor}"
+                cute_arch = f"sm_{cc}a" if major >= 9 else f"sm_{cc}"
+        except Exception:
+            pass
+    if cute_arch is None and quack_arch is not None:
+        # CPU-only box: the dispatch arch is the only target we have.
+        from quack.cute_dsl_utils import _parse_arch_str
 
-        if torch.cuda.is_available():
-            major, minor = torch.cuda.get_device_capability()
-            cc = f"{major}{minor}"
-            return cc, f"sm_{cc}a" if major >= 9 else f"sm_{cc}"
-    except Exception:
-        pass
-    return None, os.environ.get("CUTE_DSL_ARCH")
+        major, minor = _parse_arch_str(quack_arch)
+        cc = f"{major}{minor}"
+        cute_arch = f"sm_{cc}a" if major >= 9 else f"sm_{cc}"
+    if quack_arch is None and cute_arch is not None:
+        # No dispatch override: pin workers to the physical arch so their
+        # GPU-blind get_device_capacity agrees with the parent's detection.
+        quack_arch = cute_arch.removeprefix("sm_").removesuffix("a")
+    return quack_arch, cute_arch
+
+
+def _install_gpu_blind_device_attrs() -> None:
+    """Serve the DSL's one TRACE-time driver query from its own static table.
+
+    ``cute.compile`` is driver-free except for one path:
+    ``cutlass_dsl.cutlass._generate_kernel_attrs`` calls
+    ``cuDeviceGetAttribute(MAX_SHARED_MEMORY_PER_MULTIPROCESSOR)`` when the
+    launch sets ``min_blocks_per_mp > 1`` without an explicit
+    ``preferred_smem_carveout`` (occupancy-bound kernels, e.g. the W4
+    small-N decode configs) — in a GPU-blind worker that raises
+    ``CUDA_ERROR_NOT_INITIALIZED`` and the key falls back to an in-process
+    compile. Answer it from the DSL's static per-arch capacity table
+    instead: SM total = per-CTA capacity + the 1 KiB reserved slice
+    (233472 on sm_90, verified against the driver), keyed by the pinned
+    ``CUTE_DSL_ARCH`` — so worker ``.o`` files stay bit-identical to
+    in-process compiles for the target arch. Unknown arch or any other
+    attribute keeps the original driver path (fails in the worker, consumer
+    falls back, as designed)."""
+    from cutlass.base_dsl.runtime import cuda as cuda_helpers
+    from cutlass.utils.smem_allocator import SMEM_CAPACITY_MAP
+
+    smem_attr = cuda_helpers.cuda.CUdevice_attribute.CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_MULTIPROCESSOR
+    orig = cuda_helpers.get_device_attribute
+
+    def get_device_attribute(attribute, device_id: int = 0):
+        if attribute == smem_attr:
+            sm = os.environ.get("CUTE_DSL_ARCH", "").removesuffix("a")
+            capacity = SMEM_CAPACITY_MAP.get(sm)
+            if capacity is not None:
+                return capacity + 1024  # per-CTA capacity + reserved = SM total
+        return orig(attribute, device_id)
+
+    cuda_helpers.get_device_attribute = get_device_attribute
 
 
 def _pool_initializer(quack_arch: Optional[str], cute_dsl_arch: Optional[str]):
@@ -136,10 +216,34 @@ def _pool_initializer(quack_arch: Optional[str], cute_dsl_arch: Optional[str]):
     # forkserver: the preload already imported it before the fork).
     import quack.cache  # noqa: F401
 
+    if quack_arch is not None:
+        # GPU-blind: the driver can never answer, so the one trace-time
+        # device query must come from the static arch table.
+        _install_gpu_blind_device_attrs()
 
-def _pool_worker(mod_name: str, qualname: str, key_b64: str, o_path: str) -> Optional[str]:
+
+def _pool_worker(
+    mod_name: str, qualname: str, key_b64: str, o_path: str, payloads_b64: str = ""
+) -> Optional[str]:
     """Compile one key. Returns None on success, error string on failure."""
     try:
+        # Honor the submitter's cache root: the jit_cache wrapper recomputes
+        # its export path from the live CACHE_DIR, and this worker (forked
+        # from a sidecar that snapshotted the env at start) may disagree with
+        # a submitter whose CACHE_DIR changed at runtime — the .o would land
+        # in the wrong tree and every pool compile would look failed.
+        # o_path is <cache_dir>/<source_fingerprint>/<sha>.o.
+        import quack.cache as _state
+
+        _state.CACHE_DIR = os.path.dirname(os.path.dirname(o_path))
+        if payloads_b64:
+            # Side-channel payloads (``__quack_pool_payload__``): install
+            # process-local definitions before the compile fn resolves them.
+            for payload in pickle.loads(base64.b64decode(payloads_b64)):
+                installer = importlib.import_module(payload.installer_module)
+                for part in payload.installer_qualname.split("."):
+                    installer = getattr(installer, part)
+                installer(payload.identity, payload.data)
         obj = importlib.import_module(mod_name)
         for part in qualname.split("."):
             obj = getattr(obj, part)
@@ -149,7 +253,15 @@ def _pool_worker(mod_name: str, qualname: str, key_b64: str, o_path: str) -> Opt
             return "compile succeeded but .o was not exported"
         return None
     except Exception as e:
-        return f"{type(e).__name__}: {e}"
+        # The consumer will recompile in-process for a first-class traceback,
+        # but a worker-only failure (env/serialization skew) never reproduces
+        # there — keep the last frames so those are diagnosable from the
+        # stats line alone.
+        import traceback
+
+        frames = traceback.format_exception(type(e), e, e.__traceback__)
+        tail = "".join(frames[-4:]).strip().replace("\n", " | ")
+        return f"{type(e).__name__}: {e} [worker: {tail[-600:]}]"
 
 
 def _make_executor(jobs: int) -> ProcessPoolExecutor:
@@ -265,28 +377,40 @@ class CompilePool:
         with _neutral_main():
             self._executor.submit(os.getpid)
 
-    def submit_raw(self, sha: str, mod: str, qualname: str, key_b64: str, o_path: str) -> None:
+    def submit_raw(
+        self, sha: str, mod: str, qualname: str, key_b64: str, o_path: str, payloads_b64: str = ""
+    ) -> None:
         if sha in self._futures:
             return
         with _neutral_main():
-            self._futures[sha] = self._executor.submit(_pool_worker, mod, qualname, key_b64, o_path)
+            self._futures[sha] = self._executor.submit(
+                _pool_worker, mod, qualname, key_b64, o_path, payloads_b64
+            )
         self.n_submitted += 1
 
     def submit(self, sha: str, fn, args: tuple, kwargs: dict, o_path) -> bool:
         """Submit a live jit_cache miss. Returns False if the key can't be
         shipped to a subprocess (unpicklable args, ``<locals>`` qualname,
-        fn defined in ``__main__``) — the caller should compile in-process
-        instead."""
+        fn defined in ``__main__``, unserializable process-local payloads) —
+        the caller should compile in-process instead."""
         if sha in self._futures:
             return True
         if "<locals>" in fn.__qualname__ or fn.__module__ == "__main__":
             # Not resolvable by module+qualname in a worker; compile in-process.
             return False
         try:
+            payloads: list = []
+            _collect_pool_payloads(args, payloads)
+            _collect_pool_payloads(tuple(kwargs.values()), payloads)
             key_b64 = base64.b64encode(pickle.dumps((args, kwargs))).decode("ascii")
+            payloads_b64 = (
+                base64.b64encode(pickle.dumps(list(dict.fromkeys(payloads)))).decode("ascii")
+                if payloads
+                else ""
+            )
         except Exception:
             return False
-        self.submit_raw(sha, fn.__module__, fn.__qualname__, key_b64, str(o_path))
+        self.submit_raw(sha, fn.__module__, fn.__qualname__, key_b64, str(o_path), payloads_b64)
         return True
 
     def poll(self, sha: str) -> tuple[str, Optional[str]]:

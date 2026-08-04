@@ -1,4 +1,4 @@
-    def listAllVolumes(self, flags: int = 0) -> List['virStorageVol']:
+    def listAllVolumes(self, flags: Optional[int] = 0) -> list['virStorageVol']:
         """List all storage volumes and returns a list of storage volume objects"""
         ret = libvirtmod.virStoragePoolListAllVolumes(self._o, flags)
         if ret is None:

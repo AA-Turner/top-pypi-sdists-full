@@ -271,44 +271,165 @@ ADCObj_exit (ADCObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
-static PyMethodDef ADCObj_methods[]
-    = { { "reset", (PyCFunction)ADCObj_reset, METH_NOARGS,
-          "Reset state to post-create defaults." },
-        { "step", (PyCFunction)ADC_step, METH_VARARGS,
-          "step(x) -> int64_t\n"
-          "\n"
-          "Process one input sample.\n"
-          "\n"
-          "    >>> from doppler import ADC\n"
-          "    >>> obj = ADC(16, -10.0, 0)\n"
-          "    >>> obj.step(1.0)\n"
-          "    0\n" },
-        { "steps", (PyCFunction)(void *)ADC_steps,
-          METH_VARARGS | METH_KEYWORDS,
-          "steps(x[, out]) -> ndarray\n"
-          "\n"
-          "Process a block of float samples to int64.\n"
-          "\n"
-          "    >>> import numpy as np\n"
-          "    >>> from doppler import ADC\n"
-          "    >>> obj = ADC(16, -10.0, 0)\n"
-          "    >>> y = obj.steps(np.zeros(4, dtype=np.float32))\n"
-          "    >>> y.shape\n"
-          "    (4,)\n"
-          "    >>> y.dtype\n"
-          "    dtype('int64')\n" },
+static PyMethodDef ADCObj_methods[] = {
+  { "reset", (PyCFunction)ADCObj_reset, METH_NOARGS,
+    "Clear the clip flag and re-seed the dither PRNG for a reproducible "
+    "run." },
+  { "step", (PyCFunction)ADC_step, METH_VARARGS,
+    "step(x) -> int64_t\n"
+    "\n"
+    "Quantise one float sample to a signed N-bit ADC code.\n"
+    "\n"
+    "Multiplies x by the pre-computed double-precision scale, optionally "
+    "adds\n"
+    "TPDF dither (when the object was built with dithering enabled), rounds\n"
+    "with llround, and clamps to the signed integer range `[clip_min,\n"
+    "clip_max]`. Latches the sticky clipped flag if the sample saturated. A\n"
+    "sample at amplitude 10^(dbfs/20) reaches full scale.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : float\n"
+    "    Input sample, normally a normalised float in `[-1, +1]`.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Signed ADC code in `[-(2^(bits-1)), 2^(bits-1)-1]`.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.cvt import ADC\n"
+    ">>> adc = ADC(bits=8, dbfs=0.0, dithering=0)  # 8-bit, full scale at 0 "
+    "dBFS\n"
+    ">>> adc.step(0.5)            # 0.5 * 128 codes\n"
+    "64\n"
+    ">>> adc.step(2.0)            # beyond full scale -> clamps to +127\n"
+    "127\n"
+    ">>> adc.clipped              # sticky flag latched by the clamp\n"
+    "True\n"
+    "\n" },
+  { "steps", (PyCFunction)(void *)ADC_steps, METH_VARARGS | METH_KEYWORDS,
+    "steps(x[, out]) -> ndarray\n"
+    "\n"
+    "Process a block of float samples to int64.\n"
+    "\n"
+    "When dithering is disabled the float-to-double multiply can use SIMD\n"
+    "widening (jm_simd.h); the int64_t conversion and clamp remain scalar.\n"
+    "When dithering is enabled the loop is scalar to preserve sequential "
+    "PRNG\n"
+    "state. Accepts an optional pre-allocated output array; allocates a "
+    "fresh\n"
+    "one when output is NULL.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.float32]\n"
+    "    Input sample.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.int64]\n"
+    "    Output sample.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.cvt import ADC\n"
+    ">>> import numpy as np\n"
+    ">>> # ideal 12-bit ADC: full scale spans +-2**11 codes\n"
+    ">>> ADC(12, 0.0, 0).steps(np.array([0.0, 0.5, 0.999, -1.0],\n"
+    "...                                dtype=np.float32)).tolist()\n"
+    "[0, 1024, 2046, -2048]\n"
+    "\n" },
 
-        { "state_bytes", (PyCFunction)ADCObj_state_bytes, METH_NOARGS,
-          "Serialized state size in bytes." },
-        { "get_state", (PyCFunction)ADCObj_get_state, METH_NOARGS,
-          "Serialize the engine's mutable state to bytes." },
-        { "set_state", (PyCFunction)ADCObj_set_state, METH_O,
-          "Restore mutable state from a get_state() blob." },
-        { "destroy", (PyCFunction)ADCObj_destroy, METH_NOARGS,
-          "Release resources." },
-        { "__enter__", (PyCFunction)ADCObj_enter, METH_NOARGS, NULL },
-        { "__exit__", (PyCFunction)ADCObj_exit, METH_VARARGS, NULL },
-        { NULL } };
+  { "state_bytes", (PyCFunction)ADCObj_state_bytes, METH_NOARGS,
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the ADCObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
+  { "get_state", (PyCFunction)ADCObj_get_state, METH_NOARGS,
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the ADCObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
+  { "set_state", (PyCFunction)ADCObj_set_state, METH_O,
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the ADCObj has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
+  { "destroy", (PyCFunction)ADCObj_destroy, METH_NOARGS,
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)ADCObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a Adc be used in a `with` statement so its C resources are "
+    "released\n"
+    "deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "Adc\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)ADCObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the Adc.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
+  { NULL }
+};
 
 static PyTypeObject ADCObjType = {
   PyVarObject_HEAD_INIT (NULL, 0).tp_name = "cvt.ADC",

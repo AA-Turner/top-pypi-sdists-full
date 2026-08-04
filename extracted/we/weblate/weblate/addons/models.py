@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
@@ -35,7 +36,7 @@ from weblate.trans.signals import (
     vcs_pre_push,
     vcs_pre_update,
 )
-from weblate.utils.classloader import ClassLoader
+from weblate.utils.classloader import ClassRegistry
 from weblate.utils.decorators import disable_for_loaddata
 from weblate.utils.errors import report_error
 from weblate.utils.tracing import start_span
@@ -47,7 +48,12 @@ from .defaults import (
     DEFAULT_LOCALIZE_CDN_URL,
     DEFAULT_WEBLATE_ADDONS,
 )
-from .events import AddonEvent
+from .events import (
+    AddonActivityLogReason,
+    AddonActivityLogStatus,
+    AddonEvent,
+    AddonEventOutcome,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -59,7 +65,7 @@ if TYPE_CHECKING:
     from weblate.trans.models import Translation
 
 # Initialize addons registry
-ADDONS = ClassLoader("WEBLATE_ADDONS", construct=False, base_class=BaseAddon)
+ADDONS = ClassRegistry("WEBLATE_ADDONS", base_class=BaseAddon)
 POT_MSGMERGE_ADDON = "weblate.gettext.msgmerge"
 
 
@@ -81,6 +87,49 @@ class AddonCache:
 
 
 class AddonQuerySet(models.QuerySet["Addon", "Addon"]):
+    def filter_access(self, user: User):
+        """Return add-ons the user is allowed to manage."""
+        if user.is_superuser:
+            return self.all()
+
+        accessible_projects = user.allowed_projects
+        managed_projects = user.managed_projects.filter(pk__in=accessible_projects)
+        component_managed_projects = user.projects_with_perm("component.edit").filter(
+            pk__in=accessible_projects
+        )
+        explicitly_managed_component_ids = [
+            component_id
+            for component_id, scoped_permissions in user.component_permissions.items()
+            if any(
+                "component.edit" in permissions
+                and (languages is None or not languages.membership_limited)
+                for permissions, languages in scoped_permissions
+            )
+        ]
+        managed_components = Component.objects.filter(
+            project__in=accessible_projects
+        ).filter(
+            Q(project__in=component_managed_projects, restricted=False)
+            | Q(pk__in=explicitly_managed_component_ids)
+        )
+
+        if not user.is_bot and not user.profile.has_2fa:
+            managed_projects = managed_projects.filter(enforced_2fa=False)
+            managed_components = managed_components.filter(project__enforced_2fa=False)
+
+        query = (
+            Q(project__in=managed_projects)
+            | Q(category__project__in=managed_projects)
+            | Q(component__in=managed_components)
+        )
+        if user.has_perm("management.addons"):
+            query |= Q(
+                component__isnull=True,
+                category__isnull=True,
+                project__isnull=True,
+            )
+        return self.filter(query)
+
     def filter_component(self, component):
         return self.prefetch_related("event_set").filter(component=component)
 
@@ -207,6 +256,7 @@ class Addon(models.Model):
     objects = AddonQuerySet.as_manager()
 
     class Meta:
+        required_db_vendor = "postgresql"
         verbose_name = "add-on"
         verbose_name_plural = "add-ons"
 
@@ -321,7 +371,7 @@ class Addon(models.Model):
             self.component.drop_addons_cache()
 
     def affected_components(self):
-        if self.component:
+        if self.component_id:
             if self.repo_scope:
                 return Component.objects.filter(
                     Q(pk=self.component_id) | Q(linked_component=self.component_id)
@@ -425,6 +475,7 @@ class Event(models.Model):
     event = models.IntegerField(choices=AddonEvent.choices)
 
     class Meta:
+        required_db_vendor = "postgresql"
         unique_together = [  # ruff: ignore[mutable-class-default]
             ("addon", "event"),
         ]
@@ -492,7 +543,7 @@ def _report_addon_error(
     )
 
 
-def execute_addon_event(
+def execute_addon_event(  # ruff: ignore[complex-structure]
     addon: Addon,
     component: Component | None,
     scope: Translation | Component | Category | Project | None,
@@ -510,6 +561,45 @@ def execute_addon_event(
     ):
         return
 
+    # The base daily and manual handlers iterate components. Split those here
+    # so each component and its asynchronous worker own a separate activity
+    # row. Add-ons overriding the scope-level handler keep one scope activity.
+    if (
+        component is None
+        and method in {"daily", "manual"}
+        and getattr(type(addon.addon), method) is getattr(BaseAddon, method)
+    ):
+        scoped_kwargs = kwargs or {}
+        processed_component = False
+        for scoped_component in addon.addon.resolve_components(
+            component=scoped_kwargs.get("component"),
+            category=scoped_kwargs.get("category"),
+            project=scoped_kwargs.get("project"),
+        ):
+            if not addon.addon.can_process(component=scoped_component) or (
+                addon.repo_scope
+                and scoped_component.linked_component
+                and event in REPO_EVENTS
+            ):
+                continue
+            processed_component = True
+            execute_addon_event(
+                addon,
+                scoped_component,
+                scoped_component,
+                event,
+                method,
+                args,
+                scoped_kwargs
+                | {
+                    "component": scoped_component,
+                    "category": None,
+                    "project": None,
+                },
+            )
+        if processed_component:
+            return
+
     def addon_logger(
         level: Literal["debug", "error"], message: str, *args: StrOrPromise
     ) -> None:
@@ -523,9 +613,9 @@ def execute_addon_event(
         else:
             scope.log_error(message, *args)
 
-    # Log result and error flag for add-on activity log
     log_result = None
-    error_occurred = False
+    outcome_status = AddonActivityLogStatus.SUCCESS
+    outcome_reason: AddonActivityLogReason | None = None
     if args is None:
         args = ()
     if kwargs is None:
@@ -535,12 +625,14 @@ def execute_addon_event(
         if "changed_files" in kwargs:
             kwargs["changed_files"] = list(kwargs["changed_files"])
 
-    activity_log = AddonActivityLog.objects.create(
-        addon=addon,
-        component=component,
-        event=event,
-        pending=True,
-    )
+    activity_log = None
+    if event not in NO_LOG_EVENTS:
+        activity_log = AddonActivityLog.objects.create(
+            addon=addon,
+            component=component,
+            event=event,
+            status=AddonActivityLogStatus.PENDING,
+        )
 
     with transaction.atomic():
         addon_logger("debug", "running %s add-on: %s", event.label, addon.name)
@@ -557,19 +649,27 @@ def execute_addon_event(
                 addon.name,
                 component.name,
             )
+            if activity_log is not None:
+                activity_log.update_activity(
+                    status=AddonActivityLogStatus.SKIPPED,
+                    reason=AddonActivityLogReason.INCOMPATIBLE_COMPONENT,
+                )
+                activity_log.save(update_fields=["details", "status"])
             return
 
         try:
             # Execute event in tracing span to track performance.
             with start_span(op=f"addon.{event.name}", name=addon.name):
                 log_result = getattr(addon.addon, method)(
-                    *args, **kwargs, activity_log_id=activity_log.pk
+                    *args,
+                    **kwargs,
+                    activity_log_id=activity_log.pk if activity_log else None,
                 )
         except DjangoDatabaseError:
             raise
         except Exception as error:
             # Log failure
-            error_occurred = True
+            outcome_status = AddonActivityLogStatus.ERROR
             log_result = str(error)
             addon_logger(
                 "error", "failed %s add-on: %s: %s", event.label, addon.name, str(error)
@@ -580,23 +680,26 @@ def execute_addon_event(
                 addon.disable()
                 component.drop_addons_cache()
         else:
+            if isinstance(log_result, AddonEventOutcome):
+                outcome_status = log_result.status
+                outcome_reason = log_result.reason
+                log_result = log_result.result
             addon_logger("debug", "completed %s add-on: %s", event.label, addon.name)
         finally:
             # Check if add-on is still installed and log activity
-            if event not in NO_LOG_EVENTS and addon.pk is not None:
-                if log_result or error_occurred:
-                    activity_log.update_activity(
-                        log_result,
-                        pending=False,
-                        error_occurred=error_occurred,
-                    )
-                    activity_log.save(update_fields=["details", "pending"])
-                else:
-                    # Async handlers can write details using this log id before
-                    # this finalizer runs in eager execution.
-                    AddonActivityLog.objects.filter(pk=activity_log.pk).update(
-                        pending=False
-                    )
+            if (
+                activity_log is not None
+                and addon.pk is not None
+                and outcome_status != AddonActivityLogStatus.PENDING
+            ):
+                # Pending outcomes are finalized by their worker. In eager
+                # execution that might happen before this handler returns.
+                activity_log.update_activity(
+                    log_result,
+                    status=outcome_status,
+                    reason=outcome_reason,
+                )
+                activity_log.save(update_fields=["details", "status"])
 
 
 def handle_addon_event(
@@ -871,6 +974,8 @@ def unit_post_sync_handler(sender, unit: Unit, updated_attr: str, **kwargs) -> N
 
 
 class AddonActivityLog(models.Model):
+    Status = AddonActivityLogStatus
+
     addon = models.ForeignKey(Addon, on_delete=models.deletion.CASCADE)
     component = models.ForeignKey(
         Component, on_delete=models.deletion.CASCADE, null=True
@@ -878,9 +983,13 @@ class AddonActivityLog(models.Model):
     event = models.IntegerField(choices=AddonEvent.choices)
     created = models.DateTimeField(auto_now_add=True)
     details = models.JSONField(default=dict)
-    pending = models.BooleanField(default=False)
+    status = models.IntegerField(
+        choices=AddonActivityLogStatus,
+        default=AddonActivityLogStatus.SUCCESS,
+    )
 
     class Meta:
+        required_db_vendor = "postgresql"
         verbose_name = "add-on activity log"
         verbose_name_plural = "add-on activity logs"
         ordering = ["-created"]  # ruff: ignore[mutable-class-default]
@@ -889,23 +998,32 @@ class AddonActivityLog(models.Model):
         return f"{self.addon}: {self.get_event_display()} at {self.created}"
 
     def get_details_display(self) -> str:
-        return self.addon.addon.render_activity_log(self)
+        reason_label = ""
+        if reason := self.details.get("reason"):
+            with contextlib.suppress(ValueError):
+                reason_label = str(AddonActivityLogReason(reason).label)
+        if self.status == AddonActivityLogStatus.SKIPPED:
+            return reason_label
+        return self.addon.addon.render_activity_log(self) or reason_label
 
     def update_activity(
         self,
         result: object | None = None,
         *,
-        error_occurred: bool = False,
-        pending: bool | None = None,
+        status: AddonActivityLogStatus | None = None,
+        reason: AddonActivityLogReason | None = None,
     ) -> None:
         """Update activity details without saving the instance."""
         details = self.details or {}
-        details["error"] = error_occurred
+        if reason is not None:
+            details["reason"] = reason.value
+        elif status is not None:
+            details.pop("reason", None)
         self.details = details
-        if result:
+        if result is not None:
             self.update_result(result)
-        if pending is not None:
-            self.pending = pending
+        if status is not None:
+            self.status = status
 
     def update_result(self, result: object) -> None:
         """Update the result field in the details JSON."""

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar
 
 from tesla_fleet_api.tesla.vehicle.fleet import VehicleFleet
 from tesla_fleet_api.tesla.vehicle.commands import Commands
-from tesla_fleet_api.tesla.vehicle.proto.universal_message_pb2 import (
+from tesla_protocol.command.universal_message_pb2 import (
     RoutableMessage,
 )
 
@@ -46,5 +46,5 @@ class VehicleSigned(  # pyright: ignore[reportIncompatibleMethodOverride]
                 base64.b64encode(msg.SerializeToString()).decode()
             )
             resp = RoutableMessage.FromString(base64.b64decode(json["response"]))
-            self.validate_msg(resp)
+            self.validate_msg(resp, msg.uuid)
             return resp

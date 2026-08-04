@@ -1,0 +1,138 @@
+---
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: "Release title defaults to the semantic version"
+        required: false
+      bump:
+        description: "Bump type (major/minor/patch) defaults to auto"
+        default: "auto"
+        required: true
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+          - auto
+
+concurrency:
+  group: ${{ github.workflow }}-${{github.ref}}
+  cancel-in-progress: false
+
+env:
+  MAIN_PY_VER: "3.14"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: deployment
+    permissions:
+      contents: write
+      id-token: write
+    name: Build, publish, and release
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9  # v9.0.0
+        with:
+          python-version: ${{ env.MAIN_PY_VER }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Setup SSH signing
+        run: |
+          mkdir -p "$RUNNER_TEMP"
+          echo "${{ secrets.SIGNING_KEY }}" > "$RUNNER_TEMP/signing_key"
+          chmod 600 "$RUNNER_TEMP/signing_key"
+          git config gpg.format ssh
+          git config user.signingkey "$RUNNER_TEMP/signing_key"
+          git config commit.gpgsign true
+
+      - name: Determine version and create changelog
+        id: bumper
+        uses: tomerfi/version-bumper-action@2d160ea4d1b4e1bc5534c9eece726a1227b19afd  # 2.0.9
+        with:
+          bump: '${{ github.event.inputs.bump }}'
+
+      - name: Set new project version
+        uses: sandstromviktor/toml-editor@2596b2da64ea9aed1d4d4e77f0646ec30b9e88ea  # 2.0.0
+        with:
+          file: pyproject.toml
+          key: project.version
+          value: ${{ steps.bumper.outputs.next }}
+
+      - name: Update lockfile for new version
+        run: uv lock
+
+      - name: Commit, tag, and push
+        run: |
+          git add pyproject.toml uv.lock
+          git commit -m "build: bump version to ${{ steps.bumper.outputs.next }} [skip ci]"
+          git push
+          git tag ${{ steps.bumper.outputs.next }} -m "${{ steps.bumper.outputs.next }}"
+          git push origin ${{ steps.bumper.outputs.next }}
+
+      - name: Verify documentation site build
+        run: uv sync --locked --group docs && uv run --locked mkdocs build --strict
+
+      - name: Publish build to PyPi
+        run: |
+          rm -rf ./dist
+          uv build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
+
+      - name: Set development project version
+        uses: sandstromviktor/toml-editor@2596b2da64ea9aed1d4d4e77f0646ec30b9e88ea  # 2.0.0
+        with:
+          file: pyproject.toml
+          key: project.version
+          value: ${{ steps.bumper.outputs.dev }}
+
+      - name: Update lockfile for dev version
+        run: uv lock
+
+      - name: Commit and push
+        run: |
+          git add pyproject.toml uv.lock
+          git commit -m "build: bump version to ${{ steps.bumper.outputs.dev }} [skip ci]"
+          git push
+
+      - name: Create a release name
+        id: release_name
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
+        with:
+          script: |
+            var retval = '${{ steps.bumper.outputs.next }}'
+            if ('${{ github.event.inputs.title }}') {
+              retval = retval.concat(' - ${{ github.event.inputs.title }}')
+            }
+            core.setOutput('value', retval)
+
+      - name: Create a release
+        id: gh_release
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
+        with:
+          github-token: ${{ secrets.RELEASE_PAT }}
+          script: |
+            const repo_name = context.payload.repository.full_name
+            const response = await github.request('POST /repos/' + repo_name + '/releases', {
+              tag_name: '${{ steps.bumper.outputs.next }}',
+              name: '${{ steps.release_name.outputs.value }}',
+              generate_release_notes: true
+            })
+            core.setOutput('html_url', response.data.html_url)

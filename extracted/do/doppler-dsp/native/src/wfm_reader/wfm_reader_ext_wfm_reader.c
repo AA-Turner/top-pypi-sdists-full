@@ -87,9 +87,9 @@ ReaderObj_init (ReaderObject *self, PyObject *args, PyObject *kwds)
   if (!self->handle)
     {
       PyErr_SetString (PyExc_ValueError,
-                       "cannot open capture: no such file, unrecognised "
-                       "container, or an unsupported BLUE format mode (only "
-                       "S and C are supported)");
+                       "cannot open capture: no such file, unrecognised file "
+                       "type, or an unsupported BLUE format mode (only S and "
+                       "C are supported)");
       return -1;
     }
   return 0;
@@ -108,14 +108,17 @@ ReaderObj_reset (ReaderObject *self, PyObject *Py_UNUSED (ignored))
 }
 
 static PyObject *
-ReaderObj_read_max_out (ReaderObject *self, PyObject *Py_UNUSED (ignored))
+ReaderObj_read_max_out (ReaderObject *self, PyObject *args)
 {
   if (!self->handle)
     {
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  return PyLong_FromSize_t (wfm_reader_read_max_out (self->handle));
+  Py_ssize_t n = 0;
+  if (!PyArg_ParseTuple (args, "n", &n))
+    return NULL;
+  return PyLong_FromSize_t (wfm_reader_read_max_out (self->handle, (size_t)n));
 }
 
 static PyObject *
@@ -153,8 +156,8 @@ ReaderObj_read (ReaderObject *self, PyObject *args, PyObject *kwds)
           return NULL;
         }
       size_t _cap     = (size_t)PyArray_SIZE (out_arr);
-      size_t _omax    = wfm_reader_read_max_out (self->handle);
-      size_t _min_cap = _omax > (size_t)n ? _omax : ((size_t)n);
+      size_t _omax    = wfm_reader_read_max_out (self->handle, (size_t)n);
+      size_t _min_cap = _omax;
       if (_cap < _min_cap)
         {
           PyErr_Format (PyExc_ValueError, "out has %zu elements, need >= %zu",
@@ -177,9 +180,8 @@ ReaderObj_read (ReaderObject *self, PyObject *args, PyObject *kwds)
       return _oview;
     }
   size_t _need = (size_t)n;
-  size_t _cap  = wfm_reader_read_max_out (self->handle);
-  if (!_cap || _cap < _need)
-    _cap = _need;
+  size_t _cap  = wfm_reader_read_max_out (self->handle, (size_t)n);
+  (void)_need;
   npy_intp  _adim = (npy_intp)_cap;
   PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_COMPLEX64);
   if (!arr0)
@@ -759,7 +761,7 @@ static PyGetSetDef Reader_getset[] = {
     "text and ignores it.\n",
     NULL },
   { "fs", (getter)Reader_getprop_fs, NULL,
-    "Sample rate in Hz, or 0.0 when the container does not carry one. BLUE "
+    "Sample rate in Hz, or 0.0 when the file type does not carry one. BLUE "
     "derives it from the header's `xdelta` (fs = 1/xdelta); SigMF reads "
     "`core:sample_rate`. Raw and CSV have nowhere to record a rate, so they "
     "always report 0.0 -- whatever rate the capture was taken at has to "
@@ -776,7 +778,7 @@ static PyGetSetDef Reader_getset[] = {
     "metadata at all.\n",
     NULL },
   { "num_samples", (getter)Reader_getprop_num_samples, NULL,
-    "Total samples in the capture, or 0 when the container cannot say. BLUE "
+    "Total samples in the capture, or 0 when the file type cannot say. BLUE "
     "takes it from the header's `data_size`; raw and SigMF divide the file "
     "length by the sample stride. A CSV has to be counted, so the first read "
     "of this property scans the file once (the scan is exact -- it parses "
@@ -797,7 +799,7 @@ static PyGetSetDef Reader_getset[] = {
     "Payload bytes left over after the last whole sample; 0 for a capture "
     "whose declared sample type and mode match its content, and always 0 for "
     "CSV. Non-zero means either the `sample_type`/`endian` hint is wrong for "
-    "a headerless container or the capture is truncated -- the reader cannot "
+    "a headerless file type or the capture is truncated -- the reader cannot "
     "tell which, and stops at the last complete sample either way. This is "
     "the only signal available for a raw file: a wrong hint does not fail, it "
     "returns plausible garbage at the wrong stride.\n",
@@ -816,7 +818,7 @@ static PyGetSetDef Reader_getset[] = {
     "`type`, `format`, `flagmask`, `timecode`, `inlet`, `outlets`, `outmask`, "
     "`pipeloc`, `pipesize`, `in_byte`, `out_byte`, `outbytes`, `keylength`, "
     "and the type-1000 adjunct `xstart`, `xdelta`, `xunits`. Empty for a "
-    "non-BLUE container. Nothing is renamed or omitted, so what you see is "
+    "non-BLUE file type. Nothing is renamed or omitted, so what you see is "
     "what the file holds; the decoded keywords are in `keywords`.\n",
     NULL },
   { NULL }
@@ -854,30 +856,99 @@ ReaderObj_exit (ReaderObject *self, PyObject *args)
 
 static PyMethodDef ReaderObj_methods[] = {
   { "reset", (PyCFunction)ReaderObj_reset, METH_NOARGS,
-    "Reset state to post-create defaults." },
+    "Rewind to the first sample of the capture." },
 
   { "read", (PyCFunction)(void *)ReaderObj_read, METH_VARARGS | METH_KEYWORDS,
-    "read(n=1) -> ndarray\n"
+    "read(count=1) -> ndarray\n"
     "\n"
-    "Read up to n complex samples into out (unit-scale `float _Complex`), "
-    "converting from the wire type. Returns the count read; 0 at end of file, "
-    "and never more than the container's declared payload.\n"
+    "Read up to count samples, returning them as `complex64`.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import Reader\n"
-    "    >>> obj = Reader(..., \"cf32\", \"le\")\n"
-    "    >>> y = obj.read(4)\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex64')\n" },
-  { "read_max_out", (PyCFunction)ReaderObj_read_max_out, METH_NOARGS,
-    "read_max_out() -> int\n\nMax output length read() can produce for the "
-    "current state.\nUse to size the ``out=`` buffer." },
+    "Samples come out at unit scale whatever the wire type was: a float type\n"
+    "is reinterpreted, an integer type is divided by its full scale. Returns\n"
+    "fewer than asked at the end of the capture, and 0 once it is exhausted,\n"
+    "so a `while` over the result terminates. Never returns more than the\n"
+    "file's declared payload — trailing bytes past `data_size` (an extended\n"
+    "header, X-Midas slack) are not samples.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex64]\n"
+    "    Output.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import pathlib, tempfile\n"
+    ">>> from doppler.wfm import Composer, Reader, Segment, Writer\n"
+    ">>> tmp = tempfile.TemporaryDirectory()\n"
+    ">>> p = pathlib.Path(tmp.name) / \"capture.blue\"\n"
+    ">>> x = Composer([Segment(\"qpsk\", sps=8, "
+    "num_samples=1024)]).compose()\n"
+    ">>> with Writer(p, file_type=\"blue\", sample_type=\"ci16\",\n"
+    "...             fs=2.4e6, fc=1.2e9) as w:\n"
+    "...     _ = w.write(x)\n"
+    ">>> r = Reader(p)\n"
+    ">>> r.file_type, r.sample_type, r.endian\n"
+    "('blue', 'ci16', 'le')\n"
+    ">>> r.fs, r.fc, r.fc_source\n"
+    "(2400000.0, 1200000000.0, 'FREQ')\n"
+    ">>> total = 0\n"
+    ">>> while len(block := r.read(256)):\n"
+    "...     total += len(block)\n"
+    ">>> total\n"
+    "1024\n"
+    ">>> r.close()\n"
+    ">>> tmp.cleanup()   # directory and contents removed\n" },
+  { "read_max_out", (PyCFunction)ReaderObj_read_max_out, METH_VARARGS,
+    "read_max_out(n) -> int\n\nMax output length read() can produce for "
+    "n.\nUse to size the ``out=`` buffer." },
   { "close", (PyCFunction)ReaderObj_destroy, METH_NOARGS,
-    "Release resources." },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
   { "destroy", (PyCFunction)ReaderObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)ReaderObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)ReaderObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)ReaderObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a WfmReader be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "WfmReader\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)ReaderObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the WfmReader.\n"
+    "\n"
+    "Equivalent to calling `close()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 
@@ -886,7 +957,7 @@ static PyTypeObject ReaderObjType = {
   .tp_basicsize                           = sizeof (ReaderObject),
   .tp_dealloc                             = (destructor)ReaderObj_dealloc,
   .tp_flags                               = Py_TPFLAGS_DEFAULT,
-  .tp_doc = "Open a capture, auto-detecting its container from its content.\n",
+  .tp_doc = "Open a capture, auto-detecting its file type from its content.\n",
   .tp_methods = ReaderObj_methods,
   .tp_getset  = Reader_getset,
   .tp_new     = ReaderObj_new,

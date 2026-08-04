@@ -3,8 +3,8 @@
 import typing_extensions
 from ..types.input_audio_codec import InputAudioCodec
 from ..types.mode import Mode
+from ..types.speech_to_text_batch_model import SpeechToTextBatchModel
 from ..types.speech_to_text_language import SpeechToTextLanguage
-from ..types.speech_to_text_model import SpeechToTextModel
 
 
 class SpeechToTextJobParametersParams(typing_extensions.TypedDict):
@@ -41,18 +41,18 @@ class SpeechToTextJobParametersParams(typing_extensions.TypedDict):
     - `doi-IN`: Dogri
     """
 
-    model: typing_extensions.NotRequired[SpeechToTextModel]
+    model: typing_extensions.NotRequired[SpeechToTextBatchModel]
     """
     Model to be used for speech to text.
     
-    - **saarika:v2.5** (default): Transcribes audio in the spoken language.
+    - **saaras:v3** (default, recommended): State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
     
-    - **saaras:v3**: State-of-the-art model with flexible output formats. Supports multiple modes via the `mode` parameter: transcribe, translate, verbatim, translit, codemix.
+    - **saaras:v4** (latest): Flexible output formats across all modes (transcribe, translate, verbatim, translit, codemix), supporting Global + Indian English and 22 Indic languages.
     """
 
     mode: typing_extensions.NotRequired[Mode]
     """
-    Mode of operation. **Only applicable when using saaras:v3 model.**
+    Mode of operation. **Only applicable when using saaras:v3 or saaras:v4 models.**
     
     Example audio: 'मेरा फोन नंबर है 9840950950'
     
@@ -79,7 +79,7 @@ class SpeechToTextJobParametersParams(typing_extensions.TypedDict):
 
     with_diarization: typing_extensions.NotRequired[bool]
     """
-    Enables speaker diarization, which identifies and separates different speakers in the audio. In beta mode
+    Enables speaker diarization, which identifies and separates different speakers in the audio. In beta mode.
     """
 
     num_speakers: typing_extensions.NotRequired[int]

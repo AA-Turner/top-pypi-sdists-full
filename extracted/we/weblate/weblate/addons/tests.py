@@ -25,9 +25,8 @@ from unittest.mock import MagicMock, patch
 
 import fedora_messaging.api
 import fedora_messaging.config
+import httpx2
 import jsonschema.exceptions
-import requests
-import responses
 from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -55,9 +54,10 @@ from weblate.addons.forms import (
     SphinxExtractPotForm,
     XgettextExtractPotForm,
 )
-from weblate.auth.models import Group, Permission, Role
+from weblate.auth.models import Group, Permission, Role, User
 from weblate.lang.models import Language
 from weblate.trans.actions import ACTIONS_CONTENT, ActionEvents
+from weblate.trans.exceptions import FileParseError
 from weblate.trans.file_format_params import get_default_params_for_file_format
 from weblate.trans.models import (
     Announcement,
@@ -73,6 +73,7 @@ from weblate.trans.models import (
 )
 from weblate.trans.tests.test_views import ComponentTestCase, ViewTestCase
 from weblate.trans.tests.utils import get_optional_path
+from weblate.utils.celery import handle_task_failure
 from weblate.utils.site import get_site_url
 from weblate.utils.state import (
     FUZZY_STATES,
@@ -81,6 +82,7 @@ from weblate.utils.state import (
     STATE_READONLY,
     STATE_TRANSLATED,
 )
+from weblate.utils.tests import http_mock
 from weblate.utils.unittest import tempdir_setting
 from weblate.vcs.base import Repository, RepositoryError
 
@@ -101,7 +103,7 @@ from .defaults import (
     DEFAULT_FEDORA_MESSAGING_RETRY_DELAY,
 )
 from .discovery import DiscoveryAddon
-from .events import AddonEvent
+from .events import AddonActivityLogReason, AddonEvent, AddonEventOutcome
 from .example import ExampleAddon
 from .example_pre import ExamplePreAddon
 from .fedora_messaging import (
@@ -145,24 +147,43 @@ from .gettext import (
     is_xgettext_placeholder_comment,
 )
 from .git import GitSquashAddon
-from .models import Addon, AddonActivityLog, Event, handle_addon_event
-from .properties import PropertiesSortAddon
+from .models import (
+    Addon,
+    AddonActivityLog,
+    Event,
+    handle_addon_event,
+    handle_daily_addon_event,
+)
+from .properties import PropertiesSortAddon, format_unicode
 from .removal import RemoveComments, RemoveSuggestions
 from .resx import ResxUpdateAddon
 from .tasks import (
     addon_change,
+    cdn_parse_html,
     cleanup_addon_activity_log,
     daily_addons,
     language_consistency,
+    parse_cdn_html,
     run_addon_manually,
     update_addon_activity_log,
 )
-from .webhooks import SlackWebhookAddon, WebhookAddon
+from .webhooks import MessageNotDeliveredError, SlackWebhookAddon, WebhookAddon
 
 if TYPE_CHECKING:
     from weblate.trans.models import (
         Project,
     )
+
+
+def get_webhook_request_data(
+    request: httpx2.Request,
+) -> tuple[bytes, dict[str, str]]:
+    """Return the concrete body and string headers prepared by the HTTP client."""
+    headers: dict[str, str] = {}
+    for key, value in request.headers.items():
+        assert isinstance(value, str)
+        headers[key] = value
+    return request.content, headers
 
 
 class GettextUtilityTest(SimpleTestCase):
@@ -174,6 +195,18 @@ class GettextUtilityTest(SimpleTestCase):
         self.assertFalse(
             is_xgettext_placeholder_comment("# Copyright (C) 2026 Example Corp.\n")
         )
+
+
+class PropertiesUtilityTest(SimpleTestCase):
+    def test_format_unicode_only_rewrites_matching_lines(self) -> None:
+        lines = MagicMock(spec=list)
+        lines.__iter__.return_value = iter(
+            ["plain=value\n", "escaped=\\U00e1 and \\u00f3\n"]
+        )
+
+        format_unicode(lines)
+
+        lines.__setitem__.assert_called_once_with(1, "escaped=\\u00E1 and \\u00F3\n")
 
 
 class NoOpAddon(BaseAddon):
@@ -223,6 +256,13 @@ class TypedConfigAddonStoredConfiguration(TypedDict, total=False):
 
 class TypedConfigAddonConfiguration(TypedDict):
     count: int
+
+
+class TLSConfiguration(TypedDict):
+    amqp_url: str
+    ca_cert: str
+    client_key: str
+    client_cert: str
 
 
 class TypedConfigAddon(
@@ -418,6 +458,28 @@ class AddonBaseTest(TestAddonMixin, ComponentTestCase):
             },
         )
 
+    def test_scoped_outcome_preserves_implicit_success(self) -> None:
+        self.create_po_new_base(
+            name="Test 2",
+            slug="test-2",
+            project=self.project,
+        )
+        addon = NoOpAddon.create(project=self.project, run=False)
+        handler = MagicMock(
+            side_effect=[
+                None,
+                AddonEventOutcome.skipped(AddonActivityLogReason.REQUIRED_FILE_MISSING),
+            ]
+        )
+
+        result = addon.handle_scoped_component_event(
+            handler,
+            project=self.project,
+        )
+
+        self.assertIsNone(result)
+        self.assertEqual(handler.call_count, 2)
+
     def test_can_run_manually_for_manual_addon(self) -> None:
         addon = ManualResultAddon.create(component=self.component, run=False)
 
@@ -439,10 +501,75 @@ class AddonBaseTest(TestAddonMixin, ComponentTestCase):
         activity = AddonActivityLog.objects.get(addon=addon.instance)
         self.assertEqual(activity.event, AddonEvent.EVENT_MANUAL)
         self.assertEqual(activity.details["result"], {"component": "test"})
-        self.assertFalse(activity.pending)
+        self.assertEqual(activity.status, AddonActivityLog.Status.SUCCESS)
+
+    def test_addon_event_records_skipped_outcome(self) -> None:
+        addon = self.create_change_addon(component=self.component)
+        change = self.create_addon_change()
+
+        with patch.object(
+            NoOpAddon,
+            "change_event",
+            return_value=AddonEventOutcome.skipped(
+                AddonActivityLogReason.NO_RELEVANT_CHANGES
+            ),
+        ):
+            handle_addon_event(
+                AddonEvent.EVENT_CHANGE,
+                "change_event",
+                (change,),
+                component=self.component,
+                addon_queryset=[addon],
+            )
+
+        activity = AddonActivityLog.objects.get(addon=addon)
+        self.assertEqual(activity.status, AddonActivityLog.Status.SKIPPED)
+        self.assertEqual(
+            activity.details["reason"],
+            AddonActivityLogReason.NO_RELEVANT_CHANGES,
+        )
+        self.assertEqual(
+            activity.get_details_display(),
+            "There are no relevant changes to process.",
+        )
+
+    def test_addon_event_preserves_pending_outcome(self) -> None:
+        addon = self.create_change_addon(component=self.component)
+        change = self.create_addon_change()
+
+        with patch.object(
+            NoOpAddon,
+            "change_event",
+            return_value=AddonEventOutcome.pending(),
+        ):
+            handle_addon_event(
+                AddonEvent.EVENT_CHANGE,
+                "change_event",
+                (change,),
+                component=self.component,
+                addon_queryset=[addon],
+            )
+
+        activity = AddonActivityLog.objects.get(addon=addon)
+        self.assertEqual(activity.status, AddonActivityLog.Status.PENDING)
+
+    def test_no_log_event_does_not_create_activity(self) -> None:
+        addon = NoOpAddon.create(component=self.component, run=False).instance
+        unit = self.get_unit()
+
+        handle_addon_event(
+            AddonEvent.EVENT_UNIT_PRE_CREATE,
+            "unit_pre_create",
+            (unit,),
+            component=self.component,
+            addon_queryset=[addon],
+        )
+
+        self.assertFalse(AddonActivityLog.objects.filter(addon=addon).exists())
 
     def test_add_form(self) -> None:
         form = NoOpAddon.get_add_form(None, component=self.component, data={})
+        assert form is not None
         self.assertTrue(form.is_valid())
         form.save()
         self.assertEqual(self.component.addon_set.count(), 1)
@@ -453,6 +580,7 @@ class AddonBaseTest(TestAddonMixin, ComponentTestCase):
     def test_add_form_category_addon(self) -> None:
         category = self.create_category(self.project)
         form = NoOpAddon.get_add_form(None, category=category, data={})
+        assert form is not None
         self.assertTrue(form.is_valid())
         form.save()
         self.assertEqual(category.addon_set.count(), 1)
@@ -462,6 +590,7 @@ class AddonBaseTest(TestAddonMixin, ComponentTestCase):
 
     def test_add_form_project_addon(self) -> None:
         form = NoOpAddon.get_add_form(None, project=self.component.project, data={})
+        assert form is not None
         self.assertTrue(form.is_valid())
         form.save()
         self.assertEqual(self.component.project.addon_set.count(), 1)
@@ -471,6 +600,7 @@ class AddonBaseTest(TestAddonMixin, ComponentTestCase):
 
     def test_add_form_site_wide_addon(self) -> None:
         form = NoOpAddon.get_add_form(None, data={})
+        assert form is not None
         self.assertTrue(form.is_valid())
         form.save()
         addon_object = Addon.objects.filter(name="weblate.base.test")
@@ -962,6 +1092,27 @@ class GettextAddonTest(ViewTestCase):
     def create_component(self):
         return self.create_po_new_base(new_lang="add")
 
+    def test_alerts_include_addon_id(self) -> None:
+        addon = MsgmergeAddon.create(
+            project=self.component.project,
+            run=False,
+        )
+        addon.alerts.append(
+            {
+                "command": "msgmerge",
+                "output": "output",
+                "error": "failure",
+            }
+        )
+
+        addon.trigger_alerts(self.component)
+
+        occurrence = self.component.alert_set.get(name="MsgmergeAddonError").details[
+            "occurrences"
+        ][0]
+        self.assertEqual(occurrence["addon"], addon.name)
+        self.assertEqual(occurrence["addon_id"], str(addon.instance.pk))
+
     def test_gettext_mo(self) -> None:
         translation = self.get_translation()
         self.assertTrue(GenerateMoAddon.can_install(component=translation.component))
@@ -986,10 +1137,21 @@ class GettextAddonTest(ViewTestCase):
             configuration={"path": "po/broken.mo"},
         )
 
-        addon.pre_commit(translation, "", True)
+        handle_addon_event(
+            AddonEvent.EVENT_PRE_COMMIT,
+            "pre_commit",
+            (translation, "", True),
+            translation=translation,
+            addon_queryset=[addon.instance],
+        )
 
         self.assertEqual(translation.addon_commit_files, [])
         self.assertFalse(outside_target.exists())
+        activity = AddonActivityLog.objects.get(addon=addon.instance)
+        self.assertEqual(activity.status, AddonActivityLog.Status.ERROR)
+        self.assertEqual(
+            activity.details["reason"], AddonActivityLogReason.INVALID_OUTPUT
+        )
 
     def test_update_linguas(self) -> None:
         translation = self.get_translation()
@@ -1159,6 +1321,7 @@ class GettextAddonTest(ViewTestCase):
                 "potfiles_path": "",
             },
         )
+        assert form is not None
         self.assertTrue(form.is_valid())
         self.assertEqual(
             form.cleaned_data["source_patterns"],
@@ -1172,6 +1335,7 @@ class GettextAddonTest(ViewTestCase):
 
     def test_xgettext_form_accepts_blank_language(self) -> None:
         form = XgettextAddon.get_add_form(None, component=self.component)
+        assert form is not None
 
         self.assertFalse(form.fields["language"].required)
         self.assertEqual(form.fields["language"].initial, "")
@@ -1191,6 +1355,7 @@ class GettextAddonTest(ViewTestCase):
                         "potfiles_path": "",
                     },
                 )
+                assert form is not None
                 self.assertTrue(form.is_valid(), form.errors)
                 self.assertEqual(form.cleaned_data["language"], "")
                 self.assertEqual(form.serialize_form()["language"], "")
@@ -1211,6 +1376,7 @@ class GettextAddonTest(ViewTestCase):
                 "comment_tag": "",
             },
         )
+        assert form is not None
         self.assertFalse(form.is_valid())
 
     def test_xgettext_form_roundtrips_parameters(self) -> None:
@@ -1232,6 +1398,7 @@ class GettextAddonTest(ViewTestCase):
                 "location_mode": "keep",
             },
         )
+        assert form is not None
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data["comment_mode"], "tagged")
         self.assertEqual(form.cleaned_data["comment_tag"], "TRANSLATORS")
@@ -1240,6 +1407,48 @@ class GettextAddonTest(ViewTestCase):
         )
         self.assertEqual(form.cleaned_data["keyword"], "tr")
         self.assertEqual(form.cleaned_data["location_mode"], "keep")
+
+    def test_xgettext_form_keyword_exclusive(self) -> None:
+        # keyword_exclusive=True with a keyword set is valid.
+        form = XgettextAddon.get_add_form(
+            None,
+            component=self.component,
+            data={
+                "interval": "weekly",
+                "normalize_header": True,
+                "update_po_files": True,
+                "input_mode": "patterns",
+                "language": "Java",
+                "source_patterns": "src/*.java\n",
+                "potfiles_path": "",
+                "keyword": "tr",
+                "keyword_exclusive": True,
+            },
+        )
+        assert form is not None
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["keyword"], "tr")
+        self.assertTrue(form.cleaned_data["keyword_exclusive"])
+
+        # keyword_exclusive=True without a keyword is invalid.
+        form = XgettextAddon.get_add_form(
+            None,
+            component=self.component,
+            data={
+                "interval": "weekly",
+                "normalize_header": True,
+                "update_po_files": True,
+                "input_mode": "patterns",
+                "language": "Java",
+                "source_patterns": "src/*.java\n",
+                "potfiles_path": "",
+                "keyword": "",
+                "keyword_exclusive": True,
+            },
+        )
+        assert form is not None
+        self.assertFalse(form.is_valid())
+        self.assertIn("keyword_exclusive", form.errors)
 
     def test_xgettext_form_potfiles(self) -> None:
         form = XgettextAddon.get_add_form(
@@ -1255,6 +1464,7 @@ class GettextAddonTest(ViewTestCase):
                 "potfiles_path": "po/POTFILES.in",
             },
         )
+        assert form is not None
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data["source_patterns"], [])
         self.assertEqual(form.cleaned_data["potfiles_path"], "po/POTFILES.in")
@@ -1272,6 +1482,7 @@ class GettextAddonTest(ViewTestCase):
                 "potfiles_path": "",
             },
         )
+        assert form is not None
         self.assertFalse(form.is_valid())
 
     def test_xgettext_form_missing_potfiles_path(self) -> None:
@@ -1287,6 +1498,7 @@ class GettextAddonTest(ViewTestCase):
                 "potfiles_path": "",
             },
         )
+        assert form is not None
         self.assertFalse(form.is_valid())
 
     def test_xgettext_form_rejects_potfiles_directory(self) -> None:
@@ -1303,6 +1515,7 @@ class GettextAddonTest(ViewTestCase):
                 "potfiles_path": "po",
             },
         )
+        assert form is not None
         self.assertFalse(form.is_valid())
 
     def test_extract_pot_settings_form_hides_install_msgmerge(self) -> None:
@@ -1320,7 +1533,7 @@ class GettextAddonTest(ViewTestCase):
 
         form = addon.get_settings_form(None)
 
-        self.assertIsNotNone(form)
+        assert form is not None
         self.assertIn("update_po_files", form.fields)
         self.assertTrue(form.fields["update_po_files"].widget.is_hidden)
 
@@ -1349,7 +1562,7 @@ class GettextAddonTest(ViewTestCase):
             },
         )
 
-        self.assertIsNotNone(form)
+        assert form is not None
         self.assertTrue(form.is_valid())
         self.assertNotIn("_install_msgmerge", form.serialize_form())
 
@@ -1368,7 +1581,7 @@ class GettextAddonTest(ViewTestCase):
 
         form = addon.get_settings_form(None)
 
-        self.assertIsNotNone(form)
+        assert form is not None
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(
             form.serialize_form()["source_patterns"],
@@ -1391,7 +1604,7 @@ class GettextAddonTest(ViewTestCase):
 
         form = addon.get_settings_form(None)
 
-        self.assertIsNotNone(form)
+        assert form is not None
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.serialize_form()["input_mode"], "potfiles")
         self.assertEqual(form.serialize_form()["potfiles_path"], "po/POTFILES.in")
@@ -1416,7 +1629,7 @@ class GettextAddonTest(ViewTestCase):
 
         form = addon.get_settings_form(None)
 
-        self.assertIsNotNone(form)
+        assert form is not None
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.serialize_form()["comment_mode"], "tagged")
         self.assertEqual(form.serialize_form()["comment_tag"], "TRANSLATORS")
@@ -1437,6 +1650,7 @@ class GettextAddonTest(ViewTestCase):
                 "update_po_files": True,
             },
         )
+        assert form is not None
         self.assertTrue(form.is_valid())
         self.assertEqual(form.cleaned_data["location_mode"], "file")
 
@@ -1453,6 +1667,7 @@ class GettextAddonTest(ViewTestCase):
                 "update_po_files": True,
             },
         )
+        assert form is not None
         self.assertTrue(form.is_valid())
 
     def test_django_form_po_template_not_excluded(self) -> None:
@@ -1467,6 +1682,7 @@ class GettextAddonTest(ViewTestCase):
                 "update_po_files": True,
             },
         )
+        assert form is not None
         self.assertFalse(form.is_valid())
 
     def test_django_form_invalid_domain(self) -> None:
@@ -1480,6 +1696,7 @@ class GettextAddonTest(ViewTestCase):
                 "update_po_files": True,
             },
         )
+        assert form is not None
         self.assertFalse(form.is_valid())
 
     def test_django_form_project_scope(self) -> None:
@@ -1492,6 +1709,7 @@ class GettextAddonTest(ViewTestCase):
                 "update_po_files": True,
             },
         )
+        assert form is not None
         self.assertTrue(form.is_valid())
 
     def test_django_can_install_is_component_specific(self) -> None:
@@ -1519,6 +1737,7 @@ class GettextAddonTest(ViewTestCase):
                 "update_po_files": True,
             },
         )
+        assert form is not None
         self.assertFalse(form.is_valid())
 
     def test_sphinx_form_valid_component(self) -> None:
@@ -1533,6 +1752,7 @@ class GettextAddonTest(ViewTestCase):
                 "update_po_files": True,
             },
         )
+        assert form is not None
         self.assertTrue(form.is_valid())
         self.assertEqual(form.cleaned_data["location_mode"], "file")
 
@@ -1547,6 +1767,7 @@ class GettextAddonTest(ViewTestCase):
                 "update_po_files": True,
             },
         )
+        assert form is not None
         self.assertTrue(form.is_valid())
 
     def test_sphinx_form_project_scope(self) -> None:
@@ -1559,6 +1780,7 @@ class GettextAddonTest(ViewTestCase):
                 "update_po_files": True,
             },
         )
+        assert form is not None
         self.assertTrue(form.is_valid())
 
     def test_sphinx_can_install_is_component_specific(self) -> None:
@@ -1590,6 +1812,7 @@ class GettextAddonTest(ViewTestCase):
                 "preset": "glib",
             },
         )
+        assert form is not None
         self.assertTrue(form.is_valid(), form.errors)
 
     def test_meson_form_tagged_comments_require_tag(self) -> None:
@@ -1613,6 +1836,7 @@ class GettextAddonTest(ViewTestCase):
                 "comment_tag": "",
             },
         )
+        assert form is not None
         self.assertFalse(form.is_valid())
 
     def test_meson_can_install_is_component_specific(self) -> None:
@@ -1727,6 +1951,7 @@ class GettextAddonTest(ViewTestCase):
                 "update_po_files": True,
             },
         )
+        assert form is not None
         self.assertFalse(form.is_valid())
 
     def test_extract_pot_requires_component_new_base(self) -> None:
@@ -1754,7 +1979,6 @@ class GettextAddonTest(ViewTestCase):
                 "source_patterns": ["src/*.py"],
             },
         )
-
         with (
             patch.object(XgettextAddon, "run_process", return_value="") as mocked,
             patch.object(XgettextAddon, "validate_repository_tree", return_value=True),
@@ -1997,7 +2221,7 @@ class GettextAddonTest(ViewTestCase):
             },
         )
 
-        self.assertIsNotNone(form)
+        assert form is not None
         self.assertTrue(form.is_valid(), form.errors)
 
         with patch.object(XgettextAddon, "run_process", return_value="") as mocked:
@@ -2128,6 +2352,97 @@ class GettextAddonTest(ViewTestCase):
         self.assertIn("--check=bullet-unicode", command)
         self.assertIn("--keyword=tr", command)
 
+    def test_xgettext_uses_exclusive_keywords(self) -> None:
+        source = Path(self.component.full_path) / "src" / "Main.java"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text('tr("Hello");\n', encoding="utf-8")
+        addon = XgettextAddon.create(
+            component=self.component,
+            run=False,
+            configuration={
+                "interval": "weekly",
+                "update_po_files": False,
+                "language": "Java",
+                "source_patterns": ["src/*.java"],
+                "keyword": "tr",
+                "keyword_exclusive": True,
+            },
+        )
+
+        with (
+            patch.object(XgettextAddon, "run_process", return_value="") as mocked,
+            patch.object(XgettextAddon, "validate_repository_tree", return_value=True),
+        ):
+            addon.update_translations(self.component, "", [])
+
+        command = mocked.call_args.args[1]
+        # Bare --keyword must appear to disable default keywords.
+        self.assertIn("--keyword", command)
+        bare_idx = command.index("--keyword")
+        named_idx = command.index("--keyword=tr")
+        self.assertLess(bare_idx, named_idx)
+        # Only the custom keyword should be present; no default keywords.
+        self.assertNotIn("--keyword=gettext", command)
+
+    def test_xgettext_keyword_without_exclusive_emits_no_bare_keyword(self) -> None:
+        """Keyword set but keyword_exclusive=False must not emit bare --keyword."""
+        source = Path(self.component.full_path) / "src" / "Main.java"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text('tr("Hello");\n', encoding="utf-8")
+        addon = XgettextAddon.create(
+            component=self.component,
+            run=False,
+            configuration={
+                "interval": "weekly",
+                "update_po_files": False,
+                "language": "Java",
+                "source_patterns": ["src/*.java"],
+                "keyword": "tr",
+                "keyword_exclusive": False,
+            },
+        )
+
+        with (
+            patch.object(XgettextAddon, "run_process", return_value="") as mocked,
+            patch.object(XgettextAddon, "validate_repository_tree", return_value=True),
+        ):
+            addon.update_translations(self.component, "", [])
+
+        command = mocked.call_args.args[1]
+        # Named keyword must be present.
+        self.assertIn("--keyword=tr", command)
+        # Bare --keyword must NOT be present when exclusivity is disabled.
+        self.assertNotIn("--keyword", command)
+
+    def test_xgettext_no_keyword_emits_no_keyword_args(self) -> None:
+        """When no keyword is set, no --keyword args at all should appear."""
+        source = Path(self.component.full_path) / "src" / "main.py"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text('_("Hello")\n', encoding="utf-8")
+        addon = XgettextAddon.create(
+            component=self.component,
+            run=False,
+            configuration={
+                "interval": "weekly",
+                "update_po_files": False,
+                "language": "Python",
+                "source_patterns": ["src/*.py"],
+            },
+        )
+
+        with (
+            patch.object(XgettextAddon, "run_process", return_value="") as mocked,
+            patch.object(XgettextAddon, "validate_repository_tree", return_value=True),
+        ):
+            addon.update_translations(self.component, "", [])
+
+        command = mocked.call_args.args[1]
+        # No --keyword args of any kind should appear.
+        keyword_args = [
+            a for a in command if a == "--keyword" or a.startswith("--keyword=")
+        ]
+        self.assertEqual(keyword_args, [])
+
     def test_meson_uses_glib_preset_and_potfiles(self) -> None:
         source = Path(self.component.full_path) / "src" / "main.c"
         source.parent.mkdir(parents=True, exist_ok=True)
@@ -2202,6 +2517,11 @@ class GettextAddonTest(ViewTestCase):
         self.assertIn("--add-comments=TRANSLATORS", command)
         self.assertIn("--check=ellipsis-unicode", command)
         self.assertIn("--keyword=custom_tr", command)
+        # Preset keywords must also still be present (non-exclusive mode).
+        self.assertIn("--keyword=_", command)
+        self.assertIn("--keyword=N_", command)
+        # No bare --keyword should appear.
+        self.assertNotIn("--keyword", command)
 
     def test_meson_prefers_potfiles_over_potfiles_in(self) -> None:
         gettext_dir = Path(self.component.full_path) / "po"
@@ -2304,6 +2624,10 @@ class GettextAddonTest(ViewTestCase):
                 "source_patterns": ["src/*.py"],
             },
         )
+        addon.get_component_state(self.component)["last_revision"] = "stored-revision"
+        addon.get_component_state(self.component)["configuration_signature"] = (
+            addon.get_configuration_signature()
+        )
 
         with (
             patch.object(
@@ -2313,9 +2637,13 @@ class GettextAddonTest(ViewTestCase):
             ),
             patch.object(XgettextAddon, "run_process", return_value="") as mocked,
         ):
-            addon.update_translations(self.component, "old-revision", [])
+            outcome = addon.update_translations(self.component, "old-revision", [])
 
         mocked.assert_not_called()
+        self.assertEqual(
+            outcome,
+            AddonEventOutcome.skipped(AddonActivityLogReason.NO_RELEVANT_CHANGES),
+        )
 
     def test_xgettext_potfiles_change_detection_tracks_manifest(self) -> None:
         addon = XgettextAddon.create(
@@ -2467,6 +2795,10 @@ class GettextAddonTest(ViewTestCase):
         )
 
         self.assertFalse(addon.is_schedule_due(self.component))
+        self.assertEqual(
+            addon.update_translations(self.component, "old-revision", []),
+            AddonEventOutcome.skipped(AddonActivityLogReason.NOT_SCHEDULED),
+        )
 
     def test_extract_pot_monthly_schedule(self) -> None:
         addon = XgettextAddon.create(
@@ -4429,10 +4761,21 @@ msgstr ""
             },
         )
 
-        addon.pre_commit(translation, "", True)
+        handle_addon_event(
+            AddonEvent.EVENT_INSTALL,
+            "post_install",
+            (self.component, True),
+            component=self.component,
+            addon_queryset=[addon.instance],
+        )
 
         self.assertEqual(translation.addon_commit_files, [])
         self.assertFalse(outside_target.exists())
+        activity = AddonActivityLog.objects.get(addon=addon.instance)
+        self.assertEqual(activity.status, AddonActivityLog.Status.ERROR)
+        self.assertEqual(
+            activity.details["reason"], AddonActivityLogReason.INVALID_OUTPUT
+        )
 
     def test_gettext_comment(self) -> None:
         translation = self.get_translation()
@@ -4685,6 +5028,26 @@ class CSVAddonTest(ComponentTestCase):
         commit = self.component.repository.show(self.component.repository.last_revision)
         self.assertIn("csv-mono/cs.csv", commit)
 
+    def test_remove_blank_post_commit_parse_error(self) -> None:
+        addon = RemoveBlankAddon.create(component=self.component, run=False)
+
+        with patch.object(
+            RemoveBlankAddon,
+            "update_translations",
+            side_effect=FileParseError("broken translation"),
+        ):
+            handle_addon_event(
+                AddonEvent.EVENT_POST_COMMIT,
+                "post_commit",
+                (self.component, True),
+                component=self.component,
+                addon_queryset=[addon.instance],
+            )
+
+        activity = AddonActivityLog.objects.get(addon=addon.instance)
+        self.assertEqual(activity.status, AddonActivityLog.Status.ERROR)
+        self.assertEqual(activity.details["result"], "broken translation")
+
 
 class JsonAddonTest(ComponentTestCase):
     def create_component(self):
@@ -4823,11 +5186,28 @@ class ViewTests(ViewTestCase):
             follow=True,
         )
         addon = self.component.addon_set.all()[0]
+        AddonActivityLog.objects.create(
+            addon=addon,
+            component=self.component,
+            event=AddonEvent.EVENT_PRE_COMMIT,
+            status=AddonActivityLog.Status.SKIPPED,
+            details={"reason": AddonActivityLogReason.NOT_APPLICABLE},
+        )
         response = self.client.get(reverse("addon-logs", kwargs={"pk": addon.pk}))
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "addons/addon_logs.html")
         self.assertEqual(response.context["instance"], addon)
+        self.assertEqual(response.context["addon_page"], "logs")
+        self.assertContains(response, 'class="nav-link active"')
+        self.assertContains(response, 'aria-current="page"')
+        self.assertContains(response, addon.get_absolute_url())
+        self.assertContains(response, reverse("addon-logs", kwargs={"pk": addon.pk}))
+        self.assertNotContains(
+            response, reverse("addon-components", kwargs={"pk": addon.pk})
+        )
+        self.assertContains(response, "Skipped")
+        self.assertContains(response, "The add-on does not apply to this event.")
 
     def test_manual_run_button(self) -> None:
         addon = XgettextAddon.create(
@@ -4843,13 +5223,20 @@ class ViewTests(ViewTestCase):
 
         response = self.client.get(reverse("addons", kwargs=self.kw_component))
 
-        self.assertContains(response, "Run now")
+        self.assertNotContains(response, "Run now")
         self.assertContains(response, addon.get_absolute_url())
+
+        response = self.client.get(addon.get_absolute_url())
+        self.assertContains(response, "Run now")
+        self.assertContains(response, "Run add-on")
+        self.assertContains(response, "Danger zone")
+        self.assertContains(response, "Uninstall")
 
     def test_non_daily_addon_has_no_manual_run_button(self) -> None:
         GettextAuthorComments.create(component=self.component, run=False)
 
-        response = self.client.get(reverse("addons", kwargs=self.kw_component))
+        addon = self.component.addon_set.get()
+        response = self.client.get(addon.get_absolute_url())
 
         self.assertNotContains(response, "Run now")
 
@@ -4866,9 +5253,14 @@ class ViewTests(ViewTestCase):
             },
         ).instance
 
-        response = self.client.post(addon.get_absolute_url(), {"run": "1"}, follow=True)
+        response = self.client.post(addon.get_absolute_url(), {"run": "1"})
 
         mocked_delay.assert_called_once_with(addon.pk)
+        self.assertRedirects(
+            response, addon.get_absolute_url(), fetch_redirect_response=False
+        )
+
+        response = self.client.get(addon.get_absolute_url())
         self.assertContains(response, "Add-on run has been scheduled.")
 
     def test_nonexisting_detail(self) -> None:
@@ -4882,6 +5274,11 @@ class ViewTests(ViewTestCase):
         self.assertTemplateUsed(response, "addons/addon_detail.html")
         self.assertContains(response, identifier)
         self.assertNotContains(response, 'name="form"')
+        self.assertContains(response, "Configuration")
+        self.assertContains(response, "Logs")
+        self.assertNotContains(response, "Components")
+        self.assertContains(response, "Danger zone")
+        self.assertContains(response, "Uninstall")
 
     def test_nonexisting_logs(self) -> None:
         identifier = "weblate.addon.nonexisting"
@@ -5117,6 +5514,15 @@ class ViewTests(ViewTestCase):
         self.assertContains(response, "Configure add-on")
         self.assertContains(response, "This field is required")
 
+        response = self.client.post(
+            addon.get_absolute_url(),
+            {
+                "filename": "stats/{{ language_code }}.json",
+                "template": '{"code":"{{ language_code }}"}',
+            },
+        )
+        self.assertRedirects(response, addon.get_absolute_url())
+
     def test_delete(self) -> None:
         addon = SourceEditAddon.create(component=self.component)
         response = self.client.post(
@@ -5145,25 +5551,25 @@ class AddonScopeViewTests(TestAddonMixin, ViewTestCase):
 
         self.assertContains(response, "Manual result add-on")
         self.assertContains(response, "Test add-on")
-        self.assertContains(response, "project-wide")
-        self.assertContains(response, "category")
-        self.assertContains(response, "site-wide")
+        self.assertContains(response, "Project")
+        self.assertContains(response, "Category")
+        self.assertContains(response, "Site")
+        self.assertContains(response, "badge addon-scope")
         self.assertContains(response, "Inherited from")
         self.assertNotContains(response, "Installed at the current scope.")
         self.assertContains(
+            response, reverse("addon-detail", kwargs={"pk": manual_addon.pk})
+        )
+        self.assertNotContains(
             response, reverse("addon-logs", kwargs={"pk": manual_addon.pk})
         )
         self.assertNotContains(
-            response, reverse("addon-components", kwargs={"pk": manual_addon.pk})
+            response, reverse("addon-detail", kwargs={"pk": sitewide_addon.pk})
         )
         self.assertNotContains(
             response, reverse("addon-components", kwargs={"pk": category_addon.pk})
         )
-        self.assertNotContains(
-            response, reverse("addon-components", kwargs={"pk": sitewide_addon.pk})
-        )
         self.assertContains(response, "Managed at a scope you do not have access to.")
-        self.assertContains(response, "Manage add-ons at Test")
         self.assertNotContains(response, "Run now")
         self.assertNotContains(response, "Uninstall")
         self.assertNotContains(response, "Configure")
@@ -5192,7 +5598,7 @@ class AddonScopeViewTests(TestAddonMixin, ViewTestCase):
 
         response = self.client.get(reverse("addons", kwargs=self.kw_component))
 
-        self.assertContains(response, "repository wide")
+        self.assertContains(response, "Repository")
 
     def test_repository_scope_addon_components_view(self) -> None:
         linked_component = self.create_link_existing(name="Linked", slug="linked")
@@ -5202,6 +5608,12 @@ class AddonScopeViewTests(TestAddonMixin, ViewTestCase):
 
         response = self.client.get(reverse("addons", kwargs=self.kw_component))
 
+        self.assertContains(response, reverse("addon-detail", kwargs={"pk": addon.pk}))
+        self.assertNotContains(
+            response, reverse("addon-components", kwargs={"pk": addon.pk})
+        )
+
+        response = self.client.get(reverse("addon-detail", kwargs={"pk": addon.pk}))
         self.assertContains(
             response, reverse("addon-components", kwargs={"pk": addon.pk})
         )
@@ -5209,6 +5621,13 @@ class AddonScopeViewTests(TestAddonMixin, ViewTestCase):
         response = self.client.get(reverse("addon-components", kwargs={"pk": addon.pk}))
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["addon_page"], "components")
+        self.assertContains(response, addon.get_absolute_url())
+        self.assertContains(response, reverse("addon-logs", kwargs={"pk": addon.pk}))
+        self.assertContains(
+            response, reverse("addon-components", kwargs={"pk": addon.pk})
+        )
+        self.assertContains(response, 'aria-current="page"')
         components = {row["component"] for row in response.context["component_rows"]}
         self.assertEqual(components, {self.component, linked_component})
 
@@ -5253,6 +5672,11 @@ class AddonScopeViewTests(TestAddonMixin, ViewTestCase):
 
     def test_component_addon_components_view_not_available(self) -> None:
         addon = NoOpAddon.create(component=self.component, run=False).instance
+
+        detail_response = self.client.get(addon.get_absolute_url())
+        self.assertNotContains(
+            detail_response, reverse("addon-components", kwargs={"pk": addon.pk})
+        )
 
         response = self.client.get(reverse("addon-components", kwargs={"pk": addon.pk}))
 
@@ -6428,6 +6852,7 @@ class LanguageConsistencyTest(ComponentTestCase):
             .order_by("created")
             .first()
         )
+        assert activity_logs is not None
         self.assertIn(
             f"{ts_component.full_slug}: Add missing languages: Added German",
             activity_logs.details["result"],
@@ -6470,7 +6895,7 @@ class LanguageConsistencyTest(ComponentTestCase):
             addon=addon.instance,
             component=self.component,
             event=AddonEvent.EVENT_POST_ADD,
-            pending=True,
+            status=AddonActivityLog.Status.PENDING,
         )
 
         self.component.delete()
@@ -6492,6 +6917,109 @@ class LanguageConsistencyTest(ComponentTestCase):
                 )
             ),
             {"cs", "de", "en", "it"},
+        )
+
+    def test_language_consistency_failure_updates_activity_log(self) -> None:
+        addon = LanguageConsistencyAddon.create(project=self.project, run=False)
+        activity_log = AddonActivityLog.objects.create(
+            addon=addon.instance,
+            event=AddonEvent.EVENT_DAILY,
+            status=AddonActivityLog.Status.PENDING,
+        )
+
+        with (
+            patch(
+                "weblate.addons.tasks.enforce_language_consistency",
+                side_effect=ValueError("consistency failed"),
+            ),
+            patch("weblate.utils.errors.report_error"),
+        ):
+            task_result = language_consistency.apply(
+                args=(
+                    addon.instance.id,
+                    [self.component.source_language_id],
+                ),
+                kwargs={
+                    "project_id": self.project.id,
+                    "activity_log_id": activity_log.id,
+                },
+                throw=False,
+            )
+
+        self.assertTrue(task_result.failed())
+        self.assertIsInstance(task_result.result, ValueError)
+        activity_log.refresh_from_db()
+        self.assertEqual(activity_log.status, AddonActivityLog.Status.ERROR)
+        self.assertEqual(activity_log.details["result"], "consistency failed")
+
+    def test_language_consistency_handled_failure_updates_activity_log(self) -> None:
+        self.component.new_lang = "add"
+        self.component.new_base = "po/hello.pot"
+        self.component.save()
+        ts_component = self.create_ts(
+            name="TS",
+            new_lang="add",
+            new_base="ts/cs.ts",
+            project=self.project,
+        )
+        addon = LanguageConsistencyAddon.create(project=self.project, run=False)
+        activity_log = AddonActivityLog.objects.create(
+            addon=addon.instance,
+            event=AddonEvent.EVENT_DAILY,
+            status=AddonActivityLog.Status.PENDING,
+        )
+        language = Language.objects.get(code="de")
+
+        with patch.object(Component, "add_new_language", return_value=None):
+            language_consistency(
+                addon.instance.id,
+                [language.id],
+                project_id=self.project.id,
+                activity_log_id=activity_log.id,
+            )
+
+        activity_log.refresh_from_db()
+        self.assertEqual(activity_log.status, AddonActivityLog.Status.ERROR)
+        self.assertIn(
+            f"{ts_component.full_slug}: Add missing languages: Could not add German",
+            activity_log.details["result"],
+        )
+
+    def test_language_consistency_parse_failure_updates_activity_log(self) -> None:
+        self.component.new_lang = "add"
+        self.component.new_base = "po/hello.pot"
+        self.component.save()
+        ts_component = self.create_ts(
+            name="TS",
+            new_lang="add",
+            new_base="ts/cs.ts",
+            project=self.project,
+        )
+        addon = LanguageConsistencyAddon.create(project=self.project, run=False)
+        activity_log = AddonActivityLog.objects.create(
+            addon=addon.instance,
+            event=AddonEvent.EVENT_DAILY,
+            status=AddonActivityLog.Status.PENDING,
+        )
+        language = Language.objects.get(code="de")
+
+        with patch.object(
+            Component,
+            "create_translations_immediate",
+            side_effect=FileParseError("broken translation"),
+        ):
+            language_consistency(
+                addon.instance.id,
+                [language.id],
+                project_id=self.project.id,
+                activity_log_id=activity_log.id,
+            )
+
+        activity_log.refresh_from_db()
+        self.assertEqual(activity_log.status, AddonActivityLog.Status.ERROR)
+        self.assertIn(
+            f"{ts_component.full_slug}: Add missing languages: Could not parse translation files: broken translation",
+            activity_log.details["result"],
         )
 
 
@@ -6944,7 +7472,7 @@ class AutoTranslateAddonTest(ComponentTestCase):
         with patch(
             "weblate.addons.autotranslate.auto_translate_component.delay_on_commit"
         ) as mocked:
-            addon.component_update(self.component)
+            outcome = addon.component_update(self.component)
 
         mocked.assert_called_once_with(
             self.component.pk,
@@ -6956,6 +7484,74 @@ class AutoTranslateAddonTest(ComponentTestCase):
             source_component_id=None,
             user_id=None,
             activity_log_id=None,
+            enforce_permissions=False,
+        )
+        self.assertEqual(outcome, AddonEventOutcome.pending())
+
+    @override_settings(BACKGROUND_TASKS="never")
+    def test_daily_disabled_is_skipped(self) -> None:
+        addon = AutoTranslateAddon.create(
+            component=self.component,
+            run=False,
+            configuration={
+                "component": "",
+                "q": "state:<translated",
+                "auto_source": "mt",
+                "engines": [],
+                "threshold": 80,
+                "mode": "translate",
+            },
+        )
+
+        self.assertEqual(
+            addon.daily_component(self.component),
+            AddonEventOutcome.skipped(AddonActivityLogReason.BACKGROUND_TASKS_DISABLED),
+        )
+
+    @override_settings(BACKGROUND_TASKS="always")
+    def test_scoped_daily_uses_per_component_activity_logs(self) -> None:
+        component_2 = self.create_po_new_base(
+            name="Component 2",
+            slug="component-2",
+            project=self.project,
+        )
+        addon = AutoTranslateAddon.create(
+            project=self.project,
+            run=False,
+            configuration={
+                "component": "",
+                "q": "state:<translated",
+                "auto_source": "mt",
+                "engines": [],
+                "threshold": 80,
+                "mode": "translate",
+            },
+        )
+
+        with patch(
+            "weblate.addons.autotranslate.auto_translate_component.delay_on_commit"
+        ) as mocked_delay:
+            handle_daily_addon_event([addon.instance])
+
+        activities = list(
+            AddonActivityLog.objects.filter(
+                addon=addon.instance,
+                event=AddonEvent.EVENT_DAILY,
+            ).order_by("component_id")
+        )
+        self.assertEqual(len(activities), 2)
+        self.assertEqual(
+            {activity.component_id for activity in activities},
+            {self.component.id, component_2.id},
+        )
+        self.assertEqual(
+            {activity.status for activity in activities},
+            {AddonActivityLog.Status.PENDING},
+        )
+        self.assertEqual(mocked_delay.call_count, 2)
+        self.assertEqual(
+            {call.kwargs["activity_log_id"] for call in mocked_delay.call_args_list},
+            {activity.id for activity in activities},
         )
 
     def test_auto_passes_activity_log_id(self) -> None:
@@ -6986,6 +7582,7 @@ class AutoTranslateAddonTest(ComponentTestCase):
             source_component_id=None,
             user_id=None,
             activity_log_id=123,
+            enforce_permissions=False,
         )
 
     def test_auto_others_component_uses_addon_user(self) -> None:
@@ -7016,6 +7613,7 @@ class AutoTranslateAddonTest(ComponentTestCase):
             source_component_id=None,
             user_id=addon.user.id,
             activity_log_id=None,
+            enforce_permissions=False,
         )
 
     def test_auto_change_event_normalizes_blank_component(self) -> None:
@@ -7039,6 +7637,7 @@ class AutoTranslateAddonTest(ComponentTestCase):
                 user_id=self.user.id,
                 translation_id=self.translation.id,
                 unit_ids=[1, 2],
+                activity_log_task_count=2,
             )
 
         mocked.assert_called_once_with(
@@ -7052,7 +7651,44 @@ class AutoTranslateAddonTest(ComponentTestCase):
             unit_ids=[1, 2],
             translation_id=self.translation.id,
             activity_log_id=None,
+            activity_log_task_count=2,
+            enforce_permissions=False,
         )
+
+    def test_auto_change_event_passes_fanout_task_count(self) -> None:
+        addon = AutoTranslateAddon.create(
+            project=self.project,
+            run=False,
+            configuration={
+                "component": "",
+                "q": "state:<translated",
+                "auto_source": "others",
+                "engines": [],
+                "threshold": 80,
+                "mode": "translate",
+            },
+        )
+        change = Change(
+            action=ActionEvents.CHANGE,
+            unit=self.component.source_translation.unit_set.first(),
+            user=self.user,
+        )
+
+        with patch.object(
+            addon,
+            "trigger_autotranslate",
+            return_value=AddonEventOutcome.pending(),
+        ) as mocked_trigger:
+            outcome = addon.change_event(change, activity_log_id=123)
+
+        self.assertEqual(outcome, AddonEventOutcome.pending())
+        self.assertGreater(mocked_trigger.call_count, 1)
+        for call in mocked_trigger.call_args_list:
+            self.assertEqual(
+                call.kwargs["activity_log_task_count"],
+                mocked_trigger.call_count,
+            )
+            self.assertEqual(call.kwargs["activity_log_id"], 123)
 
     def test_render_activity_log_formats_task_result(self) -> None:
         addon = AutoTranslateAddon.create(
@@ -7102,7 +7738,7 @@ class AutoTranslateAddonTest(ComponentTestCase):
             addon=addon.instance,
             component=self.component,
             event=AddonEvent.EVENT_COMPONENT_UPDATE,
-            pending=True,
+            status=AddonActivityLog.Status.PENDING,
         )
 
         update_addon_activity_log(
@@ -7115,7 +7751,7 @@ class AutoTranslateAddonTest(ComponentTestCase):
                 "message": "Second automatic translation completed.",
                 "warnings": ["<unsafe warning>"],
             },
-            pending=False,
+            status=AddonActivityLog.Status.SUCCESS,
         )
 
         activity.refresh_from_db()
@@ -7130,7 +7766,7 @@ class AutoTranslateAddonTest(ComponentTestCase):
             result["results"][1]["message"],
             "Second automatic translation completed.",
         )
-        self.assertFalse(activity.pending)
+        self.assertEqual(activity.status, AddonActivityLog.Status.SUCCESS)
 
         rendered = str(addon.render_activity_log(activity))
 
@@ -7138,8 +7774,117 @@ class AutoTranslateAddonTest(ComponentTestCase):
         self.assertIn("Second automatic translation completed.", rendered)
         self.assertIn("&lt;unsafe warning&gt;", rendered)
 
-    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_auto_change_event(self) -> None:
+    def test_activity_log_aggregates_fanout_status(self) -> None:
+        addon = AutoTranslateAddon.create(
+            component=self.component,
+            run=False,
+            configuration={
+                "component": "",
+                "q": "state:<translated",
+                "auto_source": "others",
+                "engines": [],
+                "threshold": 80,
+                "mode": "translate",
+            },
+        )
+        cases = (
+            (
+                (AddonActivityLog.Status.ERROR, AddonActivityLog.Status.SUCCESS),
+                AddonActivityLog.Status.ERROR,
+            ),
+            (
+                (AddonActivityLog.Status.SUCCESS, AddonActivityLog.Status.SKIPPED),
+                AddonActivityLog.Status.SUCCESS,
+            ),
+        )
+        for statuses, expected in cases:
+            with self.subTest(statuses=statuses):
+                activity = AddonActivityLog.objects.create(
+                    addon=addon.instance,
+                    component=self.component,
+                    event=AddonEvent.EVENT_CHANGE,
+                    status=AddonActivityLog.Status.PENDING,
+                )
+                update_addon_activity_log(
+                    activity.id,
+                    {"message": "First task"},
+                    status=statuses[0],
+                    task_count=2,
+                )
+                activity.refresh_from_db()
+                self.assertEqual(activity.status, AddonActivityLog.Status.PENDING)
+
+                update_addon_activity_log(
+                    activity.id,
+                    {"message": "Second task"},
+                    status=statuses[1],
+                    reason=(
+                        AddonActivityLogReason.TARGET_MISSING
+                        if statuses[1] == AddonActivityLog.Status.SKIPPED
+                        else None
+                    ),
+                    task_count=2,
+                )
+                activity.refresh_from_db()
+
+                self.assertEqual(activity.status, expected)
+                self.assertEqual(
+                    activity.details["task_progress"]["completed"],
+                    2,
+                )
+                self.assertEqual(
+                    len(activity.details["result"]["results"]),
+                    2,
+                )
+
+    def test_activity_log_aggregates_fanout_task_failure(self) -> None:
+        addon = AutoTranslateAddon.create(
+            component=self.component,
+            run=False,
+            configuration={
+                "component": "",
+                "q": "state:<translated",
+                "auto_source": "others",
+                "engines": [],
+                "threshold": 80,
+                "mode": "translate",
+            },
+        )
+        activity = AddonActivityLog.objects.create(
+            addon=addon.instance,
+            component=self.component,
+            event=AddonEvent.EVENT_CHANGE,
+            status=AddonActivityLog.Status.PENDING,
+        )
+
+        with patch("weblate.utils.errors.report_error"):
+            handle_task_failure(
+                exception=ValueError("First task failed"),
+                kwargs={
+                    "activity_log_id": activity.id,
+                    "activity_log_task_count": 2,
+                },
+            )
+        activity.refresh_from_db()
+        self.assertEqual(activity.status, AddonActivityLog.Status.PENDING)
+
+        update_addon_activity_log(
+            activity.id,
+            {"message": "Second task succeeded"},
+            status=AddonActivityLog.Status.SUCCESS,
+            task_count=2,
+        )
+        activity.refresh_from_db()
+
+        self.assertEqual(activity.status, AddonActivityLog.Status.ERROR)
+        self.assertEqual(activity.details["task_progress"]["completed"], 2)
+        self.assertIn("First task failed", activity.details["result"]["results"])
+
+        rendered = str(addon.render_activity_log(activity))
+        self.assertIn("First task failed", rendered)
+        self.assertIn("Second task succeeded", rendered)
+
+    def assert_auto_change_event(self, change_user: User | None) -> None:
         component_1 = self.create_po_new_base(name="Component 1", project=self.project)
         component_1.allow_translation_propagation = False
         component_1.save()
@@ -7173,8 +7918,8 @@ class AutoTranslateAddonTest(ComponentTestCase):
         with self.captureOnCommitCallbacks(execute=True):
             Comment.objects.create(unit=unit_2, comment="Foo")
         change = unit_2.change_set.latest("timestamp")
-        change.user = None
-        change.author = None
+        change.user = change_user
+        change.author = change_user
         change.save(update_fields=["user", "author"])
 
         with self.captureOnCommitCallbacks(execute=True):
@@ -7182,47 +7927,55 @@ class AutoTranslateAddonTest(ComponentTestCase):
 
         unit_2 = translation_2.unit_set.get(source="one")
         self.assertEqual(unit_2.target, "jeden")
+        expected_author = change_user or addon.user
         self.assertEqual(
             unit_2.change_set.get(action=ActionEvents.AUTO).author,
-            addon.user,
+            expected_author,
         )
         self.assertTrue(
             PendingUnitChange.objects.filter(
                 unit=unit_2,
-                author=addon.user,
+                author=expected_author,
                 automatically_translated=True,
             ).exists()
         )
 
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_auto_change_event(self) -> None:
+        self.assert_auto_change_event(None)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_auto_change_event_uses_triggering_user(self) -> None:
+        self.assert_auto_change_event(self.user)
+
 
 class AddonConfigurationUnitTest(SimpleTestCase):
     def test_base_addon_configuration_normalizes_stored_values(self) -> None:
-        addon = TypedConfigAddon.__new__(TypedConfigAddon)
-        addon.instance = SimpleNamespace(configuration={"count": "5"})
+        addon = TypedConfigAddon(Addon(configuration={"count": "5"}))
 
         self.assertEqual(addon.stored_configuration["count"], "5")
         self.assertEqual(addon.get_configuration(), {"count": 5})
         self.assertEqual(addon.configuration, {"count": 5})
 
     def test_base_addon_configuration_defaults_missing_legacy_values(self) -> None:
-        addon = TypedConfigAddon.__new__(TypedConfigAddon)
-        addon.instance = SimpleNamespace(configuration={})
+        addon = TypedConfigAddon(Addon(configuration={}))
 
         self.assertEqual(addon.get_configuration(), {"count": 0})
 
     def test_trigger_autotranslate_normalizes_blank_component_for_translation_task(
         self,
     ) -> None:
-        addon = AutoTranslateAddon.__new__(AutoTranslateAddon)
-        addon.instance = SimpleNamespace(
-            configuration={
-                "component": "",
-                "q": "state:<translated",
-                "auto_source": "others",
-                "engines": [],
-                "threshold": 80,
-                "mode": "translate",
-            }
+        addon = AutoTranslateAddon(
+            Addon(
+                configuration={
+                    "component": "",
+                    "q": "state:<translated",
+                    "auto_source": "others",
+                    "engines": [],
+                    "threshold": 80,
+                    "mode": "translate",
+                }
+            )
         )
 
         with patch(
@@ -7241,27 +7994,32 @@ class AddonConfigurationUnitTest(SimpleTestCase):
             unit_ids=[3, 4],
             translation_id=2,
             activity_log_id=None,
+            activity_log_task_count=None,
+            enforce_permissions=False,
         )
 
     def test_trigger_autotranslate_normalizes_blank_component_for_component_task(
         self,
     ) -> None:
-        addon = AutoTranslateAddon.__new__(AutoTranslateAddon)
-        addon.instance = SimpleNamespace(
-            configuration={
-                "component": "",
-                "q": "state:<translated",
-                "auto_source": "mt",
-                "engines": [],
-                "threshold": 80,
-                "mode": "translate",
-            }
+        addon = AutoTranslateAddon(
+            Addon(
+                configuration={
+                    "component": "",
+                    "q": "state:<translated",
+                    "auto_source": "mt",
+                    "engines": [],
+                    "threshold": 80,
+                    "mode": "translate",
+                }
+            )
         )
 
         with patch(
             "weblate.addons.autotranslate.auto_translate_component.delay_on_commit"
         ) as mocked:
-            addon.trigger_autotranslate(component=SimpleNamespace(pk=123))
+            addon.trigger_autotranslate(
+                component=Component(pk=123, source_language_id=1)
+            )
 
         mocked.assert_called_once_with(
             123,
@@ -7273,16 +8031,18 @@ class AddonConfigurationUnitTest(SimpleTestCase):
             source_component_id=None,
             user_id=None,
             activity_log_id=None,
+            enforce_permissions=False,
         )
 
     def test_get_configuration_normalizes_legacy_filter_configuration(self) -> None:
-        addon = AutoTranslateAddon.__new__(AutoTranslateAddon)
-        addon.instance = SimpleNamespace(
-            configuration={
-                "auto_source": "others",
-                "filter_type": "comments",
-                "mode": "translate",
-            }
+        addon = AutoTranslateAddon(
+            Addon(
+                configuration={
+                    "auto_source": "others",
+                    "filter_type": "comments",
+                    "mode": "translate",
+                }
+            )
         )
 
         self.assertEqual(
@@ -7300,13 +8060,14 @@ class AddonConfigurationUnitTest(SimpleTestCase):
     def test_get_settings_form_data_normalizes_legacy_filter_configuration(
         self,
     ) -> None:
-        addon = AutoTranslateAddon.__new__(AutoTranslateAddon)
-        addon.instance = SimpleNamespace(
-            configuration={
-                "auto_source": "others",
-                "filter_type": "comments",
-                "mode": "translate",
-            }
+        addon = AutoTranslateAddon(
+            Addon(
+                configuration={
+                    "auto_source": "others",
+                    "filter_type": "comments",
+                    "mode": "translate",
+                }
+            )
         )
 
         self.assertEqual(
@@ -7322,16 +8083,17 @@ class AddonConfigurationUnitTest(SimpleTestCase):
         )
 
     def test_get_configuration_ignores_component_for_mt(self) -> None:
-        addon = AutoTranslateAddon.__new__(AutoTranslateAddon)
-        addon.instance = SimpleNamespace(
-            configuration={
-                "component": 123,
-                "q": "state:<translated",
-                "auto_source": "mt",
-                "engines": ["weblate"],
-                "threshold": 80,
-                "mode": "translate",
-            }
+        addon = AutoTranslateAddon(
+            Addon(
+                configuration={
+                    "component": 123,
+                    "q": "state:<translated",
+                    "auto_source": "mt",
+                    "engines": ["weblate"],
+                    "threshold": 80,
+                    "mode": "translate",
+                }
+            )
         )
 
         self.assertEqual(
@@ -7347,15 +8109,16 @@ class AddonConfigurationUnitTest(SimpleTestCase):
         )
 
     def test_get_configuration_ignores_threshold_for_others(self) -> None:
-        addon = AutoTranslateAddon.__new__(AutoTranslateAddon)
-        addon.instance = SimpleNamespace(
-            configuration={
-                "component": "",
-                "q": "state:<translated",
-                "auto_source": "others",
-                "threshold": 50,
-                "mode": "translate",
-            }
+        addon = AutoTranslateAddon(
+            Addon(
+                configuration={
+                    "component": "",
+                    "q": "state:<translated",
+                    "auto_source": "others",
+                    "threshold": 50,
+                    "mode": "translate",
+                }
+            )
         )
 
         self.assertEqual(
@@ -7371,8 +8134,7 @@ class AddonConfigurationUnitTest(SimpleTestCase):
         )
 
     def test_generate_file_form_serializes_configuration(self) -> None:
-        addon = GenerateFileAddon.__new__(GenerateFileAddon)
-        addon.instance = SimpleNamespace(component=None, project=None)
+        addon = GenerateFileAddon(Addon(component=None, project=None))
         form = GenerateForm(
             None,
             addon,
@@ -7392,12 +8154,13 @@ class AddonConfigurationUnitTest(SimpleTestCase):
         )
 
     def test_generate_file_runtime_configuration_is_normalized(self) -> None:
-        addon = GenerateFileAddon.__new__(GenerateFileAddon)
-        addon.instance = SimpleNamespace(
-            configuration={
-                "filename": "stats-{{ language_code }}.txt",
-                "template": "{{ language_code }}",
-            }
+        addon = GenerateFileAddon(
+            Addon(
+                configuration={
+                    "filename": "stats-{{ language_code }}.txt",
+                    "template": "{{ language_code }}",
+                }
+            )
         )
 
         self.assertEqual(
@@ -7409,8 +8172,7 @@ class AddonConfigurationUnitTest(SimpleTestCase):
         )
 
     def test_properties_sort_form_serializes_configuration(self) -> None:
-        addon = PropertiesSortAddon.__new__(PropertiesSortAddon)
-        addon.instance = SimpleNamespace()
+        addon = PropertiesSortAddon(Addon())
         form = PropertiesSortAddonForm(
             None,
             addon,
@@ -7421,14 +8183,12 @@ class AddonConfigurationUnitTest(SimpleTestCase):
         self.assertEqual(form.serialize_form(), {"case_sensitive": True})
 
     def test_properties_sort_configuration_defaults_missing_values(self) -> None:
-        addon = PropertiesSortAddon.__new__(PropertiesSortAddon)
-        addon.instance = SimpleNamespace(configuration={})
+        addon = PropertiesSortAddon(Addon(configuration={}))
 
         self.assertEqual(addon.get_configuration(), {"case_sensitive": False})
 
     def test_git_squash_form_serializes_configuration(self) -> None:
-        addon = GitSquashAddon.__new__(GitSquashAddon)
-        addon.instance = SimpleNamespace()
+        addon = GitSquashAddon(Addon())
         form = GitSquashForm(
             None,
             addon,
@@ -7450,8 +8210,7 @@ class AddonConfigurationUnitTest(SimpleTestCase):
         )
 
     def test_git_squash_configuration_defaults_missing_values(self) -> None:
-        addon = GitSquashAddon.__new__(GitSquashAddon)
-        addon.instance = SimpleNamespace(configuration={})
+        addon = GitSquashAddon(Addon(configuration={}))
 
         self.assertEqual(
             addon.get_configuration(),
@@ -7512,6 +8271,20 @@ class CDNJSAddonTest(ViewTestCase):
     def create_component(self):
         return self.create_json_mono()
 
+    def create_addon(
+        self,
+        *,
+        component: Component,
+        configuration: dict[str, object],
+        run: bool = True,
+    ) -> CDNJSAddon:
+        with self.captureOnCommitCallbacks(execute=True):
+            return CDNJSAddon.create(
+                component=component,
+                configuration=configuration,
+                run=run,
+            )
+
     @override_settings(LOCALIZE_CDN_URL=None)
     def test_noconfigured(self) -> None:
         self.assertFalse(CDNJSAddon.can_install(component=self.component))
@@ -7520,6 +8293,66 @@ class CDNJSAddonTest(ViewTestCase):
         self.assertIn(AddonEvent.EVENT_POST_REMOVE, CDNJSAddon.events)
         self.assertIn(AddonEvent.EVENT_POST_UPDATE, CDNJSAddon.events)
         self.assertNotIn(AddonEvent.EVENT_COMPONENT_UPDATE, CDNJSAddon.events)
+
+    @tempdir_setting("LOCALIZE_CDN_PATH")
+    @override_settings(LOCALIZE_CDN_URL="http://localhost/")
+    def test_extract_is_queued_after_commit(self) -> None:
+        addon = self.create_addon(
+            component=self.component,
+            configuration={
+                "threshold": 0,
+                "files": "html/en.html",
+                "cookie_name": "django_languages",
+                "css_selector": "*",
+            },
+            run=False,
+        )
+
+        with patch("weblate.addons.cdn.cdn_parse_html.delay_on_commit") as mocked_delay:
+            outcome = addon.daily_component(self.component, activity_log_id=123)
+
+        mocked_delay.assert_called_once_with(
+            addon.instance.id,
+            self.component.id,
+            activity_log_id=123,
+        )
+        self.assertEqual(outcome, AddonEventOutcome.pending())
+
+    @tempdir_setting("LOCALIZE_CDN_PATH")
+    @override_settings(LOCALIZE_CDN_URL="http://localhost/")
+    def test_extract_exception_updates_activity_log(self) -> None:
+        addon = self.create_addon(
+            component=self.component,
+            configuration={
+                "threshold": 0,
+                "files": "empty.html",
+                "cookie_name": "django_languages",
+                "css_selector": "*",
+            },
+            run=False,
+        )
+        activity = AddonActivityLog.objects.create(
+            addon=addon.instance,
+            component=self.component,
+            event=AddonEvent.EVENT_DAILY,
+            status=AddonActivityLog.Status.PENDING,
+        )
+
+        with (
+            patch("weblate.addons.tasks.read_component_file", return_value=""),
+            patch("weblate.utils.errors.report_error"),
+        ):
+            task_result = cdn_parse_html.apply(
+                args=(addon.instance.id, self.component.id),
+                kwargs={"activity_log_id": activity.id},
+                throw=False,
+            )
+
+        self.assertTrue(task_result.failed())
+        self.assertIn("Document is empty", str(task_result.result))
+        activity.refresh_from_db()
+        self.assertEqual(activity.status, AddonActivityLog.Status.ERROR)
+        self.assertIn("Document is empty", activity.details["result"])
 
     @override_settings(
         ALLOWED_ASSET_DOMAINS=["*"],
@@ -7530,6 +8363,7 @@ class CDNJSAddonTest(ViewTestCase):
         "weblate.utils.outbound.socket.getaddrinfo",
         return_value=[(0, 0, 0, "", ("127.0.0.1", 443))],
     )
+    @http_mock.activate
     def test_form_rejects_private_remote_file_before_request(
         self, mocked_getaddrinfo
     ) -> None:
@@ -7544,12 +8378,11 @@ class CDNJSAddonTest(ViewTestCase):
             },
         )
 
-        self.assertIsNotNone(form)
-        with patch("requests.sessions.Session.request") as mocked_request:
-            self.assertFalse(form.is_valid())
+        assert form is not None
+        self.assertFalse(form.is_valid())
 
         mocked_getaddrinfo.assert_called_once_with("private.example.com", None, type=1)
-        mocked_request.assert_not_called()
+        self.assertEqual(len(http_mock.calls), 0)
         self.assertIn("internal or non-public address", str(form.errors["files"]))
 
     @tempdir_setting("LOCALIZE_CDN_PATH")
@@ -7559,7 +8392,7 @@ class CDNJSAddonTest(ViewTestCase):
         self.assertTrue(CDNJSAddon.can_install(component=self.component))
 
         # Install addon
-        addon = CDNJSAddon.create(
+        addon = self.create_addon(
             component=self.component,
             configuration={
                 "threshold": 0,
@@ -7605,7 +8438,7 @@ class CDNJSAddonTest(ViewTestCase):
         )
 
         # Install addon
-        CDNJSAddon.create(
+        self.create_addon(
             component=self.component,
             configuration={
                 "threshold": 0,
@@ -7622,11 +8455,67 @@ class CDNJSAddonTest(ViewTestCase):
 
     @tempdir_setting("LOCALIZE_CDN_PATH")
     @override_settings(LOCALIZE_CDN_URL="http://localhost/")
+    def test_extract_reads_streamed_remote_html(self) -> None:
+        addon = self.create_addon(
+            component=self.component,
+            configuration={
+                "threshold": 0,
+                "files": "https://cdn.example.com/messages.html",
+                "cookie_name": "django_languages",
+                "css_selector": ".l10n",
+            },
+            run=False,
+        )
+        response = httpx2.Response(
+            200,
+            stream=httpx2.ByteStream(
+                b"<html><body><div class='l10n'>Remote string</div></body></html>"
+            ),
+        )
+
+        with patch(
+            "weblate.addons.tasks.open_restricted_asset_url",
+            return_value=contextlib.nullcontext(response),
+        ):
+            errors = parse_cdn_html(addon.instance, self.component)
+
+        self.assertEqual(errors, [])
+        self.assertTrue(
+            self.component.source_translation.unit_set.filter(
+                source="Remote string"
+            ).exists()
+        )
+
+    @tempdir_setting("LOCALIZE_CDN_PATH")
+    @override_settings(LOCALIZE_CDN_URL="http://localhost/")
+    def test_extract_handles_remote_http_error(self) -> None:
+        addon = self.create_addon(
+            component=self.component,
+            configuration={
+                "threshold": 0,
+                "files": "https://cdn.example.com/messages.html",
+                "cookie_name": "django_languages",
+                "css_selector": ".l10n",
+            },
+            run=False,
+        )
+
+        with patch(
+            "weblate.addons.tasks.open_restricted_asset_url",
+            side_effect=httpx2.ConnectError("CDN unavailable"),
+        ):
+            errors = parse_cdn_html(addon.instance, self.component)
+
+        self.assertEqual(len(errors), 1)
+        self.assertIn("CDN unavailable", errors[0]["error"])
+
+    @tempdir_setting("LOCALIZE_CDN_PATH")
+    @override_settings(LOCALIZE_CDN_URL="http://localhost/")
     def test_extract_post_update(self) -> None:
         self.assertEqual(
             Unit.objects.filter(translation__component=self.component).count(), 8
         )
-        addon = CDNJSAddon.create(
+        addon = self.create_addon(
             component=self.component,
             configuration={
                 "threshold": 0,
@@ -7637,7 +8526,8 @@ class CDNJSAddonTest(ViewTestCase):
             run=False,
         )
 
-        addon.post_update(self.component, "", False, [])
+        with self.captureOnCommitCallbacks(execute=True):
+            addon.post_update(self.component, "", False, [])
 
         self.assertEqual(
             Unit.objects.filter(translation__component=self.component).count(), 14
@@ -7653,7 +8543,7 @@ class CDNJSAddonTest(ViewTestCase):
         )
 
         # Install addon
-        CDNJSAddon.create(
+        self.create_addon(
             component=self.component,
             configuration={
                 "threshold": 0,
@@ -7679,7 +8569,7 @@ class CDNJSAddonTest(ViewTestCase):
             Unit.objects.filter(translation__component=self.component).count(), 8
         )
 
-        CDNJSAddon.create(
+        self.create_addon(
             component=self.component,
             configuration={
                 "threshold": 0,
@@ -7706,7 +8596,7 @@ class CDNJSAddonTest(ViewTestCase):
             Unit.objects.filter(translation__component=self.component).count(), 8
         )
 
-        CDNJSAddon.create(
+        self.create_addon(
             component=self.component,
             configuration={
                 "threshold": 0,
@@ -7722,7 +8612,7 @@ class CDNJSAddonTest(ViewTestCase):
         alert = self.component.alert_set.get(name="CDNAddonError")
         self.assertIn("domain is not allowed", alert.details["occurrences"][0]["error"])
 
-    @responses.activate
+    @http_mock.activate
     @tempdir_setting("LOCALIZE_CDN_PATH")
     @override_settings(
         LOCALIZE_CDN_URL="http://localhost/", ALLOWED_ASSET_DOMAINS=[".allowed.com"]
@@ -7741,20 +8631,20 @@ class CDNJSAddonTest(ViewTestCase):
             Unit.objects.filter(translation__component=self.component).count(), 8
         )
 
-        responses.add(
-            responses.GET,
+        http_mock.register(
+            "GET",
             "https://cdn.allowed.com/messages.html",
-            status=302,
+            status_code=302,
             headers={"Location": "https://blocked.example.com/messages.html"},
         )
-        responses.add(
-            responses.GET,
+        http_mock.register(
+            "GET",
             "https://blocked.example.com/messages.html",
-            status=200,
-            body="<html><body><div class='l10n'>Blocked</div></body></html>",
+            status_code=200,
+            text="<html><body><div class='l10n'>Blocked</div></body></html>",
         )
 
-        CDNJSAddon.create(
+        self.create_addon(
             component=self.component,
             configuration={
                 "threshold": 0,
@@ -7771,10 +8661,10 @@ class CDNJSAddonTest(ViewTestCase):
         self.assertIn("domain is not allowed", alert.details["occurrences"][0]["error"])
         self.assertNotIn(
             "https://blocked.example.com/messages.html",
-            [call.request.url for call in responses.calls],
+            [call.request.url for call in http_mock.calls],
         )
 
-    @responses.activate
+    @http_mock.activate
     @tempdir_setting("LOCALIZE_CDN_PATH")
     @override_settings(LOCALIZE_CDN_URL="http://localhost/")
     @patch(
@@ -7787,14 +8677,14 @@ class CDNJSAddonTest(ViewTestCase):
         self.assertEqual(
             Unit.objects.filter(translation__component=self.component).count(), 8
         )
-        responses.add(
-            responses.GET,
+        http_mock.register(
+            "GET",
             "https://private.example.com/messages.html",
-            status=200,
-            body="<html><body><div class='l10n'>Private</div></body></html>",
+            status_code=200,
+            text="<html><body><div class='l10n'>Private</div></body></html>",
         )
 
-        CDNJSAddon.create(
+        self.create_addon(
             component=self.component,
             configuration={
                 "threshold": 0,
@@ -7808,13 +8698,13 @@ class CDNJSAddonTest(ViewTestCase):
             Unit.objects.filter(translation__component=self.component).count(), 8
         )
         self.assertGreaterEqual(mocked_getaddrinfo.call_count, 1)
-        self.assertEqual(len(responses.calls), 0)
+        self.assertEqual(len(http_mock.calls), 0)
         alert = self.component.alert_set.get(name="CDNAddonError")
         self.assertIn(
             "internal or non-public address", alert.details["occurrences"][0]["error"]
         )
 
-    @responses.activate
+    @http_mock.activate
     @tempdir_setting("LOCALIZE_CDN_PATH")
     @override_settings(LOCALIZE_CDN_URL="http://localhost/")
     @patch("weblate.utils.requests._get_response_peer_ip", return_value="93.184.216.34")
@@ -7834,20 +8724,20 @@ class CDNJSAddonTest(ViewTestCase):
         self.assertEqual(
             Unit.objects.filter(translation__component=self.component).count(), 8
         )
-        responses.add(
-            responses.GET,
+        http_mock.register(
+            "GET",
             "https://public.example.com/messages.html",
-            status=302,
+            status_code=302,
             headers={"Location": "https://private.example.com/messages.html"},
         )
-        responses.add(
-            responses.GET,
+        http_mock.register(
+            "GET",
             "https://private.example.com/messages.html",
-            status=200,
-            body="<html><body><div class='l10n'>Private</div></body></html>",
+            status_code=200,
+            text="<html><body><div class='l10n'>Private</div></body></html>",
         )
 
-        CDNJSAddon.create(
+        self.create_addon(
             component=self.component,
             configuration={
                 "threshold": 0,
@@ -7868,10 +8758,10 @@ class CDNJSAddonTest(ViewTestCase):
         )
         self.assertNotIn(
             "https://private.example.com/messages.html",
-            [call.request.url for call in responses.calls],
+            [call.request.url for call in http_mock.calls],
         )
 
-    @responses.activate
+    @http_mock.activate
     @tempdir_setting("LOCALIZE_CDN_PATH")
     @override_settings(
         LOCALIZE_CDN_URL="http://localhost/",
@@ -7887,14 +8777,14 @@ class CDNJSAddonTest(ViewTestCase):
         self.assertEqual(
             Unit.objects.filter(translation__component=self.component).count(), 8
         )
-        responses.add(
-            responses.GET,
+        http_mock.register(
+            "GET",
             "https://private.example.com/messages.html",
-            status=200,
-            body="<html><body><div class='l10n'>Allowed private</div></body></html>",
+            status_code=200,
+            text="<html><body><div class='l10n'>Allowed private</div></body></html>",
         )
 
-        CDNJSAddon.create(
+        self.create_addon(
             component=self.component,
             configuration={
                 "threshold": 0,
@@ -8175,8 +9065,16 @@ class SiteWideAddonsTest(ViewTestCase):
 
         response = self.client.get(detail_url)
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("manage"))
+        self.assertContains(response, reverse("manage-addons"))
+        self.assertContains(response, detail_url)
+        self.assertContains(response, logs_url)
         response = self.client.get(logs_url)
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("manage"))
+        self.assertContains(response, reverse("manage-addons"))
+        self.assertContains(response, detail_url)
+        self.assertContains(response, logs_url)
 
     def test_gettext(self) -> None:
         MsgmergeAddon.create()
@@ -8255,7 +9153,49 @@ class TasksTest(TestCase):
         cleanup_addon_activity_log()
 
 
-class BaseWebhookTests:
+class WebhookDeliveryTest(SimpleTestCase):
+    def test_transport_errors(self) -> None:
+        storage = MagicMock()
+        storage.configuration = {"webhook_url": "https://example.com/webhooks"}
+        addon = WebhookAddon(storage)
+        request = httpx2.Request("POST", storage.configuration["webhook_url"])
+        for error_class in (
+            httpx2.ConnectError,
+            httpx2.ConnectTimeout,
+            httpx2.ProxyError,
+            httpx2.ReadError,
+            httpx2.ReadTimeout,
+            httpx2.RemoteProtocolError,
+        ):
+            with self.subTest(error_class=error_class):
+                error = error_class("Webhook delivery failed", request=request)
+                with (
+                    patch(
+                        "weblate.addons.webhooks.fetch_validated_url",
+                        side_effect=error,
+                    ),
+                    self.assertRaisesMessage(
+                        MessageNotDeliveredError,
+                        "Unable to deliver webhook: could not connect to the remote server.",
+                    ) as raised,
+                ):
+                    addon.send_message(MagicMock(spec=Change), {}, {})
+
+                self.assertIs(raised.exception.__cause__, error)
+
+
+if TYPE_CHECKING:
+
+    class _WebhookTestsTypingBase(ViewTestCase):
+        pass
+
+else:
+
+    class _WebhookTestsTypingBase:
+        pass
+
+
+class BaseWebhookTests(_WebhookTestsTypingBase):
     addon_configuration: ClassVar[dict]
     WEBHOOK_CLS: type[BaseAddon]
     WEBHOOK_URL: str
@@ -8269,19 +9209,30 @@ class BaseWebhookTests:
         self.addon_configuration["event_filter"] = CHANGE_EVENT_FILTER_CUSTOM
 
     def count_requests(self) -> int:
-        return len(responses.calls)
+        return len(http_mock.calls)
 
     def reset_calls(self) -> None:
-        responses.calls.reset()
+        http_mock.calls.clear()
 
     def do_translation_added_test(
-        self, response_code=None, expected_calls: int = 1, **responses_kwargs
+        self,
+        response_code: int = 200,
+        expected_calls: int = 1,
+        *,
+        content: bytes | None = None,
+        exception: BaseException | None = None,
     ) -> None:
         """Install addon, edit unit and assert outgoing calls."""
         self.WEBHOOK_CLS.create(configuration=self.addon_configuration)
-        if response_code:
-            responses_kwargs |= {"status": response_code}
-        responses.add(responses.POST, self.WEBHOOK_URL, **responses_kwargs)
+        if exception is None:
+            http_mock.register(
+                "POST",
+                self.WEBHOOK_URL,
+                status_code=response_code,
+                content=content,
+            )
+        else:
+            http_mock.register_exception("POST", self.WEBHOOK_URL, exception)
 
         with self.captureOnCommitCallbacks(execute=True):
             self.edit_unit(
@@ -8294,7 +9245,7 @@ class BaseWebhookTests:
             )  # triggers ActionEvents.STRING_REMOVE event
         self.assertEqual(self.count_requests(), expected_calls)
 
-    @responses.activate
+    @http_mock.activate
     def test_bulk_changes(self) -> None:
         """Test bulk change create via the propagate() method."""
         # create another component in project with same units as self.component
@@ -8308,14 +9259,14 @@ class BaseWebhookTests:
             configuration=self.addon_configuration, project=self.project
         )
         self.component.drop_addons_cache()
-        responses.add(responses.POST, self.WEBHOOK_URL, status=200)
+        http_mock.register("POST", self.WEBHOOK_URL, status_code=200)
 
         # create translation for unit and similar units across project
         with self.captureOnCommitCallbacks(execute=True):
             self.change_unit("Nazdar svete!\n", "Hello, world!\n", "cs")
         self.assertEqual(self.count_requests(), 2)
 
-    @responses.activate
+    @http_mock.activate
     def test_translation_added(self) -> None:
         """Test translation added and translation edited action change."""
         self.addon_configuration["events"].append(ActionEvents.CHANGE)
@@ -8325,13 +9276,13 @@ class BaseWebhookTests:
             self.edit_unit("Hello, world!\n", "Nazdar svete edit!\n")
         self.assertEqual(self.count_requests(), 1)
 
-    @responses.activate
+    @http_mock.activate
     def test_all_events(self) -> None:
         """Test processing every change action without event filtering."""
         self.addon_configuration["event_filter"] = CHANGE_EVENT_FILTER_ALL
         self.do_translation_added_test(response_code=200, expected_calls=2)
 
-    @responses.activate
+    @http_mock.activate
     def test_content_events(self) -> None:
         """Test processing translation content events preset."""
         self.assertIn(ActionEvents.NEW, ACTIONS_CONTENT)
@@ -8340,7 +9291,7 @@ class BaseWebhookTests:
         self.addon_configuration["events"] = []
         self.do_translation_added_test(response_code=200)
 
-    @responses.activate
+    @http_mock.activate
     def test_announcement(self) -> None:
         """Test project and site wide events."""
         self.addon_configuration["events"].append(ActionEvents.ANNOUNCEMENT)
@@ -8348,6 +9299,7 @@ class BaseWebhookTests:
         self.WEBHOOK_CLS.create(
             configuration=self.addon_configuration, project=self.project
         )
+        http_mock.register("POST", self.WEBHOOK_URL, status_code=200)
 
         self.reset_calls()
         with self.captureOnCommitCallbacks(execute=True):
@@ -8363,7 +9315,7 @@ class BaseWebhookTests:
         # Both site-wide and project-wide add-ons should receive this
         self.assertEqual(self.count_requests(), 2)
 
-    @responses.activate
+    @http_mock.activate
     def test_component_scopes(self) -> None:
         """Test webhook addon installed at component level."""
         secondary_url = f"{self.WEBHOOK_URL}-2"
@@ -8377,8 +9329,8 @@ class BaseWebhookTests:
         self.WEBHOOK_CLS.create(configuration=config1, component=component1)
         self.WEBHOOK_CLS.create(configuration=config2, component=component2)
 
-        resp1 = responses.post(self.WEBHOOK_URL, status=200)
-        resp2 = responses.post(secondary_url, status=200)
+        resp1 = http_mock.register("POST", self.WEBHOOK_URL, status_code=200)
+        resp2 = http_mock.register("POST", secondary_url, status_code=200)
         translation1 = self.get_translation()
         translation2 = component2.translation_set.get(language__code="cs")
 
@@ -8400,7 +9352,7 @@ class BaseWebhookTests:
         self.assertEqual(len(resp1.calls), 1)
         self.assertEqual(len(resp2.calls), 1)
 
-    @responses.activate
+    @http_mock.activate
     def test_project_scopes(self) -> None:
         """Test webhook addon installed at project level."""
         secondary_url = f"{self.WEBHOOK_URL}-2"
@@ -8421,8 +9373,8 @@ class BaseWebhookTests:
         self.WEBHOOK_CLS.create(configuration=config_a, project=project_a)
         self.WEBHOOK_CLS.create(configuration=config_b, project=project_b)
 
-        resp_a = responses.post(self.WEBHOOK_URL, status=200)
-        resp_b = responses.post(secondary_url, status=200)
+        resp_a = http_mock.register("POST", self.WEBHOOK_URL, status_code=200)
+        resp_b = http_mock.register("POST", secondary_url, status_code=200)
 
         translation_a1 = component_a1.translation_set.get(language__code="cs")
         translation_a2 = component_a2.translation_set.get(language__code="cs")
@@ -8450,7 +9402,7 @@ class BaseWebhookTests:
         self.assertEqual(len(resp_a.calls), 2)
         self.assertEqual(len(resp_b.calls), 1)
 
-    @responses.activate
+    @http_mock.activate
     def test_site_wide_scope(self) -> None:
         """Test webhook addon installed site-wide."""
         project_b = self.create_project(name="Test 2", slug="project2")
@@ -8459,7 +9411,7 @@ class BaseWebhookTests:
         )
 
         self.WEBHOOK_CLS.create(configuration=self.addon_configuration)
-        responses.add(responses.POST, self.WEBHOOK_URL, status=200)
+        http_mock.register("POST", self.WEBHOOK_URL, status_code=200)
 
         translation_a1 = self.get_translation()
         translation_b1 = component_b1.translation_set.get(language__code="cs")
@@ -8474,10 +9426,17 @@ class BaseWebhookTests:
 
         self.assertEqual(self.count_requests(), 2)
 
-    @responses.activate
-    def test_connection_error(self) -> None:
+    @http_mock.activate
+    @patch(
+        "weblate.utils.outbound.socket.getaddrinfo",
+        return_value=[(0, 0, 0, "", ("93.184.216.34", 443))],
+    )
+    def test_connection_error(self, _mocked_getaddrinfo) -> None:
         """Test connection error when during message delivery."""
-        self.do_translation_added_test(body=requests.ConnectionError())
+        request = httpx2.Request("POST", self.WEBHOOK_URL)
+        self.do_translation_added_test(
+            exception=httpx2.ConnectError("Connection failed", request=request)
+        )
 
 
 class WebhooksAddonTest(BaseWebhookTests, ViewTestCase):
@@ -8491,55 +9450,53 @@ class WebhooksAddonTest(BaseWebhookTests, ViewTestCase):
         "events": [],
     }
 
-    @responses.activate
+    @http_mock.activate
     def test_invalid_response(self) -> None:
         """Test invalid response from client."""
         self.do_translation_added_test(response_code=301)
 
-    @responses.activate
+    @http_mock.activate
     def test_webhook_signature_prefix(self) -> None:
         """Test webhook signature features."""
         self.addon_configuration["secret"] = "whsec_secret-string"
         self.do_translation_added_test(response_code=200)
 
-        wh_request = responses.calls[0].request
+        wh_request = http_mock.calls[0].request
+        body, headers = get_webhook_request_data(wh_request)
         wh_utils = Webhook("whsec_secret-string")
-        wh_utils.verify(wh_request.body, wh_request.headers)
+        wh_utils.verify(body, headers)
 
         # This should be equivalent
         wh_utils = Webhook("secret-string")
-        wh_utils.verify(wh_request.body, wh_request.headers)
+        wh_utils.verify(body, headers)
 
         # Verify that different secret fails
         with self.assertRaises(WebhookVerificationError):
             wh_utils = Webhook("public-string")
-            wh_utils.verify(wh_request.body, wh_request.headers)
+            wh_utils.verify(body, headers)
 
-    @responses.activate
+    @http_mock.activate
     def test_webhook_signature(self) -> None:
         """Test webhook signature features."""
         self.addon_configuration["secret"] = "secret-string"
         self.do_translation_added_test(response_code=200)
 
-        wh_request = responses.calls[0].request
+        wh_request = http_mock.calls[0].request
+        body, wh_headers = get_webhook_request_data(wh_request)
         wh_utils = Webhook("secret-string")
 
         # valid request
-        wh_utils.verify(wh_request.body, wh_request.headers)
+        wh_utils.verify(body, wh_headers)
 
         # valid request with bytes
-        Webhook(base64.b64decode("secret-string")).verify(
-            wh_request.body, wh_request.headers
-        )
-
-        wh_headers = dict(wh_request.headers)
+        Webhook(base64.b64decode("secret-string")).verify(body, wh_headers)
 
         # valid request with multiple signatures (space separated)
         new_headers = wh_headers.copy()
         new_headers["webhook-signature"] = (
             f"v1,Ceo5qEr07ixe2NLpvHk3FH9bwy/WavXrAFQ/9tdO6mc= v2,Gur4pLd03kjn8RYtBm5eJ1aZx/CbVfSdTq/2gNhA8= {new_headers['webhook-signature']}"
         )
-        wh_utils.verify(wh_request.body, new_headers)
+        wh_utils.verify(body, new_headers)
 
         #  "Invalid Signature Headers"
         with self.assertRaises(WebhookVerificationError):
@@ -8547,23 +9504,23 @@ class WebhooksAddonTest(BaseWebhookTests, ViewTestCase):
             new_headers["webhook-signature"] = (
                 f"{new_headers['webhook-signature'][:-5]}xxxxx"
             )
-            wh_utils.verify(wh_request.body, new_headers)
+            wh_utils.verify(body, new_headers)
 
         #  "Missing required headers"
         with self.assertRaises(WebhookVerificationError):
             new_headers = wh_headers.copy()
             del new_headers["webhook-signature"]
-            wh_utils.verify(wh_request.body, new_headers)
+            wh_utils.verify(body, new_headers)
 
         #  "Invalid secret"
         with self.assertRaises(WebhookVerificationError):
-            Webhook("xxxx-xxxx-xxxx").verify(wh_request.body, wh_headers)
+            Webhook("xxxx-xxxx-xxxx").verify(body, wh_headers)
 
         #  "Invalid format of timestamp"
         with self.assertRaises(WebhookVerificationError):
             new_headers = wh_headers.copy()
             new_headers["webhook-timestamp"] = "NaN"
-            wh_utils.verify(wh_request.body, new_headers)
+            wh_utils.verify(body, new_headers)
 
         #  "Outdated headers timestamp"
         with self.assertRaises(WebhookVerificationError):
@@ -8571,7 +9528,7 @@ class WebhooksAddonTest(BaseWebhookTests, ViewTestCase):
             new_headers["webhook-timestamp"] = str(
                 (timezone.now() - timedelta(minutes=6)).timestamp()
             )
-            wh_utils.verify(wh_request.body, new_headers)
+            wh_utils.verify(body, new_headers)
 
         #  "Invalid future timestamp"
         with self.assertRaises(WebhookVerificationError):
@@ -8579,7 +9536,7 @@ class WebhooksAddonTest(BaseWebhookTests, ViewTestCase):
             new_headers["webhook-timestamp"] = str(
                 (timezone.now() + timedelta(minutes=6)).timestamp()
             )
-            wh_utils.verify(wh_request.body, new_headers)
+            wh_utils.verify(body, new_headers)
 
     def test_form(self) -> None:
         """Test WebhooksAddonForm."""
@@ -8693,7 +9650,11 @@ class WebhooksAddonTest(BaseWebhookTests, ViewTestCase):
             },
             follow=True,
         )
-        self.assertContains(response, "Installed 1 add-on")
+        self.assertEqual(
+            response.redirect_chain,
+            [(reverse("addon-detail", kwargs={"pk": addon.id}), 302)],
+        )
+        self.assertContains(response, "Configure add-on")
         addon.refresh_from_db()
         self.assertEqual(
             addon.configuration["event_filter"], CHANGE_EVENT_FILTER_CONTENT
@@ -8761,7 +9722,7 @@ class WebhooksAddonTest(BaseWebhookTests, ViewTestCase):
 
         self.assertContains(response, "Installed 1 add-on")
 
-    @responses.activate
+    @http_mock.activate
     def test_jsonschema_error(self) -> None:
         """Test payload schema validation error."""
         with patch(
@@ -8770,7 +9731,7 @@ class WebhooksAddonTest(BaseWebhookTests, ViewTestCase):
         ):
             self.do_translation_added_test(expected_calls=0)
 
-    @responses.activate
+    @http_mock.activate
     def test_category_in_payload(self) -> None:
         """Test webhook payload includes category field when available."""
         self.project.add_user(self.user, "Administration")
@@ -8796,7 +9757,7 @@ class WebhooksAddonTest(BaseWebhookTests, ViewTestCase):
         self.component.category = sub_category
         self.component.save()
 
-        responses.add(responses.POST, "https://example.com/webhooks", status=200)
+        http_mock.register("POST", "https://example.com/webhooks", status_code=200)
         with self.captureOnCommitCallbacks(execute=True):
             self.client.post(
                 reverse("rename", kwargs={"path": self.component.get_url_path()}),
@@ -8808,12 +9769,12 @@ class WebhooksAddonTest(BaseWebhookTests, ViewTestCase):
                 },
             )
 
-        request_body = json.loads(cast("bytes", responses.calls[0].request.body))
+        request_body = json.loads(http_mock.calls[0].request.content)
         self.assertIn("child-category", request_body["category"])
         self.assertIn("parent-category", request_body["category"])
         self.assertIn("sub-category", request_body["category"])
 
-    @responses.activate
+    @http_mock.activate
     @patch(
         "weblate.utils.outbound.socket.getaddrinfo",
         return_value=[(0, 0, 0, "", ("127.0.0.1", 80))],
@@ -8831,7 +9792,7 @@ class WebhooksAddonTest(BaseWebhookTests, ViewTestCase):
         activity_log = AddonActivityLog.objects.filter(
             addon__name=self.WEBHOOK_CLS.name
         ).latest("created")
-        self.assertTrue(activity_log.details["error"])
+        self.assertEqual(activity_log.status, AddonActivityLog.Status.ERROR)
         self.assertIn("result", activity_log.details)
         self.assertNotIsInstance(activity_log.details["result"], dict)
         self.assertIsInstance(activity_log.details["result"], str)
@@ -8847,10 +9808,12 @@ class SlackWebhooksAddonsTest(BaseWebhookTests, ViewTestCase):
         "events": [str(ActionEvents.NEW)],
     }
 
-    @responses.activate
+    @http_mock.activate
     def test_invalid_response(self) -> None:
         """Test invalid response from client."""
-        self.do_translation_added_test(response_code=410, body=b"channel_is_archived")
+        self.do_translation_added_test(
+            response_code=410, content=b"channel_is_archived"
+        )
 
 
 class FedoraMessagingPEMBlockTest(SimpleTestCase):
@@ -8865,7 +9828,7 @@ class FedoraMessagingPEMBlockTest(SimpleTestCase):
     def test_pem_block_labels_accept_multiple_blocks(self) -> None:
         cert = self.get_certificate()
 
-        labels = FedoraMessagingAddon._get_pem_block_labels(  # noqa: SLF001
+        labels = FedoraMessagingAddon._get_pem_block_labels(  # ruff: ignore[private-member-access]
             f"{cert}\n{cert}"
         )
 
@@ -8876,7 +9839,7 @@ class FedoraMessagingPEMBlockTest(SimpleTestCase):
             "-----END PRIVATE KEY-----" for _ in range(100)
         )
 
-        labels = FedoraMessagingAddon._get_pem_block_labels(value)  # noqa: SLF001
+        labels = FedoraMessagingAddon._get_pem_block_labels(value)  # ruff: ignore[private-member-access]
 
         self.assertEqual(labels, [])
 
@@ -8890,11 +9853,11 @@ class FedoraMessagingPEMBlockTest(SimpleTestCase):
             + f"\n{key}\n{cert}"
         )
 
-        labels = FedoraMessagingAddon._get_pem_block_labels(value)  # noqa: SLF001
+        labels = FedoraMessagingAddon._get_pem_block_labels(value)  # ruff: ignore[private-member-access]
 
         self.assertEqual(labels, ["CERTIFICATE", "PRIVATE KEY", "CERTIFICATE"])
         with self.assertRaisesMessage(ConfigurationException, "invalid certificate"):
-            FedoraMessagingAddon._validate_pem_certificates(  # noqa: SLF001
+            FedoraMessagingAddon._validate_pem_certificates(  # ruff: ignore[private-member-access]
                 value, "invalid certificate"
             )
 
@@ -8937,7 +9900,7 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
         self.mock_class = self.patcher.start()
 
     @staticmethod
-    def get_tls_configuration() -> dict[str, str]:
+    def get_tls_configuration() -> TLSConfiguration:
         cert = Path("weblate/trans/tests/data/saml.crt").read_text(encoding="utf-8")
         key = Path("weblate/trans/tests/data/saml.key").read_text(encoding="utf-8")
         return {
@@ -9218,8 +10181,8 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
         lock.__exit__.assert_called_once()
 
     def test_publish_message_success(self) -> None:
-        service = object()
-        fedora_messaging.api._twisted_service = service  # noqa: SLF001
+        service = MagicMock()
+        fedora_messaging.api._twisted_service = service  # ruff: ignore[private-member-access]
         self.addCleanup(setattr, fedora_messaging.api, "_twisted_service", None)
 
         with (
@@ -9243,35 +10206,35 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
             DEFAULT_FEDORA_MESSAGING_PUBLISH_TIMEOUT,
         )
         report_error.assert_not_called()
-        self.assertIs(fedora_messaging.api._twisted_service, service)  # noqa: SLF001
+        self.assertIs(fedora_messaging.api._twisted_service, service)  # ruff: ignore[private-member-access]
 
     def test_reset_fedora_messaging_service_stops_existing_service(self) -> None:
         service = MagicMock()
-        fedora_messaging.api._twisted_service = service  # noqa: SLF001
+        fedora_messaging.api._twisted_service = service  # ruff: ignore[private-member-access]
         self.addCleanup(setattr, fedora_messaging.api, "_twisted_service", None)
 
         with patch.object(
             FedoraMessagingAddon, "_stop_fedora_messaging_service"
         ) as stop_service:
-            result = FedoraMessagingAddon._reset_fedora_messaging_service()  # noqa: SLF001
+            result = FedoraMessagingAddon._reset_fedora_messaging_service()  # ruff: ignore[private-member-access]
 
         stop_service.assert_called_once_with(service.stopService)
         self.assertTrue(result)
-        self.assertIsNone(fedora_messaging.api._twisted_service)  # noqa: SLF001
+        self.assertIsNone(fedora_messaging.api._twisted_service)  # ruff: ignore[private-member-access]
 
     def test_reset_fedora_messaging_service_keeps_service_on_stop_failure(self) -> None:
         service = MagicMock()
-        fedora_messaging.api._twisted_service = service  # noqa: SLF001
+        fedora_messaging.api._twisted_service = service  # ruff: ignore[private-member-access]
         self.addCleanup(setattr, fedora_messaging.api, "_twisted_service", None)
 
         with patch.object(
             FedoraMessagingAddon, "_stop_fedora_messaging_service", return_value=False
         ) as stop_service:
-            result = FedoraMessagingAddon._reset_fedora_messaging_service()  # noqa: SLF001
+            result = FedoraMessagingAddon._reset_fedora_messaging_service()  # ruff: ignore[private-member-access]
 
         stop_service.assert_called_once_with(service.stopService)
         self.assertFalse(result)
-        self.assertIs(fedora_messaging.api._twisted_service, service)  # noqa: SLF001
+        self.assertIs(fedora_messaging.api._twisted_service, service)  # ruff: ignore[private-member-access]
 
     def test_stop_fedora_messaging_service_runs_in_reactor_and_waits(self) -> None:
         stop_service = MagicMock(return_value="stopped")
@@ -9285,7 +10248,7 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
             return wrapper
 
         with patch("crochet.run_in_reactor", side_effect=run_in_reactor):
-            stopped = FedoraMessagingAddon._stop_fedora_messaging_service(stop_service)  # noqa: SLF001
+            stopped = FedoraMessagingAddon._stop_fedora_messaging_service(stop_service)  # ruff: ignore[private-member-access]
 
         stop_service.assert_called_once_with()
         self.assertEqual(result.value, "stopped")
@@ -9312,7 +10275,7 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
             patch("crochet.run_in_reactor", side_effect=run_in_reactor),
             patch("weblate.addons.fedora_messaging.report_error") as report_error,
         ):
-            stopped = FedoraMessagingAddon._stop_fedora_messaging_service(stop_service)  # noqa: SLF001
+            stopped = FedoraMessagingAddon._stop_fedora_messaging_service(stop_service)  # ruff: ignore[private-member-access]
 
         stop_service.assert_called_once_with()
         self.assertEqual(result.value, "stopped")
@@ -9339,7 +10302,7 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
             patch("crochet.run_in_reactor", side_effect=run_in_reactor),
             patch("weblate.addons.fedora_messaging.report_error") as report_error,
         ):
-            stopped = FedoraMessagingAddon._stop_fedora_messaging_service(stop_service)  # noqa: SLF001
+            stopped = FedoraMessagingAddon._stop_fedora_messaging_service(stop_service)  # ruff: ignore[private-member-access]
 
         stop_service.assert_called_once_with()
         result.wait.assert_called_once_with(timeout=SERVICE_STOP_TIMEOUT)
@@ -9359,7 +10322,7 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
             jitter=0.119626565582,
         )
 
-        FedoraMessagingAddon._configure_fedora_messaging_publish_retries(  # noqa: SLF001
+        FedoraMessagingAddon._configure_fedora_messaging_publish_retries(  # ruff: ignore[private-member-access]
             SimpleNamespace(factory=factory), connection_attempts=4, retry_delay=6
         )
 
@@ -9375,7 +10338,7 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
     ) -> None:
         factory = SimpleNamespace()
 
-        FedoraMessagingAddon._configure_fedora_messaging_publish_retries(  # noqa: SLF001
+        FedoraMessagingAddon._configure_fedora_messaging_publish_retries(  # ruff: ignore[private-member-access]
             SimpleNamespace(factory=factory), connection_attempts=1, retry_delay=0
         )
 
@@ -9397,14 +10360,14 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
         )
 
         self.assertTrue(
-            FedoraMessagingAddon._is_fedora_messaging_service_stale(service)  # noqa: SLF001
+            FedoraMessagingAddon._is_fedora_messaging_service_stale(service)  # ruff: ignore[private-member-access]
         )
 
     def test_fedora_messaging_service_stale_when_stopped(self) -> None:
         service = SimpleNamespace(running=False)
 
         self.assertTrue(
-            FedoraMessagingAddon._is_fedora_messaging_service_stale(service)  # noqa: SLF001
+            FedoraMessagingAddon._is_fedora_messaging_service_stale(service)  # ruff: ignore[private-member-access]
         )
 
     def test_fedora_messaging_service_stale_when_factory_stopped(self) -> None:
@@ -9414,7 +10377,7 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
         )
 
         self.assertTrue(
-            FedoraMessagingAddon._is_fedora_messaging_service_stale(service)  # noqa: SLF001
+            FedoraMessagingAddon._is_fedora_messaging_service_stale(service)  # ruff: ignore[private-member-access]
         )
 
     def test_fedora_messaging_service_not_stale_with_pending_retry(self) -> None:
@@ -9430,14 +10393,14 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
         )
 
         self.assertFalse(
-            FedoraMessagingAddon._is_fedora_messaging_service_stale(service)  # noqa: SLF001
+            FedoraMessagingAddon._is_fedora_messaging_service_stale(service)  # ruff: ignore[private-member-access]
         )
 
     def test_prepare_fedora_messaging_service_resets_stale_service(self) -> None:
         self.prepare_service_patcher.stop()
-        stale_service = object()
+        stale_service = MagicMock()
         configured_service = SimpleNamespace(factory=SimpleNamespace())
-        fedora_messaging.api._twisted_service = stale_service  # noqa: SLF001
+        fedora_messaging.api._twisted_service = stale_service  # ruff: ignore[private-member-access]
         self.addCleanup(setattr, fedora_messaging.api, "_twisted_service", None)
         result = MagicMock()
 
@@ -9467,7 +10430,7 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
                 FedoraMessagingAddon, "_configure_fedora_messaging_publish_retries"
             ) as configure_retries,
         ):
-            FedoraMessagingAddon._prepare_fedora_messaging_service(  # noqa: SLF001
+            FedoraMessagingAddon._prepare_fedora_messaging_service(  # ruff: ignore[private-member-access]
                 connection_attempts=4, retry_delay=6
             )
 
@@ -9507,7 +10470,7 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
             ),
             self.assertRaises(crochet.TimeoutError),
         ):
-            FedoraMessagingAddon._prepare_fedora_messaging_service(  # noqa: SLF001
+            FedoraMessagingAddon._prepare_fedora_messaging_service(  # ruff: ignore[private-member-access]
                 connection_attempts=4, retry_delay=6
             )
 
@@ -9517,14 +10480,12 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
         init_service.assert_not_called()
 
     def test_first_publish_timeout_is_reported_and_resets_service(self) -> None:
-        service = object()
-        fedora_messaging.api._twisted_service = service  # noqa: SLF001
-        self.addCleanup(setattr, fedora_messaging.api, "_twisted_service", None)
         error = fedora_messaging_exceptions.PublishTimeout(
             "Publishing timed out after waiting 30 seconds."
         )
 
         with (
+            patch.object(fedora_messaging.api, "_twisted_service", object()),
             patch.object(FedoraMessagingAddon, "_prepare_fedora_messaging_service"),
             patch("fedora_messaging.api.publish", side_effect=error),
             patch("weblate.addons.fedora_messaging.cache.add", return_value=True),
@@ -9538,7 +10499,7 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
                 self.get_fedora_message(), self.addon_configuration["amqp_url"], None
             )
 
-        self.assertIsNone(fedora_messaging.api._twisted_service)  # noqa: SLF001
+        self.assertIsNone(fedora_messaging.api._twisted_service)  # ruff: ignore[private-member-access]
         report_error.assert_called_once_with(
             "Fedora Messaging publish failed",
             level="error",
@@ -9547,14 +10508,12 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
         )
 
     def test_repeated_publish_timeout_is_logged_and_resets_service(self) -> None:
-        service = object()
-        fedora_messaging.api._twisted_service = service  # noqa: SLF001
-        self.addCleanup(setattr, fedora_messaging.api, "_twisted_service", None)
         error = fedora_messaging_exceptions.PublishTimeout(
             "Publishing timed out after waiting 30 seconds."
         )
 
         with (
+            patch.object(fedora_messaging.api, "_twisted_service", object()),
             patch.object(FedoraMessagingAddon, "_prepare_fedora_messaging_service"),
             patch("fedora_messaging.api.publish", side_effect=error),
             patch("weblate.addons.fedora_messaging.add_breadcrumb") as add_breadcrumb,
@@ -9569,7 +10528,7 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
                 self.get_fedora_message(), self.addon_configuration["amqp_url"], None
             )
 
-        self.assertIsNone(fedora_messaging.api._twisted_service)  # noqa: SLF001
+        self.assertIsNone(fedora_messaging.api._twisted_service)  # ruff: ignore[private-member-access]
         report_error.assert_called_once_with(
             "Fedora Messaging publish failed",
             level="error",
@@ -9585,10 +10544,8 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
             self.assertNotIn("-----BEGIN PRIVATE KEY-----", str(value))
 
     def test_missing_publisher_is_reported_and_resets_service(self) -> None:
-        fedora_messaging.api._twisted_service = object()  # noqa: SLF001
-        self.addCleanup(setattr, fedora_messaging.api, "_twisted_service", None)
-
         with (
+            patch.object(fedora_messaging.api, "_twisted_service", object()),
             patch.object(FedoraMessagingAddon, "_prepare_fedora_messaging_service"),
             patch(
                 "fedora_messaging.api.publish",
@@ -9605,7 +10562,7 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
                 self.get_fedora_message(), self.addon_configuration["amqp_url"], None
             )
 
-        self.assertIsNone(fedora_messaging.api._twisted_service)  # noqa: SLF001
+        self.assertIsNone(fedora_messaging.api._twisted_service)  # ruff: ignore[private-member-access]
         report_error.assert_called_once_with(
             "Fedora Messaging publish failed",
             level="error",
@@ -9666,7 +10623,7 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
         activity_log = AddonActivityLog.objects.filter(
             addon__name=self.WEBHOOK_CLS.name
         ).latest("created")
-        self.assertTrue(activity_log.details["error"])
+        self.assertEqual(activity_log.status, AddonActivityLog.Status.ERROR)
         self.assertIn(
             "broker connection or delivery confirmation did not complete",
             activity_log.details["result"],
@@ -9694,8 +10651,12 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
 
     @tempdir_setting("CACHE_DIR")
     def test_tls_credentials_validation_keeps_configuration_fast_path(self) -> None:
-        configuration = {
-            key: value.rstrip() for key, value in self.get_tls_configuration().items()
+        original = self.get_tls_configuration()
+        configuration: TLSConfiguration = {
+            "amqp_url": original["amqp_url"].rstrip(),
+            "ca_cert": original["ca_cert"].rstrip(),
+            "client_key": original["client_key"].rstrip(),
+            "client_cert": original["client_cert"].rstrip(),
         }
 
         FedoraMessagingAddon.configure_fedora_messaging(
@@ -9794,7 +10755,7 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
         def configure_tls_parameters(parameters) -> None:
             self.assertEqual(parameters.host, "rabbitmq.example.com")
             self.assertEqual(parameters.port, 12345)
-            parameters._ssl_options = SimpleNamespace(  # noqa: SLF001
+            parameters._ssl_options = SimpleNamespace(  # ruff: ignore[private-member-access]
                 context=SimpleNamespace(), server_hostname=parameters.host
             )
 
@@ -9830,7 +10791,10 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
         tls_connection.bio_read.assert_called_once_with(2**15)
 
     def test_broker_tls_probe_protocol_matches_twisted_factory_shape(self) -> None:
-        from twisted.internet import ssl as twisted_ssl  # noqa: PLC0415
+        # ruff: ignore[import-outside-top-level]
+        from twisted.internet import (
+            ssl as twisted_ssl,
+        )
 
         tls_context_factory = twisted_ssl.optionsForClientTLS("rabbitmq.example.com")
 
@@ -9852,7 +10816,7 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
         ]
         tls_context_factory = self.get_broker_tls_context_factory(tls_connection)
 
-        FedoraMessagingAddon._perform_broker_tls_handshake(  # noqa: SLF001
+        FedoraMessagingAddon._perform_broker_tls_handshake(  # ruff: ignore[private-member-access]
             broker_connection, tls_context_factory, timeout=7
         )
 
@@ -9877,7 +10841,7 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
             ),
             self.assertRaisesMessage(TimeoutError, "TLS handshake timed out"),
         ):
-            FedoraMessagingAddon._perform_broker_tls_handshake(  # noqa: SLF001
+            FedoraMessagingAddon._perform_broker_tls_handshake(  # ruff: ignore[private-member-access]
                 broker_connection, tls_context_factory, timeout=7
             )
 
@@ -9893,7 +10857,7 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
         tls_context_factory = self.get_broker_tls_context_factory(tls_connection)
 
         def configure_tls_parameters(parameters) -> None:
-            parameters._ssl_options = SimpleNamespace(  # noqa: SLF001
+            parameters._ssl_options = SimpleNamespace(  # ruff: ignore[private-member-access]
                 context=SimpleNamespace(), server_hostname=parameters.host
             )
 
@@ -9925,7 +10889,7 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
         tls_context_factory = self.get_broker_tls_context_factory()
 
         def configure_tls_parameters(parameters) -> None:
-            parameters._ssl_options = SimpleNamespace(  # noqa: SLF001
+            parameters._ssl_options = SimpleNamespace(  # ruff: ignore[private-member-access]
                 context=SimpleNamespace(), server_hostname=parameters.host
             )
 
@@ -9953,7 +10917,7 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
 
     def test_broker_tls_validation_reports_connection_error(self) -> None:
         def configure_tls_parameters(parameters) -> None:
-            parameters._ssl_options = SimpleNamespace(  # noqa: SLF001
+            parameters._ssl_options = SimpleNamespace(  # ruff: ignore[private-member-access]
                 context=SimpleNamespace(),
                 server_hostname=parameters.host,
             )
@@ -10007,7 +10971,7 @@ class FedoraMessagingAddonTestCase(BaseWebhookTests, ViewTestCase):
     @override_settings(WEBHOOK_RESTRICT_PRIVATE=False)
     @tempdir_setting("CACHE_DIR")
     def test_form_rejects_certificate_dump(self) -> None:
-        configuration: dict[str, object] = self.get_tls_configuration()
+        configuration: dict[str, object] = {**self.get_tls_configuration()}
         configuration["client_cert"] = (
             f"Certificate:\n    Data:\n{configuration['client_cert']}"
         )
@@ -10382,6 +11346,11 @@ class TestCommand(ComponentTestCase):
         self.assertIn(".. _addon-choice-engines:", parameters_content)
         self.assertIn(".. _change-actions:", parameters_content)
         self.assertIn("Identifier", parameters_content)
+        self.assertIn("Description", parameters_content)
         self.assertIn("``resource_updated``", parameters_content)
+        self.assertIn(
+            "A translation file was synchronized with its repository.",
+            parameters_content,
+        )
         self.assertNotIn("Built-in add-ons", parameters_content)
         self.assertNotIn("Events that trigger add-ons", parameters_content)

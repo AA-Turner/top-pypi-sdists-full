@@ -220,6 +220,17 @@ _SNOWFLAKE_UNLOAD_STORAGE_INTEGRATION_NAME = "SNOWFLAKE_UNLOAD_STORAGE_INTEGRATI
 _SNOWFLAKE_UNLOAD_EXTERNAL_LOCATION_NAME = "SNOWFLAKE_UNLOAD_EXTERNAL_LOCATION"
 
 
+def _load_integration_engine_args(name: Optional[str], override: Optional[Mapping[str, str]]) -> dict[str, Any]:
+    """Read a named integration's ENGINE_ARGUMENTS JSON, i.e. the config set in the dashboard."""
+    raw = load_integration_variable(integration_name=name, name="ENGINE_ARGUMENTS", override=override)
+    if raw is None:
+        return {}
+    engine_args = json.loads(raw)
+    if not isinstance(engine_args, dict):
+        raise ValueError(f"ENGINE_ARGUMENTS for integration {name!r} must be a JSON object")
+    return cast("dict[str, Any]", engine_args)
+
+
 class SnowflakeCancellableQuery(CancellableQuery):
     def __init__(self):
         super().__init__()
@@ -321,9 +332,17 @@ class SnowflakeSourceImpl(BaseSQLSource):
                 encryption_algorithm=serialization.NoEncryption(),
             )
             connect_args = connect_args | {"private_key": private_key_bytes}
+        # BaseSQLSource merges the named integration's ENGINE_ARGUMENTS with setdefault, but it
+        # runs after this, so any default set here would beat the dashboard's config. Fold that
+        # config in first: explicit argument > dashboard config > default.
+        engine_args = {
+            **_load_integration_engine_args(name=name, override=integration_variable_override),
+            **engine_args,
+        }
         engine_args.setdefault("pool_size", 20)
         engine_args.setdefault("max_overflow", 60)
-        engine_args.setdefault("connect_args", connect_args)
+        # connect_args merges per key, so configuring one arg does not drop the defaults above.
+        engine_args["connect_args"] = connect_args | dict(engine_args.get("connect_args") or {})
 
         BaseSQLSource.__init__(
             self, name=name, engine_args=engine_args, async_engine_args={}, permission_tags=permission_tags

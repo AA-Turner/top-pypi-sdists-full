@@ -45,7 +45,7 @@ class SpanSearchParams(TypedDict, total=False):
     """Filter by application variant IDs"""
 
     assessment_types: SequenceNotStr[str]
-    """Filter spans by traces that have assessments of these types"""
+    """Filter to spans that have at least one assessment of these types"""
 
     excluded_span_ids: SequenceNotStr[str]
     """List of span IDs to exclude from results"""
@@ -60,13 +60,24 @@ class SpanSearchParams(TypedDict, total=False):
     """Filter by group ID"""
 
     max_duration_ms: int
-    """Maximum span duration in milliseconds (inclusive)"""
+    """Maximum span duration in milliseconds (inclusive).
+
+    An in-flight span with no end time has no known duration and is treated as
+    unbounded, so it never falls within a maximum and is excluded.
+    """
 
     min_duration_ms: int
-    """Minimum span duration in milliseconds (inclusive)"""
+    """Minimum span duration in milliseconds (inclusive).
+
+    An in-flight span with no end time has no known duration and is treated as
+    unbounded, so it matches every minimum.
+    """
 
     names: SequenceNotStr[str]
     """Filter by trace/span name"""
+
+    parent_ids: SequenceNotStr[str]
+    """Filter to the direct children of any of these parent span IDs"""
 
     parents_only: bool
     """Only fetch spans that are the top-level (ie. have no parent_id)"""
@@ -84,6 +95,11 @@ class SpanSearchParams(TypedDict, total=False):
     """Filter on span status"""
 
     trace_ids: SequenceNotStr[str]
-    """Filter by trace IDs"""
+    """Filter by trace IDs.
+
+    The combined count of trace_ids, span_ids, excluded_span_ids,
+    excluded_trace_ids, and parent_ids may not exceed 10000. A request over that
+    returns 422.
+    """
 
     types: List[SpanType]

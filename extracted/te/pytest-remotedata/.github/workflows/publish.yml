@@ -2,6 +2,11 @@ name: Release
 
 on:
   pull_request:
+    # We also want this workflow triggered if the 'Build wheels' label is added
+    # or present when PR is updated
+    types:
+      - synchronize
+      - labeled
   push:
     tags:
       - '*'
@@ -13,12 +18,12 @@ jobs:
     if: ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags')) || contains(github.event.pull_request.labels.*.name, 'Build wheels'))
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       with:
         fetch-depth: 0
-    - uses: actions/setup-python@v4
+    - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
       with:
-        python-version: 3.8
+        python-version: 3.9
 
     - name: Install python-build and twine
       run: python -m pip install pip build "twine>=3.3" -U
@@ -41,7 +46,7 @@ jobs:
 
     - name: Publish distribution 📦 to PyPI
       if: startsWith(github.ref, 'refs/tags')
-      uses: pypa/gh-action-pypi-publish@release/v1
+      uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # v1.14.0
       with:
         user: __token__
         password: ${{ secrets.pypi_password }}

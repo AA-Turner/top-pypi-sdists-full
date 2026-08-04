@@ -66,18 +66,35 @@ class DeployResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentexCloudDeploy:
-        """Create a new deployment.
+        """
+        Deploy a successfully built agent image to Kubernetes as a Helm release.
 
-        Submits a deployment request.
+        Takes a completed build (referenced by `build_id`, or by `image_name` +
+        `image_tag`) together with the agent manifest and environment config, then
+        starts an asynchronous Temporal workflow that provisions the agent as a Helm
+        release. The call returns immediately with the deployment record in `PENDING`
+        status — it does not wait for the release to become healthy; poll
+        `GET /v5/agentex/deployments/{deployment_id}` for status and Kubernetes events
+        and `GET /v5/agentex/deployments/{deployment_id}/logs` for progress. This is the
+        deploy counterpart to `POST /v5/agentex/builds`: a build produces the container
+        image, a deployment runs that image. The referenced build must have finished
+        successfully, and the manifest's agent name must match the build's agent.
 
-        The deployment will:
-
-        1. Parse and merge configuration files
-        2. Create a Kubernetes Job running helm install
-        3. Wait for deployment completion
-        4. Return results
+        Set `preview=True` for an ephemeral deployment: it gets a globally unique Helm
+        release name (so concurrent redeploys never collide), an optional
+        `preview_label` for grouping, and an expiry (`expires_at`, defaulting to 8 hours
+        from now); `preview_label` and `expires_at` are rejected on non-preview deploys.
+        A non-preview (production) deploy instead supersedes any prior active deployment
+        that shares its Helm release name. Fails with a client error if the build is
+        missing or not in a successful state, if the manifest or environment YAML is
+        invalid or their agent names disagree, or if a secret referenced by the manifest
+        does not exist.
 
         Args:
+          environment_config: YAML content of environment configuration from the environment config file.
+
+          manifest_file: YAML content of manifest configuration.
+
           build_id: The build_id of the cloud build. Required if image_name and image_tag are not
               provided.
 
@@ -141,7 +158,16 @@ class DeployResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentexCloudDeploy:
         """
-        Get a deployment by its ID.
+        Get a single agent deployment by ID, including its current status and Kubernetes
+        events.
+
+        Returns the deployment record with its latest status and the associated
+        Kubernetes events (`deploy_events`) observed for the release, which are useful
+        for diagnosing why a deployment is still pending or unhealthy. Poll this after
+        `POST /v5/agentex/deployments` to track the asynchronous deploy to completion.
+        For the incremental log output rather than status and events, use
+        `GET /v5/agentex/deployments/{deployment_id}/logs`. Returns 404 if no deployment
+        with this ID exists for the caller's account.
 
         Args:
           extra_headers: Send extra headers
@@ -181,7 +207,15 @@ class DeployResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPage[AgentexCloudDeploy]:
         """
-        List all deployments with pagination and optional filters.
+        List the account's agent deployments, with pagination and optional filters.
+
+        Returns the deployments the caller is authorized to read. Optionally filter by
+        `build_id`, by `agent_name` (matched through each deployment's associated
+        build), or by `preview_label`. A `preview_label` is non-unique — many
+        deployments can share one (for example every deploy for a branch) — so combine
+        it with `limit=1` to fetch the latest deployment for that label. This lists
+        deployments (the running or attempted agent instances); to list the image builds
+        they run, use the agentex builds API.
 
         Args:
           agent_name: Filter deployments by agent name (via associated build)
@@ -236,9 +270,20 @@ class DeployResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentexCloudDeploy:
-        """Soft-delete a deployment.
+        """
+        Delete an agent deployment and tear down its Kubernetes resources.
 
-        Marks it as deleted and triggers K8s resource cleanup.
+        Deletes the deployment's Kubernetes resources first, then marks the record as
+        `DELETED`; the underlying Helm release is subsequently uninstalled
+        asynchronously by FluxCD once the resource is removed. If the Kubernetes
+        teardown fails, the record is left unchanged and the call errors, so the delete
+        can be safely retried. Rejects the call with a client error if the deployment is
+        already in a terminal state (`DELETED`, `CANCELLED`, or `SUPERSEDED`) — a
+        `SUPERSEDED` record shares its Helm release with the deployment that replaced
+        it, so deleting it would tear down the live release. Returns 404 if no
+        deployment with this ID exists for the caller's account. This removes a running
+        deployment, not the image build behind it, which is managed separately through
+        the agentex builds API.
 
         Args:
           extra_headers: Send extra headers
@@ -273,13 +318,16 @@ class DeployResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DeployLogsResponse:
         """
-        Get structured log lines for a deployment with cursor-based pagination.
+        Get structured deployment log lines, with cursor-based pagination.
 
-        The CLI can poll this endpoint to stream logs incrementally:
-
-        1. First call: no cursor
-        2. Subsequent calls: cursor=next_cursor from the previous response
-        3. Stop polling when the deployment reaches a terminal status
+        Returns the deployment's log lines in time order together with a `next_cursor`
+        and a `has_more` flag. Poll to stream logs incrementally: make the first call
+        without a cursor, then pass the previous response's `next_cursor` as `cursor` on
+        each subsequent call, stopping once the deployment reaches a terminal status.
+        Unlike `GET /v5/agentex/deployments/{deployment_id}`, which returns the
+        deployment's status and Kubernetes events, this returns the raw log output from
+        the deploy process. Returns 404 if no deployment with this ID exists for the
+        caller's account.
 
         Args:
           cursor: Cursor from previous response's next_cursor field
@@ -353,18 +401,35 @@ class AsyncDeployResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentexCloudDeploy:
-        """Create a new deployment.
+        """
+        Deploy a successfully built agent image to Kubernetes as a Helm release.
 
-        Submits a deployment request.
+        Takes a completed build (referenced by `build_id`, or by `image_name` +
+        `image_tag`) together with the agent manifest and environment config, then
+        starts an asynchronous Temporal workflow that provisions the agent as a Helm
+        release. The call returns immediately with the deployment record in `PENDING`
+        status — it does not wait for the release to become healthy; poll
+        `GET /v5/agentex/deployments/{deployment_id}` for status and Kubernetes events
+        and `GET /v5/agentex/deployments/{deployment_id}/logs` for progress. This is the
+        deploy counterpart to `POST /v5/agentex/builds`: a build produces the container
+        image, a deployment runs that image. The referenced build must have finished
+        successfully, and the manifest's agent name must match the build's agent.
 
-        The deployment will:
-
-        1. Parse and merge configuration files
-        2. Create a Kubernetes Job running helm install
-        3. Wait for deployment completion
-        4. Return results
+        Set `preview=True` for an ephemeral deployment: it gets a globally unique Helm
+        release name (so concurrent redeploys never collide), an optional
+        `preview_label` for grouping, and an expiry (`expires_at`, defaulting to 8 hours
+        from now); `preview_label` and `expires_at` are rejected on non-preview deploys.
+        A non-preview (production) deploy instead supersedes any prior active deployment
+        that shares its Helm release name. Fails with a client error if the build is
+        missing or not in a successful state, if the manifest or environment YAML is
+        invalid or their agent names disagree, or if a secret referenced by the manifest
+        does not exist.
 
         Args:
+          environment_config: YAML content of environment configuration from the environment config file.
+
+          manifest_file: YAML content of manifest configuration.
+
           build_id: The build_id of the cloud build. Required if image_name and image_tag are not
               provided.
 
@@ -428,7 +493,16 @@ class AsyncDeployResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentexCloudDeploy:
         """
-        Get a deployment by its ID.
+        Get a single agent deployment by ID, including its current status and Kubernetes
+        events.
+
+        Returns the deployment record with its latest status and the associated
+        Kubernetes events (`deploy_events`) observed for the release, which are useful
+        for diagnosing why a deployment is still pending or unhealthy. Poll this after
+        `POST /v5/agentex/deployments` to track the asynchronous deploy to completion.
+        For the incremental log output rather than status and events, use
+        `GET /v5/agentex/deployments/{deployment_id}/logs`. Returns 404 if no deployment
+        with this ID exists for the caller's account.
 
         Args:
           extra_headers: Send extra headers
@@ -468,7 +542,15 @@ class AsyncDeployResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[AgentexCloudDeploy, AsyncCursorPage[AgentexCloudDeploy]]:
         """
-        List all deployments with pagination and optional filters.
+        List the account's agent deployments, with pagination and optional filters.
+
+        Returns the deployments the caller is authorized to read. Optionally filter by
+        `build_id`, by `agent_name` (matched through each deployment's associated
+        build), or by `preview_label`. A `preview_label` is non-unique — many
+        deployments can share one (for example every deploy for a branch) — so combine
+        it with `limit=1` to fetch the latest deployment for that label. This lists
+        deployments (the running or attempted agent instances); to list the image builds
+        they run, use the agentex builds API.
 
         Args:
           agent_name: Filter deployments by agent name (via associated build)
@@ -523,9 +605,20 @@ class AsyncDeployResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentexCloudDeploy:
-        """Soft-delete a deployment.
+        """
+        Delete an agent deployment and tear down its Kubernetes resources.
 
-        Marks it as deleted and triggers K8s resource cleanup.
+        Deletes the deployment's Kubernetes resources first, then marks the record as
+        `DELETED`; the underlying Helm release is subsequently uninstalled
+        asynchronously by FluxCD once the resource is removed. If the Kubernetes
+        teardown fails, the record is left unchanged and the call errors, so the delete
+        can be safely retried. Rejects the call with a client error if the deployment is
+        already in a terminal state (`DELETED`, `CANCELLED`, or `SUPERSEDED`) — a
+        `SUPERSEDED` record shares its Helm release with the deployment that replaced
+        it, so deleting it would tear down the live release. Returns 404 if no
+        deployment with this ID exists for the caller's account. This removes a running
+        deployment, not the image build behind it, which is managed separately through
+        the agentex builds API.
 
         Args:
           extra_headers: Send extra headers
@@ -560,13 +653,16 @@ class AsyncDeployResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DeployLogsResponse:
         """
-        Get structured log lines for a deployment with cursor-based pagination.
+        Get structured deployment log lines, with cursor-based pagination.
 
-        The CLI can poll this endpoint to stream logs incrementally:
-
-        1. First call: no cursor
-        2. Subsequent calls: cursor=next_cursor from the previous response
-        3. Stop polling when the deployment reaches a terminal status
+        Returns the deployment's log lines in time order together with a `next_cursor`
+        and a `has_more` flag. Poll to stream logs incrementally: make the first call
+        without a cursor, then pass the previous response's `next_cursor` as `cursor` on
+        each subsequent call, stopping once the deployment reaches a terminal status.
+        Unlike `GET /v5/agentex/deployments/{deployment_id}`, which returns the
+        deployment's status and Kubernetes events, this returns the raw log output from
+        the deploy process. Returns 404 if no deployment with this ID exists for the
+        caller's account.
 
         Args:
           cursor: Cursor from previous response's next_cursor field

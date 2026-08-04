@@ -65,12 +65,16 @@ class DatasetItemsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatasetItem:
-        """Get Dataset Item
+        """
+        Retrieve a single dataset item by its identifier.
+
+        The lookup is scoped to the caller's account. By default the current (latest)
+        version of the item is returned; passing version returns the item as it existed
+        at that dataset version, which allows reading an item that was later updated or
+        soft-deleted.
 
         Args:
-          version: Optional dataset version.
-
-        When unset, returns the latest version.
+          version: Optional dataset version. When unset, returns the latest version.
 
           extra_headers: Send extra headers
 
@@ -108,7 +112,14 @@ class DatasetItemsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatasetItem:
         """
-        Update Dataset Item
+        Update the data payload and optional file associations of a dataset item.
+
+        The request replaces the item's data in full and, if provided, its file
+        associations; there is no partial-field merge. Data keys may not collide with
+        reserved dataset- or evaluation-item field names, and any referenced files must
+        exist and be a supported media format. Items that are archived or soft-deleted
+        cannot be updated. The update is applied as a new dataset version rather than
+        overwriting the previous record, so prior versions remain retrievable.
 
         Args:
           data: Updated dataset item data
@@ -158,12 +169,18 @@ class DatasetItemsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPage[DatasetItem]:
-        """List Dataset Items
+        """
+        List dataset items belonging to the caller's account, paginated.
+
+        dataset_id is optional: when omitted, items across all of the account's datasets
+        are returned; when provided, results are restricted to that dataset. A specific
+        version may be requested only together with a dataset_id — passing version
+        without dataset_id is rejected. By default only current items at the latest
+        version are listed (soft-deleted items are excluded); archived items are
+        excluded unless include_archived is true.
 
         Args:
-          dataset_id: Optional dataset identifier.
-
-        Must be provided if a specific version is
+          dataset_id: Optional dataset identifier. Must be provided if a specific version is
               requested.
 
           version: Optional dataset version. When unset, returns the latest version. Requires a
@@ -214,7 +231,15 @@ class DatasetItemsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatasetItemArchiveResponse:
         """
-        Delete Dataset Item
+        Soft-delete a dataset item by marking it as removed in the current dataset
+        version.
+
+        The database row is not removed; instead the item's end version is set to the
+        current dataset version so it no longer appears at the latest version while
+        remaining retrievable at earlier versions, and a new dataset version snapshot is
+        created to record the removal. An item that is already archived or already
+        deleted cannot be deleted again. The response echoes the item id with deleted
+        set to true.
 
         Args:
           extra_headers: Send extra headers
@@ -249,7 +274,20 @@ class DatasetItemsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatasetItemBatchCreateResponse:
         """
-        Batch Create Dataset Items
+        Add one or more items in a single batch to a dataset that already exists.
+
+        Use this to append items to an existing dataset; to create a dataset together
+        with its initial items in one call, use POST /v5/datasets instead (this endpoint
+        does not create datasets). Items are only ever added in a batch — there is no
+        single-item create endpoint. The target dataset is identified by the required
+        dataset_id in the request body, and each entry in data (at least one is
+        required) becomes one item, optionally paired with the files entry at the same
+        list index — when files is supplied it must be the same length as data. Each
+        referenced file must exist and be a supported media format, and item keys may
+        not collide with reserved dataset- or evaluation-item field names. The target
+        dataset must not be archived. The batch is applied as a new dataset version
+        snapshot rather than mutating existing versions, and the created items are
+        returned.
 
         Args:
           data: Items to be added to the dataset
@@ -315,12 +353,16 @@ class AsyncDatasetItemsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatasetItem:
-        """Get Dataset Item
+        """
+        Retrieve a single dataset item by its identifier.
+
+        The lookup is scoped to the caller's account. By default the current (latest)
+        version of the item is returned; passing version returns the item as it existed
+        at that dataset version, which allows reading an item that was later updated or
+        soft-deleted.
 
         Args:
-          version: Optional dataset version.
-
-        When unset, returns the latest version.
+          version: Optional dataset version. When unset, returns the latest version.
 
           extra_headers: Send extra headers
 
@@ -360,7 +402,14 @@ class AsyncDatasetItemsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatasetItem:
         """
-        Update Dataset Item
+        Update the data payload and optional file associations of a dataset item.
+
+        The request replaces the item's data in full and, if provided, its file
+        associations; there is no partial-field merge. Data keys may not collide with
+        reserved dataset- or evaluation-item field names, and any referenced files must
+        exist and be a supported media format. Items that are archived or soft-deleted
+        cannot be updated. The update is applied as a new dataset version rather than
+        overwriting the previous record, so prior versions remain retrievable.
 
         Args:
           data: Updated dataset item data
@@ -410,12 +459,18 @@ class AsyncDatasetItemsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[DatasetItem, AsyncCursorPage[DatasetItem]]:
-        """List Dataset Items
+        """
+        List dataset items belonging to the caller's account, paginated.
+
+        dataset_id is optional: when omitted, items across all of the account's datasets
+        are returned; when provided, results are restricted to that dataset. A specific
+        version may be requested only together with a dataset_id — passing version
+        without dataset_id is rejected. By default only current items at the latest
+        version are listed (soft-deleted items are excluded); archived items are
+        excluded unless include_archived is true.
 
         Args:
-          dataset_id: Optional dataset identifier.
-
-        Must be provided if a specific version is
+          dataset_id: Optional dataset identifier. Must be provided if a specific version is
               requested.
 
           version: Optional dataset version. When unset, returns the latest version. Requires a
@@ -466,7 +521,15 @@ class AsyncDatasetItemsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatasetItemArchiveResponse:
         """
-        Delete Dataset Item
+        Soft-delete a dataset item by marking it as removed in the current dataset
+        version.
+
+        The database row is not removed; instead the item's end version is set to the
+        current dataset version so it no longer appears at the latest version while
+        remaining retrievable at earlier versions, and a new dataset version snapshot is
+        created to record the removal. An item that is already archived or already
+        deleted cannot be deleted again. The response echoes the item id with deleted
+        set to true.
 
         Args:
           extra_headers: Send extra headers
@@ -501,7 +564,20 @@ class AsyncDatasetItemsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatasetItemBatchCreateResponse:
         """
-        Batch Create Dataset Items
+        Add one or more items in a single batch to a dataset that already exists.
+
+        Use this to append items to an existing dataset; to create a dataset together
+        with its initial items in one call, use POST /v5/datasets instead (this endpoint
+        does not create datasets). Items are only ever added in a batch — there is no
+        single-item create endpoint. The target dataset is identified by the required
+        dataset_id in the request body, and each entry in data (at least one is
+        required) becomes one item, optionally paired with the files entry at the same
+        list index — when files is supplied it must be the same length as data. Each
+        referenced file must exist and be a supported media format, and item keys may
+        not collide with reserved dataset- or evaluation-item field names. The target
+        dataset must not be archived. The batch is applied as a new dataset version
+        snapshot rather than mutating existing versions, and the created items are
+        returned.
 
         Args:
           data: Items to be added to the dataset

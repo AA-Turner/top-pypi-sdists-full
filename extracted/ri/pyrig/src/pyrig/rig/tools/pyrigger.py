@@ -113,13 +113,12 @@ class Pyrigger(VersionControlHookTool):
             (VersionController.I.init_args(), {}),
             (self.cmd_args(cmd=sync), {"check": False}),
             (VersionController.I.add_all_args(), {}),
-            (
-                VersionController.I.commit_with_msg_args(
-                    msg=f"{self.name()}: Initial commit",
-                ),
-                {},
-            ),
+            (VersionController.I.commit_with_msg_args(msg=self.setup_commit_msg()), {}),
         )
+
+    def setup_commit_msg(self) -> str:
+        """Return the commit message for the initial commit."""
+        return f"{self.name()}: Initialized project"
 
     def cmd_args(self, *args: str, cmd: FunctionType) -> Args:
         """Construct `Args` for a top-level pyrig CLI command.

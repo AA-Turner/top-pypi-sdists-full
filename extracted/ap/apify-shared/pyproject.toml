@@ -1,20 +1,19 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build"]
+build-backend = "uv_build"
 
 [project]
 name = "apify_shared"
-version = "2.2.1"
-description = "Tools and constants shared across Apify projects."
-authors = [{ name = "Apify Technologies s.r.o.", email = "support@apify.com" }]
-license = { file = "LICENSE" }
+version = "2.3.0"
+description = "DEPRECATED - Tools and constants shared across Apify projects."
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 7 - Inactive",
     "Environment :: Console",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -34,16 +33,19 @@ keywords = [
 ]
 dependencies = []
 
+[[project.authors]]
+name = "Apify Technologies s.r.o."
+email = "support@apify.com"
+
 [project.urls]
 "Apify Homepage" = "https://apify.com"
-"Changelog" = "https://github.com/apify/apify-shared-python/blob/master/CHANGELOG.md"
-"Discord" = "https://discord.com/invite/jyEM2PRvMU"
+Changelog = "https://github.com/apify/apify-shared-python/blob/master/CHANGELOG.md"
+Discord = "https://discord.com/invite/jyEM2PRvMU"
 "Issue Tracker" = "https://github.com/apify/apify-shared-python/issues"
 "Source Code" = "https://github.com/apify/apify-shared-python"
 
 [dependency-groups]
 dev = [
-    "dycw-pytest-only<3.0.0",
     "poethepoet<1.0.0",
     "pre-commit<5.0.0",
     "pytest-asyncio<2.0.0",
@@ -51,58 +53,54 @@ dev = [
     "pytest-timeout<3.0.0",
     "pytest-xdist<4.0.0",
     "pytest<10.0.0",
-    "ruff~=0.14.0",
-    "setuptools", # setuptools are used by pytest, but not explicitly required
+    "ruff~=0.16.0",
+    "setuptools",
     "ty~=0.0.0",
-]
-
-[tool.hatch.build.targets.sdist]
-only-include = [
-    "src/apify_shared",
-    "CHANGELOG.md",
-    "CONTRIBUTING.md",
-    "LICENSE",
-    "README.md",
-    "pyproject.toml",
 ]
 
 [tool.ruff]
 line-length = 120
-include = ["src/**/*.py", "tests/**/*.py"]
+include = [
+    "**/*.py",
+    "**/*.md",
+    "**/*.mdx",
+]
+
+[tool.ruff.extension]
+mdx = "markdown"
 
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    "COM812", # This rule may cause conflicts when used with the formatter
-    "D100",   # Missing docstring in public module
-    "D104",   # Missing docstring in public package
-    "D107",   # Missing docstring in `__init__`
-    "D203",   # One blank line required before class docstring
-    "D213",   # Multi-line docstring summary should start at the second line
-    "D413",   # Missing blank line after last section
-    "EM",     # flake8-errmsg
-    "ISC001", # This rule may cause conflicts when used with the formatter
-    "S105",   # Possible hardcoded password assigned to
-    "TRY003", # Avoid specifying long messages outside the exception class
+    "COM812",
+    "CPY001",
+    "D100",
+    "D104",
+    "D107",
+    "D203",
+    "D213",
+    "D413",
+    "EM",
+    "ISC001",
+    "S105",
+    "TRY003",
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"**/__init__.py" = [
-    "F401", # Unused imports
-]
+"**/__init__.py" = ["F401"]
 "**/{tests}/*" = [
-    "D",       # Everything from the pydocstyle
-    "INP001",  # File {filename} is part of an implicit namespace package, add an __init__.py
-    "S101",    # Use of assert detected
+    "D",
+    "INP001",
+    "S101",
 ]
-
-[tool.ruff.format]
-quote-style = "single"
-indent-style = "space"
 
 [tool.ruff.lint.flake8-quotes]
 docstring-quotes = "double"
 inline-quotes = "single"
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
 
 [tool.pytest.ini_options]
 addopts = "-r a --verbose"
@@ -114,9 +112,28 @@ timeout = 1800
 python-version = "3.10"
 
 [tool.ty.src]
-include = ["src", "tests", "scripts", "docs", "website"]
+include = [
+    "src",
+    "tests",
+    "scripts",
+    "docs",
+    "website",
+]
 
-# Run tasks with: uv run poe <task>
+[tool.uv]
+exclude-newer = "24 hours"
+
+[tool.uv.build-backend]
+source-include = [
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+]
+
+[tool.uv.exclude-newer-package]
+apify-client = false
+apify_fingerprint_datapoints = false
+crawlee = false
+
 [tool.poe.tasks]
 clean = "rm -rf .coverage .pytest_cache .ruff_cache .ty_cache build dist htmlcov"
 install-sync = "uv sync --all-extras"
@@ -126,7 +143,11 @@ publish-to-pypi = "uv publish --token ${APIFY_PYPI_TOKEN_CRAWLEE}"
 type-check = "uv run ty check"
 unit-tests = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify_shared tests/unit"
 unit-tests-cov = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify_shared --cov-report=html tests/unit"
-check-code = ["lint", "type-check", "unit-tests"]
+check-code = [
+    "lint",
+    "type-check",
+    "unit-tests",
+]
 
 [tool.poe.tasks.lint]
 shell = "uv run ruff format --check && uv run ruff check"

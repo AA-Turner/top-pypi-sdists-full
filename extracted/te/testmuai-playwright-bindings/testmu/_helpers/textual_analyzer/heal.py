@@ -41,7 +41,7 @@ class HealOutcome:
 
 async def _post_heal(
     query: str, dom_snapshot: str, expected_value: str | None, needs_unit: bool,
-    condition: str | None = None,
+    condition: str | None = None, previous_code: str | None = None,
 ) -> dict | None:
     body = {
         "query": query,
@@ -51,6 +51,9 @@ async def _post_heal(
         # Checkpoint condition drives in-code derivation on regen; without it the
         # heal would return a raw read for a derived (arithmetic/boolean) step.
         "condition": condition or "",
+        # v3 re-anchoring: the recorded working code. Old servers ignore unknown
+        # keys; old recordings pass None -> "" (blind regen, unchanged).
+        "previous_code": previous_code or "",
     }
     try:
         async with create_session() as session:
@@ -67,13 +70,16 @@ async def _post_heal(
 
 async def run_heal(
     page, query: str, expected_value: str | None, needs_unit_conversion: bool,
-    condition: str | None = None,
+    condition: str | None = None, previous_code: str | None = None,
 ) -> HealOutcome | None:
     structured = await capture_structured_dom(page)
     if structured is None or not structured.text:
         return None
 
-    resp = await _post_heal(query, structured.text, expected_value, needs_unit_conversion, condition)
+    resp = await _post_heal(
+        query, structured.text, expected_value, needs_unit_conversion, condition,
+        previous_code,
+    )
     if not resp or not resp.get("code"):
         return None
 

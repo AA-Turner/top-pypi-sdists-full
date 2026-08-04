@@ -28,12 +28,12 @@ class BaseClientWrapper:
         import platform
 
         headers: typing.Dict[str, str] = {
-            "User-Agent": "sarvamai/0.1.28",
+            "User-Agent": "sarvamai/0.1.30",
             "X-Fern-Language": "Python",
             "X-Fern-Runtime": f"python/{platform.python_version()}",
             "X-Fern-Platform": f"{platform.system().lower()}/{platform.release()}",
             "X-Fern-SDK-Name": "sarvamai",
-            "X-Fern-SDK-Version": "0.1.28",
+            "X-Fern-SDK-Version": "0.1.30",
             **(self.get_custom_headers() or {}),
         }
         headers["api-subscription-key"] = self.api_subscription_key

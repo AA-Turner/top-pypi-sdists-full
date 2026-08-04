@@ -56,7 +56,9 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor.close()
 
 
-def get_async_engine(config: tiering_service_pb2.ServerConfig) -> AsyncEngine:
+def get_async_engine(
+    config: tiering_service_pb2.ServerConfig, **kwargs
+) -> AsyncEngine:
   """Returns an AsyncEngine configured from ServerConfig."""
   input_url = config.db_connection_str
 
@@ -67,7 +69,7 @@ def get_async_engine(config: tiering_service_pb2.ServerConfig) -> AsyncEngine:
     url = input_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
   else:
     url = input_url
-  return create_async_engine(url)
+  return create_async_engine(url, **kwargs)
 
 
 @contextlib.asynccontextmanager
@@ -239,14 +241,6 @@ async def get_active_jobs(
   """Returns all active PROCESSING jobs owned by this worker."""
   stmt = (
       select(db_schema.AssetJob)
-      .options(
-          sqlalchemy.orm.selectinload(
-              db_schema.AssetJob.target_tier_path
-          ).selectinload(db_schema.TierPath.storage_backend),
-          sqlalchemy.orm.selectinload(db_schema.AssetJob.asset)
-          .selectinload(db_schema.Asset.tier_paths)
-          .selectinload(db_schema.TierPath.storage_backend),
-      )
       .where(
           db_schema.AssetJob.status
           == db_schema.JobStatus.JOB_STATUS_PROCESSING,
@@ -415,13 +409,13 @@ async def _claim_eligible_job(
     job.worker_host = hostname
     job.worker_pid = pid
     job.last_updated_at = now
-    session.add(job)
+    session.add(job)  # pyrefly: ignore[missing-attribute]
     if (
         job.request_type == db_schema.RequestType.REQUEST_TYPE_COPY
         and job.target_tier_path
     ):
       job.target_tier_path.state = db_schema.TierPathState.IN_PROGRESS
-      session.add(job.target_tier_path)
+      session.add(job.target_tier_path)  # pyrefly: ignore[missing-attribute]
 
   return job
 

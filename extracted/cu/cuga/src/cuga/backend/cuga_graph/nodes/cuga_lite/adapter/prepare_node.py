@@ -10,6 +10,7 @@ from langgraph.types import Command
 from loguru import logger
 
 from cuga.backend.cuga_graph.nodes.cuga_agent_core.execution.code_extraction import make_tool_awaitable
+from cuga.backend.cuga_graph.nodes.cuga_lite.adapter.arg_warning import make_arg_warning_callable
 from cuga.backend.cuga_graph.nodes.cuga_agent_core.execution.todos import create_update_todos_tool
 from cuga.backend.cuga_graph.nodes.cuga_agent_core.policy.execution_policy import (
     ExecutionRouter,
@@ -33,6 +34,7 @@ from cuga.backend.cuga_graph.nodes.cuga_lite.helpers.knowledge import (
 )
 from cuga.backend.cuga_graph.nodes.cuga_lite.model_runtime_profile import resolved_runtime_model_name
 from cuga.backend.cuga_graph.nodes.cuga_lite.prompt_utils import (
+    PromptUtils,
     create_mcp_prompt,
     format_apps_for_prompt,
     normalize_mcp_few_shot_examples,
@@ -334,6 +336,13 @@ def create_prepare_tools_and_apps_node(adapter: Any, lc_bind_tools_meta: dict) -
         # Wrap to make awaitable (agent always uses await). Filesystem path
         # rewriting is no longer needed here — filesystem tools come from
         # the consolidated runtime class below, not from MCP.
+        # Pre-flight arg WARNING: the sandbox calls tool.coroutine directly,
+        # bypassing the StructuredTool's args_schema, so nothing flags malformed
+        # kwargs before the registry. This detector logs (never mutates) suspect
+        # shapes — the dict-as-string bug and friends. See arg_warning.py.
+        _af = getattr(settings, "advanced_features", None)
+        _warn_args = bool(getattr(_af, "cuga_lite_warn_suspect_args", True))
+
         for tool in tools_for_execution:
             # Extract tool function - StructuredTool may use .func, .coroutine, or ._run
             # IMPORTANT: Prefer coroutine over func to avoid run_in_executor issues
@@ -348,6 +357,11 @@ def create_prepare_tools_and_apps_node(adapter: Any, lc_bind_tools_meta: dict) -
                 tool_func = getattr(tool, '_run', None)
 
             if tool_func:
+                tool_func = make_arg_warning_callable(
+                    tool_func,
+                    getattr(tool, "args_schema", None),
+                    enable=_warn_args,
+                )
                 adapter._tools_context[tool.name] = make_tool_awaitable(tool_func)
             else:
                 logger.warning(f"Tool '{tool.name}' has no callable function, skipping")
@@ -451,7 +465,11 @@ def create_prepare_tools_and_apps_node(adapter: Any, lc_bind_tools_meta: dict) -
                                 f"Allowed scopes: {allowed_text}"
                             )
                         }
-                    if tid and "session" in allowed_scopes:
+                    # Forward the conversation id whenever we have one — the knowledge
+                    # layer needs it for the citations ledger even on agent-scope
+                    # searches. Session-collection access is still gated by scope checks
+                    # server-side; this only adds correlation, not access.
+                    if tid:
                         kwargs.setdefault("thread_id", tid)
                     return await fn(*args, **kwargs)
 
@@ -584,6 +602,19 @@ def create_prepare_tools_and_apps_node(adapter: Any, lc_bind_tools_meta: dict) -
             lc_bind_tools_meta["_lc_bind_tools_overlay_structured_tools"] = [
                 t for t in (tools_for_prompt or []) if getattr(t, "name", None)
             ]
+
+        # Use tools_for_execution, not tools_for_prompt: when find_tools shortlisting
+        # is active (the common case once an app has more than a handful of tools),
+        # tools_for_prompt is collapsed to just the find_tools meta-tool (~line 230),
+        # which would make this set permanently empty and silently disable the
+        # downstream block-isolation enforcement (graph_adapter.get_tools_needing_probing)
+        # and session shape-memory (sandbox_node._record_weak_schema_shapes) for every
+        # tool actually reachable through find_tools.
+        adapter._weak_schema_tool_names = frozenset(
+            t.name
+            for t in (tools_for_execution or [])
+            if getattr(t, "name", None) and PromptUtils.is_weak_schema_tool(t)
+        )
 
         # Create prompt dynamically
         dynamic_prompt = adapter._static_prompt

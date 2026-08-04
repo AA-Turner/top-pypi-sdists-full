@@ -51,7 +51,11 @@ class ContentResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Get File Content
+        Download the raw bytes of a file by id.
+
+        Streams the stored object's content back directly (not a redirect or signed
+        URL), with the response Content-Type set to the file's stored MIME type. Use the
+        metadata endpoint for size, filename, and other attributes.
 
         Args:
           extra_headers: Send extra headers
@@ -105,7 +109,11 @@ class AsyncContentResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Get File Content
+        Download the raw bytes of a file by id.
+
+        Streams the stored object's content back directly (not a redirect or signed
+        URL), with the response Content-Type set to the file's stored MIME type. Use the
+        metadata endpoint for size, filename, and other attributes.
 
         Args:
           extra_headers: Send extra headers

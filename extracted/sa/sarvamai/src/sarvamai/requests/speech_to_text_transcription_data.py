@@ -19,12 +19,12 @@ class SpeechToTextTranscriptionDataParams(typing_extensions.TypedDict):
 
     timestamps: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
     """
-    Timestamp information (if available)
+    Always `null` over the WebSocket API — timestamps are not supported for streaming; use the REST or Batch API for timestamped transcripts.
     """
 
     diarized_transcript: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
     """
-    Diarized transcript of the provided speech
+    Always `null` over the WebSocket API — diarization is not supported for streaming; use the Batch API for diarized transcripts.
     """
 
     language_code: typing_extensions.NotRequired[str]
@@ -42,8 +42,6 @@ class SpeechToTextTranscriptionDataParams(typing_extensions.TypedDict):
     
     **When it returns null:**
     - When a specific `language_code` is provided (language detection is skipped)
-    
-    The parameter is always present in the response.
     """
 
     metrics: TranscriptionMetricsParams

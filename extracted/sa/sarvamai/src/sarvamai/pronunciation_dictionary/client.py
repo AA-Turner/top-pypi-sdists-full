@@ -128,7 +128,7 @@ class PronunciationDictionaryClient:
             api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
         )
         client.pronunciation_dictionary.update(
-            dict_id="dict_id",
+            dict_id="p_5cb7faa6",
         )
         """
         _response = self._raw_client.update(dict_id=dict_id, file=file, request_options=request_options)
@@ -337,7 +337,7 @@ class AsyncPronunciationDictionaryClient:
 
         async def main() -> None:
             await client.pronunciation_dictionary.update(
-                dict_id="dict_id",
+                dict_id="p_5cb7faa6",
             )
 
 

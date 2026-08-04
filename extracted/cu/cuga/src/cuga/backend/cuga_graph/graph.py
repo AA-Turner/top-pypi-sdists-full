@@ -202,11 +202,9 @@ class DynamicAgentGraph:
                 model = create_llm_from_config(self.llm_config)
             except Exception as _llm_err:
                 logger.warning(
-                    "build_graph: failed to create LLM from saved config (provider=%s model=%s): %s — "
-                    "falling back to env/TOML settings",
-                    self.llm_config.get("provider"),
-                    self.llm_config.get("model"),
-                    _llm_err,
+                    f"build_graph: failed to create LLM from saved config "
+                    f"(provider={self.llm_config.get('provider')} model={self.llm_config.get('model')}): "
+                    f"{_llm_err} — falling back to env/TOML settings"
                 )
                 llm_manager = LLMManager()
                 llm_manager._models.clear()
@@ -233,16 +231,25 @@ class DynamicAgentGraph:
                 model_config["disable_ssl"] = self.llm_config.get(
                     "disable_ssl", model_config.get("disable_ssl", False)
                 )
-                for k in ("auth_type", "auth_header_name"):
+                for k in (
+                    "auth_type",
+                    "auth_header_name",
+                    "max_tokens",
+                    "top_p",
+                    "top_k",
+                    "frequency_penalty",
+                    "presence_penalty",
+                    "stop",
+                    "extra_params",
+                ):
                     if k in self.llm_config and self.llm_config[k] is not None:
                         model_config[k] = self.llm_config[k]
                 model_config.setdefault("max_tokens", 16000)
                 if getattr(settings.supervisor, "enabled", False):
                     llm_manager = LLMManager()
                 logger.info(
-                    "build_graph: using LLM from config — provider=%s model=%s",
-                    self.llm_config.get("provider"),
-                    self.llm_config.get("model"),
+                    f"build_graph: using LLM from config — "
+                    f"provider={self.llm_config.get('provider')} model={self.llm_config.get('model')}"
                 )
         else:
             llm_manager = LLMManager()

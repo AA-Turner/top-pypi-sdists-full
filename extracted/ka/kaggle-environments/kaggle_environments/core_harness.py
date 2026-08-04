@@ -156,6 +156,57 @@ Your previously suggested move was: {last_move}, which is an illegal move.
 Please think carefully and generate a new and legal move.
 """
 
+# Rethink suffixes appended (in addition to any illegal/unparsable suffix) when
+# the previous attempt hit the output-token limit (finish_reason="length")
+# before emitting a usable move. The model spent its entire budget on reasoning
+# and produced a truncated (often empty) answer, so the correction it needs is
+# not "your move was wrong" but "stop over-reasoning and answer concisely".
+#
+# The nudge RAMPS with the number of consecutive truncations: the first retry
+# asks for "less" reasoning (cutting reasoning too hard can hurt move quality,
+# so we start gentle), and each further truncation escalates the demand. A
+# forfeit from repeated overthinking is catastrophic -- worse than any move --
+# so by the last stage we insist on answering almost immediately.
+#
+# No placeholders -- game-agnostic so the core loop can append the right stage
+# for every harness. Each begins with a blank line so it reads as its own
+# paragraph regardless of what precedes it.
+BASIC_RETHINK_TRUNCATED_RAMP = (
+    """
+
+In your last answer you reasoned for so long that you used your entire \
+output-token budget before giving a move, so no move was recorded. Spend less \
+time reasoning this turn and make sure you output your final move.""",
+    """
+
+Once again you ran out of output-token budget while reasoning and recorded no \
+move. Spend much less time reasoning this turn -- decide quickly and output \
+your final move well before you run out of budget.""",
+    """
+
+You have repeatedly used your entire output-token budget on reasoning without \
+recording a move, which will cause you to forfeit. Reason as briefly as \
+possible -- even a quick, imperfect move is far better than none. Output your \
+final move immediately.""",
+)
+
+# Back-compat alias: the strongest stage of the ramp.
+BASIC_RETHINK_TRUNCATED = BASIC_RETHINK_TRUNCATED_RAMP[-1]
+
+
+def render_truncation_nudge(consecutive_truncations: int) -> str:
+    """Pick the ramped truncation nudge for ``consecutive_truncations`` (>=1).
+
+    Clamps to the strongest stage once the count exceeds the ramp length, so
+    the demand keeps applying (at maximum intensity) no matter how many
+    retries a harness allows. Returns ``""`` for a non-positive count so the
+    caller can append unconditionally.
+    """
+    if consecutive_truncations < 1:
+        return ""
+    idx = min(consecutive_truncations, len(BASIC_RETHINK_TRUNCATED_RAMP)) - 1
+    return BASIC_RETHINK_TRUNCATED_RAMP[idx]
+
 
 # ---------------------------------------------------------------------------
 # JSON extraction helper
@@ -474,6 +525,47 @@ class GameHarness(Protocol):
 # ---------------------------------------------------------------------------
 
 
+def _close_stream(stream: Any) -> None:
+    """Best-effort close of a litellm streaming response.
+
+    litellm's ``CustomStreamWrapper`` has no sync ``close()`` and does
+    NOT clean up its wrapped provider stream on ``__next__`` errors
+    (only re-raises via ``_handle_stream_fallback_error``). The wrapped
+    ``openai.Stream`` stored in ``.completion_stream`` does have a
+    ``close()`` that releases the underlying ``httpx.Response`` — this
+    is what actually sends the client-close signal upstream and
+    releases the model-proxy queue slot. On the success path the
+    OpenAI SDK closes automatically when the body is read to
+    completion; only the mid-stream error path needs this explicit
+    reach-through.
+    """
+    if stream is None:
+        return
+    # Prefer the wrapper's own close if a future litellm version adds
+    # one; otherwise reach through to the provider stream.
+    for target in (stream, getattr(stream, "completion_stream", None)):
+        if target is None:
+            continue
+        close = getattr(target, "close", None)
+        if callable(close):
+            try:
+                close()
+            except Exception as exc:
+                _log.warning(
+                    "Failed to close LLM stream (%s: %s); connection may "
+                    "leak until GC and MP queue slot may remain held",
+                    type(exc).__name__, exc,
+                )
+            return
+    # No callable close() at either level -- means litellm's stream
+    # structure changed and our reach-through no longer applies.
+    _log.warning(
+        "No close() on LLM stream (type=%s); connection cannot be "
+        "released and MP queue slots may pile up",
+        type(stream).__name__,
+    )
+
+
 def _call_llm(
     prompt: str,
     model_name: str,
@@ -530,6 +622,7 @@ def _call_llm(
         content_parts: list[str] = []
         finish_reason: str | None = None
         usage_obj: Any = None
+        stream: Any = None
         try:
             stream = litellm.completion(
                 model=model_name,
@@ -558,7 +651,10 @@ def _call_llm(
             content = "".join(content_parts).strip()
             duration = time.perf_counter() - attempt_start
 
-            if not content:
+            # `length` with no content means reasoning consumed the whole
+            # token budget -- a model failure the caller categorizes as
+            # TRUNCATED (retry, then forfeit), not an infrastructure error.
+            if not content and finish_reason != "length":
                 raise RuntimeError(
                     "LLM stream produced no content "
                     f"(finish_reason={finish_reason!r}, duration_secs={duration:.3f})"
@@ -598,6 +694,7 @@ def _call_llm(
                 prompt_tokens=details["prompt_tokens"],
                 completion_tokens=details["generation_tokens"],
                 transport_attempts=attempt,
+                finish_reason=finish_reason,
             )
             return content, details
         except Exception as exc:
@@ -637,6 +734,8 @@ def _call_llm(
             )
             if backoff > 0:
                 time.sleep(backoff)
+        finally:
+            _close_stream(stream)
 
 
 def _build_call_detail(
@@ -831,10 +930,12 @@ def create_agent_fn(
         # -- prompt / parse / retry loop --
         previous_response: str | None = None
         previous_action: str | None = None
+        consecutive_truncations = 0
         last_content = ""
         all_responses: list[str] = []
         call_records: list[dict[str, Any]] = []
         last_exception: Exception | None = None
+        failure_category: str | None = None
 
         for attempt in range(max_retries):
             if attempt == 0:
@@ -850,6 +951,13 @@ def create_agent_fn(
                 previous_response=previous_response,
                 previous_action=previous_action,
             )
+            # A truncated previous attempt needs a different correction than a
+            # wrong move: the model ran out of output budget while reasoning.
+            # Append the concise-answer nudge on top of whatever rethink suffix
+            # the harness already produced, so it applies uniformly across
+            # every game without threading a new signal through each make_prompt.
+            # The nudge ramps with consecutive truncations (see the ramp docs).
+            prompt += render_truncation_nudge(consecutive_truncations)
 
             try:
                 content, call_details = _call_llm(
@@ -863,9 +971,12 @@ def create_agent_fn(
                     "model": model_name,
                     **call_details,
                 })
-                result = game_harness.parse_response(
-                    content, legal_action_strings, observation=observation,
-                )
+                if content:
+                    result = game_harness.parse_response(
+                        content, legal_action_strings, observation=observation,
+                    )
+                else:
+                    result = ParseResult()
                 last_exception = None
             except Exception as exc:
                 last_exception = exc
@@ -914,12 +1025,19 @@ def create_agent_fn(
 
             # -- parse failed → prepare rethink --
             # Categorize the failure so dashboards can tell apart:
+            #   TRUNCATED  -> generation hit the token cap, so the answer was
+            #                 very likely cut off mid-reasoning. Takes priority
+            #                 over the categories below because it is the root
+            #                 cause; `raw_action` still distinguishes "nothing
+            #                 extracted" from "extracted but illegal".
             #   EMPTY      -> LLM returned no usable content at all
             #   UNPARSABLE -> content present, but parser couldn't extract
             #                 a structured answer (raw_action is None)
             #   ILLEGAL    -> parser extracted something, but it didn't
             #                 match a legal move
-            if not (content or "").strip():
+            if call_details.get("finish_reason") == "length":
+                failure_category = "TRUNCATED"
+            elif not (content or "").strip():
                 failure_category = "EMPTY"
             elif result.raw_action is None:
                 failure_category = "UNPARSABLE"
@@ -936,18 +1054,24 @@ def create_agent_fn(
             )
             previous_action = result.raw_action
             previous_response = content
+            # Track a RUN of truncations so the nudge can escalate; a single
+            # non-truncated attempt resets the ramp to its gentlest stage.
+            if failure_category == "TRUNCATED":
+                consecutive_truncations += 1
+            else:
+                consecutive_truncations = 0
             _log.warning(
                 "Attempt %d: failed to parse a legal move.", attempt + 1,
             )
 
         # -- all attempts exhausted --
-        # `failure_category` here reports the LAST attempt's failure
-        # category (EMPTY / UNPARSABLE / ILLEGAL). Set defensively in
-        # case max_retries was 0 and the variable was never assigned.
+        # `failure_category` here reports the LAST attempt's failure category
+        # (TRUNCATED / EMPTY / UNPARSABLE / ILLEGAL), or None if max_retries
+        # was 0 and the loop never ran.
         _TELEMETRY(
             all_attempts_failed=True,
             total_attempts=max_retries,
-            final_failure_category=locals().get("failure_category"),
+            final_failure_category=failure_category,
         )
         if last_exception is not None:
             raise last_exception
@@ -969,9 +1093,10 @@ def create_agent_fn(
                 "submission": -1,
                 "actionString": previous_action,
                 "thoughts": last_content,
+                "failureCategory": failure_category,
                 "status": (
                     f"Failed to parse a legal move after {max_retries}"
-                    " attempts; forfeiting."
+                    f" attempts ({failure_category}); forfeiting."
                 ),
                 "call_details": [
                     _build_call_detail(r, save_prompt, save_response)

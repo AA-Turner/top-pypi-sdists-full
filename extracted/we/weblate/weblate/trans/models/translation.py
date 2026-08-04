@@ -47,7 +47,7 @@ from weblate.trans.file_format_params import (
 from weblate.trans.mixins import CacheKeyMixin, LockMixin, LoggerMixin, URLMixin
 from weblate.trans.models.change import Change
 from weblate.trans.models.pending import PendingUnitChange
-from weblate.trans.models.suggestion import Suggestion
+from weblate.trans.models.suggestion import Suggestion, SuggestionAddResult
 from weblate.trans.models.unit import Unit
 from weblate.trans.signals import (
     component_post_update,
@@ -344,6 +344,7 @@ class Translation(
     settings_permission = "component.edit"
 
     class Meta:
+        required_db_vendor = "postgresql"
         app_label = "trans"
         unique_together = [("component", "language")]  # ruff: ignore[mutable-class-default]
         verbose_name = "translation"
@@ -867,7 +868,10 @@ class Translation(
         operation: Callable[[TranslationFormat], list[str] | None],
         no_changes_message: str,
     ) -> bool:
-        from weblate.auth.models import get_anonymous  # noqa: PLC0415
+        # ruff: ignore[import-outside-top-level]
+        from weblate.auth.models import (
+            get_anonymous,
+        )
 
         if not self.filename:
             messages.info(request, no_changes_message)
@@ -917,7 +921,10 @@ class Translation(
         self, alert_names: set[str] | None = None
     ) -> None:
         """Refresh import alerts after a single translation file was parsed."""
-        from weblate.trans.alerts.registry import get_import_alerts  # noqa: PLC0415
+        # ruff: ignore[import-outside-top-level]
+        from weblate.trans.alerts.registry import (
+            get_import_alerts,
+        )
 
         if alert_names is None:
             alert_names = SINGLE_FILE_IMPORT_ALERTS
@@ -1572,7 +1579,12 @@ class Translation(
         store.update_header(self.component.file_format_params, **headers)
 
         # save translation changes
-        store.save()
+        try:
+            store.save()
+        except Exception as error:
+            raise FailedCommitError(
+                self.component.get_parse_error_message(error)
+            ) from error
 
         return changes_status
 
@@ -1597,6 +1609,12 @@ class Translation(
         if self.workflow_settings is not None:
             return self.workflow_settings.enable_suggestions
         return self.component.enable_suggestions
+
+    @property
+    def restrict_direct_editing(self) -> bool:
+        if self.workflow_settings is not None:
+            return self.workflow_settings.restrict_direct_editing
+        return False
 
     @property
     def suggestion_voting(self):
@@ -1791,13 +1809,14 @@ class Translation(
             if isinstance(new_target, str):
                 new_target = [new_target]
             if current_target != new_target and not dbunit.readonly:
-                if Suggestion.objects.add(
+                _, result = Suggestion.objects.add(
                     dbunit,
                     new_target,
                     request,
                     raise_exception=False,
                     user=author,
-                ):
+                )
+                if result == SuggestionAddResult.CREATED:
                     accepted += 1
                 else:
                     skipped += 1
@@ -2050,7 +2069,7 @@ class Translation(
         self,
         request: AuthenticatedHttpRequest,
         fileobj: BinaryIO,
-        method: Literal["fuzzy", "approve", "translate"],
+        method: Literal["fuzzy", "approve", "translate", "suggest", "add"],
     ) -> TranslationFormat:
         component = self.component
 
@@ -2143,7 +2162,9 @@ class Translation(
         conflicts: Literal["", "replace-approved", "replace-translated"],
         author_name: str | None = None,
         author_email: str | None = None,
-        method: Literal["fuzzy", "approve", "translate", "suggest"] = "translate",
+        method: Literal[
+            "fuzzy", "approve", "translate", "suggest", "add", "replace", "source"
+        ] = "translate",
         fuzzy: Literal["", "process", "approve"] = "",
     ) -> UploadResult:
         """Top level handler for file uploads."""
@@ -2647,12 +2668,16 @@ class Translation(
             get_anonymous,
         )
 
+        # ruff: ignore[import-outside-top-level]
+        from weblate.trans.alerts.registry import update_alerts
+
         component = self.component
         user = request.user if request else get_anonymous()
         with component.repository.lock:
             component.commit_pending("delete unit", user)
             previous_revision = self.component.repository.last_revision
             cleanup_variants = False
+            source_unit_deleted = False
             for translation in self.get_store_change_translations():
                 # Does unit exist here?
                 try:
@@ -2664,6 +2689,7 @@ class Translation(
                 # Delete the removed unit from the database
                 cleanup_variants |= translation_unit.variant_id is not None
                 translation_unit.delete()
+                source_unit_deleted |= translation.is_source
                 translation.notify_deletion(translation_unit, user)
                 # Skip file processing on source language without a storage
                 if not translation.filename:
@@ -2693,6 +2719,7 @@ class Translation(
                     source_unit = translation_unit.source_unit
                     if source_unit.source_unit.unit_set.count() == 1:
                         source_unit.delete()
+                        source_unit_deleted = True
                         source_unit.translation.notify_deletion(source_unit, user)
 
             if self.is_source and unit.position and not component.has_template():
@@ -2721,6 +2748,12 @@ class Translation(
                     alert.save(update_fields=["details"])
 
             self.handle_store_change(request, user, previous_revision)
+            if source_unit_deleted:
+                transaction.on_commit(
+                    lambda: update_alerts(
+                        component, {"MissingScreenshots", "UnusedScreenshot"}
+                    )
+                )
 
     @transaction.atomic
     def sync_terminology(self) -> None:

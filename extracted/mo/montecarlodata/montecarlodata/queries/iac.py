@@ -39,6 +39,12 @@ query getMonteCarloConfigTemplateUpdateState($updateUuid: UUID!) {
             diffString
             resourceType
             resourceIndex
+            estimatedCredits {
+                creditsPerDay
+                scale
+                segmentCountSource
+                warnings
+            }
         }
         changesApplied
         errorsAsJson

@@ -48,6 +48,7 @@ from snowflake.snowpark.types import (
 from snowflake.snowpark_connect.config import (
     get_string_session_config_param,
     global_config,
+    is_nss_enabled,
 )
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.date_time_format_mapping import (
@@ -839,6 +840,142 @@ def map_read_json(
         )
         attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
         raise exception
+
+    # ── NSS (Native Spark Sandbox) branch ────────────────────────────────────
+    # When enabled, delegate to STAGE_FILE_READER instead of COPY INTO. If the
+    # caller supplied no schema, infer it via INFER_STAGE_FILE_SCHEMA (Spark's own
+    # inference, so it matches the sandbox reader) and route the inferred schema
+    # through the same path. INFER raises on empty (no columns) rather than falling
+    # back to the COPY path, so an NSS gap surfaces loudly instead of silently.
+    nss_enabled = is_nss_enabled()
+    nss_columns = None
+    nss_stage_path = nss_format_name = None
+    if nss_enabled:
+        # STAGE_FILE_READER's LOCATION is single-valued; a multi-path read would
+        # silently return only paths[0]. Fail loudly until UNION-ALL support lands.
+        if len(paths) > 1:
+            exception = SnowparkConnectNotImplementedError(
+                "NSS multi-path read not supported (v1): STAGE_FILE_READER accepts a "
+                f"single LOCATION but {len(paths)} paths were given. Unset "
+                "SCOS_NSS_ENABLED on the server to read multiple paths via COPY."
+            )
+            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+            raise exception
+        nss_format_name = get_string_session_config_param(
+            "snowpark.connect.nss.json_format_name"
+        )
+        if not nss_format_name:
+            from snowflake.snowpark_connect.nss.nss_file_format import (
+                ensure_nss_temp_file_format,
+            )
+
+            nss_format_name = ensure_nss_temp_file_format(session, "json")
+        # paths[0] arrives SQL-quoted (see _quote_stage_path); the NSS reader
+        # re-quotes it, so strip one layer to avoid a doubled-quote syntax error.
+        nss_stage_path = paths[0]
+        if nss_stage_path.startswith("'") and nss_stage_path.endswith("'"):
+            nss_stage_path = nss_stage_path[1:-1]
+        if schema is None:
+            # Infer the columns up front so they can be passed as DATA_SCHEMA to
+            # STAGE_FILE_READER. Pass the read's mode + resolved corrupt-record
+            # column (read .option -> spark.sql.columnNameOfCorruptRecord) so a
+            # PERMISSIVE read's corrupt-record column is included / named correctly.
+            from snowflake.snowpark_connect.nss.nss_infer_schema import (
+                infer_via_stage_file_schema,
+            )
+
+            nss_multiline = str(options.config.get("multiline", "false")).lower()
+            nss_mode = str(options.config.get("mode", "PERMISSIVE")).upper()
+            nss_columns = infer_via_stage_file_schema(
+                session,
+                nss_stage_path,
+                nss_format_name,
+                get_string_session_config_param(
+                    "snowpark.connect.nss.infer_stage_file_schema_fqn"
+                ),
+                nss_multiline,
+                # thread the client's .option("samplingRatio", ...) into inference (Spark's
+                # JsonInferSchema samples records); defaults to full-sample when unset.
+                sampling_ratio=str(options.config.get("samplingratio", "1")),
+                mode=nss_mode,
+                corrupt_record_column=corrupt_record_column_name,
+            )
+        else:
+            from snowflake.snowpark_connect.nss.nss_scan_options import (
+                columns_from_spark_schema,
+            )
+            from snowflake.snowpark_connect.relation.read.map_read import (
+                parse_data_source_schema_to_spark,
+            )
+
+            # TODO(SNOW-3717231): when an explicit schema is provided, still call an
+            # INFER_STAGE_FILE_SCHEMA (with-schema) TVF so the backend returns the same
+            # per-column response format as the schema-less case. The backend applies
+            # different logic for the with-schema vs no-schema paths, and routing both
+            # through infer keeps results consistent; the columns -> DATA_SCHEMA logic
+            # below stays identical. Pending backend support — for now use the client's
+            # Spark schema directly (its DataType.json(), no Snowpark round-trip).
+            parsed_spark_schema = parse_data_source_schema_to_spark(rel)
+            if parsed_spark_schema is None:
+                # snowpark ``schema`` is non-None but the proto schema string is empty
+                # — cannot build DATA_SCHEMA. Fail clearly rather than crash on
+                # ``None.fields`` inside columns_from_spark_schema.
+                exception = ValueError(
+                    "NSS JSON read: an explicit schema was provided but the request "
+                    "carried no parseable schema string."
+                )
+                attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+                raise exception
+            nss_columns = columns_from_spark_schema(parsed_spark_schema)
+
+    if nss_enabled and nss_columns is not None:
+        # STAGE_FILE_READER produces the file's data columns directly from
+        # DATA_SCHEMA — no per-schema decoder UDTF.
+        from snowflake.snowpark_connect.nss.nss_scan_options import (
+            _unquote_name,
+            filter_reader_options,
+        )
+        from snowflake.snowpark_connect.nss.nss_stage_file_reader import (
+            nss_read_via_stage_file_reader,
+        )
+
+        # Filter to Spark JSON read options; ensure the resolved corrupt-record
+        # column name (which may come from spark.sql.columnNameOfCorruptRecord,
+        # not the read options) is passed so it matches the inferred column.
+        nss_reader_options = filter_reader_options("json", dict(options.config))
+        if corrupt_record_column_name:
+            nss_reader_options["columnnameofcorruptrecord"] = corrupt_record_column_name
+
+        # NSS read path (keyword kept out of the customer-visible log message)
+        logger.info(f"reading JSON via STAGE_FILE_READER from {nss_stage_path}")
+        df = nss_read_via_stage_file_reader(
+            session=session,
+            stage_path=nss_stage_path,
+            file_format=nss_format_name,
+            columns=nss_columns,
+            reader_options=nss_reader_options,
+            tvf_fqn=get_string_session_config_param(
+                "snowpark.connect.nss.stage_file_reader_fqn"
+            ),
+        )
+
+        # Column names are already known from nss_columns (the TVF output order), so derive the
+        # Spark names from them rather than mapping back from Snowflake's uppercased df.columns.
+        # (This doesn't avoid a describe round-trip — rename_columns_as_snowflake_standard reads
+        # df.columns anyway — but it uses the authoritative original names.)
+        spark_column_names = [_unquote_name(c.name) for c in nss_columns]
+        renamed_df, snowpark_column_names = rename_columns_as_snowflake_standard(
+            df, rel.common.plan_id
+        )
+        return DataFrameContainer.create_with_column_mapping(
+            dataframe=renamed_df,
+            spark_column_names=spark_column_names,
+            snowpark_column_names=snowpark_column_names,
+            snowpark_column_types=None,
+            can_be_cached=False,
+        )
+    # ── End NSS branch ────────────────────────────────────────────────────────
+
     else:
         snowpark_options = options.convert_to_snowpark_args()
         snowpark_options["infer_schema"] = True

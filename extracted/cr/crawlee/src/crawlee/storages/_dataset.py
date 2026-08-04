@@ -137,13 +137,13 @@ class Dataset(Storage):
     async def push_data(self, data: Sequence[Mapping[str, JsonSerializable]] | Mapping[str, JsonSerializable]) -> None:
         """Store an object or an array of objects to the dataset.
 
-        The size of the data is limited by the receiving API and therefore `push_data()` will only
-        allow objects whose JSON representation is smaller than 9MB. When an array is passed,
-        none of the included objects may be larger than 9MB, but the array itself may be of any size.
+        Local storage clients impose no size limit on the pushed data. Some remote storage clients do,
+        however. For example, when running on the Apify platform, the receiving API only accepts objects
+        whose JSON representation is smaller than 9MB, and each item of a passed array is subject to the
+        same per-item limit (the array itself may be of any size).
 
         Args:
-            data: A JSON serializable data structure to be stored in the dataset. The JSON representation
-                of each item must be smaller than 9MB.
+            data: A JSON serializable data structure to be stored in the dataset.
         """
         await self._client.push_data(data=data)
 
@@ -317,10 +317,12 @@ class Dataset(Storage):
         to_kvs_name: str | None = None,
         to_kvs_storage_client: StorageClient | None = None,
         to_kvs_configuration: Configuration | None = None,
+        *,
+        collect_all_keys: bool = False,
         **kwargs: Unpack[ExportDataCsvKwargs],
     ) -> None: ...
 
-    async def export_to(
+    async def export_to(  # noqa: PLR0917
         self,
         key: str,
         content_type: Literal['json', 'csv'] = 'json',
@@ -328,6 +330,8 @@ class Dataset(Storage):
         to_kvs_name: str | None = None,
         to_kvs_storage_client: StorageClient | None = None,
         to_kvs_configuration: Configuration | None = None,
+        *,
+        collect_all_keys: bool = False,
         **kwargs: Any,
     ) -> None:
         """Export the entire dataset into a specified file stored under a key in a key-value store.
@@ -346,6 +350,9 @@ class Dataset(Storage):
                 Specify only one of ID or name.
             to_kvs_storage_client: Storage client to use for the key-value store.
             to_kvs_configuration: Configuration for the key-value store.
+            collect_all_keys: CSV only. When True, the columns are the keys of all items combined, so no value is
+                dropped. When False, the columns are the keys of the first non-empty item, and keys introduced by
+                later items are dropped with a warning.
             kwargs: Additional parameters for the export operation, specific to the chosen content type.
         """
         kvs = await KeyValueStore.open(
@@ -357,7 +364,7 @@ class Dataset(Storage):
         dst = StringIO()
 
         if content_type == 'csv':
-            await export_csv_to_stream(self.iterate_items(), dst, **kwargs)
+            await export_csv_to_stream(self.iterate_items(), dst, collect_all_keys=collect_all_keys, **kwargs)
             await kvs.set_value(key, dst.getvalue(), 'text/csv')
         elif content_type == 'json':
             await export_json_to_stream(self.iterate_items(), dst, **kwargs)

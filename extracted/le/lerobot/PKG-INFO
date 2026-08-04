@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lerobot
-Version: 0.6.0
+Version: 0.6.1
 Summary: 🤗 LeRobot: State-of-the-art Machine Learning for Real-World Robotics in Pytorch
 Author-email: Rémi Cadène <re.cadene@gmail.com>, Simon Alibert <alibert.sim@gmail.com>, Alexander Soare <alexander.soare159@gmail.com>, Quentin Gallouédec <quentin.gallouedec@ec-lyon.fr>, Steven Palma <imstevenpmwork@ieee.org>, Pepijn Kooijmans <pepijnkooijmans@outlook.com>, Michel Aractingi <michel.aractingi@gmail.com>, Adil Zouitine <adilzouitinegm@gmail.com>, Dana Aubakirova <danaaubakirova17@gmail.com>, Caroline Pascal <caroline8.pascal@gmail.com>, Martino Russi <nopyeps@gmail.com>, Thomas Wolf <thomaswolfcontact@gmail.com>
 License: Apache-2.0
@@ -28,8 +28,8 @@ Requires-Dist: numpy<2.3.0,>=2.0.0
 Requires-Dist: opencv-python-headless<4.14.0,>=4.9.0
 Requires-Dist: Pillow<13.0.0,>=10.0.0
 Requires-Dist: einops<0.9.0,>=0.8.0
-Requires-Dist: draccus==0.10.0
-Requires-Dist: huggingface-hub<2.0.0,>=1.0.0
+Requires-Dist: draccus<0.12.0,>=0.11.6
+Requires-Dist: huggingface-hub<2.0.0,>=1.6.0
 Requires-Dist: requests<3.0.0,>=2.32.0
 Requires-Dist: gymnasium<2.0.0,>=1.1.1
 Requires-Dist: safetensors<1.0.0,>=0.4.3
@@ -37,9 +37,9 @@ Requires-Dist: packaging<26.0,>=24.2
 Requires-Dist: termcolor<4.0.0,>=2.4.0
 Requires-Dist: tqdm<5.0.0,>=4.66.0
 Requires-Dist: cmake<4.2.0,>=3.29.0.1
-Requires-Dist: setuptools<81.0.0,>=71.0.0
+Requires-Dist: setuptools<82.0.0,>=71.0.0
 Provides-Extra: dataset
-Requires-Dist: datasets<5.0.0,>=4.7.0; extra == "dataset"
+Requires-Dist: datasets<5.0.0,>=4.8.0; extra == "dataset"
 Requires-Dist: pandas<3.0.0,>=2.0.0; extra == "dataset"
 Requires-Dist: pyarrow<30.0.0,>=21.0.0; extra == "dataset"
 Requires-Dist: lerobot[av-dep]; extra == "dataset"
@@ -89,7 +89,7 @@ Requires-Dist: peft<1.0.0,>=0.18.0; extra == "peft-dep"
 Provides-Extra: scipy-dep
 Requires-Dist: scipy<2.0.0,>=1.14.0; extra == "scipy-dep"
 Provides-Extra: diffusers-dep
-Requires-Dist: diffusers<0.36.0,>=0.27.2; extra == "diffusers-dep"
+Requires-Dist: diffusers<0.40.0,>=0.38.0; extra == "diffusers-dep"
 Provides-Extra: qwen-vl-utils-dep
 Requires-Dist: qwen-vl-utils<0.1.0,>=0.0.11; extra == "qwen-vl-utils-dep"
 Provides-Extra: matplotlib-dep
@@ -245,7 +245,7 @@ Provides-Extra: notebook
 Requires-Dist: jupyter<2.0.0,>=1.0.0; extra == "notebook"
 Requires-Dist: ipykernel<7.0.0,>=6.0.0; extra == "notebook"
 Provides-Extra: test
-Requires-Dist: pytest<9.0.0,>=8.1.0; extra == "test"
+Requires-Dist: pytest<10.0.0,>=8.1.0; extra == "test"
 Requires-Dist: pytest-timeout<3.0.0,>=2.4.0; extra == "test"
 Requires-Dist: pytest-cov<8.0.0,>=5.0.0; extra == "test"
 Requires-Dist: mock-serial<0.1.0,>=0.0.1; sys_platform != "win32" and extra == "test"
@@ -318,7 +318,7 @@ Dynamic: description-content-type
 Dynamic: license-file
 
 <p align="center">
-  <img alt="LeRobot, Hugging Face Robotics Library" src="https://raw.githubusercontent.com/huggingface/lerobot/v0.6.0/media/readme/lerobot-logo-thumbnail.png" width="100%">
+  <img alt="LeRobot, Hugging Face Robotics Library" src="https://raw.githubusercontent.com/huggingface/lerobot/v0.6.1/media/readme/lerobot-logo-thumbnail.png" width="100%">
 </p>
 
 <div align="center">
@@ -359,7 +359,7 @@ lerobot-info
 ## Robots & Control
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/huggingface/lerobot/v0.6.0/media/readme/robots_control_video.webp" width="640px" alt="Reachy 2 Demo">
+  <img src="https://raw.githubusercontent.com/huggingface/lerobot/v0.6.1/media/readme/robots_control_video.webp" width="640px" alt="Reachy 2 Demo">
 </div>
 
 LeRobot provides a unified `Robot` class interface that decouples control logic from hardware specifics. It supports a wide range of robots and teleoperation devices.
@@ -402,14 +402,14 @@ episode_index=0
 print(f"{dataset[episode_index]['action'].shape=}\n")
 ```
 
-Learn more about it in the [LeRobotDataset Documentation](https://huggingface.co/docs/lerobot/lerobot-dataset-v3)
+Learn more about it in the [LeRobotDataset Documentation](https://huggingface.co/docs/lerobot/lerobot-dataset-v3).
 
 ## SoTA Models
 
 LeRobot implements state-of-the-art policies in pure PyTorch, covering Imitation Learning, Reinforcement Learning, Vision-Language-Action (VLA) models, World Models, and Reward Models, with more coming soon. It also provides you with the tools to instrument and inspect your training process.
 
 <p align="center">
-  <img alt="Gr00t Architecture" src="https://raw.githubusercontent.com/huggingface/lerobot/v0.6.0/media/readme/VLA_architecture.jpg" width="640px">
+  <img alt="Gr00t Architecture" src="https://raw.githubusercontent.com/huggingface/lerobot/v0.6.1/media/readme/VLA_architecture.jpg" width="640px">
 </p>
 
 Training a policy is as simple as running a script configuration:
@@ -428,7 +428,7 @@ lerobot-train \
 | **World Models**           | [VLA-JEPA](./docs/source/vla_jepa.mdx), [LingBot-VA](./docs/source/lingbot_va.mdx), [FastWAM](./docs/source/fastwam.mdx)                                                                                                                                                                                                                                                                   |
 | **Reward Models**          | [SARM](./docs/source/sarm.mdx), [TOPReward](./docs/source/topreward.mdx), [Robometer](./docs/source/robometer.mdx)                                                                                                                                                                                                                                                                         |
 
-Similarly to the hardware, you can easily implement your own policy & leverage LeRobot's data collection, training, and visualization tools, and share your model to the HF Hub
+Similarly to the hardware, you can easily implement your own policy & leverage LeRobot's data collection, training, and visualization tools, and share your model to the HF Hub.
 
 For detailed policy setup guides, see the [Policy Documentation](https://huggingface.co/docs/lerobot/bring_your_own_policies). For GPU/RAM requirements and expected training time per policy, see the [Compute Hardware Guide](https://huggingface.co/docs/lerobot/hardware_guide).
 
@@ -445,7 +445,7 @@ lerobot-eval \
   --eval.n_episodes=10
 ```
 
-Learn how to implement your own simulation environment or benchmark and distribute it from the HF Hub by following the [EnvHub Documentation](https://huggingface.co/docs/lerobot/envhub)
+Learn how to implement your own simulation environment or benchmark and distribute it from the HF Hub by following the [EnvHub Documentation](https://huggingface.co/docs/lerobot/envhub).
 
 ## Resources
 
@@ -492,7 +492,7 @@ If you are referencing our research or the academic paper, please also cite our 
 We welcome contributions from everyone in the community! To get started, please read our [CONTRIBUTING.md](https://github.com/huggingface/lerobot/blob/main/CONTRIBUTING.md) guide. Whether you're adding a new feature, improving documentation, or fixing a bug, your help and feedback are invaluable. We're incredibly excited about the future of open-source robotics and can't wait to work with you on what's next—thank you for your support!
 
 <p align="center">
-  <img alt="SO101 Video" src="https://raw.githubusercontent.com/huggingface/lerobot/v0.6.0/media/readme/so100_video.webp" width="640px">
+  <img alt="SO101 Video" src="https://raw.githubusercontent.com/huggingface/lerobot/v0.6.1/media/readme/so100_video.webp" width="640px">
 </p>
 
 <div align="center">

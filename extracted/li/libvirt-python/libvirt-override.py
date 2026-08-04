@@ -1,6 +1,6 @@
 
 from types import TracebackType
-from typing import Any, Callable, Dict, List, Optional, overload, Tuple, Type, TypeVar, Union
+from typing import Any, Callable, Optional, overload, TypeVar, Union
 _T = TypeVar('_T')
 _EventCB = Callable[[int, int, int, _T], None]
 _EventAddHandleFunc = Callable[[int, int, _EventCB[_T], _T], int]
@@ -11,11 +11,11 @@ _EventAddTimeoutFunc = Callable[[int, _TimerCB[_T], _T], int]
 _EventUpdateTimeoutFunc = Callable[[int, int], None]
 _EventRemoveTimeoutFunc = Callable[[int], int]
 _DomainCB = Callable[['virConnect', 'virDomain', int, int, _T], Optional[int]]
-_BlkioParameter = Dict[str, Any]
-_MemoryParameter = Dict[str, Any]
-_SchedParameter = Dict[str, Any]
-_TypedParameter = Dict[str, Any]
-_RawError = Tuple[int, int, str, int, str, Optional[str], Optional[str], int, int]
+_BlkioParameter = dict[str, Any]
+_MemoryParameter = dict[str, Any]
+_SchedParameter = dict[str, Any]
+_TypedParameter = dict[str, Any]
+_RawError = tuple[int, int, str, int, str, Optional[str], Optional[str], int, int]
 
 
 # The root of all libvirt errors.
@@ -91,9 +91,9 @@ def registerErrorHandler(f: Callable[[_T, _RawError], None], ctx: _T) -> int:
     return libvirtmod.virRegisterErrorHandler(f, ctx)
 
 
-def openAuth(uri: str, auth: List, flags: int = 0) -> 'virConnect':
+def openAuth(uri: str, auth: list, flags: Optional[int] = 0) -> 'virConnect':
     # TODO: The C code requires a List and there is not *Mutable*Tuple for a better description such as
-    # auth: Tuple[List[int], Callable[[List[MutableTuple[int, str, str, str, Any]], _T], int], _T]
+    # auth: tuple[list[int], Callable[[list[Mutabletuple[int, str, str, str, Any]], _T], int], _T]
     """
     This function should be called first to get a connection to the
     Hypervisor. If necessary, authentication will be performed fetching
@@ -154,10 +154,10 @@ def getVersion(name: Optional[str] = None) -> int:
 # Invoke an EventHandle callback
 #
 @overload
-def _eventInvokeHandleCallback(watch: int, fd: int, event: int, opaque: Tuple[_EventCB[_T], _T], opaquecompat: None = None) -> None: ...  # noqa E704
+def _eventInvokeHandleCallback(watch: int, fd: int, event: int, opaque: tuple[_EventCB[_T], _T], opaquecompat: None = None) -> None: ...  # noqa E704
 @overload  # noqa F811
-def _eventInvokeHandleCallback(watch: int, fd: int, event: int, opaque: _EventCB[_T], opaquecompat: _T = None) -> None: ...  # noqa E704
-def _eventInvokeHandleCallback(watch: int, fd: int, event: int, opaque: Union[Tuple[_EventCB[_T], _T], _EventCB[_T]], opaquecompat: Optional[_T] = None) -> None:  # noqa F811
+def _eventInvokeHandleCallback(watch: int, fd: int, event: int, opaque: _EventCB[_T], opaquecompat: Optional[_T] = None) -> None: ...  # noqa E704
+def _eventInvokeHandleCallback(watch: int, fd: int, event: int, opaque: Union[tuple[_EventCB[_T], _T], _EventCB[_T]], opaquecompat: Optional[_T] = None) -> None:  # noqa F811
     """
     Invoke the Event Impl Handle Callback in C
     """
@@ -179,7 +179,7 @@ def _eventInvokeHandleCallback(watch: int, fd: int, event: int, opaque: Union[Tu
 #
 # Invoke an EventTimeout callback
 #
-def _eventInvokeTimeoutCallback(timer: int, opaque: Union[Tuple[_TimerCB[_T], _T], _TimerCB[_T]], opaquecompat: Optional[_T] = None) -> None:
+def _eventInvokeTimeoutCallback(timer: int, opaque: Union[tuple[_TimerCB[_T], _T], _TimerCB[_T]], opaquecompat: Optional[_T] = None) -> None:
     """
     Invoke the Event Impl Timeout Callback in C
     """
@@ -198,7 +198,7 @@ def _eventInvokeTimeoutCallback(timer: int, opaque: Union[Tuple[_TimerCB[_T], _T
     libvirtmod.virEventInvokeTimeoutCallback(timer, callback, opaque_)
 
 
-def _dispatchEventHandleCallback(watch: int, fd: int, events: int, cbData: Dict[str, Any]) -> int:
+def _dispatchEventHandleCallback(watch: int, fd: int, events: int, cbData: dict[str, Any]) -> int:
     cb = cbData["cb"]
     opaque = cbData["opaque"]
 
@@ -206,7 +206,7 @@ def _dispatchEventHandleCallback(watch: int, fd: int, events: int, cbData: Dict[
     return 0
 
 
-def _dispatchEventTimeoutCallback(timer: int, cbData: Dict[str, Any]) -> int:
+def _dispatchEventTimeoutCallback(timer: int, cbData: dict[str, Any]) -> int:
     cb = cbData["cb"]
     opaque = cbData["opaque"]
 

@@ -28,7 +28,12 @@ class CLI(Client):
         SaveLoad(self).load_config(filename, warehouse_id, table_id, force)
 
     def pull(
-        self, filename: str, *table_refs: str, exclude_labels: str | None = None
+        self,
+        filename: str,
+        *table_refs: str,
+        exclude_labels: str | None = None,
+        warehouse_id: int | None = None,
+        configured_only: bool = False,
     ) -> None:
         self.output_style = "json"
         labels_to_exclude: list[str] = []
@@ -36,7 +41,13 @@ class CLI(Client):
             labels_to_exclude = [
                 label.strip() for label in exclude_labels.split(",") if label.strip()
             ]
-        StateMachine(self).pull(filename, table_refs, labels_to_exclude)
+        StateMachine(self).pull(
+            filename,
+            table_refs,
+            labels_to_exclude,
+            warehouse_id=warehouse_id,
+            configured_only=configured_only,
+        )
 
     def examine(
         self, table: str, check: str | None = None, format: str = "yaml"

@@ -67,7 +67,7 @@ DelayCf64Obj_init (DelayCf64Object *self, PyObject *args, PyObject *kwds)
       return -1;
     }
   {
-    size_t _max = delay_ptr_max_out (self->handle);
+    size_t _max = delay_ptr_max_out (self->handle, self->handle->num_taps);
     if (_max)
       {
         self->_ptr_buf = malloc (_max * sizeof (double complex));
@@ -132,7 +132,8 @@ DelayCf64Obj_ptr_max_out (DelayCf64Object *self, PyObject *Py_UNUSED (ignored))
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  return PyLong_FromSize_t (delay_ptr_max_out (self->handle));
+  return PyLong_FromSize_t (
+      delay_ptr_max_out (self->handle, self->handle->num_taps));
 }
 
 static PyObject *
@@ -176,8 +177,8 @@ DelayCf64Obj_ptr (DelayCf64Object *self, PyObject *args, PyObject *kwds)
         {
           return NULL;
         }
-      size_t _cap     = (size_t)PyArray_SIZE (out_arr);
-      size_t _omax    = delay_ptr_max_out (self->handle);
+      size_t _cap  = (size_t)PyArray_SIZE (out_arr);
+      size_t _omax = delay_ptr_max_out (self->handle, self->handle->num_taps);
       size_t _min_cap = _omax > (size_t)n ? _omax : ((size_t)n);
       if (_cap < _min_cap)
         {
@@ -203,7 +204,7 @@ DelayCf64Obj_ptr (DelayCf64Object *self, PyObject *args, PyObject *kwds)
   size_t _need = (size_t)n;
   if (!self->_ptr_buf || self->_ptr_buf_cap < _need)
     {
-      size_t _max = delay_ptr_max_out (self->handle);
+      size_t _max = delay_ptr_max_out (self->handle, self->handle->num_taps);
       if (!_max || _max < _need)
         _max = _need;
       if (self->_ptr_buf && self->_ptr_retired_n == self->_ptr_retired_cap)
@@ -491,7 +492,10 @@ DelayCf64Obj_exit (DelayCf64Object *self, PyObject *args)
 
 static PyMethodDef DelayCf64Obj_methods[] = {
   { "reset", (PyCFunction)DelayCf64Obj_reset, METH_NOARGS,
-    "Reset state to post-create defaults." },
+    "Reset the delay line to its post-create state. Zeroes the entire dual "
+    "buffer and resets the write pointer to 0, discarding all previously "
+    "pushed samples.  The num_taps and capacity are preserved; only the "
+    "sample history is cleared." },
 
   { "push", (PyCFunction)(void *)DelayCf64Obj_push,
     METH_VARARGS | METH_KEYWORDS,
@@ -504,10 +508,19 @@ static PyMethodDef DelayCf64Obj_methods[] = {
     "any num_taps-length window starting at head is contiguous without an "
     "extra copy.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import DelayCf64\n"
-    "    >>> obj = DelayCf64(1)\n"
-    "    >>> obj.push(0j)\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : complex\n"
+    "    New complex sample to insert.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.delay import DelayCf64\n"
+    ">>> d = DelayCf64(num_taps=3)\n"
+    ">>> d.push(1+2j)\n"
+    ">>> d.push(3+4j)\n"
+    ">>> d.ptr().tolist()\n"
+    "[(3+4j), (1+2j), 0j]\n" },
   { "ptr", (PyCFunction)(void *)DelayCf64Obj_ptr, METH_VARARGS | METH_KEYWORDS,
     "ptr(n=num_taps, out=None) -> ndarray\n"
     "\n"
@@ -560,20 +573,103 @@ static PyMethodDef DelayCf64Obj_methods[] = {
     "decouple sample ingestion from window inspection. Internally delegates "
     "to delay_push() with no additional overhead.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import DelayCf64\n"
-    "    >>> obj = DelayCf64(1)\n"
-    "    >>> obj.write(1.0 + 0.0j)\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : complex\n"
+    "    New complex sample to insert.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.delay import DelayCf64\n"
+    ">>> d = DelayCf64(num_taps=2)\n"
+    ">>> d.write(5+6j)\n"
+    ">>> d.ptr().tolist()\n"
+    "[(5+6j), 0j]\n" },
   { "state_bytes", (PyCFunction)DelayCf64Obj_state_bytes, METH_NOARGS,
-    "Serialized state size in bytes." },
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the DelayCf64Obj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
   { "get_state", (PyCFunction)DelayCf64Obj_get_state, METH_NOARGS,
-    "Serialize the engine's mutable state to bytes." },
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the DelayCf64Obj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
   { "set_state", (PyCFunction)DelayCf64Obj_set_state, METH_O,
-    "Restore mutable state from a get_state() blob." },
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the DelayCf64Obj has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
   { "destroy", (PyCFunction)DelayCf64Obj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)DelayCf64Obj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)DelayCf64Obj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)DelayCf64Obj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a Delay be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "Delay\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)DelayCf64Obj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the Delay.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

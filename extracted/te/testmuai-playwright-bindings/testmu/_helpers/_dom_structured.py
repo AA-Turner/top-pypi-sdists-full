@@ -46,7 +46,33 @@ class AxNode:
     is_visible: bool | None = None
     in_viewport: bool | None = None
     backend_dom_node_id: int | None = None
+    # Capture-only fields (A2): set by the frame-aware CDP/snapshot parsers
+    # ported from the runner's accessibility.py so the port stays a verbatim
+    # AccessibilityNode->AxNode rename. Additive and inert to the serializer —
+    # serialize_ax_tree never reads them. Names/defaults match the runner's
+    # src.browser_protocol.AccessibilityNode exactly (A3 parity).
+    bounding_box: dict[str, float] | None = None
+    autocomplete: str | None = None
+    multiselectable: bool | None = None
+    orientation: str | None = None
+    roledescription: str | None = None
+    haspopup: str | None = None
+    keyshortcuts: str | None = None
     children: list["AxNode"] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        # AX ``value`` may arrive numeric: a range slider, number spinbutton,
+        # meter, or progressbar reports its value as an int/float (Playwright's
+        # accessibility snapshot returns e.g. ``50``, CDP an AXValue number).
+        # The serializer treats ``value`` as text (len/truncate), so a numeric
+        # value crashed the WHOLE page snapshot. Coerce to str at the single
+        # construction boundary; ``None``/``""`` normalize to ``""`` so the
+        # ``if node.value`` guards still read "no value", and ``0`` renders as
+        # ``"0"`` (a real value, not empty).
+        if self.value is None:
+            self.value = ""
+        elif not isinstance(self.value, str):
+            self.value = str(self.value)
 
 
 @dataclass

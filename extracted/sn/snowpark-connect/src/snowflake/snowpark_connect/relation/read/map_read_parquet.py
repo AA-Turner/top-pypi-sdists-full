@@ -1486,6 +1486,9 @@ def map_read_parquet(
         attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
         raise exception
 
+    # NSS (Native Spark Sandbox) covers CSV/JSON only for now; parquet reads always
+    # use the native COPY/SELECT-from-stage path below.
+
     converted_snowpark_options = options.convert_to_snowpark_args()
     file_format_options = _parse_parquet_snowpark_options(converted_snowpark_options)
     raw_options = rel.read.data_source.options

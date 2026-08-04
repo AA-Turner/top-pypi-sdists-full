@@ -391,6 +391,7 @@ from lusid.models.delete_relation_request import DeleteRelationRequest
 from lusid.models.delete_relational_data_point_request import DeleteRelationalDataPointRequest
 from lusid.models.delete_relationship_request import DeleteRelationshipRequest
 from lusid.models.deleted_entity_response import DeletedEntityResponse
+from lusid.models.delisting_event import DelistingEvent
 from lusid.models.dependency_source_filter import DependencySourceFilter
 from lusid.models.deposit_close_event import DepositCloseEvent
 from lusid.models.deposit_interest_payment_event import DepositInterestPaymentEvent
@@ -687,6 +688,7 @@ from lusid.models.journal_entry_lines_query_parameters import JournalEntryLinesQ
 from lusid.models.keyed_market_data_key_rule import KeyedMarketDataKeyRule
 from lusid.models.label_value_set import LabelValueSet
 from lusid.models.lapse_election import LapseElection
+from lusid.models.latest_as_at import LatestAsAt
 from lusid.models.leg_definition import LegDefinition
 from lusid.models.legal_entity import LegalEntity
 from lusid.models.level_step import LevelStep
@@ -1934,6 +1936,7 @@ __all__ = [
     "DeleteRelationalDataPointRequest",
     "DeleteRelationshipRequest",
     "DeletedEntityResponse",
+    "DelistingEvent",
     "DependencySourceFilter",
     "DepositCloseEvent",
     "DepositInterestPaymentEvent",
@@ -2230,6 +2233,7 @@ __all__ = [
     "KeyedMarketDataKeyRule",
     "LabelValueSet",
     "LapseElection",
+    "LatestAsAt",
     "LegDefinition",
     "LegalEntity",
     "LevelStep",

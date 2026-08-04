@@ -272,7 +272,9 @@ AccQ8_set_state (AccQ8Object *self, PyObject *arg)
 
 static PyMethodDef AccQ8_methods[] = {
   { "reset", (PyCFunction)AccQ8_reset, METH_NOARGS,
-    "Reset state to post-create defaults." },
+    "Reset the accumulator to zero, mirroring the post-create state. Always "
+    "resets to zero regardless of the original constructor value, so it is "
+    "safe to call at the start of any new accumulation window." },
   { "step", (PyCFunction)AccQ8_step, METH_VARARGS,
     "step(x) -> None\n"
     "\n"
@@ -280,9 +282,20 @@ static PyMethodDef AccQ8_methods[] = {
     "sign-extended to 32 bits before addition so negative samples correctly "
     "subtract from the accumulator.\n"
     "\n"
-    "    >>> from doppler import AccQ8\n"
-    "    >>> obj = AccQ8(0)\n"
-    "    >>> obj.step(1)\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : int\n"
+    "    Q8 input sample (int8_t, range `[-128, 127]`).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.arith import AccQ8\n"
+    ">>> obj = AccQ8(0)\n"
+    ">>> obj.step(10)\n"
+    ">>> obj.step(20)\n"
+    ">>> obj.get()\n"
+    "30\n"
+    "\n" },
   { "steps", (PyCFunction)AccQ8_steps, METH_VARARGS,
     "steps(x[, out]) -> ndarray\n"
     "\n"
@@ -290,50 +303,173 @@ static PyMethodDef AccQ8_methods[] = {
     "step() n times; the single loop is more amenable to auto-vectorisation "
     "than repeated method calls.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import AccQ8\n"
-    "    >>> obj = AccQ8(0)\n"
-    "    >>> y = obj.steps(np.zeros(4, dtype=np.int8))\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.int8]\n"
+    "    Input sample.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.arith import AccQ8\n"
+    ">>> import numpy as np\n"
+    ">>> obj = AccQ8(0)\n"
+    ">>> obj.steps(np.array([1, 2, 3, 4, 5], dtype=np.int8))\n"
+    ">>> obj.get()\n"
+    "15\n"
+    "\n" },
 
-  { "get_acc", (PyCFunction)AccQ8_get_acc, METH_NOARGS, "Get acc." },
-  { "set_acc", (PyCFunction)AccQ8_set_acc, METH_VARARGS, "Set acc." },
+  { "get_acc", (PyCFunction)AccQ8_get_acc, METH_NOARGS,
+    "Read the current accumulator value without modifying it. Permits "
+    "repeated snapshots of the running sum mid-stream.\n" },
+  { "set_acc", (PyCFunction)AccQ8_set_acc, METH_VARARGS,
+    "Overwrite the accumulator with a new value. Useful for applying a bias "
+    "before a new accumulation window, or for restoring a checkpointed "
+    "accumulator state.\n" },
   { "get", (PyCFunction)AccQ8_get, METH_NOARGS,
     "get() -> int\n"
     "\n"
     "Return the current accumulated value without resetting.\n"
     "\n"
-    "    >>> from doppler import AccQ8\n"
-    "    >>> obj = AccQ8(0)\n"
-    "    >>> obj.get()\n"
-    "    0\n" },
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Current accumulator value (int32_t).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.arith import AccQ8\n"
+    ">>> import numpy as np\n"
+    ">>> obj = AccQ8(0)\n"
+    ">>> obj.steps(np.array([10, 20, 30], dtype=np.int8))\n"
+    ">>> obj.get()\n"
+    "60\n" },
   { "dump", (PyCFunction)AccQ8_dump, METH_NOARGS,
     "dump() -> int\n"
     "\n"
     "Return the accumulated value and reset to zero.\n"
     "\n"
-    "    >>> from doppler import AccQ8\n"
-    "    >>> obj = AccQ8(0)\n"
-    "    >>> obj.dump()\n"
-    "    0\n" },
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Accumulator value before the reset (int32_t).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.arith import AccQ8\n"
+    ">>> import numpy as np\n"
+    ">>> obj = AccQ8(0)\n"
+    ">>> obj.steps(np.array([1, 2, 3, 4, 5], dtype=np.int8))\n"
+    ">>> obj.dump()\n"
+    "15\n"
+    ">>> obj.get()\n"
+    "0\n" },
   { "madd", (PyCFunction)AccQ8_madd, METH_VARARGS,
     "madd(a, b) -> None\n"
     "\n"
     "Multiply-accumulate: acc += sum(a[i] * b[i]) for i in [0, len(a)).\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import AccQ8\n"
-    "    >>> obj = AccQ8(0)\n"
-    "    >>> obj.madd(np.zeros(4, dtype=np.int8), np.zeros(4, "
-    "dtype=np.int8))\n" },
-  { "destroy", (PyCFunction)AccQ8_destroy, METH_NOARGS, "Release resources." },
-  { "__enter__", (PyCFunction)AccQ8_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)AccQ8_exit, METH_VARARGS, NULL },
+    "Parameters\n"
+    "----------\n"
+    "a : NDArray[np.int8]\n"
+    "    First input array (int8_t).\n"
+    "b : NDArray[np.int8]\n"
+    "    Second input array (int8_t), same length as a.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.arith import AccQ8\n"
+    ">>> import numpy as np\n"
+    ">>> obj = AccQ8(0)\n"
+    ">>> a = np.array([10, 20, 30], dtype=np.int8)\n"
+    ">>> b = np.array([1, 2, 3], dtype=np.int8)\n"
+    ">>> obj.madd(a, b)\n"
+    ">>> obj.get()\n"
+    "140\n" },
+  { "destroy", (PyCFunction)AccQ8_destroy, METH_NOARGS,
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)AccQ8_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a AccQ8 be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "AccQ8\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)AccQ8_exit, METH_VARARGS,
+    "Exit a context manager, releasing the AccQ8.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { "state_bytes", (PyCFunction)AccQ8_state_bytes, METH_NOARGS,
-    "Serialized state size in bytes." },
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the AccQ8 has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
   { "get_state", (PyCFunction)AccQ8_get_state, METH_NOARGS,
-    "Serialize the engine's mutable state to bytes." },
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the AccQ8 has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
   { "set_state", (PyCFunction)AccQ8_set_state, METH_O,
-    "Restore mutable state from a get_state() blob." },
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the AccQ8 has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
   { NULL }
 };
 

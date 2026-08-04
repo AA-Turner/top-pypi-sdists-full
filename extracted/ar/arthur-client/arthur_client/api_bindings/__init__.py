@@ -25,6 +25,7 @@ from arthur_client.api_bindings.api.connector_schemas_v1_api import ConnectorSch
 from arthur_client.api_bindings.api.connectors_v1_api import ConnectorsV1Api
 from arthur_client.api_bindings.api.custom_aggregation_tests_v1_api import CustomAggregationTestsV1Api
 from arthur_client.api_bindings.api.custom_aggregations_v1_api import CustomAggregationsV1Api
+from arthur_client.api_bindings.api.dashboards_v1_api import DashboardsV1Api
 from arthur_client.api_bindings.api.data_plane_associations_v1_api import DataPlaneAssociationsV1Api
 from arthur_client.api_bindings.api.data_planes_v1_api import DataPlanesV1Api
 from arthur_client.api_bindings.api.data_retrieval_v1_api import DataRetrievalV1Api
@@ -144,6 +145,8 @@ from arthur_client.api_bindings.models.custom_aggregation_test_status import Cus
 from arthur_client.api_bindings.models.custom_aggregation_version_spec_schema import CustomAggregationVersionSpecSchema
 from arthur_client.api_bindings.models.custom_aggregation_version_spec_schema_aggregate_args_inner import CustomAggregationVersionSpecSchemaAggregateArgsInner
 from arthur_client.api_bindings.models.d_type import DType
+from arthur_client.api_bindings.models.dashboard import Dashboard
+from arthur_client.api_bindings.models.dashboard_visibility import DashboardVisibility
 from arthur_client.api_bindings.models.data_plane import DataPlane
 from arthur_client.api_bindings.models.data_plane_association import DataPlaneAssociation
 from arthur_client.api_bindings.models.data_plane_association_sort import DataPlaneAssociationSort
@@ -247,6 +250,7 @@ from arthur_client.api_bindings.models.metrics_upload_result import MetricsUploa
 from arthur_client.api_bindings.models.metrics_version import MetricsVersion
 from arthur_client.api_bindings.models.metrics_versions_sort import MetricsVersionsSort
 from arthur_client.api_bindings.models.model import Model
+from arthur_client.api_bindings.models.model_governance_view import ModelGovernanceView
 from arthur_client.api_bindings.models.model_metric_spec import ModelMetricSpec
 from arthur_client.api_bindings.models.model_metrics_schedule import ModelMetricsSchedule
 from arthur_client.api_bindings.models.model_problem_type import ModelProblemType
@@ -271,6 +275,7 @@ from arthur_client.api_bindings.models.pagination import Pagination
 from arthur_client.api_bindings.models.patch_alert_rule import PatchAlertRule
 from arthur_client.api_bindings.models.patch_connector_spec import PatchConnectorSpec
 from arthur_client.api_bindings.models.patch_custom_aggregation_spec_schema import PatchCustomAggregationSpecSchema
+from arthur_client.api_bindings.models.patch_dashboard import PatchDashboard
 from arthur_client.api_bindings.models.patch_data_plane import PatchDataPlane
 from arthur_client.api_bindings.models.patch_data_plane_capabilities import PatchDataPlaneCapabilities
 from arthur_client.api_bindings.models.patch_dataset import PatchDataset
@@ -289,6 +294,8 @@ from arthur_client.api_bindings.models.patch_unregistered_agent_request import P
 from arthur_client.api_bindings.models.patch_user import PatchUser
 from arthur_client.api_bindings.models.patch_webhook import PatchWebhook
 from arthur_client.api_bindings.models.patch_workspace import PatchWorkspace
+from arthur_client.api_bindings.models.pending_invitation_sort import PendingInvitationSort
+from arthur_client.api_bindings.models.pending_user_invitation import PendingUserInvitation
 from arthur_client.api_bindings.models.permission import Permission
 from arthur_client.api_bindings.models.permission_name import PermissionName
 from arthur_client.api_bindings.models.permission_request_item import PermissionRequestItem
@@ -313,6 +320,7 @@ from arthur_client.api_bindings.models.post_attestation_record import PostAttest
 from arthur_client.api_bindings.models.post_connector_spec import PostConnectorSpec
 from arthur_client.api_bindings.models.post_custom_aggregation_spec_schema import PostCustomAggregationSpecSchema
 from arthur_client.api_bindings.models.post_custom_aggregation_test import PostCustomAggregationTest
+from arthur_client.api_bindings.models.post_dashboard import PostDashboard
 from arthur_client.api_bindings.models.post_data_plane import PostDataPlane
 from arthur_client.api_bindings.models.post_data_plane_association import PostDataPlaneAssociation
 from arthur_client.api_bindings.models.post_data_retrieval_operation import PostDataRetrievalOperation
@@ -381,6 +389,7 @@ from arthur_client.api_bindings.models.resource_list_connector_type import Resou
 from arthur_client.api_bindings.models.resource_list_custom_aggregation_spec_schema import ResourceListCustomAggregationSpecSchema
 from arthur_client.api_bindings.models.resource_list_custom_aggregation_test_result import ResourceListCustomAggregationTestResult
 from arthur_client.api_bindings.models.resource_list_custom_aggregation_test_spec import ResourceListCustomAggregationTestSpec
+from arthur_client.api_bindings.models.resource_list_dashboard import ResourceListDashboard
 from arthur_client.api_bindings.models.resource_list_data_plane import ResourceListDataPlane
 from arthur_client.api_bindings.models.resource_list_data_plane_association import ResourceListDataPlaneAssociation
 from arthur_client.api_bindings.models.resource_list_data_source import ResourceListDataSource
@@ -393,6 +402,7 @@ from arthur_client.api_bindings.models.resource_list_job_run import ResourceList
 from arthur_client.api_bindings.models.resource_list_llm_model import ResourceListLLMModel
 from arthur_client.api_bindings.models.resource_list_metrics_version import ResourceListMetricsVersion
 from arthur_client.api_bindings.models.resource_list_model import ResourceListModel
+from arthur_client.api_bindings.models.resource_list_pending_user_invitation import ResourceListPendingUserInvitation
 from arthur_client.api_bindings.models.resource_list_permission import ResourceListPermission
 from arthur_client.api_bindings.models.resource_list_policy import ResourceListPolicy
 from arthur_client.api_bindings.models.resource_list_policy_alert_rule import ResourceListPolicyAlertRule

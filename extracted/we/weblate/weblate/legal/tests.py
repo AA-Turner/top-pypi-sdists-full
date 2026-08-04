@@ -28,6 +28,13 @@ class LegalTest(TestCase, RegistrationTestMixin):
         response = self.client.get(reverse("legal:index"))
         self.assertContains(response, "Legal Terms Overview")
 
+    def test_styles_template(self) -> None:
+        for page in ("index", "terms", "cookies", "privacy", "contracts"):
+            with self.subTest(page=page):
+                response = self.client.get(reverse(f"legal:{page}"))
+                self.assertTemplateUsed(response, "legal/base.html")
+                self.assertTemplateUsed(response, "legal/styles.html")
+
     def test_terms(self) -> None:
         response = self.client.get(reverse("legal:terms"))
         self.assertContains(response, "General Terms and Conditions")
@@ -37,6 +44,12 @@ class LegalTest(TestCase, RegistrationTestMixin):
     def test_terms_without_document_css_class(self) -> None:
         response = self.client.get(reverse("legal:terms"))
         self.assertContains(response, 'class="card-body"')
+        self.assertNotContains(response, 'class="card-body tos"')
+
+    @override_settings(LEGAL_DOCUMENT_CSS_CLASS="custom-legal")
+    def test_terms_with_custom_document_css_class(self) -> None:
+        response = self.client.get(reverse("legal:terms"))
+        self.assertContains(response, 'class="card-body custom-legal"')
         self.assertNotContains(response, 'class="card-body tos"')
 
     def test_cookies(self) -> None:
@@ -74,6 +87,8 @@ class LegalTest(TestCase, RegistrationTestMixin):
         self.client.login(username="testuser", password="testpassword")
 
         response = self.client.get(reverse("legal:confirm"))
+        self.assertTemplateUsed(response, "legal/base.html")
+        self.assertTemplateUsed(response, "legal/styles.html")
         self.assertContains(response, 'class="list-group-item pre-scrollable"')
         self.assertNotContains(response, 'class="list-group-item pre-scrollable tos"')
 
@@ -127,6 +142,17 @@ class LegalTest(TestCase, RegistrationTestMixin):
             legal_hidden_documents=("terms",),
         )
         self.assertNotIn("TOS", settings)
+
+    def test_spectacular_logo_uses_stable_url(self) -> None:
+        spectacular_settings = get_spectacular_settings(
+            [],
+            "https://example.com",
+            "Weblate",
+            static_url="https://cdn.example.com/static/",
+        )
+        logo_url = spectacular_settings["EXTENSIONS_INFO"]["x-logo"]["url"]
+        self.assertIs(type(logo_url), str)
+        self.assertEqual(logo_url, "https://cdn.example.com/static/weblate.svg")
 
     @modify_settings(
         SOCIAL_AUTH_PIPELINE={"append": "weblate.legal.pipeline.tos_confirm"}

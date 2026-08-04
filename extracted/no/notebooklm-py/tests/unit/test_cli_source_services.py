@@ -9,14 +9,19 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from notebooklm.cli import source_cmd
-from notebooklm.cli.services import source_mutations, source_research
-from notebooklm.cli.services.source_content import (
+from notebooklm._app.source_content import (
     SourceFulltextPlan,
     SourceGuidePlan,
     execute_source_fulltext,
     execute_source_guide,
 )
+from notebooklm._app.source_wait import (
+    SourceWaitPlan,
+    SourceWaitTimeout,
+    execute_source_wait,
+)
+from notebooklm.cli import _source_render, source_cmd
+from notebooklm.cli.services import source_mutations, source_research
 from notebooklm.cli.services.source_mutations import (
     SourceDeletePlan,
     SourceMutationError,
@@ -28,11 +33,6 @@ from notebooklm.cli.services.source_research import (
     SourceAddResearchPlan,
     SourceAddResearchResult,
     execute_source_add_research,
-)
-from notebooklm.cli.services.source_wait import (
-    SourceWaitPlan,
-    SourceWaitTimeout,
-    execute_source_wait,
 )
 from notebooklm.types import (
     MindMapResult,  # noqa: F401  (re-exported for shared test helpers)
@@ -136,7 +136,12 @@ async def test_source_rename_returns_payload(monkeypatch: pytest.MonkeyPatch) ->
     )
 
     client.sources.rename.assert_awaited_once_with("nb_1", "src_full", "New")
-    assert result.payload == {
+    # The typed result carries fields only; the --json envelope is built by the
+    # CLI render layer (§11). Assert the relocated builder is byte-identical.
+    assert result.source.id == "src_full"
+    assert result.source.title == "New"
+    assert result.notebook_id == "nb_1"
+    assert _source_render._source_rename_payload(result) == {
         "action": "rename",
         "source_id": "src_full",
         "notebook_id": "nb_1",
@@ -331,9 +336,9 @@ def test_render_add_research_started_no_wait_json_payload(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     payloads: list[dict[str, object]] = []
-    monkeypatch.setattr(source_cmd, "json_output_response", payloads.append)
+    monkeypatch.setattr(_source_render, "json_output_response", payloads.append)
 
-    source_cmd._render_add_research_result(
+    _source_render._render_add_research_result(
         SourceAddResearchResult(
             outcome="started_no_wait",
             plan=SourceAddResearchPlan(
@@ -366,14 +371,14 @@ def test_render_add_research_completed_json_payload(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     payloads: list[dict[str, object]] = []
-    monkeypatch.setattr(source_cmd, "json_output_response", payloads.append)
+    monkeypatch.setattr(_source_render, "json_output_response", payloads.append)
     import_result = SimpleNamespace(
         imported=[{"id": "src_1", "title": "Result"}],
         cited_selection=SimpleNamespace(used_fallback=False),
         sources=[{"title": "Result"}],
     )
 
-    source_cmd._render_add_research_result(
+    _source_render._render_add_research_result(
         SourceAddResearchResult(
             outcome="completed",
             plan=SourceAddResearchPlan(
@@ -419,10 +424,10 @@ def test_render_add_research_completed_text_keeps_task_ids(
     monkeypatch.setattr(
         source_cmd.console, "print", lambda message="", *_, **__: printed.append(message)
     )
-    monkeypatch.setattr(source_cmd, "display_research_sources", lambda sources: None)
-    monkeypatch.setattr(source_cmd, "display_report", lambda report, json_hint=False: None)
+    monkeypatch.setattr(_source_render, "display_research_sources", lambda sources: None)
+    monkeypatch.setattr(_source_render, "display_report", lambda report, json_hint=False: None)
 
-    source_cmd._render_add_research_result(
+    _source_render._render_add_research_result(
         SourceAddResearchResult(
             outcome="completed",
             plan=SourceAddResearchPlan(
@@ -658,7 +663,6 @@ async def test_source_wait_timeout_returns_typed_outcome() -> None:
             source_id="src_1",
             timeout=10.0,
             interval=0.5,
-            json_output=True,
         ),
         wait_context=lambda: fake_status_with_elapsed(),
     )

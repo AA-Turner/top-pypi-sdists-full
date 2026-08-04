@@ -11,10 +11,17 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from notebooklm._app import source_add as cli_source_add
 from notebooklm._source.add import SourceAddService
 from notebooklm._sources import SourcesAPI
-from notebooklm.cli.services import source_add as cli_source_add
-from notebooklm.exceptions import NetworkError, NonIdempotentRetryError, SourceAddError
+from notebooklm.exceptions import (
+    AuthError,
+    NetworkError,
+    NonIdempotentRetryError,
+    RateLimitError,
+    ServerError,
+    SourceAddError,
+)
 from notebooklm.rpc import RPCError, RPCMethod
 from notebooklm.types import Source
 
@@ -175,6 +182,66 @@ async def test_add_text_uses_exact_rpc_shape_and_wait_hook(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "transport_error",
+    [
+        RateLimitError("quota exceeded", retry_after=30),
+        AuthError("csrf token expired"),
+        ServerError("upstream 503"),
+        NetworkError("connection reset"),
+    ],
+    ids=["rate_limit", "auth", "server", "network"],
+)
+async def test_add_text_propagates_narrow_transport_errors_unwrapped(
+    service: SourceAddService,
+    logger: logging.Logger,
+    transport_error: Exception,
+) -> None:
+    # ADR-0019 cross-cutting rule: typed transport errors propagate UNWRAPPED
+    # so callers can catch RateLimitError (back-off via retry_after), AuthError
+    # (re-login), ServerError (transient retry) — the same catch ordering
+    # add_url and add_drive already follow. Before the fix, add_text's bare
+    # ``except RPCError`` collapsed all of these into SourceAddError.
+    with pytest.raises(type(transport_error)) as exc_info:
+        await service.add_text(
+            "nb_1",
+            "Title",
+            "content",
+            rpc=SimpleNamespace(rpc_call=AsyncMock(side_effect=transport_error)),
+            wait_until_ready=AsyncMock(),
+            logger=logger,
+        )
+
+    assert exc_info.value is transport_error
+    assert not isinstance(exc_info.value, SourceAddError)
+
+
+@pytest.mark.asyncio
+async def test_add_text_wraps_generic_rpc_error(
+    service: SourceAddService,
+    logger: logging.Logger,
+) -> None:
+    # The residual broad RPCError (e.g. validation / decode-shaped failures)
+    # still wraps into SourceAddError, with the original preserved on both the
+    # ``cause`` attribute and the ``raise ... from`` chain.
+    rpc_error = RPCError("text add failed")
+
+    with pytest.raises(SourceAddError) as exc_info:
+        await service.add_text(
+            "nb_1",
+            "Title",
+            "content",
+            rpc=SimpleNamespace(rpc_call=AsyncMock(side_effect=rpc_error)),
+            wait_until_ready=AsyncMock(),
+            logger=logger,
+        )
+
+    assert exc_info.value.cause is rpc_error
+    assert exc_info.value.__cause__ is rpc_error
+    assert "Failed to add text source 'Title'" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
 async def test_add_text_refuses_idempotent_flag(
     service: SourceAddService,
     logger: logging.Logger,
@@ -267,7 +334,14 @@ async def test_add_drive_raises_source_add_error_on_null_result(
         )
 
     assert exc_info.value.url == "Drive Doc"
-    assert "API returned no data for Drive source: Drive Doc" in str(exc_info.value)
+    msg = str(exc_info.value)
+    assert "API returned no data for Drive source: Drive Doc" in msg
+    # The message names the attempted mime and hints (not asserts) that the type
+    # may not be importable via Drive, steering the user to the `file` upload path.
+    assert "mime_type=" in msg
+    assert "may not be importable" in msg
+    assert "file" in msg
+    assert "download" in msg.lower()
 
 
 @pytest.mark.asyncio
@@ -375,9 +449,130 @@ async def test_sources_api_add_url_uses_late_bound_facade_hooks() -> None:
 
 
 # ---------------------------------------------------------------------------
+# #1960: honor an explicit ``title`` for backend-re-derived source types
+# (YouTube / Drive / web page) via a best-effort post-add rename.
+# ---------------------------------------------------------------------------
+
+
+def _sources_api_with_mocked_adder() -> SourcesAPI:
+    api = SourcesAPI(MagicMock(), uploader=MagicMock())
+    api._adder = MagicMock()  # type: ignore[assignment]
+    return api
+
+
+@pytest.mark.asyncio
+async def test_add_url_honors_title_via_post_add_rename() -> None:
+    api = _sources_api_with_mocked_adder()
+    api._adder.add_url = AsyncMock(return_value=Source(id="src_yt", title="Upstream Video Title"))
+    api.rename = AsyncMock(return_value=Source(id="src_yt", title="My Title"))  # type: ignore[method-assign]
+
+    result = await api.add_url("nb_1", "https://youtu.be/video", title="My Title")
+
+    api.rename.assert_awaited_once_with("nb_1", "src_yt", "My Title")
+    assert result.id == "src_yt"
+    assert result.title == "My Title"
+
+
+@pytest.mark.asyncio
+async def test_add_drive_honors_title_via_post_add_rename() -> None:
+    api = _sources_api_with_mocked_adder()
+    api._adder.add_drive = AsyncMock(return_value=Source(id="d1", title="Drive Name"))
+    api.rename = AsyncMock(return_value=Source(id="d1", title="My Title"))  # type: ignore[method-assign]
+
+    result = await api.add_drive("nb_1", "file123", "My Title")
+
+    api.rename.assert_awaited_once_with("nb_1", "d1", "My Title")
+    assert result.title == "My Title"
+
+
+@pytest.mark.asyncio
+async def test_add_url_without_title_skips_rename() -> None:
+    api = _sources_api_with_mocked_adder()
+    api._adder.add_url = AsyncMock(return_value=Source(id="s1", title="Upstream"))
+    api.rename = AsyncMock()  # type: ignore[method-assign]
+
+    result = await api.add_url("nb_1", "https://example.com")
+
+    api.rename.assert_not_awaited()
+    assert result.title == "Upstream"
+
+
+@pytest.mark.asyncio
+async def test_add_drive_empty_title_skips_rename() -> None:
+    api = _sources_api_with_mocked_adder()
+    api._adder.add_drive = AsyncMock(return_value=Source(id="d1", title="Drive Name"))
+    api.rename = AsyncMock()  # type: ignore[method-assign]
+
+    result = await api.add_drive("nb_1", "file123", "")
+
+    api.rename.assert_not_awaited()
+    assert result.title == "Drive Name"
+
+
+@pytest.mark.asyncio
+async def test_add_url_title_matching_upstream_skips_rename() -> None:
+    api = _sources_api_with_mocked_adder()
+    api._adder.add_url = AsyncMock(return_value=Source(id="s1", title="Same Title"))
+    api.rename = AsyncMock()  # type: ignore[method-assign]
+
+    # A leading/trailing-whitespace-only difference is not a real retitle.
+    result = await api.add_url("nb_1", "https://example.com", title="  Same Title  ")
+
+    api.rename.assert_not_awaited()
+    assert result.title == "Same Title"
+
+
+@pytest.mark.asyncio
+async def test_add_rename_failure_is_non_fatal(caplog: pytest.LogCaptureFixture) -> None:
+    api = _sources_api_with_mocked_adder()
+    api._adder.add_drive = AsyncMock(return_value=Source(id="d1", title="Drive Name"))
+    api.rename = AsyncMock(side_effect=NetworkError("boom"))  # type: ignore[method-assign]
+
+    with caplog.at_level(logging.WARNING):
+        result = await api.add_drive("nb_1", "file123", "My Title")
+
+    # The add succeeded — a failed rename must not raise; the upstream title is kept.
+    assert result.id == "d1"
+    assert result.title == "Drive Name"
+    api.rename.assert_awaited_once_with("nb_1", "d1", "My Title")
+    assert "rename" in caplog.text.lower()
+
+
+@pytest.mark.asyncio
+async def test_add_url_honor_preserves_metadata_over_sparse_rename_echo() -> None:
+    """UPDATE_SOURCE's echo can be sparse (id + title only); the honored result must keep
+    the added source's url/type and only swap in the new title, not return the bare echo
+    (which would drop url → kind='unknown'). #1960."""
+    api = _sources_api_with_mocked_adder()
+    added = Source(id="s1", title="Upstream Video Title", url="https://youtu.be/v", _type_code=5)
+    api._adder.add_url = AsyncMock(return_value=added)
+    # A sparse UPDATE_SOURCE echo: just id + the renamed title, no url/_type_code.
+    api.rename = AsyncMock(return_value=Source(id="s1", title="My Title"))  # type: ignore[method-assign]
+
+    result = await api.add_url("nb_1", "https://youtu.be/v", title="My Title")
+
+    assert result.title == "My Title"  # requested title applied
+    assert result.url == "https://youtu.be/v"  # preserved from the added source
+    assert result._type_code == 5  # preserved — not dropped by the sparse echo
+
+
+@pytest.mark.asyncio
+async def test_add_text_does_not_rename() -> None:
+    api = _sources_api_with_mocked_adder()
+    api._adder.add_text = AsyncMock(return_value=Source(id="t1", title="My Notes"))
+    api.rename = AsyncMock()  # type: ignore[method-assign]
+
+    result = await api.add_text("nb_1", "My Notes", "content")
+
+    # ``text`` sources honor ``title`` on the wire — no post-add rename.
+    api.rename.assert_not_awaited()
+    assert result.title == "My Notes"
+
+
+# ---------------------------------------------------------------------------
 # CLI service layer: SSRF guard on `source add --url`
 #
-# These tests target ``notebooklm.cli.services.source_add.validate_url`` and
+# These tests target ``notebooklm._app.source_add.validate_url`` and
 # the routing inside ``build_source_add_plan``. They replace the previous
 # ``startswith(("http://", "https://"))`` prefix check, which let
 # ``file:///etc/passwd`` and ``http://169.254.169.254/`` through.

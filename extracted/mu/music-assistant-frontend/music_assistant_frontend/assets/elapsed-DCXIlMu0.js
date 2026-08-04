@@ -1,0 +1,1 @@
+import{bn as e,p as t}from"./useShortcuts-DZ1bj7dv.js";function n(n,r,i,a=1){return n===void 0||r===void 0||i!==void 0&&i!==e.PLAYING?n:n+Math.max(0,t()-r)*a}export{n as t};

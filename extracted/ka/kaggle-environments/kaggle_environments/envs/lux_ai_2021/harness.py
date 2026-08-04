@@ -18,7 +18,6 @@ from kaggle_environments.core_harness import (
     get_telemetry_logger,
     render_rethink_suffix,
 )
-
 from kaggle_environments.envs.lux_ai_2021.test_agents.python.lux.game import Game
 from kaggle_environments.envs.lux_ai_2021.test_agents.python.lux.game_map import GameMap
 from kaggle_environments.envs.lux_ai_2021.test_agents.python.lux.game_objects import Player
@@ -136,7 +135,10 @@ Commands (one per line in your JSON response):
                                       not on an existing city tile)
   p <unit_id>                      -- worker pillages road at its position
   t <from_id> <to_id> <res> <amt>  -- transfer resources between adjacent units
-                                      (res: wood, coal, or crystal)
+                                      (res: wood, coal, or crystal). BOTH ids
+                                      must be UNIT ids (u_N) -- you cannot
+                                      transfer into a city; a unit fuels a city
+                                      by standing on it or building it.
   r <x> <y>                        -- city tile at (x,y) researches
   bw <x> <y>                       -- city tile at (x,y) builds a worker
   bc <x> <y>                       -- city tile at (x,y) builds a cart
@@ -157,9 +159,17 @@ Coordinates are (x, y) with x=0 on the left and y=0 at the top.
 
 You are player {player_id}. Turn {turn} of 360 ({phase}).
 
-Map (uppercase = your units/cities, lowercase = opponent's):
-  legend: `.` empty, `w` wood, `k` coal, `x` crystal,
-          `U/u` worker, `A/a` cart, `T/t` city tile
+Map (uppercase = your units/cities, lowercase = opponent's). Every cell is
+TWO characters: <terrain><occupant>, so a unit never hides the tile it stands on.
+  terrain (1st char): `.` empty, `w` wood, `k` coal, `x` crystal,
+          `T` your city tile, `t` opponent city tile
+  occupant (2nd char): ` ` none, `U`/`A` your worker/cart, `u`/`a` opponent
+          worker/cart, or a DIGIT = that many units stacked on the cell (`+`
+          for 10+). Only a city tile can hold a stack, and units never enter
+          an enemy city, so the terrain char says whose the stack is: `T`+digit
+          is yours, `t`+digit is the opponent's. E.g. `wU` = your worker on
+          wood (you CANNOT `bcity` there); `T3` = your city tile sheltering 3
+          of your units at night; `t2` = opponent city tile with 2 of theirs.
 {ascii_map}
 
 Your state:
@@ -169,13 +179,16 @@ Opponent state:
 {opponent_summary}
 
 {recent_moves_block}
-Reply with a JSON object of the form:
+First give a short justification of your plan for this turn (a few
+sentences -- which units and city tiles you are acting and why), then
+conclude with your commands as a JSON object of the form:
 
 ```json
 {{"actions": ["m u_1 n", "bcity u_2", "r 5 7"]}}
 ```
 
-An empty list (`{{"actions": []}}`) is legal and means "do nothing this turn".
+Put the JSON object last; it is read as your final answer. An empty list
+(`{{"actions": []}}`) is legal and means "do nothing this turn".
 """
 
 
@@ -247,13 +260,29 @@ def _phase(turn: int) -> str:
 def _render_ascii_map(game: Game, player_id: int) -> str:
     """Render the game map as an ASCII grid, uppercase = ``player_id``'s side.
 
-    Precedence per cell (last write wins visually): resources → carts →
-    workers → city tiles. Coordinate axes are printed above and to the
-    left so the model can read positions off the grid.
+    Each cell is rendered as TWO characters so that terrain and occupant are
+    BOTH visible even when a unit stands on a resource or several units share a
+    city tile (a single-glyph grid would hide one behind the other):
+
+    - Column 1 (terrain): ``.`` empty, ``w`` wood, ``k`` coal, ``x`` crystal,
+      ``T`` your city tile, ``t`` opponent city tile.
+    - Column 2 (occupant): `` `` (space) none, ``U``/``A`` your worker/cart,
+      ``u``/``a`` opponent worker/cart, or a DIGIT giving the number of units
+      stacked on the cell (``+`` for 10 or more). Stacking is only possible on
+      a city tile, and a unit can never enter an enemy city tile, so the cell
+      only ever holds the city owner's units -- the ``T``/``t`` in column 1
+      says whose they are (``T`` + digit = your stack, ``t`` + digit =
+      opponent stack).
+
+    So ``wU`` is your worker standing on wood (``bcity`` there is rejected by
+    the engine), ``T3`` is your city tile sheltering three of your units at
+    night, and ``t2`` is an opponent city tile sheltering two of theirs.
+    Coordinate axes are printed above and to the left so the model can read
+    positions off the grid.
     """
     width, height = game.map.width, game.map.height
-    grid = [["."] * width for _ in range(height)]
 
+    terrain = [["."] * width for _ in range(height)]
     for y in range(height):
         for x in range(width):
             cell = game.map.get_cell(x, y)
@@ -262,24 +291,44 @@ def _render_ascii_map(game: Game, player_id: int) -> str:
                 # Glyphs chosen to not collide with unit/city letters.
                 # "coal" → "k" (c is stay-in-place direction), "uranium" → "x"
                 # (also avoids the "u" that opponent workers use).
-                grid[y][x] = "w" if r == "wood" else ("k" if r == "coal" else "x")
+                terrain[y][x] = "w" if r == "wood" else ("k" if r == "coal" else "x")
 
-    def _place(char_you: str, char_them: str, team: int, x: int, y: int) -> None:
-        if 0 <= x < width and 0 <= y < height:
-            grid[y][x] = char_you if team == player_id else char_them
-
+    occupant = [[" "] * width for _ in range(height)]
+    # Count units per cell per team. A cell only ever holds one team's units
+    # (two-team co-occupation of a non-city cell is cancelled by the engine,
+    # and a unit can't enter an enemy city tile), so the per-team counts never
+    # contend for the same cell -- whichever team occupies it, the terrain
+    # char (T vs t) identifies the owner.
+    unit_count: dict[tuple[int, int, int], int] = {}
+    unit_kind: dict[tuple[int, int, int], str] = {}
     for team, player in enumerate(game.players):
         for unit in player.units:
-            char_you, char_them = ("A", "a") if unit.is_cart() else ("U", "u")
-            _place(char_you, char_them, team, unit.pos.x, unit.pos.y)
+            x, y = unit.pos.x, unit.pos.y
+            if not (0 <= x < width and 0 <= y < height):
+                continue
+            key = (team, x, y)
+            unit_count[key] = unit_count.get(key, 0) + 1
+            unit_kind[key] = ("A" if unit.is_cart() else "U") if team == player_id else ("a" if unit.is_cart() else "u")
+
+    for (team, x, y), n in unit_count.items():
+        if n == 1:
+            occupant[y][x] = unit_kind[(team, x, y)]
+        else:
+            occupant[y][x] = str(n) if n <= 9 else "+"
+
+    # City tiles are terrain (they persist and can be built upon / sheltered
+    # in); write them after resources so a city tile always shows as T/t.
+    for team, player in enumerate(game.players):
         for city in player.cities.values():
             for tile in city.citytiles:
-                _place("T", "t", team, tile.pos.x, tile.pos.y)
+                x, y = tile.pos.x, tile.pos.y
+                if 0 <= x < width and 0 <= y < height:
+                    terrain[y][x] = "T" if team == player_id else "t"
 
-    # Header: two-digit column indices, top row is tens, second row is units.
-    tens = "   " + "".join(str(x // 10) if x >= 10 else " " for x in range(width))
-    ones = "   " + "".join(str(x % 10) for x in range(width))
-    body = [f"{y:2d} " + "".join(row) for y, row in enumerate(grid)]
+    # Header: two-digit column indices left-justified into the 2-char cells.
+    tens = "   " + "".join(f"{x // 10 if x >= 10 else ' ':<2}" for x in range(width))
+    ones = "   " + "".join(f"{x % 10:<2}" for x in range(width))
+    body = [f"{y:2d} " + "".join(terrain[y][x] + occupant[y][x] for x in range(width)) for y in range(height)]
     return "\n".join([tens, ones, *body])
 
 
@@ -307,6 +356,18 @@ def _render_player(game: Game, player_id: int) -> str:
             kind = "worker" if u.is_worker() else "cart"
             cargo = f"wood={u.cargo.wood} coal={u.cargo.coal} {_DISPLAY_URANIUM}={u.cargo.uranium}"
             lines.append(f"    {u.id} {kind} at ({u.pos.x},{u.pos.y}) cooldown={u.cooldown:g} cargo=[{cargo}]")
+            # A worker on a resource tile cannot build a city there -- the
+            # engine rejects ``bcity`` on any non-empty resource cell. The
+            # ASCII map's terrain column shows the resource, but call it out
+            # explicitly here since this is where the model decides to build.
+            if u.is_worker():
+                cell = game.map.get_cell(u.pos.x, u.pos.y)
+                if cell.has_resource():
+                    res = cell.resource.type
+                    display = _DISPLAY_URANIUM if res == "uranium" else res
+                    lines.append(
+                        f"      -- standing on {display}; cannot build a city here (move to an empty cell first)"
+                    )
     else:
         lines.append("  units: (none)")
 
@@ -315,12 +376,11 @@ def _render_player(game: Game, player_id: int) -> str:
         # Aggregate net upkeep across all cities so the model can see the
         # total per-night fuel drain without having to sum by hand.
         total_upkeep = sum(c.light_upkeep for c in player.cities.values())
-        lines.append(
-            f"  cities ({len(player.cities)}, {total_tiles} tiles, "
-            f"total night upkeep {total_upkeep:g}/turn):"
-        )
+        lines.append(f"  cities ({len(player.cities)}, {total_tiles} tiles, total night upkeep {total_upkeep:g}/turn):")
         for city in player.cities.values():
-            tiles = ", ".join(f"({t.pos.x},{t.pos.y})" for t in city.citytiles)
+            # Per-tile cooldown so the model can see which tiles can act this
+            # turn (a city tile can issue a command only when cooldown < 1).
+            tiles = ", ".join(f"({t.pos.x},{t.pos.y} cd={t.cooldown:g})" for t in city.citytiles)
             lines.append(f"    {city.cityid} fuel={city.fuel:g} upkeep={city.light_upkeep:g} tiles=[{tiles}]")
     else:
         lines.append("  cities: (none)")
@@ -348,7 +408,40 @@ _DIRECTION_ALIASES = {
 _LEADING_JUNK_RE = re.compile(r"^[\s\-*•]+|^\d+[.)]\s*")
 _TRAILING_JUNK_RE = re.compile(r"[\s.,;:!?]+$")
 _TRAILING_COMMENT_RE = re.compile(r"\s*(?:#|//).*$")
-_ID_TOKEN_RE = re.compile(r"[uUcC]_\d+")
+# Unit/city id token, tolerating a MISSING underscore. The engine's wire form
+# is ``u_N`` / ``c_N``, but models routinely drop the underscore (``u9``) or
+# uppercase the letter (``U_9``) to match the ASCII map glyphs. The optional
+# ``_`` lets ``_normalize_command`` fold ``u9``/``U9``/``U_9`` all to ``u_9``.
+# The letter class is only ``u``/``c`` so a bare direction (``c`` = stay, no
+# digits) and coordinate integers (``5``) are never mistaken for ids.
+_ID_TOKEN_RE = re.compile(r"([uUcC])_?(\d+)")
+
+# Which argument slots of each command actually hold a unit/city id (and so are
+# safe to canonicalise). ``r``/``bw``/``bc`` take *coordinate integers*, and a
+# ``c``-prefixed coordinate token (``c5``) would otherwise be mis-rewritten to
+# ``c_5``, so those commands appear here with no id slots at all.
+_ID_ARG_SLOTS: dict[str, tuple[int, ...]] = {
+    "m": (1,),  # m <unit_id> <dir>
+    "bcity": (1,),  # bcity <unit_id>
+    "p": (1,),  # p <unit_id>
+    "t": (1, 2),  # t <from_id> <to_id> <res> <amt>
+}
+
+
+def _canonical_id(token: str) -> str:
+    """Canonicalise a unit/city id token, or return it unchanged.
+
+    ``u_9``/``U_9``/``u9``/``U9`` (and the ``c`` city variants) all fold to
+    ``u_9`` / ``c_9``. Only a token that is *entirely* an id is rewritten, so
+    coordinate integers and the ``c`` (stay) direction pass through untouched.
+    Callers additionally restrict this to id-argument slots (see
+    ``_ID_ARG_SLOTS``) so ``c``-prefixed coordinates in ``r``/``bw``/``bc``
+    are never touched.
+    """
+    m = _ID_TOKEN_RE.fullmatch(token)
+    if m is None:
+        return token
+    return f"{m.group(1).lower()}_{m.group(2)}"
 
 
 def _normalize_command(cmd: str) -> str:
@@ -359,8 +452,9 @@ def _normalize_command(cmd: str) -> str:
     - Strips trailing line-comments (``# ...`` and ``// ...``).
     - Strips ``[]``, ``()``, and ``<>`` wrappers around any token.
     - Collapses runs of internal whitespace to a single space.
-    - Lowercases command head, unit/city id tokens (``U_1`` -> ``u_1``),
-      and full direction names for the ``m`` command.
+    - Lowercases command head, canonicalises unit/city id tokens (folding
+      case AND inserting a missing underscore, so ``U_1``/``u1``/``U1`` all
+      become ``u_1``), and folds full direction names for the ``m`` command.
     - Rewrites the display resource name (``crystal``) back to the engine's
       wire keyword (``uranium``) in ``t`` transfer commands.
     """
@@ -379,10 +473,15 @@ def _normalize_command(cmd: str) -> str:
     # All command heads (``m``, ``bcity``, ``p``, ``t``, ``r``, ``bw``, ``bc``)
     # are lowercase in the engine's grammar.
     parts[0] = parts[0].lower()
-    # Unit and city ids are exclusively lowercase in the engine's wire
-    # protocol (``u_N`` / ``c_N``). Models routinely uppercase them to match
-    # the ASCII map letters (``U``/``T``), so fold every id-shaped token.
-    parts = [p.lower() if _ID_TOKEN_RE.fullmatch(p) else p for p in parts]
+    # Unit and city ids are exclusively lowercase ``u_N`` / ``c_N`` in the
+    # engine's wire protocol. Models routinely uppercase them to match the
+    # ASCII map letters (``U``/``T``) and/or drop the underscore (``u9``), so
+    # canonicalise the id-shaped tokens: lowercase the letter and insert the
+    # underscore if it's missing. Only the slots that actually hold ids are
+    # touched, so a ``c``-prefixed coordinate (``r c5 c7``) is left intact.
+    for i in _ID_ARG_SLOTS.get(parts[0], ()):
+        if i < len(parts):
+            parts[i] = _canonical_id(parts[i])
     if parts[0] == "m" and len(parts) == 3:
         # direction lowercased and folded from full-word aliases.
         d = parts[2].lower()

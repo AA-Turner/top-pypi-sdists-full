@@ -16,7 +16,7 @@ class ErrorDetails(UniversalBaseModel):
 
     code: ErrorCode = pydantic.Field()
     """
-    Error code for the specific error that has occured. Refer to the error code documentation for more details.
+    Error code for the specific error that has occurred. Refer to the error code documentation for more details.
     """
 
     if IS_PYDANTIC_V2:

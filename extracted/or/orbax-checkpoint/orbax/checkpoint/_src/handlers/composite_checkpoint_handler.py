@@ -72,7 +72,6 @@ from orbax.checkpoint._src.path import atomicity
 from orbax.checkpoint._src.path import atomicity_defaults
 from orbax.checkpoint._src.path import atomicity_types
 
-
 CheckpointArgs = checkpoint_args.CheckpointArgs
 Future = future.Future
 CheckpointArgs = checkpoint_args.CheckpointArgs
@@ -527,8 +526,8 @@ class CompositeCheckpointHandler(AsyncCheckpointHandler):
     )
     if self._item_names_without_registered_handlers is not None:
       for item in self._item_names_without_registered_handlers:
-        items_and_handlers.append((item, None))
-    return items_and_handlers
+        items_and_handlers.append((item, None))  # pyrefly: ignore[bad-argument-type]
+    return items_and_handlers  # pyrefly: ignore[bad-return]
 
   def _get_or_set_handler(
       self,
@@ -808,7 +807,7 @@ class CompositeCheckpointHandler(AsyncCheckpointHandler):
           try:
             # TODO(b/392622978): Support custom (local) handler registry.
             handler = handler_type_registry.get_handler_type(
-                item_handlers[item_name]
+                item_handlers[item_name]  # pyrefly: ignore[bad-index, unsupported-operation]
             )
           except KeyError as e:
             raise ValueError(
@@ -888,7 +887,7 @@ class CompositeCheckpointHandler(AsyncCheckpointHandler):
         )
         # Don't overwrite if it was already set on disk.
         if item_name not in item_handlers:
-          item_handlers[item_name] = None
+          item_handlers[item_name] = None  # pyrefly: ignore[unsupported-operation]
         continue
 
       handler = items_to_handlers[item_name]
@@ -897,7 +896,7 @@ class CompositeCheckpointHandler(AsyncCheckpointHandler):
       if item_handlers.get(item_name) is None:
         item_handlers[item_name] = handler.typestr()
 
-    return item_handlers
+    return item_handlers  # pyrefly: ignore[bad-return]
 
   def _get_item_metadata(
       self,
@@ -971,7 +970,7 @@ class CompositeCheckpointHandler(AsyncCheckpointHandler):
 
     return dataclasses.replace(
         saved_metadata,
-        item_handlers=self._get_item_handlers(
+        item_handlers=self._get_item_handlers(  # pyrefly: ignore[bad-argument-type]
             saved_metadata, item_names, items_to_handlers
         ),
         item_metadata=item_metadata,
@@ -1043,10 +1042,12 @@ class CompositeCheckpointHandler(AsyncCheckpointHandler):
       if tmp_dir is None or handler is None:
         # Not an error, as some items may not have been saved.
         continue
+      item_finalize_start_time = time.time()
       handler.finalize(tmp_dir.get())
-      asyncio_utils.run_sync(
-          tmp_dir.finalize(
-          )
+      asyncio_utils.run_sync(tmp_dir.finalize())
+      jax.monitoring.record_event_duration_secs(
+          '/jax/orbax/write/async/item_finalize_duration_secs',
+          time.time() - item_finalize_start_time,
       )
 
       # Remove the temporary path once it has been finalized.

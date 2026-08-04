@@ -1,7 +1,7 @@
-from typing import Any, Callable, Dict, List, IO
+from typing import Any, Callable, IO, Optional
 
 
-def _dispatchQemuMonitorEventCallback(conn: libvirt.virConnect, dom: libvirt.virDomain, event: str, seconds: int, micros: int, details: str, cbData: Dict[str, Any]) -> int:
+def _dispatchQemuMonitorEventCallback(conn: libvirt.virConnect, dom: libvirt.virDomain, event: str, seconds: int, micros: int, details: str, cbData: dict[str, Any]) -> int:
     """Dispatches events to python user qemu monitor event callbacks
     """
     cb = cbData["cb"]
@@ -23,7 +23,7 @@ def qemuMonitorEventDeregister(conn: libvirt.virConnect, callbackID: int) -> Non
         pass
 
 
-def qemuMonitorEventRegister(conn: libvirt.virConnect, dom: libvirt.virDomain, event: str, cb: Callable[[libvirt.virConnect, libvirt.virDomain, str, int, int, str, libvirt._T], None], opaque: libvirt._T, flags: int = 0) -> int:
+def qemuMonitorEventRegister(conn: libvirt.virConnect, dom: libvirt.virDomain, event: str, cb: Callable[[libvirt.virConnect, libvirt.virDomain, str, int, int, str, libvirt._T], None], opaque: libvirt._T, flags: Optional[int] = 0) -> int:
     """Adds a qemu monitor event callback. Registering for a monitor
        callback will enable delivery of the events"""
     if not hasattr(conn, 'qemuMonitorEventCallbackID'):
@@ -38,7 +38,7 @@ def qemuMonitorEventRegister(conn: libvirt.virConnect, dom: libvirt.virDomain, e
     conn.qemuMonitorEventCallbackID[ret] = opaque  # type: ignore
     return ret
 
-def qemuMonitorCommandWithFiles(domain: libvirt.virDomain, cmd: str, files: List[int] = [], flags: int = 0) -> (str, List[IO]):
+def qemuMonitorCommandWithFiles(domain: libvirt.virDomain, cmd: str, files: list[int] = [], flags: Optional[int] = 0) -> tuple[str, list[IO]]:
     """This API is QEMU specific, so it will only work with hypervisor
     connections to the QEMU driver with local connections using the unix
     socket.

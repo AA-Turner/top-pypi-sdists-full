@@ -389,14 +389,22 @@ Specan_getprop_display_size (SpecanObject *self, void *Py_UNUSED (closure))
 }
 
 static PyGetSetDef Specan_getset[]
-    = { { "fs_out", (getter)Specan_getprop_fs_out, NULL, "Fs out.\n", NULL },
-        { "span", (getter)Specan_getprop_span, NULL, "Span.\n", NULL },
-        { "rbw", (getter)Specan_getprop_rbw, NULL, "Rbw.\n", NULL },
-        { "center", (getter)Specan_getprop_center, NULL, "Center.\n", NULL },
-        { "beta", (getter)Specan_getprop_beta, NULL, "Beta.\n", NULL },
-        { "n", (getter)Specan_getprop_n, NULL, "N.\n", NULL },
-        { "nfft", (getter)Specan_getprop_nfft, NULL, "Nfft.\n", NULL },
-        { "navg", (getter)Specan_getprop_navg, NULL, "Navg.\n", NULL },
+    = { { "fs_out", (getter)Specan_getprop_fs_out, NULL,
+          "Decimated rate, Hz (= span·1.28, ≤ fs_in).\n", NULL },
+        { "span", (getter)Specan_getprop_span, NULL, "Display span, Hz.\n",
+          NULL },
+        { "rbw", (getter)Specan_getprop_rbw, NULL,
+          "Requested resolution bandwidth, Hz.\n", NULL },
+        { "center", (getter)Specan_getprop_center, NULL,
+          "Display center frequency, Hz.\n", NULL },
+        { "beta", (getter)Specan_getprop_beta, NULL,
+          "Kaiser beta realising rbw.\n", NULL },
+        { "n", (getter)Specan_getprop_n, NULL,
+          "Segment / window length (samples).\n", NULL },
+        { "nfft", (getter)Specan_getprop_nfft, NULL,
+          "Zero-padded transform length.\n", NULL },
+        { "navg", (getter)Specan_getprop_navg, NULL,
+          "Segments averaged per emitted frame.\n", NULL },
         { "display_size", (getter)Specan_getprop_display_size, NULL,
           "Display size.\n", NULL },
         { NULL } };
@@ -440,13 +448,34 @@ static PyMethodDef SpecanObj_methods[] = {
     "Mix, decimate, average; return one DC-centred dB display frame, or "
     "None.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import Specan\n"
-    "    >>> obj = Specan(2.048e6, 200e3, 500.0, 0.0, 0.0, 0.0, 1.0, 0, "
-    "\"kaiser\", 1)\n"
-    "    >>> y = obj.execute(np.zeros(4))\n"
-    "    >>> y.dtype\n"
-    "    dtype('float32')\n" },
+    "Feeds x through the Ddc, buffers the decimated output, and once "
+    "`n·navg`\n"
+    "decimated samples are available windows + FFTs + averages them into a\n"
+    "fresh frame, crops the central ±span/2 band and writes it in dB (+\n"
+    "ref_db). Returns 0 (writing nothing) until a frame is ready — the\n"
+    "binding maps that to Python ``None``.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.complex64]\n"
+    "    cf32 input block (C-only; the binding passes it).\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.float32]\n"
+    "    Display bins written (disp_n), or 0 if no frame is ready yet.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.analyzer import Specan\n"
+    ">>> import numpy as np\n"
+    ">>> sa = Specan(fs=2.048e6, span=200e3, rbw=500.0, navg=1)\n"
+    ">>> sa.execute(np.zeros(64, dtype=np.complex64)) is None  # too few "
+    "samples\n"
+    "True\n"
+    ">>> frame = sa.execute(np.zeros(65536, dtype=np.complex64))\n"
+    ">>> frame.shape, frame.dtype\n"
+    "((801,), dtype('float32'))\n" },
   { "execute_max_out", (PyCFunction)SpecanObj_execute_max_out, METH_NOARGS,
     "execute_max_out() -> int\n\nMax output length execute() can produce for "
     "the current state.\nUse to size the ``out=`` buffer." },
@@ -456,10 +485,21 @@ static PyMethodDef SpecanObj_methods[] = {
     "\n"
     "Move the display center frequency (seamless LO retune; no rebuild).\n"
     "\n"
+    "Updates the Ddc LO phase increment (seamless across blocks — no\n"
+    "resampler or window reset) and drops pending samples so the next frame\n"
+    "reflects only the new tuning. Changing the span or RBW requires a\n"
+    "destroy + create (the decimation rate and window length change).\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "center : float\n"
+    "    New display center frequency (Hz).\n"
+    "\n"
     "    >>> import numpy as np\n"
     "    >>> from doppler import Specan\n"
-    "    >>> obj = Specan(2.048e6, 200e3, 500.0, 0.0, 0.0, 0.0, 1.0, 0, "
-    "\"kaiser\", 1)\n"
+    "    >>> obj = Specan(fs=2.048e6, span=200e3, rbw=500.0, src_center=0.0, "
+    "center=0.0, offset_db=0.0, full_scale=1.0, bits=0, window=\"kaiser\", "
+    "navg=1)\n"
     "    >>> obj.retune(0.0)\n" },
   { "reset", (PyCFunction)SpecanObj_reset, METH_NOARGS,
     "reset() -> None\n"
@@ -467,19 +507,95 @@ static PyMethodDef SpecanObj_methods[] = {
     "Drop pending samples and the running average; zero LO/filter history.\n"
     "\n"
     "    >>> from doppler import Specan\n"
-    "    >>> obj = Specan(2.048e6, 200e3, 500.0, 0.0, 0.0, 0.0, 1.0, 0, "
-    "\"kaiser\", 1)\n"
+    "    >>> obj = Specan(fs=2.048e6, span=200e3, rbw=500.0, src_center=0.0, "
+    "center=0.0, offset_db=0.0, full_scale=1.0, bits=0, window=\"kaiser\", "
+    "navg=1)\n"
     "    >>> obj.reset()\n" },
   { "state_bytes", (PyCFunction)SpecanObj_state_bytes, METH_NOARGS,
-    "Serialized state size in bytes." },
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the SpecanObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
   { "get_state", (PyCFunction)SpecanObj_get_state, METH_NOARGS,
-    "Serialize the engine's mutable state to bytes." },
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the SpecanObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
   { "set_state", (PyCFunction)SpecanObj_set_state, METH_O,
-    "Restore mutable state from a get_state() blob." },
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the SpecanObj has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
   { "destroy", (PyCFunction)SpecanObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)SpecanObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)SpecanObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)SpecanObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a Specan be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "Specan\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)SpecanObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the Specan.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

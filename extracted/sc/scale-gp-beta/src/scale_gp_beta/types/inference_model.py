@@ -20,12 +20,16 @@ VendorConfiguration: TypeAlias = Union[LaunchVendorConfiguration, LlmEngineVendo
 
 class InferenceModel(BaseModel):
     id: str
+    """The unique identifier of the entity."""
 
     created_at: datetime
+    """The date and time when the entity was created in ISO format."""
 
     created_by_identity_type: Literal["user", "service_account"]
+    """The type of identity that created the entity."""
 
     created_by_user_id: str
+    """The user who originally created the entity."""
 
     api_model_type: InferenceModelType = FieldInfo(alias="model_type")
 

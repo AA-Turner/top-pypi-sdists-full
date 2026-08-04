@@ -11,11 +11,14 @@ import pytest
 
 import notebooklm._research as research_module
 from notebooklm import (
+    AmbiguousResearchTaskError,
     CitedSourceSelection,
     NotebookLMClient,
     ResearchSource,
+    ResearchStartUnavailableError,
     ResearchStatus,
     ResearchTask,
+    RPCError,
 )
 from notebooklm._research import ResearchAPI
 from notebooklm.research import extract_report_urls, normalize_citation_url, select_cited_sources
@@ -424,6 +427,34 @@ class TestResearch:
         assert result.to_public_dict() == {"status": "no_research", "tasks": []}
 
     @pytest.mark.asyncio
+    async def test_wait_for_completion_raises_on_ambiguous_first_poll(
+        self, auth_tokens, httpx_mock, build_rpc_response
+    ):
+        """wait_for_completion(nb) with >=2 tasks in flight and no task_id raises.
+
+        wait_for_completion shares the _select_polled_tasks discriminator with
+        poll(): on the first iteration with no pinned task_id and two or more
+        in-flight tasks, the selection is ambiguous, so it raises
+        AmbiguousResearchTaskError (v0.8.0; #1363) rather than guessing. Pins the
+        contract the wait_for_completion docstring documents.
+        """
+        task_a = _build_research_task_payload("query A", "https://a.example", "A", status_code=1)
+        task_b = _build_research_task_payload("query B", "https://b.example", "B", status_code=1)
+        response_body = build_rpc_response(
+            RPCMethod.POLL_RESEARCH,
+            [[["task_A", task_a], ["task_B", task_b]]],
+        )
+        httpx_mock.add_response(content=response_body.encode(), method="POST")
+
+        async with NotebookLMClient(auth_tokens) as client:
+            with pytest.raises(AmbiguousResearchTaskError) as excinfo:
+                await client.research.wait_for_completion("nb_123", timeout=10)
+
+        err = excinfo.value
+        assert err.notebook_id == "nb_123"
+        assert err.task_ids == ["task_A", "task_B"]
+
+    @pytest.mark.asyncio
     async def test_wait_for_completion_retries_transient_no_research_for_initial_task_id(
         self, auth_tokens, httpx_mock, build_rpc_response, monkeypatch
     ):
@@ -590,15 +621,8 @@ class TestResearch:
         async with NotebookLMClient(auth_tokens) as client:
             with pytest.raises(ValueError, match="timeout must be non-negative"):
                 await client.research.wait_for_completion("nb_123", timeout=-1)
-            # Neutral "poll interval" wording so callers on the deprecated
-            # interval= alias don't see a name they never used.
             with pytest.raises(ValueError, match="poll interval must be positive"):
                 await client.research.wait_for_completion("nb_123", initial_interval=0)
-            with (
-                pytest.raises(ValueError, match="poll interval must be positive"),
-                pytest.warns(DeprecationWarning),
-            ):
-                await client.research.wait_for_completion("nb_123", interval=0)
 
     @pytest.mark.asyncio
     async def test_wait_for_completion_rejects_non_numeric_interval(self, auth_tokens):
@@ -611,42 +635,21 @@ class TestResearch:
                 )
 
     @pytest.mark.asyncio
-    async def test_wait_for_completion_interval_alias_deprecated(
-        self, auth_tokens, httpx_mock, build_rpc_response
-    ):
-        """The legacy ``interval`` kwarg still works but emits a warning."""
-        response_body = build_rpc_response(
-            RPCMethod.POLL_RESEARCH,
-            [
-                [
-                    [
-                        "task_123",
-                        _build_research_task_payload(
-                            "query",
-                            "https://example.com",
-                            "Result",
-                            status_code=1,
-                        ),
-                    ]
-                ]
-            ],
-        )
-        httpx_mock.add_response(content=response_body.encode(), method="POST")
-
+    async def test_wait_for_completion_interval_alias_removed(self, auth_tokens):
+        """The removed ``interval`` kwarg now raises the unknown-keyword TypeError."""
         async with NotebookLMClient(auth_tokens) as client:
-            with pytest.warns(DeprecationWarning, match="initial_interval"):
-                with pytest.raises(TimeoutError):
-                    await client.research.wait_for_completion(
-                        "nb_123",
-                        timeout=0,
-                        interval=1,
-                    )
+            with pytest.raises(TypeError, match="interval"):
+                await client.research.wait_for_completion(
+                    "nb_123",
+                    timeout=0,
+                    interval=1,  # type: ignore[call-arg]
+                )
 
     @pytest.mark.asyncio
     async def test_wait_for_completion_default_shape_is_silent(
         self, auth_tokens, httpx_mock, build_rpc_response, recwarn
     ):
-        """Default-shape calls (no interval kwarg) emit no deprecation warning."""
+        """Default-shape calls (no initial_interval kwarg) emit no deprecation warning."""
         response_body = build_rpc_response(
             RPCMethod.POLL_RESEARCH,
             [
@@ -669,17 +672,6 @@ class TestResearch:
             with pytest.raises(TimeoutError):
                 await client.research.wait_for_completion("nb_123", timeout=0)
         assert not [w for w in recwarn.list if issubclass(w.category, DeprecationWarning)]
-
-    @pytest.mark.asyncio
-    async def test_wait_for_completion_both_intervals_raises(self, auth_tokens):
-        """Passing both ``interval`` and ``initial_interval`` raises TypeError."""
-        async with NotebookLMClient(auth_tokens) as client:
-            with pytest.raises(TypeError, match="both 'initial_interval'"):
-                await client.research.wait_for_completion(
-                    "nb_123",
-                    interval=2,
-                    initial_interval=3,
-                )
 
     @pytest.mark.asyncio
     async def test_import_research(self, auth_tokens, httpx_mock, build_rpc_response):
@@ -715,6 +707,54 @@ class TestResearch:
         assert result.mode == "deep"
 
     @pytest.mark.asyncio
+    async def test_start_deep_null_result_raises_clean_unavailable_error(
+        self, auth_tokens, httpx_mock, build_rpc_response
+    ):
+        """#1849: a null deep-start body must not leak the RPC method id as a run id."""
+        response_body = build_rpc_response(RPCMethod.START_DEEP_RESEARCH, None)
+        httpx_mock.add_response(content=response_body.encode(), method="POST")
+
+        async with NotebookLMClient(auth_tokens) as client:
+            with pytest.raises(ResearchStartUnavailableError) as exc_info:
+                await client.research.start(notebook_id="nb_123", query="AI research", mode="deep")
+
+        err = exc_info.value
+        message = str(err)
+        assert "Deep research failed to start" in message
+        assert "NotebookLM returned no research run" in message
+        assert RPCMethod.START_DEEP_RESEARCH.value not in message
+        assert "Found IDs" not in message
+        assert err.notebook_id == "nb_123"
+        assert err.mode == "deep"
+        assert err.method_id == RPCMethod.START_DEEP_RESEARCH.value
+        assert err.found_ids == [RPCMethod.START_DEEP_RESEARCH.value]
+        assert isinstance(err.__cause__, RPCError)
+
+    @pytest.mark.asyncio
+    async def test_start_deep_null_result_with_status_raises_clean_unavailable_error(
+        self, auth_tokens, httpx_mock
+    ):
+        """Status-enriched null deep-start frames still have no pollable run."""
+        rpc_id = RPCMethod.START_DEEP_RESEARCH.value
+        chunk = json.dumps(["wrb.fr", rpc_id, None, None, None, [13], "generic"])
+        response_body = f")]}}'\n{len(chunk)}\n{chunk}\n"
+        httpx_mock.add_response(content=response_body.encode(), method="POST")
+
+        async with NotebookLMClient(auth_tokens) as client:
+            with pytest.raises(ResearchStartUnavailableError) as exc_info:
+                await client.research.start(notebook_id="nb_123", query="AI research", mode="deep")
+
+        err = exc_info.value
+        message = str(err)
+        assert "NotebookLM returned no research run" in message
+        assert RPCMethod.START_DEEP_RESEARCH.value not in message
+        assert "Found IDs" not in message
+        assert err.method_id == rpc_id
+        assert err.rpc_code == 13
+        assert err.found_ids == [rpc_id]
+        assert isinstance(err.__cause__, RPCError)
+
+    @pytest.mark.asyncio
     async def test_start_research_invalid_source(self, auth_tokens):
         """Test that invalid source raises ValidationError."""
         from notebooklm.exceptions import ValidationError
@@ -744,15 +784,18 @@ class TestResearch:
                 )
 
     @pytest.mark.asyncio
-    async def test_start_research_returns_none(self, auth_tokens, httpx_mock, build_rpc_response):
-        """Test start returns None on empty response."""
+    async def test_start_research_empty_payload_raises(
+        self, auth_tokens, httpx_mock, build_rpc_response
+    ):
+        """v0.8.0 (#1342): start raises DecodingError on an empty response."""
+        from notebooklm.exceptions import DecodingError
+
         response_body = build_rpc_response(RPCMethod.START_FAST_RESEARCH, [])
         httpx_mock.add_response(content=response_body.encode(), method="POST")
 
         async with NotebookLMClient(auth_tokens) as client:
-            result = await client.research.start(notebook_id="nb_123", query="test", mode="fast")
-
-        assert result is None
+            with pytest.raises(DecodingError):
+                await client.research.start(notebook_id="nb_123", query="test", mode="fast")
 
     @pytest.mark.asyncio
     async def test_poll_no_research(self, auth_tokens, httpx_mock, build_rpc_response):
@@ -805,8 +848,16 @@ class TestResearch:
         assert result.report == "# Report markdown"
 
     @pytest.mark.asyncio
-    async def test_poll_returns_all_tasks(self, auth_tokens, httpx_mock, build_rpc_response):
-        """Test poll preserves all parsed research tasks in an additive tasks field."""
+    async def test_poll_no_task_id_multiple_in_flight_raises(
+        self, auth_tokens, httpx_mock, build_rpc_response
+    ):
+        """poll() without task_id when >1 task is in flight raises (v0.8.0; #1363).
+
+        The ambiguous case no longer warns and silently returns the latest task
+        — it raises :class:`AmbiguousResearchTaskError` so the caller must pass
+        an explicit ``task_id`` discriminator. Pin both in-flight ids on the
+        error so a future change can't silently drop the discriminator hint.
+        """
         latest_sources = [["http://example.com/latest", "Latest", "Description", 1]]
         older_sources = [["http://example.com/older", "Older", "Description", 1]]
         latest_task = [None, ["latest query", 1], 1, [latest_sources, "Latest summary"], 2]
@@ -818,18 +869,13 @@ class TestResearch:
         httpx_mock.add_response(content=response_body.encode(), method="POST")
 
         async with NotebookLMClient(auth_tokens) as client:
-            # poll() without task_id when >1 task is in flight is the
-            # ambiguous case — pin that the DeprecationWarning fires on this
-            # exact path so a future change can't silently drop it.
-            with pytest.warns(DeprecationWarning, match="task_id"):
-                result = await client.research.poll("nb_123")
+            with pytest.raises(AmbiguousResearchTaskError) as excinfo:
+                await client.research.poll("nb_123")
 
-        assert result.task_id == "task_latest"
-        assert result.query == "latest query"
-        assert len(result.tasks) == 2
-        assert result.tasks[0].task_id == "task_latest"
-        assert result.tasks[1].task_id == "task_older"
-        assert result.tasks[1].query == "older query"
+        err = excinfo.value
+        assert err.notebook_id == "nb_123"
+        assert err.task_ids == ["task_latest", "task_older"]
+        assert "task_id" in str(err)
 
     @pytest.mark.asyncio
     async def test_poll_joins_legacy_report_chunks(
@@ -1294,10 +1340,12 @@ class TestResearch:
             sources = poll_result.sources
             assert len(sources) == 3
 
+            # Attribute-only typed sources (#1251): the dict-membership bridge
+            # was dropped; url/title/result_type are plain attributes.
             for src in sources:
-                assert "url" in src
-                assert "title" in src
-                assert "result_type" in src
+                assert hasattr(src, "url")
+                assert hasattr(src, "title")
+                assert hasattr(src, "result_type")
 
             imported = await client.research.import_sources(
                 notebook_id="nb_123", task_id=task_id, sources=sources[:2]
@@ -1538,3 +1586,45 @@ class TestResearch:
             result = await client.research.poll("nb_123")
 
         assert result.sources == ()
+
+
+class TestResearchCancel:
+    """Tests for ``ResearchAPI.cancel`` (CancelDiscoverSourcesJob / Zbrupe)."""
+
+    @pytest.mark.asyncio
+    async def test_cancel_sends_run_id_in_field_three(
+        self, auth_tokens, httpx_mock, build_rpc_response
+    ):
+        """cancel() targets Zbrupe with ``[None, None, run_id]`` and notebook source-path."""
+        # Live-verified: the server returns ``[]`` unconditionally.
+        response_body = build_rpc_response(RPCMethod.CANCEL_RESEARCH, [])
+        httpx_mock.add_response(content=response_body.encode(), method="POST")
+
+        async with NotebookLMClient(auth_tokens) as client:
+            result = await client.research.cancel("nb_123", "run_456")
+
+        # Fire-and-forget: no value to surface.
+        assert result is None
+
+        request = httpx_mock.get_request()
+        # RPC id + routing source-path ride the URL query.
+        assert RPCMethod.CANCEL_RESEARCH.value in str(request.url)
+        assert "source-path=%2Fnotebook%2Fnb_123" in str(request.url)
+        # Field 3 carries the run id; the optional field-1 client context is omitted.
+        params = _extract_request_params(request)
+        assert params == [None, None, "run_456"]
+
+    @pytest.mark.asyncio
+    async def test_cancel_unknown_id_does_not_raise(
+        self, auth_tokens, httpx_mock, build_rpc_response
+    ):
+        """An unknown / garbage run id still returns ``[]`` — cancel must not raise."""
+        # The server does NOT validate the id (a garbage all-zeros id also
+        # returns ``[]``), so there is no success signal to branch on.
+        response_body = build_rpc_response(RPCMethod.CANCEL_RESEARCH, [])
+        httpx_mock.add_response(content=response_body.encode(), method="POST")
+
+        async with NotebookLMClient(auth_tokens) as client:
+            result = await client.research.cancel("nb_123", "00000000-0000-0000-0000-000000000000")
+
+        assert result is None

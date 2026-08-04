@@ -1,13 +1,13 @@
 """Tests for skill CLI commands."""
 
 import importlib
+import json
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
 
-from notebooklm.cli.services.skill_install import report_mixed_no_clobber_up_to_date
 from notebooklm.notebooklm_cli import cli
 
 # Get the actual skill module (not the click group that shadows it)
@@ -470,38 +470,6 @@ class TestSkillInstallProjectHardening:
         assert calls[0][1] == target
 
 
-class TestSkillInstallReporting:
-    """Tests for service-level skill install reporting decisions."""
-
-    def test_reports_mixed_no_clobber_up_to_date_targets(self):
-        """No-write mixed --no-clobber state reports synced targets separately."""
-        messages: list[str] = []
-
-        report_mixed_no_clobber_up_to_date(
-            messages.append,
-            skipped_up_to_date=[object()],
-            skipped_no_clobber=[object()],
-            installed_paths=[],
-            failed_targets=[],
-        )
-
-        assert messages == ["[green]Up to date[/green] 1 target(s)"]
-
-    def test_skips_message_when_install_wrote_a_target(self):
-        """The mixed no-write message is suppressed after any install success."""
-        messages: list[str] = []
-
-        report_mixed_no_clobber_up_to_date(
-            messages.append,
-            skipped_up_to_date=[object()],
-            skipped_no_clobber=[object()],
-            installed_paths=[object()],
-            failed_targets=[],
-        )
-
-        assert messages == []
-
-
 class TestSkillStatus:
     """Tests for skill status command."""
 
@@ -552,6 +520,28 @@ class TestSkillStatus:
         assert result.exit_code == 0
         assert "version mismatch" not in result.output.lower()
         assert result.output.count("Installed") >= 2
+
+    def test_skill_status_json(self, runner, tmp_path):
+        """``skill status --json`` emits a single structured document."""
+        home = tmp_path / "home"
+        version = "1.2.3"
+        dest = home / ".agents" / "skills" / "notebooklm" / "SKILL.md"
+        dest.parent.mkdir(parents=True)
+        dest.write_text(f"<!-- notebooklm-py v{version} -->\n# Test")
+
+        with (
+            patch.object(skill_module.Path, "home", return_value=home),
+            patch.object(skill_module, "get_package_version", return_value=version),
+        ):
+            result = runner.invoke(cli, ["skill", "status", "--target", "agents", "--json"])
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        assert payload["cli_version"] == version
+        agents = next(t for t in payload["targets"] if t["target"] == "agents")
+        assert agents["installed"] is True
+        assert agents["skill_version"] == version
+        assert agents["version_mismatch"] is False
 
 
 class TestSkillUninstall:
@@ -650,38 +640,6 @@ class TestSkillShow:
         assert "not installed" in result.output.lower()
 
 
-class TestSkillVersionExtraction:
-    """Tests for version extraction logic."""
-
-    def test_get_skill_version_extracts_version(self, tmp_path):
-        """Test version extraction from skill file."""
-        from notebooklm.cli.skill_cmd import get_skill_version
-
-        skill_file = tmp_path / "SKILL.md"
-        skill_file.write_text("---\nname: test\n---\n<!-- notebooklm-py v1.2.3 -->\n# Test")
-
-        version = get_skill_version(skill_file)
-        assert version == "1.2.3"
-
-    def test_get_skill_version_no_version(self, tmp_path):
-        """Test version extraction when no version present."""
-        from notebooklm.cli.skill_cmd import get_skill_version
-
-        skill_file = tmp_path / "SKILL.md"
-        skill_file.write_text("# Test\nNo version here")
-
-        version = get_skill_version(skill_file)
-        assert version is None
-
-    def test_get_skill_version_file_not_exists(self, tmp_path):
-        """Test version extraction when file doesn't exist."""
-        from notebooklm.cli.skill_cmd import get_skill_version
-
-        skill_file = tmp_path / "nonexistent.md"
-        version = get_skill_version(skill_file)
-        assert version is None
-
-
 class TestSkillSourceFallback:
     """Tests for resolving the canonical repository skill."""
 
@@ -698,82 +656,196 @@ class TestSkillSourceFallback:
             assert skill_module.get_skill_source_content() is None
 
 
-class TestAddVersionComment:
-    """Tests for add_version_comment."""
-
-    def test_inserts_after_frontmatter(self):
-        """Version comment is inserted after closing --- preserving surrounding whitespace."""
-        from notebooklm.cli.skill_cmd import add_version_comment
-
-        content = "---\nname: notebooklm\n---\n# Body"
-        result = add_version_comment(content, "1.2.3")
-        assert result == "---\nname: notebooklm\n---\n<!-- notebooklm-py v1.2.3 -->\n# Body"
-
-    def test_prepends_when_no_frontmatter(self):
-        """Version comment is prepended when no frontmatter delimiters exist."""
-        from notebooklm.cli.skill_cmd import add_version_comment
-
-        content = "# No Frontmatter\nBody text"
-        result = add_version_comment(content, "2.0.0")
-        assert result == "<!-- notebooklm-py v2.0.0 -->\n# No Frontmatter\nBody text"
-
-    def test_prepends_with_incomplete_frontmatter(self):
-        """Version comment is prepended when only one --- delimiter exists."""
-        from notebooklm.cli.skill_cmd import add_version_comment
-
-        content = "---\nbroken frontmatter"
-        result = add_version_comment(content, "1.0.0")
-        assert result == "<!-- notebooklm-py v1.0.0 -->\n---\nbroken frontmatter"
+# NOTE: ``TestSkillVersionExtraction`` / ``TestAddVersionComment`` /
+# ``TestRemoveEmptyParents`` (and ``TestSkillInstallReporting``) tested
+# functions that now live in the transport-neutral ``_app.skill`` core. They
+# were MOVED down to ``tests/unit/app/test_app_skill.py`` (direct calls, no
+# Click). ``TestSkillSourceFallback`` stays here because ``get_skill_source_content``
+# is CLI-owned (the packaged-source loader is not part of ``_app.skill``).
 
 
-class TestRemoveEmptyParents:
-    """Tests for remove_empty_parents."""
+class TestSkillPackage:
+    """Tests for skill package (Claude-uploadable archive for chat/Cowork)."""
 
-    def test_cleans_empty_intermediate_directories(self, tmp_path):
-        """Empty parent directories up to scope root are removed."""
-        from notebooklm.cli.skill_cmd import remove_empty_parents
+    SOURCE_CONTENT = "---\nname: notebooklm\ndescription: test skill\n---\n# Source body v1"
 
-        home = tmp_path / "home"
-        skill_path = home / ".claude" / "skills" / "notebooklm" / "SKILL.md"
-        skill_path.parent.mkdir(parents=True)
-        skill_path.write_text("# Test")
-        skill_path.unlink()
+    def _stamped(self, source: str | None = None, version: str = "1.0.0") -> str:
+        return skill_module.add_version_comment(source or self.SOURCE_CONTENT, version)
 
-        with patch.object(skill_module.Path, "home", return_value=home):
-            remove_empty_parents(skill_path, "user")
+    def _invoke(self, runner, *extra_args: str, source: str | None = None):
+        with (
+            patch.object(
+                skill_module,
+                "get_skill_source_content",
+                return_value=source or self.SOURCE_CONTENT,
+            ),
+            patch.object(skill_module, "get_package_version", return_value="1.0.0"),
+        ):
+            return runner.invoke(cli, ["skill", "package", *extra_args])
 
-        assert not (home / ".claude" / "skills" / "notebooklm").exists()
-        assert not (home / ".claude" / "skills").exists()
-        assert home.exists()  # scope root must survive
+    def _read_entry(self, archive_path: Path) -> str:
+        import io
+        import zipfile
 
-    def test_stops_at_non_empty_directory(self, tmp_path):
-        """Removal stops when a directory is non-empty."""
-        from notebooklm.cli.skill_cmd import remove_empty_parents
+        with zipfile.ZipFile(io.BytesIO(archive_path.read_bytes())) as archive:
+            assert archive.namelist() == [skill_module.SKILL_ARCHIVE_ENTRY]
+            return archive.read(skill_module.SKILL_ARCHIVE_ENTRY).decode("utf-8")
 
-        home = tmp_path / "home"
-        skill_path = home / ".agents" / "skills" / "notebooklm" / "SKILL.md"
-        skill_path.parent.mkdir(parents=True)
-        skill_path.write_text("# Test")
-        # Create a sibling file to make skills/ non-empty after notebooklm/ is gone
-        (home / ".agents" / "skills" / "other.md").write_text("keep me")
-        skill_path.unlink()
-        skill_path.parent.rmdir()  # notebooklm/ is empty, remove it manually
+    def test_package_default_output_in_cwd(self, runner, tmp_path):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            result = self._invoke(runner)
 
-        with patch.object(skill_module.Path, "home", return_value=home):
-            remove_empty_parents(skill_path.parent, "user")
+            assert result.exit_code == 0, result.output
+            archive = Path(skill_module.DEFAULT_ARCHIVE_FILENAME)
+            assert archive.exists()
+            assert self._read_entry(archive) == self._stamped()
+            assert "Packaged" in result.output
+            assert "Capabilities" in result.output
 
-        assert (home / ".agents" / "skills").exists()  # non-empty, should not be removed
+    def test_package_output_file_path(self, runner, tmp_path):
+        target = tmp_path / "custom-name.zip"
+        result = self._invoke(runner, "--output", str(target))
 
-    def test_scope_root_is_never_removed(self, tmp_path):
-        """The scope root directory itself is never deleted."""
-        from notebooklm.cli.skill_cmd import remove_empty_parents
+        assert result.exit_code == 0, result.output
+        assert self._read_entry(target) == self._stamped()
 
-        home = tmp_path / "home"
-        home.mkdir()
-        # Simulate a skill directly one level inside home (no intermediates)
-        skill_path = home / "SKILL.md"
+    def test_package_output_directory_uses_default_filename(self, runner, tmp_path):
+        result = self._invoke(runner, "--output", str(tmp_path))
 
-        with patch.object(skill_module.Path, "home", return_value=home):
-            remove_empty_parents(skill_path, "user")
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / skill_module.DEFAULT_ARCHIVE_FILENAME).exists()
 
-        assert home.exists()
+    def test_package_output_directory_with_existing_archive_refuses(self, runner, tmp_path):
+        (tmp_path / skill_module.DEFAULT_ARCHIVE_FILENAME).write_bytes(b"old")
+        result = self._invoke(runner, "--output", str(tmp_path))
+
+        assert result.exit_code == 1
+        assert (tmp_path / skill_module.DEFAULT_ARCHIVE_FILENAME).read_bytes() == b"old"
+
+    def test_package_refuses_overwrite_without_force(self, runner, tmp_path):
+        target = tmp_path / "skill.zip"
+        target.write_bytes(b"old")
+        result = self._invoke(runner, "--output", str(target))
+
+        assert result.exit_code == 1
+        assert target.read_bytes() == b"old"
+
+    def test_package_force_overwrites(self, runner, tmp_path):
+        target = tmp_path / "skill.zip"
+        target.write_bytes(b"old")
+        result = self._invoke(runner, "--output", str(target), "--force")
+
+        assert result.exit_code == 0, result.output
+        assert self._read_entry(target) == self._stamped()
+
+    def test_package_missing_source_errors(self, runner, tmp_path):
+        with (
+            patch.object(skill_module, "get_skill_source_content", return_value=None),
+            patch.object(skill_module, "get_package_version", return_value="1.0.0"),
+        ):
+            result = runner.invoke(
+                cli, ["skill", "package", "--output", str(tmp_path / "skill.zip")]
+            )
+
+        assert result.exit_code == 1
+        assert not (tmp_path / "skill.zip").exists()
+
+    def test_package_json_success_shape(self, runner, tmp_path):
+        target = tmp_path / "skill.zip"
+        result = self._invoke(runner, "--output", str(target), "--json")
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        assert payload["path"] == str(target)
+        assert payload["version"] == "1.0.0"
+        assert payload["entries"] == [skill_module.SKILL_ARCHIVE_ENTRY]
+        assert payload["size_bytes"] == len(target.read_bytes())
+
+    def test_package_json_failure_output_exists_envelope(self, runner, tmp_path):
+        target = tmp_path / "skill.zip"
+        target.write_bytes(b"old")
+        result = self._invoke(runner, "--output", str(target), "--json")
+
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["error"] is True
+        assert payload["code"] == "OUTPUT_EXISTS"
+        assert "message" in payload
+
+    def test_package_json_failure_missing_source_envelope(self, runner, tmp_path):
+        with (
+            patch.object(skill_module, "get_skill_source_content", return_value=None),
+            patch.object(skill_module, "get_package_version", return_value="1.0.0"),
+        ):
+            result = runner.invoke(
+                cli, ["skill", "package", "--output", str(tmp_path / "skill.zip"), "--json"]
+            )
+
+        assert result.exit_code == 1
+        payload = json.loads(result.output)
+        assert payload["error"] is True
+        assert payload["code"] == "SKILL_SOURCE_MISSING"
+
+    def test_package_is_deterministic_across_paths(self, runner, tmp_path):
+        first = tmp_path / "one.zip"
+        second = tmp_path / "two.zip"
+        assert self._invoke(runner, "--output", str(first)).exit_code == 0
+        assert self._invoke(runner, "--output", str(second)).exit_code == 0
+
+        assert first.read_bytes() == second.read_bytes()
+
+    def test_package_long_description_warns_on_stderr_in_json_mode(self, runner, tmp_path):
+        long_source = f"---\nname: notebooklm\ndescription: {'x' * 1100}\n---\n# Body"
+        target = tmp_path / "skill.zip"
+        result = self._invoke(runner, "--output", str(target), "--json", source=long_source)
+
+        assert result.exit_code == 0, result.output
+        json.loads(result.stdout)  # stdout stays pure JSON
+        assert "1100 characters" in result.stderr
+
+    def test_package_short_description_does_not_warn(self, runner, tmp_path):
+        target = tmp_path / "skill.zip"
+        result = self._invoke(runner, "--output", str(target), "--json")
+
+        assert result.exit_code == 0, result.output
+        assert result.stderr == ""
+
+    def test_atomic_write_bytes_uses_shared_replace_helper(self, tmp_path, monkeypatch):
+        """Binary skill writes share the Windows transient-retry replace helper."""
+        calls: list[tuple[Path, Path]] = []
+
+        def fake_replace(temp_path: Path, path: Path) -> None:
+            calls.append((temp_path, path))
+            temp_path.replace(path)
+
+        monkeypatch.setattr(skill_module, "replace_file_atomically", fake_replace)
+        target = tmp_path / "skills" / "archive.zip"
+
+        skill_module.atomic_write_bytes(target, b"content")
+
+        assert target.read_bytes() == b"content"
+        assert len(calls) == 1
+        assert calls[0][1] == target
+
+    def test_package_write_failure_emits_envelope(self, runner, tmp_path, monkeypatch):
+        """An OSError from the archive write surfaces as WRITE_FAILED, not a traceback."""
+
+        def boom(path: Path, data: bytes) -> None:
+            raise OSError("disk full")
+
+        monkeypatch.setattr(skill_module, "atomic_write_bytes", boom)
+        result = self._invoke(runner, "--output", str(tmp_path / "skill.zip"), "--json")
+
+        assert result.exit_code == 1
+        payload = json.loads(result.stdout)
+        assert payload["error"] is True
+        assert payload["code"] == "WRITE_FAILED"
+        assert result.exception is None or isinstance(result.exception, SystemExit)
+
+    def test_package_trailing_slash_directory_intent(self, runner, tmp_path):
+        """A nonexistent --output ending in a separator creates the directory and
+        writes the default filename inside it (Path would silently drop the slash)."""
+        result = self._invoke(runner, "--output", str(tmp_path / "newdir") + "/")
+
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "newdir" / skill_module.DEFAULT_ARCHIVE_FILENAME).exists()

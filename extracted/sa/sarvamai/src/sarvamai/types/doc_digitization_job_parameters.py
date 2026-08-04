@@ -15,12 +15,12 @@ class DocDigitizationJobParameters(UniversalBaseModel):
 
     language: typing.Optional[DocDigitizationSupportedLanguage] = pydantic.Field(default=None)
     """
-    Primary language of the document in BCP-47 format. This helps optimize text extraction accuracy for the specified language.
+    Primary language of the document in BCP-47 format (e.g. en-IN, hi-IN). Use this field name — not language_code (which other Sarvam APIs use). Sending language_code is ignored and defaults to hi-IN.
     """
 
     output_format: typing.Optional[DocDigitizationOutputFormat] = pydantic.Field(default=None)
     """
-    Output format for the extracted content (delivered as a ZIP file). Use 'html' for structured HTML, 'md' for Markdown, or 'json' for structured JSON data.
+    Output format for the extracted content (delivered as a ZIP file). Accepted values: md, html, json. Use md for Markdown — not markdown (returns 400).
     """
 
     if IS_PYDANTIC_V2:

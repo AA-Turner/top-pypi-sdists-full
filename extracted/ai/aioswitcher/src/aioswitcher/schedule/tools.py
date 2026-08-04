@@ -115,6 +115,7 @@ def hexadecimale_timestamp_to_localtime(hex_timestamp: bytes) -> str:
 
     Return:
         Localtime string with %H:%M format. e.g. "20:30".
+
     """
     hex_time = (
         hex_timestamp[6:8]
@@ -140,8 +141,8 @@ def weekdays_to_hexadecimal(days: Union[Days, Set[Days]]) -> str:
     if days:
         if type(days) is Days:
             return "{:02x}".format(days.bit_rep)
-        elif type(days) is set or len(days) == len(set(days)):  # type: ignore
-            map_to_bits = map(lambda w: w.bit_rep, days)  # type: ignore
+        elif type(days) is set or len(days) == len(set(days)):
+            map_to_bits = map(lambda w: w.bit_rep, days)
             return "{:02x}".format(int(sum(map_to_bits)))
     raise ValueError("no days requested")
 

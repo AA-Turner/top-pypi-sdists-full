@@ -4,6 +4,8 @@
 
 """Test for automatic translation."""
 
+from unittest.mock import patch
+
 from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -19,8 +21,17 @@ from weblate.configuration.models import Setting, SettingCategory
 from weblate.lang.models import Language, Plural
 from weblate.machinery.dummy import DummyTranslation
 from weblate.trans.actions import ActionEvents
+from weblate.trans.autotranslate import BatchAutoTranslate
 from weblate.trans.forms import AutoForm
-from weblate.trans.models import Change, Component, PendingUnitChange, Project, Unit
+from weblate.trans.models import (
+    Change,
+    Component,
+    PendingUnitChange,
+    Project,
+    Translation,
+    Unit,
+    WorkflowSetting,
+)
 from weblate.trans.tasks import auto_translate, auto_translate_component
 from weblate.trans.tests.test_views import ViewTestCase
 from weblate.utils.state import STATE_APPROVED, STATE_READONLY, STATE_TRANSLATED
@@ -77,7 +88,7 @@ class AutoTranslationTest(ViewTestCase):
             addon=addon.instance,
             component=component,
             event=AddonEvent.EVENT_COMPONENT_UPDATE,
-            pending=True,
+            status=AddonActivityLog.Status.PENDING,
         )
 
     def test_none(self) -> None:
@@ -112,9 +123,16 @@ class AutoTranslationTest(ViewTestCase):
         )
 
     def perform_auto(
-        self, expected=1, expected_count=None, path_params=None, success=True, **kwargs
+        self,
+        expected=1,
+        expected_count=None,
+        path_params=None,
+        success=True,
+        prepare_source=True,
+        **kwargs,
     ) -> None:
-        self.make_different()
+        if prepare_source:
+            self.make_different()
         if path_params is None:
             path_params = {"path": [*self.component2.get_url_path(), "cs"]}
         url = reverse("auto_translation", kwargs=path_params)
@@ -160,6 +178,87 @@ class AutoTranslationTest(ViewTestCase):
     def test_different(self) -> None:
         """Test for automatic translation with different content."""
         self.perform_auto()
+
+    def restrict_direct_editing(self) -> Translation:
+        self.user.is_superuser = False
+        self.user.save(update_fields=["is_superuser"])
+        self.user.groups.clear()
+        group = Group.objects.create(
+            name="Restricted automatic translation",
+            language_selection=SELECTION_ALL,
+        )
+        group.components.add(self.component2)
+        group.roles.add(
+            Role.objects.get(name="Translate"),
+            Role.objects.get(name="Automatic translation"),
+        )
+        self.user.groups.add(group)
+        self.user.clear_permissions_cache()
+
+        translation = self.component2.translation_set.get(language_code="cs")
+        WorkflowSetting.objects.create(
+            project=translation.component.project,
+            language=translation.language,
+            restrict_direct_editing=True,
+        )
+        return Translation.objects.get(component=self.component2, language_code="cs")
+
+    def test_restrict_direct_editing_blocks_automatic_translation(self) -> None:
+        self.make_different()
+        translation = self.restrict_direct_editing()
+
+        self.assertTrue(self.user.has_perm("translation.auto", translation))
+        self.perform_auto(expected=0, prepare_source=False)
+
+    def test_restrict_direct_editing_allows_automatic_suggestions(self) -> None:
+        self.make_different()
+        translation = self.restrict_direct_editing()
+
+        self.assertTrue(self.user.has_perm("translation.auto", translation))
+        self.assertTrue(self.user.has_perm("suggestion.add", translation))
+        self.perform_auto(mode="suggest", prepare_source=False)
+
+    def test_restrict_direct_editing_in_component_batch(self) -> None:
+        self.make_different()
+        self.make_different("de")
+        translation = self.restrict_direct_editing()
+        german = self.component2.translation_set.get(language_code="de")
+        initial_german_translated = german.stats.translated
+
+        self.perform_auto(
+            expected=1,
+            expected_count=0,
+            path_params={"path": self.component2.get_url_path()},
+            prepare_source=False,
+        )
+
+        translation = Translation.objects.get(pk=translation.pk)
+        german = Translation.objects.get(pk=german.pk)
+        self.assertEqual(translation.stats.translated, 0)
+        self.assertEqual(german.stats.translated, initial_german_translated + 1)
+
+    def test_batch_preloads_workflow_settings(self) -> None:
+        translation = self.component2.translation_set.get(language_code="cs")
+        setting = WorkflowSetting.objects.create(
+            project=translation.component.project,
+            language=translation.language,
+            restrict_direct_editing=True,
+        )
+
+        auto = BatchAutoTranslate(
+            self.component2,
+            user=self.user,
+            q="state:<translated",
+            mode="translate",
+        )
+
+        self.assertGreater(len(auto.translations), 1)
+        with self.assertNumQueries(0):
+            workflow_settings = [item.workflow_settings for item in auto.translations]
+            restrictions = [item.restrict_direct_editing for item in auto.translations]
+        self.assertIn(setting, workflow_settings)
+        self.assertIn(True, restrictions)
+        self.assertIn(False, restrictions)
 
     def test_readonly_empty_target_source_candidate(self) -> None:
         """Skip source candidates with empty targets even when read-only."""
@@ -255,7 +354,7 @@ class AutoTranslationTest(ViewTestCase):
         self.assertEqual(len(result["warnings"]), 1)
         self.assertIn("do not match the target translation", result["warnings"][0])
         activity_log.refresh_from_db()
-        self.assertFalse(activity_log.pending)
+        self.assertEqual(activity_log.status, AddonActivityLog.Status.SUCCESS)
         self.assertEqual(
             activity_log.details["result"]["message"],
             "Automatic translation completed, 1 string was updated.",
@@ -267,6 +366,7 @@ class AutoTranslationTest(ViewTestCase):
         )
 
     def test_autotranslate_missing_target_returns_result_dict(self) -> None:
+        activity_log = self.create_autotranslate_activity_log()
         translation = self.component2.translation_set.get(language_code="cs")
         translation_id = translation.id
         translation.delete()
@@ -280,6 +380,7 @@ class AutoTranslationTest(ViewTestCase):
             source_component_id=self.component.id,
             engines=[],
             threshold=100,
+            activity_log_id=activity_log.id,
         )
 
         self.assertEqual(
@@ -289,6 +390,9 @@ class AutoTranslationTest(ViewTestCase):
                 "warnings": [],
             },
         )
+        activity_log.refresh_from_db()
+        self.assertEqual(activity_log.status, AddonActivityLog.Status.SKIPPED)
+        self.assertEqual(activity_log.details["reason"], "target-missing")
 
     def test_suggest(self) -> None:
         """Test for automatic suggestion."""
@@ -788,8 +892,35 @@ class AutoTranslationTest(ViewTestCase):
         )
         self.assertEqual(result["warnings"], [])
         activity_log.refresh_from_db()
-        self.assertFalse(activity_log.pending)
+        self.assertEqual(activity_log.status, AddonActivityLog.Status.SUCCESS)
         self.assertEqual(activity_log.details["result"], result)
+
+    def test_autotranslate_component_failure_updates_activity_log(self) -> None:
+        activity_log = self.create_autotranslate_activity_log()
+
+        with patch("weblate.utils.errors.report_error"):
+            task_result = auto_translate_component.apply(
+                kwargs={
+                    "component_id": 0,
+                    "mode": "translate",
+                    "q": "state:<translated",
+                    "auto_source": "others",
+                    "engines": [],
+                    "threshold": 100,
+                    "source_component_id": self.component.id,
+                    "user_id": self.user.id,
+                    "activity_log_id": activity_log.id,
+                },
+                throw=False,
+            )
+
+        self.assertTrue(task_result.failed())
+        self.assertIsInstance(task_result.result, Component.DoesNotExist)
+        activity_log.refresh_from_db()
+        self.assertEqual(activity_log.status, AddonActivityLog.Status.ERROR)
+        self.assertIn(
+            "Component matching query does not exist", activity_log.details["result"]
+        )
 
     def test_command(self) -> None:
         call_command("auto_translate", "test", "test", "cs")

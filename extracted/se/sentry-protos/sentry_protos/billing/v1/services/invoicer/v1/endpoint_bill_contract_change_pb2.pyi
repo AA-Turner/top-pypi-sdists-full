@@ -30,7 +30,10 @@ class BillContractChangeRequest(google.protobuf.message.Message):
     CONTRACT_ID_FIELD_NUMBER: builtins.int
     LINE_ITEMS_FIELD_NUMBER: builtins.int
     CHANGE_FIELD_NUMBER: builtins.int
+    START_NEW_TERM_FIELD_NUMBER: builtins.int
     contract_id: builtins.int
+    start_new_term: builtins.bool
+    """Whether the requested change should result in a new billing period."""
     @property
     def line_items(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.services.contract.v1.invoice_pb2.InvoiceLineItem]:
         """The plan-change line items billed alongside accrued usage; they take the
@@ -51,9 +54,10 @@ class BillContractChangeRequest(google.protobuf.message.Message):
         contract_id: builtins.int = ...,
         line_items: collections.abc.Iterable[sentry_protos.billing.v1.services.contract.v1.invoice_pb2.InvoiceLineItem] | None = ...,
         change: sentry_protos.billing.v1.common.v1.pending_change_pb2.PendingChange | None = ...,
+        start_new_term: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["change", b"change"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["change", b"change", "contract_id", b"contract_id", "line_items", b"line_items"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["change", b"change", "contract_id", b"contract_id", "line_items", b"line_items", "start_new_term", b"start_new_term"]) -> None: ...
 
 global___BillContractChangeRequest = BillContractChangeRequest
 

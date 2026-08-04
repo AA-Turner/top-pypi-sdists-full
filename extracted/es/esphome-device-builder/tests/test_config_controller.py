@@ -2225,6 +2225,27 @@ def test_desktop_bin_and_update_capable_read_env(
     assert settings.desktop_bin == ""
 
 
+def test_prebuilt_esphome_environment_tracks_addon_and_desktop(
+    make_settings: MakeSettingsFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``prebuilt_esphome_environment`` is True on the HA add-on or any desktop marker."""
+    monkeypatch.delenv("ESPHOME_DESKTOP_VERSION", raising=False)
+    monkeypatch.delenv("ESPHOME_DESKTOP_BIN", raising=False)
+    assert make_settings().prebuilt_esphome_environment is False
+
+    addon = make_settings()
+    addon.on_ha_addon = True
+    assert addon.prebuilt_esphome_environment is True
+
+    monkeypatch.setenv("ESPHOME_DESKTOP_VERSION", "1.4.2")
+    assert make_settings().prebuilt_esphome_environment is True
+    monkeypatch.delenv("ESPHOME_DESKTOP_VERSION")
+
+    # Older desktop apps export only one of the two markers; either suffices.
+    monkeypatch.setenv("ESPHOME_DESKTOP_BIN", "/usr/local/bin/esphome-desktop")
+    assert make_settings().prebuilt_esphome_environment is True
+
+
 def test_metadata_transaction_persists_without_fcntl(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -32,7 +32,6 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from _helpers.client_factory import build_client_shell_for_tests
 from notebooklm._middleware.core import (
     Middleware,
     NextCall,
@@ -42,6 +41,9 @@ from notebooklm._middleware.core import (
 )
 from notebooklm._transport_errors import TransportServerError
 from notebooklm.client import NotebookLMClient
+from tests._helpers.client_factory import build_client_shell_for_tests
+
+_UNSET = object()
 
 
 def _make_core() -> NotebookLMClient:
@@ -78,10 +80,12 @@ class FakeKernelPost:
         headers: Any,
         body: bytes,
         read_timeout: float | None = None,
+        max_response_bytes: int | None | object = _UNSET,
     ) -> httpx.Response:
-        self.calls.append(
-            {"url": url, "headers": headers, "body": body, "read_timeout": read_timeout}
-        )
+        call = {"url": url, "headers": headers, "body": body, "read_timeout": read_timeout}
+        if max_response_bytes is not _UNSET:
+            call["max_response_bytes"] = max_response_bytes
+        self.calls.append(call)
         return self.response
 
 
@@ -93,9 +97,9 @@ def _swap_kernel_post(core: NotebookLMClient, fake: FakeKernelPost) -> None:
 async def test_chain_routes_perform_authed_post_to_transport() -> None:
     """``RuntimeTransport.perform_authed_post`` flows through the chain.
 
-    Covers direct callers of ``RuntimeTransport.perform_authed_post``:
-    the chat path in ``_chat/transport.py:64`` and any first-party
-    caller via ``client._composed.transport.perform_authed_post``.
+    Covers direct callers of ``RuntimeTransport.perform_authed_post``: the chat
+    path in :func:`notebooklm._chat.transport.chat_aware_authed_post` and any
+    first-party caller via ``client._composed.transport.perform_authed_post``.
     """
     expected_response = httpx.Response(status_code=200, content=b"chain-routed")
     fake = FakeKernelPost(response=expected_response)
@@ -204,6 +208,7 @@ async def test_chain_terminal_reads_context_keys() -> None:
         "body": b"ctx-body",
         "read_timeout": None,
     }
+    assert "max_response_bytes" not in fake.calls[0]
 
 
 @pytest.mark.asyncio
@@ -244,6 +249,7 @@ async def test_chain_terminal_log_label_defaults_for_direct_calls() -> None:
         headers: Any,
         body: bytes,
         read_timeout: float | None = None,
+        max_response_bytes: int | None | object = _UNSET,
     ) -> httpx.Response:
         request = httpx.Request("POST", url, headers=dict(headers), content=body)
         raise httpx.RequestError("boom", request=request)
@@ -311,10 +317,10 @@ async def test_chain_seeded_with_final_adr_009_ordering() -> None:
 async def test_chain_with_test_middleware_observes_request_and_response() -> None:
     """A test middleware can observe the request and response around the leaf.
 
-    Demonstrates the contract every middleware PR 12.3–12.8 will rely on:
-    insert a middleware into the chain, drive a request through, and
-    assert the middleware saw both the inbound request and the outbound
-    response. This is the wire-up smoke test for middleware extractions.
+    Demonstrates the contract middleware components rely on: insert a
+    middleware into a chain, drive a request through, and assert the middleware
+    saw both the inbound request and the outbound response. This is the wire-up
+    smoke test for middleware composition.
 
     Builds the chain locally (rather than mutating ``core._composed.middlewares``
     in-place) because production code does not yet support hot-swapping
@@ -381,6 +387,30 @@ async def test_chain_terminal_forwards_read_timeout_context() -> None:
 
     assert result.response is expected_response
     assert fake.calls[0].get("read_timeout") == 123.0
+
+
+@pytest.mark.asyncio
+async def test_chain_terminal_forwards_max_response_bytes_context() -> None:
+    """Per-request response byte cap context reaches the concrete streaming POST."""
+    expected_response = httpx.Response(status_code=200, content=b"max-response")
+    fake = FakeKernelPost(response=expected_response)
+    core = _make_core()
+    _swap_kernel_post(core, fake)
+
+    request = RpcRequest(
+        url="https://fake/max-response",
+        headers={},
+        body=b"",
+        context={
+            "log_label": "max-response-test",
+            "max_response_bytes": 123,
+        },
+    )
+
+    result = await core._composed.chain_host._authed_post_chain_terminal(request)
+
+    assert result.response is expected_response
+    assert fake.calls[0].get("max_response_bytes") == 123
 
 
 def test_build_chain_empty_returns_terminal_unchanged() -> None:

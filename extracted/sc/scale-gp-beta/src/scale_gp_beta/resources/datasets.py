@@ -63,7 +63,15 @@ class DatasetsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Dataset:
         """
-        Create Dataset
+        Create a dataset and populate it with its initial items in a single call.
+
+        Use this when the dataset does not exist yet: it creates the dataset and seeds
+        it with the items you provide. To add more items to a dataset that already
+        exists, use POST /v5/dataset-items/batch instead. A name is required, and the
+        request must include at least one item in `data`; the optional `files` field
+        associates files with the created items. The provided items are inserted as
+        dataset items as a side effect of creation, and any `tags` are attached to the
+        dataset. The returned dataset is at version 1.
 
         Args:
           data: Items to be included in the dataset
@@ -111,7 +119,10 @@ class DatasetsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Dataset:
         """
-        Get Dataset
+        Retrieve a single dataset by its id.
+
+        By default an archived dataset is not returned; set `include_archived` to true
+        to fetch a dataset regardless of whether it has been archived.
 
         Args:
           extra_headers: Send extra headers
@@ -151,7 +162,15 @@ class DatasetsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Dataset:
         """
-        Update or Restore Dataset
+        Update a dataset's fields, or restore a previously archived dataset.
+
+        The request body is a union discriminated by its contents: a body of
+        `{"restore": true}` triggers a restore, and any other body is treated as a
+        partial update of the dataset's `name`, `description`, and `tags`. Restore
+        clears `archived_at` on the dataset and cascades the un-archival to its items
+        and versions; restoring a dataset that is not archived returns it unchanged. A
+        partial update on an archived dataset fails, since archived datasets cannot be
+        modified.
 
         Args:
           extra_headers: Send extra headers
@@ -192,7 +211,11 @@ class DatasetsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPage[Dataset]:
         """
-        List Datasets
+        Return a paginated list of the account's datasets.
+
+        Archived datasets are excluded unless `include_archived` is set to true. Results
+        can be narrowed by `tags` and by the standard filterable parameters; a `name`
+        filter matches as a case-insensitive substring rather than an exact match.
 
         Args:
           extra_headers: Send extra headers
@@ -240,7 +263,14 @@ class DatasetsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatasetArchiveResponse:
         """
-        Delete Dataset
+        Soft-delete a dataset by archiving it; the row is retained and can be restored
+        later.
+
+        This sets the dataset's `archived_at` timestamp rather than permanently removing
+        it, and cascades the same archival to the dataset's items and versions.
+        Archiving is not idempotent: if the dataset is already archived the call fails.
+        The dataset can be brought back with the PATCH restore request. The response
+        reports the dataset id with `deleted` set to true.
 
         Args:
           extra_headers: Send extra headers
@@ -298,7 +328,15 @@ class AsyncDatasetsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Dataset:
         """
-        Create Dataset
+        Create a dataset and populate it with its initial items in a single call.
+
+        Use this when the dataset does not exist yet: it creates the dataset and seeds
+        it with the items you provide. To add more items to a dataset that already
+        exists, use POST /v5/dataset-items/batch instead. A name is required, and the
+        request must include at least one item in `data`; the optional `files` field
+        associates files with the created items. The provided items are inserted as
+        dataset items as a side effect of creation, and any `tags` are attached to the
+        dataset. The returned dataset is at version 1.
 
         Args:
           data: Items to be included in the dataset
@@ -346,7 +384,10 @@ class AsyncDatasetsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Dataset:
         """
-        Get Dataset
+        Retrieve a single dataset by its id.
+
+        By default an archived dataset is not returned; set `include_archived` to true
+        to fetch a dataset regardless of whether it has been archived.
 
         Args:
           extra_headers: Send extra headers
@@ -386,7 +427,15 @@ class AsyncDatasetsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Dataset:
         """
-        Update or Restore Dataset
+        Update a dataset's fields, or restore a previously archived dataset.
+
+        The request body is a union discriminated by its contents: a body of
+        `{"restore": true}` triggers a restore, and any other body is treated as a
+        partial update of the dataset's `name`, `description`, and `tags`. Restore
+        clears `archived_at` on the dataset and cascades the un-archival to its items
+        and versions; restoring a dataset that is not archived returns it unchanged. A
+        partial update on an archived dataset fails, since archived datasets cannot be
+        modified.
 
         Args:
           extra_headers: Send extra headers
@@ -427,7 +476,11 @@ class AsyncDatasetsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Dataset, AsyncCursorPage[Dataset]]:
         """
-        List Datasets
+        Return a paginated list of the account's datasets.
+
+        Archived datasets are excluded unless `include_archived` is set to true. Results
+        can be narrowed by `tags` and by the standard filterable parameters; a `name`
+        filter matches as a case-insensitive substring rather than an exact match.
 
         Args:
           extra_headers: Send extra headers
@@ -475,7 +528,14 @@ class AsyncDatasetsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatasetArchiveResponse:
         """
-        Delete Dataset
+        Soft-delete a dataset by archiving it; the row is retained and can be restored
+        later.
+
+        This sets the dataset's `archived_at` timestamp rather than permanently removing
+        it, and cascades the same archival to the dataset's items and versions.
+        Archiving is not idempotent: if the dataset is already archived the call fails.
+        The dataset can be brought back with the PATCH restore request. The response
+        reports the dataset id with `deleted` set to true.
 
         Args:
           extra_headers: Send extra headers

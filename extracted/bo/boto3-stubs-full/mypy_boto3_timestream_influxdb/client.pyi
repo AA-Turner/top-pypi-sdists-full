@@ -27,29 +27,38 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListDbBackupsPaginator,
     ListDbClustersPaginator,
     ListDbInstancesForClusterPaginator,
     ListDbInstancesPaginator,
     ListDbParameterGroupsPaginator,
 )
 from .type_defs import (
+    CreateDbBackupInputTypeDef,
+    CreateDbBackupOutputTypeDef,
     CreateDbClusterInputTypeDef,
     CreateDbClusterOutputTypeDef,
     CreateDbInstanceInputTypeDef,
     CreateDbInstanceOutputTypeDef,
     CreateDbParameterGroupInputTypeDef,
     CreateDbParameterGroupOutputTypeDef,
+    DeleteDbBackupInputTypeDef,
+    DeleteDbBackupOutputTypeDef,
     DeleteDbClusterInputTypeDef,
     DeleteDbClusterOutputTypeDef,
     DeleteDbInstanceInputTypeDef,
     DeleteDbInstanceOutputTypeDef,
     EmptyResponseMetadataTypeDef,
+    GetDbBackupInputTypeDef,
+    GetDbBackupOutputTypeDef,
     GetDbClusterInputTypeDef,
     GetDbClusterOutputTypeDef,
     GetDbInstanceInputTypeDef,
     GetDbInstanceOutputTypeDef,
     GetDbParameterGroupInputTypeDef,
     GetDbParameterGroupOutputTypeDef,
+    ListDbBackupsInputTypeDef,
+    ListDbBackupsOutputTypeDef,
     ListDbClustersInputTypeDef,
     ListDbClustersOutputTypeDef,
     ListDbInstancesForClusterInputTypeDef,
@@ -64,6 +73,8 @@ from .type_defs import (
     RebootDbClusterOutputTypeDef,
     RebootDbInstanceInputTypeDef,
     RebootDbInstanceOutputTypeDef,
+    RestoreFromDbBackupInputTypeDef,
+    RestoreFromDbBackupOutputTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateDbClusterInputTypeDef,
@@ -124,6 +135,16 @@ class TimestreamInfluxDBClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_timestream_influxdb/client/#generate_presigned_url)
         """
 
+    def create_db_backup(
+        self, **kwargs: Unpack[CreateDbBackupInputTypeDef]
+    ) -> CreateDbBackupOutputTypeDef:
+        """
+        Creates a new on-demand backup of a Timestream for InfluxDB resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/timestream-influxdb/client/create_db_backup.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_timestream_influxdb/client/#create_db_backup)
+        """
+
     def create_db_cluster(
         self, **kwargs: Unpack[CreateDbClusterInputTypeDef]
     ) -> CreateDbClusterOutputTypeDef:
@@ -155,6 +176,16 @@ class TimestreamInfluxDBClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_timestream_influxdb/client/#create_db_parameter_group)
         """
 
+    def delete_db_backup(
+        self, **kwargs: Unpack[DeleteDbBackupInputTypeDef]
+    ) -> DeleteDbBackupOutputTypeDef:
+        """
+        Deletes a Timestream for InfluxDB backup.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/timestream-influxdb/client/delete_db_backup.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_timestream_influxdb/client/#delete_db_backup)
+        """
+
     def delete_db_cluster(
         self, **kwargs: Unpack[DeleteDbClusterInputTypeDef]
     ) -> DeleteDbClusterOutputTypeDef:
@@ -173,6 +204,14 @@ class TimestreamInfluxDBClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/timestream-influxdb/client/delete_db_instance.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_timestream_influxdb/client/#delete_db_instance)
+        """
+
+    def get_db_backup(self, **kwargs: Unpack[GetDbBackupInputTypeDef]) -> GetDbBackupOutputTypeDef:
+        """
+        Returns information about a specific Timestream for InfluxDB backup.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/timestream-influxdb/client/get_db_backup.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_timestream_influxdb/client/#get_db_backup)
         """
 
     def get_db_cluster(
@@ -203,6 +242,16 @@ class TimestreamInfluxDBClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/timestream-influxdb/client/get_db_parameter_group.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_timestream_influxdb/client/#get_db_parameter_group)
+        """
+
+    def list_db_backups(
+        self, **kwargs: Unpack[ListDbBackupsInputTypeDef]
+    ) -> ListDbBackupsOutputTypeDef:
+        """
+        Returns a list of Timestream for InfluxDB backups.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/timestream-influxdb/client/list_db_backups.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_timestream_influxdb/client/#list_db_backups)
         """
 
     def list_db_clusters(
@@ -275,6 +324,16 @@ class TimestreamInfluxDBClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_timestream_influxdb/client/#reboot_db_instance)
         """
 
+    def restore_from_db_backup(
+        self, **kwargs: Unpack[RestoreFromDbBackupInputTypeDef]
+    ) -> RestoreFromDbBackupOutputTypeDef:
+        """
+        Restores a Timestream for InfluxDB resource from a backup.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/timestream-influxdb/client/restore_from_db_backup.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_timestream_influxdb/client/#restore_from_db_backup)
+        """
+
     def tag_resource(
         self, **kwargs: Unpack[TagResourceRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -313,6 +372,17 @@ class TimestreamInfluxDBClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/timestream-influxdb/client/update_db_instance.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_timestream_influxdb/client/#update_db_instance)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_db_backups"]
+    ) -> ListDbBackupsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/timestream-influxdb/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_timestream_influxdb/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

@@ -177,23 +177,124 @@ def corpus_state(index, repo_str: str, pins: Optional[dict] = None) -> dict:
     }
 
 
-def token_signature(results: list[dict]) -> str:
-    """Everything a reproduction has to match, with the wall-clock left out.
+# Fields inside a SERVED payload whose value is a property of the machine and
+# the moment rather than of retrieval. They are counted in the published figure
+# — an agent really does pay for them — but they are pinned to a constant before
+# the reproducibility signature is taken. See `stable_tokens`.
+#
+# ⚠ Measured 2026-08-03, and this is the whole reason `--verify-determinism`
+# was red on CI while reproducing identical locally:
+#
+#   `timing_ms` tokenizes to 3 tokens below 1000ms and 4 at or above it, so a
+#   query that straddles one second changes the payload by EXACTLY ONE TOKEN.
+#   CI reported `search_tokens: 499 != 500`. A loaded runner straddles; a fast
+#   dev box does not, which is why nobody could reproduce it.
+#
+#   `total_tokens_saved` is a MONOTONIC LIFETIME counter — it grows on every
+#   call this installation has ever served. cl100k chunks digits in threes, so
+#   it is 4 tokens from 10 to 12 digits and 5 from 13. It has not crossed yet,
+#   which is the only reason it has not already done the same thing. A published
+#   benchmark figure must not depend on how much the measuring machine has used
+#   the product in its entire history.
+_VOLATILE_PAYLOAD_KEYS = {"timing_ms", "total_tokens_saved"}
 
-    `search_ms` varies run to run and means nothing to a reader trying to
-    reproduce a token count. Every other field is expected to be bit-identical:
-    the retrieval path the benchmark exercises is lexical and has no RNG, so
-    there is no seed to pin — but that is a claim worth checking rather than
-    asserting, which is what `--verify-determinism` does with this.
+
+def _pin_volatile(obj):
+    """Replace machine/moment-dependent payload values with fixed placeholders.
+
+    Applied ONLY to the copy that feeds the reproducibility signature, never to
+    the copy that is counted for publication.
+    """
+    if isinstance(obj, dict):
+        return {
+            k: (0 if k in _VOLATILE_PAYLOAD_KEYS else _pin_volatile(v))
+            for k, v in obj.items()
+        }
+    if isinstance(obj, list):
+        return [_pin_volatile(x) for x in obj]
+    return obj
+
+
+# Per-task fields that inherit the wall clock through the counted payload, and
+# so cannot be part of a reproducibility check. Each has a `stable_` counterpart
+# that can.
+_WALLCLOCK_DERIVED_FIELDS = {
+    "search_ms", "tokens", "search_tokens", "fetch_tokens",
+    "jmunch_tokens", "reduction_pct", "ratio",
+    # Derived by dividing INTO jmunch_tokens, so they inherit its ±1-token
+    # jitter. The grep baseline's own counts (`grep_baseline_tokens` and
+    # friends) contain no wall-clock field and ARE compared — if grep-then-read
+    # is not bit-reproducible, that is a real defect and the gate should say so.
+    "grep_ratio", "grep_reduction_pct",
+}
+
+
+def token_signature(results: list[dict]) -> str:
+    """Everything a REPRODUCTION has to match.
+
+    ⚠⚠ **This deliberately does not compare the published token counts, and
+    that is a concession, not an oversight.** The counted payload contains a
+    wall-clock field (`_meta.timing_ms`), so those counts carry a ±1-token
+    jitter that no seed can remove — see `_VOLATILE_PAYLOAD_KEYS` for the
+    measurement. Asserting bit-equality on them made the gate red on every CI
+    push from v1.108.222 onward for a reason that has nothing to do with
+    retrieval.
+
+    What is compared instead is `stable_tokens` and friends: the same payload,
+    counted with those fields pinned. That is the question the gate was built to
+    answer — *is retrieval reproducible* — and it is answerable. The published
+    figures still count the payload as served, which is the pessimistic
+    direction, and METHODOLOGY.md states the jitter.
+
+    `search_ms` never entered the payload at all; it is dropped for the older
+    reason that it means nothing to someone reproducing a token count.
     """
     def strip(obj):
         if isinstance(obj, dict):
-            return {k: strip(v) for k, v in obj.items() if k != "search_ms"}
+            return {
+                k: strip(v) for k, v in obj.items()
+                if k not in _WALLCLOCK_DERIVED_FIELDS
+            }
         if isinstance(obj, list):
             return [strip(x) for x in obj]
         return obj
 
     return json.dumps(strip(results), sort_keys=True, default=str)
+
+
+def _signature_diff(first, second, path: str = "", _out=None) -> list[str]:
+    """Every leaf that differs between two measurement passes, as `path: a != b`.
+
+    Exists because `--verify-determinism` failing tells you nothing you can act
+    on remotely. The interesting question is never *that* two passes differ, it
+    is *which field* — a `tokens` figure moving is the retrieval bug the gate
+    exists to catch, while `timing_ms` moving is the wall-clock digit width the
+    harness already knows rides inside the counted payload. Those need opposite
+    responses and a bare "DIFFERENT" cannot tell them apart.
+
+    `search_ms` is dropped on both sides, matching `token_signature`.
+    """
+    out = [] if _out is None else _out
+    if len(out) >= 40:
+        return out
+    if isinstance(first, dict) and isinstance(second, dict):
+        for key in sorted(set(first) | set(second)):
+            if key == "search_ms":
+                continue
+            here = f"{path}.{key}" if path else str(key)
+            if key not in first or key not in second:
+                out.append(f"{here}: present in only one pass")
+                continue
+            _signature_diff(first[key], second[key], here, out)
+    elif isinstance(first, list) and isinstance(second, list):
+        if len(first) != len(second):
+            out.append(f"{path}: length {len(first)} != {len(second)}")
+        else:
+            for i, (a, b) in enumerate(zip(first, second)):
+                _signature_diff(a, b, f"{path}[{i}]", out)
+    elif first != second:
+        out.append(f"{path}: {first!r} != {second!r}")
+    return out
 
 
 def _measure_in_subprocess(repos: list[str]) -> Optional[list[dict]]:
@@ -251,6 +352,30 @@ def corpus_objection(state: dict) -> Optional[str]:
 # Baseline measurement
 # ---------------------------------------------------------------------------
 
+def _read_source(store: IndexStore, owner: str, name: str, index, content_dir: Path, rel_path: str) -> str:
+    """Read one indexed source file's text.
+
+    ⚠ **Both baselines go through this.** `measure_baseline` (read-everything)
+    and `measure_grep_baseline` (grep-then-read) must see byte-identical
+    content or the ratio between them describes two different corpora rather
+    than two different workflows. Extracted verbatim from `measure_baseline`;
+    it reads the same bytes it always did.
+    """
+    abs_path = content_dir / Path(rel_path.replace("/", "\\") if sys.platform == "win32" else rel_path)
+    # Try both path separator forms
+    if not abs_path.exists():
+        abs_path = content_dir / rel_path
+    try:
+        return abs_path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        try:
+            # Store-backed fallback (the real reader; the old
+            # get_file_content_text name never existed → dead fallback).
+            return store.get_file_content(owner, name, rel_path, index) or ""
+        except Exception:
+            return ""
+
+
 def measure_baseline(store: IndexStore, owner: str, name: str) -> dict:
     """Count tokens across ALL raw source files stored in the index."""
     content_dir = store._content_dir(owner, name)
@@ -261,23 +386,96 @@ def measure_baseline(store: IndexStore, owner: str, name: str) -> dict:
     total_tokens = 0
     file_count = 0
     for rel_path in index.source_files:
-        abs_path = content_dir / Path(rel_path.replace("/", "\\") if sys.platform == "win32" else rel_path)
-        # Try both path separator forms
-        if not abs_path.exists():
-            abs_path = content_dir / rel_path
-        try:
-            content = abs_path.read_text(encoding="utf-8", errors="replace")
-        except Exception:
-            try:
-                # Store-backed fallback (the real reader; the old
-                # get_file_content_text name never existed → dead fallback).
-                content = store.get_file_content(owner, name, rel_path, index) or ""
-            except Exception:
-                content = ""
+        content = _read_source(store, owner, name, index, content_dir, rel_path)
         total_tokens += count_tokens(content)
         file_count += 1
 
     return {"tokens": total_tokens, "files": file_count}
+
+
+# ---------------------------------------------------------------------------
+# Realistic agent baseline: grep, then read the top N files
+# ---------------------------------------------------------------------------
+
+GREP_FILES_READ = 3        # files opened per query, mirroring SYMBOLS_FETCHED
+
+
+def measure_grep_baseline(
+    store: IndexStore, owner: str, name: str, index, query: str
+) -> dict:
+    """What a competent agent WITHOUT this tool actually pays for one query.
+
+    ``ripgrep`` the corpus for the query's terms, rank the matching files, open
+    the top ``GREP_FILES_READ`` in full. That is the workflow the
+    read-everything baseline does not model and no agent performs.
+
+    ⚠⚠ **Every modelling choice here is deliberately made in the baseline's
+    favour, i.e. against us.** A baseline tuned to look weak is not evidence:
+
+    * **The headline grep cost is ``rg -l`` — paths only, no matched lines.**
+      That is the leanest output a real agent gets, so it is the smallest
+      honest number. ``rg`` *with* matched lines is also measured
+      (``match_lines_tokens``) and is strictly larger; it is reported but not
+      used as the headline.
+    * **Files are ranked by match count.** Real grep output has no ranking at
+      all — the agent guesses. Ranking gives the baseline a better-than-chance
+      shot at the right file.
+    * **Matching is case-insensitive substring on ANY term** (``rg -i
+      'a|b|c'``), the most permissive reading, so the baseline finds more.
+
+    ⚠ **Files are read WHOLE**, because that is what agents do — this project's
+    own PreToolUse hook exists precisely to intercept whole-file ``Read`` calls.
+    An agent that reads a line range pays less, and no estimator for that is
+    offered here; see the note in ``tasks.json``.
+
+    Contains no wall-clock field, so unlike the jMunch counts this is
+    bit-reproducible and ``token_signature`` compares it directly.
+    """
+    content_dir = store._content_dir(owner, name)
+    terms = [t.lower() for t in query.split() if t]
+    if not terms:
+        return {"error": f"empty query: {query!r}"}
+
+    per_file: list[tuple[int, str]] = []   # (match_count, rel_path)
+    match_line_tokens = 0
+
+    for rel_path in index.source_files:
+        content = _read_source(store, owner, name, index, content_dir, rel_path)
+        if not content:
+            continue
+        hits = 0
+        for lineno, line in enumerate(content.splitlines(), 1):
+            low = line.lower()
+            if any(t in low for t in terms):
+                hits += 1
+                # `rg -i 'a|b|c'` output shape: path:lineno:line
+                match_line_tokens += count_tokens(f"{rel_path}:{lineno}:{line}\n")
+        if hits:
+            per_file.append((hits, rel_path))
+
+    # Deterministic: match count desc, then path asc. A tie broken by iteration
+    # order would make the file set depend on index insertion order, the exact
+    # class of defect v1.108.228 fixed in the ranker.
+    per_file.sort(key=lambda x: (-x[0], x[1]))
+    top = per_file[:GREP_FILES_READ]
+
+    # `rg -l` output: one path per line. The headline grep cost.
+    file_list_tokens = count_tokens("".join(f"{p}\n" for _, p in per_file))
+
+    read_tokens = 0
+    for _, rel_path in top:
+        read_tokens += count_tokens(_read_source(store, owner, name, index, content_dir, rel_path))
+
+    return {
+        "tokens": file_list_tokens + read_tokens,
+        "grep_tokens": file_list_tokens,
+        "read_tokens": read_tokens,
+        "files_matched": len(per_file),
+        "files_read": len(top),
+        # Reported for disclosure, never the headline: strictly larger, so
+        # using it would flatter us.
+        "match_lines_tokens": match_line_tokens,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -299,6 +497,10 @@ def measure_jmunch(repo_str: str, query: str) -> dict:
 
     search_text = _serialize(search_result)
     search_tokens = count_tokens(search_text)
+    # The same payload, counted with the machine/moment fields pinned. Published
+    # figures use the count above (the payload as an agent actually receives it);
+    # only the reproducibility gate reads this one.
+    stable_search_tokens = count_tokens(_serialize(_pin_volatile(search_result)))
 
     # Extract symbol IDs from results
     symbols = search_result.get("results") or search_result.get("symbols") or []
@@ -307,15 +509,22 @@ def measure_jmunch(repo_str: str, query: str) -> dict:
 
     # 2. Get symbol sources
     fetch_tokens = 0
+    stable_fetch_tokens = 0
     for sid in symbol_ids:
         sym_result = get_symbol(repo=repo_str, symbol_id=sid)
         fetch_tokens += count_tokens(_serialize(sym_result))
+        stable_fetch_tokens += count_tokens(_serialize(_pin_volatile(sym_result)))
 
     total = search_tokens + fetch_tokens
     return {
         "tokens": total,
         "search_tokens": search_tokens,
         "fetch_tokens": fetch_tokens,
+        # Reproducibility basis only — never published, never compared against a
+        # baseline. See `_VOLATILE_PAYLOAD_KEYS`.
+        "stable_tokens": stable_search_tokens + stable_fetch_tokens,
+        "stable_search_tokens": stable_search_tokens,
+        "stable_fetch_tokens": stable_fetch_tokens,
         "hits_fetched": len(symbol_ids),
         "search_ms": round(search_ms, 1),
     }
@@ -358,7 +567,8 @@ def benchmark_repo(repo_str: str) -> dict:
     baseline_tokens = baseline["tokens"]
     file_count = baseline["files"]
     symbol_count = matched.get("symbol_count", 0)
-    state = corpus_state(store.load_index(owner2, name2), repo_str)
+    index = store.load_index(owner2, name2)
+    state = corpus_state(index, repo_str)
 
     task_rows = []
     for query in TASKS:
@@ -366,18 +576,45 @@ def benchmark_repo(repo_str: str) -> dict:
         if "error" in jm:
             task_rows.append({"query": query, "error": jm["error"]})
             continue
+        # ⚠ Measured in THIS run against THIS corpus, never a stored constant.
+        # A live number beside a frozen one is the defect that ran four months
+        # (see jcm CLAUDE.md maintenance rule 4).
+        gb = measure_grep_baseline(store, owner2, name2, index, query)
         reduction_pct = (1 - jm["tokens"] / baseline_tokens) * 100 if baseline_tokens > 0 else 0
         ratio = baseline_tokens / jm["tokens"] if jm["tokens"] > 0 else float("inf")
+        grep_tokens = gb.get("tokens") if "error" not in gb else None
+        grep_ratio = (
+            round(grep_tokens / jm["tokens"], 2)
+            if grep_tokens and jm["tokens"] > 0 else None
+        )
+        grep_reduction_pct = (
+            round((1 - jm["tokens"] / grep_tokens) * 100, 1)
+            if grep_tokens else None
+        )
         task_rows.append({
             "query": query,
             "baseline_tokens": baseline_tokens,
             "jmunch_tokens": jm["tokens"],
             "reduction_pct": round(reduction_pct, 1),
             "ratio": round(ratio, 1),
+            # Realistic agent baseline (grep -l, then read the top 3 files).
+            "grep_baseline_tokens": grep_tokens,
+            "grep_grep_tokens": gb.get("grep_tokens"),
+            "grep_read_tokens": gb.get("read_tokens"),
+            "grep_files_matched": gb.get("files_matched"),
+            "grep_files_read": gb.get("files_read"),
+            "grep_match_lines_tokens": gb.get("match_lines_tokens"),
+            "grep_ratio": grep_ratio,
+            "grep_reduction_pct": grep_reduction_pct,
             "search_tokens": jm["search_tokens"],
             "fetch_tokens": jm["fetch_tokens"],
             "hits_fetched": jm["hits_fetched"],
             "search_ms": jm["search_ms"],
+            # Reproducibility basis (`--verify-determinism`), not a published
+            # figure and never compared against a baseline.
+            "stable_tokens": jm["stable_tokens"],
+            "stable_search_tokens": jm["stable_search_tokens"],
+            "stable_fetch_tokens": jm["stable_fetch_tokens"],
         })
 
     return {
@@ -570,10 +807,12 @@ def render_markdown(results: list[dict], tokenizer: str) -> str:
     lines.append("")
     lines.append(f"**Tokenizer:** `{tokenizer}` (tiktoken)  ")
     lines.append(f"**Workflow:** `search_symbols` (top {SEARCH_MAX_RESULTS}) + `get_symbol` x {SYMBOLS_FETCHED}  ")
-    lines.append(f"**Baseline:** all source files concatenated (minimum for \"open every file\" agent)  ")
+    lines.append("**Baseline A (read-all):** all source files concatenated  ")
+    lines.append(f"**Baseline B (grep-top-{GREP_FILES_READ}):** `rg -l` the query terms, then open the top {GREP_FILES_READ} files whole  ")
     lines.append("")
 
     grand_baseline = 0
+    grand_grep = 0
     grand_jmunch = 0
     grand_tasks = 0
 
@@ -606,31 +845,41 @@ def render_markdown(results: list[dict], tokenizer: str) -> str:
             )
         lines.append("")
 
-        lines.append("| Query | Baseline&nbsp;tokens | jMunch&nbsp;tokens | Reduction | Ratio |")
-        lines.append("|-------|---------------------:|-------------------:|----------:|------:|")
+        lines.append(
+            "| Query | Read-all&nbsp;tokens | Grep-top-%d&nbsp;tokens | jMunch&nbsp;tokens "
+            "| Ratio&nbsp;vs&nbsp;read-all | **Ratio&nbsp;vs&nbsp;grep** |" % GREP_FILES_READ
+        )
+        lines.append("|-------|---------------------:|----------------------:|-------------------:|--------------------------:|--------------------------:|")
 
         repo_jmunch_sum = 0
         valid_tasks = [t for t in res["tasks"] if "error" not in t]
         for t in valid_tasks:
+            gb = t.get("grep_baseline_tokens")
+            gr = t.get("grep_ratio")
             lines.append(
                 f"| `{t['query']}` "
                 f"| {t['baseline_tokens']:,} "
+                f"| {f'{gb:,}' if gb else '—'} "
                 f"| {t['jmunch_tokens']:,} "
-                f"| **{t['reduction_pct']}%** "
-                f"| {t['ratio']}x |"
+                f"| {t['ratio']}x "
+                f"| {f'**{gr}x**' if gr else '—'} |"
             )
             repo_jmunch_sum += t["jmunch_tokens"]
             grand_jmunch += t["jmunch_tokens"]
             grand_baseline += t["baseline_tokens"]
+            grand_grep += t.get("grep_baseline_tokens") or 0
             grand_tasks += 1
 
         if valid_tasks:
-            avg_reduction = sum(t["reduction_pct"] for t in valid_tasks) / len(valid_tasks)
             avg_ratio = sum(t["ratio"] for t in valid_tasks) / len(valid_tasks)
+            grep_ratios = [t["grep_ratio"] for t in valid_tasks if t.get("grep_ratio")]
+            avg_grep = (
+                f"**{sum(grep_ratios) / len(grep_ratios):.1f}x**" if grep_ratios else "—"
+            )
             lines.append(
-                f"| **Average** | — | — "
-                f"| **{avg_reduction:.1f}%** "
-                f"| **{avg_ratio:.1f}x** |"
+                f"| **Average** | — | — | — "
+                f"| {avg_ratio:.1f}x "
+                f"| {avg_grep} |"
             )
         lines.append("")
 
@@ -661,16 +910,35 @@ def render_markdown(results: list[dict], tokenizer: str) -> str:
         lines.append("")
         lines.append("| | Tokens |")
         lines.append("|--|-------:|")
-        lines.append(f"| Baseline total ({grand_tasks} task-runs) | {grand_baseline:,} |")
+        lines.append(f"| Baseline A total, read-all ({grand_tasks} task-runs) | {grand_baseline:,} |")
+        if grand_grep:
+            lines.append(f"| Baseline B total, grep-top-{GREP_FILES_READ} | {grand_grep:,} |")
         lines.append(f"| jMunch total | {grand_jmunch:,} |")
-        lines.append(f"| **Reduction** | **{grand_reduction:.1f}%** |")
-        lines.append(f"| **Ratio** | **{grand_ratio:.1f}x** |")
+        lines.append(f"| Reduction vs read-all | {grand_reduction:.1f}% |")
+        lines.append(f"| Ratio vs read-all | {grand_ratio:.1f}x |")
+        if grand_grep:
+            g_red = (1 - grand_jmunch / grand_grep) * 100
+            lines.append(f"| **Reduction vs grep-top-{GREP_FILES_READ}** | **{g_red:.1f}%** |")
+            lines.append(f"| **Ratio vs grep-top-{GREP_FILES_READ}** | **{grand_grep / grand_jmunch:.1f}x** |")
         lines.append("")
+        if grand_grep:
+            lines.append(
+                f"> **Baseline B is the number to quote.** Read-all is a ceiling nobody "
+                f"pays: it assumes an agent opens every file in the repository before "
+                f"acting. Grep-then-read is what a competent agent without this tool "
+                f"actually does, and it is {grand_grep / grand_baseline * 100:.1f}% of the "
+                f"read-all figure — so measuring against read-all overstates the "
+                f"advantage by about {grand_baseline / grand_grep:.0f}x."
+            )
+            lines.append("")
         lines.append(
             f"> Measured with tiktoken `{tokenizer}`. "
-            "Baseline = all indexed source files. "
+            f"Read-all = every indexed source file. "
+            f"Grep-top-{GREP_FILES_READ} = `rg -l` the query terms, then open the top "
+            f"{GREP_FILES_READ} matching files whole. "
             f"jMunch = search_symbols (top {SEARCH_MAX_RESULTS}) + "
-            f"get_symbol x {SYMBOLS_FETCHED} per query."
+            f"get_symbol x {SYMBOLS_FETCHED} per query. "
+            f"Both baselines are measured in THIS run against THIS corpus."
         )
 
     return "\n".join(lines)
@@ -746,6 +1014,16 @@ def main():
                 "expected to differ — see _measure_in_subprocess.)",
                 file=sys.stderr,
             )
+            # ⚠ Name the fields, do not just fail. This gate went red on CI at
+            # v1.108.222 — the release that introduced it — and stayed red
+            # through .223 and .224 while reproducing identical on the author's
+            # box. A bare "DIFFERENT" is unactionable from a CI log: it cannot
+            # distinguish the retrieval bug this exists to catch from the
+            # wall-clock digit width `_measure_in_subprocess` already warns
+            # about. Guessing from a remote failure is how the wrong thing gets
+            # fixed twice.
+            for line in _signature_diff(results, second):
+                print(f"    {line}", file=sys.stderr)
             return 1
 
     print()

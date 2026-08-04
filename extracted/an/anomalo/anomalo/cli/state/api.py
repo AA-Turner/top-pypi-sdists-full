@@ -344,9 +344,29 @@ class APIDriver:
         return set(self._warehouses.keys())
 
     @cached_property
-    @retry_requests
+    def _warehouse_names_by_id(self) -> dict[int, str]:
+        return {wh_id: wh_name for wh_name, wh_id in self._warehouses.items()}
+
+    @cached_property
     def _tables(self) -> dict[str, int]:
-        request_kwargs: dict[str, int] = {}
+        return self._fetch_tables()
+
+    def pull_table_refs(
+        self, warehouse_id: int | None = None, configured_only: bool = False
+    ) -> set[str]:
+        """Table refs to pull when none are given explicitly on the command line."""
+        if configured_only:
+            return self._fetch_configured_table_refs(warehouse_id)
+        if warehouse_id is None:
+            return self.table_refs
+        return set(self._fetch_tables(warehouse_id))
+
+    @retry_requests
+    def _fetch_tables(self, warehouse_id: int | None = None) -> dict[str, int]:
+        base_kwargs: dict[str, int] = {}
+        if warehouse_id is not None:
+            base_kwargs["warehouse_id"] = warehouse_id
+        request_kwargs = dict(base_kwargs)
         all_tables: dict[str, int] = {}
         while True:
             result = self.client.tables(**request_kwargs)
@@ -357,8 +377,29 @@ class APIDriver:
             }
             if "next" not in result.pages:
                 break
-            request_kwargs = result.pages["next"]
+            # Page links only carry limit/offset, so any filter must be re-applied
+            request_kwargs = base_kwargs | result.pages["next"]
         return all_tables
+
+    @retry_requests
+    def _fetch_configured_table_refs(self, warehouse_id: int | None = None) -> set[str]:
+        base_kwargs: dict[str, Any] = {"details": False}
+        if warehouse_id is not None:
+            base_kwargs["warehouse_id"] = warehouse_id
+        request_kwargs = dict(base_kwargs)
+        table_refs: set[str] = set()
+        while True:
+            result = self.client.configured_tables(**request_kwargs)
+            for row in result:
+                table = row["table"]
+                # Unknown ids are warehouses with non-unique names, excluded above
+                warehouse_name = self._warehouse_names_by_id.get(table["warehouse_id"])
+                if warehouse_name:
+                    table_refs.add(f"{warehouse_name}.{table['full_name']}")
+            if "next" not in result.pages:
+                break
+            request_kwargs = base_kwargs | result.pages["next"]
+        return table_refs
 
     def _table_id(self, table_ref: str) -> int:
         return self._table_raw(table_ref)["id"]

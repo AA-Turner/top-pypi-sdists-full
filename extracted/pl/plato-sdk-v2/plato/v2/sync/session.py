@@ -43,6 +43,7 @@ from plato._generated.api.v2.sessions import snapshot as sessions_snapshot
 from plato._generated.api.v2.sessions import snapshot_store as sessions_snapshot_store
 from plato._generated.api.v2.sessions import state as sessions_state
 from plato._generated.api.v2.sessions import wait_for_ready as sessions_wait_for_ready
+from plato._generated.errors import NotFoundError
 from plato._generated.models import (
     AddJobRequest,
     AppApiV2SchemasSessionCreateSnapshotRequest,
@@ -1154,20 +1155,32 @@ class Session:
 
             page.goto(public_url_result.url)
 
-            # Get flows for this environment using v2 endpoint
+            # Get flows for this environment using v2 endpoint.
+            #
+            # A sim with NO flows at all is a legitimate configuration, not an
+            # error: pre-authenticated sims (the cloned-SaaS family — hubspot,
+            # salesforce, amazon, ...) ship baked-in auth cookies, have no
+            # login page to drive, and define no flows.yaml, so the server
+            # 404s this fetch. The page is already on the sim URL, which is
+            # all such a sim needs — skip login and keep the page open (the
+            # same end state as a successful login, so do NOT close the
+            # context). Genuine failures (network errors, 5xx) still raise.
             try:
                 flows_response = jobs_get_flows.sync(
                     client=self._http,
                     job_id=env.job_id,
                     x_api_key=self._api_key,
                 )
+            except NotFoundError:
+                logger.info("Skipping login for %s (artifact has no flows; pre-authenticated sim)", env.alias)
+                continue
             except Exception as e:
                 context.close()
                 raise RuntimeError(f"Failed to get flows for env {env.alias}: {e}") from e
 
             if not flows_response:
-                context.close()
-                raise RuntimeError(f"No flows found for env {env.alias}")
+                logger.info("Skipping login for %s (empty flows list)", env.alias)
+                continue
 
             flows_list = [Flow.model_validate(f) for f in flows_response]
 
@@ -1176,6 +1189,14 @@ class Session:
 
             login_flow = next((flow for flow in flows_list if flow.name == flow_name), None)
             if not login_flow:
+                if flow_name == "login":
+                    # Sims that define flows but no 'login' flow exist; the CDP
+                    # world path has always warned and continued for this case.
+                    logger.info("Skipping login for %s (no 'login' flow defined)", env.alias)
+                    continue
+                # A missing DATASET flow on a sim that does define flows is a
+                # config mismatch: skipping silently would run the episode
+                # against the wrong dataset state, so fail loudly.
                 error_msg = f"No flow named '{flow_name}' found for env {env.alias}"
                 context.close()
                 raise RuntimeError(error_msg)

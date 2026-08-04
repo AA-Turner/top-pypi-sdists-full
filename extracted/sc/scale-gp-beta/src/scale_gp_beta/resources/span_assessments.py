@@ -73,8 +73,20 @@ class SpanAssessmentsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SpanAssessment:
         """
-        Create new assessment for a span (comment, rating, approval, rubric, overwrite,
-        or metadata)
+        Attach a new assessment to a span within a trace.
+
+        A span assessment records feedback on a single span's output. Its
+        assessment_type selects one of comment, rating (an integer 1-5), approval
+        (approved or rejected), rubric (key-value rule pairs), metadata (arbitrary
+        JSON), or overwrite (a corrected span output), and exactly the content field
+        matching that type must be supplied; a free-text comment may additionally
+        accompany any type. trace_id is required, while span_id is optional and, when
+        omitted, the assessment is attached to the trace's root span. The call returns
+        404 if the given span_id and trace_id do not identify an existing span, or if no
+        root span is found for the trace. At most one user per span may hold an
+        overwrite assessment, so creating an overwrite for a span another user has
+        already overwritten returns 409. Use the list endpoint to read a span's or
+        trace's existing assessments.
 
         Args:
           assessment_type: Type of assessment
@@ -138,7 +150,12 @@ class SpanAssessmentsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SpanAssessment:
         """
-        Get an assessment by ID
+        Retrieve a single span assessment by its identifier.
+
+        Returns the assessment's type and content fields, the span and trace it is
+        attached to, and the identity that created it. Returns 404 if no assessment with
+        that id exists for the caller's account. Use the list endpoint instead when you
+        have a span or trace id rather than an assessment id.
 
         Args:
           extra_headers: Send extra headers
@@ -178,7 +195,15 @@ class SpanAssessmentsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SpanAssessment:
         """
-        Update existing assessment (only by the original creator)
+        Update the content of an existing span assessment.
+
+        Only the assessment's original creator may update it; a request from any other
+        identity returns 403. Supplied fields overwrite the stored values and the merged
+        result is re-validated against the assessment's type, so the content must stay
+        consistent with assessment_type (the matching content field present and no
+        conflicting fields set) or the call returns 422. The span and trace an
+        assessment is attached to cannot be changed through this endpoint. Returns 404
+        if no assessment with that id exists for the caller's account.
 
         Args:
           approval: Approval status (approved/rejected)
@@ -239,8 +264,14 @@ class SpanAssessmentsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncAPIListPage[SpanAssessment]:
         """
-        Get all assessments for a specific span or trace, optionally filtered by
-        assessment type
+        Return the assessments attached to a given span or trace.
+
+        Results are scoped to the caller's account. Exactly one of span_id or trace_id
+        must be supplied as a query parameter, and a request providing neither
+        returns 400. Filtering by trace_id returns assessments across every span of that
+        trace, whereas span_id returns only that span's assessments; an optional
+        assessment_type narrows the results to a single type. Use the get-by-id endpoint
+        when you already have a specific assessment id.
 
         Args:
           assessment_type: Filter by assessment type
@@ -291,7 +322,11 @@ class SpanAssessmentsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SpanAssessmentDeleteResponse:
         """
-        Delete assessment
+        Permanently delete a span assessment by its identifier.
+
+        This is a hard delete: the assessment row is removed rather than archived, so it
+        cannot be restored afterward. The response echoes the deleted assessment's id.
+        Returns 404 if no assessment with that id exists for the caller's account.
 
         Args:
           extra_headers: Send extra headers
@@ -353,8 +388,20 @@ class AsyncSpanAssessmentsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SpanAssessment:
         """
-        Create new assessment for a span (comment, rating, approval, rubric, overwrite,
-        or metadata)
+        Attach a new assessment to a span within a trace.
+
+        A span assessment records feedback on a single span's output. Its
+        assessment_type selects one of comment, rating (an integer 1-5), approval
+        (approved or rejected), rubric (key-value rule pairs), metadata (arbitrary
+        JSON), or overwrite (a corrected span output), and exactly the content field
+        matching that type must be supplied; a free-text comment may additionally
+        accompany any type. trace_id is required, while span_id is optional and, when
+        omitted, the assessment is attached to the trace's root span. The call returns
+        404 if the given span_id and trace_id do not identify an existing span, or if no
+        root span is found for the trace. At most one user per span may hold an
+        overwrite assessment, so creating an overwrite for a span another user has
+        already overwritten returns 409. Use the list endpoint to read a span's or
+        trace's existing assessments.
 
         Args:
           assessment_type: Type of assessment
@@ -418,7 +465,12 @@ class AsyncSpanAssessmentsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SpanAssessment:
         """
-        Get an assessment by ID
+        Retrieve a single span assessment by its identifier.
+
+        Returns the assessment's type and content fields, the span and trace it is
+        attached to, and the identity that created it. Returns 404 if no assessment with
+        that id exists for the caller's account. Use the list endpoint instead when you
+        have a span or trace id rather than an assessment id.
 
         Args:
           extra_headers: Send extra headers
@@ -458,7 +510,15 @@ class AsyncSpanAssessmentsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SpanAssessment:
         """
-        Update existing assessment (only by the original creator)
+        Update the content of an existing span assessment.
+
+        Only the assessment's original creator may update it; a request from any other
+        identity returns 403. Supplied fields overwrite the stored values and the merged
+        result is re-validated against the assessment's type, so the content must stay
+        consistent with assessment_type (the matching content field present and no
+        conflicting fields set) or the call returns 422. The span and trace an
+        assessment is attached to cannot be changed through this endpoint. Returns 404
+        if no assessment with that id exists for the caller's account.
 
         Args:
           approval: Approval status (approved/rejected)
@@ -519,8 +579,14 @@ class AsyncSpanAssessmentsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[SpanAssessment, AsyncAPIListPage[SpanAssessment]]:
         """
-        Get all assessments for a specific span or trace, optionally filtered by
-        assessment type
+        Return the assessments attached to a given span or trace.
+
+        Results are scoped to the caller's account. Exactly one of span_id or trace_id
+        must be supplied as a query parameter, and a request providing neither
+        returns 400. Filtering by trace_id returns assessments across every span of that
+        trace, whereas span_id returns only that span's assessments; an optional
+        assessment_type narrows the results to a single type. Use the get-by-id endpoint
+        when you already have a specific assessment id.
 
         Args:
           assessment_type: Filter by assessment type
@@ -571,7 +637,11 @@ class AsyncSpanAssessmentsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SpanAssessmentDeleteResponse:
         """
-        Delete assessment
+        Permanently delete a span assessment by its identifier.
+
+        This is a hard delete: the assessment row is removed rather than archived, so it
+        cannot be restored afterward. The response echoes the deleted assessment's id.
+        Returns 404 if no assessment with that id exists for the caller's account.
 
         Args:
           extra_headers: Send extra headers

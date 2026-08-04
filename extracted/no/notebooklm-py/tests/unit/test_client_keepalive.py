@@ -9,9 +9,9 @@ import pytest
 from pytest_httpx import HTTPXMock
 
 import notebooklm._auth.keepalive as _auth_keepalive
-from _helpers.client_factory import build_client_shell_for_tests
 from notebooklm.auth import AuthTokens
 from notebooklm.client import NotebookLMClient
+from tests._helpers.client_factory import build_client_shell_for_tests
 
 ROTATE_URL_RE = re.compile(r"^https://accounts\.google\.com/RotateCookies$")
 
@@ -627,7 +627,7 @@ class TestCrossProcessFileLock:
 
         import fcntl
 
-        from notebooklm.auth import save_cookies_to_storage
+        from notebooklm._auth.storage import save_cookies_to_storage
 
         storage_path = tmp_path / "storage_state.json"
         storage_path.write_text(
@@ -644,7 +644,7 @@ class TestCrossProcessFileLock:
 
         monkeypatch.setattr("fcntl.flock", spy_flock)
 
-        from notebooklm.auth import snapshot_cookie_jar
+        from notebooklm._auth.storage import snapshot_cookie_jar
 
         jar = httpx.Cookies()
         empty_snapshot = snapshot_cookie_jar(jar)
@@ -662,7 +662,7 @@ class TestCrossProcessFileLock:
     def test_save_cookies_to_storage_creates_lock_sentinel(self, tmp_path):
         """The lock file is a sibling of the storage file with a `.lock` suffix
         so the storage file itself is free for the atomic temp-rename."""
-        from notebooklm.auth import save_cookies_to_storage, snapshot_cookie_jar
+        from notebooklm._auth.storage import save_cookies_to_storage, snapshot_cookie_jar
 
         storage_path = tmp_path / "storage_state.json"
         storage_path.write_text(

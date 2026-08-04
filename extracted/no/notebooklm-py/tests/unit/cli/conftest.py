@@ -2,11 +2,18 @@
 
 import math
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 from click.testing import CliRunner
+from rich.console import Console, ConsoleDimensions
 
+import notebooklm.auth as auth_module
+import notebooklm.cli._chromium_profiles as chromium_profiles
+import notebooklm.cli.context as context_module
+import notebooklm.cli.helpers as helpers_module
+import notebooklm.cli.resolve as resolve_module
+import notebooklm.cli.services.session_context as session_context_module
 from notebooklm.types import (
     MindMapResult,
     ResearchSource,
@@ -31,9 +38,8 @@ def _pin_cli_console_width():
     (the real render contract). The single shared ``console`` is reused by the
     services, ``session_cmd`` and the error paths, so pinning its size once
     covers every render site while still writing through to ``CliRunner``'s
-    captured stdout. ``Console.size`` only honours the pinned dimensions when
-    **both** ``_width`` and ``_height`` are set (otherwise it falls back to the
-    OS-divergent terminal/``COLUMNS`` detection), so both are patched.
+    captured stdout. Patch ``Console.size`` at the class level so every shared
+    console observes the same deterministic dimensions.
 
     ``rendering`` exposes a *second* console — ``stderr_console`` (a
     ``Console(stderr=True)`` for diagnostic/status output in ``--json`` mode) —
@@ -41,13 +47,11 @@ def _pin_cli_console_width():
     the same way (#1410). Pin both consoles to the same wide, fixed dimensions
     so stderr assertions are as deterministic as stdout ones.
     """
-    from notebooklm.cli import rendering
-
-    with (
-        patch.object(rendering.console, "_width", 400),
-        patch.object(rendering.console, "_height", 100),
-        patch.object(rendering.stderr_console, "_width", 400),
-        patch.object(rendering.stderr_console, "_height", 100),
+    with patch.object(
+        Console,
+        "size",
+        new_callable=PropertyMock,
+        return_value=ConsoleDimensions(400, 100),
     ):
         yield
 
@@ -68,13 +72,11 @@ def narrow_console():
     width-dependent stderr rendering exercised by these tests stays
     deterministic too (#1410).
     """
-    from notebooklm.cli import rendering
-
-    with (
-        patch.object(rendering.console, "_width", 80),
-        patch.object(rendering.console, "_height", 100),
-        patch.object(rendering.stderr_console, "_width", 80),
-        patch.object(rendering.stderr_console, "_height", 100),
+    with patch.object(
+        Console,
+        "size",
+        new_callable=PropertyMock,
+        return_value=ConsoleDimensions(80, 100),
     ):
         yield
 
@@ -192,8 +194,9 @@ def _disable_chromium_profile_fanout():
     target relocates. Now uses ``patch(...)`` which raises
     ``AttributeError`` on missing targets.
     """
-    with patch(
-        "notebooklm.cli._chromium_profiles.discover_chromium_profiles",
+    with patch.object(
+        chromium_profiles,
+        "discover_chromium_profiles",
         lambda *a, **kw: [],
     ):
         yield
@@ -212,7 +215,7 @@ def mock_auth():
     After CLI refactoring, auth is loaded via cli.helpers module.
     We patch both the main CLI and the helpers module for full coverage.
     """
-    with patch("notebooklm.cli.helpers.load_auth_from_storage") as mock:
+    with patch.object(helpers_module, "load_auth_from_storage") as mock:
         mock.return_value = {
             "SID": "test",
             # ``__Secure-1PSIDTS`` is required by ``MINIMUM_REQUIRED_COOKIES``
@@ -244,8 +247,8 @@ def mock_fetch_tokens():
     mock_jar.set("SID", "test", domain=".google.com")
 
     with (
-        patch("notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock) as mock,
-        patch("notebooklm.cli.helpers.build_cookie_jar", return_value=mock_jar),
+        patch.object(auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock) as mock,
+        patch.object(helpers_module, "build_cookie_jar", return_value=mock_jar),
     ):
         mock.return_value = ("csrf_token", "session_id")
         yield mock
@@ -399,9 +402,9 @@ def create_mock_client():
     mock_client.artifacts.list = AsyncMock(side_effect=make_artifact_list)
     mock_client.notes.list = AsyncMock(side_effect=make_note_list)
 
-    # The download executor prefers the ``_list_for_download`` seam (``list`` +
-    # raw rows in one RPC pass; issue #1488). On a bare ``MagicMock`` this
-    # attribute would auto-spawn a non-awaitable child mock, so wire it to
+    # The ``_app`` download executor prefers the ``_list_for_download`` seam
+    # (``list`` + raw rows in one RPC pass; issue #1488). On a bare ``MagicMock``
+    # this attribute would auto-spawn a non-awaitable child mock, so wire it to
     # delegate to the (possibly test-overridden) ``artifacts.list`` and return
     # the ``(typed, raw_studio_rows, mind_map_rows)`` tuple the executor expects.
     # Empty raw rows are correct for these doubles: ``download_<x>`` is itself
@@ -415,78 +418,32 @@ def create_mock_client():
     return mock_client
 
 
-class MultiMockProxy:
-    """Proxy that forwards attribute access to all underlying mocks.
+def inject_client(client, *, recorder=None):
+    """Build the ``CliRunner.invoke(obj=...)`` payload that injects ``client``.
 
-    When you set return_value on this proxy, it propagates to all mocks.
-    Other attribute access is delegated to the primary mock.
+    The dual-path resolver (``cli.auth_runtime.resolve_client_factory``) reads
+    ``ctx.obj["client_factory"]`` first, so seeding it here makes every command
+    construct ``client`` instead of the real ``NotebookLMClient`` -- the
+    replacement for the old ``patch("...X_cmd.NotebookLMClient")`` seam. The
+    factory tolerates the ``client_auth, **client_kwargs`` call shape; when
+    ``recorder`` (a list) is supplied, each ``(auth, kwargs)`` call is appended
+    for assertions (e.g. the ``source add`` / ``chat ask`` timeout passthrough).
+
+    ``client`` must implement the async context-manager protocol
+    (``__aenter__`` / ``__aexit__``); ``create_mock_client()`` provides the
+    standard fake.
+
+    Usage::
+
+        result = runner.invoke(cli, [...], obj=inject_client(mock_client))
     """
 
-    def __init__(self, mocks):
-        object.__setattr__(self, "_mocks", mocks)
-        object.__setattr__(self, "_primary", mocks[0])
+    def factory(auth=None, **kwargs):
+        if recorder is not None:
+            recorder.append((auth, kwargs))
+        return client
 
-    def __getattr__(self, name):
-        return getattr(self._primary, name)
-
-    def __setattr__(self, name, value):
-        if name == "return_value":
-            # Propagate return_value to all mocks
-            for m in self._mocks:
-                m.return_value = value
-        else:
-            setattr(self._primary, name, value)
-
-
-class MultiPatcher:
-    """Context manager that patches ``NotebookLMClient`` in multiple CLI modules.
-
-    Top-level commands are spread across ``notebook_cmd`` / ``chat_cmd`` /
-    ``session_cmd`` / ``share_cmd`` so a single ``patch()`` cannot cover them.
-    Since P3.T0 broke the click-group shadow on the package attributes
-    (modules are now ``*_cmd``), direct string-form ``patch(...)`` works on
-    each module name without needing ``importlib`` indirection.
-    """
-
-    def __init__(self):
-        self.patches = [
-            patch("notebooklm.cli.notebook_cmd.NotebookLMClient"),
-            patch("notebooklm.cli.chat_cmd.NotebookLMClient"),
-            patch("notebooklm.cli.session_cmd.NotebookLMClient"),
-            patch("notebooklm.cli.share_cmd.NotebookLMClient"),
-        ]
-        self.mocks = []
-
-    def __enter__(self):
-        # Start all patches and collect mocks
-        self.mocks = [p.__enter__() for p in self.patches]
-        # Return a proxy that propagates return_value to all mocks
-        return MultiMockProxy(self.mocks)
-
-    def __exit__(self, *args):
-        for p in reversed(self.patches):
-            p.__exit__(*args)
-
-
-def patch_main_cli_client():
-    """Create a context manager that patches NotebookLMClient in CLI command modules.
-
-    After refactoring, top-level commands are in separate modules:
-    - notebook.py: list, create, delete, rename, summary
-    - chat.py: ask, configure, history
-    - session.py: use
-    - share.py: status, public, view-level, add, update, remove
-
-    Returns:
-        A context manager that patches NotebookLMClient in all relevant modules
-
-    Example:
-        with patch_main_cli_client() as mock_cls:
-            mock_client = create_mock_client()
-            mock_cls.return_value = mock_client
-            # ... run test
-    """
-    return MultiPatcher()
+    return {"client_factory": factory}
 
 
 @pytest.fixture
@@ -509,11 +466,12 @@ def mock_context_file(tmp_path):
     """
     context_file = tmp_path / "context.json"
     with (
-        patch("notebooklm.cli.helpers.get_context_path", return_value=context_file),
-        patch("notebooklm.cli.context.get_context_path", return_value=context_file),
-        patch("notebooklm.cli.resolve.get_context_path", return_value=context_file),
-        patch(
-            "notebooklm.cli.services.session_context.get_context_path",
+        patch.object(helpers_module, "get_context_path", return_value=context_file),
+        patch.object(context_module, "get_context_path", return_value=context_file),
+        patch.object(resolve_module, "get_context_path", return_value=context_file),
+        patch.object(
+            session_context_module,
+            "get_context_path",
             return_value=context_file,
         ),
     ):

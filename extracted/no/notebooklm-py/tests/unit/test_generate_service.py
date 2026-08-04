@@ -196,14 +196,27 @@ _PLAN_HAPPY_CASES: list[tuple[str, dict[str, Any], dict[str, Any], dict[str, Any
     ),
     (
         "mind-map",
-        {"instructions": "summarize", "language": "en"},
+        {"map_kind": "note-backed", "instructions": "summarize", "language": "en"},
         {
             "display_name": "mind map",
             "wait": False,
             "max_retries": 0,
             "language": "en",
         },
-        {"instructions": "summarize"},
+        {"instructions": "summarize", "kind": "note-backed"},
+    ),
+    (
+        # Omitting --kind now defaults to interactive (#1272); interactive drops
+        # --instructions (none passed here), so params carry instructions=None.
+        "mind-map",
+        {"language": "en"},
+        {
+            "display_name": "mind map",
+            "wait": False,
+            "max_retries": 0,
+            "language": "en",
+        },
+        {"instructions": None, "kind": "interactive"},
     ),
     (
         "report",
@@ -247,8 +260,13 @@ def test_build_plan_happy_path(
 
 
 def test_build_plan_unknown_kind_raises() -> None:
-    """Plan builder rejects an unrecognized kind with ValueError."""
-    with pytest.raises(ValueError, match="Unknown generation kind"):
+    """Plan builder rejects an unrecognized kind with a typed validation error.
+
+    ``GenerationPlanValidationError`` subclasses
+    :class:`notebooklm.exceptions.ValidationError` so ``_app.errors.classify``
+    covers it uniformly (no bare ``ValueError`` escapes the ``_app`` boundary).
+    """
+    with pytest.raises(GenerationPlanValidationError, match="Unknown generation kind"):
         build_generation_plan("not-a-kind", _base_args())
 
 
@@ -593,7 +611,9 @@ async def test_execute_generation_mind_map_dispatches_and_returns_typed_result(
     monkeypatch.setattr(resolve_module, "resolve_source_ids", fake_resolve_source_ids)
     plan = build_generation_plan(
         "mind-map",
-        _base_args(instructions="summarize", language="en", json_output=True),
+        _base_args(
+            map_kind="note-backed", instructions="summarize", language="en", json_output=True
+        ),
         parameter_explicit=_default_source,
         language_resolver=_identity_language,
     )

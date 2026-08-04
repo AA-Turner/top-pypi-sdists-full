@@ -21,4 +21,10 @@ class BuildListParams(TypedDict, total=False):
 
     sort_order: SortOrder
 
+    source_commit: str
+    """Filter builds by source git commit"""
+
     starting_after: str
+
+    working_tree_hash: str
+    """Filter builds by build-context content hash"""

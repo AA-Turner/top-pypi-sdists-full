@@ -8,7 +8,7 @@ from typing import List
 
 from ...client import Client
 from .api import APIDriver
-from .errors import handle_state_errors
+from .errors import ConflictingTableFilters, handle_state_errors
 from .file import FileDriver
 from .models import (
     Action,
@@ -38,10 +38,18 @@ class StateMachine:
         filename: str,
         table_refs: Sequence[str],
         exclude_labels: Sequence[str] | None = None,
+        warehouse_id: int | None = None,
+        configured_only: bool = False,
     ) -> None:
+        if table_refs and (warehouse_id is not None or configured_only):
+            raise ConflictingTableFilters()
         api_state = APIDriver(self.client)
         if not table_refs:
-            table_refs = sorted(api_state.table_refs)
+            table_refs = sorted(
+                api_state.pull_table_refs(
+                    warehouse_id=warehouse_id, configured_only=configured_only
+                )
+            )
         for table_ref in table_refs:
             api_state.load_table(table_ref)
             api_state.load_non_system_checks(table_ref)

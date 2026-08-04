@@ -30,6 +30,7 @@ def get_doc_url_wrapper(page: str, anchor: str = "") -> str:
 def get_legal_terms_url(
     legal_hidden_documents: Sequence[str] | str = (), legal_url: str | None = None
 ) -> str | None:
+    hidden_documents: Sequence[str]
     if isinstance(legal_hidden_documents, str):
         hidden_documents = legal_hidden_documents.split(",")
     else:
@@ -46,6 +47,7 @@ def get_spectacular_settings(
     site_url: str,
     site_title: str,
     *,
+    static_url: str = "/static/",
     legal_hidden_documents: Sequence[str] | str = (),
     legal_url: str | None = None,
 ) -> dict[str, Any]:
@@ -97,15 +99,19 @@ The OpenAPI specification is available as feature preview, feedback welcome!
     """,
         "EXTENSIONS_INFO": {
             "x-logo": {
-                "url": "/static/weblate.svg",
+                "url": f"{static_url.rstrip('/')}/weblate.svg",
             }
         },
         # Do not use API versioning
         "VERSION": None,
         # Flatten enum definitions
         "ENUM_NAME_OVERRIDES": {
+            "ActionEnum": "weblate.trans.actions.ActionEvents.choices",
+            "AlertSeverityEnum": "weblate.trans.alerts.base.AlertSeverity.choices",
+            "SeverityEnum": "weblate.trans.models.announcement.ANNOUNCEMENT_SEVERITY_CHOICES",
             "ColorEnum": "weblate.utils.colors.ColorChoices.choices",
             "StringStateEnum": "weblate.utils.state.StringState.choices",
+            "ReportKindEnum": "weblate.trans.models.report.REPORT_KIND_CHOICES",
             "NewUnitStateEnum": "weblate.api.serializers.NEW_UNIT_STATE_CHOICES",
             "ErrorResponse400TypeEnum": "weblate.api.serializers.ErrorResponse400TypeEnum.choices",
             "ValidationErrorEnum": "drf_standardized_errors.openapi_serializers.ValidationErrorEnum.choices",
@@ -124,11 +130,13 @@ The OpenAPI specification is available as feature preview, feedback welcome!
         "POSTPROCESSING_HOOKS": [
             "drf_standardized_errors.openapi_hooks.postprocess_schema_enums",
             "weblate.api.docs.strip_field_choice_descriptions",
+            "weblate.api.docs.document_change_actions",
             "weblate.api.docs.document_all_static_vcs_choices",
             "weblate.api.docs.add_middleware_headers",
             "weblate.api.docs.simplify_license_schema",
             "weblate.api.docs.document_user_group_delete_body",
             "weblate.api.docs.simplify_media_types",
+            "weblate.api.docs.document_response_descriptions",
         ],
         "EXTERNAL_DOCS": {
             "url": lazy(get_doc_url_wrapper, str)("index"),

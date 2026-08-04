@@ -28,7 +28,9 @@ line-length = 100
 target-version = "py39"
 
 [tool.ruff.lint]
-extend-select = ["E", "F", "W", "Q", "I"]
+# Pin the exact ruleset (not `extend-select`) so ruff's growing default set
+# doesn't add unopted-in rules on version bumps and break lint repo-wide.
+select = ["E", "F", "W", "Q", "I"]
 
 [tool.ruff.lint.pycodestyle]
 max-doc-length = 100

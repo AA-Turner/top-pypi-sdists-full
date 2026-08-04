@@ -1,20 +1,19 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build"]
+build-backend = "uv_build"
 
 [project]
 name = "crawlee"
-version = "1.8.3"
+version = "1.9.0"
 description = "Crawlee for Python"
-authors = [{ name = "Apify Technologies s.r.o.", email = "support@apify.com" }]
-license = { file = "LICENSE" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -49,6 +48,10 @@ dependencies = [
     "yarl>=1.18.0",
 ]
 
+[[project.authors]]
+name = "Apify Technologies s.r.o."
+email = "support@apify.com"
+
 [project.optional-dependencies]
 all = ["crawlee[adaptive-crawler,pydantic-ai,beautifulsoup,cli,curl-impersonate,httpx,parsel,playwright,otel,sql_sqlite,sql_postgres,sql_mysql,stagehand,redis]"]
 adaptive-crawler = [
@@ -56,23 +59,36 @@ adaptive-crawler = [
     "jaro-winkler>=2.0.3",
     "playwright>=1.27.0",
     "scikit-learn>=1.6.0",
-    "apify_fingerprint_datapoints>=0.0.3",
-    "browserforge>=1.2.4"
+    "apify_fingerprint_datapoints>=0.0.3,<0.14.0",
+    "browserforge>=1.2.4",
 ]
-pydantic-ai = ["pydantic-ai-slim[openai]>=2.1.0", "parsel>=1.10.0", "lxml[html_clean]>=5.2.0"]
-beautifulsoup = ["beautifulsoup4[lxml]>=4.12.0", "html5lib>=1.0"]
+pydantic-ai = [
+    "pydantic-ai-slim[openai]>=2.1.0",
+    "parsel>=1.10.0",
+    "lxml[html_clean]>=5.2.0",
+]
+beautifulsoup = [
+    "beautifulsoup4[lxml]>=4.12.0",
+    "html5lib>=1.0",
+]
 cli = [
     "cookiecutter>=2.6.0",
     "inquirer>=3.3.0",
     "rich>=13.9.0",
-    # Pinned below 0.26, which breaks our `click.Choice` CLI options.
-    # See https://github.com/apify/crawlee-python/issues/2063.
-    "typer>=0.12.0,<0.26",
+    "typer>=0.26.0",
 ]
-curl-impersonate = ["curl-cffi>=0.9.0"]
-httpx = ["httpx[brotli,http2,zstd]>=0.27.0", "apify_fingerprint_datapoints>=0.0.2", "browserforge>=1.2.3"]
+curl-impersonate = ["curl-cffi>=0.9.0,<0.16.0"]
+httpx = [
+    "httpx[brotli,http2,zstd]>=0.27.0",
+    "apify_fingerprint_datapoints>=0.0.2,<0.14.0",
+    "browserforge>=1.2.3",
+]
 parsel = ["parsel>=1.10.0"]
-playwright = ["playwright>=1.27.0", "apify_fingerprint_datapoints>=0.0.2", "browserforge>=1.2.3"]
+playwright = [
+    "playwright>=1.27.0",
+    "apify_fingerprint_datapoints>=0.0.2,<0.14.0",
+    "browserforge>=1.2.3",
+]
 otel = [
     "opentelemetry-api>=1.34.1",
     "opentelemetry-distro[otlp]>=0.54",
@@ -84,12 +100,12 @@ otel = [
 ]
 sql_postgres = [
     "sqlalchemy[asyncio]>=2.0.0,<3.0.0",
-    "asyncpg>=0.24.0"
+    "asyncpg>=0.24.0",
 ]
 stagehand = [
     "stagehand>=3.19.5",
     "playwright>=1.27.0",
-    "apify_fingerprint_datapoints>=0.0.2",
+    "apify_fingerprint_datapoints>=0.0.2,<0.14.0",
     "browserforge>=1.2.3",
 ]
 sql_sqlite = [
@@ -108,26 +124,20 @@ crawlee = "crawlee._cli:cli"
 
 [project.urls]
 "Apify Homepage" = "https://apify.com"
-"Changelog" = "https://crawlee.dev/python/docs/changelog"
-"Discord" = "https://discord.com/invite/jyEM2PRvMU"
-"Documentation" = "https://crawlee.dev/python/docs/quick-start"
-"Homepage" = "https://crawlee.dev/python"
+Changelog = "https://crawlee.dev/python/docs/changelog"
+Discord = "https://discord.com/invite/jyEM2PRvMU"
+Documentation = "https://crawlee.dev/python/docs/quick-start"
+Homepage = "https://crawlee.dev/python"
 "Issue Tracker" = "https://github.com/apify/crawlee-python/issues"
 "Release Notes" = "https://crawlee.dev/python/docs/upgrading"
 "Source Code" = "https://github.com/apify/crawlee-python"
 
 [dependency-groups]
 dev = [
-    # TODO: Remove this constraint once pydoc-markdown updates its dependencies.
-    # Package pydoc-markdown is unmaintained and pins old docspec-python with vulnerable black.
-    # See https://github.com/apify/apify-client-python/pull/582/ for more details.
-    # We explicitly constrain black>=24.3.0 to override the transitive dependency.
     "black>=24.3.0",
     "anyio<5.0.0",
-    # Pin below 3.0, which drops Python 3.10 support and introduces a breaking API. Once Crawlee
-    # drops Python 3.10 (https://github.com/apify/crawlee-python/issues/1721), remove this constraint.
-    "apify_client<3.0.0", # For e2e tests.
-    "build<2.0.0", # For e2e tests.
+    "apify_client<3.0.0",
+    "build<2.0.0",
     "fakeredis[probabilistic,json,lua]<3.0.0",
     "poethepoet<1.0.0",
     "pre-commit<5.0.0",
@@ -139,8 +149,8 @@ dev = [
     "pytest-timeout<3.0.0",
     "pytest-xdist<4.0.0",
     "pytest<10.0.0",
-    "ruff~=0.15.0",
-    "setuptools", # setuptools are used by pytest, but not explicitly required
+    "ruff~=0.16.0",
+    "setuptools",
     "ty~=0.0.0",
     "types-beautifulsoup4<5.0.0",
     "types-cachetools<8.0.0",
@@ -150,110 +160,85 @@ dev = [
     "uvicorn[standard]<1.0.0",
 ]
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/crawlee"]
-
-[tool.hatch.build.targets.sdist]
-only-include = [
-    "src/crawlee",
-    "CHANGELOG.md",
-    "CONTRIBUTING.md",
-    "LICENSE",
-    "README.md",
-    "pyproject.toml",
-]
-
 [tool.ruff]
 line-length = 120
 include = [
-    "src/**/*.py",
-    "tests/**/*.py",
-    "scripts/**/*.py",
-    "docs/**/*.py",
-    "website/**/*.py",
+    "**/*.py",
+    "**/*.md",
+    "**/*.mdx",
 ]
-exclude = [
-    "website/versioned_docs/**",
-]
+exclude = ["website/versioned_docs/**"]
 extend-exclude = ["src/crawlee/project_template"]
+
+[tool.ruff.extension]
+mdx = "markdown"
 
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    "ANN401",   # Dynamically typed expressions (typing.Any) are disallowed in {filename}
-    "ASYNC109", # Async function definition with a `timeout` parameter
-    "BLE001",   # Do not catch blind exception
-    "C901",     # `{name}` is too complex
-    "COM812",   # This rule may cause conflicts when used with the formatter
-    "D100",     # Missing docstring in public module
-    "D104",     # Missing docstring in public package
-    "D107",     # Missing docstring in `__init__`
-    "D203",     # One blank line required before class docstring
-    "D213",     # Multi-line docstring summary should start at the second line
-    "D413",     # Missing blank line after last section
-    "EM",       # flake8-errmsg
-    "G004",     # Logging statement uses f-string
-    "ISC001",   # This rule may cause conflicts when used with the formatter
-    "FIX",      # flake8-fixme
-    "PLR0911",  # Too many return statements
-    "PLR0912",  # Too many branches
-    "PLR0913",  # Too many arguments in function definition
-    "PLR0915",  # Too many statements
-    "PYI034",   # `__aenter__` methods in classes like `{name}` usually return `self` at runtime
-    "PYI036",   # The second argument in `__aexit__` should be annotated with `object` or `BaseException | None`
-    "S102",     # Use of `exec` detected
-    "S105",     # Possible hardcoded password assigned to
-    "S106",     # Possible hardcoded password assigned to argument: "{name}"
-    "S301",     # `pickle` and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue
-    "S303",     # Use of insecure MD2, MD4, MD5, or SHA1 hash function
-    "S311",     # Standard pseudo-random generators are not suitable for cryptographic purposes
-    "TD002",    # Missing author in TODO; try: `# TODO(<author_name>): ...` or `# TODO @<author_name>: ...
-    "TRY003",   # Avoid specifying long messages outside the exception class
+    "ANN401",
+    "ASYNC109",
+    "BLE001",
+    "C901",
+    "COM812",
+    "CPY001",
+    "D100",
+    "D104",
+    "D107",
+    "D203",
+    "D213",
+    "D413",
+    "EM",
+    "G004",
+    "ISC001",
+    "FIX",
+    "PLR0911",
+    "PLR0912",
+    "PLR0913",
+    "PLR0915",
+    "PYI034",
+    "PYI036",
+    "S102",
+    "S105",
+    "S106",
+    "S301",
+    "S303",
+    "S311",
+    "TD002",
+    "TRY003",
 ]
-
-[tool.ruff.format]
-quote-style = "single"
-indent-style = "space"
 
 [tool.ruff.lint.per-file-ignores]
-"**/__init__.py" = [
-    "F401", # Unused imports
-]
+"**/__init__.py" = ["F401"]
 "**/{scripts}/*" = [
-    "D",       # Everything from the pydocstyle
-    "INP001",  # File {filename} is part of an implicit namespace package, add an __init__.py
-    "PLR2004", # Magic value used in comparison, consider replacing {value} with a constant variable
-    "T20",     # flake8-print
+    "D",
+    "INP001",
+    "PLR2004",
+    "T20",
 ]
 "**/{tests}/*" = [
-    "ASYNC230", # Async functions should not open files with blocking methods like `open`
-    "D",       # Everything from the pydocstyle
-    "INP001",  # File {filename} is part of an implicit namespace package, add an __init__.py
-    "PLR2004", # Magic value used in comparison, consider replacing {value} with a constant variable
-    "S101",    # Use of assert detected
-    "SLF001",  # Private member accessed: `{name}`
-    "T20",     # flake8-print
-    "TRY301",  # Abstract `raise` to an inner function
+    "ASYNC230",
+    "D",
+    "INP001",
+    "PLR2004",
+    "S101",
+    "SLF001",
+    "T20",
+    "TRY301",
 ]
 "**/{docs,website}/**" = [
-    "D",      # Everything from the pydocstyle
-    "INP001", # File {filename} is part of an implicit namespace package, add an __init__.py
-    "F841",   # Local variable {variable} is assigned to but never used
-    "N999",   # Invalid module name
-    "T201",   # `print` found
+    "D",
+    "INP001",
+    "F841",
+    "N999",
+    "T201",
 ]
-"**/docs/examples/code_examples/*crawler_with_error_snapshotter.py" = [
-    "PLR2004", # Magic value used in comparison. Ignored for simplicity and readability of example code.
-]
-"**/docs/guides/code_examples/running_in_web_server/server.py" = [
-    "TC002", # ruff false positive. Import actually needed during runtime.
-]
-"**/docs/guides/code_examples/creating_web_archive/*.*" = [
-    "ASYNC230", # Ignore for simplicity of the example.
-]
+"**/docs/examples/code_examples/*crawler_with_error_snapshotter.py" = ["PLR2004"]
+"**/docs/guides/code_examples/running_in_web_server/server.py" = ["TC002"]
+"**/docs/guides/code_examples/creating_web_archive/*.*" = ["ASYNC230"]
 "**/docs/guides/code_examples/scrapy_migration/scrapy_*.py" = [
-    "ANN",    # Idiomatic Scrapy tutorial snippets are untyped; shown for comparison, not executed.
-    "RUF012", # Scrapy declares `start_urls` as a plain class-level list.
+    "ANN",
+    "RUF012",
 ]
 
 [tool.ruff.lint.flake8-quotes]
@@ -272,17 +257,16 @@ builtins-ignorelist = ["id"]
 [tool.ruff.lint.isort]
 known-first-party = ["crawlee"]
 
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+
 [tool.pytest.ini_options]
 addopts = "-r a --verbose"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "auto"
 timeout = 1800
-markers = [
-    "run_alone: marks tests that must run in isolation",
-]
-# Ignore DeprecationWarnings coming from Uvicorn's internal imports. Uvicorn relies on deprecated
-# modules from `websockets`, which triggers warnings during tests. These are safe to ignore until
-# Uvicorn updates its internals.
+markers = ["run_alone: marks tests that must run in isolation"]
 filterwarnings = [
     "ignore:websockets.legacy is deprecated:DeprecationWarning",
     "ignore:websockets.server.WebSocketServerProtocol is deprecated:DeprecationWarning",
@@ -292,7 +276,13 @@ filterwarnings = [
 python-version = "3.10"
 
 [tool.ty.src]
-include = ["src", "tests", "scripts", "docs", "website"]
+include = [
+    "src",
+    "tests",
+    "scripts",
+    "docs",
+    "website",
+]
 exclude = [
     "src/crawlee/project_template",
     "docs/guides/code_examples/storage_clients/custom_storage_client_example.py",
@@ -312,30 +302,41 @@ include = [
 unresolved-import = "ignore"
 
 [tool.coverage.report]
-exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "assert_never()"]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "assert_never()",
+]
 
 [tool.ipdb]
 context = 7
 
 [tool.uv]
-# Minimal defense against supply-chain attacks.
 exclude-newer = "24 hours"
 
+[tool.uv.build-backend]
+source-include = [
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+]
+
 [tool.uv.exclude-newer-package]
-# Allow internal Apify packages to install immediately.
 apify-client = false
 apify-shared = false
 apify_fingerprint_datapoints = false
 crawlee = false
 
-# Run tasks with: uv run poe <task>
 [tool.poe.tasks]
 clean = "rm -rf .coverage .pytest_cache .ruff_cache .ty_cache .uv-cache build coverage-unit.xml dist htmlcov website/.docusaurus website/module_shortcuts.json website/node_modules "
 install-sync = "uv sync --all-extras"
 build = "uv build --verbose"
 publish-to-pypi = "uv publish --verbose --token ${APIFY_PYPI_TOKEN_CRAWLEE}"
 type-check = "uv run ty check"
-check-code = ["lint", "type-check", "unit-tests"]
+check-code = [
+    "lint",
+    "type-check",
+    "unit-tests",
+]
 
 [tool.poe.tasks.install-dev]
 shell = "uv sync --all-extras && uv run pre-commit install && uv run playwright install"
@@ -348,39 +349,17 @@ shell = "uv run ruff check --fix && uv run ruff format"
 
 [tool.poe.tasks.unit-tests]
 shell = """
-uv run pytest \
-    --numprocesses=1 \
-    -m "run_alone" \
-    tests/unit && \
-uv run pytest \
-    --numprocesses=${TESTS_CONCURRENCY:-auto} \
-    -m "not run_alone" \
-    tests/unit
+uv run pytest --numprocesses=1 -m "run_alone" tests/unit && uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} -m "not run_alone" tests/unit
 """
 
 [tool.poe.tasks.unit-tests-cov]
 shell = """
-uv run pytest \
-    --numprocesses=1 \
-    -m "run_alone" \
-    --cov=src/crawlee \
-    --cov-report=xml:coverage-unit.xml \
-    tests/unit && \
-uv run pytest \
-    --numprocesses=${TESTS_CONCURRENCY:-auto} \
-    -m "not run_alone" \
-    --cov=src/crawlee \
-    --cov-report=xml:coverage-unit.xml \
-    --cov-append \
-    tests/unit
+uv run pytest --numprocesses=1 -m "run_alone" --cov=src/crawlee --cov-report=xml:coverage-unit.xml tests/unit && uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} -m "not run_alone" --cov=src/crawlee --cov-report=xml:coverage-unit.xml --cov-append tests/unit
 """
 
 [tool.poe.tasks.e2e-templates-tests]
 cmd = """
-uv run pytest \
-    --numprocesses=${TESTS_CONCURRENCY:-auto} \
-    --basetemp=./.pytest-tmp \
-    tests/e2e/project_template
+uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --basetemp=./.pytest-tmp tests/e2e/project_template
 """
 
 [tool.poe.tasks.update-docs-theme]

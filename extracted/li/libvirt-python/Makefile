@@ -16,7 +16,7 @@ check: all
 	tox -e py$(VERSION)
 
 test: all
-	tox
+	tox run-parallel
 
 rpm: all
 	rpmbuild -ta dist/libvirt[-_]python-$(shell tr -d '\n' < VERSION).tar.gz

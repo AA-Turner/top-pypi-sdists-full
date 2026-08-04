@@ -26,18 +26,21 @@ option set already handled by ``map_read_table.get_table_from_name``:
 * ``snapshot-id`` (int) — translated to Snowflake ``AT(VERSION => N)``
 * ``as-of-timestamp`` (milliseconds since the Unix epoch, as a string)
   — translated to Snowflake ``AT(TIMESTAMP => TO_TIMESTAMP_TZ(...))``
-* ``tag`` (string) — translated to Snowflake
-  ``AT(VERSION_TAG => '<name>')``. Spark Iceberg overloads
+* ``version-ref`` (string) — translated to Snowflake
+  ``AT(VERSION_REF => '<name>')``. Spark Iceberg overloads
   ``VERSION AS OF`` to accept *either* a numeric snapshot id *or* a
-  string-quoted tag name (see Iceberg's spark-queries docs
-  "Time travel" section). The parser delivers both through the same
+  string-quoted tag/branch/ref name (see Iceberg's spark-queries docs
+  "Time travel" section). Snowflake's ``VERSION_REF`` clause resolves
+  both tag and branch names for that overload; explicit DataFrame
+  ``option("tag")`` / ``option("branch")`` use ``VERSION_TAG`` /
+  ``BRANCH`` instead. Both forms arrive through the same
   ``Option[String]`` field on ``RelationTimeTravel``, so we distinguish
   them on the SCOS side via a simple lexical heuristic:
 
     * a value that parses as a signed 64-bit integer is treated as a
       snapshot id (mirrors ``VERSION AS OF 12345``);
-    * anything else is treated as a tag name (mirrors
-      ``VERSION AS OF 'release_v1'``).
+    * anything else is treated as a named ref (mirrors
+      ``VERSION AS OF 'release_v1'`` or ``VERSION AS OF 'my_branch'``).
 
   This heuristic is ambiguous for tag names that happen to be all
   digits (e.g. ``'12345'``). Iceberg has the same ambiguity in its own
@@ -113,13 +116,13 @@ _INT64_MAX = 2**63 - 1
 def resolve_relation_time_travel(
     rel: TypingAny,
 ) -> tuple[int | None, int | None, str | None]:
-    """Extract ``(snapshot_id, as_of_timestamp_millis, version_tag)`` from
+    """Extract ``(snapshot_id, as_of_timestamp_millis, version_ref)`` from
     a JVM ``RelationTimeTravel`` node.
 
     Exactly one of the three return values is non-``None``; the parser
     guarantees ``VERSION`` and ``TIMESTAMP`` are mutually exclusive, and
-    ``version_tag`` is a strict refinement of the ``VERSION`` branch, so
-    by construction (snapshot_id, version_tag) are also mutually
+    ``version_ref`` is a strict refinement of the ``VERSION`` branch, so
+    by construction (snapshot_id, version_ref) are also mutually
     exclusive. We re-check defensively so a future parser change can't
     silently produce zero or two of them.
 
@@ -127,9 +130,12 @@ def resolve_relation_time_travel(
     option's canonical encoding (milliseconds since the Unix epoch);
     downstream ``_extract_iceberg_as_of_timestamp`` converts it back to
     a tz-aware UTC ``datetime`` before handing off to Snowpark. The
-    ``version_tag`` is the raw Iceberg tag name; downstream callers feed
-    it to Snowpark's ``read.option("version_tag", ...)`` which emits the
-    ``AT(VERSION_TAG => '<name>')`` SQL clause.
+    ``version_ref`` is the raw Iceberg ref name from SQL ``VERSION AS OF
+    '<name>'``; downstream callers feed it through the ``version-ref`` read
+    option and Snowpark's ``read.option("version_ref", ...)``, which emits
+    ``AT(VERSION_REF => '<name>')``. Explicit DataFrame ``option("tag")`` /
+    ``option("branch")`` use separate Snowflake clauses (``VERSION_TAG`` /
+    ``BRANCH``).
     """
     version_opt = rel.version()
     timestamp_opt = rel.timestamp()
@@ -145,15 +151,15 @@ def resolve_relation_time_travel(
         raise exception
 
     if has_version:
-        snapshot_id, version_tag = _resolve_version(str(version_opt.get()))
-        return snapshot_id, None, version_tag
+        snapshot_id, version_ref = _resolve_version(str(version_opt.get()))
+        return snapshot_id, None, version_ref
 
     return None, _evaluate_timestamp_expression_to_millis(timestamp_opt.get()), None
 
 
 def _resolve_version(raw: str) -> tuple[int | None, str | None]:
     """Parse a ``VERSION AS OF`` value into either an int64 snapshot id
-    *or* an Iceberg tag name.
+    *or* a named Iceberg ref (tag, branch, or other ref name).
 
     Spark's Iceberg SQL parser delivers both ``VERSION AS OF 12345`` and
     ``VERSION AS OF 'historical-snapshot'`` through the same
@@ -162,17 +168,17 @@ def _resolve_version(raw: str) -> tuple[int | None, str | None]:
 
     * Pure-integer string that fits in int64 -> snapshot id (matches
       ``VERSION AS OF <number>``).
-    * Anything else -> tag name (matches ``VERSION AS OF '<name>'``).
+    * Anything else -> named ref (matches ``VERSION AS OF '<name>'``).
 
-    This has an irreducible ambiguity for all-digit tag names — see the
+    This has an irreducible ambiguity for all-digit ref names — see the
     module docstring. Customers who need an all-digit tag should use the
     DataFrame option form ``option("tag", "12345")``, which carries the
     intent explicitly. WAP branch reads use ``option("branch", ...)``.
 
-    Returns a 2-tuple ``(snapshot_id, version_tag)`` with exactly one
+    Returns a 2-tuple ``(snapshot_id, version_ref)`` with exactly one
     side set. Raises ``AnalysisException`` (INVALID_INPUT) on the only
     real failure mode left: an empty / whitespace-only value (which
-    we'd otherwise dispatch as an empty tag name).
+    we'd otherwise dispatch as an empty ref name).
     """
     stripped = raw.strip()
     if not stripped:

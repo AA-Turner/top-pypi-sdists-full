@@ -12,6 +12,10 @@ from pathlib import Path
 
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 from pyspark.errors.exceptions.base import AnalysisException
+from pyspark.sql.types import (
+    StructType as PySparkStructType,
+    _parse_datatype_json_string,
+)
 
 from snowflake import snowpark
 from snowflake.snowpark.types import StructType
@@ -97,6 +101,26 @@ def _parse_data_source_schema(
     return map_json_schema_to_snowpark(
         parsed_schema, quote_struct_fields_names=quote_fields
     )
+
+
+def parse_data_source_schema_to_spark(
+    rel: relation_proto.Relation,
+) -> PySparkStructType | None:
+    """Parse the caller's Read schema into a **pyspark** ``StructType`` (or ``None`` for a
+    schema-less read).
+
+    Unlike :func:`_parse_data_source_schema` (which maps to a Snowpark ``StructType`` for the
+    COPY path), this returns the schema in its Spark-native form — as the client sent it —
+    so the NSS path can emit each field's ``DataType.json()`` directly, with no
+    Snowpark round-trip. Handles both the ``StructType`` JSON form and Scala/DDL strings.
+    """
+    raw = rel.read.data_source.schema
+    if raw == "":
+        return None
+    try:
+        return _parse_datatype_json_string(raw)
+    except json.JSONDecodeError:
+        return _parse_ddl_with_spark_scala(raw)
 
 
 def _read_file_from_data_source(

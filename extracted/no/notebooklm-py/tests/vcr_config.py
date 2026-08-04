@@ -70,13 +70,11 @@ import vcr
 def _load_sibling(module_name: str, file_name: str) -> Any:
     """Load a sibling module under ``tests/`` by file path.
 
-    The ``tests`` directory is not a Python package (no ``__init__.py``), so
-    ``from tests.cassette_patterns import ...`` only works when the repo root
-    happens to be on ``sys.path``. That holds in a fresh REPL but NOT inside
-    pytest's per-module import, where the loader uses an isolated path that
-    omits the repo root. Loading by file path bypasses ``sys.path`` entirely
-    and is the same idiom ``tests/unit/test_cookie_redaction.py`` uses to
-    import this very file.
+    ``from tests.cassette_patterns import ...`` now resolves inside pytest via
+    ``pythonpath = ["."]`` (pyproject, #1482); loading by file path is kept as a
+    ``sys.path``-independent fallback so this module also works when imported
+    outside pytest, the same idiom ``tests/unit/test_cookie_redaction.py`` uses
+    to import this very file.
     """
     spec = importlib.util.spec_from_file_location(
         module_name, Path(__file__).resolve().parent / file_name
@@ -91,6 +89,8 @@ def _load_sibling(module_name: str, file_name: str) -> Any:
 _cassette_patterns = _load_sibling("tests_cassette_patterns", "cassette_patterns.py")
 recompute_chunk_prefix = _cassette_patterns.recompute_chunk_prefix
 scrub_string = _cassette_patterns.scrub_string
+scrub_cookie_header = _cassette_patterns.scrub_cookie_header
+scrub_set_cookie = _cassette_patterns.scrub_set_cookie
 build_synthetic_error_response = _cassette_patterns.build_synthetic_error_response
 synthetic_error_cassette_name = _cassette_patterns.synthetic_error_cassette_name
 SYNTHETIC_ERROR_CASSETTE_PREFIX = _cassette_patterns.SYNTHETIC_ERROR_CASSETTE_PREFIX
@@ -150,9 +150,15 @@ def scrub_request(request: Any) -> Any:
     - URL query parameters (session IDs)
     - Request body (CSRF tokens)
     """
-    # Scrub Cookie header
+    # Scrub Cookie header. ``scrub_string`` runs first for the name-anchored
+    # session-cookie / auth-token patterns and the JSON-shape coverage; then
+    # ``scrub_cookie_header`` makes a NAME-AGNOSTIC pass that clears EVERY
+    # remaining cookie pair's value (the ``_ga`` / ``_gcl_au`` / ``AEC`` class
+    # that is not on the cookie allowlist). Both are idempotent, so the order
+    # is safe and the name-agnostic pass adds coverage without weakening the
+    # existing scrubbing.
     if "Cookie" in request.headers:
-        request.headers["Cookie"] = scrub_string(request.headers["Cookie"])
+        request.headers["Cookie"] = scrub_cookie_header(scrub_string(request.headers["Cookie"]))
 
     # Scrub URL (contains f.sid session parameter)
     if request.uri:
@@ -211,6 +217,22 @@ def _substitute_synthetic_error(response: dict[str, Any]) -> dict[str, Any]:
     return response
 
 
+def _ci_header_keys(headers: dict[str, Any], name: str) -> list[str]:
+    """Return ALL keys in ``headers`` matching ``name`` case-insensitively.
+
+    Google serves HTTP/2, whose header names are lowercase (``set-cookie``),
+    while older cassettes were recorded with title-case (``Set-Cookie``). A
+    case-sensitive ``name in headers`` check misses the lowercase form and
+    silently leaves live ``Set-Cookie`` session tokens unscrubbed — the
+    ``test_cassette_shapes`` guard would catch the leak, but the scrubber must
+    prevent it, not merely rely on detection. Returns *every* matching key (not
+    just the first) so a dict carrying both ``Set-Cookie`` and ``set-cookie``
+    gets every token-bearing entry scrubbed, not one.
+    """
+    lowered = name.lower()
+    return [key for key in headers if key.lower() == lowered]
+
+
 def scrub_response(response: dict[str, Any]) -> dict[str, Any]:
     """Scrub sensitive data from recorded HTTP response.
 
@@ -258,14 +280,38 @@ def scrub_response(response: dict[str, Any]) -> dict[str, Any]:
             rederived = recompute_chunk_prefix(scrubbed)
             body["string"] = rederived
 
-    # Scrub Set-Cookie headers (may contain session tokens)
+    # Scrub Set-Cookie headers (may contain session tokens). ``scrub_string``
+    # runs first for the name-anchored / auth-token patterns; then
+    # ``scrub_set_cookie`` makes a NAME-AGNOSTIC pass that clears the leading
+    # cookie pair's value while preserving the cookie attributes (Path / Domain
+    # / Expires / Secure / HttpOnly / ...). Both passes are idempotent.
     headers = response.get("headers", {})
-    if "Set-Cookie" in headers:
-        cookies = headers["Set-Cookie"]
+    for cookie_key in _ci_header_keys(headers, "Set-Cookie"):
+        cookies = headers[cookie_key]
         if isinstance(cookies, list):
-            headers["Set-Cookie"] = [scrub_string(c) for c in cookies]
+            headers[cookie_key] = [scrub_set_cookie(scrub_string(c)) for c in cookies]
         elif isinstance(cookies, str):
-            headers["Set-Cookie"] = scrub_string(cookies)
+            headers[cookie_key] = scrub_set_cookie(scrub_string(cookies))
+
+    # Scrub resumable-upload session tokens echoed in response headers. The
+    # ``X-Goog-Upload-(Control-)URL`` values embed ``upload_id=<token>`` (handled
+    # by ``scrub_string``'s upload_id pattern); ``X-GUploader-UploadID`` carries a
+    # bare token with no anchor, so its value is replaced wholesale. Without this
+    # a fresh recording leaks per-upload tokens past ``scrub_response`` (the guard
+    # catches them, but the scrubber should prevent them — not just detect).
+    for _name in ("X-Goog-Upload-URL", "X-Goog-Upload-Control-URL"):
+        for _key in _ci_header_keys(headers, _name):
+            _vals = headers[_key]
+            headers[_key] = (
+                [scrub_string(v) for v in _vals] if isinstance(_vals, list) else scrub_string(_vals)
+            )
+    for _uploader_key in _ci_header_keys(headers, "X-GUploader-UploadID"):
+        _vals = headers[_uploader_key]
+        headers[_uploader_key] = (
+            ["SCRUBBED_UPLOAD_ID" for _ in _vals]
+            if isinstance(_vals, list)
+            else "SCRUBBED_UPLOAD_ID"
+        )
 
     return response
 

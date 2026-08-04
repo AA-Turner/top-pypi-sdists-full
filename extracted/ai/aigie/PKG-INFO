@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aigie
-Version: 0.3.9
+Version: 0.4.0
 Summary: Enterprise-grade AI agent reliability monitoring and autonomous remediation
 Home-page: https://kytte.ai/
 Author: Aigie
@@ -49,6 +49,8 @@ Provides-Extra: claude-agent-sdk
 Requires-Dist: claude-agent-sdk>=0.0.10; extra == "claude-agent-sdk"
 Provides-Extra: strands
 Requires-Dist: strands-agents>=1.0; extra == "strands"
+Provides-Extra: openai-agents
+Requires-Dist: openai-agents<1,>=0.9; extra == "openai-agents"
 Provides-Extra: pinecone
 Requires-Dist: pinecone-client>=3.0.0; extra == "pinecone"
 Provides-Extra: qdrant
@@ -105,6 +107,7 @@ Requires-Dist: langchain-core>=0.1.0; extra == "all"
 Requires-Dist: langgraph>=0.0.20; extra == "all"
 Requires-Dist: claude-agent-sdk>=0.0.10; extra == "all"
 Requires-Dist: strands-agents>=1.0; extra == "all"
+Requires-Dist: openai-agents<1,>=0.9; extra == "all"
 Requires-Dist: opentelemetry-api>=1.20.0; extra == "all"
 Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "all"
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.20.0; extra == "all"
@@ -113,6 +116,7 @@ Requires-Dist: langchain-core>=0.1.0; extra == "integrations"
 Requires-Dist: langgraph>=0.0.20; extra == "integrations"
 Requires-Dist: claude-agent-sdk>=0.0.10; extra == "integrations"
 Requires-Dist: strands-agents>=1.0; extra == "integrations"
+Requires-Dist: openai-agents<1,>=0.9; extra == "integrations"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

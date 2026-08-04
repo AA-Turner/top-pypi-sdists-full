@@ -112,9 +112,14 @@ capture_reset (capture_state_t *state)
 }
 
 size_t
-capture_read_max_out (capture_state_t *state)
+capture_read_max_out (capture_state_t *state, size_t n)
 {
-  return wfm_reader_read_max_out (state->r);
+  /* A read(n) delegates straight into wfm_reader_read, so capture's per-call
+     bound IS the reader's: report whatever the canonical primitive reports for
+     n rather than reimplementing the rule. Under gh-607 the binding sizes its
+     buffer to exactly this value (no clamp up to the request), so it must be
+     the true cap — n, not a 0 sentinel. */
+  return wfm_reader_read_max_out (state->r, n);
 }
 
 size_t
@@ -149,4 +154,19 @@ int
 capture_get_metadata_source (const capture_state_t *state)
 {
   return state->meta;
+}
+
+capture_summary_t
+capture_summary (const capture_state_t *state)
+{
+  /* One call for the three numbers a caller reaches for first — length and
+     the resolved tuning — returned by value as a CaptureSummary record. */
+  wfm_reader_info_t info;
+  capture_summary_t s;
+
+  wfm_reader_info (state->r, &info);
+  s.num_samples = info.num_samples;
+  s.fs_hz       = state->fs;
+  s.fc_hz       = state->fc;
+  return s;
 }

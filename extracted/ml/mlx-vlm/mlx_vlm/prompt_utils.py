@@ -46,6 +46,7 @@ MODEL_CONFIG = {
     "zaya1_vl": MessageFormat.LIST_WITH_IMAGE_FIRST,
     "qwen3_vl": MessageFormat.LIST_WITH_IMAGE_FIRST,
     "qwen3_vl_moe": MessageFormat.LIST_WITH_IMAGE_FIRST,
+    "mage_vl": MessageFormat.LIST_WITH_IMAGE_FIRST,
     "qwen3_5": MessageFormat.LIST_WITH_IMAGE_FIRST,
     "qwen3_5_moe": MessageFormat.LIST_WITH_IMAGE_FIRST,
     "qwen3_omni_moe": MessageFormat.LIST_WITH_IMAGE_FIRST,
@@ -63,6 +64,7 @@ MODEL_CONFIG = {
     "nemotronh_nano_omni_reasoning_v3": MessageFormat.LIST_WITH_IMAGE_TYPE,
     "kimi_vl": MessageFormat.LIST_WITH_IMAGE,
     "kimi_k25": MessageFormat.LIST_WITH_IMAGE,
+    "kimi_k3": MessageFormat.LIST_WITH_IMAGE,
     "locateanything": MessageFormat.LIST_WITH_IMAGE_FIRST,
     "gemma3": MessageFormat.START_IMAGE_TOKEN,
     "gemma3n": MessageFormat.LIST_WITH_IMAGE_TYPE_TEXT,
@@ -95,10 +97,12 @@ MODEL_CONFIG = {
     "phi4-siglip": MessageFormat.IMAGE_TOKEN_NEWLINE,
     "hunyuan_vl": MessageFormat.LIST_WITH_IMAGE_FIRST,
     "youtu_vl": MessageFormat.LIST_WITH_IMAGE_FIRST,
+    "inkling": MessageFormat.LIST_WITH_IMAGE_FIRST,
+    "inkling_mm_model": MessageFormat.LIST_WITH_IMAGE_FIRST,
     # Prompt-only models
     "florence2": MessageFormat.PROMPT_ONLY,
     "plamo2vl": MessageFormat.PROMPT_ONLY,
-    "molmo": MessageFormat.PROMPT_ONLY,
+    "molmo": MessageFormat.TEXT_ONLY,
     "moondream2": MessageFormat.PROMPT_ONLY,
     "moondream3": MessageFormat.PROMPT_ONLY,
     "falcon_ocr": MessageFormat.PROMPT_ONLY,
@@ -279,7 +283,15 @@ class MessageFormatter:
             "minicpmv4_6",
             "minimax_m3_vl",
         ] and kwargs.get("video"):
-            return self._format_video_message(prompt, role, **kwargs)
+            return self._format_video_message(
+                prompt,
+                role,
+                skip_image_token,
+                skip_audio_token,
+                num_images,
+                num_audios,
+                **kwargs,
+            )
 
         # Route to appropriate formatter
         formatter_map = {
@@ -515,6 +527,8 @@ class MessageFormatter:
             MessageBuilder.video_message(v, max_pixels, f)
             for v, f in zip(videos, fps_list)
         ]
+        if role == "user" and not skip_audio_token and num_audios > 0:
+            content.extend([MessageBuilder.audio_message()] * num_audios)
         content.append(MessageBuilder.text_message(prompt))
         return {"role": role, "content": content}
 
@@ -935,7 +949,7 @@ def apply_chat_template(
         return messages
 
     # Some models only need the last message
-    if model_type in ["paligemma", "molmo", "florence2", "falcon_ocr"]:
+    if model_type in ["paligemma", "florence2", "falcon_ocr"]:
         return messages[-1]
 
     return get_chat_template(processor, messages, add_generation_prompt, **kwargs)

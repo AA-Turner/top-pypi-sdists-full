@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: keboola.vcr
-Version: 0.7.0
+Version: 0.7.1
 Summary: VCR recording, sanitization, and validation for Keboola component HTTP interactions
 License: MIT
 Classifier: Development Status :: 4 - Beta
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: vcrpy>=8.3.0,<9
 Requires-Dist: freezegun>=1.5.5,<2
+Requires-Dist: typing-extensions>=4 ; python_full_version < '3.11'
 Requires-Python: >=3.10
 Project-URL: Homepage, https://github.com/keboola/python-vcr-tests
 Project-URL: Repository, https://github.com/keboola/python-vcr-tests

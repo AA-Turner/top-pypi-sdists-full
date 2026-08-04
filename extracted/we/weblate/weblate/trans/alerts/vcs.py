@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from django.utils.translation import gettext_lazy
+from django.utils.translation import gettext, gettext_lazy
 
 from weblate.trans.actions import ActionEvents
 from weblate.trans.alerts.base import (
@@ -22,13 +22,103 @@ from weblate.trans.hooks.matching import (
     repo_matches_exact_repos,
 )
 from weblate.vcs.base import (
-    is_ssh_host_key_mismatch_error,
-    is_ssh_host_key_verification_error,
+    RepositoryDiagnosis,
+    RepositoryDiagnosisCode,
+    RepositoryStructuredError,
+    format_stored_repository_error,
+    get_repository_error_diagnoses,
 )
 
 if TYPE_CHECKING:
     from weblate.auth.models import User
     from weblate.trans.models.component import Component
+
+
+def normalize_repository_error_fingerprint(error: str) -> str:
+    """Normalize legacy repository URL redaction in alert identities."""
+    return error.replace("repository URL", "...")
+
+
+class RepositoryAlert(BaseAlert):
+    category = AlertCategory.VCS
+    repository_permissions: tuple[str, ...] = ()
+
+    @classmethod
+    def can_user_act_for(
+        cls, user: User, component: Component, details: dict[str, Any]
+    ) -> bool:
+        return super().can_user_act_for(user, component, details) or any(
+            user.has_perm(permission, component)
+            for permission in cls.repository_permissions
+        )
+
+
+class RepositoryErrorAlert(ErrorAlert):
+    category = AlertCategory.VCS
+    repository_permissions: tuple[str, ...] = ()
+
+    def __init__(
+        self,
+        instance,
+        error: str | RepositoryStructuredError,
+        diagnoses: list[RepositoryDiagnosis] | None = None,
+    ) -> None:
+        self.stored_error = error
+        canonical_error = format_stored_repository_error(error)
+        super().__init__(instance, canonical_error)
+        self.diagnoses = (
+            get_repository_error_diagnoses(canonical_error)
+            if diagnoses is None
+            else diagnoses
+        )
+
+    def get_context(self, user: User) -> dict[str, Any]:
+        result = super().get_context(user)
+        result["error"] = format_stored_repository_error(self.stored_error, gettext)
+        return result
+
+    def has_diagnosis(self, code: RepositoryDiagnosisCode) -> bool:
+        """Return whether the alert contains a diagnosis code."""
+        return any(diagnosis.get("code") == code for diagnosis in self.diagnoses)
+
+    def get_diagnosis_params(
+        self, code: RepositoryDiagnosisCode
+    ) -> dict[str, str] | None:
+        """Return parameters for the first matching diagnosis."""
+        for diagnosis in self.diagnoses:
+            if diagnosis.get("code") == code:
+                return diagnosis.get("params", {})
+        return None
+
+    def get_analysis(self) -> dict[str, Any]:
+        return {
+            "redirect": self.has_diagnosis("repository_redirect"),
+        }
+
+    @classmethod
+    def get_dismissal_context(
+        cls, _component: Component, details: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Exclude diagnosis metadata from the repository failure identity."""
+        identity_details = {
+            key: value
+            for key, value in details.items()
+            if key not in {"diagnoses", "error"}
+        }
+        if error := details.get("error"):
+            identity_details["error"] = normalize_repository_error_fingerprint(
+                format_stored_repository_error(error)
+            )
+        return {"details": identity_details}
+
+    @classmethod
+    def can_user_act_for(
+        cls, user: User, component: Component, details: dict[str, Any]
+    ) -> bool:
+        return super().can_user_act_for(user, component, details) or any(
+            user.has_perm(permission, component)
+            for permission in cls.repository_permissions
+        )
 
 
 @register
@@ -40,6 +130,10 @@ class InexactHookMatch(BaseAlert):
     dismissible = True
     doc_page = "admin/continuous"
     doc_anchor = "update-vcs"
+
+    @classmethod
+    def get_dismissal_context(cls, component: Component, details: dict) -> dict:
+        return {"details": details, "repo": component.repo}
 
     def __init__(
         self,
@@ -128,66 +222,42 @@ class ConflictingRepositorySetup(BaseAlert):
 
 
 @register
-class MergeFailure(ErrorAlert):
+class MergeFailure(RepositoryErrorAlert):
     # Translators: Name of an alert
     verbose = gettext_lazy("Could not merge the repository.")
     category = AlertCategory.VCS
     link_wide = True
     doc_page = "faq"
     doc_anchor = "merge"
+    repository_permissions = ("vcs.update", "vcs.reset")
 
 
 @register
-class RepositoryOperationFailure(ErrorAlert):
+class RepositoryOperationFailure(RepositoryErrorAlert):
     # Translators: Name of an alert
     verbose = gettext_lazy("Could not recover the repository.")
     category = AlertCategory.VCS
     link_wide = True
     doc_page = "admin/projects"
     doc_anchor = "component-repo"
+    repository_permissions = ("vcs.reset",)
 
 
-class BaseGitFailure(ErrorAlert):
+class BaseGitFailure(RepositoryErrorAlert):
     category = AlertCategory.VCS
     link_wide = True
-    behind_messages = (
-        "The tip of your current branch is behind its remote counterpart",
-        "fetch first",
-    )
-    terminal_message = "terminal prompts disabled"
-    not_found_messages = (
-        "Repository not found.",
-        "HTTP Error 404: Not Found",
-        "Repository was archived so is read-only",
-        "does not appear to be a git repository",
-    )
-    temporary_messages = (
-        "Empty reply from server",
-        "no suitable response from remote hg",
-        "cannot lock ref",
-        "Too many retries",
-        "Connection timed out",
-    )
-    permission_messages = (
-        "denied to",
-        "The repository exists, but forking is disabled.",
-        "protected branch hook declined",
-        "GH006:",
-    )
-    gerrit_messages = (
-        "is not registered in your account, and you lack 'forge",
-        "prohibited by Gerrit",
-    )
 
     def get_analysis(self) -> dict[str, Any]:
-        terminal_disabled = self.terminal_message in self.error
+        analysis = super().get_analysis()
+        github_pull_request_params = self.get_diagnosis_params(
+            "github_pull_request_creation_restricted"
+        )
+        terminal_disabled = self.has_diagnosis("missing_credentials")
         repo_suggestion = None
         force_push_suggestion = False
         component = self.instance.component
-        host_key_mismatch = is_ssh_host_key_mismatch_error(self.error)
-        host_key = (
-            is_ssh_host_key_verification_error(self.error) and not host_key_mismatch
-        )
+        host_key_mismatch = self.has_diagnosis("ssh_host_key_mismatch")
+        host_key = self.has_diagnosis("ssh_host_key_unverified")
         host_key_message = None
         if host_key_mismatch:
             host_key_message = component.get_ssh_host_key_mismatch_error_message()
@@ -201,7 +271,7 @@ class BaseGitFailure(ErrorAlert):
             elif component.repo.startswith("https://github.com/"):
                 repo_suggestion = f"git@github.com:{component.repo[19:]}"
 
-        behind = any(message in self.error for message in self.behind_messages)
+        behind = self.has_diagnosis("branch_behind")
         if behind:
             force_push_suggestion = (
                 component.vcs == "git"
@@ -210,20 +280,23 @@ class BaseGitFailure(ErrorAlert):
             )
 
         return {
+            **analysis,
             "terminal": terminal_disabled,
             "behind": behind,
             "repo_suggestion": repo_suggestion,
             "force_push_suggestion": force_push_suggestion,
             "host_key_message": host_key_message,
-            "not_found": any(
-                message in self.error for message in self.not_found_messages
+            "not_found": self.has_diagnosis("repository_not_found"),
+            "permission": self.has_diagnosis("repository_permission"),
+            "gerrit": self.has_diagnosis("gerrit_permission"),
+            "temporary": self.has_diagnosis("temporary_failure"),
+            "github_pull_request_creation_restricted": (
+                github_pull_request_params is not None
             ),
-            "permission": any(
-                message in self.error for message in self.permission_messages
-            ),
-            "gerrit": any(message in self.error for message in self.gerrit_messages),
-            "temporary": any(
-                message in self.error for message in self.temporary_messages
+            "github_pull_request_creation_restricted_username": (
+                github_pull_request_params.get("username")
+                if github_pull_request_params
+                else None
             ),
         }
 
@@ -232,6 +305,7 @@ class BaseGitFailure(ErrorAlert):
 class PushFailure(BaseGitFailure):
     # Translators: Name of an alert
     verbose = gettext_lazy("Could not push the repository.")
+    repository_permissions = ("vcs.push", "vcs.reset")
 
     @staticmethod
     def check_component(component: Component) -> bool | dict | None:
@@ -247,20 +321,36 @@ class UpdateFailure(BaseGitFailure):
     link_wide = True
     doc_page = "admin/projects"
     doc_anchor = "component-repo"
+    repository_permissions = ("vcs.update", "vcs.reset")
 
 
 @register
-class RepositoryOutdated(BaseAlert):
+class RepositoryOutdated(RepositoryAlert):
     # Translators: Name of an alert
     verbose = gettext_lazy("Repository outdated.")
     category = AlertCategory.VCS
     link_wide = True
+    doc_page = "admin/continuous"
+    doc_anchor = "update-vcs"
+    repository_permissions = ("vcs.update", "vcs.reset")
 
 
 @register
-class RepositoryChanges(BaseAlert):
+class RepositoryChanges(RepositoryAlert):
     # Translators: Name of an alert
     verbose = gettext_lazy("Repository has changes.")
     category = AlertCategory.VCS
     link_wide = True
     dismissible = True
+    doc_page = "admin/continuous"
+    doc_anchor = "push-changes"
+    repository_permissions = ("vcs.push", "vcs.reset")
+
+    @classmethod
+    def get_dismissal_context(cls, component: Component, details: dict) -> dict:
+        return {
+            "details": details,
+            "branch": component.branch,
+            "local_revision": component.local_revision,
+            "repo": component.repo,
+        }

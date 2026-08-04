@@ -10,7 +10,7 @@ from landingai_ade.types.v2 import (
     V2GroundResult,
     V2ExtractResult,
     V2ParseResponse,
-    V2FileUploadResponse,
+    V2BuildSchemaResponse,
 )
 
 
@@ -44,6 +44,20 @@ def test_job_holds_typed_result_and_error() -> None:
     )
     assert job.error is not None and job.error.code == "internal_error"
     assert job.raw["org_id"] == "o1"
+
+
+def test_job_metadata_defaults_none_and_holds_receipt() -> None:
+    # `metadata` defaults to None (inline jobs carry it on `result.metadata`) and,
+    # for `output_save_url` deliveries, holds the top-level metadata receipt.
+    inline = Job(job_id="j1", status=JobStatus.COMPLETED)
+    assert inline.metadata is None
+    delivered = Job(
+        job_id="j2",
+        status=JobStatus.COMPLETED,
+        metadata={"job_id": "j2", "page_count": 2, "billing": {"total_credits": 1.5}},
+        raw={"output_url": "https://example.com/out.json"},
+    )
+    assert delivered.metadata is not None and delivered.metadata["page_count"] == 2
 
 
 def test_job_raw_default_is_independent_per_instance() -> None:
@@ -269,5 +283,28 @@ def test_ground_result_retains_unknown_fields() -> None:
     assert r.to_dict()["surprise"] == 1
 
 
-def test_file_upload_response() -> None:
-    assert V2FileUploadResponse(file_ref="abc").file_ref == "abc"
+def test_build_schema_response_builds_from_dicts() -> None:
+    r = V2BuildSchemaResponse(
+        extraction_schema='{"type": "object", "properties": {"revenue": {"type": "string"}}}',
+        metadata={  # type: ignore[arg-type]
+            "job_id": "extract-bs1",
+            "duration_ms": 7,
+            "openapi_spec": "https://api.example/openapi.json",
+            "warnings": [{"code": "nonconformant_schema", "msg": "heads up"}],
+            "billing": {"service_tier": "priority", "total_credits": 1.5},
+        },
+    )
+    assert isinstance(r.extraction_schema, str)
+    assert r.metadata.job_id == "extract-bs1"
+    assert r.metadata.warnings is not None and r.metadata.warnings[0].code == "nonconformant_schema"
+    assert r.metadata.billing is not None and r.metadata.billing.total_credits == 1.5
+
+
+def test_build_schema_response_retains_unknown_fields() -> None:
+    r = V2BuildSchemaResponse(
+        extraction_schema="{}",
+        # `openapi_spec` is required and non-null per the spec.
+        metadata={"job_id": "bs", "duration_ms": 1, "openapi_spec": "https://x/openapi.json"},  # type: ignore[arg-type]
+        surprise=1,  # type: ignore[call-arg]
+    )
+    assert r.to_dict()["surprise"] == 1

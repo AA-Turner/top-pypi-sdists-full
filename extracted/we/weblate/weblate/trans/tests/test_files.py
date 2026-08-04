@@ -23,6 +23,8 @@ from django.test import SimpleTestCase, override_settings
 from django.urls import reverse
 from openpyxl import load_workbook
 
+from weblate.auth.data import SELECTION_ALL
+from weblate.auth.models import Group, Permission, Role
 from weblate.auth.results import Denied
 from weblate.formats.helpers import NamedBytesIO, format_csv_id_hash
 from weblate.formats.ttkit import CSVFormat
@@ -30,16 +32,27 @@ from weblate.lang.models import Language, Plural
 from weblate.trans.actions import ActionEvents
 from weblate.trans.exceptions import FailedCommitError, FileParseError
 from weblate.trans.forms import SimpleUploadForm, UploadForm, get_upload_form
-from weblate.trans.models import Change, ComponentList, PendingUnitChange, Translation
+from weblate.trans.models import (
+    Change,
+    Component,
+    ComponentList,
+    PendingUnitChange,
+    Project,
+    Translation,
+    WorkflowSetting,
+)
 from weblate.trans.tests.test_views import ViewTestCase
 from weblate.trans.tests.utils import get_optional_path, get_test_file
+from weblate.trans.util import check_upload_method_permissions
+from weblate.trans.views.files import can_download_workspace
 from weblate.utils.data import data_dir
 from weblate.utils.state import STATE_READONLY
+from weblate.workspaces.models import Workspace
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from django.http import HttpResponseBase
+    from django.test.client import _MonkeyPatchedWSGIResponse as ClientResponse
 
 TEST_PO = get_test_file("cs.po")
 TEST_PO_PLURAL = get_test_file("cs-plural.po")
@@ -106,6 +119,60 @@ class UploadFormPermissionTest(ViewTestCase):
         self.assertIn("replace-approved", choices)
 
 
+class RestrictedDirectEditingUploadTest(ViewTestCase):
+    def add_project_role(self, role: Role) -> None:
+        group = Group.objects.create(
+            name=f"Restricted upload {role.name}",
+            language_selection=SELECTION_ALL,
+        )
+        group.projects.add(self.project)
+        group.roles.add(role)
+        self.user.groups.add(group)
+        self.user.clear_permissions_cache()
+
+    def restrict_language(self, translation: Translation) -> Translation:
+        WorkflowSetting.objects.create(
+            project=self.project,
+            language=translation.language,
+            restrict_direct_editing=True,
+        )
+        return Translation.objects.get(pk=translation.pk)
+
+    def test_direct_and_suggestion_upload(self) -> None:
+        translation = self.restrict_language(self.translation)
+
+        self.assertTrue(self.user.has_perm("upload.perform", translation))
+        self.assertFalse(
+            check_upload_method_permissions(self.user, translation, "translate")
+        )
+        self.assertTrue(
+            check_upload_method_permissions(self.user, translation, "suggest")
+        )
+
+    def test_replace_upload(self) -> None:
+        role = Role.objects.create(name="Replace upload")
+        role.permissions.add(Permission.objects.get(codename="component.edit"))
+        self.add_project_role(role)
+        self.assertTrue(
+            check_upload_method_permissions(self.user, self.translation, "replace")
+        )
+
+        translation = self.restrict_language(self.translation)
+
+        self.assertFalse(
+            check_upload_method_permissions(self.user, translation, "replace")
+        )
+
+    def test_source_upload(self) -> None:
+        self.add_project_role(Role.objects.get(name="Edit source"))
+        source = self.get_translation("en")
+        self.assertTrue(check_upload_method_permissions(self.user, source, "source"))
+
+        source = self.restrict_language(source)
+
+        self.assertFalse(check_upload_method_permissions(self.user, source, "source"))
+
+
 class ImportBaseTest(ViewTestCase):
     """Base test of file imports."""
 
@@ -119,7 +186,7 @@ class ImportBaseTest(ViewTestCase):
 
     def do_import(
         self, *, test_file: str | None = None, follow: bool = False, **kwargs
-    ) -> HttpResponseBase:
+    ) -> ClientResponse:
         """Perform file import."""
         if test_file is None:
             test_file = self.test_file
@@ -806,7 +873,7 @@ class RubyPluralImportText(ImportBaseTest):
         language = Language.objects.get(code="pt_BR")
         with self.captureOnCommitCallbacks(execute=True):
             translation = self.component.add_new_language(language, None)
-        self.assertIsNotNone(translation)
+        assert translation is not None
         with self.captureOnCommitCallbacks(execute=True):
             response = self.client.post(
                 reverse("upload", kwargs={"path": translation.get_url_path()}),
@@ -979,8 +1046,8 @@ class ExportTest(ViewTestCase):
 
     source = "Hello, world!\n"
     target = "Nazdar svete!\n"
-    test_match_1 = "Weblate Hello World 2016"
-    test_match_2 = "Nazdar svete!"
+    test_match_1: str | bytes = "Weblate Hello World 2016"
+    test_match_2: str | bytes = "Nazdar svete!"
     test_header = "attachment; filename=test-test-cs.po"
     test_source = "Orangutan has %d banana"
     test_source_plural = "Orangutan has %d bananas"
@@ -1322,6 +1389,87 @@ class DownloadMultiTest(ViewTestCase):
         )
         self.assert_zip(response, "test/test/po/de.po")
 
+    def test_workspace(self) -> None:
+        workspace = Workspace.objects.create(name="Download workspace")
+        self.project.workspace = workspace
+        self.project.save(update_fields=["workspace"])
+
+        response = self.client.get(
+            reverse("download", kwargs={"path": workspace.get_url_path()})
+        )
+
+        self.assert_zip(response, "test/test/po/de.po")
+        self.assertIn(f"workspace-{workspace.pk}.zip", response["Content-Disposition"])
+
+    def test_workspace_commits_only_downloadable_components(self) -> None:
+        workspace = Workspace.objects.create(name="Download workspace")
+        self.project.workspace = workspace
+        self.project.save(update_fields=["workspace"])
+        self.create_po(
+            project=self.project,
+            name="Restricted",
+            restricted=True,
+        )
+        self.user.clear_permissions_cache()
+
+        with (
+            patch.object(
+                Component, "commit_pending", autospec=True
+            ) as component_commit,
+            patch.object(Project, "commit_pending") as project_commit,
+        ):
+            response = self.client.get(
+                reverse("download", kwargs={"path": workspace.get_url_path()})
+            )
+
+        self.assertEqual(response.status_code, 200)
+        component_commit.assert_called_once_with(self.component, "download", None)
+        project_commit.assert_not_called()
+
+    def test_workspace_download_check_stops_at_first_component(self) -> None:
+        workspace = Workspace.objects.create(name="Download workspace")
+        self.project.workspace = workspace
+        self.project.save(update_fields=["workspace"])
+        self.create_po(project=self.project, name="Second")
+
+        with patch.object(
+            self.user,
+            "has_perm",
+            side_effect=[True, AssertionError("Checked another component")],
+        ) as has_perm:
+            self.assertTrue(can_download_workspace(self.user, workspace))
+
+        has_perm.assert_called_once()
+
+    def test_workspace_ownership_does_not_bypass_project_access(self) -> None:
+        workspace = Workspace.objects.create(name="Private download workspace")
+        workspace.add_owner(self.user)
+        self.project.workspace = workspace
+        self.project.access_control = self.project.ACCESS_PRIVATE
+        self.project.save(update_fields=["workspace", "access_control"])
+        self.user.clear_permissions_cache()
+
+        response = self.client.get(
+            reverse("download", kwargs={"path": workspace.get_url_path()})
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_workspace_download_excludes_restricted_components(self) -> None:
+        workspace = Workspace.objects.create(name="Restricted download workspace")
+        workspace.add_owner(self.user)
+        self.project.workspace = workspace
+        self.project.save(update_fields=["workspace"])
+        self.component.restricted = True
+        self.component.save(update_fields=["restricted"])
+        self.user.clear_permissions_cache()
+
+        response = self.client.get(
+            reverse("download", kwargs={"path": workspace.get_url_path()})
+        )
+
+        self.assertEqual(response.status_code, 403)
+
     def test_project_lang(self) -> None:
         response = self.client.get(
             reverse("download", kwargs={"path": (self.project.slug, "-", "cs")})
@@ -1380,7 +1528,7 @@ class DownloadMultiTest(ViewTestCase):
 
         root = data_dir("vcs")
         translation_filename = self.get_translation().get_filename()
-        self.assertIsNotNone(translation_filename)
+        assert translation_filename is not None
         translation_rel = os.path.relpath(translation_filename, root)
         template_rel = os.path.relpath(template_path, root)
 

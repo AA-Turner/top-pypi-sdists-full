@@ -7,12 +7,12 @@ from datetime import datetime, timedelta
 from typing import Protocol, Tuple
 
 from nominal_api import scout_catalog, scout_video, scout_video_api
-from typing_extensions import Self
+from typing_extensions import Self, deprecated
 
 from nominal.core._clientsbunch import HasScoutParams
 from nominal.core._utils.api_tools import HasRid, RefreshableConjureMixin
-from nominal.core._video_types import McapVideoDetails, TimestampOptions
-from nominal.core.exceptions import NominalIngestError, NominalIngestFailed
+from nominal.core._video_types import McapVideoDetails, TimestampOptions, _scale_parameter
+from nominal.core.exceptions import LegacyVideoDeprecationWarning, NominalIngestError, NominalIngestFailed
 from nominal.ts import IntegralNanosecondsUTC, _SecondsNanos
 
 logger = logging.getLogger(__name__)
@@ -32,10 +32,20 @@ class VideoFile(HasRid, RefreshableConjureMixin[scout_video_api.VideoFile]):
         @property
         def catalog(self) -> scout_catalog.CatalogService: ...
 
+    @deprecated(
+        "`VideoFile` is deprecated in favor of video channels on a dataset. Video dataset files are deleted rather "
+        "than archived: use `VideoDatasetFile.delete` instead.",
+        category=LegacyVideoDeprecationWarning,
+    )
     def archive(self) -> None:
         """Archive the video file, disallowing it to appear when playing back the video"""
         self._clients.video_file.archive(self._clients.auth_header, self.rid)
 
+    @deprecated(
+        "`VideoFile` is deprecated in favor of video channels on a dataset. Video dataset files are deleted rather "
+        "than archived, so there is no unarchive: see `VideoDatasetFile`.",
+        category=LegacyVideoDeprecationWarning,
+    )
     def unarchive(self) -> None:
         """Unarchive the video file, allowing it to appear when playing back the video"""
         self._clients.video_file.unarchive(self._clients.auth_header, self.rid)
@@ -43,6 +53,11 @@ class VideoFile(HasRid, RefreshableConjureMixin[scout_video_api.VideoFile]):
     def _get_latest_api(self) -> scout_video_api.VideoFile:
         return self._clients.video_file.get(self._clients.auth_header, self.rid)
 
+    @deprecated(
+        "`VideoFile.update` is deprecated in favor of video channels on a dataset. Use `VideoDatasetFile.update` on a "
+        "file from `Dataset.list_video_files` instead.",
+        category=LegacyVideoDeprecationWarning,
+    )
     def update(
         self,
         *,
@@ -71,23 +86,9 @@ class VideoFile(HasRid, RefreshableConjureMixin[scout_video_api.VideoFile]):
 
         NOTE: only one of {ending_timestamp, true_frame_rate, scale_factor} may be present at one time.
         """
-        # If any of ending timestamp, true frame rate, or scale factor are defined,
-        # update the scale parameter
-        scale_parameter = None
-        num_present = sum(int(v is not None) for v in (ending_timestamp, true_frame_rate, scale_factor))
-        if num_present > 1:
-            raise ValueError(
-                "Expected at most one of 'ending_timestamp', 'true_frame_rate', and 'scale_factor' to be present"
-            )
-
-        if ending_timestamp is not None:
-            scale_parameter = scout_video_api.ScaleParameter(
-                ending_timestamp=_SecondsNanos.from_flexible(ending_timestamp).to_api()
-            )
-        elif true_frame_rate is not None:
-            scale_parameter = scout_video_api.ScaleParameter(true_frame_rate=true_frame_rate)
-        elif scale_factor is not None:
-            scale_parameter = scout_video_api.ScaleParameter(scale_factor=scale_factor)
+        scale_parameter = _scale_parameter(
+            ending_timestamp=ending_timestamp, true_frame_rate=true_frame_rate, scale_factor=scale_factor
+        )
 
         request = scout_video_api.UpdateVideoFileRequest(
             title=name,
@@ -104,6 +105,11 @@ class VideoFile(HasRid, RefreshableConjureMixin[scout_video_api.VideoFile]):
         )
         return self._refresh_from_api(updated_file)
 
+    @deprecated(
+        "`VideoFile` is deprecated in favor of video channels on a dataset. Use "
+        "`VideoDatasetFile.poll_until_ingestion_completed` instead.",
+        category=LegacyVideoDeprecationWarning,
+    )
     def poll_until_ingestion_completed(self, interval: timedelta = timedelta(seconds=1)) -> None:
         """Block until video ingestion has completed.
         This method polls Nominal for ingest status after uploading a video file on an interval.

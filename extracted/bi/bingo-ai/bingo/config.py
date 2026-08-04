@@ -79,5 +79,23 @@ class BingoConfig:
         if not self.active_model:
             self.active_model = cfg.display_name()
 
+    def remove_model(self, name: str) -> bool:
+        """이름(display_name/alias)으로 저장된 모델 삭제.
+
+        활성 모델을 지우면 남은 첫 모델로 자동 전환하고,
+        마지막 모델을 지우면 active_model 을 비운다.
+        """
+        idx = None
+        for i, m in enumerate(self.models):
+            if m.display_name() == name or (m.alias and m.alias == name):
+                idx = i
+                break
+        if idx is None:
+            return False
+        removed = self.models.pop(idx)
+        if self.active_model in (removed.display_name(), removed.alias):
+            self.active_model = self.models[0].display_name() if self.models else ""
+        return True
+
     def is_first_run(self) -> bool:
         return not CONFIG_FILE.exists()

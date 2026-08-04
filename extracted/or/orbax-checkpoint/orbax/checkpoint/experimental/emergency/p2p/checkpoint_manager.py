@@ -102,7 +102,7 @@ class _P2PSubsystem:
     my_info = protocol.PeerDiscoveryInfo(
         ip=self._p2p_node.ip,
         port=self._p2p_node.port,
-        process_index=stored_idx,
+        process_index=stored_idx,  # pyrefly: ignore[bad-argument-type]
         steps=list(my_steps),
     )
 
@@ -111,7 +111,7 @@ class _P2PSubsystem:
     # PeerSelector handles strict typing and validation
     self._peer_selector = peer_selector.PeerSelector(
         global_mesh=self._global_mesh,
-        replica_axis_index=self._replica_axis_index,
+        replica_axis_index=self._replica_axis_index,  # pyrefly: ignore[bad-argument-type]
         raw_metadata_list=all_infos_dicts,
     )
     self._registry_stale = False
@@ -350,15 +350,18 @@ class CheckpointManager(
       args: p2p_args_lib.Composite,
       *,
       force: bool = False,
+      custom_metadata: dict[str, Any] | None = None,
   ) -> bool:
     # mark it stale regardless of result to simplify logics
     self._p2p.mark_registry_stale()
-    p2p_saved = self._local_manager.save(step, args=args, force=force)
+    p2p_saved = self._local_manager.save(
+        step, args=args, force=force, custom_metadata=custom_metadata
+    )
 
     persistent_saved = False
     if self._persistent_manager:
       persistent_saved = self._persistent_manager.save(
-          step, args=args, force=force
+          step, args=args, force=force, custom_metadata=custom_metadata
       )
 
     return p2p_saved or persistent_saved

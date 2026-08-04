@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gocardless_pro
-Version: 3.5.0
+Version: 3.6.0
 Summary: A client library for the GoCardless API.
 Home-page: https://github.com/gocardless/gocardless-pro-python
 Author: GoCardless
@@ -9,7 +9,7 @@ License: MIT
 Keywords: gocardless directdebit payments sepa bacs
 Requires-Python: >=3.6
 License-File: LICENSE
-Requires-Dist: requests>=2.6
+Requires-Dist: requests>=2.34.2
 Dynamic: author
 Dynamic: author-email
 Dynamic: description
@@ -425,7 +425,7 @@ Customer notifications
 .. code:: python
 
     # Handle a notification
-    client.customer_notifications.handle('PCN123', params={...})
+    client.customer_notifications.handle('EV1D18JEXAMPLE', params={...})
 
 Events
 ''''''''''''''''''''''''''''''''''''''''''

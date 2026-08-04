@@ -401,7 +401,7 @@ class TestArtifactsAPI:
     @pytest.mark.asyncio
     async def test_list_raw_preserves_rpc_call_shape(self):
         """_list_raw keeps the exact LIST_ARTIFACTS RPC contract."""
-        from _fixtures.fake_core import make_fake_core
+        from tests._fixtures.fake_core import make_fake_core
 
         core = make_fake_core(rpc_call=AsyncMock(return_value=[[]]))
         api = ArtifactsAPI(
@@ -430,7 +430,7 @@ class TestArtifactsAPI:
     @pytest.mark.asyncio
     async def test_list_raw_preserves_already_flat_artifact_rows(self):
         """_list_raw must not collapse already-flat artifact rows."""
-        from _fixtures.fake_core import make_fake_core
+        from tests._fixtures.fake_core import make_fake_core
 
         artifact_rows = [
             ["art_001", "My Report", 2, None, 3],
@@ -451,9 +451,16 @@ class TestArtifactsAPI:
         assert result == artifact_rows
 
     @pytest.mark.asyncio
-    async def test_list_uses_facade_list_raw_callback_and_mind_map_service(self):
-        """list() resolves facade _list_raw and the injected mind-map service."""
-        core = MagicMock()
+    async def test_list_uses_rpc_listing_and_mind_map_service(self):
+        """list() combines studio artifacts from RPC with the injected mind-map service."""
+        from tests._fixtures.fake_core import make_fake_core
+
+        studio_artifact = ["art_001", "My Report", 2, None, 3]
+        mind_map = [
+            "mind_map_001",
+            ["mind_map_001", '{"name":"Map"}', [1, "user", [1704067200, 0]], None, "Map"],
+        ]
+        core = make_fake_core(rpc_call=AsyncMock(return_value=[[studio_artifact]]))
         api = ArtifactsAPI(
             rpc=core,
             drain=core,
@@ -462,32 +469,26 @@ class TestArtifactsAPI:
             mind_maps=MagicMock(spec=NoteBackedMindMapService),
             note_service=MagicMock(spec=NoteService),
         )
-        studio_artifact = ["art_001", "My Report", 2, None, 3]
-        mind_map = [
-            "mind_map_001",
-            ["mind_map_001", '{"name":"Map"}', [1, "user", [1704067200, 0]], None, "Map"],
-        ]
 
-        with (
-            patch.object(
-                api, "_list_raw", new=AsyncMock(return_value=[studio_artifact])
-            ) as list_raw,
-            patch.object(
-                api._mind_maps,
-                "list_mind_maps",
-                new=AsyncMock(return_value=[mind_map]),
-            ) as list_mind_maps,
-        ):
+        with patch.object(
+            api._mind_maps,
+            "list_mind_maps",
+            new=AsyncMock(return_value=[mind_map]),
+        ) as list_mind_maps:
             artifacts = await api.list("nb_123")
 
-        list_raw.assert_awaited_once_with("nb_123")
+        core.rpc_call.assert_awaited_once()
         list_mind_maps.assert_awaited_once_with("nb_123")
         assert [artifact.id for artifact in artifacts] == ["art_001", "mind_map_001"]
 
     @pytest.mark.asyncio
     async def test_list_skips_mind_map_callback_for_non_mind_map_filter(self):
         """Filtering to studio-only kinds must not fetch mind maps."""
-        core = MagicMock()
+        from tests._fixtures.fake_core import make_fake_core
+
+        core = make_fake_core(
+            rpc_call=AsyncMock(return_value=[[["art_001", "My Report", 2, None, 3]]])
+        )
         api = ArtifactsAPI(
             rpc=core,
             drain=core,
@@ -496,20 +497,16 @@ class TestArtifactsAPI:
             mind_maps=MagicMock(spec=NoteBackedMindMapService),
             note_service=MagicMock(spec=NoteService),
         )
-        studio_artifact = ["art_001", "My Report", 2, None, 3]
 
-        with (
-            patch.object(api, "_list_raw", new=AsyncMock(return_value=[studio_artifact])),
-            patch.object(
-                api._mind_maps,
-                "list_mind_maps",
-                new=AsyncMock(),
-            ) as list_mind_maps,
-        ):
+        with patch.object(
+            api._mind_maps,
+            "list_mind_maps",
+            new=AsyncMock(),
+        ) as list_mind_maps:
             artifacts = await api.list("nb_123", ArtifactType.REPORT)
 
-        list_mind_maps.assert_not_awaited()
         assert [artifact.id for artifact in artifacts] == ["art_001"]
+        list_mind_maps.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_get_uses_public_list_callback(self):
@@ -532,14 +529,11 @@ class TestArtifactsAPI:
             api, "list", new=AsyncMock(return_value=[other, found])
         ) as list_artifacts:
             result = await api.get("nb_123", "art_found")
-            # v0.7.0: a miss still returns None but now emits a
-            # DeprecationWarning (flips to raising ArtifactNotFoundError in
-            # v0.8.0, issue #1247).
-            with pytest.warns(DeprecationWarning, match="ArtifactNotFoundError"):
-                missing = await api.get("nb_123", "art_missing")
+            # v0.8.0: a miss now raises ArtifactNotFoundError (issue #1247).
+            with pytest.raises(ArtifactNotFoundError):
+                await api.get("nb_123", "art_missing")
 
         assert result is found
-        assert missing is None
         assert list_artifacts.await_count == 2
         list_artifacts.assert_awaited_with("nb_123")
 
@@ -633,17 +627,18 @@ class TestArtifactsAPI:
                 await client.artifacts.rename("nb_123", "art_001", "New Title")
 
     @pytest.mark.asyncio
-    async def test_rename_artifact_return_object_false_skips_fetch(self, auth_tokens):
-        """return_object=False returns None and issues no LIST_ARTIFACTS hydrate."""
+    async def test_rename_artifact_return_object_false_raises_on_miss(self, auth_tokens):
+        """v0.8.0 (#1362): return_object=False runs the existence preflight too.
+
+        A null RENAME echo plus an empty LIST_ARTIFACTS hydrate means the target
+        is missing, so the False path raises ArtifactNotFoundError instead of
+        silently returning None.
+        """
         async with NotebookLMClient(auth_tokens) as client:
             rpc = AsyncMock(return_value=None)
             client._rpc_executor.rpc_call = rpc
-            result = await client.artifacts.rename(
-                "nb_123", "art_001", "New Title", return_object=False
-            )
-
-        assert result is None
-        rpc.assert_awaited_once()
+            with pytest.raises(ArtifactNotFoundError):
+                await client.artifacts.rename("nb_123", "art_001", "New Title", return_object=False)
 
     @pytest.mark.asyncio
     async def test_export_artifact(
@@ -903,13 +898,13 @@ class TestArtifactsAPI:
         assert result.task_id == "dt_123"
 
     @pytest.mark.asyncio
-    async def test_get_artifact_not_found(
+    async def test_get_artifact_raises_when_not_found(
         self,
         auth_tokens,
         httpx_mock: HTTPXMock,
         build_rpc_response,
     ):
-        """Test getting a non-existent artifact returns None."""
+        """Test getting a non-existent artifact raises ArtifactNotFoundError."""
         # Response for LIST_ARTIFACTS (gArtLc) - empty
         response1 = build_rpc_response(RPCMethod.LIST_ARTIFACTS, [])
         # Response for GET_NOTES_AND_MIND_MAPS (cFji9) - empty
@@ -918,13 +913,9 @@ class TestArtifactsAPI:
         httpx_mock.add_response(content=response2.encode())
 
         async with NotebookLMClient(auth_tokens) as client:
-            # v0.7.0: a miss still returns None but now emits a
-            # DeprecationWarning (flips to raising ArtifactNotFoundError in
-            # v0.8.0, issue #1247).
-            with pytest.warns(DeprecationWarning, match="ArtifactNotFoundError"):
-                result = await client.artifacts.get("nb_123", "nonexistent")
-
-        assert result is None
+            # v0.8.0: a miss now raises ArtifactNotFoundError (issue #1247).
+            with pytest.raises(ArtifactNotFoundError):
+                await client.artifacts.get("nb_123", "nonexistent")
 
     @pytest.mark.asyncio
     async def test_list_audio_artifacts(
@@ -1585,16 +1576,16 @@ class TestExtractAppData:
 
         # HTML that has NO data-app-data attribute
         html_without_data = "<html><body><div>No app data here</div></body></html>"
+        html_response = build_rpc_response(
+            RPCMethod.GET_INTERACTIVE_HTML,
+            [[None, None, None, None, None, None, None, None, None, [html_without_data]]],
+        )
+        httpx_mock.add_response(content=html_response.encode())
 
         output_path = str(tmp_path / "quiz.json")
         async with NotebookLMClient(auth_tokens) as client:
-            with patch.object(
-                client.artifacts._downloads,
-                "_get_artifact_content",
-                AsyncMock(return_value=html_without_data),
-            ):
-                with pytest.raises(ArtifactParseError, match="data-app-data"):
-                    await client.artifacts.download_quiz("nb_123", output_path)
+            with pytest.raises(ArtifactParseError, match="data-app-data"):
+                await client.artifacts.download_quiz("nb_123", output_path)
 
 
 class TestListMindMapErrorHandling:
@@ -1656,17 +1647,17 @@ class TestListMindMapErrorHandling:
         assert any(a.id == "art_002" for a in result)
 
 
-class TestGetArtifactReturnsNone:
-    """Tests for get() returning None (lines 312-313)."""
+class TestGetArtifactRaisesWhenNotFound:
+    """Tests for get() raising ArtifactNotFoundError on a miss (lines 312-313)."""
 
     @pytest.mark.asyncio
-    async def test_get_returns_none_when_not_found(
+    async def test_get_raises_when_not_found(
         self,
         auth_tokens,
         httpx_mock: HTTPXMock,
         build_rpc_response,
     ):
-        """get() returns None when the artifact_id is not in the list."""
+        """get() raises ArtifactNotFoundError when the artifact_id is not in the list."""
         # Return one artifact with a different ID
         artifact_data = ["art_exists", "My Report", 2, None, 3]
         list_response = build_rpc_response(RPCMethod.LIST_ARTIFACTS, [[artifact_data]])
@@ -1675,13 +1666,9 @@ class TestGetArtifactReturnsNone:
         httpx_mock.add_response(content=notes_response.encode())
 
         async with NotebookLMClient(auth_tokens) as client:
-            # v0.7.0: a miss still returns None but now emits a
-            # DeprecationWarning (flips to raising ArtifactNotFoundError in
-            # v0.8.0, issue #1247).
-            with pytest.warns(DeprecationWarning, match="ArtifactNotFoundError"):
-                result = await client.artifacts.get("nb_123", "art_does_not_exist")
-
-        assert result is None
+            # v0.8.0: a miss now raises ArtifactNotFoundError (issue #1247).
+            with pytest.raises(ArtifactNotFoundError):
+                await client.artifacts.get("nb_123", "art_does_not_exist")
 
     @pytest.mark.asyncio
     async def test_get_returns_artifact_when_found(
@@ -1749,13 +1736,13 @@ class TestReviseSlide:
         assert err.method_id == RPCMethod.REVISE_SLIDE.value
 
     @pytest.mark.asyncio
-    async def test_revise_slide_user_displayable_error_returns_failed_status(
+    async def test_revise_slide_user_displayable_error_raises(
         self,
         auth_tokens,
         httpx_mock: HTTPXMock,
         build_rpc_response,
     ):
-        """revise_slide returns failed GenerationStatus on USER_DISPLAYABLE_ERROR."""
+        """v0.8.0 (#1342): revise_slide re-raises on a USER_DISPLAYABLE_ERROR refusal."""
         async with NotebookLMClient(auth_tokens) as client:
             err = RPCError("Rate limit exceeded")
             err.rpc_code = "USER_DISPLAYABLE_ERROR"
@@ -1763,21 +1750,20 @@ class TestReviseSlide:
             # directly; the patch goes through ``_rpc`` (the
             # ``RpcExecutor``) since that is what ``rpc_call`` resolves
             # through.
-            with patch.object(
-                client.artifacts._rpc,
-                "rpc_call",
-                AsyncMock(side_effect=err),
+            with (
+                patch.object(
+                    client.artifacts._rpc,
+                    "rpc_call",
+                    AsyncMock(side_effect=err),
+                ),
+                pytest.raises(RPCError, match="Rate limit exceeded"),
             ):
-                result = await client.artifacts.revise_slide(
+                await client.artifacts.revise_slide(
                     notebook_id="nb_123",
                     artifact_id="artifact_456",
                     slide_index=2,
                     prompt="Make it simpler",
                 )
-
-        assert result is not None
-        assert result.status == "failed"
-        assert result.error_code == "USER_DISPLAYABLE_ERROR"
 
     @pytest.mark.asyncio
     async def test_revise_slide_other_rpc_error_reraises(
@@ -2422,13 +2408,13 @@ class TestCallGenerateErrorHandling:
     """Tests for _call_generate() error handling (USER_DISPLAYABLE_ERROR path)."""
 
     @pytest.mark.asyncio
-    async def test_generate_audio_user_displayable_error_returns_failed(
+    async def test_generate_audio_user_displayable_error_raises(
         self,
         auth_tokens,
         httpx_mock: HTTPXMock,
         build_rpc_response,
     ):
-        """_call_generate returns failed GenerationStatus on USER_DISPLAYABLE_ERROR."""
+        """v0.8.0 (#1342): _call_generate re-raises on a USER_DISPLAYABLE_ERROR refusal."""
         async with NotebookLMClient(auth_tokens) as client:
             err = RPCError("You have exceeded your quota")
             err.rpc_code = "USER_DISPLAYABLE_ERROR"
@@ -2438,15 +2424,15 @@ class TestCallGenerateErrorHandling:
             # stores its three runtime collaborators directly, so the
             # patch target is ``_rpc`` — see the ``revise_slide``
             # siblings above for the same rationale.
-            with patch.object(
-                client.artifacts._rpc,
-                "rpc_call",
-                AsyncMock(side_effect=err),
+            with (
+                patch.object(
+                    client.artifacts._rpc,
+                    "rpc_call",
+                    AsyncMock(side_effect=err),
+                ),
+                pytest.raises(RPCError, match="exceeded your quota"),
             ):
-                result = await client.artifacts.generate_audio("nb_123", source_ids=["src_001"])
-
-        assert result.status == "failed"
-        assert result.error_code == "USER_DISPLAYABLE_ERROR"
+                await client.artifacts.generate_audio("nb_123", source_ids=["src_001"])
 
     @pytest.mark.asyncio
     async def test_generate_audio_other_rpc_error_reraises(
@@ -2874,15 +2860,15 @@ class TestDownloadQuizFlashcardParsing:
         httpx_mock.add_response(content=list_response.encode())
 
         html_without_data = "<html><body><p>No app data</p></body></html>"
+        html_response = build_rpc_response(
+            RPCMethod.GET_INTERACTIVE_HTML,
+            [[None, None, None, None, None, None, None, None, None, [html_without_data]]],
+        )
+        httpx_mock.add_response(content=html_response.encode())
 
         async with NotebookLMClient(auth_tokens) as client:
-            with patch.object(
-                client.artifacts._downloads,
-                "_get_artifact_content",
-                AsyncMock(return_value=html_without_data),
-            ):
-                with pytest.raises(ArtifactParseError, match="data-app-data"):
-                    await client.artifacts.download_flashcards("nb_123", "/tmp/flashcards.json")
+            with pytest.raises(ArtifactParseError, match="data-app-data"):
+                await client.artifacts.download_flashcards("nb_123", "/tmp/flashcards.json")
 
     @pytest.mark.asyncio
     async def test_download_quiz_invalid_output_format_raises_validation_error(
@@ -3031,17 +3017,17 @@ class TestDownloadQuizFlashcardParsing:
         httpx_mock.add_response(content=list_response.encode())
 
         raw_html = '<html><body data-app-data="{&quot;quiz&quot;:[]}">content</body></html>'
+        html_response = build_rpc_response(
+            RPCMethod.GET_INTERACTIVE_HTML,
+            [[None, None, None, None, None, None, None, None, None, [raw_html]]],
+        )
+        httpx_mock.add_response(content=html_response.encode())
 
         output_path = str(tmp_path / "quiz.html")
         async with NotebookLMClient(auth_tokens) as client:
-            with patch.object(
-                client.artifacts._downloads,
-                "_get_artifact_content",
-                AsyncMock(return_value=raw_html),
-            ):
-                result = await client.artifacts.download_quiz(
-                    "nb_123", output_path, output_format="html"
-                )
+            result = await client.artifacts.download_quiz(
+                "nb_123", output_path, output_format="html"
+            )
 
         assert result == output_path
         from pathlib import Path

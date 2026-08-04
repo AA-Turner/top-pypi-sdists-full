@@ -2194,7 +2194,7 @@ class CntlrCmdLine(Cntlr.Cntlr):
                         if options.factsFile:
                             ViewFileFactList.viewFacts(modelXbrl, options.factsFile, labelrole=options.labelRole, lang=options.labelLang, cols=options.factListCols)  # type: ignore[arg-type]
                         if options.factTableFile:
-                            ViewFileFactTable.viewFacts(modelXbrl, options.factTableFile, labelrole=options.labelRole, lang=options.labelLang, cols=options.factTableCols)  # type: ignore[no-untyped-call]
+                            ViewFileFactTable.viewFacts(modelXbrl, options.factTableFile, labelrole=options.labelRole, lang=options.labelLang, cols=options.factTableCols)  # type: ignore[arg-type]
                         if options.conceptsFile:
                             ViewFileConcepts.viewConcepts(modelXbrl, options.conceptsFile, labelrole=options.labelRole, lang=options.labelLang)  # type: ignore[no-untyped-call]
                         if options.preFile:
@@ -2210,13 +2210,13 @@ class CntlrCmdLine(Cntlr.Cntlr):
                         if options.anchFile:
                             ViewFileRelationshipSet.viewRelationshipSet(modelXbrl, options.anchFile, "Anchoring", XbrlConst.widerNarrower, labelrole=options.labelRole, lang=options.labelLang, cols=options.relationshipCols)  # type: ignore[no-untyped-call]
                         if options.formulaeFile:
-                            ViewFileFormulae.viewFormulae(modelXbrl, options.formulaeFile, "Formulae", lang=options.labelLang)  # type: ignore[no-untyped-call]
+                            ViewFileFormulae.viewFormulae(modelXbrl, options.formulaeFile, "Formulae", lang=options.labelLang)
                         if options.viewArcrole and options.viewFile:
                             ViewFileRelationshipSet.viewRelationshipSet(modelXbrl, options.viewFile, os.path.basename(options.viewArcrole), options.viewArcrole, labelrole=options.labelRole, lang=options.labelLang, cols=options.relationshipCols)  # type: ignore[no-untyped-call]
                         if options.roleTypesFile:
-                            ViewFileRoleTypes.viewRoleTypes(modelXbrl, options.roleTypesFile, "Role Types", isArcrole=False, lang=options.labelLang)  # type: ignore[no-untyped-call]
+                            ViewFileRoleTypes.viewRoleTypes(modelXbrl, options.roleTypesFile, "Role Types", isArcrole=False, lang=options.labelLang)
                         if options.arcroleTypesFile:
-                            ViewFileRoleTypes.viewRoleTypes(modelXbrl, options.arcroleTypesFile, "Arcrole Types", isArcrole=True, lang=options.labelLang)  # type: ignore[no-untyped-call]
+                            ViewFileRoleTypes.viewRoleTypes(modelXbrl, options.arcroleTypesFile, "Arcrole Types", isArcrole=True, lang=options.labelLang)
 
                         for pluginXbrlMethod in self.plugins.hooks("CntlrCmdLine.Xbrl.Run"):
                             pluginXbrlMethod(self, options, modelXbrl, _entrypoint, sourceZipStream=sourceZipStream, responseZipStream=responseZipStream)

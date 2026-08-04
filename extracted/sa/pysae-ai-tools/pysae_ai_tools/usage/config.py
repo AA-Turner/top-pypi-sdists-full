@@ -6,19 +6,34 @@ behaviour can be tuned without ever touching Claude Code's ``settings.json``: th
 command stays a bare ``pysae-ai-tools usage hook`` and this table is the single source of
 truth. Manage it with ``pysae-ai-tools usage config …``.
 
+The table holds one global value set, plus optional **per-account overlays** under
+``[usage.accounts.<key>]`` (``key`` = the account directory name from :mod:`.account`).
+An overlay carries only the keys it overrides; the effective config of an account is the
+global values with its overlay merged on top. This is what lets two Claude plans on the
+same machine keep distinct working hours or thresholds, while state stays partitioned by
+:mod:`.account`. No overlay → the global values, and the account is not even resolved.
+
 Settings from the legacy standalone file (``~/.claude/pysae-ai-tools/usage-config.json``)
 are migrated into the central config on first read, then the legacy file is removed.
 """
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 
 from pydantic import BaseModel, Field, ValidationError
 
 from .. import config as central
+from . import account as account_mod
 from .pricing_source import DEFAULT_TTL
 
 USAGE_TABLE = "usage"
+
+# Sub-table of [usage] holding the per-account overlays, keyed by account directory name.
+ACCOUNTS_KEY = "accounts"
+
+# Account key that resolves to no overlay at all — the global values exactly as written.
+NO_ACCOUNT = ""
 
 # Set in the environment of the throw-away ``usage prime`` request so the usage hooks
 # (:mod:`.hook`) short-circuit for it: the priming request must never block itself on the
@@ -31,6 +46,8 @@ _TABLE_COMMENT = (
     " Claude usage hook — per-window thresholds, notification cadence and blocking policy.",
     " The 5H and weekly windows are configured independently under [usage.five_hour]",
     " and [usage.seven_day]. Managed by `pysae-ai-tools usage config`; re-read on every run.",
+    " [usage.accounts.<key>] overrides any of these keys for a single Claude account",
+    " (`usage config set --account <email> …`); everything else falls back to the values above.",
 )
 
 
@@ -144,25 +161,151 @@ def _validate(data: dict[str, object]) -> UsageConfig:
         return UsageConfig()
 
 
-def load_config(path: Path | None = None) -> UsageConfig:
-    """Read the ``[usage]`` table (missing keys fall back to defaults).
+def _copy_nested(data: Mapping[str, object]) -> dict[str, object]:
+    """Deep copy of a plain nested mapping (sub-tables copied, scalars shared)."""
+    return {str(k): _copy_nested(v) if isinstance(v, Mapping) else v for k, v in data.items()}
 
-    Migrates older layouts in place on first read: the legacy standalone JSON file when the
-    table is absent, and the pre-per-window flat schema (``alert_from``/``session_step``/…)
-    when it is detected — both are rewritten in the nested per-window form.
+
+def _deep_merge(base: Mapping[str, object], overlay: Mapping[str, object]) -> dict[str, object]:
+    """``overlay`` on top of ``base``: sub-tables merge key by key, scalars are replaced."""
+    merged = _copy_nested(base)
+    for key, value in overlay.items():
+        current = merged.get(key)
+        if isinstance(current, Mapping) and isinstance(value, Mapping):
+            merged[key] = _deep_merge(current, value)
+        else:
+            merged[key] = _copy_nested(value) if isinstance(value, Mapping) else value
+    return merged
+
+
+def _split_accounts(table: Mapping[str, object]) -> tuple[dict[str, object], dict[str, object]]:
+    """Split the raw ``[usage]`` table into its global values and its per-account overlays."""
+    accounts = table.get(ACCOUNTS_KEY)
+    values = {k: v for k, v in table.items() if k != ACCOUNTS_KEY}
+    return values, dict(accounts) if isinstance(accounts, Mapping) else {}
+
+
+def _overlay_for(accounts: Mapping[str, object], account_key: str | None) -> dict[str, object]:
+    """The overlay of ``account_key`` (None = the active account), or empty.
+
+    The active account is only resolved when at least one overlay exists, so the common
+    single-account setup never pays the ``~/.claude.json`` read on the hook path.
     """
-    table = central.get_subtable(USAGE_TABLE, path)
-    if not table and LEGACY_JSON_PATH.exists():
-        return _migrate_legacy(path)
-    if table and "five_hour" not in table and "seven_day" not in table:
-        cfg = _validate(_from_legacy_flat(table))
+    if not accounts:
+        return {}
+    key = account_key if account_key is not None else account_mod.account_key(account_mod.current_account())
+    overlay = accounts.get(key)
+    return dict(overlay) if isinstance(overlay, Mapping) else {}
+
+
+def _raw_table(path: Path | None) -> tuple[dict[str, object], dict[str, object]]:
+    """The stored global values and overlays, migrating older layouts in place on first read:
+    the legacy standalone JSON file when the table is absent, and the pre-per-window flat
+    schema (``alert_from``/``session_step``/…) when detected — both rewritten nested."""
+    values, accounts = _split_accounts(central.get_subtable(USAGE_TABLE, path))
+    if not values and not accounts and LEGACY_JSON_PATH.exists():
+        return _migrate_legacy(path).model_dump(), {}
+    if values and "five_hour" not in values and "seven_day" not in values:
+        cfg = _validate(_from_legacy_flat(values))
         save_config(cfg, path)
-        return cfg
-    return _validate(table)
+        return cfg.model_dump(), accounts
+    return values, accounts
+
+
+def load_config(path: Path | None = None, account_key: str | None = None) -> UsageConfig:
+    """Effective config of an account: the global ``[usage]`` values with that account's
+    ``[usage.accounts.<key>]`` overlay merged on top (missing keys fall back to defaults).
+
+    ``account_key`` None targets the active Claude account; :data:`NO_ACCOUNT` skips the
+    overlay entirely. An overlay that fails validation is dropped rather than taking the
+    whole config down with it.
+    """
+    values, accounts = _raw_table(path)
+    overlay = _overlay_for(accounts, account_key)
+    if not overlay:
+        return _validate(values)
+    try:
+        return UsageConfig.model_validate(_with_week_default(_deep_merge(values, overlay)))
+    except ValidationError:
+        return _validate(values)
+
+
+def load_global_config(path: Path | None = None) -> UsageConfig:
+    """The global values alone — the base every account overlays, and what ``config set``
+    without ``--account`` writes back."""
+    return load_config(path, NO_ACCOUNT)
+
+
+def _write_table(values: Mapping[str, object], accounts: Mapping[str, object], path: Path | None) -> None:
+    """Write the whole ``[usage]`` table; overlays go last so their sub-table headers land
+    below the global scalars and windows."""
+    data = dict(values)
+    if accounts:
+        data[ACCOUNTS_KEY] = dict(accounts)
+    central.set_subtable(USAGE_TABLE, data, _TABLE_COMMENT, path)
 
 
 def save_config(cfg: UsageConfig, path: Path | None = None) -> None:
-    central.set_subtable(USAGE_TABLE, cfg.model_dump(), _TABLE_COMMENT, path)
+    """Persist the global values, leaving the per-account overlays untouched."""
+    _, accounts = _split_accounts(central.get_subtable(USAGE_TABLE, path))
+    _write_table(cfg.model_dump(), accounts, path)
+
+
+def account_overlay(account_key: str, path: Path | None = None) -> dict[str, object]:
+    """The stored overlay of ``account_key`` (only the keys it overrides), or empty."""
+    _, accounts = _split_accounts(central.get_subtable(USAGE_TABLE, path))
+    return _overlay_for(accounts, account_key)
+
+
+def save_account_overlay(account_key: str, overlay: Mapping[str, object], path: Path | None = None) -> None:
+    """Replace ``account_key``'s overlay; an empty overlay drops the sub-table altogether."""
+    values, accounts = _raw_table(path)
+    if overlay:
+        accounts[account_key] = _copy_nested(overlay)
+    else:
+        accounts.pop(account_key, None)
+    _write_table(values, accounts, path)
+
+
+def overlay_with_dotted(overlay: Mapping[str, object], key: str, value: object) -> dict[str, object]:
+    """Copy of ``overlay`` with the (possibly dotted) ``key`` set to ``value``."""
+    head, _, rest = key.partition(".")
+    out = _copy_nested(overlay)
+    if not rest:
+        out[head] = value
+        return out
+    sub = out.get(head)
+    out[head] = overlay_with_dotted(sub if isinstance(sub, Mapping) else {}, rest, value)
+    return out
+
+
+def overlay_without_dotted(overlay: Mapping[str, object], key: str) -> dict[str, object]:
+    """Copy of ``overlay`` without ``key``; sub-tables left empty are pruned."""
+    head, _, rest = key.partition(".")
+    out = _copy_nested(overlay)
+    if not rest:
+        out.pop(head, None)
+        return out
+    sub = out.get(head)
+    if isinstance(sub, Mapping):
+        pruned = overlay_without_dotted(sub, rest)
+        if pruned:
+            out[head] = pruned
+        else:
+            out.pop(head, None)
+    return out
+
+
+def overlay_keys(overlay: Mapping[str, object], prefix: str = "") -> set[str]:
+    """Every key an overlay overrides, in dotted form (``five_hour.alert_from``)."""
+    keys: set[str] = set()
+    for key, value in overlay.items():
+        dotted = f"{prefix}{key}"
+        if isinstance(value, Mapping):
+            keys |= overlay_keys(value, f"{dotted}.")
+        else:
+            keys.add(dotted)
+    return keys
 
 
 def dotted_fields() -> list[str]:
@@ -202,7 +345,8 @@ def with_dotted(cfg: UsageConfig, key: str, value: object) -> UsageConfig:
 
 
 def reset_config(path: Path | None = None) -> None:
-    """Restore defaults by dropping the ``[usage]`` table from the config file."""
+    """Restore defaults by dropping the whole ``[usage]`` table, per-account overlays included
+    (drop a single account's overlay with :func:`save_account_overlay` and an empty overlay)."""
     central.remove_subtable(USAGE_TABLE, path)
 
 

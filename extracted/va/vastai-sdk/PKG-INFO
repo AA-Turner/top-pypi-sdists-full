@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vastai-sdk
-Version: 1.5.1
+Version: 1.5.2
 Summary: DEPRECATED — use 'pip install vastai' instead. This package is a compatibility wrapper that installs vastai.
 Author: Chris McKenzie
 Author-email: chris@vast.ai
@@ -12,7 +12,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: vastai (==1.5.1)
+Requires-Dist: vastai (==1.5.2)
 Project-URL: Homepage, https://vast.ai
 Project-URL: Repository, https://github.com/vast-ai/vast-cli
 Project-URL: Source, https://github.com/vast-ai/vast-cli

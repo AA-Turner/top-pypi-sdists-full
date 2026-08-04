@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stac-fastapi-api
-Version: 6.4.1
+Version: 6.5.0
 Summary: An implementation of STAC API based on the FastAPI framework.
 Project-URL: Homepage, https://github.com/stac-utils/stac-fastapi
 Author-email: ArturoAI <engineering@arturo.ai>
@@ -18,3 +18,5 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.11
 Requires-Dist: brotli-asgi
 Requires-Dist: stac-fastapi-types~=6.4
+Provides-Extra: metrics
+Requires-Dist: prometheus-fastapi-instrumentator>=8; extra == 'metrics'

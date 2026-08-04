@@ -45,10 +45,12 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from click.testing import CliRunner
 
+import notebooklm.auth as auth_module
+import notebooklm.cli.helpers as helpers_module
 from notebooklm.notebooklm_cli import cli
 from notebooklm.types import Artifact
 
-from .conftest import create_mock_client
+from .conftest import create_mock_client, inject_client
 
 
 # Map command name → (ArtifactTypeCode raw value, default extension, download method attr,
@@ -193,8 +195,10 @@ def mock_auth():
     )
 
     with (
-        patch("notebooklm.cli.helpers.load_auth_from_storage") as mock_load,
-        patch("notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock) as mock_fetch,
+        patch.object(helpers_module, "load_auth_from_storage") as mock_load,
+        patch.object(
+            auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+        ) as mock_fetch,
     ):
         mock_load.return_value = auth.flat_cookies
         mock_fetch.return_value = ("csrf", "session")
@@ -209,11 +213,9 @@ def _install_client(
 ) -> Any:
     """Build a ``create_mock_client`` instance wired with the test artifacts.
 
-    Returns the ``mock_client`` so individual tests can introspect call counts
-    or attached mocks. The patch target is the canonical download module
-    (``download_cmd`` post-P3.T0); after the extraction lands, the same
-    import path remains valid because the registry-driven file still imports
-    ``NotebookLMClient`` from there.
+    Returns the ``mock_client`` so callers can pass it through
+    ``inject_client(...)``; the Click adapter receives it via the client-factory
+    seam.
     """
     mock_client = create_mock_client()
     mock_client.artifacts.list = AsyncMock(return_value=artifacts or [])
@@ -245,24 +247,25 @@ def test_happy_single_download(
         Path(output_path).write_bytes(b"x")
         return output_path
 
-    with patch("notebooklm.cli.download_cmd.NotebookLMClient") as cls:
-        cls.return_value = _install_client(
-            spec,
-            artifacts=[_make_artifact(f"{spec.name}_1", "Sample Title", spec)],
-            download_fn=fake_download,
-        )
-        result = runner.invoke(
-            cli,
-            [
-                "download",
-                spec.name,
-                str(output_file),
-                "-n",
-                "nb_123",
-                "--json",
-                *spec.format_args,
-            ],
-        )
+    result = runner.invoke(
+        cli,
+        [
+            "download",
+            spec.name,
+            str(output_file),
+            "-n",
+            "nb_123",
+            "--json",
+            *spec.format_args,
+        ],
+        obj=inject_client(
+            _install_client(
+                spec,
+                artifacts=[_make_artifact(f"{spec.name}_1", "Sample Title", spec)],
+                download_fn=fake_download,
+            )
+        ),
+    )
 
     assert result.exit_code == 0, result.output
     payload = _parse_json_stdout(result)
@@ -294,23 +297,24 @@ def test_format_override_extension(
 
     # Run inside an isolated cwd so the derived filename can land safely.
     with runner.isolated_filesystem(temp_dir=tmp_path):
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as cls:
-            cls.return_value = _install_client(
-                spec,
-                artifacts=[_make_artifact(f"{spec.name}_1", "Sample", spec)],
-                download_fn=fake_download,
-            )
-            result = runner.invoke(
-                cli,
-                [
-                    "download",
-                    spec.name,
-                    "-n",
-                    "nb_123",
-                    "--json",
-                    *spec.format_args,
-                ],
-            )
+        result = runner.invoke(
+            cli,
+            [
+                "download",
+                spec.name,
+                "-n",
+                "nb_123",
+                "--json",
+                *spec.format_args,
+            ],
+            obj=inject_client(
+                _install_client(
+                    spec,
+                    artifacts=[_make_artifact(f"{spec.name}_1", "Sample", spec)],
+                    download_fn=fake_download,
+                )
+            ),
+        )
 
         assert result.exit_code == 0, result.output
         payload = _parse_json_stdout(result)
@@ -331,20 +335,19 @@ def test_missing_artifact_returns_error(
     + exit code 1."""
     output_file = tmp_path / f"out{spec.extension}"
 
-    with patch("notebooklm.cli.download_cmd.NotebookLMClient") as cls:
-        cls.return_value = _install_client(spec, artifacts=[], download_fn=None)
-        result = runner.invoke(
-            cli,
-            [
-                "download",
-                spec.name,
-                str(output_file),
-                "-n",
-                "nb_123",
-                "--json",
-                *spec.format_args,
-            ],
-        )
+    result = runner.invoke(
+        cli,
+        [
+            "download",
+            spec.name,
+            str(output_file),
+            "-n",
+            "nb_123",
+            "--json",
+            *spec.format_args,
+        ],
+        obj=inject_client(_install_client(spec, artifacts=[], download_fn=None)),
+    )
 
     assert result.exit_code == 1, result.output
     payload = _parse_json_stdout(result)
@@ -376,28 +379,29 @@ def test_partial_failure_under_all(
         Path(output_path).write_bytes(b"x")
         return output_path
 
-    with patch("notebooklm.cli.download_cmd.NotebookLMClient") as cls:
-        cls.return_value = _install_client(
-            spec,
-            artifacts=[
-                _make_artifact(f"{spec.name}_a", "First", spec),
-                _make_artifact(f"{spec.name}_b", "Second", spec),
-            ],
-            download_fn=fake_download,
-        )
-        result = runner.invoke(
-            cli,
-            [
-                "download",
-                spec.name,
-                "--all",
-                "--json",
-                str(output_dir),
-                "-n",
-                "nb_123",
-                *spec.format_args,
-            ],
-        )
+    result = runner.invoke(
+        cli,
+        [
+            "download",
+            spec.name,
+            "--all",
+            "--json",
+            str(output_dir),
+            "-n",
+            "nb_123",
+            *spec.format_args,
+        ],
+        obj=inject_client(
+            _install_client(
+                spec,
+                artifacts=[
+                    _make_artifact(f"{spec.name}_a", "First", spec),
+                    _make_artifact(f"{spec.name}_b", "Second", spec),
+                ],
+                download_fn=fake_download,
+            )
+        ),
+    )
 
     assert result.exit_code != 0, result.output
     payload = _parse_json_stdout(result)
@@ -422,25 +426,26 @@ def test_dry_run_single(spec: _CmdSpec, runner: CliRunner, mock_auth: Any, tmp_p
     output_file = tmp_path / f"out{spec.extension}"
     fake_download = AsyncMock()
 
-    with patch("notebooklm.cli.download_cmd.NotebookLMClient") as cls:
-        cls.return_value = _install_client(
-            spec,
-            artifacts=[_make_artifact(f"{spec.name}_1", "Only", spec)],
-            download_fn=fake_download,
-        )
-        result = runner.invoke(
-            cli,
-            [
-                "download",
-                spec.name,
-                str(output_file),
-                "-n",
-                "nb_123",
-                "--json",
-                "--dry-run",
-                *spec.format_args,
-            ],
-        )
+    result = runner.invoke(
+        cli,
+        [
+            "download",
+            spec.name,
+            str(output_file),
+            "-n",
+            "nb_123",
+            "--json",
+            "--dry-run",
+            *spec.format_args,
+        ],
+        obj=inject_client(
+            _install_client(
+                spec,
+                artifacts=[_make_artifact(f"{spec.name}_1", "Only", spec)],
+                download_fn=fake_download,
+            )
+        ),
+    )
 
     assert result.exit_code == 0, result.output
     payload = _parse_json_stdout(result)
@@ -468,28 +473,29 @@ def test_happy_all_path(spec: _CmdSpec, runner: CliRunner, mock_auth: Any, tmp_p
         Path(output_path).write_bytes(b"x")
         return output_path
 
-    with patch("notebooklm.cli.download_cmd.NotebookLMClient") as cls:
-        cls.return_value = _install_client(
-            spec,
-            artifacts=[
-                _make_artifact(f"{spec.name}_a", "First", spec),
-                _make_artifact(f"{spec.name}_b", "Second", spec),
-            ],
-            download_fn=fake_download,
-        )
-        result = runner.invoke(
-            cli,
-            [
-                "download",
-                spec.name,
-                "--all",
-                "--json",
-                str(output_dir),
-                "-n",
-                "nb_123",
-                *spec.format_args,
-            ],
-        )
+    result = runner.invoke(
+        cli,
+        [
+            "download",
+            spec.name,
+            "--all",
+            "--json",
+            str(output_dir),
+            "-n",
+            "nb_123",
+            *spec.format_args,
+        ],
+        obj=inject_client(
+            _install_client(
+                spec,
+                artifacts=[
+                    _make_artifact(f"{spec.name}_a", "First", spec),
+                    _make_artifact(f"{spec.name}_b", "Second", spec),
+                ],
+                download_fn=fake_download,
+            )
+        ),
+    )
 
     assert result.exit_code == 0, result.output
     payload = _parse_json_stdout(result)
@@ -528,18 +534,17 @@ def test_cinematic_video_alias_is_video(runner: CliRunner, mock_auth: Any, tmp_p
         return output_path
 
     video_spec = _CmdSpec("video", 3, ".mp4", "download_video")
-    with patch("notebooklm.cli.download_cmd.NotebookLMClient") as cls:
-        mock_client = create_mock_client()
-        mock_client.artifacts.list = AsyncMock(
-            return_value=[_make_artifact("video_1", "Cinematic Pilot", video_spec)]
-        )
-        mock_client.artifacts.download_video = fake_download
-        cls.return_value = mock_client
+    mock_client = create_mock_client()
+    mock_client.artifacts.list = AsyncMock(
+        return_value=[_make_artifact("video_1", "Cinematic Pilot", video_spec)]
+    )
+    mock_client.artifacts.download_video = fake_download
 
-        result = runner.invoke(
-            cli,
-            ["download", "cinematic-video", str(output_file), "-n", "nb_123", "--json"],
-        )
+    result = runner.invoke(
+        cli,
+        ["download", "cinematic-video", str(output_file), "-n", "nb_123", "--json"],
+        obj=inject_client(mock_client),
+    )
 
     assert result.exit_code == 0, result.output
     payload = _parse_json_stdout(result)

@@ -5362,6 +5362,254 @@ def api_entitlement_missing_runtimes():
         return jsonify(_missing_bundle_fallback("runtimes", _parse_csv_arg("runtimes")))
 
 
+def _missing_bundle_at_fallback(axis: str, tier: str, tokens: list) -> dict:
+    """OSS-free / never-5xx envelope for the perspective-shaped complement
+    endpoints ``/api/entitlement/missing-features-at`` and
+    ``/api/entitlement/missing-runtimes-at``.
+
+    What-if sibling of :func:`_missing_bundle_fallback`, in the same
+    relationship :func:`_has_bundle_at_fallback` has to
+    :func:`_has_bundle_fallback`. On any resolver / helper blowup the
+    endpoint still returns 200 with the same 17-key envelope as the happy
+    path, but with ``missing=[]`` (matches the ``[]`` module scalar
+    returns on error) and the ``any_missing`` / ``upgrade_required``
+    rollups ``False`` so a paywall matrix tile that lost the resolver
+    doesn't silently render a denial banner it can no longer justify.
+    ``tier`` and ``tokens`` echo the caller's input into ``tier`` /
+    ``unknown`` so the tooltip can still surface the caller-supplied set
+    for debugging.
+    """
+    return {
+        "tier": tier,
+        axis: [],
+        "unknown": list(tokens),
+        "missing": [],
+        "kind": axis,
+        "count": 0,
+        "missing_count": 0,
+        "any_missing": False,
+        "required_tier": None,
+        "required_tier_label": None,
+        "required_tier_rank": -1,
+        "perspective_tier_rank": -1,
+        "current_tier": "oss",
+        "current_tier_rank": 0,
+        "grace": True,
+        "enforced": False,
+        "upgrade_required": False,
+    }
+
+
+def _missing_bundle_at_body(axis: str) -> dict:
+    """Happy-path body builder for ``/api/entitlement/missing-features-at``
+    /``/api/entitlement/missing-runtimes-at``.
+
+    Perspective-shaped sibling of :func:`_missing_bundle_body`: where the
+    live variant folds :func:`missing_features` / :func:`missing_runtimes`
+    against the resolved entitlement, this folds
+    :func:`missing_features_at` / :func:`missing_runtimes_at` against a
+    caller-supplied ``tier=`` perspective so a pricing matrix that gates
+    on a bundle ("which of fleet + otel_export + sso would still be
+    locked at Starter? at Pro?") can bind the per-item denial list off
+    ONE URL per cell, instead of walking the ``/has-batch`` matrix and
+    filtering ``has=False`` client-side.
+
+    Envelope shape (17 keys, byte-stable across every input branch)::
+
+        {
+          "tier":                  "<perspective tier id>" | "",
+          "features"/"runtimes":   [<known ids>],       # known-only, dedup, first-seen
+          "unknown":               [<tokens>],           # dropped tokens, echoed raw
+          "missing":               [<subset denied at tier>],
+          "kind":                  "features"/"runtimes",
+          "count":                 <int>,               # len(known)
+          "missing_count":         <int>,               # len(missing)
+          "any_missing":           <bool>,              # missing != [] OR unknown != []
+          "required_tier":         "<tier id>" | null,  # min_tier_for_<axis>(known)
+          "required_tier_label":   "<label>"  | null,
+          "required_tier_rank":    <int>,               # -1 when null
+          "perspective_tier_rank": <int>,               # -1 when tier unknown/blank
+          "current_tier":          "<live tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,              # LIVE resolver grace bit
+          "enforced":              <bool>,
+          "upgrade_required":      <bool>,              # required_rank > perspective_rank
+        }
+
+    Runtime-axis alias canonicalisation is applied per-token upstream of
+    the strict scalar (:func:`missing_runtimes_at` does not resolve
+    aliases -- see the scalar docstring), matching the sibling
+    :func:`_missing_bundle_body` posture on the ``/missing-runtimes``
+    endpoint exactly (upstream canonicalise dedups an alias-and-canonical
+    pair to ONE row before the scalar sees it).
+
+    ``upgrade_required`` compares ``required_tier`` against the
+    PERSPECTIVE rank (not the live current rank) so a pricing-matrix row
+    that binds this field reads "no upgrade needed at this tier" (False
+    when perspective >= required) vs "upgrade needed beyond this tier"
+    -- diverges deliberately from :func:`_missing_bundle_body`'s
+    live-current comparison, matching the ``_at`` slot's what-if
+    convention.
+
+    Never 4xxs (missing / blank / unknown tier or all-unknown CSV -> 200
+    with ``missing=[]``, matching the sibling ``/missing-features``
+    posture -- a paywall matrix tile binds ``missing`` directly without
+    a pre-validation round-trip). The ``perspective_tier_rank`` slot is
+    ``-1`` for an unknown perspective so a UI can distinguish "typo
+    perspective" from "valid perspective that grants everything". Never
+    5xxs.
+    """
+    from clawmetry import entitlements as _ent
+
+    raw_tier = request.args.get("tier")
+    tier = (raw_tier or "").strip().lower()
+    param = "features" if axis == "features" else "runtimes"
+    tokens = _parse_csv_arg(param)
+
+    known: list = []
+    unknown: list = []
+    if axis == "features":
+        for fid in tokens:
+            if fid in _ent.ALL_FEATURES:
+                if fid not in known:
+                    known.append(fid)
+            elif fid not in unknown:
+                unknown.append(fid)
+        # scalar delegate receives the raw CSV so unknown tokens surface
+        # in ``missing`` (matches the sibling ``/missing-features``
+        # scalar-vs-endpoint parity contract).
+        if tier and tier in _ent._TIER_ORDER:
+            missing = _ent.missing_features_at(tier, tokens)
+        else:
+            # unknown perspective: fail-open on the diagnostic (same as
+            # scalar); ``missing`` empty, ``unknown`` still populated.
+            missing = []
+        required = _ent.min_tier_for_features(known) if known else None
+    else:
+        # Canonicalise upstream of the scalar so an alias input
+        # (``claude-code``) collapses to the granted runtime
+        # (``claude_code``) here instead of surfacing in ``missing`` --
+        # matches the :func:`_missing_bundle_body` upstream-canonicalise
+        # pattern for the sibling ``/missing-runtimes`` endpoint, and
+        # dedups an alias-and-canonical pair to ONE entry before the
+        # scalar sees it.
+        canon_tokens: list = []
+        canon_seen: set = set()
+        for rid_raw in tokens:
+            rid = _ent.canonical_runtime(rid_raw) or rid_raw
+            if rid in canon_seen:
+                continue
+            canon_seen.add(rid)
+            canon_tokens.append(rid)
+            if rid in _ent.ALL_RUNTIMES:
+                if rid not in known:
+                    known.append(rid)
+            elif rid not in unknown:
+                unknown.append(rid_raw)
+        if tier and tier in _ent._TIER_ORDER:
+            missing = _ent.missing_runtimes_at(tier, canon_tokens)
+        else:
+            missing = []
+        required = _ent.min_tier_for_runtimes(known) if known else None
+
+    env = _resolver_envelope(_ent)
+    cur_rank = env["current_tier_rank"]
+    req_rank = _ent.tier_rank(required) if required else -1
+    required_label = _ent.tier_label(required) if required else None
+    persp_rank = (
+        _ent.tier_rank(tier) if tier and tier in _ent._TIER_ORDER else -1
+    )
+    upgrade_required = (
+        bool(required) and persp_rank >= 0 and req_rank > persp_rank
+    )
+    return {
+        "tier": tier,
+        axis: known,
+        "unknown": unknown,
+        "missing": list(missing),
+        "kind": axis,
+        "count": len(known),
+        "missing_count": len(missing),
+        "any_missing": bool(missing) or bool(unknown),
+        "required_tier": required,
+        "required_tier_label": required_label,
+        "required_tier_rank": req_rank,
+        "perspective_tier_rank": persp_rank,
+        "current_tier": env["current_tier"],
+        "current_tier_rank": cur_rank,
+        "grace": env["grace"],
+        "enforced": env["enforced"],
+        "upgrade_required": upgrade_required,
+    }
+
+
+@bp_entitlement.route("/api/entitlement/missing-features-at")
+def api_entitlement_missing_features_at():
+    """``GET /api/entitlement/missing-features-at?tier=<perspective>&features=a,b,c``
+    -- perspective-shaped row-detail complement of
+    ``/api/entitlement/has-features-at``.
+
+    Returns the SUBSET of ``features`` that ``perspective_tier`` would
+    NOT grant (the exact list of ids blocking the bundle at that tier)
+    plus the surrounding tier envelope. Where ``/has-features-at`` folds
+    the bundle to ONE boolean per (perspective, bundle) cell, this
+    preserves the per-item denial so a paywall matrix column ("at
+    Starter you'd still be missing fleet, sso -- upgrade to Enterprise
+    to unlock") can bind the missing list directly off ONE URL per cell
+    instead of walking the ``/has-batch`` matrix and filtering
+    ``has=False`` client-side.
+
+    Unlike the live ``/missing-features`` sibling this endpoint is
+    perspective-shaped: even in grace
+    ``/missing-features-at?tier=oss&features=fleet,sso`` returns
+    ``missing=["fleet", "sso"]`` (because OSS-free does not statically
+    grant them), whereas ``/missing-features?features=fleet,sso`` in
+    grace returns ``missing=[]``. That is the whole point of the ``_at``
+    slot -- render the would-be-locked state alongside the live grant.
+
+    Never 4xxs (missing / blank / unknown tier or all-unknown CSV -> 200
+    with ``missing=[]``, matching the sibling ``/missing-features``
+    posture). Never 5xxs: any helper blowup collapses to
+    :func:`_missing_bundle_at_fallback`.
+    """
+    try:
+        return jsonify(_missing_bundle_at_body("features"))
+    except Exception as exc:
+        logger.warning("api_entitlement_missing_features_at: error: %s", exc)
+        tier = (request.args.get("tier") or "").strip().lower()
+        return jsonify(
+            _missing_bundle_at_fallback(
+                "features", tier, _parse_csv_arg("features")
+            )
+        )
+
+
+@bp_entitlement.route("/api/entitlement/missing-runtimes-at")
+def api_entitlement_missing_runtimes_at():
+    """``GET /api/entitlement/missing-runtimes-at?tier=<perspective>&runtimes=x,y,z``
+    -- runtime-axis twin of ``/api/entitlement/missing-features-at``.
+
+    Same 17-key envelope with ``runtimes`` in the axis-specific slot.
+    Runtime-alias canonicalisation (``claude-code`` -> ``claude_code``)
+    is applied per-token upstream at the endpoint layer so
+    ``?runtimes=claude-code,openclaw`` collapses to the canonical
+    ``claude_code,openclaw`` before hitting the strict scalar -- matches
+    the sibling ``/missing-runtimes`` endpoint's own upstream-
+    canonicalise pattern. Alias-and-canonical pair dedups to ONE row in
+    both ``runtimes`` and ``missing``. Never 4xxs; never 5xxs.
+    """
+    try:
+        return jsonify(_missing_bundle_at_body("runtimes"))
+    except Exception as exc:
+        logger.warning("api_entitlement_missing_runtimes_at: error: %s", exc)
+        tier = (request.args.get("tier") or "").strip().lower()
+        return jsonify(
+            _missing_bundle_at_fallback(
+                "runtimes", tier, _parse_csv_arg("runtimes")
+            )
+        )
+
+
 def _has_all_fallback() -> dict:
     """Never-5xx envelope for ``/api/entitlement/has-all``.
 
@@ -15425,6 +15673,133 @@ def api_license_has_feature_at():
             "valid": snap["valid"],
         }
     )
+
+
+@bp_entitlement.route("/api/license/has-feature-at-batch")
+def api_license_has_feature_at_batch():
+    """``GET /api/license/has-feature-at-batch?feature=<id>&epochs=<int>,<int>,...``
+    -- shared-``feature`` batch sibling of ``/api/license/has-feature-at``.
+
+    Where the singular endpoint folds ONE ``(feature, epoch)`` pair to
+    ONE "did the KEY claim feature <X> as-of epoch?" bool, this
+    preserves per-value rows for a fixed ``feature`` across a sequence
+    of perspective epochs so a scheduled-audit tile answering "was this
+    node entitled to feature <X> on each of these audit dates?" (e.g.
+    "did alerts fire on any of my quarterly review dates?") hydrates
+    the whole column in ONE round-trip instead of fanning out N calls
+    to ``/api/license/has-feature-at``. Wraps
+    :func:`clawmetry.license.has_feature_at_batch`. Same "shared
+    threshold applied to EVERY row, per-row epoch" shape as
+    ``/api/license/is-state-at-batch`` / ``/api/license/expiring-within-at-batch``
+    -- one gate query parameter plus a batch of epochs.
+
+    Query parameters:
+      * ``feature`` (str, required in-spirit) -- the feature id to
+        test against. Compared case-insensitively after strip, matching
+        :func:`clawmetry.license.has_feature_at`. Missing / empty /
+        whitespace-only degrades EVERY row to ``has_feature=false``
+        (matches the never-mis-gate posture of the scalar) rather than
+        a 4xx -- a caller on a stale UI shouldn't have the whole batch
+        hidden behind a typo.
+      * ``epochs`` (CSV of ints, required) -- Missing / blank / only-
+        commas -> ``400 missing epochs``. Comma-separated tokens are
+        stripped, then handed to
+        :func:`clawmetry.license.has_feature_at_batch`, which dedupes
+        by parsed int key preserving first-seen order and collapses
+        non-int / ``bool`` / ``None`` tokens to a row with
+        ``has_feature=false`` (matches the ``has_feature_at`` scalar's
+        rejection of unusable epochs -- there is no features list to
+        search once the perspective is unusable, so the conservative
+        "no entitlement" fallback holds).
+
+    Response shape (always HTTP 200)::
+
+        {
+          "kind":              "has_feature_at",
+          "count":             <int>,               # len(rows)
+          "requested_feature": <str>,               # normalised echo of query
+          "rows":  [
+            {"epoch": <int|"<raw>">, "has_feature": <bool>},
+            ...
+          ],
+          "features":    [<id>, ...] | null,   # current-time features
+          "expires_at":  <int|null>,           # on-disk exp for comparison
+          "has_license": <bool>,
+          "valid":       <bool>                # signature-valid AND not expired NOW
+        }
+
+    Envelope carries the same current-time snapshot fields (``features`` /
+    ``expires_at`` / ``has_license`` / ``valid``) as the surrounding
+    ``/api/license/features-at{,-batch}`` / ``/api/license/has-feature-at``
+    trio so a UI binding several endpoints for the same install cannot
+    catch them disagreeing. Row shape mirrors
+    ``/api/license/is-state-at-batch`` /
+    ``/api/license/is-expired-at-batch`` so a caller assembling a
+    timeline can zip the responses index-for-index by epoch.
+
+    Per-row parity with ``/api/license/has-feature-at?feature=<X>&epoch=<n>``
+    is pinned in the test suite so the batch cannot silently drift from
+    the scalar endpoint. Shares :func:`_license_features_at_snapshot`
+    with ``/api/license/features-at{,-batch}`` /
+    ``/api/license/has-feature-at`` so the current-time reference fields
+    (``features`` / ``expires_at`` / ``has_license`` / ``valid``)
+    cannot disagree between the sibling endpoints for the same install.
+
+    Note: the ``features`` claim is a SUPPLEMENTAL string list carried
+    on the license token; it is NOT the canonical open-core feature
+    catalogue. This endpoint answers *"did the KEY carry this feature
+    id at each of <epochs>?"*, not *"was this feature enforced at each
+    of <epochs>?"*. For the resolved feature set actually enforced by
+    gates, read ``/api/entitlement`` (which layers this claim on top of
+    the FREE-tier baseline).
+
+    Never 5xxs -- any underlying failure degrades to the OSS-free
+    branch shape (empty rows envelope with the OSS-free snapshot fields
+    intact), matching the never-crash posture of the surrounding
+    license endpoints.
+    """
+    raw_feature = request.args.get("feature", "") or ""
+    try:
+        requested_feature = str(raw_feature).strip().lower()
+    except Exception:
+        requested_feature = ""
+    tokens, err = _parse_license_epochs_csv("epochs")
+    if err == "missing":
+        return jsonify({"error": "missing epochs"}), 400
+    try:
+        snap = _license_features_at_snapshot()
+    except Exception as exc:
+        logger.warning(
+            "api_license_has_feature_at_batch: snapshot error: %s", exc
+        )
+        snap = {
+            "features": None,
+            "expires_at": None,
+            "has_license": False,
+            "valid": False,
+        }
+    try:
+        from clawmetry import license as _lic
+
+        rows = _lic.has_feature_at_batch(requested_feature, tokens)
+    except Exception as exc:
+        logger.warning(
+            "api_license_has_feature_at_batch: derive error: %s", exc
+        )
+        rows = []
+    return jsonify(
+        {
+            "kind": "has_feature_at",
+            "count": len(rows),
+            "requested_feature": requested_feature,
+            "rows": rows,
+            "features": snap["features"],
+            "expires_at": snap["expires_at"],
+            "has_license": snap["has_license"],
+            "valid": snap["valid"],
+        }
+    )
+
 
 @bp_entitlement.route("/api/license/subject-at-batch")
 def api_license_subject_at_batch():

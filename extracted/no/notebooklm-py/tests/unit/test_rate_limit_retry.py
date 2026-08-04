@@ -15,10 +15,10 @@ import httpx
 import pytest
 
 import notebooklm._deadline as _deadline
-from _fixtures.kernel_test_helpers import install_http_client_for_test
-from _helpers.client_factory import build_client_shell_for_tests
-from conftest import install_post_as_stream
 from notebooklm.rpc import RateLimitError, RPCError, RPCMethod
+from tests._fixtures.kernel_test_helpers import install_http_client_for_test
+from tests._helpers.client_factory import build_client_shell_for_tests
+from tests.unit.conftest import install_post_as_stream
 
 
 @pytest.fixture

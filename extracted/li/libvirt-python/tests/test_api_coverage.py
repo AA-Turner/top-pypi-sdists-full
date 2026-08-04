@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import sys
-from typing import Dict, List, Set, Tuple  # noqa F401
 import libvirt
 import unittest
 import os
@@ -18,10 +17,10 @@ def get_libvirt_api_xml_path():
 
 # Identify all functions and enums in public API
 def identify_functions_enums(tree):
-    enumvals = {}  # type: Dict[str, Dict[str, int]]
-    second_pass = []  # type: List[str]
-    wantenums = []  # type: List[str]
-    wantfunctions = []  # type: List[str]
+    enumvals = {}  # type: dict[str, dict[str, int]]
+    second_pass = []  # type: list[str]
+    wantenums = []  # type: list[str]
+    wantfunctions = []  # type: list[str]
 
     wantfunctions = tree.xpath('/api/files/file/exports[@type="function"]/@symbol')
 
@@ -77,9 +76,9 @@ def identify_functions_enums(tree):
 
 # Identify all classes and methods in the 'libvirt' python module
 def identify_class_methods(wantenums, enumvals):
-    gotenums = []  # type: List[str]
-    gottypes = []  # type: List[str]
-    gotfunctions = {"libvirt": []}  # type: Dict[str, List[str]]
+    gotenums = []  # type: list[str]
+    gottypes = []  # type: list[str]
+    gotfunctions = {"libvirt": []}  # type: dict[str, list[str]]
 
     for name in dir(libvirt):
         if name.startswith('_'):
@@ -120,7 +119,7 @@ def identify_class_methods(wantenums, enumvals):
 
 # First cut at mapping of C APIs to python classes + methods
 def basic_class_method_mapping(wantfunctions, gottypes):
-    basicklassmap = {}  # type: Dict[str, Tuple[str, str, str]]
+    basicklassmap = {}  # type: dict[str, tuple[str, str, str]]
 
     for cname in wantfunctions:
         name = cname
@@ -201,7 +200,7 @@ def basic_class_method_mapping(wantfunctions, gottypes):
 
 # Deal with oh so many special cases in C -> python mapping
 def fixup_class_method_mapping(basicklassmap):
-    finalklassmap = {}  # type: Dict[str, Tuple[str, str, str]]
+    finalklassmap = {}  # type: dict[str, tuple[str, str, str]]
 
     for name, (klass, func, cname) in sorted(basicklassmap.items()):
         # The object lifecycle APIs are irrelevant since they're
@@ -327,7 +326,7 @@ def fixup_class_method_mapping(basicklassmap):
 
 # Validate that every C API is mapped to a python API
 def validate_c_to_python_api_mappings(finalklassmap, gotfunctions):
-    usedfunctions = set()  # type: Set[str]
+    usedfunctions = set()  # type: set[str]
     for name, (klass, func, cname) in sorted(finalklassmap.items()):
         if func in gotfunctions[klass]:
             usedfunctions.add("%s.%s" % (klass, func))

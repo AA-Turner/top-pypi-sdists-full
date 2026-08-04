@@ -16,19 +16,15 @@ Note: These tests are automatically skipped if cassettes are not available.
 import csv
 import json
 import os
-import sys
 from contextlib import asynccontextmanager
-from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 
-# Add tests directory to path for vcr_config import
-sys.path.insert(0, str(Path(__file__).parent.parent))
-sys.path.insert(0, str(Path(__file__).parent))
-from conftest import get_vcr_auth, skip_no_cassettes
 from notebooklm import NotebookLMClient, ReportFormat
 from notebooklm.types import Artifact, ArtifactType
-from vcr_config import notebooklm_vcr
+from tests.integration.conftest import get_vcr_auth, skip_no_cassettes
+from tests.vcr_config import notebooklm_vcr
 
 # Skip all tests in this module if cassettes are not available
 pytestmark = [pytest.mark.vcr, skip_no_cassettes]
@@ -225,14 +221,17 @@ class TestSourcesAPI:
             source = await client.sources.add_drive(
                 MUTABLE_NOTEBOOK_ID,
                 file_id="1oAk_INJHbIPsIh49jgNqj3FESSGHZrzxFY7t05Lvvl0",
-                title="VCR Test Drive Doc",
+                # Pass the doc's actual Drive title so the #1960 honor-title path is a
+                # no-op (add returns this title, so no post-add rename fires — the
+                # cassette records only the ADD_SOURCE call). A DIFFERENT title would
+                # trigger a follow-up rename, covered by the unit tests.
+                title="Rubisco Research: Status and Future",
                 mime_type="application/vnd.google-apps.document",
                 wait=False,  # Don't wait for processing during VCR recording
             )
         assert source is not None
         assert source.id, "Expected non-empty source ID"
-        # Drive sources use the actual document title, not the passed title
-        assert source.title, "Expected non-empty source title"
+        assert source.title == "Rubisco Research: Status and Future"
 
 
 # =============================================================================
@@ -286,6 +285,11 @@ class TestNotesAPI:
                 content="Original content.",
             )
             assert note is not None
+            # v0.8.0 (#1362): update() runs an existence preflight; stub the
+            # just-created note as a hit so the cassette (recorded pre-flip,
+            # without the extra GET_NOTES_AND_MIND_MAPS round-trip) still
+            # replays the create+update interactions only.
+            client.notes.get_or_none = AsyncMock(return_value=note)
             await client.notes.update(
                 MUTABLE_NOTEBOOK_ID,
                 note.id,
@@ -627,7 +631,7 @@ class TestChatAPI:
         # because most endpoints do not send ``f.req``.
         match_on=["method", "scheme", "host", "port", "path", "freq"],
     )
-    async def test_ask(self):
+    async def test_ask(self, legacy_vcr_follow_up_probe):
         """Ask a question."""
         async with vcr_client() as client:
             result = await client.chat.ask(
@@ -647,7 +651,7 @@ class TestChatAPI:
         # by replay-order. See ``test_ask`` above for the full rationale.
         match_on=["method", "scheme", "host", "port", "path", "freq"],
     )
-    async def test_ask_with_references(self):
+    async def test_ask_with_references(self, legacy_vcr_follow_up_probe):
         """Ask a question that generates references."""
         async with vcr_client() as client:
             result = await client.chat.ask(
@@ -818,8 +822,8 @@ class TestSourcesAdditionalAPI:
             if not url_source:
                 pytest.skip("No WEB_PAGE source available for refresh")
             result = await client.sources.refresh(MUTABLE_NOTEBOOK_ID, url_source.id)
-        # refresh() returns True if initiated successfully (no exception)
-        assert result is True, "refresh() should return True on success"
+        # v0.8.0 (#1290): refresh() returns None on success (no exception)
+        assert result is None, "refresh() should return None on success"
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
@@ -948,12 +952,15 @@ class TestArtifactsAdditionalAPI:
                 pytest.skip("No artifacts available")
             artifact = artifacts[0]
             original_title = artifact.title
-            # Rename. return_object=False skips the post-rename re-fetch so the
-            # existing cassette (rename RPC only) keeps replaying (issue #1255).
+            # v0.8.0 (#1362): return_object=False now runs the existence
+            # preflight too. Stub it as a hit (the artifact came from the list
+            # above, so it exists) so no extra LIST_ARTIFACTS round-trip fires
+            # and the existing cassette (rename RPC only) keeps replaying.
+            client.artifacts._listing.get_studio_only = AsyncMock(return_value=artifact)
+            # Rename, then restore the original name.
             await client.artifacts.rename(
                 MUTABLE_NOTEBOOK_ID, artifact.id, "VCR Renamed Artifact", return_object=False
             )
-            # Restore original name
             await client.artifacts.rename(
                 MUTABLE_NOTEBOOK_ID, artifact.id, original_title, return_object=False
             )
@@ -1013,7 +1020,7 @@ class TestResearchAPI:
                 mode="fast",
             )
         assert result is not None
-        assert "task_id" in result
+        assert result.task_id
         assert result.mode == "fast"
 
     @pytest.mark.vcr
@@ -1029,7 +1036,7 @@ class TestResearchAPI:
                 source="web",
                 mode="fast",
             )
-            if not start_result or not start_result.get("task_id"):
+            if not start_result or not start_result.task_id:
                 pytest.skip("Could not start research")
 
             # Poll for results
@@ -1038,7 +1045,7 @@ class TestResearchAPI:
                 task_id=start_result.task_id,
             )
         assert result is not None
-        assert "status" in result
+        assert result.status
 
     @pytest.mark.vcr
     @pytest.mark.asyncio
@@ -1053,7 +1060,7 @@ class TestResearchAPI:
                 source="web",
                 mode="fast",
             )
-            if not start_result or not start_result.get("task_id"):
+            if not start_result or not start_result.task_id:
                 pytest.skip("Could not start research")
 
             # Poll until we have sources (with timeout via cassette)
@@ -1061,7 +1068,7 @@ class TestResearchAPI:
                 MUTABLE_NOTEBOOK_ID,
                 task_id=start_result.task_id,
             )
-            if not poll_result.get("sources"):
+            if not poll_result.sources:
                 pytest.skip("No research sources found")
 
             # Import first source
@@ -1085,5 +1092,5 @@ class TestResearchAPI:
                 mode="deep",
             )
         assert result is not None
-        assert "task_id" in result
+        assert result.task_id
         assert result.mode == "deep"

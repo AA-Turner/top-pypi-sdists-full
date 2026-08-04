@@ -9,10 +9,12 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from click.testing import CliRunner
 
+import notebooklm.auth as auth_module
+from notebooklm.cli import helpers as helpers_module
 from notebooklm.notebooklm_cli import cli
 from notebooklm.types import Artifact
 
-from .conftest import create_mock_client
+from .conftest import create_mock_client, inject_client
 
 # Get the actual download module (not the click group that shadows it)
 download_module = importlib.import_module("notebooklm.cli.download_cmd")
@@ -53,8 +55,10 @@ def mock_auth():
     )
 
     with (
-        patch("notebooklm.cli.helpers.load_auth_from_storage") as mock_load,
-        patch("notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock) as mock_fetch,
+        patch.object(helpers_module, "load_auth_from_storage") as mock_load,
+        patch.object(
+            auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+        ) as mock_fetch,
     ):
         mock_load.return_value = auth.flat_cookies
         mock_fetch.return_value = ("csrf", "session")
@@ -63,13 +67,11 @@ def mock_auth():
 
 @pytest.fixture
 def mock_fetch_tokens():
-    """Mock fetch_tokens and load_auth_from_storage at download module level.
-
-    Download.py imports these functions directly, so we must patch at the module
-    level where they're imported (not at helpers where they're defined).
-    """
+    """Mock ``fetch_tokens_with_domains`` for download CLI commands."""
     with (
-        patch("notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock) as mock_fetch,
+        patch.object(
+            auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+        ) as mock_fetch,
     ):
         mock_fetch.return_value = ("csrf", "session")
         yield mock_fetch
@@ -112,41 +114,39 @@ class TestDownloadStandardTypes:
         self, runner, mock_auth, tmp_path, output_mode, cmd, method, type_code, output_name
     ):
         expected_id = f"{cmd}_1"
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_target = tmp_path / output_name
+        mock_client = create_mock_client()
+        output_target = tmp_path / output_name
 
-            async def mock_download(notebook_id, output_path, artifact_id=None, **kwargs):
-                Path(output_path).write_bytes(b"fake content")
-                return output_path
+        async def mock_download(notebook_id, output_path, artifact_id=None, **kwargs):
+            Path(output_path).write_bytes(b"fake content")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_artifact(expected_id, "My Artifact", type_code)]
-            )
-            setattr(mock_client.artifacts, method, mock_download)
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_artifact(expected_id, "My Artifact", type_code)]
+        )
+        setattr(mock_client.artifacts, method, mock_download)
 
-            args = ["download", cmd, str(output_target), "-n", "nb_123"]
-            if output_mode == "json":
-                args.append("--json")
+        args = ["download", cmd, str(output_target), "-n", "nb_123"]
+        if output_mode == "json":
+            args.append("--json")
 
-            with patch(
-                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
-            ) as mock_fetch:
-                mock_fetch.return_value = ("csrf", "session")
-                result = runner.invoke(cli, args)
+        with patch.object(
+            auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+        ) as mock_fetch:
+            mock_fetch.return_value = ("csrf", "session")
+            result = runner.invoke(cli, args, obj=inject_client(mock_client))
 
-            assert result.exit_code == 0, result.output
-            # The file is written in both modes — that is the command's purpose.
-            assert output_target.exists()
-            if output_mode == "json":
-                data = json.loads(result.output)
-                assert data["operation"] == "download_single"
-                assert data["status"] == "downloaded"
-                assert data["artifact"]["id"] == expected_id
-                # Happy path must not emit an error envelope.
-                assert "error" not in data
-                assert "code" not in data
+        assert result.exit_code == 0, result.output
+        # The file is written in both modes — that is the command's purpose.
+        assert output_target.exists()
+        if output_mode == "json":
+            data = json.loads(result.output)
+            assert data["operation"] == "download_single"
+            assert data["status"] == "downloaded"
+            assert data["artifact"]["id"] == expected_id
+            # Happy path must not emit an error envelope.
+            assert "error" not in data
+            assert "code" not in data
 
     def test_download_slide_deck(self, runner, mock_auth, tmp_path):
         """Slide-deck downloads a directory of slides (text mode only).
@@ -156,33 +156,31 @@ class TestDownloadStandardTypes:
         stdout, so it never emitted a clean JSON document in the original
         suite either.
         """
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_dir = tmp_path / "slides"
+        mock_client = create_mock_client()
+        output_dir = tmp_path / "slides"
 
-            async def mock_download_slide_deck(
-                notebook_id, output_path, artifact_id=None, **kwargs
-            ):
-                Path(output_path).mkdir(parents=True, exist_ok=True)
-                (Path(output_path) / "slide_1.png").write_bytes(b"fake slide")
-                return output_path
+        async def mock_download_slide_deck(notebook_id, output_path, artifact_id=None, **kwargs):
+            Path(output_path).mkdir(parents=True, exist_ok=True)
+            (Path(output_path) / "slide_1.png").write_bytes(b"fake slide")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_artifact("slide_1", "My Slides", 8)]
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_artifact("slide_1", "My Slides", 8)]
+        )
+        mock_client.artifacts.download_slide_deck = mock_download_slide_deck
+
+        with patch.object(
+            auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+        ) as mock_fetch:
+            mock_fetch.return_value = ("csrf", "session")
+            result = runner.invoke(
+                cli,
+                ["download", "slide-deck", str(output_dir), "-n", "nb_123"],
+                obj=inject_client(mock_client),
             )
-            mock_client.artifacts.download_slide_deck = mock_download_slide_deck
-            mock_client_cls.return_value = mock_client
 
-            with patch(
-                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
-            ) as mock_fetch:
-                mock_fetch.return_value = ("csrf", "session")
-                result = runner.invoke(
-                    cli, ["download", "slide-deck", str(output_dir), "-n", "nb_123"]
-                )
-
-            assert result.exit_code == 0, result.output
-            assert (output_dir / "slide_1.png").exists()
+        assert result.exit_code == 0, result.output
+        assert (output_dir / "slide_1.png").exists()
 
 
 # =============================================================================
@@ -192,39 +190,41 @@ class TestDownloadStandardTypes:
 
 class TestDownloadAudio:
     def test_download_audio_dry_run(self, runner, mock_auth, tmp_path):
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_artifact("audio_123", "My Audio", 1)]
+        mock_client = create_mock_client()
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_artifact("audio_123", "My Audio", 1)]
+        )
+
+        with (
+            patch.object(
+                auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch,
+        ):
+            mock_fetch.return_value = ("csrf", "session")
+            result = runner.invoke(
+                cli,
+                ["download", "audio", "--dry-run", "-n", "nb_123"],
+                obj=inject_client(mock_client),
             )
-            mock_client_cls.return_value = mock_client
 
-            with (
-                patch(
-                    "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
-                ) as mock_fetch,
-            ):
-                mock_fetch.return_value = ("csrf", "session")
-                result = runner.invoke(cli, ["download", "audio", "--dry-run", "-n", "nb_123"])
-
-            assert result.exit_code == 0
-            assert "DRY RUN" in result.output
+        assert result.exit_code == 0
+        assert "DRY RUN" in result.output
 
     def test_download_audio_no_artifacts(self, runner, mock_auth):
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            mock_client.artifacts.list = AsyncMock(return_value=[])
-            mock_client_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.artifacts.list = AsyncMock(return_value=[])
 
-            with (
-                patch(
-                    "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
-                ) as mock_fetch,
-            ):
-                mock_fetch.return_value = ("csrf", "session")
-                result = runner.invoke(cli, ["download", "audio", "-n", "nb_123"])
+        with (
+            patch.object(
+                auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch,
+        ):
+            mock_fetch.return_value = ("csrf", "session")
+            result = runner.invoke(
+                cli, ["download", "audio", "-n", "nb_123"], obj=inject_client(mock_client)
+            )
 
-            assert "No completed audio artifacts found" in result.output or result.exit_code != 0
+        assert "No completed audio artifacts found" in result.output or result.exit_code != 0
 
 
 # =============================================================================
@@ -235,135 +235,134 @@ class TestDownloadAudio:
 class TestDownloadFlags:
     def test_download_audio_latest(self, runner, mock_auth, tmp_path):
         """Test --latest flag selects most recent artifact"""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
+        mock_client = create_mock_client()
 
-            output_file = tmp_path / "audio.mp3"
+        output_file = tmp_path / "audio.mp3"
 
-            async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
-                Path(output_path).write_bytes(b"fake audio")
-                return output_path
+        async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
+            Path(output_path).write_bytes(b"fake audio")
+            return output_path
 
-            # Set up artifacts namespace (pre-created by create_mock_client)
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_artifact(
-                        "audio_old", "Old Audio", 1, created_at=datetime.fromtimestamp(1000000000)
-                    ),
-                    make_artifact(
-                        "audio_new", "New Audio", 1, created_at=datetime.fromtimestamp(2000000000)
-                    ),
-                ]
+        # Set up artifacts namespace (pre-created by create_mock_client)
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_artifact(
+                    "audio_old", "Old Audio", 1, created_at=datetime.fromtimestamp(1000000000)
+                ),
+                make_artifact(
+                    "audio_new", "New Audio", 1, created_at=datetime.fromtimestamp(2000000000)
+                ),
+            ]
+        )
+        mock_client.artifacts.download_audio = mock_download_audio
+
+        with (
+            patch.object(
+                auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch,
+        ):
+            mock_fetch.return_value = ("csrf", "session")
+            result = runner.invoke(
+                cli,
+                ["download", "audio", str(output_file), "--latest", "-n", "nb_123"],
+                obj=inject_client(mock_client),
             )
-            mock_client.artifacts.download_audio = mock_download_audio
-            mock_client_cls.return_value = mock_client
 
-            with (
-                patch(
-                    "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
-                ) as mock_fetch,
-            ):
-                mock_fetch.return_value = ("csrf", "session")
-                result = runner.invoke(
-                    cli, ["download", "audio", str(output_file), "--latest", "-n", "nb_123"]
-                )
-
-            assert result.exit_code == 0
+        assert result.exit_code == 0
 
     def test_download_audio_earliest(self, runner, mock_auth, tmp_path):
         """Test --earliest flag selects oldest artifact"""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
+        mock_client = create_mock_client()
 
-            output_file = tmp_path / "audio.mp3"
+        output_file = tmp_path / "audio.mp3"
 
-            async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
-                Path(output_path).write_bytes(b"fake audio")
-                return output_path
+        async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
+            Path(output_path).write_bytes(b"fake audio")
+            return output_path
 
-            # Set up artifacts namespace (pre-created by create_mock_client)
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_artifact(
-                        "audio_old", "Old Audio", 1, created_at=datetime.fromtimestamp(1000000000)
-                    ),
-                    make_artifact(
-                        "audio_new", "New Audio", 1, created_at=datetime.fromtimestamp(2000000000)
-                    ),
-                ]
+        # Set up artifacts namespace (pre-created by create_mock_client)
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_artifact(
+                    "audio_old", "Old Audio", 1, created_at=datetime.fromtimestamp(1000000000)
+                ),
+                make_artifact(
+                    "audio_new", "New Audio", 1, created_at=datetime.fromtimestamp(2000000000)
+                ),
+            ]
+        )
+        mock_client.artifacts.download_audio = mock_download_audio
+
+        with (
+            patch.object(
+                auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch,
+        ):
+            mock_fetch.return_value = ("csrf", "session")
+            result = runner.invoke(
+                cli,
+                ["download", "audio", str(output_file), "--earliest", "-n", "nb_123"],
+                obj=inject_client(mock_client),
             )
-            mock_client.artifacts.download_audio = mock_download_audio
-            mock_client_cls.return_value = mock_client
 
-            with (
-                patch(
-                    "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
-                ) as mock_fetch,
-            ):
-                mock_fetch.return_value = ("csrf", "session")
-                result = runner.invoke(
-                    cli, ["download", "audio", str(output_file), "--earliest", "-n", "nb_123"]
-                )
-
-            assert result.exit_code == 0
+        assert result.exit_code == 0
 
     def test_download_force_overwrites(self, runner, mock_auth, tmp_path):
         """Test --force flag overwrites existing file"""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
+        mock_client = create_mock_client()
 
-            output_file = tmp_path / "audio.mp3"
-            output_file.write_bytes(b"existing content")
+        output_file = tmp_path / "audio.mp3"
+        output_file.write_bytes(b"existing content")
 
-            async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
-                Path(output_path).write_bytes(b"new content")
-                return output_path
+        async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
+            Path(output_path).write_bytes(b"new content")
+            return output_path
 
-            # Set up artifacts namespace (pre-created by create_mock_client)
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_artifact("audio_123", "Audio", 1)]
+        # Set up artifacts namespace (pre-created by create_mock_client)
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_artifact("audio_123", "Audio", 1)]
+        )
+        mock_client.artifacts.download_audio = mock_download_audio
+
+        with (
+            patch.object(
+                auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch,
+        ):
+            mock_fetch.return_value = ("csrf", "session")
+            result = runner.invoke(
+                cli,
+                ["download", "audio", str(output_file), "--force", "-n", "nb_123"],
+                obj=inject_client(mock_client),
             )
-            mock_client.artifacts.download_audio = mock_download_audio
-            mock_client_cls.return_value = mock_client
 
-            with (
-                patch(
-                    "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
-                ) as mock_fetch,
-            ):
-                mock_fetch.return_value = ("csrf", "session")
-                result = runner.invoke(
-                    cli, ["download", "audio", str(output_file), "--force", "-n", "nb_123"]
-                )
-
-            assert result.exit_code == 0
-            assert output_file.read_bytes() == b"new content"
+        assert result.exit_code == 0
+        assert output_file.read_bytes() == b"new content"
 
     def test_download_no_clobber_skips(self, runner, mock_auth, tmp_path):
         """Test --no-clobber flag skips existing file"""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_artifact("audio_123", "Audio", 1)]
+        mock_client = create_mock_client()
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_artifact("audio_123", "Audio", 1)]
+        )
+
+        output_file = tmp_path / "audio.mp3"
+        output_file.write_bytes(b"existing content")
+
+        with (
+            patch.object(
+                auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch,
+        ):
+            mock_fetch.return_value = ("csrf", "session")
+            runner.invoke(
+                cli,
+                ["download", "audio", str(output_file), "--no-clobber", "-n", "nb_123"],
+                obj=inject_client(mock_client),
             )
 
-            output_file = tmp_path / "audio.mp3"
-            output_file.write_bytes(b"existing content")
-
-            mock_client_cls.return_value = mock_client
-
-            with (
-                patch(
-                    "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
-                ) as mock_fetch,
-            ):
-                mock_fetch.return_value = ("csrf", "session")
-                runner.invoke(
-                    cli, ["download", "audio", str(output_file), "--no-clobber", "-n", "nb_123"]
-                )
-
-            # File should remain unchanged
-            assert output_file.read_bytes() == b"existing content"
+        # File should remain unchanged
+        assert output_file.read_bytes() == b"existing content"
 
 
 # =============================================================================
@@ -375,11 +374,10 @@ class TestDownloadJsonOutputUnicode:
     def test_download_json_output_preserves_unicode(self, runner, mock_auth):
         """`download <type> --json` should emit CJK / emoji as real UTF-8, not \\uXXXX.
 
-        Patch target updated for P3.T2: the per-leaf generic helper was
-        extracted to ``cli/services/download.py::execute_download``. The
-        Click handler still calls it via ``services.download.execute_download``
-        — patching there short-circuits the entire async download pipeline
-        the same way patching ``_download_artifacts_generic`` did before.
+        The per-leaf generic helper now lives behind
+        ``services.download.execute_download``. Patching there short-circuits
+        the entire async download pipeline the same way the old generic-helper
+        patch did before.
         """
         fake_result = {
             "artifact_id": "audio_123",
@@ -391,12 +389,13 @@ class TestDownloadJsonOutputUnicode:
             return fake_result
 
         with (
-            patch(
-                "notebooklm.cli.download_cmd.execute_download",
+            patch.object(
+                download_module,
+                "execute_download",
                 fake_execute_download,
             ),
-            patch(
-                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            patch.object(
+                auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
             ) as mock_fetch,
         ):
             mock_fetch.return_value = ("csrf", "session")
@@ -425,9 +424,9 @@ class TestDownloadWarnings:
             }
 
         with (
-            patch("notebooklm.cli.download_cmd.execute_download", fake_execute_download),
-            patch(
-                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            patch.object(download_module, "execute_download", fake_execute_download),
+            patch.object(
+                auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
             ) as mock_fetch,
         ):
             mock_fetch.return_value = ("csrf", "session")
@@ -475,34 +474,33 @@ class TestDownloadCommandsExist:
 
     def test_download_cinematic_video_alias_callable(self, runner, mock_auth, tmp_path):
         """Verify 'download cinematic-video' alias invokes download video logic."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
+        mock_client = create_mock_client()
 
-            output_file = tmp_path / "cinematic.mp4"
+        output_file = tmp_path / "cinematic.mp4"
 
-            async def mock_download_video(notebook_id, output_path, artifact_id=None, **kwargs):
-                Path(output_path).write_bytes(b"fake cinematic content")
-                return output_path
+        async def mock_download_video(notebook_id, output_path, artifact_id=None, **kwargs):
+            Path(output_path).write_bytes(b"fake cinematic content")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_artifact("cin_1", "My Cinematic Video", 3)]
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_artifact("cin_1", "My Cinematic Video", 3)]
+        )
+        mock_client.artifacts.download_video = mock_download_video
+
+        with (
+            patch.object(
+                auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch,
+        ):
+            mock_fetch.return_value = ("csrf", "session")
+            result = runner.invoke(
+                cli,
+                ["download", "cinematic-video", str(output_file), "-n", "nb_123"],
+                obj=inject_client(mock_client),
             )
-            mock_client.artifacts.download_video = mock_download_video
-            mock_client_cls.return_value = mock_client
 
-            with (
-                patch(
-                    "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
-                ) as mock_fetch,
-            ):
-                mock_fetch.return_value = ("csrf", "session")
-                result = runner.invoke(
-                    cli,
-                    ["download", "cinematic-video", str(output_file), "-n", "nb_123"],
-                )
-
-            assert result.exit_code == 0, result.output
-            assert output_file.exists()
+        assert result.exit_code == 0, result.output
+        assert output_file.exists()
 
 
 # =============================================================================
@@ -515,49 +513,48 @@ class TestDownloadFlagConflicts:
 
     def test_force_and_no_clobber_conflict(self, runner, mock_auth, mock_fetch_tokens):
         """Test --force and --no-clobber cannot be used together."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_artifact("audio_123", "Audio", 1)]
-            )
-            mock_client_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_artifact("audio_123", "Audio", 1)]
+        )
 
-            result = runner.invoke(
-                cli, ["download", "audio", "--force", "--no-clobber", "-n", "nb_123"]
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "audio", "--force", "--no-clobber", "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code != 0
         assert "Cannot specify both --force and --no-clobber" in result.output
 
     def test_latest_and_earliest_conflict(self, runner, mock_auth, mock_fetch_tokens):
         """Test --latest and --earliest cannot be used together."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_artifact("audio_123", "Audio", 1)]
-            )
-            mock_client_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_artifact("audio_123", "Audio", 1)]
+        )
 
-            result = runner.invoke(
-                cli, ["download", "audio", "--latest", "--earliest", "-n", "nb_123"]
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "audio", "--latest", "--earliest", "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code != 0
         assert "Cannot specify both --latest and --earliest" in result.output
 
     def test_all_and_artifact_conflict(self, runner, mock_auth, mock_fetch_tokens):
         """Test --all and --artifact cannot be used together."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_artifact("audio_123", "Audio", 1)]
-            )
-            mock_client_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_artifact("audio_123", "Audio", 1)]
+        )
 
-            result = runner.invoke(
-                cli,
-                ["download", "audio", "--all", "--artifact", "art_123", "-n", "nb_123"],
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "audio", "--all", "--artifact", "art_123", "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code != 0
         assert "Cannot specify both --all and --artifact" in result.output
@@ -573,23 +570,25 @@ class TestDownloadAutoRename:
 
     def test_auto_renames_on_conflict(self, runner, mock_auth, mock_fetch_tokens, tmp_path):
         """When file exists without --force or --no-clobber, should auto-rename."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
+        mock_client = create_mock_client()
 
-            output_file = tmp_path / "audio.mp3"
-            output_file.write_bytes(b"existing content")
+        output_file = tmp_path / "audio.mp3"
+        output_file.write_bytes(b"existing content")
 
-            async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
-                Path(output_path).write_bytes(b"new content")
-                return output_path
+        async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
+            Path(output_path).write_bytes(b"new content")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_artifact("audio_123", "Audio", 1)]
-            )
-            mock_client.artifacts.download_audio = mock_download_audio
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_artifact("audio_123", "Audio", 1)]
+        )
+        mock_client.artifacts.download_audio = mock_download_audio
 
-            result = runner.invoke(cli, ["download", "audio", str(output_file), "-n", "nb_123"])
+        result = runner.invoke(
+            cli,
+            ["download", "audio", str(output_file), "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0
         # Original file unchanged
@@ -610,27 +609,27 @@ class TestDownloadAll:
 
     def test_download_all_basic(self, runner, mock_auth, mock_fetch_tokens, tmp_path):
         """Test basic --all download to a directory."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
+        mock_client = create_mock_client()
 
-            output_dir = tmp_path / "downloads"
+        output_dir = tmp_path / "downloads"
 
-            async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
-                Path(output_path).write_bytes(b"audio content")
-                return output_path
+        async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
+            Path(output_path).write_bytes(b"audio content")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_artifact("audio_1", "First Audio", 1),
-                    make_artifact("audio_2", "Second Audio", 1),
-                ]
-            )
-            mock_client.artifacts.download_audio = mock_download_audio
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_artifact("audio_1", "First Audio", 1),
+                make_artifact("audio_2", "Second Audio", 1),
+            ]
+        )
+        mock_client.artifacts.download_audio = mock_download_audio
 
-            result = runner.invoke(
-                cli, ["download", "audio", "--all", str(output_dir), "-n", "nb_123"]
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "audio", "--all", str(output_dir), "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0
         assert output_dir.exists()
@@ -640,23 +639,22 @@ class TestDownloadAll:
 
     def test_download_all_dry_run(self, runner, mock_auth, mock_fetch_tokens, tmp_path):
         """Test --all --dry-run shows preview without downloading."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
+        mock_client = create_mock_client()
 
-            output_dir = tmp_path / "downloads"
+        output_dir = tmp_path / "downloads"
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_artifact("audio_1", "First Audio", 1),
-                    make_artifact("audio_2", "Second Audio", 1),
-                ]
-            )
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_artifact("audio_1", "First Audio", 1),
+                make_artifact("audio_2", "Second Audio", 1),
+            ]
+        )
 
-            result = runner.invoke(
-                cli,
-                ["download", "audio", "--all", "--dry-run", str(output_dir), "-n", "nb_123"],
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "audio", "--all", "--dry-run", str(output_dir), "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0
         assert "DRY RUN" in result.output
@@ -671,32 +669,32 @@ class TestDownloadAll:
         exit code (the loop still attempts every artifact, but the command does
         not silently report success when some artifacts failed).
         """
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
+        mock_client = create_mock_client()
 
-            output_dir = tmp_path / "downloads"
-            call_count = 0
+        output_dir = tmp_path / "downloads"
+        call_count = 0
 
-            async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
-                nonlocal call_count
-                call_count += 1
-                if call_count == 1:
-                    raise Exception("Network error")
-                Path(output_path).write_bytes(b"audio content")
-                return output_path
+        async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise Exception("Network error")
+            Path(output_path).write_bytes(b"audio content")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_artifact("audio_1", "First Audio", 1),
-                    make_artifact("audio_2", "Second Audio", 1),
-                ]
-            )
-            mock_client.artifacts.download_audio = mock_download_audio
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_artifact("audio_1", "First Audio", 1),
+                make_artifact("audio_2", "Second Audio", 1),
+            ]
+        )
+        mock_client.artifacts.download_audio = mock_download_audio
 
-            result = runner.invoke(
-                cli, ["download", "audio", "--all", str(output_dir), "-n", "nb_123"]
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "audio", "--all", str(output_dir), "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         # Loop still attempts every artifact (so the second succeeds), but exit
         # is non-zero because at least one item failed.
@@ -728,34 +726,33 @@ class TestDownloadAllExitCodeContract:
         self, runner, mock_auth, mock_fetch_tokens, tmp_path
     ):
         """When every artifact fails, exit non-zero with full failure envelope."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_dir = tmp_path / "downloads"
+        mock_client = create_mock_client()
+        output_dir = tmp_path / "downloads"
 
-            async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
-                raise Exception("Network error")
+        async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
+            raise Exception("Network error")
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_artifact("audio_1", "First Audio", 1),
-                    make_artifact("audio_2", "Second Audio", 1),
-                ]
-            )
-            mock_client.artifacts.download_audio = mock_download_audio
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_artifact("audio_1", "First Audio", 1),
+                make_artifact("audio_2", "Second Audio", 1),
+            ]
+        )
+        mock_client.artifacts.download_audio = mock_download_audio
 
-            result = runner.invoke(
-                cli,
-                [
-                    "download",
-                    "audio",
-                    "--all",
-                    "--json",
-                    str(output_dir),
-                    "-n",
-                    "nb_123",
-                ],
-            )
+        result = runner.invoke(
+            cli,
+            [
+                "download",
+                "audio",
+                "--all",
+                "--json",
+                str(output_dir),
+                "-n",
+                "nb_123",
+            ],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code != 0
         payload = json.loads(result.output)
@@ -771,40 +768,39 @@ class TestDownloadAllExitCodeContract:
         self, runner, mock_auth, mock_fetch_tokens, tmp_path
     ):
         """When some succeed and some fail, exit non-zero and report both counts."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_dir = tmp_path / "downloads"
-            call_count = 0
+        mock_client = create_mock_client()
+        output_dir = tmp_path / "downloads"
+        call_count = 0
 
-            async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
-                nonlocal call_count
-                call_count += 1
-                if call_count == 1:
-                    raise Exception("Network error")
-                Path(output_path).write_bytes(b"audio content")
-                return output_path
+        async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise Exception("Network error")
+            Path(output_path).write_bytes(b"audio content")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_artifact("audio_1", "First Audio", 1),
-                    make_artifact("audio_2", "Second Audio", 1),
-                ]
-            )
-            mock_client.artifacts.download_audio = mock_download_audio
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_artifact("audio_1", "First Audio", 1),
+                make_artifact("audio_2", "Second Audio", 1),
+            ]
+        )
+        mock_client.artifacts.download_audio = mock_download_audio
 
-            result = runner.invoke(
-                cli,
-                [
-                    "download",
-                    "audio",
-                    "--all",
-                    "--json",
-                    str(output_dir),
-                    "-n",
-                    "nb_123",
-                ],
-            )
+        result = runner.invoke(
+            cli,
+            [
+                "download",
+                "audio",
+                "--all",
+                "--json",
+                str(output_dir),
+                "-n",
+                "nb_123",
+            ],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code != 0
         payload = json.loads(result.output)
@@ -826,32 +822,32 @@ class TestDownloadAllExitCodeContract:
         string-error shape only, so the typed-counts envelope falls through to
         the ``download_all`` summary block.
         """
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_dir = tmp_path / "downloads"
-            call_count = 0
+        mock_client = create_mock_client()
+        output_dir = tmp_path / "downloads"
+        call_count = 0
 
-            async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
-                nonlocal call_count
-                call_count += 1
-                if call_count == 1:
-                    raise Exception("Network error")
-                Path(output_path).write_bytes(b"audio content")
-                return output_path
+        async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise Exception("Network error")
+            Path(output_path).write_bytes(b"audio content")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_artifact("audio_1", "First Audio", 1),
-                    make_artifact("audio_2", "Second Audio", 1),
-                ]
-            )
-            mock_client.artifacts.download_audio = mock_download_audio
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_artifact("audio_1", "First Audio", 1),
+                make_artifact("audio_2", "Second Audio", 1),
+            ]
+        )
+        mock_client.artifacts.download_audio = mock_download_audio
 
-            # No --json: text-mode renderer must show the full breakdown.
-            result = runner.invoke(
-                cli, ["download", "audio", "--all", str(output_dir), "-n", "nb_123"]
-            )
+        # No --json: text-mode renderer must show the full breakdown.
+        result = runner.invoke(
+            cli,
+            ["download", "audio", "--all", str(output_dir), "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code != 0
         output_lower = result.output.lower()
@@ -870,35 +866,34 @@ class TestDownloadAllExitCodeContract:
         self, runner, mock_auth, mock_fetch_tokens, tmp_path
     ):
         """When every artifact succeeds, exit zero and omit the error key."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_dir = tmp_path / "downloads"
+        mock_client = create_mock_client()
+        output_dir = tmp_path / "downloads"
 
-            async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
-                Path(output_path).write_bytes(b"audio content")
-                return output_path
+        async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
+            Path(output_path).write_bytes(b"audio content")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_artifact("audio_1", "First Audio", 1),
-                    make_artifact("audio_2", "Second Audio", 1),
-                ]
-            )
-            mock_client.artifacts.download_audio = mock_download_audio
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_artifact("audio_1", "First Audio", 1),
+                make_artifact("audio_2", "Second Audio", 1),
+            ]
+        )
+        mock_client.artifacts.download_audio = mock_download_audio
 
-            result = runner.invoke(
-                cli,
-                [
-                    "download",
-                    "audio",
-                    "--all",
-                    "--json",
-                    str(output_dir),
-                    "-n",
-                    "nb_123",
-                ],
-            )
+        result = runner.invoke(
+            cli,
+            [
+                "download",
+                "audio",
+                "--all",
+                "--json",
+                str(output_dir),
+                "-n",
+                "nb_123",
+            ],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0
         payload = json.loads(result.output)
@@ -913,40 +908,39 @@ class TestDownloadAllNameFilter:
     def test_name_filter_restricts_downloads(self, runner, mock_auth, mock_fetch_tokens, tmp_path):
         """`--all --name "Beta"` must download only matching artifacts (substring,
         case-insensitive), not every artifact in the notebook."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_dir = tmp_path / "downloads"
-            downloaded_ids: list[str | None] = []
+        mock_client = create_mock_client()
+        output_dir = tmp_path / "downloads"
+        downloaded_ids: list[str | None] = []
 
-            async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
-                downloaded_ids.append(artifact_id)
-                Path(output_path).write_bytes(b"audio content")
-                return output_path
+        async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
+            downloaded_ids.append(artifact_id)
+            Path(output_path).write_bytes(b"audio content")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_artifact("audio_alpha", "Alpha Briefing", 1),
-                    make_artifact("audio_beta1", "Beta Chapter One", 1),
-                    make_artifact("audio_beta2", "Beta Chapter Two", 1),
-                    make_artifact("audio_gamma", "Gamma Recap", 1),
-                ]
-            )
-            mock_client.artifacts.download_audio = mock_download_audio
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_artifact("audio_alpha", "Alpha Briefing", 1),
+                make_artifact("audio_beta1", "Beta Chapter One", 1),
+                make_artifact("audio_beta2", "Beta Chapter Two", 1),
+                make_artifact("audio_gamma", "Gamma Recap", 1),
+            ]
+        )
+        mock_client.artifacts.download_audio = mock_download_audio
 
-            result = runner.invoke(
-                cli,
-                [
-                    "download",
-                    "audio",
-                    "--all",
-                    "--name",
-                    "beta",
-                    str(output_dir),
-                    "-n",
-                    "nb_123",
-                ],
-            )
+        result = runner.invoke(
+            cli,
+            [
+                "download",
+                "audio",
+                "--all",
+                "--name",
+                "beta",
+                str(output_dir),
+                "-n",
+                "nb_123",
+            ],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0
         assert sorted(downloaded_ids) == ["audio_beta1", "audio_beta2"]
@@ -957,34 +951,33 @@ class TestDownloadAllNameFilter:
         self, runner, mock_auth, mock_fetch_tokens, tmp_path
     ):
         """`--all --name <name> --dry-run` previews only matching artifacts."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_dir = tmp_path / "downloads"
+        mock_client = create_mock_client()
+        output_dir = tmp_path / "downloads"
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_artifact("audio_alpha", "Alpha Briefing", 1),
-                    make_artifact("audio_beta1", "Beta Chapter One", 1),
-                    make_artifact("audio_gamma", "Gamma Recap", 1),
-                ]
-            )
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_artifact("audio_alpha", "Alpha Briefing", 1),
+                make_artifact("audio_beta1", "Beta Chapter One", 1),
+                make_artifact("audio_gamma", "Gamma Recap", 1),
+            ]
+        )
 
-            result = runner.invoke(
-                cli,
-                [
-                    "download",
-                    "audio",
-                    "--all",
-                    "--name",
-                    "beta",
-                    "--dry-run",
-                    "--json",
-                    str(output_dir),
-                    "-n",
-                    "nb_123",
-                ],
-            )
+        result = runner.invoke(
+            cli,
+            [
+                "download",
+                "audio",
+                "--all",
+                "--name",
+                "beta",
+                "--dry-run",
+                "--json",
+                str(output_dir),
+                "-n",
+                "nb_123",
+            ],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0
         payload = json.loads(result.output)
@@ -997,31 +990,30 @@ class TestDownloadAllNameFilter:
         self, runner, mock_auth, mock_fetch_tokens, tmp_path
     ):
         """`--all --name <name>` with no matches: error envelope, non-zero exit."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_dir = tmp_path / "downloads"
+        mock_client = create_mock_client()
+        output_dir = tmp_path / "downloads"
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_artifact("audio_alpha", "Alpha Briefing", 1),
-                    make_artifact("audio_gamma", "Gamma Recap", 1),
-                ]
-            )
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_artifact("audio_alpha", "Alpha Briefing", 1),
+                make_artifact("audio_gamma", "Gamma Recap", 1),
+            ]
+        )
 
-            result = runner.invoke(
-                cli,
-                [
-                    "download",
-                    "audio",
-                    "--all",
-                    "--name",
-                    "nonexistent",
-                    str(output_dir),
-                    "-n",
-                    "nb_123",
-                ],
-            )
+        result = runner.invoke(
+            cli,
+            [
+                "download",
+                "audio",
+                "--all",
+                "--name",
+                "nonexistent",
+                str(output_dir),
+                "-n",
+                "nb_123",
+            ],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code != 0
         # Output should mention the filter that produced no matches
@@ -1044,32 +1036,31 @@ class TestDownloadAllDryRunFilenameParity:
     ):
         """Three artifacts with the same title produce three distinct filenames
         in dry-run output, matching what the execution path would emit."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_dir = tmp_path / "downloads"
+        mock_client = create_mock_client()
+        output_dir = tmp_path / "downloads"
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_artifact("audio_1", "Duplicate Title", 1),
-                    make_artifact("audio_2", "Duplicate Title", 1),
-                    make_artifact("audio_3", "Duplicate Title", 1),
-                ]
-            )
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_artifact("audio_1", "Duplicate Title", 1),
+                make_artifact("audio_2", "Duplicate Title", 1),
+                make_artifact("audio_3", "Duplicate Title", 1),
+            ]
+        )
 
-            result = runner.invoke(
-                cli,
-                [
-                    "download",
-                    "audio",
-                    "--all",
-                    "--dry-run",
-                    "--json",
-                    str(output_dir),
-                    "-n",
-                    "nb_123",
-                ],
-            )
+        result = runner.invoke(
+            cli,
+            [
+                "download",
+                "audio",
+                "--all",
+                "--dry-run",
+                "--json",
+                str(output_dir),
+                "-n",
+                "nb_123",
+            ],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0
         payload = json.loads(result.output)
@@ -1087,62 +1078,60 @@ class TestDownloadAllDryRunFilenameParity:
     ):
         """The filenames listed in dry-run must be the actual filenames the
         execution path writes to disk."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_dir_dry = tmp_path / "dry"
+        mock_client = create_mock_client()
+        output_dir_dry = tmp_path / "dry"
 
-            artifacts_payload = [
-                make_artifact("audio_1", "Duplicate Title", 1),
-                make_artifact("audio_2", "Duplicate Title", 1),
-            ]
+        artifacts_payload = [
+            make_artifact("audio_1", "Duplicate Title", 1),
+            make_artifact("audio_2", "Duplicate Title", 1),
+        ]
 
-            mock_client.artifacts.list = AsyncMock(return_value=artifacts_payload)
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(return_value=artifacts_payload)
 
-            # First: dry-run pass.
-            result_dry = runner.invoke(
-                cli,
-                [
-                    "download",
-                    "audio",
-                    "--all",
-                    "--dry-run",
-                    "--json",
-                    str(output_dir_dry),
-                    "-n",
-                    "nb_123",
-                ],
-            )
-            assert result_dry.exit_code == 0
-            payload_dry = json.loads(result_dry.output)
-            dry_filenames = sorted(a["filename"] for a in payload_dry["artifacts"])
+        # First: dry-run pass.
+        result_dry = runner.invoke(
+            cli,
+            [
+                "download",
+                "audio",
+                "--all",
+                "--dry-run",
+                "--json",
+                str(output_dir_dry),
+                "-n",
+                "nb_123",
+            ],
+            obj=inject_client(mock_client),
+        )
+        assert result_dry.exit_code == 0
+        payload_dry = json.loads(result_dry.output)
+        dry_filenames = sorted(a["filename"] for a in payload_dry["artifacts"])
 
         # Second: real execution pass (separate patch context — runner resets
         # the client mock between invocations).
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_dir_exec = tmp_path / "exec"
+        mock_client = create_mock_client()
+        output_dir_exec = tmp_path / "exec"
 
-            async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
-                Path(output_path).write_bytes(b"audio content")
-                return output_path
+        async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
+            Path(output_path).write_bytes(b"audio content")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(return_value=artifacts_payload)
-            mock_client.artifacts.download_audio = mock_download_audio
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(return_value=artifacts_payload)
+        mock_client.artifacts.download_audio = mock_download_audio
 
-            result_exec = runner.invoke(
-                cli,
-                [
-                    "download",
-                    "audio",
-                    "--all",
-                    "--json",
-                    str(output_dir_exec),
-                    "-n",
-                    "nb_123",
-                ],
-            )
+        result_exec = runner.invoke(
+            cli,
+            [
+                "download",
+                "audio",
+                "--all",
+                "--json",
+                str(output_dir_exec),
+                "-n",
+                "nb_123",
+            ],
+            obj=inject_client(mock_client),
+        )
 
         assert result_exec.exit_code == 0
         payload_exec = json.loads(result_exec.output)
@@ -1151,31 +1140,30 @@ class TestDownloadAllDryRunFilenameParity:
 
     def test_download_all_with_no_clobber(self, runner, mock_auth, mock_fetch_tokens, tmp_path):
         """Test --all --no-clobber skips existing files."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
+        mock_client = create_mock_client()
 
-            output_dir = tmp_path / "downloads"
-            output_dir.mkdir(parents=True)
-            # Create existing file
-            (output_dir / "First Audio.mp3").write_bytes(b"existing")
+        output_dir = tmp_path / "downloads"
+        output_dir.mkdir(parents=True)
+        # Create existing file
+        (output_dir / "First Audio.mp3").write_bytes(b"existing")
 
-            async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
-                Path(output_path).write_bytes(b"new content")
-                return output_path
+        async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
+            Path(output_path).write_bytes(b"new content")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_artifact("audio_1", "First Audio", 1),
-                    make_artifact("audio_2", "Second Audio", 1),
-                ]
-            )
-            mock_client.artifacts.download_audio = mock_download_audio
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_artifact("audio_1", "First Audio", 1),
+                make_artifact("audio_2", "Second Audio", 1),
+            ]
+        )
+        mock_client.artifacts.download_audio = mock_download_audio
 
-            result = runner.invoke(
-                cli,
-                ["download", "audio", "--all", "--no-clobber", str(output_dir), "-n", "nb_123"],
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "audio", "--all", "--no-clobber", str(output_dir), "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0
         # First file should remain unchanged
@@ -1194,37 +1182,36 @@ class TestDownloadArtifactFlag:
 
     def test_download_by_full_artifact_id(self, runner, mock_auth, mock_fetch_tokens, tmp_path):
         """Full artifact ID (20+ chars) bypasses prefix search and selects correctly."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_file = tmp_path / "audio.mp3"
-            downloaded_ids = []
+        mock_client = create_mock_client()
+        output_file = tmp_path / "audio.mp3"
+        downloaded_ids = []
 
-            async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
-                downloaded_ids.append(artifact_id)
-                Path(output_path).write_bytes(b"audio")
-                return output_path
+        async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
+            downloaded_ids.append(artifact_id)
+            Path(output_path).write_bytes(b"audio")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_artifact("audio_aaa111bbb222ccc333", "First", 1),
-                    make_artifact("audio_bbb222ccc333ddd444", "Second", 1),
-                ]
-            )
-            mock_client.artifacts.download_audio = mock_download_audio
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_artifact("audio_aaa111bbb222ccc333", "First", 1),
+                make_artifact("audio_bbb222ccc333ddd444", "Second", 1),
+            ]
+        )
+        mock_client.artifacts.download_audio = mock_download_audio
 
-            result = runner.invoke(
-                cli,
-                [
-                    "download",
-                    "audio",
-                    str(output_file),
-                    "-a",
-                    "audio_bbb222ccc333ddd444",
-                    "-n",
-                    "nb_123",
-                ],
-            )
+        result = runner.invoke(
+            cli,
+            [
+                "download",
+                "audio",
+                str(output_file),
+                "-a",
+                "audio_bbb222ccc333ddd444",
+                "-n",
+                "nb_123",
+            ],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0
         assert downloaded_ids == ["audio_bbb222ccc333ddd444"]
@@ -1233,47 +1220,45 @@ class TestDownloadArtifactFlag:
         self, runner, mock_auth, mock_fetch_tokens, tmp_path
     ):
         """Full-length ID (20+ chars) that doesn't exist in the artifact list should error."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
+        mock_client = create_mock_client()
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_artifact("audio_aaa111bbb222ccc333", "Only", 1)]
-            )
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_artifact("audio_aaa111bbb222ccc333", "Only", 1)]
+        )
 
-            result = runner.invoke(
-                cli,
-                ["download", "audio", "-a", "nonexistentidtwentyplus1", "-n", "nb_123"],
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "audio", "-a", "nonexistentidtwentyplus1", "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code != 0
         assert "not found" in result.output.lower()
 
     def test_download_by_partial_artifact_id(self, runner, mock_auth, mock_fetch_tokens, tmp_path):
         """Partial artifact ID prefix resolves and selects the correct artifact."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_file = tmp_path / "audio.mp3"
-            downloaded_ids = []
+        mock_client = create_mock_client()
+        output_file = tmp_path / "audio.mp3"
+        downloaded_ids = []
 
-            async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
-                downloaded_ids.append(artifact_id)
-                Path(output_path).write_bytes(b"audio")
-                return output_path
+        async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
+            downloaded_ids.append(artifact_id)
+            Path(output_path).write_bytes(b"audio")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_artifact("audio_aaa111", "First", 1),
-                    make_artifact("audio_bbb222", "Second", 1),
-                ]
-            )
-            mock_client.artifacts.download_audio = mock_download_audio
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_artifact("audio_aaa111", "First", 1),
+                make_artifact("audio_bbb222", "Second", 1),
+            ]
+        )
+        mock_client.artifacts.download_audio = mock_download_audio
 
-            result = runner.invoke(
-                cli,
-                ["download", "audio", str(output_file), "-a", "audio_bbb", "-n", "nb_123"],
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "audio", str(output_file), "-a", "audio_bbb", "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0
         assert downloaded_ids == ["audio_bbb222"]
@@ -1282,21 +1267,20 @@ class TestDownloadArtifactFlag:
         self, runner, mock_auth, mock_fetch_tokens, tmp_path
     ):
         """Partial ID matching multiple artifacts produces an error."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
+        mock_client = create_mock_client()
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_artifact("audio_aaa111", "First", 1),
-                    make_artifact("audio_aaa222", "Second", 1),
-                ]
-            )
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_artifact("audio_aaa111", "First", 1),
+                make_artifact("audio_aaa222", "Second", 1),
+            ]
+        )
 
-            result = runner.invoke(
-                cli,
-                ["download", "audio", "-a", "audio_aaa", "-n", "nb_123"],
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "audio", "-a", "audio_aaa", "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code != 0
         assert "Ambiguous" in result.output
@@ -1305,18 +1289,17 @@ class TestDownloadArtifactFlag:
         self, runner, mock_auth, mock_fetch_tokens, tmp_path
     ):
         """Partial ID matching nothing produces an error."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
+        mock_client = create_mock_client()
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_artifact("audio_aaa111", "First", 1)]
-            )
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_artifact("audio_aaa111", "First", 1)]
+        )
 
-            result = runner.invoke(
-                cli,
-                ["download", "audio", "-a", "zzz", "-n", "nb_123"],
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "audio", "-a", "zzz", "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code != 0
         assert "not found" in result.output.lower()
@@ -1327,37 +1310,39 @@ class TestDownloadErrorHandling:
 
     def test_download_single_failure(self, runner, mock_auth, mock_fetch_tokens, tmp_path):
         """When download fails, should return error gracefully."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
+        mock_client = create_mock_client()
 
-            output_file = tmp_path / "audio.mp3"
+        output_file = tmp_path / "audio.mp3"
 
-            async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
-                raise Exception("Connection refused")
+        async def mock_download_audio(notebook_id, output_path, artifact_id=None, **kwargs):
+            raise Exception("Connection refused")
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_artifact("audio_123", "Audio", 1)]
-            )
-            mock_client.artifacts.download_audio = mock_download_audio
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_artifact("audio_123", "Audio", 1)]
+        )
+        mock_client.artifacts.download_audio = mock_download_audio
 
-            result = runner.invoke(cli, ["download", "audio", str(output_file), "-n", "nb_123"])
+        result = runner.invoke(
+            cli,
+            ["download", "audio", str(output_file), "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code != 0
         assert "Connection refused" in result.output or "error" in result.output.lower()
 
     def test_download_name_not_found(self, runner, mock_auth, mock_fetch_tokens):
         """When --name matches no artifacts, should show helpful error."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_artifact("audio_123", "My Audio", 1)]
-            )
-            mock_client_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_artifact("audio_123", "My Audio", 1)]
+        )
 
-            result = runner.invoke(
-                cli, ["download", "audio", "--name", "nonexistent", "-n", "nb_123"]
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "audio", "--name", "nonexistent", "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code != 0
         # Should mention no match found or available artifacts
@@ -1420,58 +1405,59 @@ class TestDownloadQuizStandardFlags:
 
     def test_quiz_basic_download_writes_file(self, runner, mock_auth, mock_fetch_tokens, tmp_path):
         """Single-artifact download writes the file via the dispatched API call."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_file = tmp_path / "quiz.json"
+        mock_client = create_mock_client()
+        output_file = tmp_path / "quiz.json"
 
-            async def fake_download_quiz(
-                notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
-            ):
-                Path(output_path).write_text('{"questions": []}')
-                return output_path
+        async def fake_download_quiz(
+            notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
+        ):
+            Path(output_path).write_text('{"questions": []}')
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_quiz_artifact("quiz_1", "Chapter 1 Quiz")]
-            )
-            mock_client.artifacts.download_quiz = fake_download_quiz
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_quiz_artifact("quiz_1", "Chapter 1 Quiz")]
+        )
+        mock_client.artifacts.download_quiz = fake_download_quiz
 
-            result = runner.invoke(cli, ["download", "quiz", str(output_file), "-n", "nb_123"])
+        result = runner.invoke(
+            cli,
+            ["download", "quiz", str(output_file), "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         assert output_file.exists()
 
     def test_quiz_latest_flag_selects_newest(self, runner, mock_auth, mock_fetch_tokens, tmp_path):
         """--latest picks the newest completed quiz artifact."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_file = tmp_path / "quiz.json"
-            chosen_ids: list[str | None] = []
+        mock_client = create_mock_client()
+        output_file = tmp_path / "quiz.json"
+        chosen_ids: list[str | None] = []
 
-            async def fake_download_quiz(
-                notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
-            ):
-                chosen_ids.append(artifact_id)
-                Path(output_path).write_text("{}")
-                return output_path
+        async def fake_download_quiz(
+            notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
+        ):
+            chosen_ids.append(artifact_id)
+            Path(output_path).write_text("{}")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_quiz_artifact(
-                        "quiz_old", "Old", created_at=datetime.fromtimestamp(1000000000)
-                    ),
-                    make_quiz_artifact(
-                        "quiz_new", "New", created_at=datetime.fromtimestamp(2000000000)
-                    ),
-                ]
-            )
-            mock_client.artifacts.download_quiz = fake_download_quiz
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_quiz_artifact(
+                    "quiz_old", "Old", created_at=datetime.fromtimestamp(1000000000)
+                ),
+                make_quiz_artifact(
+                    "quiz_new", "New", created_at=datetime.fromtimestamp(2000000000)
+                ),
+            ]
+        )
+        mock_client.artifacts.download_quiz = fake_download_quiz
 
-            result = runner.invoke(
-                cli,
-                ["download", "quiz", str(output_file), "--latest", "-n", "nb_123"],
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "quiz", str(output_file), "--latest", "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         assert chosen_ids == ["quiz_new"]
@@ -1480,91 +1466,88 @@ class TestDownloadQuizStandardFlags:
         self, runner, mock_auth, mock_fetch_tokens, tmp_path
     ):
         """--earliest picks the oldest completed quiz artifact."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_file = tmp_path / "quiz.json"
-            chosen_ids: list[str | None] = []
+        mock_client = create_mock_client()
+        output_file = tmp_path / "quiz.json"
+        chosen_ids: list[str | None] = []
 
-            async def fake_download_quiz(
-                notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
-            ):
-                chosen_ids.append(artifact_id)
-                Path(output_path).write_text("{}")
-                return output_path
+        async def fake_download_quiz(
+            notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
+        ):
+            chosen_ids.append(artifact_id)
+            Path(output_path).write_text("{}")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_quiz_artifact(
-                        "quiz_old", "Old", created_at=datetime.fromtimestamp(1000000000)
-                    ),
-                    make_quiz_artifact(
-                        "quiz_new", "New", created_at=datetime.fromtimestamp(2000000000)
-                    ),
-                ]
-            )
-            mock_client.artifacts.download_quiz = fake_download_quiz
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_quiz_artifact(
+                    "quiz_old", "Old", created_at=datetime.fromtimestamp(1000000000)
+                ),
+                make_quiz_artifact(
+                    "quiz_new", "New", created_at=datetime.fromtimestamp(2000000000)
+                ),
+            ]
+        )
+        mock_client.artifacts.download_quiz = fake_download_quiz
 
-            result = runner.invoke(
-                cli,
-                ["download", "quiz", str(output_file), "--earliest", "-n", "nb_123"],
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "quiz", str(output_file), "--earliest", "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         assert chosen_ids == ["quiz_old"]
 
     def test_quiz_name_filter(self, runner, mock_auth, mock_fetch_tokens, tmp_path):
         """--name picks the artifact whose title fuzzy-matches."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_file = tmp_path / "quiz.json"
-            chosen_ids: list[str | None] = []
+        mock_client = create_mock_client()
+        output_file = tmp_path / "quiz.json"
+        chosen_ids: list[str | None] = []
 
-            async def fake_download_quiz(
-                notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
-            ):
-                chosen_ids.append(artifact_id)
-                Path(output_path).write_text("{}")
-                return output_path
+        async def fake_download_quiz(
+            notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
+        ):
+            chosen_ids.append(artifact_id)
+            Path(output_path).write_text("{}")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_quiz_artifact("quiz_a", "Chapter 1 Basics"),
-                    make_quiz_artifact("quiz_b", "Final Exam Review"),
-                ]
-            )
-            mock_client.artifacts.download_quiz = fake_download_quiz
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_quiz_artifact("quiz_a", "Chapter 1 Basics"),
+                make_quiz_artifact("quiz_b", "Final Exam Review"),
+            ]
+        )
+        mock_client.artifacts.download_quiz = fake_download_quiz
 
-            result = runner.invoke(
-                cli,
-                ["download", "quiz", str(output_file), "--name", "Final", "-n", "nb_123"],
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "quiz", str(output_file), "--name", "Final", "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         assert chosen_ids == ["quiz_b"]
 
     def test_quiz_dry_run_does_not_download(self, runner, mock_auth, mock_fetch_tokens, tmp_path):
         """--dry-run shows preview without invoking the API."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_file = tmp_path / "quiz.json"
-            api_calls: list[str] = []
+        mock_client = create_mock_client()
+        output_file = tmp_path / "quiz.json"
+        api_calls: list[str] = []
 
-            async def fake_download_quiz(*args, **kwargs):
-                api_calls.append("called")
-                return ""
+        async def fake_download_quiz(*args, **kwargs):
+            api_calls.append("called")
+            return ""
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_quiz_artifact("quiz_1", "Quiz One")]
-            )
-            mock_client.artifacts.download_quiz = fake_download_quiz
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_quiz_artifact("quiz_1", "Quiz One")]
+        )
+        mock_client.artifacts.download_quiz = fake_download_quiz
 
-            result = runner.invoke(
-                cli,
-                ["download", "quiz", str(output_file), "--dry-run", "-n", "nb_123"],
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "quiz", str(output_file), "--dry-run", "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         assert "DRY RUN" in result.output
@@ -1573,31 +1556,30 @@ class TestDownloadQuizStandardFlags:
 
     def test_quiz_all_flag_downloads_each(self, runner, mock_auth, mock_fetch_tokens, tmp_path):
         """--all batch-downloads every completed quiz to the target directory."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_dir = tmp_path / "quizzes"
-            downloaded: list[str | None] = []
+        mock_client = create_mock_client()
+        output_dir = tmp_path / "quizzes"
+        downloaded: list[str | None] = []
 
-            async def fake_download_quiz(
-                notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
-            ):
-                downloaded.append(artifact_id)
-                Path(output_path).write_text('{"q": []}')
-                return output_path
+        async def fake_download_quiz(
+            notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
+        ):
+            downloaded.append(artifact_id)
+            Path(output_path).write_text('{"q": []}')
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_quiz_artifact("quiz_1", "First Quiz"),
-                    make_quiz_artifact("quiz_2", "Second Quiz"),
-                ]
-            )
-            mock_client.artifacts.download_quiz = fake_download_quiz
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_quiz_artifact("quiz_1", "First Quiz"),
+                make_quiz_artifact("quiz_2", "Second Quiz"),
+            ]
+        )
+        mock_client.artifacts.download_quiz = fake_download_quiz
 
-            result = runner.invoke(
-                cli,
-                ["download", "quiz", "--all", str(output_dir), "-n", "nb_123"],
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "quiz", "--all", str(output_dir), "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         assert sorted(downloaded) == ["quiz_1", "quiz_2"]
@@ -1607,27 +1589,26 @@ class TestDownloadQuizStandardFlags:
         self, runner, mock_auth, mock_fetch_tokens, tmp_path
     ):
         """--force overwrites a file that already exists at output_path."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_file = tmp_path / "quiz.json"
-            output_file.write_text("OLD")
+        mock_client = create_mock_client()
+        output_file = tmp_path / "quiz.json"
+        output_file.write_text("OLD")
 
-            async def fake_download_quiz(
-                notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
-            ):
-                Path(output_path).write_text("NEW")
-                return output_path
+        async def fake_download_quiz(
+            notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
+        ):
+            Path(output_path).write_text("NEW")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_quiz_artifact("quiz_1", "Quiz One")]
-            )
-            mock_client.artifacts.download_quiz = fake_download_quiz
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_quiz_artifact("quiz_1", "Quiz One")]
+        )
+        mock_client.artifacts.download_quiz = fake_download_quiz
 
-            result = runner.invoke(
-                cli,
-                ["download", "quiz", str(output_file), "--force", "-n", "nb_123"],
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "quiz", str(output_file), "--force", "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         assert output_file.read_text() == "NEW"
@@ -1636,70 +1617,65 @@ class TestDownloadQuizStandardFlags:
         self, runner, mock_auth, mock_fetch_tokens, tmp_path
     ):
         """--no-clobber leaves an existing file untouched."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_file = tmp_path / "quiz.json"
-            output_file.write_text("EXISTING")
+        mock_client = create_mock_client()
+        output_file = tmp_path / "quiz.json"
+        output_file.write_text("EXISTING")
 
-            async def fake_download_quiz(
-                notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
-            ):
-                Path(output_path).write_text("OVERWROTE")
-                return output_path
+        async def fake_download_quiz(
+            notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
+        ):
+            Path(output_path).write_text("OVERWROTE")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_quiz_artifact("quiz_1", "Quiz One")]
-            )
-            mock_client.artifacts.download_quiz = fake_download_quiz
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_quiz_artifact("quiz_1", "Quiz One")]
+        )
+        mock_client.artifacts.download_quiz = fake_download_quiz
 
-            runner.invoke(
-                cli,
-                ["download", "quiz", str(output_file), "--no-clobber", "-n", "nb_123"],
-            )
+        runner.invoke(
+            cli,
+            ["download", "quiz", str(output_file), "--no-clobber", "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         # File untouched
         assert output_file.read_text() == "EXISTING"
 
     def test_quiz_force_and_no_clobber_conflict(self, runner, mock_auth, mock_fetch_tokens):
         """--force + --no-clobber must fail with a clear message."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_quiz_artifact("quiz_1", "Quiz")]
-            )
-            mock_client_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.artifacts.list = AsyncMock(return_value=[make_quiz_artifact("quiz_1", "Quiz")])
 
-            result = runner.invoke(
-                cli,
-                ["download", "quiz", "--force", "--no-clobber", "-n", "nb_123"],
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "quiz", "--force", "--no-clobber", "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code != 0
         assert "Cannot specify both --force and --no-clobber" in result.output
 
     def test_quiz_json_output_emits_json(self, runner, mock_auth, mock_fetch_tokens, tmp_path):
         """--json emits a parseable JSON document on success."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_file = tmp_path / "quiz.json"
+        mock_client = create_mock_client()
+        output_file = tmp_path / "quiz.json"
 
-            async def fake_download_quiz(
-                notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
-            ):
-                Path(output_path).write_text("{}")
-                return output_path
+        async def fake_download_quiz(
+            notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
+        ):
+            Path(output_path).write_text("{}")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_quiz_artifact("quiz_1", "Quiz One")]
-            )
-            mock_client.artifacts.download_quiz = fake_download_quiz
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_quiz_artifact("quiz_1", "Quiz One")]
+        )
+        mock_client.artifacts.download_quiz = fake_download_quiz
 
-            result = runner.invoke(
-                cli,
-                ["download", "quiz", str(output_file), "--json", "-n", "nb_123"],
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "quiz", str(output_file), "--json", "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         data = json.loads(result.output)
@@ -1711,36 +1687,35 @@ class TestDownloadQuizStandardFlags:
         self, runner, mock_auth, mock_fetch_tokens, tmp_path
     ):
         """--format markdown propagates output_format='markdown' to the API."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_file = tmp_path / "quiz.md"
-            captured: dict[str, str] = {}
+        mock_client = create_mock_client()
+        output_file = tmp_path / "quiz.md"
+        captured: dict[str, str] = {}
 
-            async def fake_download_quiz(
-                notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
-            ):
-                captured["output_format"] = output_format
-                Path(output_path).write_text("# Quiz")
-                return output_path
+        async def fake_download_quiz(
+            notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
+        ):
+            captured["output_format"] = output_format
+            Path(output_path).write_text("# Quiz")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_quiz_artifact("quiz_1", "Quiz One")]
-            )
-            mock_client.artifacts.download_quiz = fake_download_quiz
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_quiz_artifact("quiz_1", "Quiz One")]
+        )
+        mock_client.artifacts.download_quiz = fake_download_quiz
 
-            result = runner.invoke(
-                cli,
-                [
-                    "download",
-                    "quiz",
-                    str(output_file),
-                    "--format",
-                    "markdown",
-                    "-n",
-                    "nb_123",
-                ],
-            )
+        result = runner.invoke(
+            cli,
+            [
+                "download",
+                "quiz",
+                str(output_file),
+                "--format",
+                "markdown",
+                "-n",
+                "nb_123",
+            ],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         assert captured["output_format"] == "markdown"
@@ -1771,25 +1746,25 @@ class TestDownloadFlashcardsStandardFlags:
         self, runner, mock_auth, mock_fetch_tokens, tmp_path
     ):
         """Single-artifact download writes the file via the dispatched API call."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_file = tmp_path / "cards.json"
+        mock_client = create_mock_client()
+        output_file = tmp_path / "cards.json"
 
-            async def fake_download_flashcards(
-                notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
-            ):
-                Path(output_path).write_text('{"cards": []}')
-                return output_path
+        async def fake_download_flashcards(
+            notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
+        ):
+            Path(output_path).write_text('{"cards": []}')
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_flashcard_artifact("fc_1", "Vocabulary Deck")]
-            )
-            mock_client.artifacts.download_flashcards = fake_download_flashcards
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_flashcard_artifact("fc_1", "Vocabulary Deck")]
+        )
+        mock_client.artifacts.download_flashcards = fake_download_flashcards
 
-            result = runner.invoke(
-                cli, ["download", "flashcards", str(output_file), "-n", "nb_123"]
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "flashcards", str(output_file), "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         assert output_file.exists()
@@ -1798,31 +1773,30 @@ class TestDownloadFlashcardsStandardFlags:
         self, runner, mock_auth, mock_fetch_tokens, tmp_path
     ):
         """--all batch-downloads every completed deck to the target directory."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_dir = tmp_path / "flashcards"
-            downloaded: list[str | None] = []
+        mock_client = create_mock_client()
+        output_dir = tmp_path / "flashcards"
+        downloaded: list[str | None] = []
 
-            async def fake_download_flashcards(
-                notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
-            ):
-                downloaded.append(artifact_id)
-                Path(output_path).write_text('{"cards": []}')
-                return output_path
+        async def fake_download_flashcards(
+            notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
+        ):
+            downloaded.append(artifact_id)
+            Path(output_path).write_text('{"cards": []}')
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_flashcard_artifact("fc_1", "Deck A"),
-                    make_flashcard_artifact("fc_2", "Deck B"),
-                ]
-            )
-            mock_client.artifacts.download_flashcards = fake_download_flashcards
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_flashcard_artifact("fc_1", "Deck A"),
+                make_flashcard_artifact("fc_2", "Deck B"),
+            ]
+        )
+        mock_client.artifacts.download_flashcards = fake_download_flashcards
 
-            result = runner.invoke(
-                cli,
-                ["download", "flashcards", "--all", str(output_dir), "-n", "nb_123"],
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "flashcards", "--all", str(output_dir), "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         assert sorted(downloaded) == ["fc_1", "fc_2"]
@@ -1832,25 +1806,24 @@ class TestDownloadFlashcardsStandardFlags:
         self, runner, mock_auth, mock_fetch_tokens, tmp_path
     ):
         """--dry-run shows preview without invoking the API."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_file = tmp_path / "cards.json"
-            api_calls: list[str] = []
+        mock_client = create_mock_client()
+        output_file = tmp_path / "cards.json"
+        api_calls: list[str] = []
 
-            async def fake_download_flashcards(*args, **kwargs):
-                api_calls.append("called")
-                return ""
+        async def fake_download_flashcards(*args, **kwargs):
+            api_calls.append("called")
+            return ""
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_flashcard_artifact("fc_1", "Deck One")]
-            )
-            mock_client.artifacts.download_flashcards = fake_download_flashcards
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_flashcard_artifact("fc_1", "Deck One")]
+        )
+        mock_client.artifacts.download_flashcards = fake_download_flashcards
 
-            result = runner.invoke(
-                cli,
-                ["download", "flashcards", str(output_file), "--dry-run", "-n", "nb_123"],
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "flashcards", str(output_file), "--dry-run", "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         assert "DRY RUN" in result.output
@@ -1861,27 +1834,26 @@ class TestDownloadFlashcardsStandardFlags:
         self, runner, mock_auth, mock_fetch_tokens, tmp_path
     ):
         """--force overwrites a file that already exists at output_path."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_file = tmp_path / "cards.json"
-            output_file.write_text("OLD")
+        mock_client = create_mock_client()
+        output_file = tmp_path / "cards.json"
+        output_file.write_text("OLD")
 
-            async def fake_download_flashcards(
-                notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
-            ):
-                Path(output_path).write_text("NEW")
-                return output_path
+        async def fake_download_flashcards(
+            notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
+        ):
+            Path(output_path).write_text("NEW")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_flashcard_artifact("fc_1", "Deck One")]
-            )
-            mock_client.artifacts.download_flashcards = fake_download_flashcards
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_flashcard_artifact("fc_1", "Deck One")]
+        )
+        mock_client.artifacts.download_flashcards = fake_download_flashcards
 
-            result = runner.invoke(
-                cli,
-                ["download", "flashcards", str(output_file), "--force", "-n", "nb_123"],
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "flashcards", str(output_file), "--force", "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         assert output_file.read_text() == "NEW"
@@ -1890,27 +1862,26 @@ class TestDownloadFlashcardsStandardFlags:
         self, runner, mock_auth, mock_fetch_tokens, tmp_path
     ):
         """--no-clobber leaves an existing file untouched."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_file = tmp_path / "cards.json"
-            output_file.write_text("EXISTING")
+        mock_client = create_mock_client()
+        output_file = tmp_path / "cards.json"
+        output_file.write_text("EXISTING")
 
-            async def fake_download_flashcards(
-                notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
-            ):
-                Path(output_path).write_text("OVERWROTE")
-                return output_path
+        async def fake_download_flashcards(
+            notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
+        ):
+            Path(output_path).write_text("OVERWROTE")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_flashcard_artifact("fc_1", "Deck One")]
-            )
-            mock_client.artifacts.download_flashcards = fake_download_flashcards
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_flashcard_artifact("fc_1", "Deck One")]
+        )
+        mock_client.artifacts.download_flashcards = fake_download_flashcards
 
-            runner.invoke(
-                cli,
-                ["download", "flashcards", str(output_file), "--no-clobber", "-n", "nb_123"],
-            )
+        runner.invoke(
+            cli,
+            ["download", "flashcards", str(output_file), "--no-clobber", "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert output_file.read_text() == "EXISTING"
 
@@ -1918,26 +1889,25 @@ class TestDownloadFlashcardsStandardFlags:
         self, runner, mock_auth, mock_fetch_tokens, tmp_path
     ):
         """--json emits a parseable JSON document on success."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_file = tmp_path / "cards.json"
+        mock_client = create_mock_client()
+        output_file = tmp_path / "cards.json"
 
-            async def fake_download_flashcards(
-                notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
-            ):
-                Path(output_path).write_text("{}")
-                return output_path
+        async def fake_download_flashcards(
+            notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
+        ):
+            Path(output_path).write_text("{}")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_flashcard_artifact("fc_1", "Deck One")]
-            )
-            mock_client.artifacts.download_flashcards = fake_download_flashcards
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_flashcard_artifact("fc_1", "Deck One")]
+        )
+        mock_client.artifacts.download_flashcards = fake_download_flashcards
 
-            result = runner.invoke(
-                cli,
-                ["download", "flashcards", str(output_file), "--json", "-n", "nb_123"],
-            )
+        result = runner.invoke(
+            cli,
+            ["download", "flashcards", str(output_file), "--json", "-n", "nb_123"],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         data = json.loads(result.output)
@@ -1949,36 +1919,35 @@ class TestDownloadFlashcardsStandardFlags:
         self, runner, mock_auth, mock_fetch_tokens, tmp_path
     ):
         """--format html propagates output_format='html' to the API."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_file = tmp_path / "cards.html"
-            captured: dict[str, str] = {}
+        mock_client = create_mock_client()
+        output_file = tmp_path / "cards.html"
+        captured: dict[str, str] = {}
 
-            async def fake_download_flashcards(
-                notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
-            ):
-                captured["output_format"] = output_format
-                Path(output_path).write_text("<html></html>")
-                return output_path
+        async def fake_download_flashcards(
+            notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
+        ):
+            captured["output_format"] = output_format
+            Path(output_path).write_text("<html></html>")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[make_flashcard_artifact("fc_1", "Deck One")]
-            )
-            mock_client.artifacts.download_flashcards = fake_download_flashcards
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[make_flashcard_artifact("fc_1", "Deck One")]
+        )
+        mock_client.artifacts.download_flashcards = fake_download_flashcards
 
-            result = runner.invoke(
-                cli,
-                [
-                    "download",
-                    "flashcards",
-                    str(output_file),
-                    "--format",
-                    "html",
-                    "-n",
-                    "nb_123",
-                ],
-            )
+        result = runner.invoke(
+            cli,
+            [
+                "download",
+                "flashcards",
+                str(output_file),
+                "--format",
+                "html",
+                "-n",
+                "nb_123",
+            ],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         assert captured["output_format"] == "html"
@@ -1987,39 +1956,38 @@ class TestDownloadFlashcardsStandardFlags:
         self, runner, mock_auth, mock_fetch_tokens, tmp_path
     ):
         """-a/--artifact selects a specific deck by ID (partial-match resolution)."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            output_file = tmp_path / "cards.json"
-            chosen_ids: list[str | None] = []
+        mock_client = create_mock_client()
+        output_file = tmp_path / "cards.json"
+        chosen_ids: list[str | None] = []
 
-            async def fake_download_flashcards(
-                notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
-            ):
-                chosen_ids.append(artifact_id)
-                Path(output_path).write_text("{}")
-                return output_path
+        async def fake_download_flashcards(
+            notebook_id, output_path, artifact_id=None, output_format="json", **kwargs
+        ):
+            chosen_ids.append(artifact_id)
+            Path(output_path).write_text("{}")
+            return output_path
 
-            mock_client.artifacts.list = AsyncMock(
-                return_value=[
-                    make_flashcard_artifact("fc_aaa111", "Deck A"),
-                    make_flashcard_artifact("fc_bbb222", "Deck B"),
-                ]
-            )
-            mock_client.artifacts.download_flashcards = fake_download_flashcards
-            mock_client_cls.return_value = mock_client
+        mock_client.artifacts.list = AsyncMock(
+            return_value=[
+                make_flashcard_artifact("fc_aaa111", "Deck A"),
+                make_flashcard_artifact("fc_bbb222", "Deck B"),
+            ]
+        )
+        mock_client.artifacts.download_flashcards = fake_download_flashcards
 
-            result = runner.invoke(
-                cli,
-                [
-                    "download",
-                    "flashcards",
-                    str(output_file),
-                    "-a",
-                    "fc_bbb",
-                    "-n",
-                    "nb_123",
-                ],
-            )
+        result = runner.invoke(
+            cli,
+            [
+                "download",
+                "flashcards",
+                str(output_file),
+                "-a",
+                "fc_bbb",
+                "-n",
+                "nb_123",
+            ],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         assert chosen_ids == ["fc_bbb222"]
@@ -2044,7 +2012,7 @@ class TestDownloadFlashcardsStandardFlags:
 #     <N>s" in text mode.
 #   - AuthError surfaces a re-authentication hint
 #     ("Run 'notebooklm login' to re-authenticate.") in text mode.
-#   - Typed exit codes from error_handler.py:64-67:
+#   - Typed exit codes from ``handle_errors``:
 #       1 = library/user error (RateLimit, Auth, Validation, Network, ...)
 #       2 = unexpected/system error (anything else)
 # =============================================================================
@@ -2056,10 +2024,10 @@ class TestDownloadTypedErrorPath:
     def _list_raises(self, exc: Exception):
         """Build a mock client whose `artifacts.list` raises ``exc``.
 
-        The exception fires at the first awaited call inside
-        ``_download_artifacts_generic``, which surfaces directly to the outer
-        ``_run_artifact_download`` exception handler — the exact site under
-        test. The single-download / --all per-artifact try/except
+        The exception fires at the first awaited artifact listing inside
+        ``notebooklm._app.download.execute_download``, which surfaces directly
+        to the outer ``_run_artifact_download`` exception handler — the exact
+        site under test. The single-download / --all per-artifact try/except
         blocks deliberately swallow API errors into ``{"error": ...}`` rows;
         forcing the failure on ``list`` exercises the *typed* handler path.
         """
@@ -2073,11 +2041,11 @@ class TestDownloadTypedErrorPath:
         """RateLimitError surfaces as exit 1 with retry hint in text mode."""
         from notebooklm.exceptions import RateLimitError
 
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client_cls.return_value = self._list_raises(
-                RateLimitError("Quota exceeded", retry_after=42)
-            )
-            result = runner.invoke(cli, ["download", "audio", "-n", "nb_123"])
+        result = runner.invoke(
+            cli,
+            ["download", "audio", "-n", "nb_123"],
+            obj=inject_client(self._list_raises(RateLimitError("Quota exceeded", retry_after=42))),
+        )
 
         assert result.exit_code == 1, result.output
         # Text-mode message routes through error_handler._output_error → safe_echo
@@ -2089,11 +2057,11 @@ class TestDownloadTypedErrorPath:
         """`--json` emits a typed JSON error envelope with retry_after."""
         from notebooklm.exceptions import RateLimitError
 
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client_cls.return_value = self._list_raises(
-                RateLimitError("Quota exceeded", retry_after=42)
-            )
-            result = runner.invoke(cli, ["download", "audio", "--json", "-n", "nb_123"])
+        result = runner.invoke(
+            cli,
+            ["download", "audio", "--json", "-n", "nb_123"],
+            obj=inject_client(self._list_raises(RateLimitError("Quota exceeded", retry_after=42))),
+        )
 
         assert result.exit_code == 1, result.output
         data = json.loads(result.output)
@@ -2108,9 +2076,11 @@ class TestDownloadTypedErrorPath:
         """No retry_after on the exception → field absent from JSON."""
         from notebooklm.exceptions import RateLimitError
 
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client_cls.return_value = self._list_raises(RateLimitError("Quota exceeded"))
-            result = runner.invoke(cli, ["download", "audio", "--json", "-n", "nb_123"])
+        result = runner.invoke(
+            cli,
+            ["download", "audio", "--json", "-n", "nb_123"],
+            obj=inject_client(self._list_raises(RateLimitError("Quota exceeded"))),
+        )
 
         assert result.exit_code == 1, result.output
         data = json.loads(result.output)
@@ -2123,9 +2093,11 @@ class TestDownloadTypedErrorPath:
         """AuthError on the download path shows the typed re-auth hint."""
         from notebooklm.exceptions import AuthError
 
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client_cls.return_value = self._list_raises(AuthError("Token expired"))
-            result = runner.invoke(cli, ["download", "audio", "-n", "nb_123"])
+        result = runner.invoke(
+            cli,
+            ["download", "audio", "-n", "nb_123"],
+            obj=inject_client(self._list_raises(AuthError("Token expired"))),
+        )
 
         assert result.exit_code == 1, result.output
         assert "Authentication error" in result.output
@@ -2136,9 +2108,11 @@ class TestDownloadTypedErrorPath:
         """`--json` emits {"error": true, "code": "AUTH_ERROR", ...} for AuthError."""
         from notebooklm.exceptions import AuthError
 
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client_cls.return_value = self._list_raises(AuthError("Token expired"))
-            result = runner.invoke(cli, ["download", "audio", "--json", "-n", "nb_123"])
+        result = runner.invoke(
+            cli,
+            ["download", "audio", "--json", "-n", "nb_123"],
+            obj=inject_client(self._list_raises(AuthError("Token expired"))),
+        )
 
         assert result.exit_code == 1, result.output
         data = json.loads(result.output)
@@ -2149,10 +2123,12 @@ class TestDownloadTypedErrorPath:
     # ----- Unexpected exceptions (typed exit code 2) ------------------------
 
     def test_unexpected_exception_exits_with_code_2(self, runner, mock_auth, mock_fetch_tokens):
-        """Unknown exceptions exit 2 per error_handler.py:64-67 policy."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client_cls.return_value = self._list_raises(RuntimeError("kaboom"))
-            result = runner.invoke(cli, ["download", "audio", "-n", "nb_123"])
+        """Unknown exceptions exit 2 per ``handle_errors`` policy."""
+        result = runner.invoke(
+            cli,
+            ["download", "audio", "-n", "nb_123"],
+            obj=inject_client(self._list_raises(RuntimeError("kaboom"))),
+        )
 
         # Legacy helpers.handle_error always exited 1; the typed handler must
         # distinguish user errors (1) from system bugs (2).
@@ -2161,9 +2137,11 @@ class TestDownloadTypedErrorPath:
 
     def test_unexpected_exception_json_envelope(self, runner, mock_auth, mock_fetch_tokens):
         """`--json` emits {"code": "UNEXPECTED_ERROR"} with exit 2."""
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client_cls.return_value = self._list_raises(RuntimeError("kaboom"))
-            result = runner.invoke(cli, ["download", "audio", "--json", "-n", "nb_123"])
+        result = runner.invoke(
+            cli,
+            ["download", "audio", "--json", "-n", "nb_123"],
+            obj=inject_client(self._list_raises(RuntimeError("kaboom"))),
+        )
 
         assert result.exit_code == 2, result.output
         data = json.loads(result.output)
@@ -2177,9 +2155,11 @@ class TestDownloadTypedErrorPath:
         """ValidationError reaches the typed handler with its own code."""
         from notebooklm.exceptions import ValidationError
 
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client_cls.return_value = self._list_raises(ValidationError("bad input"))
-            result = runner.invoke(cli, ["download", "audio", "--json", "-n", "nb_123"])
+        result = runner.invoke(
+            cli,
+            ["download", "audio", "--json", "-n", "nb_123"],
+            obj=inject_client(self._list_raises(ValidationError("bad input"))),
+        )
 
         assert result.exit_code == 1, result.output
         data = json.loads(result.output)
@@ -2189,9 +2169,11 @@ class TestDownloadTypedErrorPath:
         """NetworkError reaches the typed handler and surfaces its hint in text."""
         from notebooklm.exceptions import NetworkError
 
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client_cls.return_value = self._list_raises(NetworkError("DNS down"))
-            text_result = runner.invoke(cli, ["download", "audio", "-n", "nb_123"])
+        text_result = runner.invoke(
+            cli,
+            ["download", "audio", "-n", "nb_123"],
+            obj=inject_client(self._list_raises(NetworkError("DNS down"))),
+        )
 
         assert text_result.exit_code == 1, text_result.output
         assert "Network error" in text_result.output
@@ -2208,20 +2190,19 @@ class TestDownloadTypedErrorPath:
     def test_json_returned_error_envelope_unchanged_exit_1(
         self, runner, mock_auth, mock_fetch_tokens
     ):
-        """The pre-existing "no completed artifacts" → JSON {"error": "..."} + exit 1
-        path (download.py:709-710) is preserved by the typed-handler refactor.
+        """The pre-existing "no completed artifacts" JSON error path is preserved.
 
         That branch surfaces a *returned* dict-shaped error from
-        ``_download_artifacts_generic`` (not a raised exception), so it must
-        NOT be re-routed through the typed handler — exit 1 with the legacy
-        ``error: "<msg>"`` JSON shape is the documented behavior.
+        the ``DownloadOutcome.NO_ARTIFACTS`` branch (not a raised exception),
+        so it must NOT be re-routed through the typed handler — exit 1 with
+        the legacy ``error: "<msg>"`` JSON shape is the documented behavior.
         """
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_client_cls:
-            mock_client = create_mock_client()
-            mock_client.artifacts.list = AsyncMock(return_value=[])
-            mock_client_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.artifacts.list = AsyncMock(return_value=[])
 
-            result = runner.invoke(cli, ["download", "audio", "--json", "-n", "nb_123"])
+        result = runner.invoke(
+            cli, ["download", "audio", "--json", "-n", "nb_123"], obj=inject_client(mock_client)
+        )
 
         assert result.exit_code == 1, result.output
         data = json.loads(result.output)
@@ -2243,7 +2224,7 @@ class TestDownloadTypedErrorPath:
         ``tests/integration/cli_vcr/test_downloads.py`` (which asserts
         ``exit_code in (0, 1)`` for unauth invocations) keeps passing.
         """
-        with patch("notebooklm.cli.helpers.get_auth_tokens") as mock_get_auth_tokens:
+        with patch.object(helpers_module, "get_auth_tokens") as mock_get_auth_tokens:
             mock_get_auth_tokens.side_effect = FileNotFoundError(
                 "Storage file not found: /tmp/missing/storage_state.json"
             )
@@ -2257,7 +2238,7 @@ class TestDownloadTypedErrorPath:
 
     def test_missing_storage_json_emits_auth_required_envelope(self, runner):
         """Missing storage in --json mode emits AUTH_REQUIRED envelope, exit 1."""
-        with patch("notebooklm.cli.helpers.get_auth_tokens") as mock_get_auth_tokens:
+        with patch.object(helpers_module, "get_auth_tokens") as mock_get_auth_tokens:
             mock_get_auth_tokens.side_effect = FileNotFoundError("Storage file not found")
             result = runner.invoke(cli, ["download", "audio", "--json", "-n", "nb_123"])
 

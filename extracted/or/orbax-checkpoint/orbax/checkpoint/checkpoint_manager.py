@@ -63,8 +63,6 @@ from orbax.checkpoint._src.path import temporary_paths
 from orbax.checkpoint._src.path import utils as path_utils
 from typing_extensions import Self  # for Python version < 3.11
 
-
-
 PyTree = Any
 CheckpointDirs = Tuple[str, str]
 SaveParams = Mapping[str, Any]
@@ -265,8 +263,6 @@ class CheckpointManagerOptions:
     deprecated, do not use. use `preservation_policy` instead.
   keep_period:
     deprecated, do not use. use `preservation_policy` instead.
-  should_keep_fn:
-    deprecated, do not use. use `preservation_policy` instead.
   best_fn:
     If set, maintains checkpoints based on the quality of given
     metrics rather than recency. The function should accept a PyTree of metrics,
@@ -350,9 +346,9 @@ class CheckpointManagerOptions:
   preservation_policy: An object used to determine which checkpoints to
     preserve. If provided, overrides any other options dealing with this
     subject, including `max_to_keep`, `keep_time_interval`, `keep_period`, and
-    `should_keep_fn`, `best_fn`, and is the sole means of determining which
-    checkpoints to preserve. If not provided, these other options are used
-    instead. Prefer to use this option over others.
+    `best_fn`, and is the sole means of determining which checkpoints to
+    preserve. If not provided, these other options are used instead. Prefer to
+    use this option over others.
   prevent_write_metrics: False by default. If True, metrics will not be written.
   enable_should_save_is_saving_in_progress_check: True by default. If False,
     `should_save_fn` will not check `is_saving_in_progress`, and will assume
@@ -375,7 +371,6 @@ class CheckpointManagerOptions:
   max_to_keep: Optional[int] = None
   keep_time_interval: Optional[datetime.timedelta] = None
   keep_period: Optional[int] = None
-  should_keep_fn: Optional[Callable[[int], bool]] = None
   best_fn: Optional[Callable[[PyTree], float]] = None
   best_mode: str = 'max'
   keep_checkpoints_without_metrics: bool = True
@@ -465,10 +460,8 @@ class CheckpointManagerOptions:
       )
     if self.read_only and self.keep_period is not None:
       self.keep_period = None
-      self.should_keep_fn = None
       logging.warning(
-          'CheckpointManagerOptions.read_only=True, setting keep_period=None'
-          ' and should_keep_fn=None.'
+          'CheckpointManagerOptions.read_only=True, setting keep_period=None.'
       )
     if self.read_only and self.create:
       self.create = False
@@ -513,14 +506,7 @@ class CheckpointManagerOptions:
           'CheckpointManagerOptions.read_only=True, setting'
           ' should_save_fn=None.'
       )
-    if self.preservation_policy is None and self.should_keep_fn is not None:
-      logging.warning(
-          'CheckpointManagerOptions.should_keep_fn is set, setting'
-          ' keep_period=None (was %s).',
-          self.keep_period,
-      )
-      self.keep_period = None
-    self.save_on_steps = frozenset(self.save_on_steps or ())
+    self.save_on_steps = frozenset(self.save_on_steps or ())  # pyrefly: ignore[bad-argument-type]
 
 
 def _get_args_for_key(
@@ -922,7 +908,7 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     self._save_progress_tracker = synchronization.MultihostSynchronizedValue(
         value=False,
         multiprocessing_options=self._multiprocessing_options,
-        async_options=self._options.async_options,
+        async_options=self._options.async_options,  # pyrefly: ignore[bad-argument-type]
     )
 
     self._last_save_time = None
@@ -937,6 +923,10 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
         self._options,
         self.directory,
         self,
+    )
+    jax.monitoring.record_scalar(
+        '/jax/orbax/checkpoint_manager/continuous_checkpointing_enabled',
+        int(self._is_continuous_checkpointing_enabled()),
     )
 
   def _maybe_await_cleanup_tmp_directory(self):
@@ -1081,14 +1071,14 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
       # Update all_item_handlers with provided CheckpointHandlers.
       if item_handlers and isinstance(item_handlers, Mapping):
         for item_name, handler in item_handlers.items():
-          all_item_handlers[item_name] = handler
+          all_item_handlers[item_name] = handler  # pyrefly: ignore[unsupported-operation]
 
     for item_name in all_item_handlers:
       if item_name in RESERVED_ITEM_NAMES:
         raise ValueError(
             f'Found {item_name} in `checkpointers`; this is a reserved key.'
         )
-    all_item_handlers[METRIC_ITEM_NAME] = self._metrics_handler
+    all_item_handlers[METRIC_ITEM_NAME] = self._metrics_handler  # pyrefly: ignore[unsupported-operation]
     # CompositeCheckpointHandler defers per-item handler creation until
     # save/restore time.
     async_options = options.async_options or AsyncOptions()
@@ -1102,7 +1092,7 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
                 file_options=options.file_options,
                 async_options=async_options,
             ),
-            **all_item_handlers,
+            **all_item_handlers,  # pyrefly: ignore[bad-argument-type]
         ),
         options,
         options.enable_async_checkpointing,
@@ -1238,7 +1228,7 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
         multiprocessing_options=self._multiprocessing_options,
     )
     return self._save_decision_policy.should_save(
-        current_step_info, previous_steps=self._checkpoints, context=context
+        current_step_info, previous_steps=self._checkpoints, context=context  # pyrefly: ignore[bad-argument-type]
     )
 
   def _get_save_directory(
@@ -1400,10 +1390,11 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     step_stats.step = step
     step_stats.checkpoint_manager_blocking_start_time = time.time()
     step_stats.directory = str(self.directory)
+    validation_start_time = time.time()
 
     if items is None and args is None:
       raise ValueError('Must provide `args` for `save`.')
-    self._default_item.set_if_none(determine_default_item_mode_from_args(args))
+    self._default_item.set_if_none(determine_default_item_mode_from_args(args))  # pyrefly: ignore[bad-argument-type]
     self._validate_args(items, args)
     if not force and not self.should_save(step):
       return False
@@ -1443,6 +1434,9 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
       jax.monitoring.record_event_duration_secs(
           '/jax/orbax/checkpoint_manager/time_between_consecutive_saves_secs',
           step_stats.time_between_consecutive_saves_sec,
+          continuous_checkpointing_enabled=int(
+              self._is_continuous_checkpointing_enabled()
+          ),
       )
     self.wait_until_finished()
     step_stats.wait_for_prev_duration_secs = self._wait_for_prev_save_duration
@@ -1514,6 +1508,17 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     logging.info(
         '[process=%s] Saving checkpoint at step %d', process_index, step
     )
+    validation_duration = time.time() - validation_start_time
+    if is_async_checkpointer(self._checkpointer):
+      jax.monitoring.record_event_duration_secs(
+          '/jax/orbax/write/async/validation_duration_secs',
+          validation_duration,
+      )
+    else:
+      jax.monitoring.record_event_duration_secs(
+          '/jax/orbax/write/validation_duration_secs',
+          validation_duration,
+      )
     step_stats.checkpointer_blocking_start_time = time.time()
     self._checkpointer.save(
         save_directory, args=args, custom_metadata=custom_metadata, force=True
@@ -1593,6 +1598,19 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     )
     self._logger.log_entry(dataclasses.asdict(step_stats))
     return True
+
+  def _is_continuous_checkpointing_enabled(self) -> bool:
+    """Returns True if continuous checkpointing is enabled."""
+    decision_policy = self._options.save_decision_policy
+    policies = (
+        decision_policy.policies
+        if isinstance(decision_policy, save_decision_policy_lib.AnySavePolicy)
+        else [decision_policy]
+    )
+    return any(
+        isinstance(p, save_decision_policy_lib.ContinuousCheckpointingPolicy)
+        for p in policies
+    )
 
   def _maybe_get_default_item(
       self, composite_result: args_lib.Composite
@@ -1895,9 +1913,9 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
         )
     )
     step_metadata.item_metadata = self._maybe_get_default_item(
-        step_metadata.item_metadata
+        step_metadata.item_metadata  # pyrefly: ignore[bad-argument-type]
     )
-    if METRIC_ITEM_NAME in step_metadata.item_handlers:
+    if METRIC_ITEM_NAME in step_metadata.item_handlers:  # pyrefly: ignore[not-iterable]
       metrics = self._get_metrics(step)
       if metrics is not None:
         validated_metrics = step_metadata_serialization.deserialize(
@@ -1932,7 +1950,7 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
     return self._root_metadata.get()
 
   @overload
-  def metadata(self, step: None = None) -> RootMetadata:
+  def metadata(self, step: None = None) -> RootMetadata:  # pyrefly: ignore[bad-override]
     ...
 
   @overload
@@ -1964,7 +1982,7 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
 
     return without_metrics, sorted(
         with_metrics,
-        key=lambda info: self._options.best_fn(info.metrics),
+        key=lambda info: self._options.best_fn(info.metrics),  # pyrefly: ignore[not-callable]
         reverse=(self._options.best_mode == 'min'),
     )
 
@@ -1984,10 +2002,6 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
             self._checkpoints, preservation_result
         )
         if not should_preserve
-        and (
-            self._options.should_keep_fn is None
-            or not self._options.should_keep_fn(checkpoint.step)
-        )
     ]
 
   def _wait_for_checkpointers(self):
@@ -2064,6 +2078,16 @@ class CheckpointManager(AbstractCheckpointManager, epy.ContextManager):
             '/jax/checkpoint/write/wait_for_prev_duration_secs',
             duration,
         )
+        if self._finalize_thread.get() is not None:
+          jax.monitoring.record_event_duration_secs(
+              '/jax/orbax/write/async/wait_for_prev_duration_secs',
+              duration,
+          )
+        else:
+          jax.monitoring.record_event_duration_secs(
+              '/jax/orbax/write/wait_for_prev_duration_secs',
+              duration,
+          )
         self._wait_for_prev_save_duration += duration
 
   def is_saving_in_progress(self) -> bool:

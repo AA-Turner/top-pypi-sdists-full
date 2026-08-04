@@ -30,14 +30,18 @@ import click
 import pytest
 from click.testing import CliRunner
 
+import notebooklm.auth as auth_module
+import notebooklm.cli.helpers as helpers_module
 from notebooklm import paths as paths_module
 from notebooklm.notebooklm_cli import cli
 from notebooklm.rpc.types import ShareAccess, ShareViewLevel
 from notebooklm.types import (
     Artifact,
     AskResult,
+    Label,
     Note,
     Notebook,
+    PromptSuggestion,
     ResearchSource,
     ResearchStart,
     ResearchStatus,
@@ -80,8 +84,10 @@ def runner() -> CliRunner:
 def mock_auth_env() -> Generator[None, None, None]:
     """Stub auth loading + token fetch so --json paths run offline."""
     with (
-        patch("notebooklm.cli.helpers.load_auth_from_storage") as mock_load,
-        patch("notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock) as mock_fetch,
+        patch.object(helpers_module, "load_auth_from_storage") as mock_load,
+        patch.object(
+            auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
+        ) as mock_fetch,
     ):
         mock_load.return_value = {
             "SID": "test",
@@ -143,6 +149,18 @@ def _stub_notes() -> list[Note]:
     ]
 
 
+def _stub_labels() -> list[Label]:
+    return [
+        Label(
+            id="lbl123def456ghi789jkl",
+            name="Papers",
+            notebook_id="abc123def456ghi789jkl",
+            emoji="📄",
+            source_ids=["src123def456ghi789jkl"],
+        ),
+    ]
+
+
 def _stub_share_status(notebook_id: str = "abc123def456ghi789jkl") -> ShareStatus:
     return ShareStatus(
         notebook_id=notebook_id,
@@ -173,6 +191,7 @@ def _make_client(extra_setup=None) -> MagicMock:
         "research",
         "notes",
         "sharing",
+        "labels",
     ):
         setattr(client, ns, MagicMock())
 
@@ -225,45 +244,37 @@ def _make_client(extra_setup=None) -> MagicMock:
     client.chat.get_conversation_id = AsyncMock(return_value=None)
     client.chat.get_history = AsyncMock(return_value=[])
 
+    # label group: list/generate echo the label set; sources expands a label to
+    # its sources; the CRUD verbs return a Label (delete -> None). resolve_label_id
+    # also walks labels.list, so the canned list backs the resolver too.
+    client.labels.list = AsyncMock(return_value=_stub_labels())
+    client.labels.generate = AsyncMock(return_value=_stub_labels())
+    client.labels.sources = AsyncMock(return_value=_stub_sources())
+    client.labels.create = AsyncMock(return_value=_stub_labels()[0])
+    client.labels.rename = AsyncMock(return_value=_stub_labels()[0])
+    client.labels.set_emoji = AsyncMock(return_value=_stub_labels()[0])
+    client.labels.add_sources = AsyncMock(return_value=_stub_labels()[0])
+    client.labels.remove_sources = AsyncMock(return_value=_stub_labels()[0])
+    client.labels.delete = AsyncMock(return_value=None)
+
     if extra_setup is not None:
         extra_setup(client)
     return client
 
 
-def _patch_modules() -> list:
-    """Return patch objects for every cli module that constructs NotebookLMClient.
-
-    Caller does the ``with`` dance themselves so they can swap in a fresh mock
-    instance for each command invocation.
-    """
-    modules = [
-        "notebooklm.cli.notebook_cmd",
-        "notebooklm.cli.chat_cmd",
-        "notebooklm.cli.session_cmd",
-        "notebooklm.cli.share_cmd",
-        "notebooklm.cli.source_cmd",
-        "notebooklm.cli.artifact_cmd",
-        "notebooklm.cli.research_cmd",
-        "notebooklm.cli.note_cmd",
-        "notebooklm.cli.generate_cmd",
-        "notebooklm.cli.download_cmd",
-    ]
-    # Post-P3.T0: `*_cmd` modules are not shadowed, so direct string-form
-    # `patch(...)` resolves correctly without importlib indirection.
-    return [patch(f"{name}.NotebookLMClient") for name in modules]
-
-
 def _run_with_mock_client(runner: CliRunner, args: list[str], client: MagicMock):
-    """Invoke the CLI with NotebookLMClient mocked in every relevant module."""
-    patches = _patch_modules()
-    try:
-        for p in patches:
-            cls = p.start()
-            cls.return_value = client
-        return runner.invoke(cli, args, catch_exceptions=False)
-    finally:
-        for p in patches:
-            p.stop()
+    """Invoke the CLI with ``client`` injected via ``ctx.obj``.
+
+    The dual-path resolver (``cli.auth_runtime.resolve_client_factory``) reads
+    ``ctx.obj["client_factory"]`` first, so seeding it makes every command
+    construct ``client`` instead of the real ``NotebookLMClient`` -- the
+    replacement for the old per-``*_cmd``-module ``patch(...)`` sweep.
+    """
+
+    def factory(auth=None, **kwargs):
+        return client
+
+    return runner.invoke(cli, args, obj={"client_factory": factory}, catch_exceptions=False)
 
 
 # ---------------------------------------------------------------------------
@@ -285,6 +296,15 @@ def _customize_chat_ask(client: MagicMock) -> None:
             references=[],
             raw_response="",
         )
+    )
+
+
+def _customize_suggest_prompts(client: MagicMock) -> None:
+    client.notebooks.suggest_prompts = AsyncMock(
+        return_value=[
+            PromptSuggestion(title="Briefing", prompt="Give me a briefing."),
+            PromptSuggestion(title="Risks", prompt="What are the key risks?"),
+        ]
     )
 
 
@@ -343,6 +363,12 @@ def _customize_research_wait(client: MagicMock) -> None:
             }
         )
     )
+
+
+def _customize_research_cancel(client: MagicMock) -> None:
+    # `research cancel <run_id> --json` is fire-and-forget: ``cancel`` returns
+    # None and the command emits a fixed JSON acknowledgement.
+    client.research.cancel = AsyncMock(return_value=None)
 
 
 def _customize_notebook_create(client: MagicMock) -> None:
@@ -475,6 +501,11 @@ JSON_COMMANDS: list[tuple[str, list[str], object]] = [
         ["research", "wait", "-n", "abc123def456ghi789jkl", "--json"],
         _customize_research_wait,
     ),
+    (
+        "research_cancel",
+        ["research", "cancel", "run_456", "-n", "abc123def456ghi789jkl", "--json"],
+        _customize_research_cancel,
+    ),
     # share group
     ("share_status", ["share", "status", "-n", "abc123def456ghi789jkl", "--json"], None),
     (
@@ -489,6 +520,89 @@ JSON_COMMANDS: list[tuple[str, list[str], object]] = [
     ),
     # note group
     ("note_list", ["note", "list", "-n", "abc123def456ghi789jkl", "--json"], None),
+    # label group — list/sources/generate echo the label set; CRUD verbs return
+    # a Label (delete -> None). The fake client.labels is wired in _make_client.
+    ("label_list", ["label", "list", "-n", "abc123def456ghi789jkl", "--json"], None),
+    (
+        "label_sources",
+        ["label", "sources", "lbl123def456ghi789jkl", "-n", "abc123def456ghi789jkl", "--json"],
+        None,
+    ),
+    (
+        "label_generate",
+        ["label", "generate", "-n", "abc123def456ghi789jkl", "--json"],
+        None,
+    ),
+    (
+        "label_create",
+        ["label", "create", "Papers", "-n", "abc123def456ghi789jkl", "--json"],
+        None,
+    ),
+    (
+        "label_rename",
+        [
+            "label",
+            "rename",
+            "lbl123def456ghi789jkl",
+            "Articles",
+            "-n",
+            "abc123def456ghi789jkl",
+            "--json",
+        ],
+        None,
+    ),
+    (
+        "label_emoji",
+        [
+            "label",
+            "emoji",
+            "lbl123def456ghi789jkl",
+            "🔬",
+            "-n",
+            "abc123def456ghi789jkl",
+            "--json",
+        ],
+        None,
+    ),
+    (
+        "label_add",
+        [
+            "label",
+            "add",
+            "lbl123def456ghi789jkl",
+            "src123def456ghi789jkl",
+            "-n",
+            "abc123def456ghi789jkl",
+            "--json",
+        ],
+        None,
+    ),
+    (
+        "label_remove",
+        [
+            "label",
+            "remove",
+            "lbl123def456ghi789jkl",
+            "src123def456ghi789jkl",
+            "-n",
+            "abc123def456ghi789jkl",
+            "--json",
+        ],
+        None,
+    ),
+    (
+        "label_delete",
+        [
+            "label",
+            "delete",
+            "lbl123def456ghi789jkl",
+            "-n",
+            "abc123def456ghi789jkl",
+            "--yes",
+            "--json",
+        ],
+        None,
+    ),
     # notebook group (top-level via session/notebook modules)
     ("notebook_list", ["list", "--json"], None),
     ("notebook_metadata", ["metadata", "-n", "abc123def456ghi789jkl", "--json"], None),
@@ -505,6 +619,11 @@ JSON_COMMANDS: list[tuple[str, list[str], object]] = [
         "history_cmd",
         ["history", "-n", "abc123def456ghi789jkl", "--json"],
         None,
+    ),
+    (
+        "suggest_prompts_cmd",
+        ["suggest-prompts", "-n", "abc123def456ghi789jkl", "--json"],
+        _customize_suggest_prompts,
     ),
     # doctor / profile / notebook-create coverage (meta-audit G9 + I7 + I9):
     # `doctor` and `profile list` read NOTEBOOKLM_HOME directly and don't
@@ -659,20 +778,51 @@ _INTROSPECTION_RATIONALE = (
     "success path; ``--json`` purity is checked indirectly by the format unit "
     "tests in tests/unit/cli/."
 )
+_PROFILE_RATIONALE = (
+    "Local filesystem profile mutation (no NotebookLMClient); the ``--json`` "
+    "success payloads AND the validation-error envelope (VALIDATION_ERROR, via "
+    "the grouped-CLI ClickException handler) are asserted directly in "
+    "tests/unit/cli/test_profile.py::TestProfileJsonOutput."
+)
+_SESSION_LOCAL_RATIONALE = (
+    "Local session-context / auth-state command (no NotebookLMClient); the "
+    "``--json`` success and error envelopes are asserted in "
+    "tests/unit/cli/test_cli_session_local.py + test_auth_subcommands.py "
+    "(incl. auth refresh --verify failure and the --browser-cookies refusal)."
+)
+_SKILL_PACKAGE_RATIONALE = (
+    "Local artifact build (no NotebookLMClient); the ``--json`` success "
+    "payload AND the OUTPUT_EXISTS / SKILL_SOURCE_MISSING / WRITE_FAILED "
+    "error envelopes are asserted directly in "
+    "tests/unit/cli/test_skill.py::TestSkillPackage."
+)
 
 
 JSON_SUCCESS_WAIVED: dict[tuple[str, ...], str] = {
+    # session/profile/skill local commands — no NotebookLMClient; --json output
+    # is asserted in the dedicated cli unit tests named in each rationale.
+    ("clear",): _SESSION_LOCAL_RATIONALE,
+    ("auth", "logout"): _SESSION_LOCAL_RATIONALE,
+    ("auth", "refresh"): _SESSION_LOCAL_RATIONALE,
+    ("profile", "create"): _PROFILE_RATIONALE,
+    ("profile", "delete"): _PROFILE_RATIONALE,
+    ("profile", "rename"): _PROFILE_RATIONALE,
+    ("profile", "switch"): _PROFILE_RATIONALE,
+    ("skill", "package"): _SKILL_PACKAGE_RATIONALE,
+    ("skill", "status"): _INTROSPECTION_RATIONALE,
     # artifact group — get/poll/wait need a real or fully-stubbed generation
     # status payload that round-trips through the artifact formatter chain.
     ("artifact", "delete"): _MUTATION_RATIONALE_SUCCESS,
     ("artifact", "export"): _MUTATION_RATIONALE_SUCCESS,
     ("artifact", "get"): _MUTATION_RATIONALE_SUCCESS,
+    ("artifact", "get-prompt"): _MUTATION_RATIONALE_SUCCESS,
     ("artifact", "poll"): _MUTATION_RATIONALE_SUCCESS,
     ("artifact", "rename"): _MUTATION_RATIONALE_SUCCESS,
     ("artifact", "retry"): _MUTATION_RATIONALE_SUCCESS,
     ("artifact", "wait"): _MUTATION_RATIONALE_SUCCESS,
     # auth-flow commands (covered by dedicated test files).
     ("auth", "check"): _AUTH_RATIONALE,
+    ("auth", "import-cookies"): _AUTH_RATIONALE,
     ("auth", "inspect"): _AUTH_RATIONALE,
     ("configure",): _AUTH_RATIONALE,
     # top-level notebook `delete` mutation — success path is covered by
@@ -723,6 +873,7 @@ JSON_SUCCESS_WAIVED: dict[tuple[str, ...], str] = {
     # mutations or wait-loops.
     ("source", "add"): _MUTATION_RATIONALE_SUCCESS,
     ("source", "add-drive"): _MUTATION_RATIONALE_SUCCESS,
+    ("source", "add-drive-file"): _MUTATION_RATIONALE_SUCCESS,
     ("source", "clean"): _MUTATION_RATIONALE_SUCCESS,
     ("source", "delete"): _MUTATION_RATIONALE_SUCCESS,
     ("source", "delete-by-title"): _MUTATION_RATIONALE_SUCCESS,
@@ -738,18 +889,31 @@ JSON_SUCCESS_WAIVED: dict[tuple[str, ...], str] = {
 
 
 JSON_ERROR_WAIVED: dict[tuple[str, ...], str] = {
+    # session/profile/skill local commands — error envelope asserted in the
+    # dedicated cli unit tests named in each rationale.
+    ("clear",): _SESSION_LOCAL_RATIONALE,
+    ("auth", "logout"): _SESSION_LOCAL_RATIONALE,
+    ("auth", "refresh"): _SESSION_LOCAL_RATIONALE,
+    ("profile", "create"): _PROFILE_RATIONALE,
+    ("profile", "delete"): _PROFILE_RATIONALE,
+    ("profile", "rename"): _PROFILE_RATIONALE,
+    ("profile", "switch"): _PROFILE_RATIONALE,
+    ("skill", "package"): _SKILL_PACKAGE_RATIONALE,
+    ("skill", "status"): _INTROSPECTION_RATIONALE,
     # artifact group — error envelope is covered for list + wait. Remaining
     # entries are mutations that surface @with_client's UNEXPECTED_ERROR
     # envelope on RPC failure; coverage can grow with the suite.
     ("artifact", "delete"): _MUTATION_RATIONALE_ERROR,
     ("artifact", "export"): _MUTATION_RATIONALE_ERROR,
     ("artifact", "get"): _MUTATION_RATIONALE_ERROR,
+    ("artifact", "get-prompt"): _MUTATION_RATIONALE_ERROR,
     ("artifact", "poll"): _MUTATION_RATIONALE_ERROR,
     ("artifact", "rename"): _MUTATION_RATIONALE_ERROR,
     ("artifact", "retry"): _MUTATION_RATIONALE_ERROR,
     ("artifact", "suggestions"): _MUTATION_RATIONALE_ERROR,
     # auth-flow error paths (covered by dedicated test files).
     ("auth", "check"): _AUTH_RATIONALE,
+    ("auth", "import-cookies"): _AUTH_RATIONALE,
     ("auth", "inspect"): _AUTH_RATIONALE,
     ("configure",): _AUTH_RATIONALE,
     # top-level notebook `delete` mutation — error path is covered by
@@ -797,6 +961,7 @@ JSON_ERROR_WAIVED: dict[tuple[str, ...], str] = {
     # source group — list error is covered; remaining mutations + introspection.
     ("source", "add"): _MUTATION_RATIONALE_ERROR,
     ("source", "add-drive"): _MUTATION_RATIONALE_ERROR,
+    ("source", "add-drive-file"): _MUTATION_RATIONALE_ERROR,
     ("source", "clean"): _MUTATION_RATIONALE_ERROR,
     ("source", "delete"): _MUTATION_RATIONALE_ERROR,
     ("source", "delete-by-title"): _MUTATION_RATIONALE_ERROR,
@@ -819,12 +984,10 @@ def _success_covered_paths() -> set[tuple[str, ...]]:
 def _load_error_cases() -> list[tuple[str, list[str], object]]:
     """Side-load ``JSON_ERROR_CASES`` from the sibling test file.
 
-    ``tests/`` is collected by pytest but not exposed as a Python package
-    (no ``__init__.py``), so a plain ``from tests.unit.test_json_error_exit
-    import JSON_ERROR_CASES`` fails at runtime. Load the sibling module by
-    file path instead — this also keeps the import lazy so a parse error in
-    the sibling file surfaces here as a clear inventory-test failure
-    instead of polluting this module's collection.
+    Load by file path so this inventory check stays lazy and gets a fresh
+    sibling module instance; a parse error in the sibling file surfaces here as
+    a clear inventory-test failure instead of polluting this module's
+    collection.
     """
     import importlib.util
 

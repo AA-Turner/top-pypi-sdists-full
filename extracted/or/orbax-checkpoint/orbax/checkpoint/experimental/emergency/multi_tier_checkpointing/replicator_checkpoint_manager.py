@@ -356,11 +356,13 @@ class _ReplicatorLocalCheckpointEngine:
 
   def _run_initial_garbage_collection(self) -> None:
     """Remove steps that might be left over from previous runs."""
-    logging.info('Running initial garbage collection at %s.', self.directory)
-    logging.info('Cleaning up existing temporary directories.')
     tmp_paths = list(step_lib.all_temporary_paths(self.directory))
-    logging.info('Found %d tmp files.', len(tmp_paths))
-    logging.vlog(1, 'Found tmp files: %s', tmp_paths)
+    logging.vlog(
+        2,
+        'Running initial garbage collection at %s; temporary paths=%s.',
+        self.directory,
+        tmp_paths,
+    )
     for tmp_path in tmp_paths:
       tmp_path.get().rmtree()
 
@@ -395,6 +397,7 @@ class _ReplicatorLocalCheckpointEngine:
       args: args_lib.Composite,
       *,
       force: bool = False,
+      custom_metadata: dict[str, Any] | None = None,
   ) -> bool:
     """Local save path shared by standard and sidecar execution."""
     if not force and not self.should_save(step):
@@ -419,7 +422,9 @@ class _ReplicatorLocalCheckpointEngine:
     dataset_args = args_dict.pop(_DATASET_ITEM_NAME, None)
     args_dict[_PROCESS_METADATA_NAME] = process_metadata_args
     args = args_lib.Composite(**args_dict)
-    saved = self._impl.save(step, args=args, force=force)
+    saved = self._impl.save(
+        step, args=args, force=force, custom_metadata=custom_metadata
+    )
 
     if not saved:
       return False
@@ -434,6 +439,7 @@ class _ReplicatorLocalCheckpointEngine:
               **{_DATASET_ITEM_NAME: dataset_args}
           ),
           force=force,
+          custom_metadata=custom_metadata,
       )
     return True
 
@@ -583,7 +589,8 @@ class _ReplicatorLocalCheckpointEngine:
         current_distributed_to_device_ids,
         previous_device_ids,
     )
-    logging.info(
+    logging.vlog(
+        2,
         'MTC restore placement: sidecar=%s, mesh_consistency_supported=%s, '
         'previous_processes=%d, current_processes=%d, previous_devices=%d, '
         'current_devices=%d, previous_mesh_devices=%d',
@@ -726,7 +733,7 @@ class _ReplicatorLocalCheckpointEngine:
 
     return self._get_mesh_consistent_result(
         original_args,
-        restored,
+        restored,  # pyrefly: ignore[bad-argument-type]
         default_item_mode=default_item_mode,
     )
 
@@ -1030,11 +1037,16 @@ class ReplicatorCheckpointManager(
       args: args_lib.Composite,
       *,
       force: bool = False,
+      custom_metadata: dict[str, Any] | None = None,
   ) -> bool:
     args = self._validate_and_standardize_args(args)
     if self._colocated_controller is not None:
-      return self._colocated_controller.save(step, args, force=force)
-    return self._non_null_local_engine.save(step, args, force=force)
+      return self._colocated_controller.save(
+          step, args, force=force, custom_metadata=custom_metadata
+      )
+    return self._non_null_local_engine.save(
+        step, args, force=force, custom_metadata=custom_metadata
+    )
 
   def _standard_save(
       self,
@@ -1042,9 +1054,12 @@ class ReplicatorCheckpointManager(
       args: args_lib.Composite,
       *,
       force: bool = False,
+      custom_metadata: dict[str, Any] | None = None,
   ) -> bool:
     """Standard (multi-controller) save path."""
-    return self._non_null_local_engine.save(step, args, force=force)
+    return self._non_null_local_engine.save(
+        step, args, force=force, custom_metadata=custom_metadata
+    )
 
   def _get_mesh_consistent_args(
       self,

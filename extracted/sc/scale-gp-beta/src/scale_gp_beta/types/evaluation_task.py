@@ -41,6 +41,7 @@ __all__ = [
     "ApplicationVariantV1EvaluationTaskConfigurationOverridesAgenticApplicationOverrides",
     "ApplicationVariantV1EvaluationTaskConfigurationOverridesAgenticApplicationOverridesInitialState",
     "ApplicationVariantV1EvaluationTaskConfigurationOverridesAgenticApplicationOverridesPartialTrace",
+    "ApplicationVariantV1EvaluationTaskConfigurationOverridesUnionMember1ApplicationVariantV1EvaluationTaskConfigurationOverridesUnionMember1Item",
     "AgentexOutputEvaluationTask",
     "AgentexOutputEvaluationTaskConfiguration",
     "MetricEvaluationTask",
@@ -75,58 +76,134 @@ __all__ = [
 
 class ChatCompletionEvaluationTaskConfiguration(BaseModel):
     messages: Union[List[Dict[str, object]], ItemLocator]
+    """openai standard message format"""
 
     model: str
+    """model specified as `model_vendor/model`, for example `openai/gpt-4o`"""
 
     audio: Union[Dict[str, object], ItemLocator, None] = None
+    """Parameters for audio output.
+
+    Required when audio output is requested with modalities: ['audio'].
+    """
 
     frequency_penalty: Union[float, ItemLocator, None] = None
+    """Number between -2.0 and 2.0.
+
+    Positive values penalize new tokens based on their existing frequency in the
+    text so far.
+    """
 
     function_call: Union[Dict[str, object], ItemLocator, None] = None
+    """Deprecated in favor of tool_choice.
+
+    Controls which function is called by the model.
+    """
 
     functions: Union[List[Dict[str, object]], ItemLocator, None] = None
+    """Deprecated in favor of tools.
+
+    A list of functions the model may generate JSON inputs for.
+    """
 
     logit_bias: Union[Dict[str, int], ItemLocator, None] = None
+    """Modify the likelihood of specified tokens appearing in the completion.
+
+    Maps tokens to bias values from -100 to 100.
+    """
 
     logprobs: Union[bool, ItemLocator, None] = None
+    """Whether to return log probabilities of the output tokens or not."""
 
     max_completion_tokens: Union[int, ItemLocator, None] = None
+    """
+    An upper bound for the number of tokens that can be generated, including visible
+    output tokens and reasoning tokens.
+    """
 
     max_tokens: Union[int, ItemLocator, None] = None
+    """Deprecated in favor of max_completion_tokens.
+
+    The maximum number of tokens to generate.
+    """
 
     metadata: Union[Dict[str, str], ItemLocator, None] = None
+    """
+    Developer-defined tags and values used for filtering completions in the
+    dashboard.
+    """
 
     modalities: Union[List[str], ItemLocator, None] = None
+    """Output types that you would like the model to generate for this request."""
 
     n: Union[int, ItemLocator, None] = None
+    """How many chat completion choices to generate for each input message."""
 
     parallel_tool_calls: Union[bool, ItemLocator, None] = None
+    """Whether to enable parallel function calling during tool use."""
 
     prediction: Union[Dict[str, object], ItemLocator, None] = None
+    """
+    Static predicted output content, such as the content of a text file being
+    regenerated.
+    """
 
     presence_penalty: Union[float, ItemLocator, None] = None
+    """Number between -2.0 and 2.0.
+
+    Positive values penalize tokens based on whether they appear in the text so far.
+    """
 
     reasoning_effort: Optional[str] = None
+    """For o1 models only. Constrains effort on reasoning. Values: low, medium, high."""
 
     response_format: Union[Dict[str, object], ItemLocator, None] = None
+    """An object specifying the format that the model must output."""
 
     seed: Union[int, ItemLocator, None] = None
+    """
+    If specified, system will attempt to sample deterministically for repeated
+    requests with same seed.
+    """
 
-    stop: Optional[str] = None
+    stop: Union[str, List[str], None] = None
+    """Up to 4 sequences where the API will stop generating further tokens."""
 
     store: Union[bool, ItemLocator, None] = None
+    """Whether to store the output for use in model distillation or evals products."""
 
     temperature: Union[float, ItemLocator, None] = None
+    """What sampling temperature to use.
 
-    tool_choice: Optional[str] = None
+    Higher values make output more random, lower more focused.
+    """
+
+    tool_choice: Union[str, Dict[str, object], None] = None
+    """Controls which tool is called by the model.
+
+    Values: none, auto, required, or specific tool.
+    """
 
     tools: Union[List[Dict[str, object]], ItemLocator, None] = None
+    """A list of tools the model may call.
+
+    Currently, only functions are supported. Max 128 functions.
+    """
 
     top_k: Union[int, ItemLocator, None] = None
+    """Only sample from the top K options for each subsequent token"""
 
     top_logprobs: Union[int, ItemLocator, None] = None
+    """
+    Number of most likely tokens to return at each position, with associated log
+    probability.
+    """
 
     top_p: Union[float, ItemLocator, None] = None
+    """Alternative to temperature.
+
+    Only tokens comprising top_p probability mass are considered.
+    """
 
     if TYPE_CHECKING:
         # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
@@ -157,10 +234,13 @@ GenericInferenceEvaluationTaskConfigurationInferenceConfiguration: TypeAlias = U
 
 class GenericInferenceEvaluationTaskConfiguration(BaseModel):
     model: str
+    """model specified as `vendor/name` (ex. openai/gpt-5)"""
 
     args: Union[Dict[str, object], ItemLocator, None] = None
+    """Arguments passed into model"""
 
     inference_configuration: Optional[GenericInferenceEvaluationTaskConfigurationInferenceConfiguration] = None
+    """Vendor specific configuration"""
 
 
 class GenericInferenceEvaluationTask(BaseModel):
@@ -225,8 +305,23 @@ class ApplicationVariantV1EvaluationTaskConfigurationOverridesAgenticApplication
     use_channels: Optional[bool] = None
 
 
+class ApplicationVariantV1EvaluationTaskConfigurationOverridesUnionMember1ApplicationVariantV1EvaluationTaskConfigurationOverridesUnionMember1Item(
+    BaseModel
+):
+    artifact_ids_filter: Optional[List[str]] = None
+
+    artifact_name_regex: Optional[List[str]] = None
+
+    type: Optional[Literal["knowledge_base_schema"]] = None
+
+
 ApplicationVariantV1EvaluationTaskConfigurationOverrides: TypeAlias = Union[
-    ApplicationVariantV1EvaluationTaskConfigurationOverridesAgenticApplicationOverrides, ItemLocator
+    ApplicationVariantV1EvaluationTaskConfigurationOverridesAgenticApplicationOverrides,
+    Dict[
+        str,
+        ApplicationVariantV1EvaluationTaskConfigurationOverridesUnionMember1ApplicationVariantV1EvaluationTaskConfigurationOverridesUnionMember1Item,
+    ],
+    ItemLocator,
 ]
 
 
@@ -234,17 +329,29 @@ class ApplicationVariantV1EvaluationTaskConfiguration(BaseModel):
     application_variant_id: str
 
     inputs: Union[Dict[str, object], ItemLocator]
+    """Input data for the application.
+
+    For agents service variants, you must provide inputs as a mapping from
+    `{input_name: input_value}`. For V0 variants, you must specify the node your
+    input should be passed to, structuring your input as
+    `{node_id: {input_name: input_value}}`.
+    """
 
     history: Union[
         List[ApplicationVariantV1EvaluationTaskConfigurationHistoryApplicationRequestResponsePairArray],
         ItemLocator,
         None,
     ] = None
+    """History of the application"""
 
     operation_metadata: Union[Dict[str, object], ItemLocator, None] = None
+    """
+    Arbitrary user-defined metadata that can be attached to the process operations
+    and will be registered in the interaction.
+    """
 
     overrides: Optional[ApplicationVariantV1EvaluationTaskConfigurationOverrides] = None
-    """Execution override options for agentic applications"""
+    """Optional overrides for the application"""
 
 
 class ApplicationVariantV1EvaluationTask(BaseModel):
@@ -258,14 +365,28 @@ class ApplicationVariantV1EvaluationTask(BaseModel):
 
 class AgentexOutputEvaluationTaskConfiguration(BaseModel):
     agentex_agent_id: str
+    """The ID of the Agentex agent to use"""
 
     input_column: Union[str, Dict[str, object], List[object]]
+    """The dataset column to use as input for the agent"""
 
     deployment_id: Optional[str] = None
+    """Optional Agentex deployment ID to pin the eval to a specific deployment.
+
+    When set, RPC traffic routes through
+    /agents/{agent_id}/deployments/{deployment_id}/rpc. When unset, traffic uses the
+    agent's default RPC endpoint, which resolves through the agent's current routing
+    rules on the Agentex side.
+    """
 
     include_traces: Union[bool, ItemLocator, None] = None
+    """Whether to include trace data in the evaluation results"""
 
     timeout_seconds: Union[int, ItemLocator, None] = None
+    """Maximum seconds to wait for agent completion per item.
+
+    If not set, the server-side default of 60s applies.
+    """
 
 
 class AgentexOutputEvaluationTask(BaseModel):

@@ -31,9 +31,6 @@ import asyncio
 import httpx
 import pytest
 
-# pytest puts ``tests/`` on ``sys.path``; ``_fixtures.chain`` is the
-# canonical import path documented in ``tests/_fixtures/__init__.py``.
-from _fixtures.chain import make_request
 from notebooklm._middleware.core import (
     NextCall,
     RpcRequest,
@@ -42,6 +39,10 @@ from notebooklm._middleware.core import (
 )
 from notebooklm._middleware.drain import DrainMiddleware
 from notebooklm._transport_drain import TransportDrainTracker
+
+# The ``tests/`` package chain is complete; ``tests._fixtures.chain`` is the
+# fully-qualified import path documented in ``tests/_fixtures/__init__.py``.
+from tests._fixtures.chain import make_request
 
 
 def _terminal_returning(response: httpx.Response) -> NextCall:
@@ -218,7 +219,7 @@ async def test_missing_log_label_falls_back_to_sentinel(
 ) -> None:
     """A request with no ``log_label`` in context admits with a sentinel label.
 
-    ``Session._perform_authed_post`` always populates ``log_label``,
+    ``RuntimeTransport.perform_authed_post`` always populates ``log_label``,
     so this case only arises for ``__new__``-built fixtures driving the
     chain raw. The middleware should still admit + count rather than
     raising ``KeyError`` — pinning this guards against a regression

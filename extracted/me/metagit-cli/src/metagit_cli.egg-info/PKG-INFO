@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: metagit-cli
-Version: 0.24.0
+Version: 0.25.0
 Summary: Metagit multi-repo management tool
 Author-email: Zachary Loeber <zloeber@gmail.com>
 Project-URL: Homepage, https://github.com/metagit-ai/metagit-cli
@@ -16,7 +16,7 @@ Requires-Dist: loguru>=0.7.3
 Requires-Dist: pydantic>=2.11.4
 Requires-Dist: requests>=2.33.0
 Requires-Dist: click>=8.1.7
-Requires-Dist: gitpython>=3.1.50
+Requires-Dist: gitpython>=3.1.55
 Requires-Dist: rich>=14.0.0
 Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: ruamel.yaml>=0.18.10
@@ -41,6 +41,8 @@ Requires-Dist: ruff; extra == "test"
 Requires-Dist: httpx; extra == "test"
 Requires-Dist: pytest-asyncio; extra == "test"
 Requires-Dist: black; extra == "test"
+Requires-Dist: moto[dynamodb]>=5.0.0; extra == "test"
+Requires-Dist: mongomock>=4.3.0; extra == "test"
 Provides-Extra: dev
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: black; extra == "dev"
@@ -63,6 +65,10 @@ Requires-Dist: black; extra == "format"
 Requires-Dist: isort; extra == "format"
 Provides-Extra: typecheck
 Requires-Dist: mypy; extra == "typecheck"
+Provides-Extra: state-dynamodb
+Requires-Dist: boto3>=1.35.0; extra == "state-dynamodb"
+Provides-Extra: state-mongodb
+Requires-Dist: pymongo>=4.10.0; extra == "state-mongodb"
 Dynamic: license-file
 
 # Metagit™

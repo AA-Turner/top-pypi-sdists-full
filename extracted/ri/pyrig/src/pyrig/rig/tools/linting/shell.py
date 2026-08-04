@@ -33,6 +33,16 @@ class ShellLinter(CheckHookTool):
         """Return `('shellcheck-py',)`, the PyPI package providing `shellcheck`."""
         return ("shellcheck-py",)
 
+    def dialect(self) -> str:
+        """Return `"bash"`, the shell dialect this project standardizes on.
+
+        The single source of truth for the dialect.
+
+        Returns:
+            The shell dialect name.
+        """
+        return "bash"
+
     def check_args(self, *args: str) -> Args:
         """Construct ShellCheck check arguments.
 
@@ -52,17 +62,22 @@ class ShellLinter(CheckHookTool):
     def check_hook(self) -> dict[str, Any]:
         """Return the hook metadata for linting shell scripts at maximum strictness.
 
-        Enables every optional check on top of the default set, surfaces
-        every severity level down to style, and pins the dialect to `bash`
-        rather than relying on shebang detection, since every script this
-        project generates (`ShellConfigFile`) commits to `bash` explicitly.
+        Enables every optional check on top of the default set, follows
+        `source`d files even when they aren't part of the input set and
+        surfaces warnings found inside them instead of silently skipping
+        them, and pins the dialect rather than relying on shebang
+        detection, since every script this project generates
+        (`ShellConfigFile`) commits to that dialect explicitly.
+
+        `--severity` is deliberately not passed: `style`, the lowest and
+        most inclusive tier, is already ShellCheck's own default.
 
         Ties its priority to `TypeChecker.check_hook` so it runs
         alongside the rest of the checks tier rather than after it.
 
         Returns:
-            Hook metadata dict for
-            `shellcheck --enable=all --severity=style --shell=bash`.
+            Hook metadata dict for `shellcheck --enable=all
+            --check-sourced --external-sources --norc --shell=bash`.
         """
         return VersionControlHookManager.I.hook(
             self.lint_shell,
@@ -71,9 +86,11 @@ class ShellLinter(CheckHookTool):
             ),
             types=["shell"],
             args=[
+                "--check-sourced",
                 "--enable=all",
-                "--severity=style",
-                "--shell=bash",
+                "--external-sources",
+                "--norc",
+                f"--shell={self.dialect()}",
             ],
         )
 

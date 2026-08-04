@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tensor-grep
-Version: 1.102.1
+Version: 1.102.2
 Requires-Dist: typer>=0.12,<0.26
 Requires-Dist: rich>=13.0
 Requires-Dist: mcp>=1.27.2,<2
@@ -8,7 +8,7 @@ Requires-Dist: pathspec>=1.0.4
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: opentelemetry-api>=1.27.0
 Requires-Dist: importlib-metadata<8.5.0 ; python_full_version < '3.12'
-Requires-Dist: cryptography>=48.0.1
+Requires-Dist: cryptography>=50.0.0
 Requires-Dist: tree-sitter>=0.22 ; extra == 'ast'
 Requires-Dist: tree-sitter-python ; extra == 'ast'
 Requires-Dist: tree-sitter-javascript ; extra == 'ast'
@@ -67,6 +67,7 @@ Requires-Dist: pyarrow>=23.0.1 ; extra == 'gpu'
 Requires-Dist: torch>=2.0 ; extra == 'gpu-win'
 Requires-Dist: transformers>=5.3.0 ; extra == 'nlp'
 Requires-Dist: tritonclient[http] ; extra == 'nlp'
+Requires-Dist: aiohttp>=3.14.3 ; extra == 'nlp'
 Requires-Dist: tensor-grep[semantic] ; extra == 'rerank'
 Requires-Dist: onnxruntime>=1.20 ; extra == 'rerank'
 Requires-Dist: tokenizers>=0.21 ; extra == 'rerank'

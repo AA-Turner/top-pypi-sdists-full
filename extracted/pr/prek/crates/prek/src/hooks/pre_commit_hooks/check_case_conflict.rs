@@ -8,12 +8,11 @@ use rustc_hash::FxHashSet;
 
 use crate::git;
 use crate::hook::Hook;
+use crate::hooks::HookOutput;
 use crate::hooks::pre_commit_hooks::{FilenamesArgs, hook_filenames, parse_hook_args};
 
-pub(crate) async fn check_case_conflict(
-    hook: &Hook,
-    filenames: &[&Path],
-) -> Result<(i32, Vec<u8>)> {
+/// Runs the `check-case-conflict` hook.
+pub(crate) async fn run(hook: &Hook, filenames: &[&Path]) -> Result<HookOutput> {
     let args: FilenamesArgs = parse_hook_args(hook)?;
     let filenames = hook_filenames(&args.filenames, filenames).collect::<Vec<_>>();
     let work_dir = hook.work_dir();
@@ -26,7 +25,7 @@ pub(crate) async fn check_case_conflict(
     }
 
     // Get relevant files (filenames + added files) and include their parent directories.
-    let added = git::get_added_files(work_dir).await?;
+    let added = git::staged_added_files(work_dir).await?;
     let mut relevant_files_with_dirs: FxHashSet<&Path> = FxHashSet::default();
     for filename in &filenames {
         insert_path_and_parents(&mut relevant_files_with_dirs, filename);
@@ -78,7 +77,7 @@ pub(crate) async fn check_case_conflict(
 
     let mut output = Vec::new();
     if conflicts.is_empty() {
-        return Ok((0, output));
+        return Ok(HookOutput::unchanged(0, output));
     }
 
     // The sets are disjoint at this point (relevant removed from repo), so we can just chain.
@@ -97,7 +96,7 @@ pub(crate) async fn check_case_conflict(
         )?;
     }
 
-    Ok((1, output))
+    Ok(HookOutput::unchanged(1, output))
 }
 
 fn insert_path_and_parents<'p>(set: &mut FxHashSet<&'p Path>, file: &'p Path) {

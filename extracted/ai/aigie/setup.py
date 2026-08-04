@@ -50,7 +50,7 @@ else:
 
 setup(
     name="aigie",
-    version="0.3.9",
+    version="0.4.0",
     description="Enterprise-grade AI agent reliability monitoring and autonomous remediation",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -133,6 +133,9 @@ setup(
         "strands": [
             "strands-agents>=1.0",
         ],
+        "openai-agents": [
+            "openai-agents>=0.9,<1",
+        ],
         # Vector Database integrations
         "pinecone": [
             "pinecone-client>=3.0.0",
@@ -213,6 +216,7 @@ setup(
             "langgraph>=0.0.20",
             "claude-agent-sdk>=0.0.10",
             "strands-agents>=1.0",
+            "openai-agents>=0.9,<1",
             # Observability
             "opentelemetry-api>=1.20.0",
             "opentelemetry-sdk>=1.20.0",
@@ -224,6 +228,7 @@ setup(
             "langgraph>=0.0.20",
             "claude-agent-sdk>=0.0.10",
             "strands-agents>=1.0",
+            "openai-agents>=0.9,<1",
         ],
     },
     # Entry points for CLI tools and pytest plugins

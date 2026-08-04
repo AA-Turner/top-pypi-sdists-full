@@ -11,15 +11,17 @@ import pytest
 
 import notebooklm._cookie_persistence as persistence_module
 import notebooklm._runtime.lifecycle as lifecycle_module
-from _helpers.client_factory import build_client_shell_for_tests
-from notebooklm._cookie_persistence import CookiePersistence
-from notebooklm.auth import (
-    AuthTokens,
+from notebooklm._auth.storage import (
     CookieSaveResult,
     CookieSnapshot,
     CookieSnapshotKey,
     snapshot_cookie_jar,
 )
+from notebooklm._cookie_persistence import CookiePersistence
+from notebooklm.auth import (
+    AuthTokens,
+)
+from tests._helpers.client_factory import build_client_shell_for_tests
 
 
 def _auth_tokens(storage_path: Path | None = None) -> AuthTokens:

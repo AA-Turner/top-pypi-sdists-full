@@ -707,7 +707,26 @@ _COMPACT_STRIP_PARAMS: dict[str, set[str]] = {
     "get_symbol_source": {
         "source_start_line", "source_end_line", "max_source_lines",
         "max_source_bytes", "max_total_source_bytes", "receipt",
+        # v1.108.227: `verify_against` joins them, same rule and same reason.
+        # Externally-attested verification is an audit workflow, not a core
+        # retrieval path — `verify` alone stays visible, and the tool still
+        # honours `verify_against` when passed.
+        #
+        # ⚠ Measured while adding #402's `git_sha_rev`: core_compact had **4
+        # tokens** of headroom, so ANY core-tier description gaining a clause
+        # broke the ceiling. Shaving words to fit is the wrong instinct — it
+        # makes the next person shave again. Removing an advanced param from
+        # the minimal surface is the fix the budget was designed to take.
+        "verify_against",
     },
+    # v1.108.231: `degeneracy_cutoff` is an escape hatch for callers who want the
+    # pre-.231 volume back, not a core retrieval control. get_dead_code_v2 is a
+    # core-tier tool and core_compact sits at 3996 of 4000, so a new property on
+    # its schema does not fit there at any description length — the same
+    # measurement that moved `verify_against` here for #402. The handler honours
+    # it regardless, and `_DECLARED_ARG_KEYS` is snapshotted before this strip
+    # runs, so a hidden-but-honoured param is never reported as an ignored arg.
+    "get_dead_code_v2": {"degeneracy_cutoff"},
     "get_context_bundle": {"budget_strategy"},
     "get_ranked_context": {"detail_level", "compress", "receipt"},
     "search_text": {"receipt"},
@@ -1604,7 +1623,7 @@ def _build_tools_list() -> list[Tool]:
                     "verify_against": {
                         "type": "string",
                         "enum": ["cache", "git_sha"],
-                        "description": "Where to source the comparison target when verify=True. 'cache' (default) compares against the content_hash stored in the index — self-referential, only catches incoherent tamper of ~/.code-index/. 'git_sha' additionally compares the cached source against the file slice at the working-tree git HEAD — externally attested, catches divergence between the cache and the upstream source. Adds a git_sha_verification field to the response.",
+                        "description": "Where to source the comparison target when verify=True. 'cache' (default) compares against the content_hash stored in the index — self-referential, only catches incoherent tamper of ~/.code-index/. 'git_sha' additionally compares the cached source against the file slice at the commit the index was built at — externally attested, catches divergence between the cache and the upstream source. Adds git_sha_verification and git_sha_rev fields to the response.",
                         "default": "cache"
                     },
                     "context_lines": {
@@ -3045,7 +3064,14 @@ def _build_tools_list() -> list[Tool]:
                     },
                     "file_pattern": {
                         "type": "string",
-                        "description": "Optional glob (e.g. `src/**`, `*.py`) — only analyse symbols whose file matches.",
+                        "description": "Optional glob (e.g. `src/**`, `*.py`) — only scopes the RESULTS, not the population the signals are measured over.",
+                    },
+                    "degeneracy_cutoff": {
+                        "type": "number",
+                        "description": "Advanced. Fire rate at or above which a signal is treated as a constant and gets no vote (default 0.90; must be >0.5 and <=1.0). Pass 1.0 for pre-1.108.231 volume.",
+                        "default": 0.90,
+                        "exclusiveMinimum": 0.5,
+                        "maximum": 1.0,
                     },
                 },
                 "required": ["repo"],
@@ -5948,6 +5974,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent] | CallToolR
                     max_results=arguments.get("max_results", 100),
                     file_pattern=arguments.get("file_pattern"),
                     storage_path=storage_path,
+                    degeneracy_cutoff=arguments.get("degeneracy_cutoff"),
                 )
             )
         elif name == "get_extraction_candidates":

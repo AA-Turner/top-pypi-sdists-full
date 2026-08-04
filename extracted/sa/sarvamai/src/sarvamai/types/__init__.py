@@ -35,15 +35,28 @@ if typing.TYPE_CHECKING:
     from .config_message import ConfigMessage
     from .configure_connection import ConfigureConnection
     from .configure_connection_data import ConfigureConnectionData
+    from .configure_connection_data_language_code import ConfigureConnectionDataLanguageCode
     from .configure_connection_data_model import ConfigureConnectionDataModel
     from .configure_connection_data_output_audio_bitrate import ConfigureConnectionDataOutputAudioBitrate
     from .configure_connection_data_output_audio_codec import ConfigureConnectionDataOutputAudioCodec
     from .configure_connection_data_speaker import ConfigureConnectionDataSpeaker
-    from .configure_connection_data_target_language_code import ConfigureConnectionDataTargetLanguageCode
     from .connection_sample_rate import ConnectionSampleRate
     from .create_chat_completion_response import CreateChatCompletionResponse
+    from .create_dubbing_job_data import CreateDubbingJobData
+    from .create_dubbing_job_response import CreateDubbingJobResponse
     from .diarized_entry import DiarizedEntry
     from .diarized_transcript import DiarizedTranscript
+    from .doc_ai_digitise_results import DocAiDigitiseResults
+    from .doc_ai_digitise_results_documents_item import DocAiDigitiseResultsDocumentsItem
+    from .doc_ai_digitise_results_documents_item_pages_item import DocAiDigitiseResultsDocumentsItemPagesItem
+    from .doc_ai_download_url_response import DocAiDownloadUrlResponse
+    from .doc_ai_error_detail import DocAiErrorDetail
+    from .doc_ai_error_model import DocAiErrorModel
+    from .doc_ai_extract_results import DocAiExtractResults
+    from .doc_ai_job_status_response import DocAiJobStatusResponse
+    from .doc_ai_presign_upload_response import DocAiPresignUploadResponse
+    from .doc_ai_start_job_response import DocAiStartJobResponse
+    from .doc_ai_usage import DocAiUsage
     from .doc_digitization_create_job_response import DocDigitizationCreateJobResponse
     from .doc_digitization_download_files_response import DocDigitizationDownloadFilesResponse
     from .doc_digitization_error_code import DocDigitizationErrorCode
@@ -58,7 +71,22 @@ if typing.TYPE_CHECKING:
     from .doc_digitization_page_error import DocDigitizationPageError
     from .doc_digitization_supported_language import DocDigitizationSupportedLanguage
     from .doc_digitization_upload_files_response import DocDigitizationUploadFilesResponse
-    from .doc_digitization_webhook_callback import DocDigitizationWebhookCallback
+    from .dubbing_export_item import DubbingExportItem
+    from .dubbing_export_item_status import DubbingExportItemStatus
+    from .dubbing_export_option import DubbingExportOption
+    from .dubbing_export_status_data import DubbingExportStatusData
+    from .dubbing_export_status_response import DubbingExportStatusResponse
+    from .dubbing_export_type import DubbingExportType
+    from .dubbing_job_status import DubbingJobStatus
+    from .dubbing_language import DubbingLanguage
+    from .dubbing_live_status_data import DubbingLiveStatusData
+    from .dubbing_live_status_export_info import DubbingLiveStatusExportInfo
+    from .dubbing_live_status_response import DubbingLiveStatusResponse
+    from .dubbing_model_tier import DubbingModelTier
+    from .dubbing_pace_preset import DubbingPacePreset
+    from .dubbing_register import DubbingRegister
+    from .dubbing_start_data import DubbingStartData
+    from .dubbing_start_response import DubbingStartResponse
     from .error_code import ErrorCode
     from .error_code2 import ErrorCode2
     from .error_data import ErrorData
@@ -83,6 +111,7 @@ if typing.TYPE_CHECKING:
     from .input_audio_codec import InputAudioCodec
     from .job_state import JobState
     from .job_status_response import JobStatusResponse
+    from .json_schema_definition import JsonSchemaDefinition
     from .language_identification_response import LanguageIdentificationResponse
     from .mode import Mode
     from .numerals_format import NumeralsFormat
@@ -92,7 +121,36 @@ if typing.TYPE_CHECKING:
     from .pronunciation_dictionary_get_response import PronunciationDictionaryGetResponse
     from .pronunciation_dictionary_response import PronunciationDictionaryResponse
     from .pronunciation_dictionary_update_response import PronunciationDictionaryUpdateResponse
+    from .realtime_audio_input import RealtimeAudioInput
+    from .realtime_config_update import RealtimeConfigUpdate
+    from .realtime_config_update_endpointing import RealtimeConfigUpdateEndpointing
+    from .realtime_config_update_mode import RealtimeConfigUpdateMode
+    from .realtime_config_update_stream_type import RealtimeConfigUpdateStreamType
+    from .realtime_config_updated import RealtimeConfigUpdated
+    from .realtime_end import RealtimeEnd
+    from .realtime_error import RealtimeError
+    from .realtime_flush import RealtimeFlush
+    from .realtime_ping import RealtimePing
+    from .realtime_pong import RealtimePong
+    from .realtime_session_begin import RealtimeSessionBegin
+    from .realtime_session_begin_config import RealtimeSessionBeginConfig
+    from .realtime_session_end import RealtimeSessionEnd
+    from .realtime_speech_end import RealtimeSpeechEnd
+    from .realtime_speech_start import RealtimeSpeechStart
+    from .realtime_transcript_final import RealtimeTranscriptFinal
+    from .realtime_transcript_partial import RealtimeTranscriptPartial
+    from .realtime_vad_speech_end import RealtimeVadSpeechEnd
+    from .realtime_vad_speech_start import RealtimeVadSpeechStart
     from .reasoning_effort import ReasoningEffort
+    from .response_format import (
+        ResponseFormat,
+        ResponseFormat_JsonObject,
+        ResponseFormat_JsonSchema,
+        ResponseFormat_Text,
+    )
+    from .response_format_json_object import ResponseFormatJsonObject
+    from .response_format_json_schema import ResponseFormatJsonSchema
+    from .response_format_text import ResponseFormatText
     from .response_type import ResponseType
     from .role import Role
     from .sarvam_model_ids import SarvamModelIds
@@ -101,6 +159,7 @@ if typing.TYPE_CHECKING:
     from .speech_sample_rate import SpeechSampleRate
     from .speech_stream_bitrate import SpeechStreamBitrate
     from .speech_stream_codec import SpeechStreamCodec
+    from .speech_to_text_batch_model import SpeechToTextBatchModel
     from .speech_to_text_job_parameters import SpeechToTextJobParameters
     from .speech_to_text_language import SpeechToTextLanguage
     from .speech_to_text_model import SpeechToTextModel
@@ -168,15 +227,28 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ConfigMessage": ".config_message",
     "ConfigureConnection": ".configure_connection",
     "ConfigureConnectionData": ".configure_connection_data",
+    "ConfigureConnectionDataLanguageCode": ".configure_connection_data_language_code",
     "ConfigureConnectionDataModel": ".configure_connection_data_model",
     "ConfigureConnectionDataOutputAudioBitrate": ".configure_connection_data_output_audio_bitrate",
     "ConfigureConnectionDataOutputAudioCodec": ".configure_connection_data_output_audio_codec",
     "ConfigureConnectionDataSpeaker": ".configure_connection_data_speaker",
-    "ConfigureConnectionDataTargetLanguageCode": ".configure_connection_data_target_language_code",
     "ConnectionSampleRate": ".connection_sample_rate",
     "CreateChatCompletionResponse": ".create_chat_completion_response",
+    "CreateDubbingJobData": ".create_dubbing_job_data",
+    "CreateDubbingJobResponse": ".create_dubbing_job_response",
     "DiarizedEntry": ".diarized_entry",
     "DiarizedTranscript": ".diarized_transcript",
+    "DocAiDigitiseResults": ".doc_ai_digitise_results",
+    "DocAiDigitiseResultsDocumentsItem": ".doc_ai_digitise_results_documents_item",
+    "DocAiDigitiseResultsDocumentsItemPagesItem": ".doc_ai_digitise_results_documents_item_pages_item",
+    "DocAiDownloadUrlResponse": ".doc_ai_download_url_response",
+    "DocAiErrorDetail": ".doc_ai_error_detail",
+    "DocAiErrorModel": ".doc_ai_error_model",
+    "DocAiExtractResults": ".doc_ai_extract_results",
+    "DocAiJobStatusResponse": ".doc_ai_job_status_response",
+    "DocAiPresignUploadResponse": ".doc_ai_presign_upload_response",
+    "DocAiStartJobResponse": ".doc_ai_start_job_response",
+    "DocAiUsage": ".doc_ai_usage",
     "DocDigitizationCreateJobResponse": ".doc_digitization_create_job_response",
     "DocDigitizationDownloadFilesResponse": ".doc_digitization_download_files_response",
     "DocDigitizationErrorCode": ".doc_digitization_error_code",
@@ -191,7 +263,22 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DocDigitizationPageError": ".doc_digitization_page_error",
     "DocDigitizationSupportedLanguage": ".doc_digitization_supported_language",
     "DocDigitizationUploadFilesResponse": ".doc_digitization_upload_files_response",
-    "DocDigitizationWebhookCallback": ".doc_digitization_webhook_callback",
+    "DubbingExportItem": ".dubbing_export_item",
+    "DubbingExportItemStatus": ".dubbing_export_item_status",
+    "DubbingExportOption": ".dubbing_export_option",
+    "DubbingExportStatusData": ".dubbing_export_status_data",
+    "DubbingExportStatusResponse": ".dubbing_export_status_response",
+    "DubbingExportType": ".dubbing_export_type",
+    "DubbingJobStatus": ".dubbing_job_status",
+    "DubbingLanguage": ".dubbing_language",
+    "DubbingLiveStatusData": ".dubbing_live_status_data",
+    "DubbingLiveStatusExportInfo": ".dubbing_live_status_export_info",
+    "DubbingLiveStatusResponse": ".dubbing_live_status_response",
+    "DubbingModelTier": ".dubbing_model_tier",
+    "DubbingPacePreset": ".dubbing_pace_preset",
+    "DubbingRegister": ".dubbing_register",
+    "DubbingStartData": ".dubbing_start_data",
+    "DubbingStartResponse": ".dubbing_start_response",
     "ErrorCode": ".error_code",
     "ErrorCode2": ".error_code2",
     "ErrorData": ".error_data",
@@ -216,6 +303,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "InputAudioCodec": ".input_audio_codec",
     "JobState": ".job_state",
     "JobStatusResponse": ".job_status_response",
+    "JsonSchemaDefinition": ".json_schema_definition",
     "LanguageIdentificationResponse": ".language_identification_response",
     "Mode": ".mode",
     "NumeralsFormat": ".numerals_format",
@@ -225,7 +313,34 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PronunciationDictionaryGetResponse": ".pronunciation_dictionary_get_response",
     "PronunciationDictionaryResponse": ".pronunciation_dictionary_response",
     "PronunciationDictionaryUpdateResponse": ".pronunciation_dictionary_update_response",
+    "RealtimeAudioInput": ".realtime_audio_input",
+    "RealtimeConfigUpdate": ".realtime_config_update",
+    "RealtimeConfigUpdateEndpointing": ".realtime_config_update_endpointing",
+    "RealtimeConfigUpdateMode": ".realtime_config_update_mode",
+    "RealtimeConfigUpdateStreamType": ".realtime_config_update_stream_type",
+    "RealtimeConfigUpdated": ".realtime_config_updated",
+    "RealtimeEnd": ".realtime_end",
+    "RealtimeError": ".realtime_error",
+    "RealtimeFlush": ".realtime_flush",
+    "RealtimePing": ".realtime_ping",
+    "RealtimePong": ".realtime_pong",
+    "RealtimeSessionBegin": ".realtime_session_begin",
+    "RealtimeSessionBeginConfig": ".realtime_session_begin_config",
+    "RealtimeSessionEnd": ".realtime_session_end",
+    "RealtimeSpeechEnd": ".realtime_speech_end",
+    "RealtimeSpeechStart": ".realtime_speech_start",
+    "RealtimeTranscriptFinal": ".realtime_transcript_final",
+    "RealtimeTranscriptPartial": ".realtime_transcript_partial",
+    "RealtimeVadSpeechEnd": ".realtime_vad_speech_end",
+    "RealtimeVadSpeechStart": ".realtime_vad_speech_start",
     "ReasoningEffort": ".reasoning_effort",
+    "ResponseFormat": ".response_format",
+    "ResponseFormatJsonObject": ".response_format_json_object",
+    "ResponseFormatJsonSchema": ".response_format_json_schema",
+    "ResponseFormatText": ".response_format_text",
+    "ResponseFormat_JsonObject": ".response_format",
+    "ResponseFormat_JsonSchema": ".response_format",
+    "ResponseFormat_Text": ".response_format",
     "ResponseType": ".response_type",
     "Role": ".role",
     "SarvamModelIds": ".sarvam_model_ids",
@@ -234,6 +349,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SpeechSampleRate": ".speech_sample_rate",
     "SpeechStreamBitrate": ".speech_stream_bitrate",
     "SpeechStreamCodec": ".speech_stream_codec",
+    "SpeechToTextBatchModel": ".speech_to_text_batch_model",
     "SpeechToTextJobParameters": ".speech_to_text_job_parameters",
     "SpeechToTextLanguage": ".speech_to_text_language",
     "SpeechToTextModel": ".speech_to_text_model",
@@ -325,15 +441,28 @@ __all__ = [
     "ConfigMessage",
     "ConfigureConnection",
     "ConfigureConnectionData",
+    "ConfigureConnectionDataLanguageCode",
     "ConfigureConnectionDataModel",
     "ConfigureConnectionDataOutputAudioBitrate",
     "ConfigureConnectionDataOutputAudioCodec",
     "ConfigureConnectionDataSpeaker",
-    "ConfigureConnectionDataTargetLanguageCode",
     "ConnectionSampleRate",
     "CreateChatCompletionResponse",
+    "CreateDubbingJobData",
+    "CreateDubbingJobResponse",
     "DiarizedEntry",
     "DiarizedTranscript",
+    "DocAiDigitiseResults",
+    "DocAiDigitiseResultsDocumentsItem",
+    "DocAiDigitiseResultsDocumentsItemPagesItem",
+    "DocAiDownloadUrlResponse",
+    "DocAiErrorDetail",
+    "DocAiErrorModel",
+    "DocAiExtractResults",
+    "DocAiJobStatusResponse",
+    "DocAiPresignUploadResponse",
+    "DocAiStartJobResponse",
+    "DocAiUsage",
     "DocDigitizationCreateJobResponse",
     "DocDigitizationDownloadFilesResponse",
     "DocDigitizationErrorCode",
@@ -348,7 +477,22 @@ __all__ = [
     "DocDigitizationPageError",
     "DocDigitizationSupportedLanguage",
     "DocDigitizationUploadFilesResponse",
-    "DocDigitizationWebhookCallback",
+    "DubbingExportItem",
+    "DubbingExportItemStatus",
+    "DubbingExportOption",
+    "DubbingExportStatusData",
+    "DubbingExportStatusResponse",
+    "DubbingExportType",
+    "DubbingJobStatus",
+    "DubbingLanguage",
+    "DubbingLiveStatusData",
+    "DubbingLiveStatusExportInfo",
+    "DubbingLiveStatusResponse",
+    "DubbingModelTier",
+    "DubbingPacePreset",
+    "DubbingRegister",
+    "DubbingStartData",
+    "DubbingStartResponse",
     "ErrorCode",
     "ErrorCode2",
     "ErrorData",
@@ -373,6 +517,7 @@ __all__ = [
     "InputAudioCodec",
     "JobState",
     "JobStatusResponse",
+    "JsonSchemaDefinition",
     "LanguageIdentificationResponse",
     "Mode",
     "NumeralsFormat",
@@ -382,7 +527,34 @@ __all__ = [
     "PronunciationDictionaryGetResponse",
     "PronunciationDictionaryResponse",
     "PronunciationDictionaryUpdateResponse",
+    "RealtimeAudioInput",
+    "RealtimeConfigUpdate",
+    "RealtimeConfigUpdateEndpointing",
+    "RealtimeConfigUpdateMode",
+    "RealtimeConfigUpdateStreamType",
+    "RealtimeConfigUpdated",
+    "RealtimeEnd",
+    "RealtimeError",
+    "RealtimeFlush",
+    "RealtimePing",
+    "RealtimePong",
+    "RealtimeSessionBegin",
+    "RealtimeSessionBeginConfig",
+    "RealtimeSessionEnd",
+    "RealtimeSpeechEnd",
+    "RealtimeSpeechStart",
+    "RealtimeTranscriptFinal",
+    "RealtimeTranscriptPartial",
+    "RealtimeVadSpeechEnd",
+    "RealtimeVadSpeechStart",
     "ReasoningEffort",
+    "ResponseFormat",
+    "ResponseFormatJsonObject",
+    "ResponseFormatJsonSchema",
+    "ResponseFormatText",
+    "ResponseFormat_JsonObject",
+    "ResponseFormat_JsonSchema",
+    "ResponseFormat_Text",
     "ResponseType",
     "Role",
     "SarvamModelIds",
@@ -391,6 +563,7 @@ __all__ = [
     "SpeechSampleRate",
     "SpeechStreamBitrate",
     "SpeechStreamCodec",
+    "SpeechToTextBatchModel",
     "SpeechToTextJobParameters",
     "SpeechToTextLanguage",
     "SpeechToTextModel",

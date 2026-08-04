@@ -1906,6 +1906,7 @@ class ToProtoConverter:
             fields_root_fqn=source.fields_root_fqn,
             escaped_param_name_to_fqn=source.params_to_root_fqn,
             field_types=source.field_types,
+            is_chalk_sql_source=source.is_chalk_sql_source,
         )
         if source.use_native_sql is not None:
             settings.use_native_sql = source.use_native_sql

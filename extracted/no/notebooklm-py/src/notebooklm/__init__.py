@@ -54,6 +54,7 @@ from .client import NotebookLMClient
 
 # Public API: Exceptions (centralized in exceptions.py)
 from .exceptions import (
+    AmbiguousResearchTaskError,  # Domain: Research
     # Domain: Artifacts
     ArtifactDownloadError,
     ArtifactError,
@@ -74,8 +75,12 @@ from .exceptions import (
     # Validation/Config
     ConfigurationError,
     DecodingError,
+    # Domain: Source labels
+    LabelError,
+    LabelNotFoundError,
     MindMapError,
     MindMapNotFoundError,
+    MissingDependencyError,
     # Network
     NetworkError,
     # Idempotency
@@ -91,8 +96,8 @@ from .exceptions import (
     # Cross-domain umbrellas
     NotFoundError,
     RateLimitError,
-    # Domain: Research
     ResearchError,
+    ResearchStartUnavailableError,
     ResearchTaskMismatchError,
     ResearchTimeoutError,
     RPCError,
@@ -114,7 +119,6 @@ from .exceptions import (
 # Public API: Types and dataclasses
 from .types import (
     AccountLimits,
-    AccountTier,
     Artifact,
     ArtifactType,
     AskResult,
@@ -130,10 +134,12 @@ from .types import (
     ConversationTurn,
     DriveMimeType,
     ExportType,
+    GenerationState,
     GenerationStatus,
     InfographicDetail,
     InfographicOrientation,
     InfographicStyle,
+    Label,
     MindMap,
     MindMapKind,
     MindMapResult,
@@ -141,6 +147,7 @@ from .types import (
     Notebook,
     NotebookDescription,
     NotebookMetadata,
+    PromptSuggestion,
     QuizDifficulty,
     QuizQuantity,
     ReportFormat,
@@ -167,6 +174,7 @@ from .types import (
     SuggestedTopic,
     # Warnings
     UnknownTypeWarning,
+    UserSettings,
     VideoFormat,
     VideoStyle,
 )
@@ -187,7 +195,7 @@ __all__ = [
     "reset_request_id",
     # Types
     "AccountLimits",
-    "AccountTier",
+    "UserSettings",
     "ConnectionLimits",
     "ClientMetricsSnapshot",
     "RpcTelemetryEvent",
@@ -200,16 +208,19 @@ __all__ = [
     "SourceGuide",
     "SourceSummary",
     "Artifact",
+    "GenerationState",
     "GenerationStatus",
     "ReportSuggestion",
     "MindMap",
     "MindMapKind",
     "MindMapResult",
     "Note",
+    "Label",
     "ConversationTurn",
     "ChatReference",
     "AskResult",
     "ChatMode",
+    "PromptSuggestion",
     "CitedSourceSelection",
     "ResearchStatus",
     "ResearchSource",
@@ -223,6 +234,7 @@ __all__ = [
     "NotebookLMError",
     "ValidationError",
     "ConfigurationError",
+    "MissingDependencyError",
     # Cross-domain umbrellas
     "NotFoundError",
     # RPC/Network Exceptions
@@ -263,7 +275,9 @@ __all__ = [
     "ArtifactPendingTimeoutError",
     "ArtifactInProgressTimeoutError",
     # Domain Exceptions: Research
+    "AmbiguousResearchTaskError",
     "ResearchError",
+    "ResearchStartUnavailableError",
     "ResearchTimeoutError",
     "ResearchTaskMismatchError",
     # Domain Exceptions: Notes
@@ -272,6 +286,9 @@ __all__ = [
     # Domain Exceptions: Mind maps
     "MindMapError",
     "MindMapNotFoundError",
+    # Domain Exceptions: Source labels
+    "LabelError",
+    "LabelNotFoundError",
     # Cross-domain umbrella: wait/poll timeouts
     "WaitTimeoutError",
     # Warnings

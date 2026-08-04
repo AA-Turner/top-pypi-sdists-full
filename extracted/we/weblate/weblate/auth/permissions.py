@@ -213,6 +213,42 @@ def get_glossary_permission_denial(permission: str) -> str:
     return ""
 
 
+@register_perm("meta:unit.direct_edit")
+def check_direct_editing(
+    user: User,
+    permission: str,
+    obj: Unit
+    | Translation
+    | ProjectLanguage
+    | CategoryLanguage
+    | Component
+    | Category
+    | Project,
+) -> bool | PermissionResult:
+    if isinstance(obj, Unit):
+        obj = obj.translation
+    if not isinstance(obj, Translation | ProjectLanguage | CategoryLanguage):
+        return True
+    if not obj.restrict_direct_editing:
+        return True
+    if check_permission(user, "unit.override", obj):
+        return True
+    if obj.enable_suggestions:
+        return Denied(
+            gettext(
+                "Only privileged users can edit strings directly in this language "
+                "because of its translation workflow. Add a suggestion instead."
+            )
+        )
+    return Denied(
+        gettext(
+            "Only privileged users can edit strings directly in this language "
+            "because of its translation workflow. Ask a project administrator for "
+            "access."
+        )
+    )
+
+
 def check_permission(
     user: User,
     permission: str,
@@ -343,6 +379,7 @@ def check_can_edit(
     | Project,
     *,
     is_vote: bool = False,
+    direct_edit: bool = True,
     allow_limited_without_language: bool | None = None,
 ) -> bool | PermissionResult:
     translation = component = None
@@ -441,6 +478,13 @@ def check_can_edit(
         and not check_permission(user, "unit.template", obj)
     ):
         return Denied(gettext("You do not have permission to edit source strings."))
+
+    if direct_edit and not (
+        direct_edit_permission := check_direct_editing(
+            user, "meta:unit.direct_edit", obj
+        )
+    ):
+        return direct_edit_permission
 
     # Special checks for voting
     if is_vote and translation and not translation.suggestion_voting:
@@ -680,7 +724,12 @@ def check_autotranslate(
         or translation.is_readonly
     ):
         return False
-    return check_can_edit(user, permission, translation)
+    return check_can_edit(
+        user,
+        permission,
+        translation,
+        direct_edit=permission != "translation.auto",
+    )
 
 
 @register_perm("suggestion.vote")
@@ -689,7 +738,7 @@ def check_suggestion_vote(
 ) -> bool | PermissionResult:
     if isinstance(obj, Unit):
         obj = obj.translation
-    return check_can_edit(user, permission, obj, is_vote=True)
+    return check_can_edit(user, permission, obj, is_vote=True, direct_edit=False)
 
 
 @register_perm("suggestion.add")
@@ -699,9 +748,18 @@ def check_suggestion_add(
     obj: Unit | Translation | ProjectLanguage | CategoryLanguage,
 ) -> bool | PermissionResult:
     if isinstance(obj, Unit):
+        if obj.readonly:
+            return Denied(gettext("The string is read-only."))
         obj = obj.translation
-    if not obj.enable_suggestions or obj.is_readonly:
-        return False
+    if obj.is_readonly:
+        return Denied(gettext("The translation is read-only."))
+    if not obj.enable_suggestions:
+        return Denied(
+            gettext(
+                "Suggestions are turned off for this language. Ask a project "
+                "administrator to enable them."
+            )
+        )
     # Check contributor license agreement
     if (
         not user.is_bot
@@ -931,15 +989,21 @@ def check_upload(
             )
         if obj.component.is_glossary:
             permission = "glossary.upload"
-        return check_can_edit(user, permission, obj) and (
+        return check_can_edit(user, permission, obj, direct_edit=False) and (
             # Normal upload
             check_edit_approved(user, "unit.edit", obj)
             # Suggestion upload
             or check_suggestion_add(user, "suggestion.add", obj)
             # Add upload
-            or check_suggestion_add(user, "unit.add", obj)
+            or (
+                check_direct_editing(user, "meta:unit.direct_edit", obj)
+                and check_suggestion_add(user, "unit.add", obj)
+            )
             # Source upload
-            or obj.is_source
+            or (
+                obj.is_source
+                and check_direct_editing(user, "meta:unit.direct_edit", obj)
+            )
         )
 
     return _has_upload_child(user, obj)
@@ -981,7 +1045,9 @@ def check_translation_delete(
 
 @register_perm("reports.view", "change.download")
 def check_possibly_global(
-    user: User, permission: str, obj: Language | Translation | Component | Project
+    user: User,
+    permission: str,
+    obj: Language | Translation | Component | Project | Category | Workspace,
 ) -> bool | PermissionResult:
     if obj is None or isinstance(obj, Language):
         return user.is_superuser
@@ -1065,19 +1131,56 @@ def check_billing_view(
     )
 
 
+def billing_plan_allows_access_control(project: Project) -> bool:
+    """Return whether the billing plan allows private access control."""
+    return "weblate.billing" not in settings.INSTALLED_APPS or any(
+        billing.plan.change_access_control for billing in project.billings
+    )
+
+
+def billing_allows_access_control(project: Project) -> bool:
+    """Return whether billing allows changing project access control."""
+    return bool(project.access_control) or billing_plan_allows_access_control(project)
+
+
 @register_perm("billing:project.permissions")
-def check_billing(user: User, permission: str, obj: Project) -> bool | PermissionResult:
+def check_billing_project_permissions(
+    user: User, permission: str, obj: Project
+) -> bool | PermissionResult:
     if user.is_superuser:
         return True
-
-    if (
-        "weblate.billing" in settings.INSTALLED_APPS
-        and not any(billing.plan.change_access_control for billing in obj.billings)
-        and not obj.access_control
-    ):
+    if not billing_allows_access_control(obj):
         return False
-
     return check_permission(user, "project.permissions", obj)
+
+
+@register_perm("billing:component.permissions")
+def check_billing_component_permissions(
+    user: User, permission: str, obj: Component
+) -> PermissionResult:
+    """Return whether user can change component restricted access."""
+    if user.is_superuser:
+        return Allowed()
+    if obj.pk is None:
+        return Denied(
+            gettext(
+                "Create the component and grant yourself explicit access before enabling restricted access."
+            )
+        )
+    if not obj.restricted and not billing_plan_allows_access_control(obj.project):
+        return Denied(
+            gettext("The billing plan does not allow private access control.")
+        )
+    if not any(
+        _has_scoped_permission("component.edit", permissions, languages)
+        for permissions, languages in user.component_permissions.get(obj.pk, ())
+    ):
+        return Denied(
+            gettext(
+                "You need explicit access to this component before enabling restricted access; otherwise, you would lock yourself out."
+            )
+        )
+    return Allowed()
 
 
 @register_perm("announcement.delete")

@@ -19,8 +19,6 @@ from .types.speech_to_text_translate_streaming_high_vad_sensitivity import (
     SpeechToTextTranslateStreamingHighVadSensitivity,
 )
 from .types.speech_to_text_translate_streaming_input_audio_codec import SpeechToTextTranslateStreamingInputAudioCodec
-from .types.speech_to_text_translate_streaming_mode import SpeechToTextTranslateStreamingMode
-from .types.speech_to_text_translate_streaming_model import SpeechToTextTranslateStreamingModel
 from .types.speech_to_text_translate_streaming_vad_signals import SpeechToTextTranslateStreamingVadSignals
 
 try:
@@ -48,8 +46,7 @@ class SpeechToTextTranslateStreamingClient:
     def connect(
         self,
         *,
-        model: typing.Optional[SpeechToTextTranslateStreamingModel] = None,
-        mode: typing.Optional[SpeechToTextTranslateStreamingMode] = None,
+        model: typing.Optional[typing.Literal["saaras:v2.5"]] = None,
         sample_rate: typing.Optional[str] = None,
         high_vad_sensitivity: typing.Optional[SpeechToTextTranslateStreamingHighVadSensitivity] = None,
         positive_speech_threshold: typing.Optional[str] = None,
@@ -77,27 +74,13 @@ class SpeechToTextTranslateStreamingClient:
 
         Parameters
         ----------
-        model : typing.Optional[SpeechToTextTranslateStreamingModel]
+        model : typing.Optional[typing.Literal["saaras:v2.5"]]
             Model to be used for speech to text translation.
 
-            - **saaras:v3** (default, recommended): State-of-the-art translation model that translates audio from any spoken Indic language to English with flexible output formats via the `mode` parameter.
-
-            - **saaras:v2.5** (legacy): Translation model that translates audio from any spoken Indic language to English. Kept for backward compatibility.
+            - **saaras:v2.5** (default): Translation model that translates audio from any spoken Indic language to English.
               - Example: Hindi audio → English text output
 
-        mode : typing.Optional[SpeechToTextTranslateStreamingMode]
-            Mode of operation. **Only applicable when using saaras:v3 model.**
-
-            - **translate** (default): Translates speech from any supported Indic language to English.
-              - Example: Hindi audio → English text output
-
-            - **transcribe**: Standard transcription in the original language.
-
-            - **verbatim**: Exact word-for-word transcription without normalization.
-
-            - **translit**: Romanization - Transliterates speech to Latin/Roman script only.
-
-            - **codemix**: Code-mixed text with English words in English and Indic words in native script.
+            For the latest model (saaras:v3), use the `/speech-to-text` endpoint with `mode="translate"`.
 
         sample_rate : typing.Optional[str]
             Audio sample rate for the WebSocket connection. When specified as a connection parameter, only 16kHz and 8kHz are supported. 8kHz is only available via this connection parameter. If not specified, defaults to 16kHz.
@@ -173,7 +156,6 @@ class SpeechToTextTranslateStreamingClient:
                 remove_none_from_dict(
                     {
                         "model": model,
-                        "mode": mode,
                         "sample_rate": sample_rate,
                         "high_vad_sensitivity": high_vad_sensitivity,
                         "positive_speech_threshold": positive_speech_threshold,
@@ -242,8 +224,7 @@ class AsyncSpeechToTextTranslateStreamingClient:
     async def connect(
         self,
         *,
-        model: typing.Optional[SpeechToTextTranslateStreamingModel] = None,
-        mode: typing.Optional[SpeechToTextTranslateStreamingMode] = None,
+        model: typing.Optional[typing.Literal["saaras:v2.5"]] = None,
         sample_rate: typing.Optional[str] = None,
         high_vad_sensitivity: typing.Optional[SpeechToTextTranslateStreamingHighVadSensitivity] = None,
         positive_speech_threshold: typing.Optional[str] = None,
@@ -271,27 +252,13 @@ class AsyncSpeechToTextTranslateStreamingClient:
 
         Parameters
         ----------
-        model : typing.Optional[SpeechToTextTranslateStreamingModel]
+        model : typing.Optional[typing.Literal["saaras:v2.5"]]
             Model to be used for speech to text translation.
 
-            - **saaras:v3** (default, recommended): State-of-the-art translation model that translates audio from any spoken Indic language to English with flexible output formats via the `mode` parameter.
-
-            - **saaras:v2.5** (legacy): Translation model that translates audio from any spoken Indic language to English. Kept for backward compatibility.
+            - **saaras:v2.5** (default): Translation model that translates audio from any spoken Indic language to English.
               - Example: Hindi audio → English text output
 
-        mode : typing.Optional[SpeechToTextTranslateStreamingMode]
-            Mode of operation. **Only applicable when using saaras:v3 model.**
-
-            - **translate** (default): Translates speech from any supported Indic language to English.
-              - Example: Hindi audio → English text output
-
-            - **transcribe**: Standard transcription in the original language.
-
-            - **verbatim**: Exact word-for-word transcription without normalization.
-
-            - **translit**: Romanization - Transliterates speech to Latin/Roman script only.
-
-            - **codemix**: Code-mixed text with English words in English and Indic words in native script.
+            For the latest model (saaras:v3), use the `/speech-to-text` endpoint with `mode="translate"`.
 
         sample_rate : typing.Optional[str]
             Audio sample rate for the WebSocket connection. When specified as a connection parameter, only 16kHz and 8kHz are supported. 8kHz is only available via this connection parameter. If not specified, defaults to 16kHz.
@@ -367,7 +334,6 @@ class AsyncSpeechToTextTranslateStreamingClient:
                 remove_none_from_dict(
                     {
                         "model": model,
-                        "mode": mode,
                         "sample_rate": sample_rate,
                         "high_vad_sensitivity": high_vad_sensitivity,
                         "positive_speech_threshold": positive_speech_threshold,

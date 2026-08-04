@@ -19,10 +19,13 @@ from .base import (
     CodeExecToolProvider,
     CodeExecutionParams,
     CommandResult,
-    SavedFile,
+    OutputSourceRoot,
     SaveOutputFilesResult,
     UploadedFile,
     UploadFilesResult,
+    _atomic_write_bytes,
+    _host_output_destination_identity,
+    _save_host_output_files,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,7 +40,7 @@ class LocalCodeExecToolProvider(CodeExecToolProvider):
     Usage with Agent:
         from stirrup.clients.chat_completions_client import ChatCompletionsClient
 
-        client = ChatCompletionsClient(model="gpt-5")
+        client = ChatCompletionsClient(model="gpt-5.6-luna", max_tokens=8_192, context_window_tokens=1_000_000)
         agent = Agent(
             client=client,
             name="assistant",
@@ -67,9 +70,11 @@ class LocalCodeExecToolProvider(CodeExecToolProvider):
         """Initialize LocalCodeExecToolProvider configuration.
 
         Args:
-            allowed_commands: Optional list of regex patterns. If provided, only
-                             commands matching at least one pattern are allowed.
-                             If None, all commands are allowed.
+            allowed_commands: Optional list of regex patterns. When set,
+                             commands are matched against the patterns and run
+                             without a shell, with literal arguments. When
+                             None, all commands are allowed and run through
+                             bash.
             temp_base_dir: Optional base directory for creating the execution environment
                           temp directory. If None, uses the system default temp directory.
             description: Optional description of the tool. If None, uses the default description.
@@ -92,8 +97,12 @@ class LocalCodeExecToolProvider(CodeExecToolProvider):
         """Return the temp directory path, or None if not started."""
         return self._temp_dir
 
-    def _check_absolute_paths(self, cmd: str) -> CommandResult | None:
-        """Check if command contains absolute paths that could escape the temp directory.
+    def _check_absolute_paths(self, argv: list[str] | None, cmd: str) -> CommandResult | None:
+        """Check if a command references absolute paths that escape the temp directory.
+
+        Args:
+            argv: Parsed arguments when an allowlist is configured, else None.
+            cmd: Raw command, run through Bash when there is no allowlist.
 
         Returns:
             CommandResult with error if absolute paths detected, None otherwise.
@@ -102,14 +111,21 @@ class LocalCodeExecToolProvider(CodeExecToolProvider):
             This check is specific to LocalCodeExecToolProvider since Docker and E2B
             providers are already sandboxed and absolute paths are safe within them.
         """
+        # argv is what actually runs, so the patterns must see it rather than
+        # the raw string: quoting inside a path (``/et''c/passwd``) survives in
+        # the string but not in the parsed argument. Home-directory spellings
+        # are only expanded by Bash, so they are checked on that path alone.
         absolute_patterns = [
-            r"~/",  # ~/path - home directory shortcut
             r"/(?:home|Users|tmp|var|etc)/",  # /home/, /Users/, /tmp/, etc.
-            r"\$HOME/",  # $HOME/path
-            r"\$\{HOME\}/",  # ${HOME}/path
         ]
-        for pattern in absolute_patterns:
-            if re.search(pattern, cmd):
+        if argv is None:
+            absolute_patterns += [
+                r"~/",  # ~/path - home directory shortcut
+                r"\$HOME/",  # $HOME/path
+                r"\$\{HOME\}/",  # ${HOME}/path
+            ]
+        for target in argv if argv is not None else [cmd]:
+            if any(re.search(pattern, target) for pattern in absolute_patterns):
                 return CommandResult(
                     exit_code=1,
                     stdout="",
@@ -210,8 +226,7 @@ class LocalCodeExecToolProvider(CodeExecToolProvider):
 
         """
         resolved = self._resolve_and_validate_path(path)
-        resolved.parent.mkdir(parents=True, exist_ok=True)
-        resolved.write_bytes(content)
+        _atomic_write_bytes(content, resolved)
 
     async def file_exists(self, path: str) -> bool:
         """Check if a file exists in the temp directory.
@@ -294,31 +309,26 @@ class LocalCodeExecToolProvider(CodeExecToolProvider):
         if timeout is None:
             timeout = self._shell_timeout
 
-        # Check allowlist
-        if not self._check_allowed(cmd):
-            return CommandResult(
-                exit_code=1,
-                stdout="",
-                stderr=f"Command not allowed: '{cmd}' does not match any allowed patterns",
-                error_kind="command_not_allowed",
-                advice="Only commands matching the allowlist patterns are permitted.",
-            )
+        # With an allowlist, the parsed argv must run directly (no shell).
+        argv, rejection = self._prepare_command(cmd)
+        if rejection is not None:
+            return rejection
 
         # Check for absolute paths (local environment is not sandboxed)
-        absolute_path_error = self._check_absolute_paths(cmd)
+        absolute_path_error = self._check_absolute_paths(argv, cmd)
         if absolute_path_error:
             return absolute_path_error
 
         process = None
         try:
             with anyio.fail_after(timeout):
-                # start_new_session=True puts bash at the head of its own session,
-                # so pgid == child pid and we can killpg the whole tree on timeout.
-                # Without it, process.kill() only terminates root bash, leaving
-                # grandchildren reparented to init (same bug shape as the docker
-                # orphan leak that motivated this PR).
+                # start_new_session=True puts the child at the head of its own
+                # session, so pgid == child pid and we can killpg the whole tree
+                # on timeout. Without it, process.kill() only terminates the
+                # root process, leaving grandchildren reparented to init (same
+                # bug shape as the docker orphan leak that motivated this PR).
                 process = await anyio.open_process(
-                    ["bash", "-c", cmd],
+                    argv if argv is not None else ["bash", "-c", cmd],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     cwd=self._temp_dir,
@@ -375,11 +385,11 @@ class LocalCodeExecToolProvider(CodeExecToolProvider):
         output_dir: Path | str,
         dest_env: "CodeExecToolProvider | None" = None,
     ) -> SaveOutputFilesResult:
-        """Move files from the temp directory to a destination.
+        """Copy files from the temp directory to a destination.
 
-        When dest_env is None (local filesystem), files are MOVED (not copied) -
-        originals are deleted from the execution environment.
-        Existing files in output_dir are silently overwritten.
+        Source files remain in the execution environment. Existing destination
+        files are atomically replaced, while duplicate destinations within one
+        call are rejected and reported in ``failed``.
 
         When dest_env is provided (cross-environment transfer), files are copied
         using the base class implementation via read/write primitives.
@@ -405,56 +415,22 @@ class LocalCodeExecToolProvider(CodeExecToolProvider):
         if dest_env is not None:
             return await super().save_output_files(paths, output_dir, dest_env)
 
-        # Local filesystem - use optimized move operation
-        output_dir_path = Path(output_dir)
-        output_dir_path.mkdir(parents=True, exist_ok=True)
+        return _save_host_output_files(
+            paths,
+            output_dir,
+            source_roots=self.output_source_roots(),
+            resolve_source=self._resolve_and_validate_path,
+        )
 
-        result = SaveOutputFilesResult()
+    def output_source_roots(self) -> tuple[OutputSourceRoot, ...]:
+        """Return absolute execution roots accepted when resolving output paths."""
+        return (OutputSourceRoot.for_host(self._temp_dir),) if self._temp_dir is not None else ()
 
-        for source_path_str in paths:
-            try:
-                source_path = Path(source_path_str)
-                if not source_path.is_absolute():
-                    source_path = self._temp_dir / source_path
-
-                # Security: ensure path is within temp directory
-                try:
-                    source_path.resolve().relative_to(self._temp_dir.resolve())
-                except ValueError:
-                    result.failed[source_path_str] = "Path is outside execution environment directory"
-                    logger.warning("Attempted to access path outside execution environment: %s", source_path_str)
-                    continue
-
-                if not source_path.exists():
-                    result.failed[source_path_str] = "File does not exist"
-                    logger.warning("Execution environment file does not exist: %s", source_path_str)
-                    continue
-
-                if not source_path.is_file():
-                    result.failed[source_path_str] = "Path is not a file"
-                    logger.warning("Execution environment path is not a file: %s", source_path_str)
-                    continue
-
-                file_size = source_path.stat().st_size
-                dest_path = output_dir_path / source_path.name
-
-                # Move file (overwrites if exists)
-                shutil.move(str(source_path), str(dest_path))
-                logger.debug("Moved file: %s -> %s", source_path, dest_path)
-
-                result.saved.append(
-                    SavedFile(
-                        source_path=source_path_str,
-                        output_path=dest_path,
-                        size=file_size,
-                    ),
-                )
-
-            except Exception as exc:
-                result.failed[source_path_str] = str(exc)
-                logger.exception("Failed to move file: %s", source_path_str)
-
-        return result
+    async def output_destination_identity(self, destination: str, output_root: Path | str) -> str:
+        """Validate a cross-environment destination and return its host identity."""
+        resolved_destination = self._resolve_and_validate_path(destination)
+        resolved_root = self._resolve_and_validate_path(str(output_root))
+        return _host_output_destination_identity(resolved_destination, resolved_root)
 
     async def upload_files(
         self,

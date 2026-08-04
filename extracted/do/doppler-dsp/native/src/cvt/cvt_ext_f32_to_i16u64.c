@@ -254,53 +254,165 @@ F32ToI16U64Obj_exit (F32ToI16U64Object *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
-static PyMethodDef F32ToI16U64Obj_methods[]
-    = { { "reset", (PyCFunction)F32ToI16U64Obj_reset, METH_NOARGS,
-          "Reset state to post-create defaults." },
-        { "step", (PyCFunction)F32ToI16U64_step, METH_VARARGS,
-          "step(x) -> uint64_t\n"
-          "\n"
-          "Process one input sample.\n"
-          "\n"
-          "    >>> from doppler import F32ToI16U64\n"
-          "    >>> obj = F32ToI16U64(32768.0)\n"
-          "    >>> obj.step(1.0)\n"
-          "    0\n" },
-        { "steps", (PyCFunction)(void *)F32ToI16U64_steps,
-          METH_VARARGS | METH_KEYWORDS,
-          "steps(x[, out]) -> ndarray\n"
-          "\n"
-          "Process a block of float samples to Q15-in-uint64.\n"
-          "\n"
-          "    >>> import numpy as np\n"
-          "    >>> from doppler import F32ToI16U64\n"
-          "    >>> obj = F32ToI16U64(32768.0)\n"
-          "    >>> y = obj.steps(np.zeros(4, dtype=np.float32))\n"
-          "    >>> y.shape\n"
-          "    (4,)\n"
-          "    >>> y.dtype\n"
-          "    dtype('uint64')\n" },
+static PyMethodDef F32ToI16U64Obj_methods[] = {
+  { "reset", (PyCFunction)F32ToI16U64Obj_reset, METH_NOARGS,
+    "Clear the sticky clip flag, starting a fresh saturation history." },
+  { "step", (PyCFunction)F32ToI16U64_step, METH_VARARGS,
+    "step(x) -> uint64_t\n"
+    "\n"
+    "Scale one float sample to a saturated Q15 code packed in a uint64.\n"
+    "\n"
+    "Computes round(x * scale), saturates to `[-32768, 32767]`, then\n"
+    "zero-extends the 16-bit two's-complement pattern into the lower 16 bits\n"
+    "of a uint64 (upper 48 bits are always zero — headroom for the NCO phase\n"
+    "accumulator). Latches the sticky clipped flag on saturation.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : float\n"
+    "    Input sample, normally a normalised float in `[-1, +1]`.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Q15 code in the low 16 bits of a uint64; e.g. -32768 -> 0x8000.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.cvt import F32ToI16U64\n"
+    ">>> c = F32ToI16U64(scale=32768.0)\n"
+    ">>> c.step(0.5)              # 0.5 -> Q15 16384, upper 48 bits zero\n"
+    "16384\n"
+    ">>> hex(c.step(-1.0))        # -32768 as an unsigned low-16 pattern\n"
+    "'0x8000'\n"
+    "\n" },
+  { "steps", (PyCFunction)(void *)F32ToI16U64_steps,
+    METH_VARARGS | METH_KEYWORDS,
+    "steps(x[, out]) -> ndarray\n"
+    "\n"
+    "Process a block of float samples to Q15-in-uint64.\n"
+    "\n"
+    "Applies step() to every element. The clipped flag is updated\n"
+    "cumulatively across the block. Accepts an optional pre-allocated output\n"
+    "array; allocates a fresh one when output is NULL.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.float32]\n"
+    "    Input sample.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.uint64]\n"
+    "    Output sample.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.cvt import F32ToI16U64\n"
+    ">>> import numpy as np\n"
+    ">>> F32ToI16U64().steps(np.array([0.0, 0.5], "
+    "dtype=np.float32)).tolist()\n"
+    "[0, 16384]\n"
+    "\n" },
 
-        { "state_bytes", (PyCFunction)F32ToI16U64Obj_state_bytes, METH_NOARGS,
-          "Serialized state size in bytes." },
-        { "get_state", (PyCFunction)F32ToI16U64Obj_get_state, METH_NOARGS,
-          "Serialize the engine's mutable state to bytes." },
-        { "set_state", (PyCFunction)F32ToI16U64Obj_set_state, METH_O,
-          "Restore mutable state from a get_state() blob." },
-        { "destroy", (PyCFunction)F32ToI16U64Obj_destroy, METH_NOARGS,
-          "Release resources." },
-        { "__enter__", (PyCFunction)F32ToI16U64Obj_enter, METH_NOARGS, NULL },
-        { "__exit__", (PyCFunction)F32ToI16U64Obj_exit, METH_VARARGS, NULL },
-        { NULL } };
+  { "state_bytes", (PyCFunction)F32ToI16U64Obj_state_bytes, METH_NOARGS,
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the F32ToI16U64Obj has already been\n"
+    "destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
+  { "get_state", (PyCFunction)F32ToI16U64Obj_get_state, METH_NOARGS,
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the F32ToI16U64Obj has already been\n"
+    "destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
+  { "set_state", (PyCFunction)F32ToI16U64Obj_set_state, METH_O,
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the F32ToI16U64Obj has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
+  { "destroy", (PyCFunction)F32ToI16U64Obj_destroy, METH_NOARGS,
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)F32ToI16U64Obj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a F32ToI16u64 be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "F32ToI16u64\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)F32ToI16U64Obj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the F32ToI16u64.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
+  { NULL }
+};
 
 static PyTypeObject F32ToI16U64ObjType = {
   PyVarObject_HEAD_INIT (NULL, 0).tp_name = "cvt.F32ToI16U64",
   .tp_basicsize                           = sizeof (F32ToI16U64Object),
   .tp_dealloc                             = (destructor)F32ToI16U64Obj_dealloc,
   .tp_flags                               = Py_TPFLAGS_DEFAULT,
-  .tp_doc                                 = "F32ToI16U64 type.\n",
-  .tp_methods                             = F32ToI16U64Obj_methods,
-  .tp_getset                              = F32ToI16U64_getset,
-  .tp_new                                 = F32ToI16U64Obj_new,
-  .tp_init                                = (initproc)F32ToI16U64Obj_init,
+  .tp_doc     = "Create a f32_to_i16u64 instance.\n",
+  .tp_methods = F32ToI16U64Obj_methods,
+  .tp_getset  = F32ToI16U64_getset,
+  .tp_new     = F32ToI16U64Obj_new,
+  .tp_init    = (initproc)F32ToI16U64Obj_init,
 };

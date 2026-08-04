@@ -1,7 +1,8 @@
 """E2B cloud execution environment backend for code execution."""
 
+import shlex
 from contextlib import AbstractAsyncContextManager
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from pydantic import ValidationError
 
@@ -24,13 +25,29 @@ from .base import (
     CodeExecToolProvider,
     CodeExecutionParams,
     CommandResult,
-    SavedFile,
-    SaveOutputFilesResult,
+    OutputSourceRoot,
     UploadedFile,
     UploadFilesResult,
 )
 
 logger = logging.getLogger(__name__)
+
+# Home/working directory of the default E2B sandbox template. A custom template
+# must use this same home directory; otherwise output-path resolution and symlink
+# validation reject files that live under its actual home.
+E2B_WORKING_DIR = "/home/user"
+
+
+def _quote_argv_for_shell(argv: list[str]) -> str:
+    """Render argv as a shell command string that runs exactly those arguments.
+
+    Every argument is quoted. The command word is quoted even when it would
+    not normally need it, so the shell cannot treat it as a reserved word
+    (``time``) or an assignment — only as a plain command lookup. This matches
+    the behavior of the backends that skip the shell entirely.
+    """
+    head = "'" + argv[0].replace("'", "'\"'\"'") + "'"
+    return f"{head} {shlex.join(argv[1:])}" if len(argv) > 1 else head
 
 
 def make_create_gate(max_rate: float, time_period: float = 1) -> AbstractAsyncContextManager[object]:
@@ -69,7 +86,7 @@ class E2BCodeExecToolProvider(CodeExecToolProvider):
         from stirrup.clients.chat_completions_client import ChatCompletionsClient
 
         provider = E2BCodeExecToolProvider(timeout=600, template="my-template")
-        client = ChatCompletionsClient(model="gpt-5")
+        client = ChatCompletionsClient(model="gpt-5.6-luna", max_tokens=8_192, context_window_tokens=1_000_000)
         agent = Agent(client=client, name="assistant", tools=[provider])
         async with agent.session() as session:
             await session.run("Run Python code")
@@ -95,10 +112,17 @@ class E2BCodeExecToolProvider(CodeExecToolProvider):
 
         Args:
             timeout: Execution environment lifetime in seconds (default: 10 minutes).
-            template: Optional E2B template name/alias.
-            allowed_commands: Optional list of regex patterns. If provided, only
-                             commands matching at least one pattern are allowed.
-                             If None, all commands are allowed.
+            template: Optional E2B template name/alias. A custom template must
+                use ``/home/user`` as its home/working directory; output-path
+                resolution and symlink validation are anchored there, so a
+                template with a different home will have its output files
+                rejected as outside the execution root.
+            allowed_commands: Optional list of regex patterns. When set,
+                             commands are matched against the patterns and
+                             re-quoted so the sandbox shell runs exactly the
+                             parsed arguments, with nothing expanded. When
+                             None, all commands are allowed and run through
+                             the shell unchanged.
             sandbox_kwargs: Additional keyword arguments forwarded to
                             ``AsyncSandbox.create`` (e.g. ``allow_internet_access=False``,
                             ``metadata={...}``, ``envs={...}``). ``timeout`` and
@@ -286,15 +310,14 @@ class E2BCodeExecToolProvider(CodeExecToolProvider):
         if timeout is None:
             timeout = self._shell_timeout
 
-        # Check allowlist
-        if not self._check_allowed(cmd):
-            return CommandResult(
-                exit_code=1,
-                stdout="",
-                stderr=f"Command not allowed: '{cmd}' does not match any allowed patterns",
-                error_kind="command_not_allowed",
-                advice="Only commands matching the allowlist patterns are permitted.",
-            )
+        # With an allowlist, run the parsed argv. E2B only accepts a command
+        # string, so re-quote the argv; the sandbox shell then runs exactly
+        # those arguments with nothing to expand.
+        argv, rejection = self._prepare_command(cmd)
+        if rejection is not None:
+            return rejection
+        if argv is not None:
+            cmd = _quote_argv_for_shell(argv)
 
         try:
             r = await self._sbx.commands.run(cmd, timeout=timeout, request_timeout=self._request_timeout)
@@ -326,85 +349,77 @@ class E2BCodeExecToolProvider(CodeExecToolProvider):
                 error_kind="timeout",
             )
 
-    async def save_output_files(
-        self,
-        paths: list[str],
-        output_dir: Path | str,
-        dest_env: "CodeExecToolProvider | None" = None,
-    ) -> SaveOutputFilesResult:
-        """Save files from the E2B execution environment to a destination.
+    def output_source_roots(self) -> tuple[OutputSourceRoot, ...]:
+        """Return absolute execution roots accepted when resolving output paths."""
+        return (OutputSourceRoot(path=E2B_WORKING_DIR),)
 
-        When dest_env is None (local filesystem), files are downloaded from the
-        sandbox and saved locally.
+    async def resolve_output_source(self, source_path: str) -> str:
+        """Resolve an E2B source and require a regular file inside the working root."""
+        if self._sbx is None:
+            raise RuntimeError("ExecutionEnvironment not started.")
 
-        When dest_env is provided (cross-environment transfer), files are copied
-        using the base class implementation via read/write primitives.
+        command = f"realpath -ze -- {shlex.quote(source_path)}"
+        try:
+            result = await self._sbx.commands.run(
+                command,
+                timeout=self._shell_timeout,
+                request_timeout=self._request_timeout,
+            )
+        except CommandExitException as exc:
+            raise ValueError(f"Could not resolve E2B output source: {source_path}") from exc
 
-        Args:
-            paths: List of file paths in the execution environment to save.
-            output_dir: Directory path to save files to.
-            dest_env: If provided, output_dir is interpreted as a path within dest_env
-                      (cross-environment transfer). If None, output_dir is a local
-                      filesystem path.
+        resolved_paths = [path for path in result.stdout.split("\0") if path]
+        if len(resolved_paths) != 1:
+            raise ValueError(f"Could not resolve E2B output source: {source_path}")
+        resolved_path = PurePosixPath(resolved_paths[0])
+        try:
+            resolved_path.relative_to(PurePosixPath(E2B_WORKING_DIR))
+        except ValueError as exc:
+            raise ValueError(f"E2B output source is outside E2B execution root: {source_path}") from exc
 
-        Returns:
-            SaveOutputFilesResult containing lists of saved files and any failures.
+        info = await self._sbx.files.get_info(resolved_path.as_posix())
+        if info.type != FileType.FILE:
+            raise ValueError(f"Path is not a file (type: {info.type})")
+        return resolved_path.as_posix()
 
+    async def output_destination_identity(self, destination: str, output_root: Path | str) -> str:
+        """Validate a cross-environment destination and return its canonical identity.
+
+        Raises:
+            RuntimeError: If the execution environment is not started.
+            ValueError: If the destination escapes ``output_root`` or the
+                sandbox cannot canonicalize the paths.
         """
         if self._sbx is None:
-            raise RuntimeError(
-                "ExecutionEnvironment not started. Ensure current Agent is equipped with a CodeExecToolProvider."
+            raise RuntimeError("ExecutionEnvironment not started.")
+
+        command = f"realpath -zm -- {shlex.quote(str(output_root))} {shlex.quote(destination)}"
+        try:
+            result = await self._sbx.commands.run(
+                command,
+                timeout=self._shell_timeout,
+                request_timeout=self._request_timeout,
+            )
+        except CommandExitException as exc:
+            raise ValueError(
+                "Could not resolve cross-environment output destination: "
+                f"realpath exited {exc.exit_code}: {(exc.stderr or exc.stdout).strip()}"
+            ) from exc
+        resolved_paths = [path for path in result.stdout.split("\0") if path]
+        if len(resolved_paths) != 2:
+            raise ValueError(
+                "Could not resolve cross-environment output destination "
+                f"(expected 2 NUL-terminated paths from realpath; stdout: {result.stdout!r}, "
+                f"stderr: {result.stderr!r})"
             )
 
-        # If dest_env is provided, use the base class implementation (cross-env transfer)
-        if dest_env is not None:
-            return await super().save_output_files(paths, output_dir, dest_env)
+        resolved_root, resolved_destination = map(PurePosixPath, resolved_paths)
+        try:
+            resolved_destination.relative_to(resolved_root)
+        except ValueError as exc:
+            raise ValueError(f"Output destination escapes output directory: {destination}") from exc
 
-        # Local filesystem - use optimized E2B API
-        output_dir_path = Path(output_dir)
-        output_dir_path.mkdir(parents=True, exist_ok=True)
-
-        result = SaveOutputFilesResult()
-
-        for env_path in paths:
-            try:
-                # Check if file exists
-                if not await self._sbx.files.exists(env_path):
-                    result.failed[env_path] = "File does not exist"
-                    logger.warning("Execution environment file does not exist: %s", env_path)
-                    continue
-
-                # Get file info to verify it's a file (not a directory)
-                info = await self._sbx.files.get_info(env_path)
-                if info.type != FileType.FILE:
-                    result.failed[env_path] = f"Path is not a file (type: {info.type})"
-                    logger.warning("Execution environment path is not a file: %s (type: %s)", env_path, info.type)
-                    continue
-
-                # Read file content from execution environment
-                file_bytes = await self._sbx.files.read(env_path, format="bytes", request_timeout=self._request_timeout)
-                content = bytes(file_bytes)
-
-                # Save with original filename directly in output_dir
-                local_path = output_dir_path / Path(env_path).name
-
-                # Write file
-                local_path.write_bytes(content)
-
-                result.saved.append(
-                    SavedFile(
-                        source_path=env_path,
-                        output_path=local_path,
-                        size=len(content),
-                    ),
-                )
-                logger.debug("Saved file: %s -> %s (%d bytes)", env_path, local_path, len(content))
-
-            except Exception as exc:
-                result.failed[env_path] = str(exc)
-                logger.exception("Failed to save execution environment file: %s", env_path)
-
-        return result
+        return resolved_destination.as_posix()
 
     async def upload_files(
         self,
@@ -444,7 +459,7 @@ class E2BCodeExecToolProvider(CodeExecToolProvider):
             return await super().upload_files(*paths, source_env=source_env, dest_dir=dest_dir)
 
         # Local filesystem - use optimized E2B API
-        dest_base = dest_dir or "/home/user"
+        dest_base = dest_dir or E2B_WORKING_DIR
         result = UploadFilesResult()
 
         for source in paths:

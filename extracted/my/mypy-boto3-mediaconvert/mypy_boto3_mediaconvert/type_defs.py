@@ -1339,6 +1339,7 @@ class M3u8SettingsOutputTypeDef(TypedDict):
 
 
 class MovSettingsTypeDef(TypedDict):
+    AudioDuration: NotRequired[CmfcAudioDurationType]
     ClapAtom: NotRequired[MovClapAtomType]
     CslgAtom: NotRequired[MovCslgAtomType]
     Mpeg2FourCCControl: NotRequired[MovMpeg2FourCCControlType]
@@ -2372,6 +2373,7 @@ class CodecMetadataTypeDef(TypedDict):
     CodedFrameRate: NotRequired[FrameRateTypeDef]
     ColorPrimaries: NotRequired[ColorPrimariesType]
     ContentLightLevel: NotRequired[ContentLightLevelTypeDef]
+    FieldOrder: NotRequired[str]
     Height: NotRequired[int]
     Level: NotRequired[str]
     MatrixCoefficients: NotRequired[MatrixCoefficientsType]
@@ -3676,6 +3678,7 @@ class VideoOverlayInputTypeDef(TypedDict):
 
 
 class ContainerTypeDef(TypedDict):
+    BitRate: NotRequired[int]
     Duration: NotRequired[float]
     Format: NotRequired[FormatType]
     StartTimecode: NotRequired[str]

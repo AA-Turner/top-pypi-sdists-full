@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prek
-Version: 0.4.11
+Version: 0.4.12
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -82,7 +82,7 @@ On Linux and macOS:
 <!-- --8<-- [start: linux-standalone-install] -->
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/j178/prek/releases/download/v0.4.11/prek-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/j178/prek/releases/download/v0.4.12/prek-installer.sh | sh
 ```
 
 <!-- --8<-- [end: linux-standalone-install] -->
@@ -92,7 +92,7 @@ On Windows:
 <!-- --8<-- [start: windows-standalone-install] -->
 
 ```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://github.com/j178/prek/releases/download/v0.4.11/prek-installer.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://github.com/j178/prek/releases/download/v0.4.12/prek-installer.ps1 | iex"
 ```
 
 <!-- --8<-- [end: windows-standalone-install] -->
@@ -324,8 +324,8 @@ jobs:
   prek:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: j178/prek-action@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: j178/prek-action@5337cb91e0fa35a7ff31b9ca345126d8bbbcdf16 # v2
 ```
 
 This action installs prek and runs `prek run --all-files` on your repository.

@@ -1076,6 +1076,7 @@ class Client:
 
         from plato._generated.api.v2.jobs import get_flows as jobs_get_flows
         from plato._generated.api.v2.jobs import public_url as jobs_public_url
+        from plato._generated.errors import NotFoundError
         from plato._generated.models import Flow
         from plato.v2.sync.flow_executor import FlowExecutor
 
@@ -1145,23 +1146,44 @@ class Client:
                 page.goto(public_url, timeout=120_000)
                 print(f"  [{env.alias}] Page loaded: {page.url}", flush=True)
 
-                # Fetch flows
+                # Fetch flows. A sim with no flows at all is a LEGITIMATE
+                # configuration, not an error: the cloned-SaaS family (hubspot,
+                # salesforce, amazon, ...) ships pre-baked auth cookies and has
+                # no login page to drive, so those artifacts define no
+                # flows.yaml and the server 404s the fetch. Hard-failing here
+                # killed every episode on those sims before the agent ever ran
+                # (~1,800 tasks in the output-only catalog alone). The page is
+                # already on the sim URL at this point, which is all a
+                # pre-authenticated sim needs -- so skip login and move on.
+                # Genuine failures (network errors, 5xx) still raise: silently
+                # skipping login on a sim that DOES need it would make every
+                # episode unwinnable, which is worse than failing loudly.
                 try:
                     flows_response = jobs_get_flows.sync(
                         client=session._http,
                         job_id=env.job_id,
                         x_api_key=session._api_key,
                     )
+                except NotFoundError:
+                    logger.info("Skipping login for %s (artifact has no flows; pre-authenticated sim)", env.alias)
+                    print(f"  [{env.alias}] No flows for artifact — skipping login (pre-authenticated sim)", flush=True)
+                    continue
                 except Exception as exc:
                     raise RuntimeError(f"Failed to get flows for {env.alias}: {exc}") from exc
 
                 if not flows_response:
-                    raise RuntimeError(f"No flows found for {env.alias}")
+                    logger.info("Skipping login for %s (empty flows list)", env.alias)
+                    print(f"  [{env.alias}] Empty flows list — skipping login", flush=True)
+                    continue
 
                 flows_list = [Flow.model_validate(f) for f in flows_response]
                 login_flow = next((f for f in flows_list if f.name == "login"), None)
                 if not login_flow:
-                    raise RuntimeError(f"No 'login' flow found for {env.alias}")
+                    # Same handling the CDP world path has had for this case
+                    # (cua_benchmark_world.world warns and continues).
+                    logger.info("Skipping login for %s (no 'login' flow defined)", env.alias)
+                    print(f"  [{env.alias}] No 'login' flow defined — skipping login", flush=True)
+                    continue
 
                 flow_executor = FlowExecutor(page, login_flow, log=logger)
 
@@ -1784,6 +1806,7 @@ class AsyncClient:
 
         from plato._generated.api.v2.jobs import get_flows as jobs_get_flows
         from plato._generated.api.v2.jobs import public_url as jobs_public_url
+        from plato._generated.errors import NotFoundError
         from plato._generated.models import Flow
         from plato.v2.async_.flow_executor import FlowExecutor
 
@@ -1858,22 +1881,37 @@ class AsyncClient:
                 logger.info("Navigating to %s for %s", public_url, env.alias)
                 await page.goto(public_url, timeout=120_000)
 
+                # A sim with no flows at all is a LEGITIMATE configuration --
+                # see the sync login() above for the full rationale
+                # (pre-authenticated cloned-SaaS sims define no flows.yaml, the
+                # server 404s, and the page is already on the sim URL). Skip
+                # login rather than kill the episode; genuine failures
+                # (network errors, 5xx) still raise.
                 try:
                     flows_response = await jobs_get_flows.asyncio(
                         client=session._http,
                         job_id=env.job_id,
                         x_api_key=session._api_key,
                     )
+                except NotFoundError:
+                    logger.info("Skipping login for %s (artifact has no flows; pre-authenticated sim)", env.alias)
+                    print(f"  [{env.alias}] No flows for artifact — skipping login (pre-authenticated sim)", flush=True)
+                    continue
                 except Exception as exc:
                     raise RuntimeError(f"Failed to get flows for {env.alias}: {exc}") from exc
 
                 if not flows_response:
-                    raise RuntimeError(f"No flows found for {env.alias}")
+                    logger.info("Skipping login for %s (empty flows list)", env.alias)
+                    print(f"  [{env.alias}] Empty flows list — skipping login", flush=True)
+                    continue
 
                 flows_list = [Flow.model_validate(f) for f in flows_response]
                 login_flow = next((f for f in flows_list if f.name == "login"), None)
                 if not login_flow:
-                    raise RuntimeError(f"No 'login' flow found for {env.alias}")
+                    # Same handling the CDP world path has had for this case.
+                    logger.info("Skipping login for %s (no 'login' flow defined)", env.alias)
+                    print(f"  [{env.alias}] No 'login' flow defined — skipping login", flush=True)
+                    continue
 
                 flow_executor = FlowExecutor(page, login_flow, log=logger)
 

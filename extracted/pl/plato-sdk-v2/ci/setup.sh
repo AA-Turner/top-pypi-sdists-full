@@ -37,7 +37,13 @@ if [ "${INSTALL_ZIGBUILD:-0}" = "1" ]; then
   fi
 
   if ! command -v cargo-zigbuild &> /dev/null; then
-    cargo install cargo-zigbuild --locked
+    # Prefer the prebuilt wheel from PyPI — `cargo install` compiles the tool
+    # from source (~45-60s of pure toolchain overhead per CI run).
+    if command -v uv &> /dev/null; then
+      uv tool install cargo-zigbuild
+    else
+      cargo install cargo-zigbuild --locked
+    fi
   fi
 fi
 

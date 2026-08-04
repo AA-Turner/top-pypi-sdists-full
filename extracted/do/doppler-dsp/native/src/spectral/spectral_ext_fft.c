@@ -603,10 +603,11 @@ FFT_getprop_sign (FFTObject *self, void *Py_UNUSED (closure))
   return PyLong_FromLong ((long)self->handle->sign);
 }
 
-static PyGetSetDef FFT_getset[]
-    = { { "n", (getter)FFT_getprop_n, NULL, "N.\n", NULL },
-        { "sign", (getter)FFT_getprop_sign, NULL, "Sign.\n", NULL },
-        { NULL } };
+static PyGetSetDef FFT_getset[] = { { "n", (getter)FFT_getprop_n, NULL,
+                                      "Transform length (samples).\n", NULL },
+                                    { "sign", (getter)FFT_getprop_sign, NULL,
+                                      "-1 forward, +1 inverse.\n", NULL },
+                                    { NULL } };
 
 static PyObject *
 FFTObj_destroy (FFTObject *self, PyObject *Py_UNUSED (ignored))
@@ -640,7 +641,7 @@ FFTObj_exit (FFTObject *self, PyObject *args)
 
 static PyMethodDef FFTObj_methods[] = {
   { "reset", (PyCFunction)FFTObj_reset, METH_NOARGS,
-    "Reset state to post-create defaults." },
+    "No-op reset (plans are immutable after creation)." },
 
   { "execute_cf64", (PyCFunction)(void *)FFTObj_execute_cf64,
     METH_VARARGS | METH_KEYWORDS,
@@ -651,12 +652,24 @@ static PyMethodDef FFTObj_methods[] = {
     "alias.  The transform is unnormalised: the inverse DFT (sign=+1) does "
     "NOT divide by n.  Both buffers must be exactly state->n elements long.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import FFT\n"
-    "    >>> obj = FFT(1024, -1, 1)\n"
-    "    >>> y = obj.execute_cf64(1.0 + 0.0j)\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex128')\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : complex\n"
+    "    Input.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex128]\n"
+    "    min(state->n, max_out) bins.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.spectral import FFT\n"
+    ">>> import numpy as np\n"
+    ">>> fft = FFT(n=4, sign=-1)\n"
+    ">>> x = np.array([1, 0, 0, 0], dtype=np.complex128)\n"
+    ">>> fft.execute_cf64(x).tolist()\n"
+    "[(1+0j), (1+0j), (1+0j), (1+0j)]\n" },
   { "execute_cf64_max_out", (PyCFunction)FFTObj_execute_cf64_max_out,
     METH_NOARGS,
     "execute_cf64_max_out() -> int\n\nMax output length execute_cf64() can "
@@ -670,12 +683,24 @@ static PyMethodDef FFTObj_methods[] = {
     "buffers, halving memory bandwidth relative to the double-precision "
     "variant. Output is unnormalised; in and out must not alias.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import FFT\n"
-    "    >>> obj = FFT(1024, -1, 1)\n"
-    "    >>> y = obj.execute_cf32(1.0 + 0.0j)\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex64')\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : complex\n"
+    "    Input.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex64]\n"
+    "    min(state->n, max_out) bins.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.spectral import FFT\n"
+    ">>> import numpy as np\n"
+    ">>> fft = FFT(n=4, sign=-1)\n"
+    ">>> x = np.ones(4, dtype=np.complex64)\n"
+    ">>> fft.execute_cf32(x).tolist()\n"
+    "[(4+0j), 0j, 0j, 0j]\n" },
   { "execute_cf32_max_out", (PyCFunction)FFTObj_execute_cf32_max_out,
     METH_NOARGS,
     "execute_cf32_max_out() -> int\n\nMax output length execute_cf32() can "
@@ -715,12 +740,24 @@ static PyMethodDef FFTObj_methods[] = {
     "out pointers; use this variant when the caller already owns out and "
     "wants the result there without a second allocation.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import FFT\n"
-    "    >>> obj = FFT(1024, -1, 1)\n"
-    "    >>> y = obj.execute_inplace_cf64(1.0 + 0.0j)\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex128')\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : complex\n"
+    "    Input.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex128]\n"
+    "    min(state->n, max_out) bins.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.spectral import FFT\n"
+    ">>> import numpy as np\n"
+    ">>> fft = FFT(n=4, sign=-1)\n"
+    ">>> x = np.array([1, 0, 0, 0], dtype=np.complex128)\n"
+    ">>> fft.execute_inplace_cf64(x).tolist()\n"
+    "[(1+0j), (1+0j), (1+0j), (1+0j)]\n" },
   { "execute_inplace_cf64_max_out",
     (PyCFunction)FFTObj_execute_inplace_cf64_max_out, METH_NOARGS,
     "execute_inplace_cf64_max_out() -> int\n\nMax output length "
@@ -735,21 +772,67 @@ static PyMethodDef FFTObj_methods[] = {
     "from in to out, then transforms out with the CF32 pocketfft plan.  in is "
     "left unmodified.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import FFT\n"
-    "    >>> obj = FFT(1024, -1, 1)\n"
-    "    >>> y = obj.execute_inplace_cf32(1.0 + 0.0j)\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex64')\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : complex\n"
+    "    Input.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex64]\n"
+    "    min(state->n, max_out) bins.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.spectral import FFT\n"
+    ">>> import numpy as np\n"
+    ">>> fft = FFT(n=4, sign=-1)\n"
+    ">>> x = np.array([1, 0, 0, 0], dtype=np.complex64)\n"
+    ">>> fft.execute_inplace_cf32(x).tolist()\n"
+    "[(1+0j), (1+0j), (1+0j), (1+0j)]\n" },
   { "execute_inplace_cf32_max_out",
     (PyCFunction)FFTObj_execute_inplace_cf32_max_out, METH_NOARGS,
     "execute_inplace_cf32_max_out() -> int\n\nMax output length "
     "execute_inplace_cf32() can produce for the current state.\nUse to size "
     "the ``out=`` buffer." },
   { "destroy", (PyCFunction)FFTObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)FFTObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)FFTObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)FFTObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a Fft be used in a `with` statement so its C resources are "
+    "released\n"
+    "deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "Fft\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)FFTObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the Fft.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

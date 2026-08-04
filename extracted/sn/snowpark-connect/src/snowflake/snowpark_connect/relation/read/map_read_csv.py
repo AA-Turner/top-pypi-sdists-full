@@ -43,6 +43,7 @@ from snowflake.snowpark_connect.config import (
     get_string_session_config_param,
     get_timestamp_type,
     global_config,
+    is_nss_enabled,
     str_to_bool,
 )
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
@@ -109,6 +110,147 @@ def _get_nan_inf_config(options: "CsvReaderConfig") -> dict[str, str | None]:
     }
 
 
+def _nss_read_csv(
+    rel: relation_proto.Relation,
+    schema: snowpark.types.StructType | None,
+    session: snowpark.Session,
+    paths: list[str],
+    options: CsvReaderConfig,
+) -> DataFrameContainer | None:
+    """Read CSV through the NSS ``STAGE_FILE_READER`` path when enabled.
+
+    Returns ``None`` (fall through to the COPY path) only when NSS is disabled. With NSS
+    on, an explicit schema is used directly; a schema-less read infers the columns via
+    ``INFER_STAGE_FILE_SCHEMA`` — which returns columns in file order (sorted by
+    ``ORDER_ID``), so the positional CSV read (Spark's ``enforceSchema`` default) stays
+    aligned.
+    """
+    if not is_nss_enabled():
+        return None
+
+    # STAGE_FILE_READER's LOCATION is single-valued; a multi-path read would silently
+    # return only paths[0]. Fail loudly until UNION-ALL support lands.
+    if len(paths) > 1:
+        exception = SnowparkConnectNotImplementedError(
+            "NSS multi-path read not supported (v1): STAGE_FILE_READER accepts a "
+            f"single LOCATION but {len(paths)} paths were given. Unset "
+            "SCOS_NSS_ENABLED on the server to read multiple paths via COPY."
+        )
+        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+        raise exception
+
+    format_name = get_string_session_config_param(
+        "snowpark.connect.nss.csv_format_name"
+    )
+    if not format_name:
+        from snowflake.snowpark_connect.nss.nss_file_format import (
+            ensure_nss_temp_file_format,
+        )
+
+        format_name = ensure_nss_temp_file_format(session, "csv")
+    # paths[0] arrives SQL-quoted (see _quote_stage_path); the NSS readers re-quote
+    # it, so strip one layer to avoid a doubled-quote syntax error.
+    stage_path = paths[0]
+    if stage_path.startswith("'") and stage_path.endswith("'"):
+        stage_path = stage_path[1:-1]
+
+    # Resolved corrupt-record column: read .option -> spark.sql.columnNameOfCorruptRecord.
+    corrupt_record_column_name = (
+        options.config.get("columnnameofcorruptrecord")
+        or get_string_session_config_param("spark.sql.columnNameOfCorruptRecord")
+        or "_corrupt_record"
+    )
+
+    # STAGE_FILE_READER produces the file's data columns directly from DATA_SCHEMA
+    # — no per-schema decoder UDTF. Filter to Spark CSV read options (also collapses
+    # the 2-char COPY-escaped escape/quote/sep back to a single char for Spark).
+    from snowflake.snowpark_connect.nss.nss_scan_options import (
+        _unquote_name,
+        columns_from_spark_schema,
+        filter_reader_options,
+    )
+    from snowflake.snowpark_connect.nss.nss_stage_file_reader import (
+        nss_read_via_stage_file_reader,
+    )
+
+    # Filter to Spark CSV read options once and reuse for BOTH inference and the read, so the
+    # inferred column layout matches the read: header/sep/delimiter/quote/escape must reach
+    # INFER_STAGE_FILE_SCHEMA too, not just STAGE_FILE_READER.
+    nss_reader_options = filter_reader_options("csv", dict(options.config))
+    if corrupt_record_column_name:
+        nss_reader_options["columnnameofcorruptrecord"] = corrupt_record_column_name
+
+    if schema is None:
+        from snowflake.snowpark_connect.nss.nss_infer_schema import (
+            infer_via_stage_file_schema,
+        )
+
+        nss_columns = infer_via_stage_file_schema(
+            session,
+            stage_path,
+            format_name,
+            get_string_session_config_param(
+                "snowpark.connect.nss.infer_stage_file_schema_fqn"
+            ),
+            mode=str(options.config.get("mode", "PERMISSIVE")).upper(),
+            corrupt_record_column=corrupt_record_column_name,
+            reader_options=nss_reader_options,
+        )
+    else:
+        from snowflake.snowpark_connect.relation.read.map_read import (
+            parse_data_source_schema_to_spark,
+        )
+
+        # TODO(SNOW-3717231): when an explicit schema is provided, still call an
+        # INFER_STAGE_FILE_SCHEMA (with-schema) TVF so the backend returns the same
+        # per-column response format as the schema-less case. The backend applies
+        # different logic for the with-schema vs no-schema paths, and routing both
+        # through infer keeps results consistent; the columns -> DATA_SCHEMA logic below
+        # stays identical. Pending backend support — for now use the client's Spark
+        # schema directly (its DataType.json(), no Snowpark round-trip).
+        parsed_spark_schema = parse_data_source_schema_to_spark(rel)
+        if parsed_spark_schema is None:
+            # snowpark ``schema`` is non-None but the proto schema string is empty —
+            # cannot build DATA_SCHEMA. Fail clearly rather than crash on
+            # ``None.fields`` inside columns_from_spark_schema.
+            exception = ValueError(
+                "NSS CSV read: an explicit schema was provided but the request "
+                "carried no parseable schema string."
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+            raise exception
+        nss_columns = columns_from_spark_schema(parsed_spark_schema)
+
+    # NSS read path (keyword kept out of the customer-visible log message)
+    logger.info(f"reading CSV via STAGE_FILE_READER from {stage_path}")
+    df = nss_read_via_stage_file_reader(
+        session=session,
+        stage_path=stage_path,
+        file_format=format_name,
+        columns=nss_columns,
+        reader_options=nss_reader_options,
+        tvf_fqn=get_string_session_config_param(
+            "snowpark.connect.nss.stage_file_reader_fqn"
+        ),
+    )
+
+    # Column names are already known from nss_columns (the TVF output order), so derive the
+    # Spark names from them rather than mapping back from Snowflake's uppercased df.columns.
+    # (This doesn't avoid a describe round-trip — rename_columns_as_snowflake_standard reads
+    # df.columns anyway — but it uses the authoritative original names.)
+    spark_column_names = [_unquote_name(c.name) for c in nss_columns]
+    renamed_df, snowpark_column_names = rename_columns_as_snowflake_standard(
+        df, rel.common.plan_id
+    )
+    return DataFrameContainer.create_with_column_mapping(
+        dataframe=renamed_df,
+        spark_column_names=spark_column_names,
+        snowpark_column_names=snowpark_column_names,
+        snowpark_column_types=None,
+        can_be_cached=False,
+    )
+
+
 def map_read_csv(
     rel: relation_proto.Relation,
     schema: snowpark.types.StructType | None,
@@ -157,6 +299,16 @@ def map_read_csv(
         attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
         raise exception
     else:
+        # ── NSS (Native Spark Sandbox) branch ────────────────────────────────
+        # When enabled, read CSV via STAGE_FILE_READER (real Spark CSVFileFormat
+        # in the sandbox) instead of COPY INTO — inferring the schema via
+        # INFER_STAGE_FILE_SCHEMA when the caller supplied none. Falls through to
+        # the COPY path only when NSS is off (see _nss_read_csv).
+        nss_container = _nss_read_csv(rel, schema, session, paths, options)
+        if nss_container is not None:
+            return nss_container
+        # ── End NSS branch ───────────────────────────────────────────────────
+
         # Read mode before convert_to_snowpark_args() pops it.
         mode = options.config.get("mode", "PERMISSIVE")
 

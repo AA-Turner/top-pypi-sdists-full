@@ -10507,8 +10507,17 @@ MESHIOPLUSPLUS_API void write_ip(const std::string& rPath, const Mesh& rMesh);
  * `Begin Elements Element3D3N// group`), and tabs are as good as spaces.
  * The blocks this reader/writer understands:
  *
- *  - `Begin Nodes` — `id x y z` rows. Node ids must be `1..n` in order (see
- *    the limitations below); connectivity is 1-based into them.
+ *  - `Begin Nodes` — `id x y z` rows, or bare `x y z` rows (auto-detected by
+ *    column count; a bare row takes its position as its id). Ids may be
+ *    arbitrary — gapped and non-monotonic both read, as a real Kratos deck
+ *    left by a SubModelPart extraction or an entity removal needs — and
+ *    connectivity, `NodalData` and `SubModelPartNodes` resolve through a
+ *    file-id → row map built lazily on the first id that is not `row + 1`
+ *    (`abaqus.cpp`'s `mPointIds` pattern). Points come back in **file order**,
+ *    never sorted by id; a duplicate id is a `ReadError`. **Original ids
+ *    survive a write**, too (see #kMdpaIdName): whenever they were not already
+ *    the trivial `1..n` a fresh write would produce anyway, they are attached
+ *    as ordinary `point_data`/`cell_data`, which `write_mdpa` reads back.
  *  - `Begin Elements <KratosName>` / `Begin Conditions <KratosName>` —
  *    `id property_id n1 n2 ...` rows. The Kratos entity name resolves to a
  *    meshio cell type through `backends/kratos_names.hpp`
@@ -10518,6 +10527,9 @@ MESHIOPLUSPLUS_API void write_ip(const std::string& rPath, const Mesh& rMesh);
  *    whenever the type differs from the previous one, exactly as the Python
  *    reference does, so block order follows the file. Property ids become
  *    Int64 `cell_data["gmsh:physical"]` — the name the Python reference uses.
+ *    Element and condition ids (each their own independent 1-based counter, in
+ *    file order across every block of that kind) are preserved the same way as
+ *    node ids -- see #kMdpaIdName.
  *  - `Begin ModelPartData` — `KEY value` pairs, kept as one-element Float64
  *    `field_data` entries.
  *  - `Begin Properties <id>` — the material data. Its body has no place on the
@@ -10544,7 +10556,10 @@ MESHIOPLUSPLUS_API void write_ip(const std::string& rPath, const Mesh& rMesh);
  * an MDPA file stays valid for Kratos.
  *
  * @note cell_data key produced/consumed: `"gmsh:physical"` (the Kratos
- *       property id of each element/condition).
+ *       property id of each element/condition); `point_data`/
+ *       `cell_data[kMdpaIdName]` (`"mdpa:id"`) for original node/entity ids,
+ *       when they were not already the trivial `1..n` renumbering — see
+ *       #kMdpaIdName.
  *
  * ## Limitations (deliberate, and reported by throwing)
  *
@@ -10568,11 +10583,10 @@ MESHIOPLUSPLUS_API void write_ip(const std::string& rPath, const Mesh& rMesh);
  * because skipping them would return a mesh that is quietly wrong rather than
  * merely incomplete:
  *
- *  - node ids that are not `1..n` in ascending order (the format allows
- *    arbitrary ids; honouring them would need a renumbering the Python
- *    reference does not do);
+ *  - a duplicate node id (two coordinate rows claiming one id is
+ *    unrepresentable, not merely incomplete);
  *  - a malformed row, an unknown entity name, or connectivity naming a node
- *    that does not exist.
+ *    the `Nodes` block does not define.
  *
  * The writer emits the mesh-level blocks (`ModelPartData` from scalar
  * `field_data`, `Properties`, `Nodes`, `Elements`/`Conditions`,
@@ -10595,6 +10609,27 @@ using MdpaProperties = PropertySet;
 
 /** @brief One `KEY value` entry of a properties block (see #PropertyValue). */
 using MdpaProperty = PropertyValue;
+
+/**
+ * @brief The original-id carrier: `point_data`/`cell_data["mdpa:id"]`.
+ *
+ * The uniform mesh API has no id-translation layer -- `Mesh::Points()`/`Conn()`
+ * are dense 0-based arrays where "point index `i`" *is* row `i` -- so there is
+ * nowhere on the `Mesh` itself to remember a file's original node/element/
+ * condition numbering. `read_mdpa` attaches it as ordinary data instead: a
+ * point_data array of Int64 node ids (one per point, in read order) and/or a
+ * per-block cell_data array of Int64 element/condition ids, **only when those
+ * ids were not already the trivial `1..n` renumbering `write_mdpa` would
+ * produce anyway** -- so a sequential (or id-less) deck is completely
+ * unaffected and a re-write of it stays byte-identical to before. `write_mdpa`
+ * honours the array when present (falling back to the old renumbering when it
+ * is absent, the wrong length, or the wrong dtype) and throws `WriteError` on
+ * a duplicate value, since writing one would silently produce an invalid file.
+ * Riding as plain data means it survives (and is renumbered by) the ordinary
+ * mesh operations for free -- crop/split/etc. carry `point_data`/`cell_data`
+ * through their existing row-selection machinery with no MDPA-specific code.
+ */
+inline constexpr const char* kMdpaIdName = "mdpa:id";
 
 /**
  * @brief The Kratos entity spelling of one cell block.
@@ -10665,16 +10700,27 @@ struct MdpaInfo {
  * for its cell type is a 2-D one (`Element2D4N`, ...) and as `Elements`
  * otherwise — the rule the Python reference applies for a mesh with no
  * physical tags, which is what keeps a quad mesh writing as
- * `SurfaceCondition3D4N`. Element and condition ids are two independent
- * 1-based counters. The property id of a cell is its
- * `cell_data["gmsh:physical"]` value when that array exists, else 0.
+ * `SurfaceCondition3D4N`. Node/element/condition ids default to `row + 1`
+ * (elements and conditions each their own 1-based counter over every block of
+ * that kind, in mesh order) **unless the mesh carries #kMdpaIdName**, in which
+ * case those original ids are written back instead — see #kMdpaIdName for the
+ * exact contract, including what counts as present/valid and the duplicate-id
+ * `WriteError`. Every place an entity or node is referenced elsewhere in the
+ * file (`NodalData`/`ElementalData`/`ConditionalData` row keys, `SubModelPart`
+ * node/element/condition lists) uses the same resolved id, so the file is
+ * always internally consistent whichever numbering was actually used. The
+ * property id of a cell is its `cell_data["gmsh:physical"]` value when that
+ * array exists, else 0.
  *
  * @param rPath filesystem path to write
  * @param rMesh the mesh to write
  * @throws WriteError on an unopenable output path, a ragged/polyhedron cell
- *         block (MDPA has no such entity), or a cell type with no Kratos name
+ *         block (MDPA has no such entity), a cell type with no Kratos name, or
+ *         a duplicate value in #kMdpaIdName (which would silently produce an
+ *         invalid Kratos deck)
  * @note reads `cell_data["gmsh:physical"]` for the per-entity property id;
- *       `point_data["<VAR>_fixed_status"]` for the `NodalData` fixed column.
+ *       `point_data["<VAR>_fixed_status"]` for the `NodalData` fixed column;
+ *       `point_data`/`cell_data[kMdpaIdName]` for original node/entity ids.
  */
 MESHIOPLUSPLUS_API void write_mdpa(const std::string& rPath, const Mesh& rMesh);
 
@@ -16196,6 +16242,494 @@ MESHIOPLUSPLUS_API ReorderResult reorder(const Mesh& rMesh, ReorderMethod method
 
 }  // namespace meshioplusplus
 // ===== end src/cpp/include/meshioplusplus/operations/reorder.hpp =====
+// ===== begin src/cpp/include/meshioplusplus/operations/sequence.hpp =====
+/**
+ * @file operations/sequence.hpp
+ * @brief Multi-file / transient datasets: treat a *set* of files (or the steps
+ * inside one multi-step file) as one ordered logical sequence.
+ *
+ * This is how transient solver output actually arrives -- `out_0000.vtu …
+ * out_0500.vtu` -- and how most of the 41 formats have to express time, since
+ * only a minority carry several steps natively.
+ *
+ * **It is a driver, not a new mesh operation.** Everything here reads and
+ * writes through the existing registry (`registry_read`, `registry_write_ex`)
+ * and runs operation chains through the existing typed pipeline layer
+ * (`run_pipeline_steps`). The typed layer stays the single owner of the step
+ * dispatch -- there is deliberately no second `if (op == ...)` chain in this
+ * file, so a sequence document and the browser viewer's `convertSurfaceOps`
+ * still cannot drift apart.
+ *
+ * Three shapes, distinguished by how many files the input expands to and
+ * whether the output path carries a `{step}`/`{index}` token:
+ *
+ *  - **FanOut** — one multi-step file -> `out_{step}.vtu`. The answer for every
+ *    format that cannot express time, which is most of them.
+ *  - **FanIn** — N single-step files -> one multi-step file (XDMF today).
+ *  - **Sequence** — N files -> N files, the operation chain applied per step.
+ *
+ * @section sequence_ordering Ordering
+ *
+ * A sequence has a defined order and it is **not lexicographic**: `out_10.vtu`
+ * must follow `out_9.vtu`. `sequence_natural_less` implements natural-numeric
+ * ordering; see its documentation for the exact rule, which is a documented
+ * contract and not an implementation detail.
+ *
+ * @section sequence_streaming The streaming invariant
+ *
+ * **At most one `Mesh` is alive at any point** inside `sequence_to_timeseries`,
+ * `timeseries_to_sequence` and `run_sequence_pipeline`, and `sequence_read_step`
+ * hands back exactly one. This is a contract, not an optimization -- the whole
+ * feature exists so that a 500-step dataset is traversable on a laptop. No
+ * implementation may buffer the sequence, including "just for sorting" or "just
+ * to compute the time range": `sequence_expand` returns the *plan* (paths, step
+ * indices and times), never meshes. `tests/cpp/test_sequence.cpp` pins this
+ * through the `BufferAllocator` hook, asserting the peak is O(1) in the step
+ * count rather than merely small.
+ *
+ * @section sequence_json The JSON front-end
+ *
+ * `parse_sequence_json`/`_file` and `run_sequence_json`/`_file` extend the
+ * `settings.json` schema with `Mode` and `Input.Pattern`/`Paths`/`Times`/
+ * `TimeFrom`. They live behind the same guard as the pipeline's own parser:
+ * with `-DMESHIOPLUSPLUS_WITH_JSON=OFF` they exist and throw naming the option,
+ * never a link error and never a silent no-op. No installed header names an
+ * nlohmann type -- the parser is confined to `pipeline.cpp` (the pugixml rule).
+ */
+
+// System includes
+#include <cstddef>
+#include <string>
+#include <vector>
+
+// Project includes
+
+namespace meshioplusplus {
+
+/**
+ * @brief Where an entry's time value came from.
+ *
+ * Reported per entry rather than inferred by the caller: "this time is the
+ * integer index because the file said nothing" and "this time is 0.25 because
+ * the file said so" are different facts, and a user debugging a plot needs to
+ * know which they have.
+ */
+enum class SequenceTimeSource {
+    Explicit,  ///< From the caller's own list (`SequenceInput::mTimes`).
+    File,      ///< From the file: a step's time value, or `field_data["meshio:time"]`.
+    Filename,  ///< Parsed from the last digit run of the file's stem.
+    Index,     ///< Nothing said; the integer position in the sequence.
+};
+
+/// Which time source to use. `Auto` walks the documented precedence.
+enum class SequenceTimeFrom {
+    Auto,      ///< Explicit -> File -> Filename -> Index (the default).
+    File,      ///< Only the file; falls back to the index if it says nothing.
+    Filename,  ///< Only the filename; falls back to the index.
+    Index,     ///< Always the integer position.
+};
+
+/// Which of the three sequence shapes a run takes.
+enum class SequenceMode {
+    Auto,      ///< Infer from the expanded input and the output pattern (the default).
+    Sequence,  ///< N inputs -> N outputs.
+    FanIn,     ///< N inputs -> one multi-step output.
+    FanOut,    ///< One multi-step input -> N outputs.
+};
+
+/**
+ * @brief One logical step of a sequence: a file, plus which step *inside* it.
+ *
+ * `mStep` is always 0 for a single-step file, so a directory of `.vtu`s and one
+ * multi-step `.xdmf` produce the same shape and the drivers need no special
+ * case for either.
+ */
+struct SequenceEntry {
+    std::string mPath;
+    std::size_t mStep = 0;  ///< Step index within `mPath`; 0 for a single-step file.
+    double mTime = 0.0;
+    SequenceTimeSource mTimeSource = SequenceTimeSource::Index;
+};
+
+/**
+ * @brief Where a sequence reads from, and how (`Input` in settings.json).
+ *
+ * Exactly one of `mPaths` and `mPattern` is set; both empty, or both set, is an
+ * error naming the conflict.
+ */
+struct SequenceInput {
+    /// An explicit, ordered list. Not re-sorted unless `mSortExplicit`, because
+    /// a caller-supplied list is a stated order.
+    std::vector<std::string> mPaths;
+    /// A glob. See `sequence_glob_match` for the (deliberately narrow) pattern
+    /// language; the directory component is taken literally. Always sorted
+    /// natural-numerically, since a directory listing has no meaningful order.
+    std::string mPattern;
+    /// Empty resolves per file from the extension, with the `sniff_format`
+    /// fallback -- the same rule `run_pipeline` uses for its single input.
+    std::string mFormat;
+    ReadOptions mOptions;
+    /// Explicit per-entry times. When non-empty its size must equal the entry
+    /// count, or expansion throws naming both counts.
+    std::vector<double> mTimes;
+    SequenceTimeFrom mTimeFrom = SequenceTimeFrom::Auto;
+    /// Sort `mPaths` natural-numerically too. Ignored for `mPattern`, which is
+    /// always sorted.
+    bool mSortExplicit = false;
+};
+
+/** @brief Where a sequence writes to, and how (`Output` in settings.json). */
+struct SequenceOutput {
+    /// Either a literal path (one multi-step file) or a pattern carrying
+    /// `{step}` / `{index}` (one file per step). See `sequence_expand_pattern`.
+    std::string mPath;
+    /// Empty resolves from the extension.
+    std::string mFormat;
+    /// Honoured through `registry_write_ex`: an option the format cannot
+    /// honour is an error, never silently ignored.
+    WriteOptions mOptions;
+};
+
+/** @brief A whole sequence settings document. */
+struct SequencePipeline {
+    int mVersion = 1;
+    SequenceInput mInput;
+    /// Applied to **every** step, through `run_pipeline_steps`.
+    std::vector<PipelineStep> mSteps;
+    SequenceOutput mOutput;
+    /// `Auto` infers; anything else *asserts* the inference and errors naming
+    /// both on a mismatch (see `run_sequence_pipeline`).
+    SequenceMode mMode = SequenceMode::Auto;
+    /// Run the steps over several files at once. **A Python-driver feature**:
+    /// the C++ engine carries the request so a settings document round-trips,
+    /// validates it, and then runs serially with a warning -- every operation
+    /// already parallelizes internally, so a step-level parallel region nested
+    /// over them would oversubscribe on every backend.
+    bool mParallel = false;
+    /// Worker count for `mParallel`; 0 means "as many as there are cores".
+    /// Ignored, with `mParallel`, by the C++ engine.
+    int mWorkers = 0;
+};
+
+/**
+ * @brief The `field_data` key carrying a single mesh's own time value.
+ *
+ * A length-1 Float64 array, generalizing the `exodus:time` convention the
+ * Exodus reader/writer already round-trips ("the one value this mesh is a
+ * snapshot at"). Colon-namespaced like `partition:part` and `iso:value`,
+ * because a bare `"time"` would collide with a solver's own field far too often.
+ *
+ * `timeseries_to_sequence` attaches it to every file it writes. **It only
+ * survives where the target format carries `field_data` at all**, which today
+ * means Exodus, Gmsh and MDPA -- VTU, VTK and most others carry none in either
+ * direction. So a fan-out to `out_{step}.vtu` followed by a fan-in recovers the
+ * step *index* from the filename, not the original time value, and
+ * `SequenceEntry::mTimeSource` reports `Filename` so a caller can see that.
+ * Supply `SequenceInput::mTimes` on the way back in to close the round trip on
+ * time for such a format; a fan-in to XDMF needs no help, since the series
+ * records its own step times.
+ */
+inline constexpr const char* kSequenceTimeKey = "meshio:time";
+
+// --------------------------------------------------------------------------
+// Pure units. No I/O, no registry, no mesh -- these are the pieces the whole
+// feature's correctness rests on, and they are testable in isolation.
+// --------------------------------------------------------------------------
+
+/**
+ * @brief Natural-numeric ordering, so `out_9.vtu` sorts before `out_10.vtu`.
+ *
+ * The rule, which is a documented contract:
+ *
+ *  1. Both strings are split into maximal runs of digits and maximal runs of
+ *     non-digits, and compared run by run.
+ *  2. Two non-digit runs compare byte by byte as `unsigned char` (plain `char`
+ *     signedness is implementation-defined, and would order the same UTF-8
+ *     paths differently on ARM than on x86).
+ *  3. Two digit runs compare *numerically*: leading zeros are stripped, a
+ *     shorter stripped run is less, and equal lengths compare
+ *     lexicographically. This is done on the digits themselves and never
+ *     through `stoull`, so a 40-digit hash-named file cannot overflow.
+ *  4. A digit run at the same position as a non-digit run sorts first.
+ *  5. If every run compares equal, the *unstripped* strings are compared
+ *     byte-wise, so `out_1` < `out_01` deterministically.
+ *  6. The whole path is compared, not the basename, so `a/out_9` < `a/out_10`
+ *     < `b/out_1`.
+ *
+ * Rule 5 is what makes this a **strict weak ordering**: without it `out_1` and
+ * `out_01` are mutually "not less" yet not equivalent, and `std::sort` would be
+ * undefined behaviour on a directory mixing padded and unpadded names.
+ * `tests/cpp/test_sequence.cpp` brute-forces the four axioms over a table that
+ * includes exactly that case.
+ */
+MESHIOPLUSPLUS_API bool sequence_natural_less(const std::string& rA, const std::string& rB);
+
+/**
+ * @brief Glob-match @p rName against @p rPattern.
+ *
+ * The meshio++ pattern language is exactly `*` (any run, possibly empty) and
+ * `?` (exactly one character) -- **no** `**`, no `[set]`, no brace expansion,
+ * and no special treatment of a leading dot. It is deliberately narrower than
+ * POSIX `glob(3)` and than Python's `glob`/`fnmatch`, so that the C++ matcher
+ * and its Python twin cannot accept different things; `[abc]` matches those
+ * three characters literally rather than as a set.
+ *
+ * Matching is iterative with backtracking (no recursion, no allocation), so a
+ * pathological `a*a*a*a*b` cannot blow the stack.
+ */
+MESHIOPLUSPLUS_API bool sequence_glob_match(const std::string& rPattern, const std::string& rName);
+
+/**
+ * @brief Expand `{step}` / `{index}` in an output pattern.
+ *
+ * `{index}` is the plain decimal index; `{step}` is that index zero-padded to
+ * `max(4, digits(Count - 1))` -- so a 12-step run writes `out_0000 …
+ * out_0011`, and a 20000-step run widens to `out_00000 …` rather than sorting
+ * wrongly in a directory listing.
+ *
+ * Substring replace-all, **not** `std::format`/`str.format` semantics: an
+ * unrelated `{` in the path is a literal here. This deliberately matches the
+ * native CLI's existing `replace_key`/`partition_replace_part` helpers, and
+ * deliberately differs from the Python CLI's `str.format`-based `{key}`/`{part}`
+ * expansion, which raises on a stray brace. The asymmetry is pre-existing;
+ * these tokens inherit it rather than introducing a third convention.
+ *
+ * @param rPattern the output pattern; must contain `{step}` or `{index}`.
+ * @param Index the 0-based position in the sequence.
+ * @param Count the total number of entries, used only for the padding width.
+ */
+MESHIOPLUSPLUS_API std::string sequence_expand_pattern(const std::string& rPattern,
+                                                       std::size_t Index, std::size_t Count);
+
+/** @brief Whether @p rPath contains a `{step}` or `{index}` token. */
+MESHIOPLUSPLUS_API bool sequence_pattern_has_token(const std::string& rPath);
+
+// --------------------------------------------------------------------------
+// Registry-derived capability queries.
+// --------------------------------------------------------------------------
+
+/**
+ * @brief How many time steps @p rPath carries.
+ *
+ * Derived from the registry rather than a hardcoded per-format table:
+ * `registry_read_metadata(...).mTimeValues.size()`, clamped to at least 1 so
+ * that a single-step file is always a valid degenerate sequence. A format whose
+ * metadata reader does not fill `mTimeValues` therefore reports 1, which is the
+ * truthful answer for every format that cannot express time.
+ *
+ * Today that means XDMF and Exodus report real counts. MED honours
+ * `ReadOptions::mTimeStep` but has no metadata reader, so a multi-step `.med`
+ * reports 1; that is a recorded gap in MED's metadata support and not a special
+ * case here -- the moment `read_med_metadata` fills `mTimeValues`, MED fan-out
+ * starts working with no change to this file.
+ *
+ * Never throws for an unreadable file: an unreadable path reports 1 and the
+ * failure surfaces from the actual read, with its own diagnostics.
+ */
+MESHIOPLUSPLUS_API std::size_t sequence_num_steps(const std::string& rPath,
+                                                  const std::string& rFormat);
+
+/**
+ * @brief Whether @p rFormat's writer can emit a **multi-step** file.
+ *
+ * There is no file to probe on the write side, so unlike `sequence_num_steps`
+ * this is a predicate in the exact style of `registry_write_supports`: a small
+ * owned set, with @p rWhy filled with a message naming the format and the
+ * remedy on failure.
+ *
+ * The anti-drift mechanism is a test rather than the table: a gtest iterates
+ * `registry_writers()` and asserts this predicate agrees with whether a real
+ * two-step `sequence_to_timeseries` to that format actually succeeds, so a
+ * format that grows a series writer without updating the predicate turns CI red
+ * naming itself.
+ */
+MESHIOPLUSPLUS_API bool sequence_write_supports_time(const std::string& rFormat, std::string& rWhy);
+
+// --------------------------------------------------------------------------
+// The driver.
+// --------------------------------------------------------------------------
+
+/**
+ * @brief Expand an input to its ordered entry list, with each entry's time and
+ * the source that time came from.
+ *
+ * Reads no heavy data: at most one `registry_read_metadata` per file, and only
+ * when a time actually has to be derived from a multi-step file. A single-step
+ * file whose time would come from `field_data` is left provisionally on the
+ * filename or index source; the drivers upgrade it to `File` when the mesh they
+ * were going to read anyway turns out to carry `meshio:time`, so no file is
+ * ever read twice.
+ *
+ * Time-value precedence under `SequenceTimeFrom::Auto`:
+ *
+ *  1. **Explicit** — `SequenceInput::mTimes`.
+ *  2. **File** — a multi-step file's own step time, or a single-step file's
+ *     `field_data["meshio:time"]` (or a length-1 `field_data["exodus:time"]`).
+ *  3. **Filename** — the last maximal digit run in the stem, so
+ *     `run17/out_0042.vtu` gives 42.
+ *  4. **Index** — the integer position, recorded so the caller can see it was
+ *     a fallback.
+ *
+ * @throws ReadError if a pattern matches nothing (never a silently empty
+ *         sequence), or if a listed path does not exist.
+ * @throws std::invalid_argument if both/neither of `mPaths`/`mPattern` are set,
+ *         or `mTimes` has the wrong length (naming both counts).
+ */
+MESHIOPLUSPLUS_API std::vector<SequenceEntry> sequence_expand(const SequenceInput& rInput);
+
+/**
+ * @brief Read exactly one entry.
+ *
+ * This is the whole lazy read surface: a caller loops over the entries and
+ * never holds two meshes. See @ref sequence_streaming.
+ *
+ * @param rEntries the plan from `sequence_expand`.
+ * @param Index which entry to read.
+ * @param rFormat empty resolves per file, as `SequenceInput::mFormat` does.
+ * @param rOptions read options; the entry's own step index overrides
+ *        `ReadOptions::mTimeStep`, which is what makes fan-out work.
+ * @throws std::out_of_range if @p Index is past the end.
+ */
+MESHIOPLUSPLUS_API Mesh sequence_read_step(const std::vector<SequenceEntry>& rEntries,
+                                           std::size_t Index, const std::string& rFormat,
+                                           const ReadOptions& rOptions);
+
+/**
+ * @brief Fan-in: N entries -> one multi-step file, streaming.
+ *
+ * Reads step i, writes step i, releases it. At most one `Mesh` is alive.
+ *
+ * @throws WriteError naming the format when the target cannot hold a series
+ *         (see `sequence_write_supports_time`) -- never a silent truncation to
+ *         the first step.
+ */
+MESHIOPLUSPLUS_API void sequence_to_timeseries(const SequenceInput& rInput,
+                                               const SequenceOutput& rOutput);
+
+/**
+ * @brief Fan-out: one multi-step file -> `out_{step}.vtu`, streaming.
+ *
+ * Each written mesh carries `field_data["meshio:time"]`, so the round trip back
+ * through `sequence_to_timeseries` recovers the times as well as the geometry.
+ *
+ * @throws std::invalid_argument if `rOutput.mPath` carries no `{step}`/`{index}`.
+ */
+MESHIOPLUSPLUS_API void timeseries_to_sequence(const std::string& rInPath,
+                                               const std::string& rInFormat,
+                                               const ReadOptions& rOptions,
+                                               const SequenceOutput& rOutput);
+
+/**
+ * @brief Whether a document that used no sequence-only key must still be run by
+ * the sequence driver.
+ *
+ * True when the output is a `{step}`/`{index}` pattern, or when the input turns
+ * out to carry **several steps** — because writing the first one and calling it
+ * a conversion is exactly the silent truncation this layer exists to prevent.
+ * An explicit `ReadOptions::mTimeStep` **is** a deliberate single-step
+ * selection and opts out.
+ *
+ * The step probe is gated on the formats that can carry time at all, so it
+ * costs nothing for the 39 that cannot (`read_metadata` on a format with no
+ * native metadata reader is a full read). Shared by every front-end — the JSON
+ * one, the WASM settings converter, both CLIs and the Python twin — so they
+ * cannot disagree about which documents are transient.
+ */
+MESHIOPLUSPLUS_API bool sequence_input_needs_driver(const SequenceInput& rInput,
+                                                    const SequenceOutput& rOutput);
+
+/**
+ * @brief Resolve @p rPipeline's mode: infer it, then check a stated one agrees.
+ *
+ * The inference, from the expanded entry count and whether the output carries a
+ * token:
+ *
+ * | entries | output has `{step}`/`{index}` | mode |
+ * |---|---|---|
+ * | 1 | no | `Sequence` (degenerate; identical to a plain single-file run) |
+ * | >1 (one file, several steps) | yes | `FanOut` |
+ * | >1 (one file, several steps) | no | **error** — refuses to truncate |
+ * | >1 files | no | `FanIn` |
+ * | >1 files | yes | `Sequence` |
+ * | 1 | yes | `Sequence` with one entry |
+ *
+ * A non-`Auto` `mMode` never *changes* the run; it asserts the inference and
+ * throws naming both on a mismatch. That matters because the inference depends
+ * on how many files a glob happened to match: a pattern that matched exactly
+ * one file would otherwise quietly take the single-file path.
+ *
+ * @throws std::invalid_argument on a mismatch, or when a multi-step input is
+ *         aimed at a single-step output.
+ */
+MESHIOPLUSPLUS_API SequenceMode sequence_resolve_mode(const std::vector<SequenceEntry>& rEntries,
+                                                      const SequenceOutput& rOutput,
+                                                      SequenceMode Stated);
+
+/**
+ * @brief Run a whole sequence: expand, then per step read -> `run_pipeline_steps`
+ * -> write, streaming throughout.
+ *
+ * The operation chain is validated once, before anything is read. The report
+ * carries one entry per (step, op), each op's name suffixed with nothing --
+ * the step is identifiable by position, and a `Step` counter is attached to
+ * every entry so a 500-step run stays machine-readable.
+ */
+MESHIOPLUSPLUS_API PipelineReport run_sequence_pipeline(const SequencePipeline& rPipeline);
+
+/**
+ * @brief Parse a name into a `SequenceMode`: `"auto"`, `"sequence"`, `"fan-in"`
+ * or `"fan-out"`.
+ *
+ * Lowercase and hyphenated, following the repo-wide rule that settings *keys*
+ * are PascalCase but enum *values* keep their `*_from_name` spelling -- as in
+ * gradient's `"green-gauss"` and convert_cells' `"simplexify"`.
+ */
+MESHIOPLUSPLUS_API SequenceMode sequence_mode_from_name(const std::string& rName);
+
+/** @brief The canonical name of a `SequenceMode`, for errors and reports. */
+MESHIOPLUSPLUS_API const char* sequence_mode_name(SequenceMode Mode);
+
+/** @brief Parse a name into a `SequenceTimeFrom`: `"auto"`, `"file"`, `"filename"`, `"index"`. */
+MESHIOPLUSPLUS_API SequenceTimeFrom sequence_time_from_name(const std::string& rName);
+
+/** @brief The name of a `SequenceTimeSource`, for reports (`"explicit"`, ...). */
+MESHIOPLUSPLUS_API const char* sequence_time_source_name(SequenceTimeSource Source);
+
+// --------------------------------------------------------------------------
+// The JSON front-end. Same guard as the pipeline's own parser: these exist in
+// every build and throw naming -DMESHIOPLUSPLUS_WITH_JSON=ON when compiled out.
+// --------------------------------------------------------------------------
+
+/**
+ * @brief Parse a sequence settings document.
+ *
+ * The v9.11.0 schema plus `Mode`, `Parallel`, `Workers` at the top level and
+ * `Pattern`, `Paths`, `Times`, `TimeFrom` under `Input`. A document using none
+ * of them parses to a one-entry sequence and behaves exactly as
+ * `parse_pipeline_json` + `run_pipeline` always did.
+ *
+ * `Parallel`/`Workers` are accepted and validated here but are a **Python
+ * driver** feature: the C++ engine runs steps serially, because every operation
+ * already parallelizes internally and a step-level parallel region nested over
+ * them would oversubscribe. `run_sequence_pipeline` records a warning when a
+ * document asks for them.
+ *
+ * @throws std::runtime_error naming `-DMESHIOPLUSPLUS_WITH_JSON=ON` when the
+ *         parser is compiled out; std::invalid_argument on any schema error.
+ */
+MESHIOPLUSPLUS_API SequencePipeline parse_sequence_json(const std::string& rText);
+
+/** @brief `parse_sequence_json` over the contents of @p rPath. */
+MESHIOPLUSPLUS_API SequencePipeline parse_sequence_file(const std::string& rPath);
+
+/** @brief `parse_sequence_json` + `run_sequence_pipeline`. */
+MESHIOPLUSPLUS_API PipelineReport run_sequence_json(const std::string& rText);
+
+/** @brief `parse_sequence_file` + `run_sequence_pipeline`. */
+MESHIOPLUSPLUS_API PipelineReport run_sequence_file(const std::string& rPath);
+
+}  // namespace meshioplusplus
+// ===== end src/cpp/include/meshioplusplus/operations/sequence.hpp =====
 // ===== begin src/cpp/include/meshioplusplus/operations/slice.hpp =====
 /**
  * @file slice.hpp
@@ -17498,7 +18032,7 @@ MESHIOPLUSPLUS_API bool has_skinnable_cells(const Mesh& rMesh);
 /// Major component of the release version.
 #define MESHIOPLUSPLUS_VERSION_MAJOR 9
 /// Minor component of the release version.
-#define MESHIOPLUSPLUS_VERSION_MINOR 11
+#define MESHIOPLUSPLUS_VERSION_MINOR 14
 /// Patch component of the release version.
 #define MESHIOPLUSPLUS_VERSION_PATCH 0
 
@@ -17508,7 +18042,7 @@ MESHIOPLUSPLUS_API bool has_skinnable_cells(const Mesh& rMesh);
      MESHIOPLUSPLUS_VERSION_PATCH)
 
 /// The release version as a string literal, e.g. `"9.6.0"`.
-#define MESHIOPLUSPLUS_VERSION_STRING "9.11.0"
+#define MESHIOPLUSPLUS_VERSION_STRING "9.14.0"
 
 /// Whether the headers being compiled against are at least `major.minor.patch`.
 #define MESHIOPLUSPLUS_VERSION_AT_LEAST(major, minor, patch) \
@@ -46070,6 +46604,7 @@ void write_ip(const std::string& rPath, const Mesh& rMesh) {
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -46180,8 +46715,15 @@ struct MdpaBlock {
     std::string mEntityName;
     std::size_t mNodes = 0;
     bool mIsCondition = false;
+    /// Raw *file* node ids until `mdpa_read_impl`'s materialize pass resolves
+    /// them to point rows -- the Nodes block is not required to precede this
+    /// one, and deferring keeps the file id available for the error message.
     std::vector<std::int64_t> mConn;
     std::vector<std::int64_t> mProps;
+    /// Each row's raw file id, in append order -- captured unconditionally
+    /// (parallel to `mProps`) so the materialize pass can decide whether it is
+    /// worth keeping without having re-derived it.
+    std::vector<std::int64_t> mFileIds;
     std::size_t mCount = 0;
 };
 
@@ -46528,6 +47070,27 @@ Mesh mdpa_read_impl(const std::string& rPath, bool Lenient, MdpaInfo* pInfo) {
     std::vector<PropertySet> property_sets;
     std::unordered_map<std::int64_t, std::pair<std::size_t, std::size_t>> element_ids,
         condition_ids;
+    // The node half of the id maps above -- but materialized LAZILY. Kratos node
+    // ids are 1..n in file order in the overwhelming majority of decks, and those
+    // are the million-node ones; until an id turns up that is not `row + 1`,
+    // "row == id - 1" IS the map and building one would be pure overhead. The
+    // moment one does, the identity entries read so far are back-filled and the
+    // map takes over for the rest of the file. This mirrors abaqus.cpp's
+    // `mPointIds` and unv.cpp's `label_to_index`, minus their unconditional cost.
+    std::unordered_map<std::int64_t, std::size_t> node_ids;  // file id -> point row
+    bool node_ids_dense = true;  // ids so far are exactly 1..num_points, in order
+    // Every node's raw file id, in file (row) order -- captured unconditionally
+    // (cheap: one push_back per row already being appended) so it is available
+    // at materialize time regardless of whether `node_ids_dense` ever flips.
+    std::vector<std::int64_t> raw_node_ids;
+    // Same "dense" idea as node ids, but tracked directly rather than lazily:
+    // elements and conditions each have their own independent 1-based counter,
+    // spanning every block of that kind in file order (not per block), which is
+    // exactly how the writer numbers them. The moment either counter's next
+    // expected value disagrees with a row's actual id, ids are no longer the
+    // trivial "renumber from 1" case and the original ones are worth keeping.
+    std::int64_t next_element_id = 1, next_condition_id = 1;
+    bool entities_dense = true;
     std::map<std::string, NDArray> field_data;
 
     // Staged data arrays, materialized after every block is known.
@@ -46572,6 +47135,22 @@ Mesh mdpa_read_impl(const std::string& rPath, bool Lenient, MdpaInfo* pInfo) {
             rOut.push_back(v);
         }
         throw ReadError("MDPA: EOF before '" + rEnd + "'");
+    };
+
+    // File node id -> point row. False when the file defines no such node. The
+    // dense branch is the pre-v9.13.0 arithmetic, bit for bit.
+    auto node_row = [&](std::int64_t Id, std::size_t& rRow) -> bool {
+        if (node_ids_dense) {
+            if (Id < 1 || static_cast<std::size_t>(Id) > num_points)
+                return false;
+            rRow = static_cast<std::size_t>(Id) - 1;
+            return true;
+        }
+        const auto it = node_ids.find(Id);
+        if (it == node_ids.end())
+            return false;
+        rRow = it->second;
+        return true;
     };
 
     while (!cur.Done()) {
@@ -46625,16 +47204,26 @@ Mesh mdpa_read_impl(const std::string& rPath, bool Lenient, MdpaInfo* pInfo) {
                 const std::vector<std::string> t = mdpa_tokens(e);
                 if (t.size() < 3)
                     throw ReadError("MDPA: node line with fewer than 3 coordinates: " + e);
-                if (t.size() >= 4) {
-                    std::int64_t id = 0;
-                    if (!mdpa_parse_int(t[0], id))
-                        throw ReadError("MDPA: non-integer node id: " + e);
-                    if (id != static_cast<std::int64_t>(num_points) + 1)
-                        throw ReadError(
-                            "MDPA: non-sequential node ids are not supported by the C++ reader "
-                            "(expected " +
-                            std::to_string(num_points + 1) + ", got " + std::to_string(id) + ")");
+                // An id-less row (`x y z`) takes its position as its id, which is
+                // exactly what "connectivity is 1-based into row order" already
+                // meant for a fully id-less file -- so such a file never leaves
+                // the dense path and reads byte-identically to before.
+                std::int64_t id = static_cast<std::int64_t>(num_points) + 1;
+                if (t.size() >= 4 && !mdpa_parse_int(t[0], id))
+                    throw ReadError("MDPA: non-integer node id: " + e);
+                if (node_ids_dense && id != static_cast<std::int64_t>(num_points) + 1) {
+                    node_ids.reserve(num_points * 2 + 16);
+                    for (std::size_t r = 0; r < num_points; ++r)
+                        node_ids.emplace(static_cast<std::int64_t>(r) + 1, r);
+                    node_ids_dense = false;
                 }
+                // A duplicate is unrepresentable -- two coordinate rows would
+                // claim one id -- so it throws, always. The dense path cannot
+                // produce one by construction (`id == row + 1` strictly
+                // increases), so the check only runs where it can fire.
+                if (!node_ids_dense && !node_ids.emplace(id, num_points).second)
+                    throw ReadError("MDPA: duplicate node id " + std::to_string(id));
+                raw_node_ids.push_back(id);
                 for (std::size_t c = t.size() - 3; c < t.size(); ++c) {
                     double v = 0.0;
                     if (!mdpa_parse_double(t[c], v))
@@ -46707,9 +47296,16 @@ Mesh mdpa_read_impl(const std::string& rPath, bool Lenient, MdpaInfo* pInfo) {
                         order.empty()
                             ? static_cast<std::size_t>(j)
                             : static_cast<std::size_t>(order[static_cast<std::size_t>(j)]);
-                    blk.mConn[base + slot] = node - 1;
+                    // The raw file id; resolved to a point row in the
+                    // materialize pass below (see MdpaBlock::mConn).
+                    blk.mConn[base + slot] = node;
                 }
                 blk.mProps.push_back(prop);
+                blk.mFileIds.push_back(id);
+                std::int64_t& next_id = is_condition ? next_condition_id : next_element_id;
+                if (id != next_id)
+                    entities_dense = false;
+                ++next_id;
                 const std::size_t row = blk.mCount++;
                 auto& id_map = is_condition ? condition_ids : element_ids;
                 id_map[id] = {blocks.size() - 1, row};
@@ -46743,11 +47339,8 @@ Mesh mdpa_read_impl(const std::string& rPath, bool Lenient, MdpaInfo* pInfo) {
             const int nc = mdpa_parse_data_block(
                 cur, "End NodalData", /*nodal=*/true,
                 [&](std::int64_t id, std::size_t& block, std::size_t& row) {
-                    if (id < 1 || static_cast<std::size_t>(id) > num_points)
-                        return false;
                     block = 0;
-                    row = static_cast<std::size_t>(id) - 1;
-                    return true;
+                    return node_row(id, row);
                 },
                 sd.mRows, sd.mHasFixed);
             if (nc < 0) {
@@ -46807,9 +47400,14 @@ Mesh mdpa_read_impl(const std::string& rPath, bool Lenient, MdpaInfo* pInfo) {
             std::vector<std::int64_t> ids;
             read_id_list("End SubModelPartNodes", ids);
             auto& smp = smps[smp_name()];
-            for (std::int64_t id : ids)
-                if (id >= 1 && static_cast<std::size_t>(id) <= num_points)
-                    smp.mNodes.push_back(id - 1);
+            for (std::int64_t id : ids) {
+                std::size_t row = 0;
+                if (!node_row(id, row)) {
+                    log::warn("mdpa: SubModelPart references unknown node id {}", id);
+                    continue;
+                }
+                smp.mNodes.push_back(static_cast<std::int64_t>(row));
+            }
         } else if (mdpa_starts_with(line, "Begin SubModelPartElements") ||
                    mdpa_starts_with(line, "Begin SubModelPartConditions")) {
             const bool elemental = mdpa_starts_with(line, "Begin SubModelPartElements");
@@ -46868,6 +47466,17 @@ Mesh mdpa_read_impl(const std::string& rPath, bool Lenient, MdpaInfo* pInfo) {
             pp[i] = coords[i];
         mesh.AssignPoints(std::move(pts));
     }
+    // Attach original node ids ONLY when they weren't already the trivial
+    // `1..n` renumbering the writer would produce anyway -- so a sequential (or
+    // id-less) deck's `Mesh` is untouched by this feature and a re-write is
+    // byte-identical to before. `write_mdpa` looks for this exact name.
+    if (!node_ids_dense) {
+        NDArray ids(DType::Int64, {num_points});
+        std::int64_t* ip = ids.As<std::int64_t>();
+        for (std::size_t i = 0; i < num_points; ++i)
+            ip[i] = raw_node_ids[i];
+        mesh.AddPointData(kMdpaIdName, std::move(ids));
+    }
 
     std::vector<NDArray> props;
     std::vector<std::size_t> block_base(blocks.size(), 0);
@@ -46876,14 +47485,21 @@ Mesh mdpa_read_impl(const std::string& rPath, bool Lenient, MdpaInfo* pInfo) {
         MdpaBlock& blk = blocks[b];
         block_base[b] = running;
         running += blk.mCount;
-        for (std::int64_t node : blk.mConn)
-            if (node < 0 || static_cast<std::size_t>(node) >= num_points)
-                throw ReadError("MDPA: connectivity refers to node " + std::to_string(node + 1) +
-                                " but the file has " + std::to_string(num_points) + " nodes");
         NDArray conn(DType::Int64, {blk.mCount, blk.mNodes});
         std::int64_t* cp = conn.As<std::int64_t>();
-        for (std::size_t i = 0; i < blk.mConn.size(); ++i)
-            cp[i] = blk.mConn[i];
+        for (std::size_t i = 0; i < blk.mConn.size(); ++i) {
+            // Resolve the raw file ids staged above. The message names the FILE
+            // id, never a row: with arbitrary ids "the file has N nodes" is no
+            // longer the criterion (id 500 can be valid in a 4-node deck), so it
+            // is reported as context instead.
+            std::size_t row = 0;
+            if (!node_row(blk.mConn[i], row))
+                throw ReadError("MDPA: connectivity refers to node id " +
+                                std::to_string(blk.mConn[i]) +
+                                ", which the file's Nodes block does not define (" +
+                                std::to_string(num_points) + " nodes read)");
+            cp[i] = static_cast<std::int64_t>(row);
+        }
         mesh.AddCellBlock(blk.mType, std::move(conn));
         if (pInfo)
             pInfo->mEntityNames.push_back(MdpaEntityName{blk.mEntityName, blk.mIsCondition});
@@ -46895,6 +47511,23 @@ Mesh mdpa_read_impl(const std::string& rPath, bool Lenient, MdpaInfo* pInfo) {
     }
     if (!blocks.empty())
         mesh.AddCellData("gmsh:physical", std::move(props));
+    // Same "only when it matters" rule as the node ids above: elements and
+    // conditions each have their own independent 1-based file-order counter,
+    // and only when EITHER disagreed with a trivial renumbering is the
+    // original id worth carrying -- so a fresh write of an untouched deck
+    // stays byte-identical, and a gapped/reclassified one round-trips.
+    if (!blocks.empty() && !entities_dense) {
+        std::vector<NDArray> ids;
+        ids.reserve(blocks.size());
+        for (const MdpaBlock& blk : blocks) {
+            NDArray a(DType::Int64, {blk.mCount});
+            std::int64_t* ap = a.As<std::int64_t>();
+            for (std::size_t i = 0; i < blk.mFileIds.size(); ++i)
+                ap[i] = blk.mFileIds[i];
+            ids.push_back(std::move(a));
+        }
+        mesh.AddCellData(kMdpaIdName, std::move(ids));
+    }
 
     for (auto& fd : field_data)
         mesh.AddFieldData(fd.first, std::move(fd.second));
@@ -46997,6 +47630,8 @@ std::size_t mdpa_components(const NDArray& rArray, std::size_t rows) {
 }
 
 bool mdpa_skip_point_data(const std::string& rName) {
+    if (rName == kMdpaIdName)
+        return true;
     const std::string suffix = "_fixed_status";
     if (rName.size() >= suffix.size() &&
         rName.compare(rName.size() - suffix.size(), suffix.size(), suffix) == 0)
@@ -47005,6 +47640,8 @@ bool mdpa_skip_point_data(const std::string& rName) {
 }
 
 bool mdpa_skip_cell_data(const std::string& rName) {
+    if (rName == kMdpaIdName)
+        return true;
     const std::string suffix = "_tag";
     if (rName.size() >= suffix.size() &&
         rName.compare(rName.size() - suffix.size(), suffix.size(), suffix) == 0)
@@ -47064,7 +47701,22 @@ void write_mdpa(const std::string& rPath, const Mesh& rMesh, const MdpaInfo& rIn
     std::vector<std::vector<std::int64_t>> written_ids(nblocks);
     std::vector<std::size_t> block_base(nblocks, 0);
     {
+        // Honour cell_data["mdpa:id"] (kMdpaIdName) when the mesh carries one
+        // array per block AND every array's row count matches its block's cell
+        // count -- anything short of that is treated as unrelated/stale
+        // metadata and falls back to the old renumbering, exactly like the
+        // node-id check below. An id that survives is still validated for
+        // uniqueness (elements and conditions each have their own Kratos
+        // namespace, so a collision is only checked within its own kind) --
+        // writing a duplicate would silently produce an invalid Kratos deck.
+        bool preserve_entity_ids =
+            rMesh.HasCellData(kMdpaIdName) && rMesh.CellDataNumBlocks(kMdpaIdName) == nblocks;
+        for (std::size_t b = 0; preserve_entity_ids && b < nblocks; ++b)
+            if (rMesh.CellData(kMdpaIdName, b).Size() != rMesh.Cells(b).NumCells())
+                preserve_entity_ids = false;
+
         std::int64_t next_element = 1, next_condition = 1;
+        std::unordered_set<std::int64_t> seen_element_ids, seen_condition_ids;
         std::size_t running = 0;
         for (std::size_t b = 0; b < nblocks; ++b) {
             const auto cb = rMesh.Cells(b);
@@ -47093,8 +47745,19 @@ void write_mdpa(const std::string& rPath, const Mesh& rMesh, const MdpaInfo& rIn
             block_base[b] = running;
             running += cb.NumCells();
             written_ids[b].resize(cb.NumCells());
-            for (std::size_t r = 0; r < cb.NumCells(); ++r)
-                written_ids[b][r] = is_condition[b] ? next_condition++ : next_element++;
+            std::unordered_set<std::int64_t>& seen =
+                is_condition[b] ? seen_condition_ids : seen_element_ids;
+            for (std::size_t r = 0; r < cb.NumCells(); ++r) {
+                const std::int64_t wid =
+                    preserve_entity_ids ? detail::read_int(rMesh.CellData(kMdpaIdName, b), r)
+                                        : (is_condition[b] ? next_condition++ : next_element++);
+                if (!seen.insert(wid).second)
+                    throw WriteError("MDPA: duplicate " +
+                                     std::string(is_condition[b] ? "condition" : "element") +
+                                     " id " + std::to_string(wid) + " in cell_data['" +
+                                     std::string(kMdpaIdName) + "']");
+                written_ids[b][r] = wid;
+            }
         }
     }
 
@@ -47156,13 +47819,30 @@ void write_mdpa(const std::string& rPath, const Mesh& rMesh, const MdpaInfo& rIn
 
     // ---- Nodes ------------------------------------------------------------
     os << "Begin Nodes\n";
+    std::vector<std::int64_t> written_node_ids;
     {
         const NDArray& points = rMesh.Points();
         const std::size_t dim = rMesh.PointDim();
         const std::size_t np = rMesh.NumPoints();
+        // Honour point_data["mdpa:id"] (kMdpaIdName) when present and the right
+        // length; anything short of that (absent, wrong size, wrong dtype) is
+        // treated as unrelated metadata and falls back to the old row+1
+        // numbering. Values are validated for uniqueness -- a duplicate would
+        // silently produce an ambiguous file.
+        const bool preserve_node_ids =
+            rMesh.HasPointData(kMdpaIdName) && rMesh.PointData(kMdpaIdName).Size() == np;
+        written_node_ids.resize(np);
+        std::unordered_set<std::int64_t> seen_node_ids;
         char buf[64];
         for (std::size_t i = 0; i < np; ++i) {
-            os << " " << (i + 1);
+            const std::int64_t id = preserve_node_ids
+                                        ? detail::read_int(rMesh.PointData(kMdpaIdName), i)
+                                        : static_cast<std::int64_t>(i) + 1;
+            if (!seen_node_ids.insert(id).second)
+                throw WriteError("MDPA: duplicate node id " + std::to_string(id) +
+                                 " in point_data['" + std::string(kMdpaIdName) + "']");
+            written_node_ids[i] = id;
+            os << " " << id;
             for (std::size_t c = 0; c < 3; ++c) {
                 const double v = c < dim ? detail::read_double(points, i * dim + c) : 0.0;
                 std::snprintf(buf, sizeof(buf), "%.16e", v);
@@ -47189,7 +47869,13 @@ void write_mdpa(const std::string& rPath, const Mesh& rMesh, const MdpaInfo& rIn
             os << "  " << written_ids[b][r] << " " << prop;
             for (std::size_t j = 0; j < k; ++j) {
                 const std::size_t slot = order.empty() ? j : static_cast<std::size_t>(order[j]);
-                os << " " << (detail::read_int(conn, r * k + slot) + 1);
+                // Through `written_node_ids`, not a bare `+ 1`: connectivity
+                // must name whichever node numbering was actually written
+                // (preserved or row+1), the same rule the Nodes block itself
+                // and the SubModelPart node lists follow.
+                const std::size_t row =
+                    static_cast<std::size_t>(detail::read_int(conn, r * k + slot));
+                os << " " << written_node_ids[row];
             }
             os << "\n";
         }
@@ -47213,7 +47899,7 @@ void write_mdpa(const std::string& rPath, const Mesh& rMesh, const MdpaInfo& rIn
                     all_nan = false;
             if (all_nan)
                 continue;
-            os << "  " << (i + 1);
+            os << "  " << written_node_ids[i];
             if (has_fixed) {
                 const std::int64_t f = detail::read_int(rMesh.PointData(fixed_name), i);
                 if (f >= 0)
@@ -47278,7 +47964,10 @@ void write_mdpa(const std::string& rPath, const Mesh& rMesh, const MdpaInfo& rIn
             const std::int64_t* e = r.Entries();
             for (std::size_t j = 0; j < r.NumEntries(); ++j) {
                 if (r.mKind == RegionKind::Point) {
-                    nodes.push_back(e[j] + 1);
+                    // `written_node_ids` already reflects whichever numbering
+                    // was actually written (preserved or row+1), so this stays
+                    // consistent with the Nodes block above with no extra work.
+                    nodes.push_back(written_node_ids[static_cast<std::size_t>(e[j])]);
                     continue;
                 }
                 // Cell region: global block-major index -> (block, row) -> id.
@@ -67623,6 +68312,22 @@ PipelineReport run_pipeline_file(const std::string&) {
     pipe_no_json();
 }
 
+// The sequence document shares this parser, and therefore this guard: the
+// typed sequence driver in operations/sequence.cpp compiles either way, but a
+// settings document cannot be read without a JSON parser.
+SequencePipeline parse_sequence_json(const std::string&) {
+    pipe_no_json();
+}
+SequencePipeline parse_sequence_file(const std::string&) {
+    pipe_no_json();
+}
+PipelineReport run_sequence_json(const std::string&) {
+    pipe_no_json();
+}
+PipelineReport run_sequence_file(const std::string&) {
+    pipe_no_json();
+}
+
 #else  // MESHIOPLUSPLUS_HAS_JSON
 
 namespace {
@@ -67714,12 +68419,72 @@ PipelineValue pipe_value_from_json(const pipe_json& rValue, const std::string& r
                       "not step parameters)");
 }
 
-PipelineInput pipe_input_from_json(const pipe_json& rInput) {
+/// A parsed document, plus whether it used any of the sequence-only keys.
+///
+/// There is ONE parser: it always builds a `SequencePipeline`, and
+/// `parse_pipeline_json` projects that down to the single-file `Pipeline`,
+/// refusing by name if a sequence key was present. Two parsers would drift on
+/// the shared two thirds (Version/Operations/Output), and a
+/// `parse_pipeline_json` that merely *ignored* `Mode` would silently truncate a
+/// transient run to its first step -- exactly the failure this feature exists
+/// to prevent.
+struct PipeDocument {
+    SequencePipeline mSeq;
+    bool mSequenceKeys = false;
+};
+
+SequenceInput pipe_sequence_input_from_json(const pipe_json& rInput, bool& rSequenceKeys) {
     if (!rInput.is_object())
         pipe_schema_error("Input must be an object");
-    pipe_check_keys(rInput, "Input", {"Path", "Format", "Options"});
-    PipelineInput input;
-    input.mPath = pipe_get_string(rInput, "Path", "Input", /*required=*/true);
+    pipe_check_keys(rInput, "Input",
+                    {"Path", "Format", "Options", "Pattern", "Paths", "Times", "TimeFrom"});
+    SequenceInput input;
+
+    const pipe_json* path = pipe_get(rInput, "Path");
+    const pipe_json* pattern = pipe_get(rInput, "Pattern");
+    const pipe_json* paths = pipe_get(rInput, "Paths");
+    const int given = (path ? 1 : 0) + (pattern ? 1 : 0) + (paths ? 1 : 0);
+    if (given == 0)
+        pipe_schema_error("Input.Path is required (or Input.Pattern / Input.Paths)");
+    if (given > 1)
+        pipe_schema_error(
+            "Input names more than one source; set exactly one of Path, Pattern or Paths");
+    if (path) {
+        input.mPaths = {pipe_get_string(rInput, "Path", "Input", /*required=*/true)};
+    } else if (pattern) {
+        rSequenceKeys = true;
+        input.mPattern = pipe_get_string(rInput, "Pattern", "Input", /*required=*/true);
+        if (input.mPattern.empty())
+            pipe_schema_error("Input.Pattern must not be empty");
+    } else {
+        rSequenceKeys = true;
+        if (!paths->is_array() || paths->empty())
+            pipe_schema_error("Input.Paths must be a non-empty array of strings");
+        for (const auto& e : *paths) {
+            if (!e.is_string())
+                pipe_schema_error("Input.Paths must be a non-empty array of strings");
+            input.mPaths.push_back(e.get<std::string>());
+        }
+        // An explicit list is a stated order, so it is not re-sorted; the
+        // caller asked for these files in this order.
+        input.mSortExplicit = false;
+    }
+
+    if (const pipe_json* times = pipe_get(rInput, "Times")) {
+        rSequenceKeys = true;
+        if (!times->is_array())
+            pipe_schema_error("Input.Times must be an array of numbers");
+        for (const auto& e : *times) {
+            if (!e.is_number())
+                pipe_schema_error("Input.Times must be an array of numbers");
+            input.mTimes.push_back(e.get<double>());
+        }
+    }
+    if (pipe_get(rInput, "TimeFrom")) {
+        rSequenceKeys = true;
+        input.mTimeFrom = sequence_time_from_name(pipe_get_string(rInput, "TimeFrom", "Input"));
+    }
+
     input.mFormat = pipe_get_string(rInput, "Format", "Input");
     if (const pipe_json* opts = pipe_get(rInput, "Options")) {
         if (!opts->is_object())
@@ -67750,11 +68515,11 @@ PipelineInput pipe_input_from_json(const pipe_json& rInput) {
     return input;
 }
 
-PipelineOutput pipe_output_from_json(const pipe_json& rOutput) {
+SequenceOutput pipe_sequence_output_from_json(const pipe_json& rOutput) {
     if (!rOutput.is_object())
         pipe_schema_error("Output must be an object");
     pipe_check_keys(rOutput, "Output", {"Path", "Format", "Encoding", "Codec", "FloatFormat"});
-    PipelineOutput output;
+    SequenceOutput output;
     output.mPath = pipe_get_string(rOutput, "Path", "Output", /*required=*/true);
     output.mFormat = pipe_get_string(rOutput, "Format", "Output");
     output.mOptions.mEncoding =
@@ -67768,9 +68533,7 @@ PipelineOutput pipe_output_from_json(const pipe_json& rOutput) {
     return output;
 }
 
-}  // namespace
-
-Pipeline parse_pipeline_json(const std::string& rText) {
+PipeDocument pipe_document_from_json(const std::string& rText) {
     pipe_json doc;
     try {
         doc = pipe_json::parse(rText);
@@ -67779,9 +68542,11 @@ Pipeline parse_pipeline_json(const std::string& rText) {
     }
     if (!doc.is_object())
         pipe_schema_error("the settings document must be a JSON object");
-    pipe_check_keys(doc, "the settings document", {"Version", "Input", "Operations", "Output"});
+    pipe_check_keys(doc, "the settings document",
+                    {"Version", "Input", "Operations", "Output", "Mode", "Parallel", "Workers"});
 
-    Pipeline pipeline;
+    PipeDocument parsed;
+    SequencePipeline& pipeline = parsed.mSeq;
     if (const pipe_json* v = pipe_get(doc, "Version")) {
         if (!v->is_number_integer() && !v->is_number_unsigned())
             pipe_schema_error("Version must be an integer");
@@ -67791,15 +68556,33 @@ Pipeline parse_pipeline_json(const std::string& rText) {
                               " (this build knows 1)");
     }
 
+    if (pipe_get(doc, "Mode")) {
+        parsed.mSequenceKeys = true;
+        pipeline.mMode =
+            sequence_mode_from_name(pipe_get_string(doc, "Mode", "the settings document"));
+    }
+    if (pipe_get(doc, "Parallel")) {
+        parsed.mSequenceKeys = true;
+        pipeline.mParallel = pipe_get_bool(doc, "Parallel", "the settings document", false);
+    }
+    if (const pipe_json* v = pipe_get(doc, "Workers")) {
+        parsed.mSequenceKeys = true;
+        if (!v->is_number_integer() && !v->is_number_unsigned())
+            pipe_schema_error("Workers must be an integer");
+        pipeline.mWorkers = v->get<int>();
+        if (pipeline.mWorkers < 0)
+            pipe_schema_error("Workers must not be negative (0 means one per core)");
+    }
+
     const pipe_json* input = pipe_get(doc, "Input");
     if (!input)
         pipe_schema_error("Input is required");
-    pipeline.mInput = pipe_input_from_json(*input);
+    pipeline.mInput = pipe_sequence_input_from_json(*input, parsed.mSequenceKeys);
 
     const pipe_json* output = pipe_get(doc, "Output");
     if (!output)
         pipe_schema_error("Output is required");
-    pipeline.mOutput = pipe_output_from_json(*output);
+    pipeline.mOutput = pipe_sequence_output_from_json(*output);
 
     if (const pipe_json* ops = pipe_get(doc, "Operations")) {
         if (!ops->is_array())
@@ -67821,16 +68604,48 @@ Pipeline parse_pipeline_json(const std::string& rText) {
             pipeline.mSteps.push_back(std::move(step));
         }
     }
-    return pipeline;
+    return parsed;
 }
 
-Pipeline parse_pipeline_file(const std::string& rPath) {
+std::string pipe_read_file(const std::string& rPath) {
     std::ifstream in(rPath, std::ios::binary);
     if (!in)
         throw ReadError("meshio++: pipeline: cannot open settings file '" + rPath + "'");
     std::ostringstream buffer;
     buffer << in.rdbuf();
-    return parse_pipeline_json(buffer.str());
+    return buffer.str();
+}
+
+/// Project a parsed document down to the single-file model, refusing by name
+/// if it used a sequence key. Ignoring one instead would quietly run a
+/// transient document as its first step.
+Pipeline pipe_project_single(const PipeDocument& rParsed) {
+    if (rParsed.mSequenceKeys)
+        pipe_schema_error(
+            "this document uses sequence keys (Mode / Input.Pattern / Input.Paths / "
+            "Input.Times / Input.TimeFrom / Parallel / Workers); run it with "
+            "run_sequence_file / run_sequence_json (the CLI's `pipeline` verb and Python's "
+            "run_pipeline route there automatically)");
+    Pipeline out;
+    out.mVersion = rParsed.mSeq.mVersion;
+    out.mInput.mPath = rParsed.mSeq.mInput.mPaths.empty() ? "" : rParsed.mSeq.mInput.mPaths[0];
+    out.mInput.mFormat = rParsed.mSeq.mInput.mFormat;
+    out.mInput.mOptions = rParsed.mSeq.mInput.mOptions;
+    out.mSteps = rParsed.mSeq.mSteps;
+    out.mOutput.mPath = rParsed.mSeq.mOutput.mPath;
+    out.mOutput.mFormat = rParsed.mSeq.mOutput.mFormat;
+    out.mOutput.mOptions = rParsed.mSeq.mOutput.mOptions;
+    return out;
+}
+
+}  // namespace
+
+Pipeline parse_pipeline_json(const std::string& rText) {
+    return pipe_project_single(pipe_document_from_json(rText));
+}
+
+Pipeline parse_pipeline_file(const std::string& rPath) {
+    return parse_pipeline_json(pipe_read_file(rPath));
 }
 
 PipelineReport run_pipeline_json(const std::string& rText) {
@@ -67839,6 +68654,32 @@ PipelineReport run_pipeline_json(const std::string& rText) {
 
 PipelineReport run_pipeline_file(const std::string& rPath) {
     return run_pipeline(parse_pipeline_file(rPath));
+}
+
+SequencePipeline parse_sequence_json(const std::string& rText) {
+    return pipe_document_from_json(rText).mSeq;
+}
+
+SequencePipeline parse_sequence_file(const std::string& rPath) {
+    return parse_sequence_json(pipe_read_file(rPath));
+}
+
+PipelineReport run_sequence_json(const std::string& rText) {
+    const PipeDocument parsed = pipe_document_from_json(rText);
+    // A document using no sequence key, naming a plain output path AND a
+    // single-step input IS a single-file run, and takes the physically
+    // unchanged v9.11.0 path -- so every existing settings.json still produces
+    // byte-identical output, right down to which function wrote it. A
+    // multi-step input is routed to the driver even without a sequence key, so
+    // it refuses by name rather than quietly writing step 0.
+    if (!parsed.mSequenceKeys &&
+        !sequence_input_needs_driver(parsed.mSeq.mInput, parsed.mSeq.mOutput))
+        return run_pipeline(pipe_project_single(parsed));
+    return run_sequence_pipeline(parsed.mSeq);
+}
+
+PipelineReport run_sequence_file(const std::string& rPath) {
+    return run_sequence_json(pipe_read_file(rPath));
 }
 
 #endif  // MESHIOPLUSPLUS_HAS_JSON
@@ -70094,6 +70935,740 @@ ReorderResult reorder(const Mesh& rMesh, ReorderMethod method) {
 
 }  // namespace meshioplusplus
 // ===== end src/cpp/src/operations/reorder.cpp =====
+// ===== begin src/cpp/src/operations/sequence.cpp =====
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <filesystem>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <utility>
+#include <vector>
+
+// Project includes
+
+namespace meshioplusplus {
+
+namespace {
+
+// --------------------------------------------------------------------------
+// Every helper here is `seq_`-prefixed: the amalgamation concatenates every
+// src/cpp/src/*.cpp into one translation unit, so an anonymous-namespace name
+// must be unique across the whole tree.
+// --------------------------------------------------------------------------
+
+bool seq_is_digit(char c) {
+    return c >= '0' && c <= '9';
+}
+
+/// The digits of the run starting at `pos`, with leading zeros stripped, and
+/// `pos` advanced past the run. Returns a view into `rS`.
+std::string_view seq_digit_run(const std::string& rS, std::size_t& rPos) {
+    const std::size_t begin = rPos;
+    while (rPos < rS.size() && seq_is_digit(rS[rPos]))
+        ++rPos;
+    std::size_t first = begin;
+    // Strip leading zeros, but keep one digit for a run that is all zeros.
+    while (first + 1 < rPos && rS[first] == '0')
+        ++first;
+    return std::string_view(rS).substr(first, rPos - first);
+}
+
+}  // namespace
+
+bool sequence_natural_less(const std::string& rA, const std::string& rB) {
+    std::size_t ia = 0;
+    std::size_t ib = 0;
+    while (ia < rA.size() && ib < rB.size()) {
+        const bool da = seq_is_digit(rA[ia]);
+        const bool db = seq_is_digit(rB[ib]);
+        if (da != db)
+            return da;  // rule 4: a digit run sorts before a non-digit run
+        if (da) {
+            // Rule 3: numeric comparison done on the digits themselves, never
+            // through stoull -- a 40-digit hash-named file must not overflow.
+            const std::string_view va = seq_digit_run(rA, ia);
+            const std::string_view vb = seq_digit_run(rB, ib);
+            if (va.size() != vb.size())
+                return va.size() < vb.size();
+            if (va != vb)
+                return va < vb;
+        } else {
+            // Rule 2: as unsigned char. Plain `char` signedness is
+            // implementation-defined, and would order the same UTF-8 paths
+            // differently on ARM than on x86.
+            const unsigned char ca = static_cast<unsigned char>(rA[ia]);
+            const unsigned char cb = static_cast<unsigned char>(rB[ib]);
+            if (ca != cb)
+                return ca < cb;
+            ++ia;
+            ++ib;
+        }
+    }
+    if (ia < rA.size() || ib < rB.size())
+        return ib < rB.size();  // the exhausted string is the shorter one
+    // Rule 5: every run compared equal, so fall back to a plain byte-wise
+    // comparison of the ORIGINAL strings. This is what makes the comparator a
+    // strict weak ordering: without it `out_1` and `out_01` would be mutually
+    // "not less" yet not equivalent, and std::sort would be UB on a directory
+    // mixing padded and unpadded names.
+    return rA < rB;
+}
+
+bool sequence_glob_match(const std::string& rPattern, const std::string& rName) {
+    // Iterative backtracking: `star` remembers the last '*' seen and `mark`
+    // where in the name it was matched, so a pathological `a*a*a*a*b` cannot
+    // blow the stack the way a recursive matcher would.
+    std::size_t p = 0;
+    std::size_t n = 0;
+    std::size_t star = std::string::npos;
+    std::size_t mark = 0;
+    while (n < rName.size()) {
+        if (p < rPattern.size() && (rPattern[p] == '?' || rPattern[p] == rName[n])) {
+            ++p;
+            ++n;
+        } else if (p < rPattern.size() && rPattern[p] == '*') {
+            star = p++;
+            mark = n;
+        } else if (star != std::string::npos) {
+            p = star + 1;
+            n = ++mark;
+        } else {
+            return false;
+        }
+    }
+    while (p < rPattern.size() && rPattern[p] == '*')
+        ++p;
+    return p == rPattern.size();
+}
+
+bool sequence_pattern_has_token(const std::string& rPath) {
+    return rPath.find("{step}") != std::string::npos || rPath.find("{index}") != std::string::npos;
+}
+
+namespace {
+
+/// Replace every occurrence of `rToken` in `rIn` with `rValue`, advancing past
+/// each substitution so a value containing the token cannot loop. The native
+/// CLI's `replace_key`/`partition_replace_part` shape, deliberately: these
+/// tokens inherit the existing substring-replace semantics rather than
+/// introducing a third convention. (The Python twin uses `str.format`, which
+/// raises on a stray brace; that asymmetry is pre-existing.)
+std::string seq_replace_all(const std::string& rIn, const std::string& rToken,
+                            const std::string& rValue) {
+    std::string out = rIn;
+    std::size_t pos = out.find(rToken);
+    while (pos != std::string::npos) {
+        out.replace(pos, rToken.size(), rValue);
+        pos = out.find(rToken, pos + rValue.size());
+    }
+    return out;
+}
+
+}  // namespace
+
+std::string sequence_expand_pattern(const std::string& rPattern, std::size_t Index,
+                                    std::size_t Count) {
+    const std::string plain = std::to_string(Index);
+    // Pad to at least 4, and wider once the count needs it, so a directory
+    // listing of a 20000-step run still sorts correctly for a naive tool.
+    std::size_t width = 4;
+    if (Count > 1) {
+        const std::string last = std::to_string(Count - 1);
+        width = std::max(width, last.size());
+    }
+    std::string padded = plain;
+    if (padded.size() < width)
+        padded.insert(padded.begin(), width - padded.size(), '0');
+    return seq_replace_all(seq_replace_all(rPattern, "{step}", padded), "{index}", plain);
+}
+
+namespace {
+
+/// resolve_format with the sniff_format fallback -- the read-path rule
+/// everywhere (the CLIs, mio_read, the wasm read_mesh, run_pipeline).
+std::string seq_resolve_read_format(const std::string& rPath, const std::string& rFormat) {
+    try {
+        return resolve_format(rPath, rFormat);
+    } catch (const ReadError&) {
+        const std::string sniffed = sniff_format(rPath);
+        if (sniffed.empty())
+            throw;
+        return sniffed;
+    }
+}
+
+}  // namespace
+
+namespace {
+
+/// Whether `rFormat`'s reader can return more than one step at all.
+///
+/// Consulted BEFORE `registry_read_metadata`, which for a format with no
+/// native metadata reader costs a full read -- so this is what keeps the step
+/// probe free for the 38 formats that cannot carry time. Same shape and same
+/// anti-drift discipline as `sequence_write_supports_time`: a small owned set,
+/// cross-checked by a gtest against which readers actually honour
+/// `ReadOptions::mTimeStep`.
+///
+/// **MED is deliberately absent.** It honours `ReadOptions::mTimeStep`, but has
+/// no entry in `registry_metadata_readers()`, so there is no count to read:
+/// probing it would cost a full read and still report one step. That is a
+/// recorded gap in MED's metadata support, and it closes here for free the
+/// moment `read_med_metadata` fills `mTimeValues`.
+bool seq_format_may_have_steps(const std::string& rFormat) {
+    return rFormat == "xdmf" || rFormat == "exodus";
+}
+
+}  // namespace
+
+std::size_t sequence_num_steps(const std::string& rPath, const std::string& rFormat) {
+    // Registry-derived, never a per-format table: a format whose metadata
+    // reader does not fill mTimeValues reports 1, which is the truthful answer
+    // for every format that cannot express time. An unreadable file also
+    // reports 1 -- the failure belongs to the real read, with its own
+    // diagnostics, not to a capability query.
+    try {
+        const std::string fmt = seq_resolve_read_format(rPath, rFormat);
+        if (!seq_format_may_have_steps(fmt))
+            return 1u;
+        ReadOptions opts;
+        opts.mMetadataOnly = true;
+        const MeshMetadata meta = registry_read_metadata(rPath, fmt, opts);
+        return meta.mTimeValues.empty() ? 1u : meta.mTimeValues.size();
+    } catch (const std::exception&) {
+        return 1u;
+    }
+}
+
+bool sequence_write_supports_time(const std::string& rFormat, std::string& rWhy) {
+    // The one multi-step writer in the repo. Unlike sequence_num_steps there is
+    // no file to probe, so this is a predicate in registry_write_supports'
+    // style. It is kept honest by a gtest that cross-checks it against what
+    // sequence_to_timeseries actually accepts, over every registry_writers()
+    // entry -- a format that grows a series writer without updating this turns
+    // CI red naming itself.
+    if (rFormat == "xdmf") {
+        rWhy.clear();
+        return true;
+    }
+    rWhy = "meshio++: sequence: format '" + rFormat +
+           "' cannot hold a multi-step series (only 'xdmf' can); write one file per step "
+           "with an Output path containing '{step}' instead";
+    return false;
+}
+
+namespace {
+
+/// The last maximal digit run of a path's stem, as a double. Returns false when
+/// the stem has no digits at all.
+bool seq_time_from_filename(const std::string& rPath, double& rOut) {
+    std::string stem;
+    try {
+        stem = std::filesystem::path(rPath).stem().string();
+    } catch (const std::exception&) {
+        stem = rPath;
+    }
+    // Walk backwards to the last run: `run17/out_0042.vtu` must give 42, not 17
+    // (and the directory is already excluded by taking the stem).
+    std::size_t end = stem.size();
+    while (end > 0 && !seq_is_digit(stem[end - 1]))
+        --end;
+    if (end == 0)
+        return false;
+    std::size_t begin = end;
+    while (begin > 0 && seq_is_digit(stem[begin - 1]))
+        --begin;
+    try {
+        rOut = static_cast<double>(std::stoll(stem.substr(begin, end - begin)));
+    } catch (const std::exception&) {
+        // A run too long for long long: the value is not a plausible time
+        // anyway, so decline rather than saturate.
+        return false;
+    }
+    return true;
+}
+
+/// A mesh's own single time value: `meshio:time`, or a length-1 `exodus:time`
+/// (the convention this generalizes -- "the one value this mesh is a snapshot
+/// at"). A longer `exodus:time` is the writer's whole-history vector and is
+/// deliberately NOT read as a per-file scalar.
+bool seq_time_from_mesh(const Mesh& rMesh, double& rOut) {
+    for (const char* key : {kSequenceTimeKey, "exodus:time"}) {
+        if (!rMesh.HasFieldData(key))
+            continue;
+        const NDArray& a = rMesh.FieldData(key);
+        if (a.Size() != 1)
+            continue;
+        rOut = detail::read_double(a, 0);
+        return true;
+    }
+    return false;
+}
+
+/// Split a glob into (directory, basename pattern). The directory component is
+/// taken literally: a `*` there is an error naming the restriction, rather than
+/// a recursive walk nobody asked for.
+void seq_split_pattern(const std::string& rPattern, std::string& rDir, std::string& rBase) {
+    const std::size_t slash = rPattern.find_last_of("/\\");
+    if (slash == std::string::npos) {
+        rDir = ".";
+        rBase = rPattern;
+    } else {
+        rDir = rPattern.substr(0, slash);
+        rBase = rPattern.substr(slash + 1);
+        if (rDir.empty())
+            rDir = "/";
+    }
+    if (rDir.find('*') != std::string::npos || rDir.find('?') != std::string::npos)
+        throw std::invalid_argument(
+            "meshio++: sequence: the directory part of a pattern is taken literally, so '" + rDir +
+            "' cannot contain '*' or '?'; glob one directory at a time");
+}
+
+std::vector<std::string> seq_glob(const std::string& rPattern) {
+    std::string dir;
+    std::string base;
+    seq_split_pattern(rPattern, dir, base);
+
+    std::error_code ec;
+    std::vector<std::string> out;
+    std::filesystem::directory_iterator it(dir, ec);
+    if (ec)
+        throw ReadError("meshio++: sequence: cannot list directory '" + dir + "' for pattern '" +
+                        rPattern + "': " + ec.message());
+    for (const std::filesystem::directory_entry& entry : it) {
+        if (!entry.is_regular_file(ec))
+            continue;
+        const std::string name = entry.path().filename().string();
+        if (sequence_glob_match(base, name))
+            out.push_back(entry.path().string());
+    }
+    std::sort(out.begin(), out.end(), sequence_natural_less);
+    if (out.empty())
+        throw ReadError("meshio++: sequence: pattern '" + rPattern + "' matched no files");
+    return out;
+}
+
+}  // namespace
+
+std::vector<SequenceEntry> sequence_expand(const SequenceInput& rInput) {
+    const bool has_paths = !rInput.mPaths.empty();
+    const bool has_pattern = !rInput.mPattern.empty();
+    if (has_paths == has_pattern)
+        throw std::invalid_argument(
+            has_paths ? "meshio++: sequence: set either an explicit path list or a pattern, "
+                        "not both"
+                      : "meshio++: sequence: no input; set an explicit path list or a pattern");
+
+    std::vector<std::string> files = has_pattern ? seq_glob(rInput.mPattern) : rInput.mPaths;
+    if (has_paths && rInput.mSortExplicit)
+        std::sort(files.begin(), files.end(), sequence_natural_less);
+
+    // One file may carry several steps, so the entry list is not the file list.
+    // This is the only place a metadata read happens, and only when a time
+    // could come from a multi-step file at all.
+    std::vector<SequenceEntry> entries;
+    for (const std::string& path : files) {
+        if (!std::filesystem::exists(path))
+            throw ReadError("meshio++: sequence: input file not found: '" + path + "'");
+        std::vector<double> times;
+        std::size_t steps = 1;
+        if (rInput.mTimeFrom == SequenceTimeFrom::Auto ||
+            rInput.mTimeFrom == SequenceTimeFrom::File) {
+            try {
+                const std::string fmt = seq_resolve_read_format(path, rInput.mFormat);
+                // Gated: for a format that cannot carry time this metadata read
+                // would be a full read, and a plain single-file run must not
+                // pay for a probe whose answer is known to be 1.
+                if (seq_format_may_have_steps(fmt)) {
+                    ReadOptions meta_opts;
+                    meta_opts.mMetadataOnly = true;
+                    times = registry_read_metadata(path, fmt, meta_opts).mTimeValues;
+                }
+            } catch (const std::exception&) {
+                times.clear();  // no metadata reader, or an unreadable file
+            }
+            steps = times.empty() ? 1u : times.size();
+        }
+        for (std::size_t k = 0; k < steps; ++k) {
+            SequenceEntry e;
+            e.mPath = path;
+            e.mStep = k;
+            if (k < times.size()) {
+                e.mTime = times[k];
+                e.mTimeSource = SequenceTimeSource::File;
+            }
+            entries.push_back(std::move(e));
+        }
+    }
+
+    // Precedence, applied over the whole expanded list.
+    if (!rInput.mTimes.empty()) {
+        if (rInput.mTimes.size() != entries.size())
+            throw std::invalid_argument(
+                "meshio++: sequence: " + std::to_string(rInput.mTimes.size()) +
+                " explicit time value(s) for " + std::to_string(entries.size()) +
+                " sequence entr(ies); the counts must match");
+        for (std::size_t i = 0; i < entries.size(); ++i) {
+            entries[i].mTime = rInput.mTimes[i];
+            entries[i].mTimeSource = SequenceTimeSource::Explicit;
+        }
+        return entries;
+    }
+
+    for (std::size_t i = 0; i < entries.size(); ++i) {
+        SequenceEntry& e = entries[i];
+        if (rInput.mTimeFrom == SequenceTimeFrom::Index) {
+            e.mTime = static_cast<double>(i);
+            e.mTimeSource = SequenceTimeSource::Index;
+            continue;
+        }
+        if (e.mTimeSource == SequenceTimeSource::File)
+            continue;  // a multi-step file already told us
+        double t = 0.0;
+        if (rInput.mTimeFrom != SequenceTimeFrom::File && seq_time_from_filename(e.mPath, t)) {
+            e.mTime = t;
+            e.mTimeSource = SequenceTimeSource::Filename;
+            continue;
+        }
+        // Provisional. A single-step file's `meshio:time` needs a real read, so
+        // the drivers upgrade this to `File` from the mesh they were going to
+        // read anyway -- no file is ever read twice just to find its time.
+        e.mTime = static_cast<double>(i);
+        e.mTimeSource = SequenceTimeSource::Index;
+    }
+    return entries;
+}
+
+Mesh sequence_read_step(const std::vector<SequenceEntry>& rEntries, std::size_t Index,
+                        const std::string& rFormat, const ReadOptions& rOptions) {
+    if (Index >= rEntries.size())
+        throw std::out_of_range("meshio++: sequence: step index " + std::to_string(Index) +
+                                " is past the end of a " + std::to_string(rEntries.size()) +
+                                "-step sequence");
+    const SequenceEntry& e = rEntries[Index];
+    const std::string fmt = seq_resolve_read_format(e.mPath, rFormat);
+    ReadOptions opts = rOptions;
+    // The entry's own step wins: that is what makes fan-out work at all.
+    opts.mTimeStep = static_cast<int>(e.mStep);
+    return registry_read(e.mPath, fmt, opts);
+}
+
+namespace {
+
+/// Attach `field_data["meshio:time"]`, so fan-out -> fan-in closes on time as
+/// well as on geometry.
+void seq_attach_time(Mesh& rMesh, double Time) {
+    NDArray t(DType::Float64, {1});
+    *reinterpret_cast<double*>(t.Data()) = Time;
+    rMesh.AddFieldData(kSequenceTimeKey, std::move(t));
+}
+
+/// The write format of a sequence output, resolved once. For a pattern the
+/// extension of the *expanded* first name is what matters, since `{step}`
+/// sits before it.
+std::string seq_resolve_write_format(const SequenceOutput& rOutput, std::size_t Count) {
+    if (!rOutput.mFormat.empty())
+        return rOutput.mFormat;
+    const std::string probe = sequence_pattern_has_token(rOutput.mPath)
+                                  ? sequence_expand_pattern(rOutput.mPath, 0, Count)
+                                  : rOutput.mPath;
+    return resolve_format(probe, "");
+}
+
+/// The transient writer's data-format choice. An explicit request always
+/// wins -- `Binary` asks for `"HDF"` and lets `XdmfTimeSeriesWriter`'s own
+/// constructor throw naming the missing build flag when this core has no
+/// HDF5, which is the existing "reject what cannot be honoured" rule.  Left
+/// at `Default`, this follows the build exactly like the registry's own
+/// xdmf entry does (`registry.cpp`: "HDF when HDF5 is available, XML
+/// otherwise") -- an HDF-format series is unreadable by a core with no
+/// HDF5 support, including the very core that would have just written it.
+std::string seq_resolve_data_format(const WriteOptions& rOptions) {
+    if (rOptions.mEncoding == WriteEncoding::Ascii)
+        return "XML";
+    if (rOptions.mEncoding == WriteEncoding::Binary)
+        return "HDF";
+#ifdef MESHIOPLUSPLUS_HAS_HDF5
+    return "HDF";
+#else
+    return "XML";
+#endif
+}
+
+/// The transient writer bypasses `registry_write_ex` (it drives
+/// `XdmfTimeSeriesWriter` directly, not a `(path, mesh)` registry entry), so
+/// it must apply the write_options.hpp rule -- "an option the writer cannot
+/// honour is an error, never silently ignored" -- itself. Only `Encoding`
+/// (XML vs HDF) has anywhere to go; `Codec`/`FloatFormat` do not.
+void seq_check_series_write_options(const WriteOptions& rOptions) {
+    if (rOptions.mCodecSet)
+        throw WriteError("meshio++: sequence: the transient XDMF writer does not support Codec");
+    if (!rOptions.mFloatFormat.empty())
+        throw WriteError(
+            "meshio++: sequence: the transient XDMF writer does not support FloatFormat");
+}
+
+}  // namespace
+
+void sequence_to_timeseries(const SequenceInput& rInput, const SequenceOutput& rOutput) {
+    if (rOutput.mPath.empty())
+        throw std::invalid_argument("meshio++: sequence: an output path is required");
+    const std::vector<SequenceEntry> entries = sequence_expand(rInput);
+
+    const std::string ofmt = seq_resolve_write_format(rOutput, entries.size());
+    std::string why;
+    if (!sequence_write_supports_time(ofmt, why))
+        throw WriteError(why);
+    seq_check_series_write_options(rOutput.mOptions);
+
+    // Streaming: one mesh enters scope per iteration and leaves it. There is
+    // deliberately no std::vector<Mesh> anywhere in this file.
+    XdmfTimeSeriesWriter writer(rOutput.mPath, seq_resolve_data_format(rOutput.mOptions));
+    bool grid_written = false;
+    for (std::size_t i = 0; i < entries.size(); ++i) {
+        Mesh mesh = sequence_read_step(entries, i, rInput.mFormat, rInput.mOptions);
+        double time = entries[i].mTime;
+        if (entries[i].mTimeSource == SequenceTimeSource::Index &&
+            rInput.mTimeFrom != SequenceTimeFrom::Index) {
+            // The provisional-index upgrade: the mesh is already in hand, so
+            // reading its own `meshio:time` costs nothing extra.
+            double t = 0.0;
+            if (seq_time_from_mesh(mesh, t))
+                time = t;
+        }
+        if (!grid_written) {
+            writer.WritePointsCells(mesh);
+            grid_written = true;
+        }
+        writer.WriteData(time, mesh);
+    }
+    writer.Finalize();
+}
+
+void timeseries_to_sequence(const std::string& rInPath, const std::string& rInFormat,
+                            const ReadOptions& rOptions, const SequenceOutput& rOutput) {
+    if (!sequence_pattern_has_token(rOutput.mPath))
+        throw std::invalid_argument(
+            "meshio++: sequence: fanning a multi-step file out needs an output pattern "
+            "containing '{step}' or '{index}' (e.g. 'out_{step}.vtu'), not '" +
+            rOutput.mPath + "'");
+
+    SequenceInput in;
+    in.mPaths = {rInPath};
+    in.mFormat = rInFormat;
+    in.mOptions = rOptions;
+    const std::vector<SequenceEntry> entries = sequence_expand(in);
+
+    for (std::size_t i = 0; i < entries.size(); ++i) {
+        Mesh mesh = sequence_read_step(entries, i, rInFormat, rOptions);
+        seq_attach_time(mesh, entries[i].mTime);
+        registry_write_ex(sequence_expand_pattern(rOutput.mPath, i, entries.size()), mesh,
+                          rOutput.mFormat, rOutput.mOptions);
+    }
+}
+
+bool sequence_input_needs_driver(const SequenceInput& rInput, const SequenceOutput& rOutput) {
+    if (sequence_pattern_has_token(rOutput.mPath))
+        return true;
+    // An explicit step request is a deliberate single-step selection.
+    if (rInput.mOptions.mTimeStep != 0)
+        return false;
+    if (!rInput.mPattern.empty() || rInput.mPaths.size() != 1)
+        return true;  // a pattern or a list is a sequence by construction
+    return sequence_num_steps(rInput.mPaths[0], rInput.mFormat) > 1;
+}
+
+SequenceMode sequence_resolve_mode(const std::vector<SequenceEntry>& rEntries,
+                                   const SequenceOutput& rOutput, SequenceMode Stated) {
+    const bool token = sequence_pattern_has_token(rOutput.mPath);
+    // "One file with several steps" and "several files" are different inputs
+    // and produce different errors, so count the distinct paths.
+    std::size_t files = 0;
+    for (std::size_t i = 0; i < rEntries.size(); ++i)
+        if (i == 0 || rEntries[i].mPath != rEntries[i - 1].mPath)
+            ++files;
+
+    SequenceMode inferred;
+    if (token) {
+        inferred =
+            (files == 1 && rEntries.size() > 1) ? SequenceMode::FanOut : SequenceMode::Sequence;
+    } else if (rEntries.size() > 1) {
+        if (files == 1)
+            throw std::invalid_argument(
+                "meshio++: sequence: the input has " + std::to_string(rEntries.size()) +
+                " time steps but the output path '" + rOutput.mPath +
+                "' names a single file; add '{step}' to write one file per step, or select "
+                "a single step (--time-step on the CLI, Input.Options.TimeStep in a "
+                "settings document)");
+        inferred = SequenceMode::FanIn;
+    } else {
+        inferred = SequenceMode::Sequence;
+    }
+
+    if (Stated != SequenceMode::Auto && Stated != inferred)
+        throw std::invalid_argument(
+            std::string("meshio++: sequence: Mode says '") + sequence_mode_name(Stated) +
+            "' but the input (" + std::to_string(files) + " file(s), " +
+            std::to_string(rEntries.size()) + " step(s)) and output '" + rOutput.mPath +
+            "' describe '" + sequence_mode_name(inferred) + "'");
+    return inferred;
+}
+
+const char* sequence_time_source_name(SequenceTimeSource Source) {
+    switch (Source) {
+        case SequenceTimeSource::Explicit:
+            return "explicit";
+        case SequenceTimeSource::File:
+            return "file";
+        case SequenceTimeSource::Filename:
+            return "filename";
+        case SequenceTimeSource::Index:
+            return "index";
+    }
+    return "index";
+}
+
+const char* sequence_mode_name(SequenceMode Mode) {
+    switch (Mode) {
+        case SequenceMode::Sequence:
+            return "sequence";
+        case SequenceMode::FanIn:
+            return "fan-in";
+        case SequenceMode::FanOut:
+            return "fan-out";
+        case SequenceMode::Auto:
+            break;
+    }
+    return "auto";
+}
+
+SequenceMode sequence_mode_from_name(const std::string& rName) {
+    // Lowercase, hyphenated -- the repo-wide rule that settings *keys* are
+    // PascalCase but enum *values* keep their `*_from_name` spelling, as in
+    // gradient's "green-gauss" and convert_cells' "simplexify".
+    if (rName.empty() || rName == "auto")
+        return SequenceMode::Auto;
+    if (rName == "sequence")
+        return SequenceMode::Sequence;
+    if (rName == "fan-in")
+        return SequenceMode::FanIn;
+    if (rName == "fan-out")
+        return SequenceMode::FanOut;
+    throw std::invalid_argument(
+        "meshio++: sequence: Mode must be 'sequence', 'fan-in' or 'fan-out', not '" + rName + "'");
+}
+
+SequenceTimeFrom sequence_time_from_name(const std::string& rName) {
+    if (rName.empty() || rName == "auto")
+        return SequenceTimeFrom::Auto;
+    if (rName == "file")
+        return SequenceTimeFrom::File;
+    if (rName == "filename")
+        return SequenceTimeFrom::Filename;
+    if (rName == "index")
+        return SequenceTimeFrom::Index;
+    throw std::invalid_argument(
+        "meshio++: sequence: Input.TimeFrom must be 'auto', 'file', 'filename' or 'index', "
+        "not '" +
+        rName + "'");
+}
+
+PipelineReport run_sequence_pipeline(const SequencePipeline& rPipeline) {
+    if (rPipeline.mVersion != 1)
+        throw std::invalid_argument("meshio++: sequence: unsupported Version " +
+                                    std::to_string(rPipeline.mVersion) + " (this build knows 1)");
+    if (rPipeline.mOutput.mPath.empty())
+        throw std::invalid_argument("meshio++: sequence: Output.Path is required");
+
+    // Validate the whole chain before anything is read -- a typo in step 7 must
+    // not cost reading 500 files first.
+    for (const PipelineStep& step : rPipeline.mSteps)
+        validate_pipeline_step(step);
+
+    const std::vector<SequenceEntry> entries = sequence_expand(rPipeline.mInput);
+    const SequenceMode mode = sequence_resolve_mode(entries, rPipeline.mOutput, rPipeline.mMode);
+
+    PipelineReport report;
+    std::size_t index_fallbacks = 0;
+    for (const SequenceEntry& e : entries)
+        if (e.mTimeSource == SequenceTimeSource::Index)
+            ++index_fallbacks;
+    if (index_fallbacks > 0 && rPipeline.mInput.mTimeFrom != SequenceTimeFrom::Index)
+        report.mWarnings.push_back(
+            "sequence: no time value found for " + std::to_string(index_fallbacks) + " of " +
+            std::to_string(entries.size()) + " entr(ies); using the integer index for those");
+    if (rPipeline.mParallel)
+        report.mWarnings.push_back(
+            "sequence: Parallel is a Python-driver feature; this engine runs the steps "
+            "serially (every operation already parallelizes internally)");
+
+    if (mode == SequenceMode::FanIn) {
+        const std::string ofmt = seq_resolve_write_format(rPipeline.mOutput, entries.size());
+        std::string why;
+        if (!sequence_write_supports_time(ofmt, why))
+            throw WriteError(why);
+        seq_check_series_write_options(rPipeline.mOutput.mOptions);
+        XdmfTimeSeriesWriter writer(rPipeline.mOutput.mPath,
+                                    seq_resolve_data_format(rPipeline.mOutput.mOptions));
+        bool grid_written = false;
+        for (std::size_t i = 0; i < entries.size(); ++i) {
+            Mesh mesh =
+                sequence_read_step(entries, i, rPipeline.mInput.mFormat, rPipeline.mInput.mOptions);
+            double time = entries[i].mTime;
+            if (entries[i].mTimeSource == SequenceTimeSource::Index &&
+                rPipeline.mInput.mTimeFrom != SequenceTimeFrom::Index) {
+                double t = 0.0;
+                if (seq_time_from_mesh(mesh, t))
+                    time = t;
+            }
+            // The single owner of step dispatch, unchanged: sequences are a
+            // driver AROUND run_pipeline_steps, never a second dispatch path.
+            mesh = run_pipeline_steps(std::move(mesh), rPipeline.mSteps, report);
+            if (!grid_written) {
+                writer.WritePointsCells(mesh);
+                grid_written = true;
+            }
+            writer.WriteData(time, mesh);
+        }
+        writer.Finalize();
+        return report;
+    }
+
+    // Sequence / FanOut: both write one file per entry, and differ only in
+    // where the entries came from -- which sequence_expand already settled.
+    for (std::size_t i = 0; i < entries.size(); ++i) {
+        Mesh mesh =
+            sequence_read_step(entries, i, rPipeline.mInput.mFormat, rPipeline.mInput.mOptions);
+        double time = entries[i].mTime;
+        if (entries[i].mTimeSource == SequenceTimeSource::Index &&
+            rPipeline.mInput.mTimeFrom != SequenceTimeFrom::Index) {
+            double t = 0.0;
+            if (seq_time_from_mesh(mesh, t))
+                time = t;
+        }
+        mesh = run_pipeline_steps(std::move(mesh), rPipeline.mSteps, report);
+        // `meshio:time` labels a file that is one step OF A SERIES, so it is
+        // attached only when the output is a pattern. A document with a single
+        // plain output path must produce byte-identical output to the
+        // single-file pipeline it degenerates to.
+        const bool token = sequence_pattern_has_token(rPipeline.mOutput.mPath);
+        if (token)
+            seq_attach_time(mesh, time);
+        const std::string path =
+            token ? sequence_expand_pattern(rPipeline.mOutput.mPath, i, entries.size())
+                  : rPipeline.mOutput.mPath;
+        registry_write_ex(path, mesh, rPipeline.mOutput.mFormat, rPipeline.mOutput.mOptions);
+    }
+    return report;
+}
+
+}  // namespace meshioplusplus
+// ===== end src/cpp/src/operations/sequence.cpp =====
 // ===== begin src/cpp/src/operations/slice.cpp =====
 #include <cstddef>
 #include <cstdint>
@@ -72610,13 +74185,27 @@ const std::map<std::string, WriteFn>& registry_writers() {
          [](const std::string& p, const Mesh& mm) {
              meshioplusplus::write_vtk(p, mm, /*binary=*/true, /*v51=*/true);
          }},
+        // The zlib codec follows the build, exactly like the xdmf entry below:
+        // a hardcoded zlib=true is a WriteError on a -DMESHIOPLUSPLUS_WITH_ZLIB=OFF
+        // build (comment above already documented "falls back to Python" as
+        // the assumption -- true for every binding with a Python shim to fall
+        // back to, but not for a caller reaching this table directly, e.g.
+        // WASM/C API/Fortran or the sequence engine's per-step writes).
         {"vtp",
          [](const std::string& p, const Mesh& mm) {
+#ifdef MESHIOPLUSPLUS_HAS_ZLIB
              meshioplusplus::write_vtp(p, mm, /*binary=*/true, /*zlib=*/true);
+#else
+             meshioplusplus::write_vtp(p, mm, /*binary=*/true, /*zlib=*/false);
+#endif
          }},
         {"vtu",
          [](const std::string& p, const Mesh& mm) {
+#ifdef MESHIOPLUSPLUS_HAS_ZLIB
              meshioplusplus::write_vtu(p, mm, /*binary=*/true, /*zlib=*/true);
+#else
+             meshioplusplus::write_vtu(p, mm, /*binary=*/true, /*zlib=*/false);
+#endif
          }},
         {"wkt", meshioplusplus::write_wkt},
         // XDMF's heavy-data format follows the build: HDF companion file when

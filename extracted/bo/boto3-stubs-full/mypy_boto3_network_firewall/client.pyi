@@ -201,6 +201,8 @@ from .type_defs import (
     UpdateProxyRulePrioritiesResponseTypeDef,
     UpdateProxyRuleRequestTypeDef,
     UpdateProxyRuleResponseTypeDef,
+    UpdateProxySettingsRequestTypeDef,
+    UpdateProxySettingsResponseTypeDef,
     UpdateRuleGroupRequestTypeDef,
     UpdateRuleGroupResponseTypeDef,
     UpdateSubnetChangeProtectionRequestTypeDef,
@@ -1089,6 +1091,16 @@ class NetworkFirewallClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_proxy_rule_priorities.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_network_firewall/client/#update_proxy_rule_priorities)
+        """
+
+    def update_proxy_settings(
+        self, **kwargs: Unpack[UpdateProxySettingsRequestTypeDef]
+    ) -> UpdateProxySettingsResponseTypeDef:
+        """
+        Modifies the proxy listener configuration of a proxy mode firewall.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_proxy_settings.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_network_firewall/client/#update_proxy_settings)
         """
 
     def update_rule_group(

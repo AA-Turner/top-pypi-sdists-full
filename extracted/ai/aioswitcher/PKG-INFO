@@ -1,29 +1,28 @@
 Metadata-Version: 2.4
 Name: aioswitcher
-Version: 6.1.3
+Version: 6.2.0
 Summary: PyPi module integrating with various Switcher devices
+Project-URL: homepage, https://pypi.org/project/aioswitcher/
+Project-URL: repository, https://github.com/tomerfi/aioswitcher
+Project-URL: documentation, https://aioswitcher.figenblat.com
+Author-email: Tomer Figenblat <tomer@figenblat.com>
+Maintainer: Shay Levy, Yogev Bokobza
 License: Apache-2.0
 License-File: LICENSE
 Keywords: home-automation,smarthome,switcher
-Author: Tomer Figenblat
-Author-email: tomer@figenblat.com
-Maintainer: Shay Levy
-Requires-Python: >=3.12.0,<4.0
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Home Automation
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Dist: aiohttp (>=3.10.3,<4.0.0)
-Requires-Dist: pycryptodome (>=3.18.0,<4.0.0)
-Project-URL: Documentation, https://aioswitcher.figenblat.com
-Project-URL: Homepage, https://pypi.org/project/aioswitcher/
-Project-URL: Repository, https://github.com/tomerfi/aioswitcher
+Requires-Python: <4.0,>=3.12.0
+Requires-Dist: aiohttp<4.0.0,>=3.10.3
+Requires-Dist: pycryptodome<4.0.0,>=3.18.0
 Description-Content-Type: text/markdown
 
 # Switcher Python Integration
 
-[![pypi-ver-badge]][pypi-aioswitcher] [![pypi-down-badge]][pypi-aioswitcher] [![poetry-badge]][poetry-url] [![license-badge]][repo-aioswitcher]<br/>
+[![pypi-ver-badge]][pypi-aioswitcher] [![pypi-down-badge]][pypi-aioswitcher] [![license-badge]][repo-aioswitcher]<br/>
 [![gh-build-badge]][ci-stage] [![pages-badge]][docs-aioswitcher] [![codecov-badge]][codecov-aioswitcher]
 
 PyPi module integrating with various [Switcher][switcher] devices.</br>
@@ -48,9 +47,8 @@ Looking for a containerized solution? -Check [https://switcher-webapi.figenblat.
 [pages-badge]: https://github.com/TomerFi/aioswitcher/actions/workflows/pages.yml/badge.svg
 [codecov-aioswitcher]: https://codecov.io/gh/TomerFi/aioswitcher
 [docs-aioswitcher]: https://aioswitcher.figenblat.com/
-[poetry-url]: https://python-poetry.org/
-[pypi-aioswitcher]: https://pypi.org/project/aioswitcher
 [repo-aioswitcher]: https://github.com/TomerFi/aioswitcher
+[pypi-aioswitcher]: https://pypi.org/project/aioswitcher
 [switcher]: https://www.switcher.co.il/
 [switcher-v2-script]: https://github.com/NightRang3r/Switcher-V2-Python
 [switcher-webapi]: https://switcher-webapi.figenblat.com
@@ -58,7 +56,5 @@ Looking for a containerized solution? -Check [https://switcher-webapi.figenblat.
 [codecov-badge]: https://codecov.io/gh/TomerFi/aioswitcher/graph/badge.svg
 [gh-build-badge]: https://github.com/TomerFi/aioswitcher/actions/workflows/stage.yml/badge.svg
 [license-badge]: https://img.shields.io/github/license/tomerfi/aioswitcher
-[poetry-badge]: https://img.shields.io/endpoint?url=https://python-poetry.org/badge/v0.json
 [pypi-down-badge]: https://img.shields.io/pypi/dm/aioswitcher.svg?logo=pypi&color=1082C2
 [pypi-ver-badge]: https://img.shields.io/pypi/v/aioswitcher?logo=pypi
-

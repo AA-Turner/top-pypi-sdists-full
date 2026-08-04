@@ -9,6 +9,7 @@ from arthur_client.api_bindings.api.connector_schemas_v1_api import ConnectorSch
 from arthur_client.api_bindings.api.connectors_v1_api import ConnectorsV1Api
 from arthur_client.api_bindings.api.custom_aggregation_tests_v1_api import CustomAggregationTestsV1Api
 from arthur_client.api_bindings.api.custom_aggregations_v1_api import CustomAggregationsV1Api
+from arthur_client.api_bindings.api.dashboards_v1_api import DashboardsV1Api
 from arthur_client.api_bindings.api.data_plane_associations_v1_api import DataPlaneAssociationsV1Api
 from arthur_client.api_bindings.api.data_planes_v1_api import DataPlanesV1Api
 from arthur_client.api_bindings.api.data_retrieval_v1_api import DataRetrievalV1Api

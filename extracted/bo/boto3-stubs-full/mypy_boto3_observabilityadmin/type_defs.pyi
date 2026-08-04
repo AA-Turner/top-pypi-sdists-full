@@ -25,6 +25,7 @@ from .literals import (
     CentralizationFailureReasonType,
     EncryptedLogGroupStrategyType,
     EncryptionConflictResolutionStrategyType,
+    EncryptionScopeType,
     EncryptionStrategyType,
     FilterBehaviorType,
     FilterRequirementType,
@@ -280,6 +281,7 @@ class LogsEncryptionConfigurationTypeDef(TypedDict):
     EncryptionStrategy: EncryptionStrategyType
     KmsKeyArn: NotRequired[str]
     EncryptionConflictResolutionStrategy: NotRequired[EncryptionConflictResolutionStrategyType]
+    EncryptionScope: NotRequired[EncryptionScopeType]
 
 class MetricsBackupConfigurationTypeDef(TypedDict):
     Region: str
@@ -755,6 +757,7 @@ class TelemetryDestinationConfigurationOutputTypeDef(TypedDict):
     WAFLoggingParameters: NotRequired[WAFLoggingParametersOutputTypeDef]
     LogDeliveryParameters: NotRequired[LogDeliveryParametersOutputTypeDef]
     MskMonitoringParameters: NotRequired[MskMonitoringParametersTypeDef]
+    KmsKeyArn: NotRequired[str]
 
 class TelemetryDestinationConfigurationTypeDef(TypedDict):
     DestinationType: NotRequired[Literal["cloud-watch-logs"]]
@@ -766,6 +769,7 @@ class TelemetryDestinationConfigurationTypeDef(TypedDict):
     WAFLoggingParameters: NotRequired[WAFLoggingParametersTypeDef]
     LogDeliveryParameters: NotRequired[LogDeliveryParametersTypeDef]
     MskMonitoringParameters: NotRequired[MskMonitoringParametersTypeDef]
+    KmsKeyArn: NotRequired[str]
 
 class CreateCentralizationRuleForOrganizationInputTypeDef(TypedDict):
     RuleName: str

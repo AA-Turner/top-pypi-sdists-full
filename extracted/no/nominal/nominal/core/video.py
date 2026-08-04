@@ -11,19 +11,27 @@ from types import MappingProxyType
 from typing import BinaryIO, Mapping, Protocol, Sequence, overload
 
 from nominal_api import api, ingest_api, scout_catalog, scout_video, scout_video_api, upload_api
-from typing_extensions import Self
+from typing_extensions import Self, deprecated
 
 from nominal.core._clientsbunch import HasScoutParams
 from nominal.core._types import PathLike
 from nominal.core._utils.api_tools import HasRid, RefreshableConjureMixin
 from nominal.core._utils.multipart import path_upload_name, upload_multipart_io
 from nominal.core._utils.networking import HeaderProvider
-from nominal.core.exceptions import NominalIngestError, NominalIngestFailed
+from nominal.core.exceptions import (
+    LegacyVideoDeprecationWarning,
+    NominalIngestError,
+    NominalIngestFailed,
+    NominalVideoTimestampModeError,
+)
 from nominal.core.filetype import FileType, FileTypes
 from nominal.core.video_file import VideoFile
 from nominal.ts import IntegralNanosecondsUTC, _SecondsNanos
 
 logger = logging.getLogger(__name__)
+
+# Raised by the manifest builder, which additionally accepts an mcap topic as a timestamp mode.
+_ONE_OF_THREE_MODES_ERROR = "exactly one of 'start', 'frame_timestamps', or 'mcap_topic' must be provided"
 
 
 @dataclass(frozen=True)
@@ -49,6 +57,11 @@ class Video(HasRid, RefreshableConjureMixin[scout_video_api.Video]):
         @property
         def catalog(self) -> scout_catalog.CatalogService: ...
 
+    @deprecated(
+        "Polling a standalone `Video` is deprecated in favor of video channels on a dataset. Poll the individual files "
+        "returned by `Dataset.add_video` or `Dataset.list_video_files` instead.",
+        category=LegacyVideoDeprecationWarning,
+    )
     def poll_until_ingestion_completed(self, interval: timedelta = timedelta(seconds=1)) -> None:
         """Block until video ingestion has completed.
         This method polls Nominal for ingest status after uploading a video on an interval.
@@ -81,6 +94,11 @@ class Video(HasRid, RefreshableConjureMixin[scout_video_api.Video]):
     def _get_latest_api(self) -> scout_video_api.Video:
         return self._clients.video.get(self._clients.auth_header, self.rid)
 
+    @deprecated(
+        "Updating a standalone `Video` is deprecated in favor of video channels on a dataset. Use `Dataset.update` for "
+        "the dataset's own metadata, or `VideoDatasetFile.update` for a video file's title and timing.",
+        category=LegacyVideoDeprecationWarning,
+    )
     def update(
         self,
         *,
@@ -111,12 +129,22 @@ class Video(HasRid, RefreshableConjureMixin[scout_video_api.Video]):
         updated_video = self._clients.video.update_metadata(self._clients.auth_header, request, self.rid)
         return self._refresh_from_api(updated_video)
 
+    @deprecated(
+        "Archiving a standalone `Video` is deprecated in favor of video channels on a dataset. Archive the backing "
+        "dataset with `Dataset.archive` instead.",
+        category=LegacyVideoDeprecationWarning,
+    )
     def archive(self) -> None:
         """Archive this video.
         Archived videos are not deleted, but are hidden from the UI.
         """
         self._clients.video.archive(self._clients.auth_header, self.rid)
 
+    @deprecated(
+        "Unarchiving a standalone `Video` is deprecated in favor of video channels on a dataset. Unarchive the backing "
+        "dataset with `Dataset.unarchive` instead.",
+        category=LegacyVideoDeprecationWarning,
+    )
     def unarchive(self) -> None:
         """Unarchives this video, allowing it to show up in the 'All Videos' pane in the UI."""
         self._clients.video.unarchive(self._clients.auth_header, self.rid)
@@ -141,6 +169,11 @@ class Video(HasRid, RefreshableConjureMixin[scout_video_api.Video]):
         overwrite_overlapping: bool = False,
     ) -> VideoFile: ...
 
+    @deprecated(
+        "Adding a file to a standalone `Video` is deprecated in favor of video channels on a dataset. Use "
+        "`Dataset.add_video` on a new or existing dataset instead.",
+        category=LegacyVideoDeprecationWarning,
+    )
     def add_file(
         self,
         path: PathLike,
@@ -166,6 +199,11 @@ class Video(HasRid, RefreshableConjureMixin[scout_video_api.Video]):
         Returns:
             Reference to the created video file.
         """
+        # Without this, passing both modes would take the 'start' branch below and silently drop the
+        # per-frame timestamps: add_from_io only ever sees the one mode this method forwards.
+        if (start is None) == (frame_timestamps is None):
+            raise NominalVideoTimestampModeError()
+
         path = pathlib.Path(path)
         file_type = FileType.from_video(path)
 
@@ -188,8 +226,8 @@ class Video(HasRid, RefreshableConjureMixin[scout_video_api.Video]):
                     file_type=file_type,
                     overwrite_overlapping=overwrite_overlapping,
                 )
-            else:  # This should never be reached due to the validation above
-                raise ValueError("Either 'start' or 'frame_timestamps' must be provided")
+            else:  # unreachable: the check at the top of this method admits exactly one mode
+                raise NominalVideoTimestampModeError()
 
     @overload
     def add_from_io(
@@ -215,6 +253,11 @@ class Video(HasRid, RefreshableConjureMixin[scout_video_api.Video]):
         overwrite_overlapping: bool = False,
     ) -> VideoFile: ...
 
+    @deprecated(
+        "Adding a file to a standalone `Video` is deprecated in favor of video channels on a dataset. Use "
+        "`Dataset.add_video_from_io` on a new or existing dataset instead.",
+        category=LegacyVideoDeprecationWarning,
+    )
     def add_from_io(
         self,
         video: BinaryIO,
@@ -245,11 +288,10 @@ class Video(HasRid, RefreshableConjureMixin[scout_video_api.Video]):
         if isinstance(video, TextIOBase):
             raise TypeError(f"video {video} must be open in binary mode, rather than text mode")
 
-        # Validation: ensure exactly one of start or frame_timestamps is provided
-        if start is None and frame_timestamps is None:
-            raise ValueError("Either 'start' or 'frame_timestamps' must be provided")
-        if start is not None and frame_timestamps is not None:
-            raise ValueError("Only one of 'start' or 'frame_timestamps' may be provided")
+        # Checked here as well as in the manifest builder below, so bad arguments fail before the
+        # workspace lookup and the upload, and the message names only this method's two modes.
+        if (start is None) == (frame_timestamps is None):
+            raise NominalVideoTimestampModeError()
 
         workspace_rid = self._clients.resolve_default_workspace_rid()
         timestamp_manifest = _build_video_file_timestamp_manifest(
@@ -296,6 +338,11 @@ class Video(HasRid, RefreshableConjureMixin[scout_video_api.Video]):
 
     add_to_video_from_io = add_from_io
 
+    @deprecated(
+        "Adding an MCAP file to a standalone `Video` is deprecated in favor of video channels on a dataset. Use "
+        "`Dataset.add_mcap_video` on a new or existing dataset instead.",
+        category=LegacyVideoDeprecationWarning,
+    )
     def add_mcap(
         self,
         path: PathLike,
@@ -333,6 +380,11 @@ class Video(HasRid, RefreshableConjureMixin[scout_video_api.Video]):
 
     add_mcap_to_video = add_mcap
 
+    @deprecated(
+        "Adding an MCAP file to a standalone `Video` is deprecated in favor of video channels on a dataset. Use "
+        "`Dataset.add_mcap_video_from_io` on a new or existing dataset instead.",
+        category=LegacyVideoDeprecationWarning,
+    )
     def add_mcap_from_io(
         self,
         mcap: BinaryIO,
@@ -403,6 +455,11 @@ class Video(HasRid, RefreshableConjureMixin[scout_video_api.Video]):
 
     add_mcap_to_video_from_io = add_mcap_from_io
 
+    @deprecated(
+        "Listing the files of a standalone `Video` is deprecated in favor of video channels on a dataset. Use "
+        "`Dataset.list_video_files` instead.",
+        category=LegacyVideoDeprecationWarning,
+    )
     def list_files(self) -> Sequence[VideoFile]:
         """List all video files associated with the video."""
         raw_videos = self._clients.video_file.list_files_in_video(self._clients.auth_header, self.rid)
@@ -455,10 +512,21 @@ def _build_video_file_timestamp_manifest(
     upload_client: upload_api.UploadService,
     start: datetime | IntegralNanosecondsUTC | None = None,
     frame_timestamps: Sequence[IntegralNanosecondsUTC] | None = None,
+    mcap_topic: str | None = None,
     header_provider: HeaderProvider | None = None,
 ) -> scout_video_api.VideoFileTimestampManifest:
-    if None not in (start, frame_timestamps):
-        raise ValueError("Only one of 'start' or 'frame_timestamps' are allowed")
+    """Build a timestamp manifest for video ingest.
+
+    Exactly one of `start`, `frame_timestamps`, or `mcap_topic` must be provided.
+    """
+    provided = [mode for mode in (start, frame_timestamps, mcap_topic) if mode is not None]
+    if len(provided) != 1:
+        raise NominalVideoTimestampModeError(_ONE_OF_THREE_MODES_ERROR)
+
+    if mcap_topic is not None:
+        return scout_video_api.VideoFileTimestampManifest(
+            mcap=scout_video_api.McapTimestampManifest(api.McapChannelLocator(topic=mcap_topic))
+        )
     elif frame_timestamps is not None:
         manifest_s3_path = _upload_frame_timestamps(
             auth_header, workspace_rid, upload_client, frame_timestamps, header_provider=header_provider
@@ -471,8 +539,8 @@ def _build_video_file_timestamp_manifest(
                 starting_timestamp=_SecondsNanos.from_flexible(start).to_api()
             )
         )
-    else:
-        raise ValueError("One of 'start' or 'frame_timestamps' must be provided")
+    else:  # unreachable: the check above admits exactly one mode
+        raise NominalVideoTimestampModeError(_ONE_OF_THREE_MODES_ERROR)
 
 
 def _get_video(clients: Video._Clients, video_rid: str) -> scout_video_api.Video:

@@ -486,16 +486,18 @@ DsssReceiver_getprop_norm_freq (DsssReceiverObject *self,
 }
 
 static PyGetSetDef DsssReceiver_getset[] = {
-  { "tracking", (getter)DsssReceiver_getprop_tracking, NULL, "Tracking.\n",
-    NULL },
+  { "tracking", (getter)DsssReceiver_getprop_tracking, NULL,
+    "0 = searching, 1 = locked and demodulating.\n", NULL },
   { "doppler_hz", (getter)DsssReceiver_getprop_doppler_hz, NULL,
     "Doppler hz.\n", NULL },
   { "cn0_dbhz_est", (getter)DsssReceiver_getprop_cn0_dbhz_est, NULL,
-    "Cn0 dbhz est.\n", NULL },
-  { "segments", (getter)DsssReceiver_getprop_segments, NULL, "Segments.\n",
-    NULL },
-  { "sps", (getter)DsssReceiver_getprop_sps, NULL, "Sps.\n", NULL },
-  { "n", (getter)DsssReceiver_getprop_n, NULL, "N.\n", NULL },
+    "Cached from the winning acquisition hit.\n", NULL },
+  { "segments", (getter)DsssReceiver_getprop_segments, NULL,
+    "Dll's own tracking parameter.\n", NULL },
+  { "sps", (getter)DsssReceiver_getprop_sps, NULL,
+    "MpskReceiver's own samples/symbol.\n", NULL },
+  { "n", (getter)DsssReceiver_getprop_n, NULL,
+    "MpskReceiver's own carrier-arm count.\n", NULL },
   { "chip_phase", (getter)DsssReceiver_getprop_chip_phase, NULL,
     "Dll's live tracked code phase (chips); 0.0 while searching.\n", NULL },
   { "code_rate", (getter)DsssReceiver_getprop_code_rate, NULL,
@@ -555,13 +557,64 @@ static PyMethodDef DsssReceiverObj_methods[] = {
     "-> RateConverter -> MpskReceiver in sequence and demodulated symbols are "
     "returned. Accepts any block size; state carries across calls.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import DsssReceiver\n"
-    "    >>> obj = DsssReceiver(np.zeros(1, dtype=np.uint8), 1000000.0, "
-    "1000.0, 2, 2, 55.0, 1e-3, 0.9, 100.0, 4, 8, 0)\n"
-    "    >>> y = obj.steps(np.zeros(4))\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex64')\n" },
+    "While searching, samples feed the embedded Acquisition and nothing is\n"
+    "emitted (0 return is normal, not an error). The moment a hit fires,\n"
+    "`Dll`/`RateConverter`/`MpskReceiver` are built and seeded from it, and\n"
+    "the unconsumed tail of THIS call — computed exactly from\n"
+    "`acq->samples_consumed`, no samples dropped or double-fed — is handed\n"
+    "straight to them in the same call. While tracking, samples feed `Dll ->\n"
+    "RateConverter -> MpskReceiver` in sequence. Accepts any block size;\n"
+    "state carries across calls (`Acquisition`/`Dll`/\n"
+    "`RateConverter`/`MpskReceiver` are all already block-size invariant, so\n"
+    "this object needs no ring-buffering of its own).\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.complex64]\n"
+    "    Input cf32 samples.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex64]\n"
+    "    Number of symbols written (0 while searching, or while tracking "
+    "with\n"
+    "    not yet a full symbol's worth of input).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.dsss import DsssReceiver\n"
+    ">>> from doppler.wfm import Gold\n"
+    ">>> sf, chip, sym, spc = 1023, 3.0e6, 2100.0, 2\n"
+    ">>> fs, te, tsym = chip * spc, sf * spc, chip * spc / sym\n"
+    ">>> code = np.asarray(Gold().generate(sf)).astype(np.uint8)\n"
+    ">>> csign = np.where(code & 1, -1.0, 1.0)\n"
+    ">>> rng = np.random.default_rng(6)\n"
+    ">>> n = int(400 * tsym) + 2 * te            # 400 BPSK data symbols\n"
+    ">>> idx = np.arange(n)\n"
+    ">>> data = (rng.integers(0, 2, 404) * 2 - 1).astype(float)\n"
+    ">>> si = np.clip((idx / tsym).astype(int), 0, 403)\n"
+    ">>> spread = data[si] * csign[(idx // spc) % sf]        # DSSS chips\n"
+    ">>> sig = spread * np.exp(2j * np.pi * (50.0 / fs) * idx)  # +50 Hz\n"
+    ">>> pre = 3 * te                            # pre-signal noise-only "
+    "lead-in\n"
+    ">>> sigma = np.sqrt(fs / 10 ** (90.0 / 10))            # ~90 dB-Hz C/N0\n"
+    ">>> noise = (sigma / np.sqrt(2)) * (rng.standard_normal(pre + n)\n"
+    "...          + 1j * rng.standard_normal(pre + n))\n"
+    ">>> x = (np.concatenate([np.zeros(pre), sig]).astype(np.complex64)\n"
+    "...      + noise.astype(np.complex64))\n"
+    ">>> rx = DsssReceiver(code, chip_rate=chip, symbol_rate=sym, spc=spc,\n"
+    "...                   cn0_dbhz=55.0, doppler_uncertainty=100.0)\n"
+    ">>> syms = [rx.steps(x[p:p + te]) for p in range(0, len(x) - te, te)]\n"
+    ">>> syms = np.concatenate([s for s in syms if len(s)])\n"
+    ">>> rx.tracking                       # acquired and now demodulating\n"
+    "1\n"
+    ">>> len(syms) > 300                    # a few hundred symbols "
+    "recovered\n"
+    "True\n"
+    ">>> bool(np.mean(syms.real**2) > 10 * np.mean(syms.imag**2))  # BPSK on "
+    "I\n"
+    "True\n" },
   { "steps_max_out", (PyCFunction)DsssReceiverObj_steps_max_out, METH_NOARGS,
     "steps_max_out() -> int\n\nMax output length steps() can produce for the "
     "current state.\nUse to size the ``out=`` buffer." },
@@ -575,12 +628,29 @@ static PyMethodDef DsssReceiverObj_methods[] = {
     "wants a specific (doppler_bins, n_noncoh). Only meaningful while "
     "searching.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import DsssReceiver\n"
-    "    >>> obj = DsssReceiver(np.zeros(1, dtype=np.uint8), 1000000.0, "
-    "1000.0, 2, 2, 55.0, 1e-3, 0.9, 100.0, 4, 8, 0)\n"
-    "    >>> obj.configure_search_raw(0, 0)\n"
-    "    0\n" },
+    "Parameters\n"
+    "----------\n"
+    "doppler_bins : int\n"
+    "    Number of Doppler window tiles to search (>= 1); capped by the\n"
+    "    create-time `doppler_uncertainty` span (one tile per code-epoch\n"
+    "    Doppler bin width).\n"
+    "n_noncoh : int\n"
+    "    Non-coherent looks accumulated per grid cell (1..256); more looks\n"
+    "    buys sensitivity at the cost of dwell, replacing the auto-sized\n"
+    "    count.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.dsss import DsssReceiver\n"
+    ">>> from doppler.wfm import Gold\n"
+    ">>> code = np.asarray(Gold().generate(1023)).astype(np.uint8)\n"
+    ">>> rx = DsssReceiver(code, chip_rate=3.0e6, symbol_rate=2100.0, spc=2)\n"
+    ">>> rx.configure_search_raw(doppler_bins=1, n_noncoh=16)  # pin the "
+    "grid\n"
+    ">>> rx.tracking                       # still searching, on the pinned "
+    "grid\n"
+    "0\n" },
   { "configure_lock_raw",
     (PyCFunction)(void *)DsssReceiverObj_configure_lock_raw,
     METH_VARARGS | METH_KEYWORDS,
@@ -590,11 +660,37 @@ static PyMethodDef DsssReceiverObj_methods[] = {
     "Re-tune the embedded Dll's code-lock detector directly. Only meaningful "
     "once tracking has begun; a no-op while searching.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import DsssReceiver\n"
-    "    >>> obj = DsssReceiver(np.zeros(1, dtype=np.uint8), 1000000.0, "
-    "1000.0, 2, 2, 55.0, 1e-3, 0.9, 100.0, 4, 8, 0)\n"
-    "    >>> obj.configure_lock_raw(0.0, 0.0, 0, 0.0, 0, 0)\n" },
+    "Parameters\n"
+    "----------\n"
+    "up_thresh : float\n"
+    "    CFAR-statistic level to declare code lock (hit when the statistic\n"
+    "    exceeds it).\n"
+    "down_thresh : float\n"
+    "    Level below which a look is a miss; choose <= up_thresh for level\n"
+    "    hysteresis.\n"
+    "n_looks : int\n"
+    "    Looks per decision — the DLL's non-coherent integration depth\n"
+    "    feeding one statistic.\n"
+    "alpha : float\n"
+    "    EMA smoothing coefficient on the lock statistic (0..1); smaller is\n"
+    "    smoother/slower.\n"
+    "n_up : int\n"
+    "    Consecutive hits required to declare lock.\n"
+    "n_down : int\n"
+    "    Consecutive misses required to drop lock.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.dsss import DsssReceiver\n"
+    ">>> from doppler.wfm import Gold\n"
+    ">>> code = np.asarray(Gold().generate(1023)).astype(np.uint8)\n"
+    ">>> rx = DsssReceiver(code, chip_rate=3.0e6, symbol_rate=2100.0, spc=2)\n"
+    ">>> rx.configure_lock_raw(up_thresh=0.4, down_thresh=0.2, n_looks=20,\n"
+    "...                       alpha=0.1, n_up=5, n_down=3)\n"
+    ">>> rx.tracking                       # a no-op until a hit builds the "
+    "Dll\n"
+    "0\n" },
   { "configure_chain_raw",
     (PyCFunction)(void *)DsssReceiverObj_configure_chain_raw,
     METH_VARARGS | METH_KEYWORDS,
@@ -608,32 +704,145 @@ static PyMethodDef DsssReceiverObj_methods[] = {
     "with every replacement allocated first, so a failed pin leaves the "
     "receiver on its prior grid.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import DsssReceiver\n"
-    "    >>> obj = DsssReceiver(np.zeros(1, dtype=np.uint8), 1000000.0, "
-    "1000.0, 2, 2, 55.0, 1e-3, 0.9, 100.0, 4, 8, 0)\n"
-    "    >>> obj.configure_chain_raw(0, 0, 0)\n"
-    "    0\n" },
+    "The escape hatch for the one composition-specific knob this object adds\n"
+    "beyond its children's own: `segments` (Dll's tracking parameter) and\n"
+    "`sps`/`n` (MpskReceiver's sample-rate/carrier-arm parameters) are\n"
+    "indepen­dently overridable here, still bridged by a freshly-sized\n"
+    "`RateConverter` — never coupled to each other (see the module\n"
+    "docstring). Rebuilds `dll`/`rc`/`rx` with every replacement allocated\n"
+    "first, only freeing and adopting the old ones once every allocation has\n"
+    "succeeded (mirrors `Acquisition`'s own `_regrid()` discipline) — a\n"
+    "failed pin leaves the receiver tracking on its prior grid, not\n"
+    "half-destroyed. Only meaningful once tracking (the grid defaults still\n"
+    "apply to create-time auto-sizing for the next hit while searching; call\n"
+    "`dsss_receiver_create()` with different `segments`/`sps` for that, or\n"
+    "re-pin here again after the next hit).\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "segments : int\n"
+    "    Dll tracking segments per code period.\n"
+    "sps : int\n"
+    "    MpskReceiver samples per symbol (the resample target).\n"
+    "n : int\n"
+    "    MpskReceiver's carrier-arm count; must divide sps.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.dsss import DsssReceiver\n"
+    ">>> from doppler.wfm import Gold\n"
+    ">>> code = np.asarray(Gold().generate(1023)).astype(np.uint8)\n"
+    ">>> rx = DsssReceiver(code, chip_rate=3.0e6, symbol_rate=2100.0, spc=2)\n"
+    ">>> rx.configure_chain_raw(segments=6, sps=8, n=8)  # re-pin the chain\n"
+    ">>> rx.segments                       # tracking grid updated in place\n"
+    "6\n" },
   { "reset", (PyCFunction)DsssReceiverObj_reset, METH_NOARGS,
     "reset() -> None\n"
     "\n"
     "Return to the searching state: resets the embedded Acquisition and frees "
     "Dll/RateConverter/MpskReceiver (rebuilt from scratch on the next hit).\n"
     "\n"
-    "    >>> from doppler import DsssReceiver\n"
-    "    >>> obj = DsssReceiver(np.zeros(1, dtype=np.uint8), 1000000.0, "
-    "1000.0, 2, 2, 55.0, 1e-3, 0.9, 100.0, 4, 8, 0)\n"
-    "    >>> obj.reset()\n" },
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.dsss import DsssReceiver\n"
+    ">>> from doppler.wfm import Gold\n"
+    ">>> code = np.asarray(Gold().generate(1023)).astype(np.uint8)\n"
+    ">>> rx = DsssReceiver(code, chip_rate=3.0e6, symbol_rate=2100.0, spc=2)\n"
+    ">>> rx.reset()                        # abort any lock, hunt from "
+    "scratch\n"
+    ">>> (rx.tracking, rx.chip_phase)      # back to searching, state "
+    "cleared\n"
+    "(0, 0.0)\n" },
   { "state_bytes", (PyCFunction)DsssReceiverObj_state_bytes, METH_NOARGS,
-    "Serialized state size in bytes." },
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the DsssReceiverObj has already been\n"
+    "destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
   { "get_state", (PyCFunction)DsssReceiverObj_get_state, METH_NOARGS,
-    "Serialize the engine's mutable state to bytes." },
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the DsssReceiverObj has already been\n"
+    "destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
   { "set_state", (PyCFunction)DsssReceiverObj_set_state, METH_O,
-    "Restore mutable state from a get_state() blob." },
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the DsssReceiverObj has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
   { "destroy", (PyCFunction)DsssReceiverObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)DsssReceiverObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)DsssReceiverObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)DsssReceiverObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a DsssReceiver be used in a `with` statement so its C resources "
+    "are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "DsssReceiver\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)DsssReceiverObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the DsssReceiver.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

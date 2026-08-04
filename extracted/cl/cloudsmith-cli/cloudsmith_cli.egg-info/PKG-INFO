@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloudsmith-cli
-Version: 1.20.2
+Version: 1.21.0
 Summary: Cloudsmith Command-Line Interface (CLI)
 Author-email: Cloudsmith Ltd <support@cloudsmith.io>
 License-Expression: Apache-2.0

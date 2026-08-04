@@ -16,6 +16,8 @@ from scale_gp_beta.types import (
 from scale_gp_beta._utils import parse_datetime
 from scale_gp_beta.pagination import SyncCursorPage, AsyncCursorPage
 
+# pyright: reportDeprecated=false
+
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
 
@@ -82,16 +84,19 @@ class TestSpans:
 
     @parametrize
     def test_method_retrieve(self, client: SGPClient) -> None:
-        span = client.spans.retrieve(
-            "span_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            span = client.spans.retrieve(
+                "span_id",
+            )
+
         assert_matches_type(Span, span, path=["response"])
 
     @parametrize
     def test_raw_response_retrieve(self, client: SGPClient) -> None:
-        response = client.spans.with_raw_response.retrieve(
-            "span_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = client.spans.with_raw_response.retrieve(
+                "span_id",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -100,23 +105,25 @@ class TestSpans:
 
     @parametrize
     def test_streaming_response_retrieve(self, client: SGPClient) -> None:
-        with client.spans.with_streaming_response.retrieve(
-            "span_id",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            with client.spans.with_streaming_response.retrieve(
+                "span_id",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            span = response.parse()
-            assert_matches_type(Span, span, path=["response"])
+                span = response.parse()
+                assert_matches_type(Span, span, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @parametrize
     def test_path_params_retrieve(self, client: SGPClient) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `span_id` but received ''"):
-            client.spans.with_raw_response.retrieve(
-                "",
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `span_id` but received ''"):
+                client.spans.with_raw_response.retrieve(
+                    "",
+                )
 
     @parametrize
     def test_method_update(self, client: SGPClient) -> None:
@@ -244,6 +251,7 @@ class TestSpans:
             max_duration_ms=0,
             min_duration_ms=0,
             names=["string"],
+            parent_ids=["string"],
             parents_only=True,
             search_texts=["string"],
             span_ids=["string"],
@@ -388,16 +396,19 @@ class TestAsyncSpans:
 
     @parametrize
     async def test_method_retrieve(self, async_client: AsyncSGPClient) -> None:
-        span = await async_client.spans.retrieve(
-            "span_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            span = await async_client.spans.retrieve(
+                "span_id",
+            )
+
         assert_matches_type(Span, span, path=["response"])
 
     @parametrize
     async def test_raw_response_retrieve(self, async_client: AsyncSGPClient) -> None:
-        response = await async_client.spans.with_raw_response.retrieve(
-            "span_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = await async_client.spans.with_raw_response.retrieve(
+                "span_id",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -406,23 +417,25 @@ class TestAsyncSpans:
 
     @parametrize
     async def test_streaming_response_retrieve(self, async_client: AsyncSGPClient) -> None:
-        async with async_client.spans.with_streaming_response.retrieve(
-            "span_id",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            async with async_client.spans.with_streaming_response.retrieve(
+                "span_id",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            span = await response.parse()
-            assert_matches_type(Span, span, path=["response"])
+                span = await response.parse()
+                assert_matches_type(Span, span, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @parametrize
     async def test_path_params_retrieve(self, async_client: AsyncSGPClient) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `span_id` but received ''"):
-            await async_client.spans.with_raw_response.retrieve(
-                "",
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `span_id` but received ''"):
+                await async_client.spans.with_raw_response.retrieve(
+                    "",
+                )
 
     @parametrize
     async def test_method_update(self, async_client: AsyncSGPClient) -> None:
@@ -550,6 +563,7 @@ class TestAsyncSpans:
             max_duration_ms=0,
             min_duration_ms=0,
             names=["string"],
+            parent_ids=["string"],
             parents_only=True,
             search_texts=["string"],
             span_ids=["string"],

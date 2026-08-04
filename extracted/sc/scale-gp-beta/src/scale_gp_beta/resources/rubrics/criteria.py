@@ -61,7 +61,11 @@ class CriteriaResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RubricCriteriaResponse:
         """
-        Add Criterion to Rubric
+        Add a single criterion to an existing rubric.
+
+        Creates a new criterion at version 1 under the given rubric. Criteria are
+        versioned independently of the rubric they belong to. The request is rejected if
+        the target rubric is archived.
 
         Args:
           title: The Criteria text
@@ -112,7 +116,13 @@ class CriteriaResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RubricCriteriaResponse:
         """
-        Update Criterion
+        Apply a partial update to a criterion, creating a new version.
+
+        Updates are append-only: rather than overwriting the criterion in place, each
+        update inserts a new immutable version with an incremented version number, so
+        every prior state stays available through the versions endpoint. Fields not
+        supplied are carried forward from the current version. The request is rejected
+        if the criterion does not belong to the rubric named in the path.
 
         Args:
           annotations: Free-form metadata for the Criteria
@@ -171,7 +181,12 @@ class CriteriaResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CriterionListVersionsResponse:
         """
-        List Criterion Versions
+        List the full version history of a single criterion, paginated.
+
+        Because criterion updates are append-only, this returns one entry per version,
+        exposing every prior state of the criterion, ordered by version descending
+        (newest first) by default. The request is rejected if the criterion does not
+        belong to the rubric named in the path.
 
         Args:
           extra_headers: Send extra headers
@@ -247,7 +262,11 @@ class AsyncCriteriaResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RubricCriteriaResponse:
         """
-        Add Criterion to Rubric
+        Add a single criterion to an existing rubric.
+
+        Creates a new criterion at version 1 under the given rubric. Criteria are
+        versioned independently of the rubric they belong to. The request is rejected if
+        the target rubric is archived.
 
         Args:
           title: The Criteria text
@@ -298,7 +317,13 @@ class AsyncCriteriaResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RubricCriteriaResponse:
         """
-        Update Criterion
+        Apply a partial update to a criterion, creating a new version.
+
+        Updates are append-only: rather than overwriting the criterion in place, each
+        update inserts a new immutable version with an incremented version number, so
+        every prior state stays available through the versions endpoint. Fields not
+        supplied are carried forward from the current version. The request is rejected
+        if the criterion does not belong to the rubric named in the path.
 
         Args:
           annotations: Free-form metadata for the Criteria
@@ -357,7 +382,12 @@ class AsyncCriteriaResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CriterionListVersionsResponse:
         """
-        List Criterion Versions
+        List the full version history of a single criterion, paginated.
+
+        Because criterion updates are append-only, this returns one entry per version,
+        exposing every prior state of the criterion, ordered by version descending
+        (newest first) by default. The request is rejected if the criterion does not
+        belong to the rubric named in the path.
 
         Args:
           extra_headers: Send extra headers

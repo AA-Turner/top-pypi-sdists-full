@@ -390,16 +390,18 @@ CarrierMpsk_getprop_m (CarrierMpskObject *self, void *Py_UNUSED (closure))
 
 static PyGetSetDef CarrierMpsk_getset[]
     = { { "bn", (getter)CarrierMpsk_getprop_bn, (setter)CarrierMpsk_setprop_bn,
-          "Bn.\n", NULL },
+          "PLL loop noise bandwidth (retained).\n", NULL },
         { "norm_freq", (getter)CarrierMpsk_getprop_norm_freq,
           (setter)CarrierMpsk_setprop_norm_freq, "Norm freq.\n", NULL },
         { "lock_metric", (getter)CarrierMpsk_getprop_lock_metric, NULL,
-          "Lock metric.\n", NULL },
+          "EMA of Re(P conj a)/|P| (1 = locked).\n", NULL },
         { "last_error", (getter)CarrierMpsk_getprop_last_error, NULL,
-          "Last error.\n", NULL },
+          "last PLL discriminator (loop stress).\n", NULL },
         { "bn_fll", (getter)CarrierMpsk_getprop_bn_fll,
-          (setter)CarrierMpsk_setprop_bn_fll, "Bn fll.\n", NULL },
-        { "m", (getter)CarrierMpsk_getprop_m, NULL, "M.\n", NULL },
+          (setter)CarrierMpsk_setprop_bn_fll,
+          "FLL-assist bandwidth (0 = pure PLL).\n", NULL },
+        { "m", (getter)CarrierMpsk_getprop_m, NULL,
+          "constellation order M (2, 4, 8).\n", NULL },
         { NULL } };
 
 static PyObject *
@@ -447,12 +449,54 @@ static PyMethodDef CarrierMpskObj_methods[] = {
     "downstream (mpsk_diff_demap or a sync word). At m=2 this is exactly the "
     "BPSK Costas loop.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import CarrierMpsk\n"
-    "    >>> obj = CarrierMpsk(0.05, 0.707, 0.0, 64, 0.0, 4)\n"
-    "    >>> y = obj.steps(np.zeros(4))\n"
-    "    >>> y.dtype\n"
-    "    dtype('complex64')\n" },
+    "The block form of the inline wipeoff/update pair: for each input sample\n"
+    "it de-rotates by the carrier NCO and accumulates the coherent\n"
+    "integrate-and-dump; every tsamps samples it dumps the prompt, runs the\n"
+    "decision-directed M-PSK discriminator (slice to the nearest\n"
+    "constellation point, error `Im(P conj(ahat))/|P|`, plus the optional\n"
+    "cross-product FLL assist), filters the error, and steers the NCO\n"
+    "frequency and phase. Exactly one de-rotated prompt is emitted per\n"
+    "completed symbol; a trailing partial symbol is carried in the\n"
+    "accumulator to the next call, so a stream can be fed in blocks of any\n"
+    "length with no seam.\n"
+    "\n"
+    "The loop locks to one of m carrier phases — an M-fold ambiguity on the\n"
+    "absolute constellation orientation. Resolve it downstream (differential\n"
+    "demapping or a sync word); this call only recovers the carrier and\n"
+    "returns the prompts. At m = 2 it is exactly the BPSK Costas loop.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.complex64]\n"
+    "    Input block, one complex baseband sample per element.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex64]\n"
+    "    One de-rotated prompt symbol per completed integrate-and-dump\n"
+    "    period; the count is `x_len / tsamps`.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.mpsk import mpsk_map\n"
+    ">>> from doppler.track import CarrierMpsk\n"
+    ">>> rng = np.random.default_rng(0)\n"
+    ">>> sps = 16\n"
+    ">>> labels = rng.integers(0, 4, 400).astype(np.uint8)\n"
+    ">>> sig = np.repeat(mpsk_map(labels, 4), sps).astype(np.complex64)\n"
+    ">>> k = np.arange(len(sig))\n"
+    ">>> rx = (sig * np.exp(2j * np.pi * 0.002 * k)).astype(np.complex64)\n"
+    ">>> c = CarrierMpsk(bn=0.04, zeta=0.707, init_norm_freq=0.0,\n"
+    "...                 tsamps=sps, bn_fll=0.02, m=4)\n"
+    ">>> prompts = c.steps(rx)          # one prompt per symbol\n"
+    ">>> prompts.shape\n"
+    "(400,)\n"
+    ">>> round(c.norm_freq, 4)          # tracked the residual carrier "
+    "f0=0.002\n"
+    "0.002\n"
+    ">>> round(c.lock_metric, 2)        # decision-aligned lock metric -> 1\n"
+    "1.0\n" },
   { "steps_max_out", (PyCFunction)CarrierMpskObj_steps_max_out, METH_NOARGS,
     "steps_max_out() -> int\n\nMax output length steps() can produce for the "
     "current state.\nUse to size the ``out=`` buffer." },
@@ -463,28 +507,152 @@ static PyMethodDef CarrierMpskObj_methods[] = {
     "Recompute the loop gains for a new (bn, zeta); preserves the "
     "frequency/phase estimate.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import CarrierMpsk\n"
-    "    >>> obj = CarrierMpsk(0.05, 0.707, 0.0, 64, 0.0, 4)\n"
-    "    >>> obj.configure(0.0, 0.0)\n" },
+    "Re-derives the proportional/integral gains of the embedded 2nd-order\n"
+    "loop filter for the new noise bandwidth and damping, leaving the "
+    "running\n"
+    "frequency and phase estimate (the NCO and the loop integrator) "
+    "untouched\n"
+    "— a live lock survives a re-tune. Use it to widen the loop for fast\n"
+    "pull-in and then narrow it for low-jitter tracking, mid-stream.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "bn : float\n"
+    "    Loop noise bandwidth, normalised to the symbol rate.\n"
+    "zeta : float\n"
+    "    Damping factor (0.707 = critically damped).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.track import CarrierMpsk\n"
+    ">>> c = CarrierMpsk(bn=0.02, zeta=0.707, init_norm_freq=0.01,\n"
+    "...                 tsamps=16, bn_fll=0.0, m=4)\n"
+    ">>> round(c.bn, 3)\n"
+    "0.02\n"
+    ">>> c.configure(bn=0.05, zeta=1.0)   # widen the loop mid-stream\n"
+    ">>> round(c.bn, 3)\n"
+    "0.05\n"
+    ">>> round(c.norm_freq, 3)            # frequency estimate preserved\n"
+    "0.01\n" },
   { "reset", (PyCFunction)CarrierMpskObj_reset, METH_NOARGS,
     "reset() -> None\n"
     "\n"
     "Re-seed the loop to the create-time frequency/phase; preserve config.\n"
     "\n"
-    "    >>> from doppler import CarrierMpsk\n"
-    "    >>> obj = CarrierMpsk(0.05, 0.707, 0.0, 64, 0.0, 4)\n"
-    "    >>> obj.reset()\n" },
+    "Returns the NCO to the seed carrier passed at construction, zeroes the\n"
+    "integrate-and-dump accumulator, the FLL history, and the lock/error\n"
+    "diagnostics, and re-primes the loop integrator to the matching\n"
+    "per-symbol frequency — the exact state a fresh carrier_mpsk_create()\n"
+    "leaves. The tuning (bn, zeta, bn_fll, tsamps, m) is untouched. Call it\n"
+    "at a capture boundary so a lock reached on one segment does not bias an\n"
+    "unrelated next one.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.mpsk import mpsk_map\n"
+    ">>> from doppler.track import CarrierMpsk\n"
+    ">>> rng = np.random.default_rng(1)\n"
+    ">>> sig = np.repeat(mpsk_map(rng.integers(0, 4, 100).astype(np.uint8), "
+    "4),\n"
+    "...                 16).astype(np.complex64)\n"
+    ">>> rx = (sig * np.exp(2j * np.pi * 0.003 * np.arange(len(sig)))\n"
+    "...       ).astype(np.complex64)\n"
+    ">>> c = CarrierMpsk(bn=0.04, zeta=0.707, init_norm_freq=0.0,\n"
+    "...                 tsamps=16, bn_fll=0.02, m=4)\n"
+    ">>> _ = c.steps(rx)\n"
+    ">>> round(c.norm_freq, 3)   # loop pulled onto the residual carrier\n"
+    "0.003\n"
+    ">>> c.reset()               # back to the create-time seed\n"
+    ">>> round(c.norm_freq, 3)\n"
+    "0.0\n" },
   { "state_bytes", (PyCFunction)CarrierMpskObj_state_bytes, METH_NOARGS,
-    "Serialized state size in bytes." },
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the CarrierMpskObj has already been\n"
+    "destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
   { "get_state", (PyCFunction)CarrierMpskObj_get_state, METH_NOARGS,
-    "Serialize the engine's mutable state to bytes." },
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the CarrierMpskObj has already been\n"
+    "destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
   { "set_state", (PyCFunction)CarrierMpskObj_set_state, METH_O,
-    "Restore mutable state from a get_state() blob." },
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the CarrierMpskObj has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
   { "destroy", (PyCFunction)CarrierMpskObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)CarrierMpskObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)CarrierMpskObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)CarrierMpskObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a CarrierMpsk be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "CarrierMpsk\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)CarrierMpskObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the CarrierMpsk.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

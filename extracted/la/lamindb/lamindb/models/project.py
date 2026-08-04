@@ -21,7 +21,7 @@ from lamindb.base.users import current_user_id
 
 from ..base.uids import base62_12
 from .artifact import Artifact
-from .can_curate import CanCurate
+from .can_curate import CanCurate, HasAbbr
 from .collection import Collection
 from .feature import Feature
 from .has_parents import _query_relatives
@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 
 
 class Reference(
-    SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateFields
+    SQLRecord, HasType, CanCurate, HasAbbr, TracksRun, TracksUpdates, ValidateFields
 ):
     """References such as internal studies, papers, documents, or URLs.
 
@@ -248,7 +248,9 @@ class Reference(
         return _query_relatives([self], "references")  # type: ignore
 
 
-class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateFields):
+class Project(
+    SQLRecord, HasType, CanCurate, HasAbbr, TracksRun, TracksUpdates, ValidateFields
+):
     """Projects to label artifacts, transforms, records, and runs.
 
     Args:
@@ -490,7 +492,18 @@ class ArtifactProject(BaseSQLRecord, IsLink, TracksRun):
     class Meta:
         app_label = "lamindb"
         # can have the same label linked to the same artifact if the feature is different
-        unique_together = ("artifact", "project", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["artifact", "project", "feature"],
+                condition=models.Q(feature__isnull=False),
+                name="unique_artifactproject",
+            ),
+            models.UniqueConstraint(
+                fields=["artifact", "project"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_artifactproject_null_feature",
+            ),
+        ]
 
 
 class RunProject(BaseSQLRecord, IsLink):
@@ -604,7 +617,18 @@ class ReferenceRecord(BaseSQLRecord, IsLink, TracksRun):
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("reference", "feature", "record")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reference", "feature", "record"],
+                condition=models.Q(feature__isnull=False),
+                name="unique_referencerecord",
+            ),
+            models.UniqueConstraint(
+                fields=["reference", "record"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_referencerecord_null_feature",
+            ),
+        ]
 
 
 class RecordReference(BaseSQLRecord, IsLink):
@@ -635,7 +659,18 @@ class ProjectRecord(BaseSQLRecord, IsLink, TracksRun):
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("project", "feature", "record")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "feature", "record"],
+                condition=models.Q(feature__isnull=False),
+                name="unique_projectrecord",
+            ),
+            models.UniqueConstraint(
+                fields=["project", "record"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_projectrecord_null_feature",
+            ),
+        ]
 
 
 class RecordProject(BaseSQLRecord, IsLink):
@@ -673,7 +708,18 @@ class ArtifactReference(BaseSQLRecord, IsLink, TracksRun):
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("artifact", "reference", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["artifact", "reference", "feature"],
+                condition=models.Q(feature__isnull=False),
+                name="unique_artifactreference",
+            ),
+            models.UniqueConstraint(
+                fields=["artifact", "reference"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_artifactreference_null_feature",
+            ),
+        ]
 
 
 class TransformReference(BaseSQLRecord, IsLink, TracksRun):

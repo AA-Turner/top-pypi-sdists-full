@@ -38,8 +38,6 @@ from orbax.checkpoint._src.path import async_path
 from orbax.checkpoint._src.path import atomicity
 from orbax.checkpoint._src.path import atomicity_types
 
-
-
 BarrierSyncFn = multihost.BarrierSyncFn
 _DIRECTORY_CREATION_SIGNALS = [
     synchronization.HandlerAwaitableSignal.STEP_DIRECTORY_CREATION
@@ -104,6 +102,10 @@ def _background_wait_for_commit_futures(
       '/jax/checkpoint/write/async/commit_duration_sec',
       commit_duration_secs,
   )
+  jax.monitoring.record_event_duration_secs(
+      '/jax/orbax/write/async/tensorstore_duration_secs',
+      commit_duration_secs,
+  )
 
   if process_count > 1:
     # All processes will wait at the barrier. When all processes are at the
@@ -118,7 +120,7 @@ def _background_wait_for_commit_futures(
               prefix=barrier_sync_key_prefix,
               suffix=f'{directory.name}',
           ),
-          int(time_remaining_secs * 1000),
+          int(time_remaining_secs * 1000),  # pyrefly: ignore[unsupported-operation]
       )
     except jax.errors.JaxRuntimeError as e:
       if sys.version_info >= (3, 11):
@@ -142,7 +144,7 @@ def _background_wait_for_commit_futures(
               prefix=barrier_sync_key_prefix,
               suffix=f'{directory.name}',
           ),
-          int(time_remaining_secs * 1000),
+          int(time_remaining_secs * 1000),  # pyrefly: ignore[unsupported-operation]
       )
     except jax.errors.JaxRuntimeError as e:
       if sys.version_info >= (3, 11):
@@ -230,7 +232,7 @@ class _AsyncManager:
           directory,
           commit_futures,
           on_commit_callback,
-          barrier_sync_key_prefix=self._barrier_sync_key_prefix,
+          barrier_sync_key_prefix=self._barrier_sync_key_prefix,  # pyrefly: ignore[bad-argument-type]
           sync_fn=self._sync_fn,
           timeout_secs=self._timeout_secs,
           primary_host=self._primary_host,
@@ -342,7 +344,7 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
           multihost.process_index(),
           type(handler),
       )
-      handler = checkpointer.get_legacy_handler_wrapper(handler)
+      handler = checkpointer.get_legacy_handler_wrapper(handler)  # pyrefly: ignore[bad-assignment]
       assert isinstance(
           handler, async_checkpoint_handler.AsyncCheckpointHandler
       )
@@ -394,6 +396,7 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
     )
 
     def _callback() -> None:
+      finalize_start_time = time.time()
       if utils.is_primary_host(self._primary_host):
         # Update StepMetadata after the handler save is complete.
         # (blocking write)
@@ -432,11 +435,15 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
           tmpdir,
           checkpoint_start_time,
       )
+      jax.monitoring.record_event_duration_secs(
+          '/jax/orbax/write/async/finalize_duration_secs',
+          time.time() - finalize_start_time,
+      )
       operation_recorder = event_tracking.OperationRecorder(
           tmpdir.get_final(),
           operation_type=event_tracking.OperationType.SAVE,
           async_origin=True,
-          primary_host=self._primary_host,
+          primary_host=self._primary_host,  # pyrefly: ignore[bad-argument-type]
       )
       operation_recorder.record_completion(time.time() - checkpoint_start_time)
       # Clean up all awaitable signals for the current operation id as they are
@@ -493,7 +500,7 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
     else:
       path = tmpdir.get()
     commit_ops.extend(
-        await self._handler.async_save(path, args=ckpt_args) or []
+        await self._handler.async_save(path, args=ckpt_args) or []  # pyrefly: ignore[bad-argument-type]
     )
     commit_ops, _ = jax.tree.flatten(commit_ops)
     commit_ops = [op for op in commit_ops if op is not None]
@@ -546,7 +553,7 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
         directory,
         operation_type=event_tracking.OperationType.SAVE,
         async_origin=True,
-        primary_host=self._primary_host,
+        primary_host=self._primary_host,  # pyrefly: ignore[bad-argument-type]
     )
     operation_recorder.record_start(start_time=checkpoint_start_time)
     tmpdir = self.get_temporary_path(directory)

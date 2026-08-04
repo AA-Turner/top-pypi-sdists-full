@@ -28,6 +28,7 @@ _ADAPTER_PACKAGES: tuple[str, ...] = (
     "aigie.integrations.langchain",
     "aigie.integrations.claude_agent_sdk",
     "aigie.integrations.strands",
+    "aigie.integrations.openai_agents",
 )
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import typing_extensions
 from typing import Dict, List, Union, Iterable
 from datetime import datetime
 
@@ -85,7 +86,14 @@ class SpansResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Span:
         """
-        Create Span
+        Create a single span and return the persisted span.
+
+        Use this for one-off span ingestion; to write many spans in one request use POST
+        /v5/spans/batch. When `id` is omitted the server generates a UUID. Depending on
+        per-account server configuration the span is persisted to Postgres, to the
+        ClickHouse-backed tracing service, or both; when the tracing service is the
+        primary store, a write failure returns a retryable 503 with a Retry-After
+        header.
 
         Args:
           trace_id: id for grouping traces together, uuid is recommended
@@ -136,6 +144,7 @@ class SpansResource(SyncAPIResource):
             cast_to=Span,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def retrieve(
         self,
         span_id: str,
@@ -148,7 +157,14 @@ class SpansResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Span:
         """
-        Get Span
+        Retrieve a single span by its id.
+
+        The span is read from Postgres or, for accounts migrated to the
+        ClickHouse-backed tracing service, from that service — with automatic fallback
+        to Postgres on error unless the account is in strict mode, where a
+        tracing-service failure surfaces as a 503. Access is authorized against the
+        span's parent trace, so a span in a trace the caller cannot read is rejected; an
+        unknown id returns 404.
 
         Args:
           extra_headers: Send extra headers
@@ -186,7 +202,14 @@ class SpansResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Span:
         """
-        Update Span
+        Partially update a span's mutable fields and return the updated span.
+
+        Only the provided fields among name, end timestamp, output, metadata, and status
+        are changed. This endpoint is available only for accounts still backed solely by
+        Postgres: once an account begins dual-writing to the ClickHouse-backed tracing
+        service — which is upsert-only and has no partial-update operation — PATCH
+        returns 501 and PUT /v5/spans/batch must be used instead. Updates are authorized
+        against the span's parent trace, and an unknown id returns 404.
 
         Args:
           extra_headers: Send extra headers
@@ -229,7 +252,16 @@ class SpansResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> APIListSpan:
         """
-        Create Spans in Batch
+        Create multiple spans (up to 1000) in a single request and return the created
+        spans.
+
+        Prefer this over repeated POST /v5/spans calls when ingesting many spans at
+        once; use PUT /v5/spans/batch instead when a span with the same `id` may already
+        exist, since this endpoint inserts new spans rather than overwriting. A batch
+        larger than 1000 spans is rejected with a validation error. Each item follows
+        the same id-generation and per-account dual-write rules as the single-span
+        create, and when the tracing service is the primary store a write failure
+        returns a retryable 503.
 
         Args:
           extra_headers: Send extra headers
@@ -271,6 +303,7 @@ class SpansResource(SyncAPIResource):
         max_duration_ms: int | Omit = omit,
         min_duration_ms: int | Omit = omit,
         names: SequenceNotStr[str] | Omit = omit,
+        parent_ids: SequenceNotStr[str] | Omit = omit,
         parents_only: bool | Omit = omit,
         search_texts: SequenceNotStr[str] | Omit = omit,
         span_ids: SequenceNotStr[str] | Omit = omit,
@@ -285,7 +318,20 @@ class SpansResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPage[Span]:
         """
-        Search and list spans
+        Search and list spans matching a set of filters, returning a keyset-paginated
+        page.
+
+        Filters in the request body include trace and span ids, names, statuses, types,
+        free-text search, metadata, duration bounds, and more, scoped to an optional
+        time window. Results are keyset-paginated on indexed columns rather than
+        offset-paginated, and `total` is not computed (it is always 0); use the
+        pagination cursors to page through results. Reads route to Postgres or the
+        ClickHouse-backed tracing service per account (with Postgres fallback outside
+        strict mode), and results are narrowed to traces the caller is authorized to
+        read — a filter that resolves to no authorized traces yields an empty page
+        rather than an error. A reversed time window (`from_ts` after `to_ts`) is
+        rejected with 422, as is a request whose combined `trace_ids`, `span_ids`,
+        `excluded_span_ids`, `excluded_trace_ids`, and `parent_ids` count exceeds 10000.
 
         Args:
           from_ts: The starting (oldest) timestamp in ISO format.
@@ -300,7 +346,7 @@ class SpansResource(SyncAPIResource):
 
           application_variant_ids: Filter by application variant IDs
 
-          assessment_types: Filter spans by traces that have assessments of these types
+          assessment_types: Filter to spans that have at least one assessment of these types
 
           excluded_span_ids: List of span IDs to exclude from results
 
@@ -310,11 +356,17 @@ class SpansResource(SyncAPIResource):
 
           group_id: Filter by group ID
 
-          max_duration_ms: Maximum span duration in milliseconds (inclusive)
+          max_duration_ms: Maximum span duration in milliseconds (inclusive). An in-flight span with no end
+              time has no known duration and is treated as unbounded, so it never falls within
+              a maximum and is excluded.
 
-          min_duration_ms: Minimum span duration in milliseconds (inclusive)
+          min_duration_ms: Minimum span duration in milliseconds (inclusive). An in-flight span with no end
+              time has no known duration and is treated as unbounded, so it matches every
+              minimum.
 
           names: Filter by trace/span name
+
+          parent_ids: Filter to the direct children of any of these parent span IDs
 
           parents_only: Only fetch spans that are the top-level (ie. have no parent_id)
 
@@ -325,7 +377,9 @@ class SpansResource(SyncAPIResource):
 
           statuses: Filter on span status
 
-          trace_ids: Filter by trace IDs
+          trace_ids: Filter by trace IDs. The combined count of trace_ids, span_ids,
+              excluded_span_ids, excluded_trace_ids, and parent_ids may not exceed 10000. A
+              request over that returns 422.
 
           extra_headers: Send extra headers
 
@@ -352,6 +406,7 @@ class SpansResource(SyncAPIResource):
                     "max_duration_ms": max_duration_ms,
                     "min_duration_ms": min_duration_ms,
                     "names": names,
+                    "parent_ids": parent_ids,
                     "parents_only": parents_only,
                     "search_texts": search_texts,
                     "span_ids": span_ids,
@@ -395,7 +450,16 @@ class SpansResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> APIListSpan:
         """
-        Upsert Spans in Batch
+        Insert or replace multiple spans (up to 1000) in a single request, keyed by span
+        `id`.
+
+        Use this for idempotent ingestion where a span with the same `id` may already
+        exist — it will be overwritten — unlike POST /v5/spans/batch, which only
+        inserts. Items without an `id` are assigned a generated UUID, and duplicate
+        `id`s within the request are collapsed to the last occurrence. A batch larger
+        than 1000 spans is rejected with a validation error. The write follows the same
+        per-account dual-write rules, and when the tracing service is the primary store
+        a write failure returns a retryable 503.
 
         Args:
           extra_headers: Send extra headers
@@ -462,7 +526,14 @@ class AsyncSpansResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Span:
         """
-        Create Span
+        Create a single span and return the persisted span.
+
+        Use this for one-off span ingestion; to write many spans in one request use POST
+        /v5/spans/batch. When `id` is omitted the server generates a UUID. Depending on
+        per-account server configuration the span is persisted to Postgres, to the
+        ClickHouse-backed tracing service, or both; when the tracing service is the
+        primary store, a write failure returns a retryable 503 with a Retry-After
+        header.
 
         Args:
           trace_id: id for grouping traces together, uuid is recommended
@@ -513,6 +584,7 @@ class AsyncSpansResource(AsyncAPIResource):
             cast_to=Span,
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def retrieve(
         self,
         span_id: str,
@@ -525,7 +597,14 @@ class AsyncSpansResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Span:
         """
-        Get Span
+        Retrieve a single span by its id.
+
+        The span is read from Postgres or, for accounts migrated to the
+        ClickHouse-backed tracing service, from that service — with automatic fallback
+        to Postgres on error unless the account is in strict mode, where a
+        tracing-service failure surfaces as a 503. Access is authorized against the
+        span's parent trace, so a span in a trace the caller cannot read is rejected; an
+        unknown id returns 404.
 
         Args:
           extra_headers: Send extra headers
@@ -563,7 +642,14 @@ class AsyncSpansResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Span:
         """
-        Update Span
+        Partially update a span's mutable fields and return the updated span.
+
+        Only the provided fields among name, end timestamp, output, metadata, and status
+        are changed. This endpoint is available only for accounts still backed solely by
+        Postgres: once an account begins dual-writing to the ClickHouse-backed tracing
+        service — which is upsert-only and has no partial-update operation — PATCH
+        returns 501 and PUT /v5/spans/batch must be used instead. Updates are authorized
+        against the span's parent trace, and an unknown id returns 404.
 
         Args:
           extra_headers: Send extra headers
@@ -606,7 +692,16 @@ class AsyncSpansResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> APIListSpan:
         """
-        Create Spans in Batch
+        Create multiple spans (up to 1000) in a single request and return the created
+        spans.
+
+        Prefer this over repeated POST /v5/spans calls when ingesting many spans at
+        once; use PUT /v5/spans/batch instead when a span with the same `id` may already
+        exist, since this endpoint inserts new spans rather than overwriting. A batch
+        larger than 1000 spans is rejected with a validation error. Each item follows
+        the same id-generation and per-account dual-write rules as the single-span
+        create, and when the tracing service is the primary store a write failure
+        returns a retryable 503.
 
         Args:
           extra_headers: Send extra headers
@@ -648,6 +743,7 @@ class AsyncSpansResource(AsyncAPIResource):
         max_duration_ms: int | Omit = omit,
         min_duration_ms: int | Omit = omit,
         names: SequenceNotStr[str] | Omit = omit,
+        parent_ids: SequenceNotStr[str] | Omit = omit,
         parents_only: bool | Omit = omit,
         search_texts: SequenceNotStr[str] | Omit = omit,
         span_ids: SequenceNotStr[str] | Omit = omit,
@@ -662,7 +758,20 @@ class AsyncSpansResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Span, AsyncCursorPage[Span]]:
         """
-        Search and list spans
+        Search and list spans matching a set of filters, returning a keyset-paginated
+        page.
+
+        Filters in the request body include trace and span ids, names, statuses, types,
+        free-text search, metadata, duration bounds, and more, scoped to an optional
+        time window. Results are keyset-paginated on indexed columns rather than
+        offset-paginated, and `total` is not computed (it is always 0); use the
+        pagination cursors to page through results. Reads route to Postgres or the
+        ClickHouse-backed tracing service per account (with Postgres fallback outside
+        strict mode), and results are narrowed to traces the caller is authorized to
+        read — a filter that resolves to no authorized traces yields an empty page
+        rather than an error. A reversed time window (`from_ts` after `to_ts`) is
+        rejected with 422, as is a request whose combined `trace_ids`, `span_ids`,
+        `excluded_span_ids`, `excluded_trace_ids`, and `parent_ids` count exceeds 10000.
 
         Args:
           from_ts: The starting (oldest) timestamp in ISO format.
@@ -677,7 +786,7 @@ class AsyncSpansResource(AsyncAPIResource):
 
           application_variant_ids: Filter by application variant IDs
 
-          assessment_types: Filter spans by traces that have assessments of these types
+          assessment_types: Filter to spans that have at least one assessment of these types
 
           excluded_span_ids: List of span IDs to exclude from results
 
@@ -687,11 +796,17 @@ class AsyncSpansResource(AsyncAPIResource):
 
           group_id: Filter by group ID
 
-          max_duration_ms: Maximum span duration in milliseconds (inclusive)
+          max_duration_ms: Maximum span duration in milliseconds (inclusive). An in-flight span with no end
+              time has no known duration and is treated as unbounded, so it never falls within
+              a maximum and is excluded.
 
-          min_duration_ms: Minimum span duration in milliseconds (inclusive)
+          min_duration_ms: Minimum span duration in milliseconds (inclusive). An in-flight span with no end
+              time has no known duration and is treated as unbounded, so it matches every
+              minimum.
 
           names: Filter by trace/span name
+
+          parent_ids: Filter to the direct children of any of these parent span IDs
 
           parents_only: Only fetch spans that are the top-level (ie. have no parent_id)
 
@@ -702,7 +817,9 @@ class AsyncSpansResource(AsyncAPIResource):
 
           statuses: Filter on span status
 
-          trace_ids: Filter by trace IDs
+          trace_ids: Filter by trace IDs. The combined count of trace_ids, span_ids,
+              excluded_span_ids, excluded_trace_ids, and parent_ids may not exceed 10000. A
+              request over that returns 422.
 
           extra_headers: Send extra headers
 
@@ -729,6 +846,7 @@ class AsyncSpansResource(AsyncAPIResource):
                     "max_duration_ms": max_duration_ms,
                     "min_duration_ms": min_duration_ms,
                     "names": names,
+                    "parent_ids": parent_ids,
                     "parents_only": parents_only,
                     "search_texts": search_texts,
                     "span_ids": span_ids,
@@ -772,7 +890,16 @@ class AsyncSpansResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> APIListSpan:
         """
-        Upsert Spans in Batch
+        Insert or replace multiple spans (up to 1000) in a single request, keyed by span
+        `id`.
+
+        Use this for idempotent ingestion where a span with the same `id` may already
+        exist — it will be overwritten — unlike POST /v5/spans/batch, which only
+        inserts. Items without an `id` are assigned a generated UUID, and duplicate
+        `id`s within the request are collapsed to the last occurrence. A batch larger
+        than 1000 spans is rejected with a validation error. The write follows the same
+        per-account dual-write rules, and when the tracing service is the primary store
+        a write failure returns a retryable 503.
 
         Args:
           extra_headers: Send extra headers
@@ -800,8 +927,10 @@ class SpansResourceWithRawResponse:
         self.create = to_raw_response_wrapper(
             spans.create,
         )
-        self.retrieve = to_raw_response_wrapper(
-            spans.retrieve,
+        self.retrieve = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                spans.retrieve,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.update = to_raw_response_wrapper(
             spans.update,
@@ -824,8 +953,10 @@ class AsyncSpansResourceWithRawResponse:
         self.create = async_to_raw_response_wrapper(
             spans.create,
         )
-        self.retrieve = async_to_raw_response_wrapper(
-            spans.retrieve,
+        self.retrieve = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                spans.retrieve,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.update = async_to_raw_response_wrapper(
             spans.update,
@@ -848,8 +979,10 @@ class SpansResourceWithStreamingResponse:
         self.create = to_streamed_response_wrapper(
             spans.create,
         )
-        self.retrieve = to_streamed_response_wrapper(
-            spans.retrieve,
+        self.retrieve = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                spans.retrieve,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.update = to_streamed_response_wrapper(
             spans.update,
@@ -872,8 +1005,10 @@ class AsyncSpansResourceWithStreamingResponse:
         self.create = async_to_streamed_response_wrapper(
             spans.create,
         )
-        self.retrieve = async_to_streamed_response_wrapper(
-            spans.retrieve,
+        self.retrieve = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                spans.retrieve,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.update = async_to_streamed_response_wrapper(
             spans.update,

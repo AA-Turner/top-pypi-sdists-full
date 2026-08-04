@@ -5,6 +5,7 @@ import hashlib
 import struct
 import time
 import warnings
+from collections import deque
 from random import randbytes
 from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar
 
@@ -26,7 +27,7 @@ from tesla_fleet_api.exceptions import (
     TeslaFleetError,
     WhitelistOperationStatus,
 )
-from tesla_fleet_api.tesla.vehicle.broadcast import BroadcastListeners
+from tesla_fleet_api.tesla.vehicle.broadcast import BroadcastListeners, Unsubscribe
 from tesla_fleet_api.tesla.vehicle.commands import (
     Commands,
     infotainment_command_name,
@@ -34,30 +35,37 @@ from tesla_fleet_api.tesla.vehicle.commands import (
 )
 
 # Protocol
-from tesla_fleet_api.tesla.vehicle.proto.car_server_pb2 import (
+from tesla_protocol.command.car_server_pb2 import (
     Action,
+    GetAlertState,
     GetChargeScheduleState,
     GetChargeState,
+    GetChildPresenceDetectionState,
     GetClimateState,
     GetClosuresState,
     GetDriveState,
+    GetGuiSettings,
+    GetLightShowState,
     GetLocationState,
     GetMediaDetailState,
     GetMediaState,
     GetParentalControlsState,
+    GetParkedAccessoryState,
     GetPreconditioningScheduleState,
     GetSoftwareUpdateState,
+    GetSuspensionState,
     GetTirePressureState,
     GetVehicleData,
+    GetVehicleState,
     VehicleAction,
 )
-from tesla_fleet_api.tesla.vehicle.proto.keys_pb2 import Role
-from tesla_fleet_api.tesla.vehicle.proto.universal_message_pb2 import (
+from tesla_protocol.command.keys_pb2 import Role
+from tesla_protocol.command.universal_message_pb2 import (
     Destination,
     Domain,
     RoutableMessage,
 )
-from tesla_fleet_api.tesla.vehicle.proto.vcsec_pb2 import (
+from tesla_protocol.command.vcsec_pb2 import (
     ClosureMoveRequest,
     ClosureMoveType_E,
     FromVCSECMessage,
@@ -73,20 +81,27 @@ from tesla_fleet_api.tesla.vehicle.proto.vcsec_pb2 import (
     VehicleStatus,
     WhitelistOperation,
 )
-from tesla_fleet_api.tesla.vehicle.proto.vehicle_pb2 import (
+from tesla_protocol.command.vehicle_pb2 import (
+    AlertState,
     ChargeScheduleState,
     ChargeState,
+    ChildPresenceDetectionState,
     ClimateState,
     ClosuresState,
     DriveState,
+    GuiSettings,
+    LightShowState,
     LocationState,
     MediaDetailState,
     MediaState,
     ParentalControlsState,
+    ParkedAccessoryState,
     PreconditioningScheduleState,
     SoftwareUpdateState,
+    SuspensionState,
     TirePressureState,
     VehicleData,
+    VehicleState,
 )
 
 SERVICE_UUID = "00000211-b2d1-43f0-9b88-960cebf8b91e"
@@ -298,6 +313,47 @@ _INFOTAINMENT_VERIFY_PLANS: dict[str, Callable[[VehicleAction], VerifyPlan | Non
     "hvacAutoAction": _plan_auto_conditioning,
 }
 
+# A subscription push stream has no vehicle-side backpressure, so an unbounded
+# sink behind a stalled consumer would grow without limit.
+_STREAM_SINK_MAXSIZE = 32
+_STREAM_TOMBSTONE_MAXSIZE = 32
+
+
+class _StreamSink:
+    """Non-draining queue for one subscription's addressed pushes.
+
+    Bounded and drop-oldest, since the newest snapshot supersedes older ones
+    for telemetry. Kept entirely separate from ``_queues`` so ``_send``'s
+    pre-send drain and the one-shot ``_await_response`` consumer can never
+    see or discard a subscription push.
+
+    ``armed`` gates whether ``_on_message`` diverts a matching frame into this
+    sink at all. The subscribe request's own ack shares its ``request_uuid``
+    with every later push, so a sink registered before that ack arrives must
+    start unarmed - letting exactly that first frame fall through to the
+    ordinary reply queue for ``_send`` to consume - and only arm once the ack
+    has been claimed.
+    """
+
+    def __init__(
+        self, maxsize: int = _STREAM_SINK_MAXSIZE, *, armed: bool = True
+    ) -> None:
+        self._queue: asyncio.Queue[RoutableMessage] = asyncio.Queue(maxsize=maxsize)
+        self.dropped = 0
+        self.armed = armed
+
+    def put(self, msg: RoutableMessage) -> None:
+        if self._queue.full():
+            self._queue.get_nowait()
+            self.dropped += 1
+        self._queue.put_nowait(msg)
+
+    async def get(self) -> RoutableMessage:
+        return await self._queue.get()
+
+    def empty(self) -> bool:
+        return self._queue.empty()
+
 
 class VehicleBluetooth(
     BroadcastListeners, Commands[BluetoothParentT], Generic[BluetoothParentT]
@@ -425,6 +481,8 @@ class VehicleBluetooth(
     client: BleakClient | None = None
     _queues: dict[Domain, asyncio.Queue[RoutableMessage]]
     _broadcast_watchers: dict[Domain, Callable[[RoutableMessage], None]]
+    _stream_sinks: dict[bytes, _StreamSink]
+    _retired_streams: deque[bytes]
     _ekey: ec.EllipticCurvePublicKey
     _buffer: ReassemblingBuffer
     _auth_method = "aes"
@@ -438,6 +496,8 @@ class VehicleBluetooth(
     _keepalive_timeout: float = 2
     _keepalive_task: asyncio.Task[None] | None = None
     _last_activity: float = 0.0
+    _connected: bool = False
+    _connection_listeners: list[Callable[[bool], None]]
 
     def __init__(
         self,
@@ -498,7 +558,10 @@ class VehicleBluetooth(
             Domain.DOMAIN_INFOTAINMENT: asyncio.Queue(),
         }
         self._broadcast_watchers = {}
+        self._stream_sinks = {}
+        self._retired_streams = deque(maxlen=_STREAM_TOMBSTONE_MAXSIZE)
         self._init_broadcast_listeners()
+        self._connection_listeners = []
         self.device = device
         self._connect_lock = asyncio.Lock()
         self._buffer = ReassemblingBuffer(self._on_message)
@@ -555,12 +618,14 @@ class VehicleBluetooth(
                 BleakClient,
                 self.device,
                 self.vin,
+                disconnected_callback=self._on_ble_disconnected,
                 max_attempts=max_attempts,
                 # ble_device_callback=self.get_device,
                 services=[SERVICE_UUID],
             )
             await self.client.start_notify(READ_UUID, self._on_notify)
             await self._start_keepalive()
+            self._set_connected(True)
         # bleak-esphome converts an aioesphomeapi transport timeout into a
         # builtin TimeoutError, not a BleakError, so catch both to keep every
         # connect transport failure within TeslaFleetError.
@@ -580,7 +645,39 @@ class VehicleBluetooth(
         if not self.client:
             return False
         await self.client.disconnect()
+        self._set_connected(False)
         return True
+
+    def listen_connection_status(self, callback: Callable[[bool], None]) -> Unsubscribe:
+        """Listen for BLE session connect/disconnect events.
+
+        Fires ``True`` once a connection is fully established (GATT
+        notifications subscribed) and ``False`` once that session is lost -
+        cleanly via ``disconnect()`` or unexpectedly via bleak's own
+        ``disconnected_callback``, including a loss detected mid-operation.
+        Only genuine state transitions fire; a redundant ``connect()``/
+        ``disconnect()`` call, or a reconnect loop, does not re-fire while the
+        state hasn't actually changed.
+        """
+        return self._register(self._connection_listeners, callback)
+
+    def _set_connected(self, connected: bool) -> None:
+        if self._connected == connected:
+            return
+        self._connected = connected
+        for callback in list(self._connection_listeners):
+            self._dispatch_callback(callback, connected)
+
+    def _on_ble_disconnected(self, client: BleakClient) -> None:
+        """bleak's own disconnect callback - fires on any real session loss.
+
+        Covers both a clean ``disconnect()`` and an unexpected drop detected
+        mid-operation; ``_set_connected`` collapses either into at most one
+        ``False`` dispatch.
+        """
+        if client is not self.client:
+            return
+        self._set_connected(False)
 
     async def connect_if_needed(self, max_attempts: int = MAX_CONNECT_ATTEMPTS) -> None:
         """Connect to the Tesla BLE device if not already connected."""
@@ -661,7 +758,20 @@ class VehicleBluetooth(
         self._buffer.receive_data(data)
 
     def _on_message(self, msg: RoutableMessage) -> None:
-        """Route addressed BLE replies into the per-domain response queue."""
+        """Route addressed BLE replies into the per-domain response queue.
+
+        A subscription push is addressed to us and carries its subscribe
+        request's own ``request_uuid``, so it is peeled off into that
+        subscription's own sink before it can reach ``_queues`` - keeping it
+        out of reach of both ``_send``'s pre-send drain and the one-shot
+        ``_await_response`` consumer, which would otherwise discard it or
+        return it as an unrelated command's reply.
+
+        The subscribe request's own ack shares that same ``request_uuid``
+        with later pushes, so an unarmed sink lets exactly one matching frame
+        fall through here to ``_queues`` - the ack ``_send_with_stream_sink``
+        is waiting on - before arming itself for every push after it.
+        """
 
         if msg.to_destination.routing_address != self._from_destination:
             LOGGER.debug("Ignoring broadcast message (not addressed to us)")
@@ -676,6 +786,20 @@ class VehicleBluetooth(
                     self._dispatch_status_listeners(status)
             return
 
+        sink = self._stream_sinks.get(msg.request_uuid)
+        if sink is not None:
+            if sink.armed:
+                if msg.HasField("protobuf_message_as_bytes"):
+                    LOGGER.debug(f"Received subscription push: {msg}")
+                    sink.put(msg)
+                    return
+            else:
+                LOGGER.debug(f"Received subscribe ack, arming sink: {msg}")
+                sink.armed = True
+        elif msg.request_uuid in self._retired_streams:
+            LOGGER.debug(f"Dropping push for retired subscription: {msg}")
+            return
+
         queue = self._queues.get(msg.from_destination.domain)
         if queue is None:
             # Domain enum has values (e.g. DOMAIN_BROADCAST, DOMAIN_AUTHD) with
@@ -688,6 +812,53 @@ class VehicleBluetooth(
 
         LOGGER.debug(f"Received response: {msg}")
         queue.put_nowait(msg)
+
+    def _register_stream_sink(
+        self, request_uuid: bytes, *, armed: bool = True
+    ) -> _StreamSink:
+        """Start routing pushes for ``request_uuid`` into their own sink.
+
+        ``armed=False`` is for a sink registered ahead of its own subscribe
+        request: the first matching frame (that request's ack) is left to
+        fall through to ``_queues`` instead of being diverted, and
+        ``_on_message`` arms the sink once it has passed through.
+        """
+        sink = _StreamSink(armed=armed)
+        try:
+            self._retired_streams.remove(request_uuid)
+        except ValueError:
+            pass
+        self._stream_sinks[request_uuid] = sink
+        return sink
+
+    def _unregister_stream_sink(self, request_uuid: bytes) -> None:
+        """Retire ``request_uuid`` so delayed pushes are dropped."""
+        self._stream_sinks.pop(request_uuid, None)
+        if request_uuid not in self._retired_streams:
+            self._retired_streams.append(request_uuid)
+
+    async def _send_with_stream_sink(
+        self,
+        msg: RoutableMessage,
+        requires: str,
+        *,
+        timeout: float | None = None,
+    ) -> tuple[RoutableMessage, _StreamSink]:
+        """Atomically register a stream route and send its subscription request.
+
+        The registered sink starts unarmed so this request's own ack - which
+        carries the same ``request_uuid`` as every later push - is left for
+        ``_send`` to consume as an ordinary reply rather than being diverted.
+        """
+        sink = self._register_stream_sink(msg.uuid, armed=False)
+        try:
+            response = await self._send(
+                msg, requires, expects_data=False, timeout=timeout
+            )
+        except BaseException:
+            self._unregister_stream_sink(msg.uuid)
+            raise
+        return response, sink
 
     async def _send(
         self,
@@ -815,7 +986,7 @@ class VehicleBluetooth(
                     resp = await self._queues[domain].get()
                     LOGGER.debug(f"Received message {resp}")
 
-                    self.validate_msg(resp)
+                    self.validate_msg(resp, msg.uuid)
 
                     if resp.HasField(requires):
                         return resp
@@ -836,7 +1007,7 @@ class VehicleBluetooth(
                                 while True:
                                     resp2 = await self._queues[domain].get()
                                     LOGGER.debug(f"Received follow-up message {resp2}")
-                                    self.validate_msg(resp2)
+                                    self.validate_msg(resp2, msg.uuid)
                                     if resp2.HasField(requires):
                                         return resp2
                         except TimeoutError:
@@ -951,8 +1122,6 @@ class VehicleBluetooth(
             and self._broadcast_watchers.get(domain) is broadcast_watcher
         ):
             del self._broadcast_watchers[domain]
-
-    # Group 12: VCSEC closures (Bluetooth-only for individual doors)
 
     async def open_front_driver_door(self) -> dict[str, Any]:
         """Unlatches/opens the front driver door."""
@@ -1504,6 +1673,28 @@ class VehicleBluetooth(
                         getParentalControlsState=GetParentalControlsState()
                         if BluetoothVehicleData.PARENTAL_CONTROLS_STATE in endpoints
                         else None,
+                        getGuiSettings=GetGuiSettings()
+                        if BluetoothVehicleData.GUI_SETTINGS in endpoints
+                        else None,
+                        getParkedAccessoryState=GetParkedAccessoryState()
+                        if BluetoothVehicleData.PARKED_ACCESSORY_STATE in endpoints
+                        else None,
+                        getVehicleState=GetVehicleState()
+                        if BluetoothVehicleData.LEGACY_VEHICLE_STATE in endpoints
+                        else None,
+                        getAlertState=GetAlertState()
+                        if BluetoothVehicleData.ALERT_STATE in endpoints
+                        else None,
+                        getLightShowState=GetLightShowState()
+                        if BluetoothVehicleData.LIGHT_SHOW_STATE in endpoints
+                        else None,
+                        getSuspensionState=GetSuspensionState()
+                        if BluetoothVehicleData.SUSPENSION_STATE in endpoints
+                        else None,
+                        getChildPresenceDetectionState=GetChildPresenceDetectionState()
+                        if BluetoothVehicleData.CHILD_PRESENCE_DETECTION_STATE
+                        in endpoints
+                        else None,
                     )
                 )
             )
@@ -1668,6 +1859,104 @@ class VehicleBluetooth(
                 )
             )
         ).parental_controls_state
+
+    async def gui_settings(self) -> GuiSettings:
+        """Return the current GUI display settings over BLE."""
+        return (
+            await self._getInfotainment(
+                Action(
+                    vehicleAction=VehicleAction(
+                        getVehicleData=GetVehicleData(getGuiSettings=GetGuiSettings())
+                    )
+                )
+            )
+        ).gui_settings
+
+    async def parked_accessory_state(self) -> ParkedAccessoryState:
+        """Return the current parked-accessory (e.g. awning) state over BLE."""
+        return (
+            await self._getInfotainment(
+                Action(
+                    vehicleAction=VehicleAction(
+                        getVehicleData=GetVehicleData(
+                            getParkedAccessoryState=GetParkedAccessoryState()
+                        )
+                    )
+                )
+            )
+        ).parked_accessory_state
+
+    async def legacy_vehicle_state(self) -> VehicleState:
+        """Return CarServer's legacy vehicle-state surface over BLE.
+
+        Named to match the reply field (``VehicleData.legacy_vehicle_state``),
+        not ``vehicle_state()``: that name is already taken by the VCSEC
+        ``VehicleStatus`` reader below, a different message from a different
+        domain.
+        """
+        return (
+            await self._getInfotainment(
+                Action(
+                    vehicleAction=VehicleAction(
+                        getVehicleData=GetVehicleData(getVehicleState=GetVehicleState())
+                    )
+                )
+            )
+        ).legacy_vehicle_state
+
+    async def alert_state(self) -> AlertState:
+        """Return the current active vehicle alerts over BLE."""
+        return (
+            await self._getInfotainment(
+                Action(
+                    vehicleAction=VehicleAction(
+                        getVehicleData=GetVehicleData(getAlertState=GetAlertState())
+                    )
+                )
+            )
+        ).alert_state
+
+    async def light_show_state(self) -> LightShowState:
+        """Return the current light show state over BLE."""
+        return (
+            await self._getInfotainment(
+                Action(
+                    vehicleAction=VehicleAction(
+                        getVehicleData=GetVehicleData(
+                            getLightShowState=GetLightShowState()
+                        )
+                    )
+                )
+            )
+        ).light_show_state
+
+    async def suspension_state(self) -> SuspensionState:
+        """Return the current adaptive suspension state over BLE."""
+        return (
+            await self._getInfotainment(
+                Action(
+                    vehicleAction=VehicleAction(
+                        getVehicleData=GetVehicleData(
+                            getSuspensionState=GetSuspensionState()
+                        )
+                    )
+                )
+            )
+        ).suspension_state
+
+    async def child_presence_detection_state(self) -> ChildPresenceDetectionState:
+        """Return the current child presence detection state over BLE."""
+        return (
+            await self._getInfotainment(
+                Action(
+                    vehicleAction=VehicleAction(
+                        getVehicleData=GetVehicleData(
+                            getChildPresenceDetectionState=GetChildPresenceDetectionState()
+                        )
+                    )
+                )
+            )
+        ).child_presence_detection_state
 
     async def vehicle_state(self) -> VehicleStatus:
         """Return the vehicle security-domain status over BLE."""

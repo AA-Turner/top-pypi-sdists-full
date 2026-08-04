@@ -1,34 +1,44 @@
-//! Chuẩn hóa dấu câu cuối ("punc_norm").
+//! Trailing punctuation normalization ("punc_norm").
 //!
-//! Khi được bật (`punc_norm = true`):
-//!   - Mọi câu "siêu ngắn" — dưới 3 từ (tức ≤ 2 từ) — nằm ở ĐẦU hoặc GIỮA chuỗi
-//!     mà kết thúc bằng `.` sẽ được đổi dấu `.` đó thành `,`, để TTS không đọc
-//!     ngắt cụt ngủn (vd list-marker "3." -> "ba." -> "ba,"). Câu cuối chuỗi
-//!     luôn được giữ dấu kết thật.
-//!   - Câu "ngắn" — dưới 5 từ (tức ≤ 4 từ) — ở CUỐI chuỗi luôn kết thúc bằng
-//!     đúng một dấu `.`, thay thế mọi dấu câu cuối đang có (`,` `!` `?` `…` …).
-//!   - Câu dài hơn chỉ được thêm `.` nếu chưa kết thúc bằng một trong `, . ! ?`.
+//! The goal is prosodic: give the TTS model a clean, predictable sentence
+//! ending so it neither clips a phrase short nor runs two phrases together.
+//! When enabled (`punc_norm = true`):
 //!
-//! Hàm này thuần thao tác chuỗi nên không phụ thuộc ngôn ngữ; được dùng chung
-//! bởi cả `Normalizer` và `G2P`.
+//!   - A **very short** fragment — under three words — that sits at the start
+//!     or in the middle of the string and ends in `.` has that `.` turned into
+//!     `,`. This stops list markers from being read as complete sentences
+//!     ("3." -> "ba." -> "ba,"). The final fragment always keeps a real
+//!     sentence ending.
+//!   - A **short** sentence — under five words — at the end of the string is
+//!     forced to end in exactly one `.`, replacing whatever trailing mark it
+//!     had (`,` `!` `?` `…`).
+//!   - Anything longer only gains a `.` when it does not already end in one of
+//!     `,` `.` `!` `?`.
+//!
+//! These are pure string operations with no language dependency, shared by both
+//! `Normalizer` and `G2P`.
 
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-/// Câu có số từ <= ngưỡng này được coi là "ngắn" (yêu cầu: dưới 5 từ).
+/// Word count at or below which a sentence counts as "short" (under five).
 const SHORT_SENTENCE_MAX_WORDS: usize = 4;
 
-/// Câu có số từ <= ngưỡng này được coi là "siêu ngắn" (yêu cầu: dưới 3 từ).
+/// Word count at or below which a fragment counts as "very short" (under three).
 const SUPER_SHORT_MAX_WORDS: usize = 2;
 
-/// Dấu `.` kết thúc MỘT câu: theo sau là khoảng trắng (kể cả xuống dòng) hoặc hết
-/// chuỗi. Ràng buộc "theo sau là khoảng trắng/EOS" cố ý loại các dấu chấm dính liền
-/// trong viết tắt ("U.S.A.") hay số ("3.5" đã được normalizer tách trước đó) — những
-/// dấu này KHÔNG phải ranh giới câu nên không bị coi là điểm ngắt.
+/// A `.` that actually ends a sentence: followed by whitespace (newlines
+/// included) or by the end of the string.
+///
+/// Requiring whitespace or EOS deliberately excludes the dots inside
+/// abbreviations ("U.S.A.") and numbers ("3.5", already split by the
+/// normalizer). Those are not sentence boundaries and must not be treated as
+/// break points.
 static RE_SENTENCE_DOT: Lazy<Regex> = Lazy::new(|| Regex::new(r"\.(\s+|$)").unwrap());
 
-/// Dấu câu cuối có thể bị bỏ/thay khi ép câu ngắn về `.`.
-/// Bao gồm cả ellipsis một-ký-tự: `…` (U+2026), `‥` (U+2025), `․` (U+2024).
+/// Trailing marks that may be replaced when a short sentence is forced to `.`.
+/// Includes the single-character ellipses `…` (U+2026), `‥` (U+2025) and
+/// `․` (U+2024).
 fn is_trailing_punct(c: char) -> bool {
     matches!(
         c,
@@ -36,23 +46,27 @@ fn is_trailing_punct(c: char) -> bool {
     )
 }
 
-/// Dấu kết thúc câu được chấp nhận cho câu dài (không cần thêm `.`).
+/// Terminators a long sentence may already end with, needing no added `.`.
 fn is_sentence_end(c: char) -> bool {
     matches!(c, ',' | '.' | '!' | '?')
 }
 
-/// Đếm số "từ" thực — chỉ tính token có ít nhất một ký tự chữ/số, để các token
-/// dấu câu đứng riêng (vd "Xin chào !") không bị tính nhầm thành một từ.
+/// Count real words: only tokens containing at least one alphanumeric character.
+/// Free-standing punctuation ("Xin chào !") must not inflate the count, since
+/// the thresholds below decide how a sentence is terminated.
 fn word_count(text: &str) -> usize {
     text.split_whitespace()
         .filter(|w| w.chars().any(|c| c.is_alphanumeric()))
         .count()
 }
 
-/// Đổi dấu `.` kết câu của các câu SIÊU NGẮN (< 3 từ) KHÔNG PHẢI câu cuối thành
-/// `,`. "Câu" ở đây là đoạn văn bản giữa hai ranh giới kết câu (dấu `.` có khoảng
-/// trắng/EOS theo sau). Dấu `.` cuối chuỗi (không còn nội dung thật phía sau) luôn
-/// được giữ nguyên — đó là dấu kết thật của câu cuối.
+/// Turn the closing `.` of every **very short** non-final fragment into a `,`.
+///
+/// A "fragment" is the text between two sentence boundaries, a boundary being a
+/// `.` followed by whitespace or end of string. The final `.` — the one with no
+/// real content after it — always survives, because it genuinely ends the last
+/// sentence. Without this, a list marker read as "ba." makes the model stop
+/// dead mid-list.
 fn soften_short_segments(text: &str) -> String {
     let dots: Vec<regex::Match> = RE_SENTENCE_DOT.find_iter(text).collect();
     if dots.is_empty() {
@@ -60,19 +74,19 @@ fn soften_short_segments(text: &str) -> String {
     }
 
     let mut result = String::with_capacity(text.len());
-    let mut last = 0usize; // byte-index đầu câu hiện tại
+    let mut last = 0usize; // byte index where the current fragment starts
     for m in &dots {
         let dot_pos = m.start();
-        let segment = &text[last..dot_pos]; // nội dung câu trước dấu '.'
-        let ws = &text[dot_pos + 1..m.end()]; // khoảng trắng theo sau '.' (giữ nguyên)
-        // Còn nội dung thật (chữ/số) phía sau dấu này? Nếu không -> đây là dấu kết
-        // thật của câu cuối, không được đổi thành ','.
+        let segment = &text[last..dot_pos]; // fragment text before the '.'
+        let ws = &text[dot_pos + 1..m.end()]; // whitespace after it, preserved
+        // Is there real content (letters or digits) after this dot? If not, it
+        // terminates the last sentence and must stay a period.
         let has_more = text[m.end()..].chars().any(|c: char| c.is_alphanumeric());
 
         result.push_str(segment);
         let wc = word_count(segment);
         if has_more && (1..=SUPER_SHORT_MAX_WORDS).contains(&wc) {
-            result.push(','); // câu siêu ngắn giữa chuỗi -> làm mềm dấu kết cụt ngủn
+            result.push(',');
         } else {
             result.push('.');
         }
@@ -83,29 +97,31 @@ fn soften_short_segments(text: &str) -> String {
     result
 }
 
-/// Áp dụng chuẩn hóa dấu câu cuối lên `text`.
+/// Apply trailing-punctuation normalization to `text`.
 pub fn apply_punc_norm(text: &str) -> String {
     let trimmed = text.trim_end();
     if trimmed.is_empty() {
         return trimmed.to_string();
     }
 
-    // Bước 1: làm mềm dấu '.' cụt ngủn của các câu siêu ngắn ở đầu/giữa chuỗi.
+    // Step 1: soften the abrupt '.' of very short fragments at the start or in
+    // the middle of the string.
     let softened = soften_short_segments(trimmed);
     let trimmed = softened.trim_end();
 
-    // Bước 2: chuẩn hóa dấu kết của CẢ CHUỖI (câu cuối) như cũ.
+    // Step 2: settle the terminator of the string as a whole, i.e. of its last
+    // sentence.
     if word_count(trimmed) <= SHORT_SENTENCE_MAX_WORDS {
-        // Câu siêu ngắn: ép dấu cuối về đúng một `.` bất kể đang là dấu gì.
+        // Short sentence: force exactly one `.`, whatever it ends with now.
         let stripped = trimmed
             .trim_end_matches(|c: char| is_trailing_punct(c) || c.is_whitespace());
         if stripped.is_empty() {
-            // Toàn dấu câu -> trả về một dấu `.`.
+            // Nothing but punctuation: a lone period is the sane result.
             return ".".to_string();
         }
         format!("{}.", stripped)
     } else {
-        // Câu dài: chỉ thêm `.` nếu chưa kết thúc bằng , . ! ?
+        // Long sentence: only add `.` when it does not already end in , . ! ?
         let last_char = trimmed.chars().next_back().unwrap();
         if is_sentence_end(last_char) {
             trimmed.to_string()
@@ -160,7 +176,8 @@ mod tests {
 
     #[test]
     fn leading_short_segment_dot_becomes_comma() {
-        // List-marker "3." -> "ba." đầu chuỗi: dấu '.' cụt ngủn -> ','.
+        // A list marker "3." read as "ba." at the start of the string: the
+        // abrupt period becomes a comma so the list keeps flowing.
         assert_eq!(
             apply_punc_norm("ba. công ty cổ phần green travel việt nam là doanh nghiệp lớn."),
             "ba, công ty cổ phần green travel việt nam là doanh nghiệp lớn."
@@ -177,7 +194,7 @@ mod tests {
 
     #[test]
     fn final_short_sentence_keeps_dot() {
-        // Câu siêu ngắn ở CUỐI chuỗi giữ nguyên dấu kết (không có nội dung phía sau).
+        // A very short fragment at the END keeps its period: nothing follows it.
         assert_eq!(
             apply_punc_norm("tôi đã làm xong hết mọi việc rồi. vâng."),
             "tôi đã làm xong hết mọi việc rồi. vâng."
@@ -186,7 +203,7 @@ mod tests {
 
     #[test]
     fn long_middle_segment_keeps_dot() {
-        // Câu ≥3 từ ở giữa chuỗi KHÔNG bị làm mềm.
+        // Fragments of three words or more are left alone.
         assert_eq!(
             apply_punc_norm("hôm nay trời rất đẹp. chúng tôi cùng nhau đi dạo ngoài phố."),
             "hôm nay trời rất đẹp. chúng tôi cùng nhau đi dạo ngoài phố."
@@ -195,7 +212,7 @@ mod tests {
 
     #[test]
     fn abbreviation_dots_untouched() {
-        // Dấu chấm dính liền (không có khoảng trắng theo sau) không phải ranh giới câu.
+        // A dot with no whitespace after it is not a sentence boundary.
         assert_eq!(
             apply_punc_norm("U.S.A là một quốc gia rộng lớn nằm ở bắc mỹ."),
             "U.S.A là một quốc gia rộng lớn nằm ở bắc mỹ."

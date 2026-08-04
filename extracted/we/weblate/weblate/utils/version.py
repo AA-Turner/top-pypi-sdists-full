@@ -26,7 +26,7 @@ def get_root_dir():
 
 
 # Weblate version
-VERSION = "2026.7.1"
+VERSION = "2026.8"
 
 # Version string without suffix
 VERSION_BASE = Version(VERSION).base_version
@@ -56,7 +56,7 @@ except (RepositoryError, OSError):
         GIT_VERSION = f"{VERSION_BASE}-{GIT_REVISION[:10]}"
     else:
         # Import failed or git has troubles reading
-        # repo (for example swallow clone)
+        # repo (for example shallow clone)
         GIT_VERSION = VERSION
         GIT_REVISION = None
 

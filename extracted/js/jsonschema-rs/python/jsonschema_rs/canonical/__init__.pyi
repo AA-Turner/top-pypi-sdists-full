@@ -45,9 +45,13 @@ class StringView:
     @property
     def formats(self) -> list[str]: ...
     @property
+    def excluded_formats(self) -> list[str]: ...
+    @property
     def content_media_types(self) -> list[str]: ...
     @property
     def content_encodings(self) -> list[str]: ...
+    @property
+    def excluded(self) -> list[str]: ...
 
 @final
 class NumberView:
@@ -222,3 +226,9 @@ class InvalidSchemaType(CanonicalizationError):
 
 class InvalidPattern(CanonicalizationError):
     """A ``pattern`` value is not a valid regular expression."""
+
+class IncompatibleOperands(CanonicalizationError):
+    """Operands of a set operation cannot be combined."""
+
+class UnmodeledOperand(CanonicalizationError):
+    """A set operation reached a schema the canonical form does not model."""

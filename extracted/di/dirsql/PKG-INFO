@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dirsql
-Version: 0.4.6
+Version: 0.4.12
 Requires-Dist: tomli>=2 ; python_full_version < '3.11'
 Summary: Ephemeral SQL index over a local directory
 Keywords: sql,filesystem,directory,sqlite,index
@@ -89,6 +89,14 @@ db = DirSQL(
     ignore=["**/drafts/**", "**/.git/**"],
     tables=[...],
 )
+```
+
+Path-table scans (`SELECT ... FROM './'`) respect `.gitignore` files by
+default. Pass `no_ignore=True` to restore the full walk; the built-in
+`node_modules`/`.git` defaults and any `ignore` patterns still apply:
+
+```python
+db = DirSQL("./my-blog", no_ignore=True)
 ```
 
 ## Loading SQLite extensions

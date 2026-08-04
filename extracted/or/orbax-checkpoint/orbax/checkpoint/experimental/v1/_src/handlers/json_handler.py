@@ -62,8 +62,8 @@ class JsonHandler(CheckpointableHandler[JsonType, None]):
   `CheckpointablesOptions`, which only applies to save/load operations
   strictly within the Context scope.
 
-  See :py:class:`~orbax.checkpoint.options.CheckpointablesOptions` for more
-  details on handler registration.
+  See :py:class:`.CheckpointablesOptions` for more details on handler
+  registration.
 
   Example Usage:
     Save a dictionary configuration::
@@ -99,10 +99,10 @@ class JsonHandler(CheckpointableHandler[JsonType, None]):
       *,
       primary_host: int | None = None,
   ):
-    directory = await directory.await_creation()
+    directory = await directory.await_creation()  # pyrefly: ignore[bad-assignment]
     if multihost.is_primary_host(primary_host):
       path = directory / self._filename
-      await async_path.write_text(path, json.dumps(checkpointable))
+      await async_path.write_text(path, json.dumps(checkpointable))  # pyrefly: ignore[bad-argument-type]
 
   async def save(
       self, directory: path_types.PathAwaitingCreation, checkpointable: JsonType

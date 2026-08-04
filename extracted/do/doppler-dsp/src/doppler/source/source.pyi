@@ -16,10 +16,10 @@ class NCO:
 
     Examples
     --------
-    Create with defaults:
-
     >>> from doppler.source import NCO
-    >>> obj = NCO(norm_freq=0.0, nmax=0)
+    >>> nco = NCO(norm_freq=0.25, nmax=0)
+    >>> nco.phase_inc
+    1073741824
 
     """
     def __init__(self, norm_freq: float = ..., nmax: int = ...) -> None: ...
@@ -62,8 +62,23 @@ class NCO:
 
         """
 
-    def steps_u32_max_out(self) -> int:
-        """Max output length steps_u32() can produce for the current state."""
+    def steps_u32_max_out(self, n: int) -> int:
+        """Maximum samples per call (determines pre-allocated buffer size).
+
+        The Python extension pre-allocates output buffers of this size at
+
+        create time. Requesting more samples per call is undefined behaviour.
+
+        Parameters
+        ----------
+        n : int
+            Input.
+
+        Returns
+        -------
+        int
+            Output.
+        """
 
     def steps_u32_scaled(self, count: int = 1, out: NDArray[np.uint32] | None = None) -> NDArray[np.uint32]:
         """Advance n samples; values scaled to `[0, nmax)`. Uses the branchless fixed-point identity `out[i]` = (uint64_t)phase * nmax >> 32 to map the full accumulator range uniformly onto [0, nmax) without a modulo operation.  When nmax == 0 falls back to the raw accumulator (identical to nco_steps_u32).  Useful for polyphase filter bank indexing and direct LUT addressing.  Returns n.
@@ -85,8 +100,24 @@ class NCO:
 
         """
 
-    def steps_u32_scaled_max_out(self) -> int:
-        """Max output length steps_u32_scaled() can produce for the current state."""
+    def steps_u32_scaled_max_out(self, n: int) -> int:
+        """Largest number of samples steps_u32_scaled() can return for n inputs.
+
+        Size an `out=` buffer with this before calling steps_u32_scaled(), or
+        use it to allocate one up front. The bound is this object's own: what it
+        depends on is a property of the algorithm, so a header block on
+        steps_u32_scaled_max_out() replaces this text.
+
+        Parameters
+        ----------
+        n : int
+            Number of input samples steps_u32_scaled() will be given.
+
+        Returns
+        -------
+        int
+            Upper bound on the output length; the actual call may return fewer.
+        """
 
     def steps_u32_ovf(self, count: int = 1) -> tuple[NDArray[np.uint32], NDArray[np.uint8]]:
         """Advance n samples; write raw phase values and per-sample carry. Identical to nco_steps_u32 for the phase array, but simultaneously fills a parallel uint8 carry buffer: `out1[i]` is 1 if the add that produced `out[i]`'s post-increment phase wrapped past 2^32, else 0. The carry marks the exact boundary of one input period and is the primitive for polyphase sample-clock and rational resampling engines. Returns n.
@@ -136,7 +167,8 @@ class NCO:
         Parameters
         ----------
         ctrl : NDArray[np.float32]
-            Float32 array of per-sample normalised-frequency control offsets, any sign (the fractional cycle is taken, so it wraps correctly).
+            Float32 array of per-sample normalised-frequency control offsets,
+            any sign (the fractional cycle is taken, so it wraps correctly).
 
         Returns
         -------
@@ -157,8 +189,24 @@ class NCO:
 
         """
 
-    def steps_u32_ctrl_max_out(self) -> int:
-        """Max output length steps_u32_ctrl() can produce for the current state."""
+    def steps_u32_ctrl_max_out(self, ctrl_len: int) -> int:
+        """Largest number of samples steps_u32_ctrl() can return for ctrl_len inputs.
+
+        Size an `out=` buffer with this before calling steps_u32_ctrl(), or use
+        it to allocate one up front. The bound is this object's own: what it
+        depends on is a property of the algorithm, so a header block on
+        steps_u32_ctrl_max_out() replaces this text.
+
+        Parameters
+        ----------
+        ctrl_len : int
+            Number of input samples steps_u32_ctrl() will be given.
+
+        Returns
+        -------
+        int
+            Upper bound on the output length; the actual call may return fewer.
+        """
 
     def steps_u32_scaled_ctrl(self, ctrl: NDArray[np.float32], out: NDArray[np.uint32] | None = None) -> NDArray[np.uint32]:
         """Advance ctrl_len samples; values scaled to `[0, nmax)`, with a per-sample control offset added on top of phase_inc.
@@ -174,7 +222,8 @@ class NCO:
         Parameters
         ----------
         ctrl : NDArray[np.float32]
-            Float32 array of per-sample normalised-frequency control offsets, any sign (the fractional cycle is taken, so it wraps correctly).
+            Float32 array of per-sample normalised-frequency control offsets,
+            any sign (the fractional cycle is taken, so it wraps correctly).
 
         Returns
         -------
@@ -193,8 +242,24 @@ class NCO:
 
         """
 
-    def steps_u32_scaled_ctrl_max_out(self) -> int:
-        """Max output length steps_u32_scaled_ctrl() can produce for the current state."""
+    def steps_u32_scaled_ctrl_max_out(self, ctrl_len: int) -> int:
+        """Largest number of samples steps_u32_scaled_ctrl() can return for ctrl_len inputs.
+
+        Size an `out=` buffer with this before calling steps_u32_scaled_ctrl(),
+        or use it to allocate one up front. The bound is this object's own: what
+        it depends on is a property of the algorithm, so a header block on
+        steps_u32_scaled_ctrl_max_out() replaces this text.
+
+        Parameters
+        ----------
+        ctrl_len : int
+            Number of input samples steps_u32_scaled_ctrl() will be given.
+
+        Returns
+        -------
+        int
+            Upper bound on the output length; the actual call may return fewer.
+        """
 
     def steps_u32_ovf_ctrl(self, ctrl: NDArray[np.float32]) -> tuple[NDArray[np.uint32], NDArray[np.uint8]]:
         """Advance ctrl_len samples; raw phase + per-sample carry, with a per-sample control offset added on top of phase_inc.
@@ -213,7 +278,8 @@ class NCO:
         Parameters
         ----------
         ctrl : NDArray[np.float32]
-            Float32 array of per-sample normalised-frequency control offsets, any sign (the fractional cycle is taken, so it wraps correctly).
+            Float32 array of per-sample normalised-frequency control offsets,
+            any sign (the fractional cycle is taken, so it wraps correctly).
 
         Returns
         -------
@@ -235,11 +301,56 @@ class NCO:
         """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the NCO has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the NCO has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the NCO has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def norm_freq(self) -> float:
@@ -258,11 +369,45 @@ class NCO:
         """Per-sample phase increment (read-only). Derived from norm_freq as floor(frac(norm_freq) × 2^32).  Updated automatically whenever norm_freq is written.  A freq of 0.25 gives phase_inc = 1073741824 (0x40000000)."""
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "NCO": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "NCO":
+        """Enter a context manager, returning this object.
+
+        Lets a NCO be used in a `with` statement so its C resources are released
+        deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        NCO
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the NCO.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
 
 @final
 class LO:
@@ -275,10 +420,10 @@ class LO:
 
     Examples
     --------
-    Create with defaults:
-
     >>> from doppler.source import LO
-    >>> obj = LO(norm_freq=0.0)
+    >>> lo = LO(norm_freq=0.25)
+    >>> lo.phase_inc
+    1073741824
 
     """
     def __init__(self, norm_freq: float = ...) -> None: ...
@@ -323,8 +468,19 @@ class LO:
 
         """
 
-    def steps_max_out(self) -> int:
-        """Max output length steps() can produce for the current state."""
+    def steps_max_out(self, n: int) -> int:
+        """Maximum samples per call (determines pre-allocated buffer size).
+
+        Parameters
+        ----------
+        n : int
+            Input.
+
+        Returns
+        -------
+        int
+            Output.
+        """
 
     def steps_ctrl(self, ctrl: NDArray[np.float32], out: NDArray[np.complex64] | None = None) -> NDArray[np.complex64]:
         """Generate CF32 phasors with per-sample FM deviation. For each sample i, `ctrl[i]`'s fractional part is converted to a delta phase-increment (delta = floor(frac(`ctrl[i]`) × 2^32)) that is added on top of the base phase_inc for that one step only.  The base norm_freq and phase_inc are NOT modified; the deviation is transient per sample, making this the natural API for FM synthesis and frequency-hopping.  Output length equals ctrl_len.  Returns ctrl_len.
@@ -332,7 +488,8 @@ class LO:
         Parameters
         ----------
         ctrl : NDArray[np.float32]
-            Float32 array of per-sample normalised-frequency deviations.  Only the fractional part of each element contributes.
+            Float32 array of per-sample normalised-frequency deviations. Only
+            the fractional part of each element contributes.
 
         Returns
         -------
@@ -355,15 +512,76 @@ class LO:
 
         """
 
-    def steps_ctrl_max_out(self) -> int:
-        """Max output length steps_ctrl() can produce for the current state."""
+    def steps_ctrl_max_out(self, ctrl_len: int) -> int:
+        """Largest number of samples steps_ctrl() can return for ctrl_len inputs.
+
+        Size an `out=` buffer with this before calling steps_ctrl(), or use it
+        to allocate one up front. The bound is this object's own: what it
+        depends on is a property of the algorithm, so a header block on
+        steps_ctrl_max_out() replaces this text.
+
+        Parameters
+        ----------
+        ctrl_len : int
+            Number of input samples steps_ctrl() will be given.
+
+        Returns
+        -------
+        int
+            Upper bound on the output length; the actual call may return fewer.
+        """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the LO has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the LO has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the LO has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def norm_freq(self) -> float:
@@ -382,11 +600,45 @@ class LO:
         """Per-sample phase increment (read-only). Derived from norm_freq as floor(frac(norm_freq) × 2^32).  A freq of 0.25 gives phase_inc = 1073741824 (0x40000000)."""
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "LO": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "LO":
+        """Enter a context manager, returning this object.
+
+        Lets a LO be used in a `with` statement so its C resources are released
+        deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        LO
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the LO.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
 
 @final
 class AWGN:
@@ -401,10 +653,10 @@ class AWGN:
 
     Examples
     --------
-    Create with defaults:
-
     >>> from doppler.source import AWGN
-    >>> obj = AWGN(seed=0, amplitude=1.0)
+    >>> gen = AWGN(seed=0, amplitude=1.0)
+    >>> gen.amplitude
+    1.0
 
     """
     def __init__(self, seed: int = ..., amplitude: float = ...) -> None: ...
@@ -450,8 +702,23 @@ class AWGN:
 
         """
 
-    def generate_max_out(self) -> int:
-        """Max output length generate() can produce for the current state."""
+    def generate_max_out(self, n: int) -> int:
+        """Conservative upper bound on generate() output size.
+
+        Returns 65536. The Python extension uses this for the initial
+
+        buffer allocation; the buffer grows on demand if n > 65536.
+
+        Parameters
+        ----------
+        n : int
+            Input.
+
+        Returns
+        -------
+        int
+            Output.
+        """
 
     def reseed(self, seed: int) -> None:
         """Reseed the RNG and reset all xoshiro256++ state. Equivalent to calling awgn_destroy() and awgn_create(seed, amplitude) but reuses the existing allocation.  amplitude is unchanged.
@@ -476,11 +743,56 @@ class AWGN:
         """
 
     def state_bytes(self) -> int:
-        """Serialized state size in bytes."""
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the AWGN has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
     def get_state(self) -> bytes:
-        """Serialize the engine's mutable state to bytes."""
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the AWGN has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
     def set_state(self, blob: bytes) -> None:
-        """Restore mutable state from a get_state() blob."""
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()` before
+        the blob is handed to the C core, and the core may reject it as well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the AWGN has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
 
     @property
     def amplitude(self) -> float:
@@ -489,8 +801,42 @@ class AWGN:
     def amplitude(self, value: float) -> None: ...
 
     def destroy(self) -> None:
-        """Release C resources immediately."""
+        """Release the underlying C resources immediately.
 
-    def __enter__(self) -> "AWGN": ...
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on exit.
 
-    def __exit__(self, *args: object) -> None: ...
+        Idempotent: calling it again on an already-released object does nothing.
+        Every other method raises ``RuntimeError`` once it has run.
+        """
+
+
+    def __enter__(self) -> "AWGN":
+        """Enter a context manager, returning this object.
+
+        Lets a AWGN be used in a `with` statement so its C resources are
+        released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        AWGN
+            This same object, not a copy.
+        """
+
+    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+        """Exit a context manager, releasing the AWGN.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never suppresses
+        one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """

@@ -2,4 +2,4 @@
 
 import typing
 
-SpeechToTextModel = typing.Union[typing.Literal["saarika:v2.5", "saaras:v3"], typing.Any]
+SpeechToTextModel = typing.Union[typing.Literal["saaras:v3", "saaras:v4"], typing.Any]

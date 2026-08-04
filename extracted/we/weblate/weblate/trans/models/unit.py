@@ -21,6 +21,11 @@ from django.utils.functional import cached_property
 from django.utils.translation import gettext, gettext_lazy, ngettext
 from pyparsing import ParseException
 
+from weblate.auth.data import (
+    SELECTION_ALL,
+    SELECTION_ALL_PROTECTED,
+    SELECTION_ALL_PUBLIC,
+)
 from weblate.auth.results import PermissionResult
 from weblate.checks.flags import Flags
 from weblate.checks.models import CHECKS, Check
@@ -121,6 +126,56 @@ def fill_in_source_translation(units: Iterable[Unit]) -> None:
     """
     for unit in units:
         unit.translation.component.source_translation = unit.source_unit.translation
+
+
+def _get_permission_scope_query(user: User, permission: str) -> Q:
+    """Build a unit filter from cached project and component permission scopes."""
+    language_lookup = "translation__language_id__in"
+    component_lookup = "translation__component_id"
+    project_lookup = "translation__component__project_id"
+    unrestricted = Q(translation__component__restricted=False)
+    project_scopes = {
+        -SELECTION_ALL: unrestricted,
+        -SELECTION_ALL_PUBLIC: unrestricted
+        & Q(translation__component__project__access_control=Project.ACCESS_PUBLIC),
+        -SELECTION_ALL_PROTECTED: unrestricted
+        & Q(translation__component__project__access_control=Project.ACCESS_PROTECTED),
+    }
+    result = Q(pk__in=())
+
+    for project_id, project_permissions in user.project_permissions.items():
+        project_scope = project_scopes.get(project_id)
+        if project_scope is None:
+            if project_id < 0:
+                continue
+            project_scope = unrestricted & Q(**{project_lookup: project_id})
+        for permissions, languages in project_permissions:
+            if permissions is None or permission not in permissions:
+                continue
+            scope = project_scope
+            if languages is not None:
+                scope &= Q(**{language_lookup: languages.language_ids})
+            result |= scope
+
+    for component_id, component_permissions in user.component_permissions.items():
+        component_scope = Q(**{component_lookup: component_id})
+        for permissions, languages in component_permissions:
+            if permission not in permissions:
+                continue
+            scope = component_scope
+            if languages is not None:
+                scope &= Q(**{language_lookup: languages.language_ids})
+            result |= scope
+
+    blocked_project_ids = {
+        project_id
+        for project_id, scoped_permissions in user.project_permissions.items()
+        if project_id > 0 and scoped_permissions == [(None, None)]
+    }
+    if blocked_project_ids:
+        result &= ~Q(**{f"{project_lookup}__in": blocked_project_ids})
+
+    return result
 
 
 class UnitQuerySet(models.QuerySet["Unit", "Unit"]):
@@ -256,6 +311,32 @@ class UnitQuerySet(models.QuerySet["Unit", "Unit"]):
                     to_attr="unresolved_comments",
                 ),
             )
+        )
+
+    def prefetch_api(self):
+        """Prefetch relations used by the unit API serializer."""
+        return self.prefetch_related(
+            "labels",
+            models.Prefetch(
+                "check_set",
+                queryset=Check.objects.filter(dismissed=False).only("unit_id"),
+                to_attr="api_failing_checks",
+            ),
+            models.Prefetch(
+                "suggestion_set",
+                queryset=Suggestion.objects.only("unit_id"),
+                to_attr="api_suggestions",
+            ),
+            models.Prefetch(
+                "comment_set",
+                queryset=Comment.objects.filter(resolved=False).only("unit_id"),
+                to_attr="api_comments",
+            ),
+            models.Prefetch(
+                "pending_changes",
+                queryset=PendingUnitChange.objects.only("unit_id"),
+                to_attr="api_pending_changes",
+            ),
         )
 
     def prefetch_embed(self):
@@ -474,6 +555,28 @@ class UnitQuerySet(models.QuerySet["Unit", "Unit"]):
             )
         return result
 
+    def filter_editable_scope(self, user: User) -> UnitQuerySet:
+        """Keep units in scopes where the user can potentially edit."""
+        if user.is_authenticated and not user.email:
+            return self.none()
+        if user.is_superuser:
+            return self
+
+        result = self.filter(
+            (
+                Q(translation__component__is_glossary=False)
+                & _get_permission_scope_query(user, "unit.edit")
+            )
+            | (
+                Q(translation__component__is_glossary=True)
+                & _get_permission_scope_query(user, "glossary.edit")
+            ),
+            translation__component__locked=False,
+        ).exclude(state=STATE_READONLY)
+        if not user.is_bot and not user.profile.has_2fa:
+            result = result.filter(translation__component__project__enforced_2fa=False)
+        return result
+
     def get_ordered(self, ids):
         """Return list of units ordered by ID."""
         order = {unit_id: pos for pos, unit_id in enumerate(ids)}
@@ -605,6 +708,7 @@ class Unit(models.Model, LoggerMixin):
     objects = UnitQuerySet.as_manager()
 
     class Meta:
+        required_db_vendor = "postgresql"
         app_label = "trans"
         unique_together = [("translation", "id_hash")]  # ruff: ignore[mutable-class-default]
         verbose_name = "string"
@@ -923,16 +1027,22 @@ class Unit(models.Model, LoggerMixin):
 
     @property
     def has_failing_check(self) -> bool:
+        if "api_failing_checks" in self.__dict__:
+            return bool(self.__dict__["api_failing_checks"])
         return bool(self.active_checks)
 
     @property
     def has_comment(self) -> bool:
+        if "api_comments" in self.__dict__:
+            return bool(self.__dict__["api_comments"])
         # Use bool here as unresolved_comments might be list
         # or a queryset (from prefetch)
         return bool(self.unresolved_comments)
 
     @property
     def has_suggestion(self) -> bool:
+        if "api_suggestions" in self.__dict__:
+            return bool(self.__dict__["api_suggestions"])
         return bool(self.suggestions)
 
     def source_unit_save(self) -> None:
@@ -2720,6 +2830,8 @@ class Unit(models.Model, LoggerMixin):
 
     @property
     def has_pending_changes(self) -> bool:
+        if "api_pending_changes" in self.__dict__:
+            return bool(self.__dict__["api_pending_changes"])
         return self.pending_changes.exists()
 
     @property

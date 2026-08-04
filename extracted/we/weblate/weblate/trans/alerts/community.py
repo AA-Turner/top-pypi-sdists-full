@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django.conf import settings
 from django.core.cache import cache
@@ -118,7 +118,18 @@ class ChecklistAlert(BaseAlert):
     def get_configure_permission_object(cls, component: Component):
         return component
 
-    def get_context(self, user: User):
+    @classmethod
+    def can_user_act_for(
+        cls, user: User, component: Component, _details: dict[str, Any]
+    ) -> bool:
+        return bool(
+            user.has_perm(
+                cls.configure_permission,
+                cls.get_configure_permission_object(component),
+            )
+        )
+
+    def get_context(self, user: User) -> dict[str, Any]:
         result = super().get_context(user)
         alert_class = self.__class__
         component = self.instance.component
@@ -134,7 +145,6 @@ class ChecklistAlert(BaseAlert):
         )
         result["description"] = alert_class.get_description(component)
         result["configure_url"] = configure_url if can_configure else ""
-        result["doc_url"] = doc_url
         result["can_configure"] = can_configure
         return result
 
@@ -142,10 +152,15 @@ class ChecklistAlert(BaseAlert):
 @register
 class MissingRepositoryHook(ChecklistAlert):
     verbose = gettext_lazy(
-        "Configure repository hooks for automated flow of updates to Weblate."
+        "Repository updates are pulled manually. Configure repository hooks to "
+        "automate pulling changes into Weblate."
     )
     url = "settings"
     anchor = "vcs"
+
+    @classmethod
+    def get_dismissal_context(cls, component: Component, details: dict) -> dict:
+        return {"details": details, "repo": component.repo}
 
     @classmethod
     def is_passing(cls, component: Component) -> bool:
@@ -167,10 +182,15 @@ class MissingRepositoryHook(ChecklistAlert):
 @register
 class MissingPushURL(ChecklistAlert):
     verbose = gettext_lazy(
-        "Configure push URL for automated flow of translations from Weblate."
+        "Outbound translation delivery is manual. Configure a push URL or a "
+        "pull or merge request integration to automate it."
     )
     url = "settings"
     anchor = "vcs"
+
+    @classmethod
+    def get_dismissal_context(cls, component: Component, details: dict) -> dict:
+        return {"details": details, "repo": component.repo, "push": component.push}
 
     @classmethod
     def is_passing(cls, component: Component) -> bool:
@@ -185,6 +205,17 @@ class MissingPushURL(ChecklistAlert):
 class MissingTranslationInstructions(ChecklistAlert):
     verbose = gettext_lazy("Define translation instructions to help translators.")
     configure_permission = "project.edit"
+    project_wide = True
+    template_name = ""
+
+    @classmethod
+    def get_dismissal_context(cls, component: Component, details: dict) -> dict:
+        project = component.project
+        return {
+            "details": details,
+            "access_control": project.access_control,
+            "instructions": project.instructions,
+        }
 
     @classmethod
     def is_relevant(cls, component: Component) -> bool:
@@ -209,17 +240,61 @@ class MissingTranslationInstructions(ChecklistAlert):
 
 @register
 class MissingScreenshots(ChecklistAlert):
-    verbose = gettext_lazy("Add screenshots to show where strings are being used.")
+    verbose = gettext_lazy("Improve source string screenshot coverage.")
     severity = AlertSeverity.INFO
     url = "screenshots"
     configure_permission = "screenshot.add"
+    template_name = ""
+
+    def __init__(self, instance, **_details: int) -> None:
+        super().__init__(instance)
+
+    def get_context(self, user: User) -> dict[str, Any]:
+        result = super().get_context(user)
+        if "with_screenshots" not in result or "without_screenshots" not in result:
+            with_screenshots, without_screenshots = self.get_coverage(
+                self.instance.component
+            )
+            result["with_screenshots"] = with_screenshots
+            result["without_screenshots"] = without_screenshots
+        return result
+
+    @classmethod
+    def get_coverage(cls, component: Component) -> tuple[int, int]:
+        source_units = component.source_translation.unit_set
+        with_screenshots = (
+            source_units.filter(screenshots__isnull=False).distinct().count()
+        )
+        return with_screenshots, source_units.count() - with_screenshots
+
+    @classmethod
+    def get_dismissal_context(cls, component: Component, details: dict) -> dict:
+        units_without_screenshots = list(
+            component.source_translation.unit_set.filter(screenshots__isnull=True)
+            .order_by("pk")
+            .values_list("pk", flat=True)
+        )
+        return {
+            "details": details,
+            "units_without_screenshots": units_without_screenshots,
+        }
 
     @classmethod
     def is_passing(cls, component: Component) -> bool:
-        # ruff: ignore[import-outside-top-level]
-        from weblate.screenshots.models import Screenshot
+        _with_screenshots, without_screenshots = cls.get_coverage(component)
+        return without_screenshots == 0
 
-        return Screenshot.objects.filter(translation__component=component).exists()
+    @classmethod
+    def check_component(cls, component: Component) -> bool | dict | None:
+        if not cls.is_relevant(component):
+            return False
+        with_screenshots, without_screenshots = cls.get_coverage(component)
+        if without_screenshots:
+            return {
+                "with_screenshots": with_screenshots,
+                "without_screenshots": without_screenshots,
+            }
+        return False
 
     @classmethod
     def get_doc_url(cls, _component: Component, user: User | None = None) -> str:
@@ -232,6 +307,19 @@ class MissingTranslationFlags(ChecklistAlert):
     severity = AlertSeverity.INFO
     url = "settings"
     anchor = "show"
+
+    @classmethod
+    def get_dismissal_context(cls, component: Component, details: dict) -> dict:
+        flags = list(
+            component.source_translation.unit_set.exclude(extra_flags="")
+            .order_by("pk")
+            .values_list("pk", "extra_flags")
+        )
+        return {
+            "details": details,
+            "check_flags": component.check_flags,
+            "flags": flags,
+        }
 
     @classmethod
     def is_passing(cls, component: Component) -> bool:
@@ -253,6 +341,27 @@ class MissingSafeHTMLFlag(ChecklistAlert):
     severity = AlertSeverity.WARNING
     url = "settings"
     anchor = "show"
+
+    @classmethod
+    def can_user_act_for(
+        cls, user: User, component: Component, details: dict[str, Any]
+    ) -> bool:
+        return super().can_user_act_for(user, component, details) or bool(
+            user.has_perm("source.edit", component)
+        )
+
+    @classmethod
+    def get_dismissal_context(cls, component: Component, details: dict) -> dict:
+        units = list(
+            component.source_translation.unit_set.filter(source__contains="<a ")
+            .order_by("pk")
+            .values_list("pk", "extra_flags")
+        )
+        return {
+            "details": details,
+            "check_flags": component.check_flags,
+            "units": units,
+        }
 
     @classmethod
     def is_relevant(cls, component: Component) -> bool:
@@ -289,6 +398,15 @@ class AddonRecommendationAlert(ChecklistAlert):
     severity = AlertSeverity.INFO
     addon = ""
     url = "addons"
+
+    @classmethod
+    def get_dismissal_context(cls, component: Component, details: dict) -> dict:
+        return {
+            "details": details,
+            "addons": sorted(component.addons_cache.names),
+            "file_format": component.file_format,
+            "new_base": component.new_base,
+        }
 
     @classmethod
     def is_passing(cls, component: Component) -> bool:

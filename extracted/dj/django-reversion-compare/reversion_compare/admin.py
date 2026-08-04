@@ -22,7 +22,6 @@ from reversion.admin import VersionAdmin
 from reversion.models import Revision, Version
 
 from reversion_compare.compare_raw import get_version_data, pformat
-from reversion_compare.forms import SelectDiffForm
 from reversion_compare.helpers import html_diff
 from reversion_compare.mixins import CompareMethodsMixin, CompareMixin
 
@@ -134,6 +133,31 @@ class BaseCompareVersionAdmin(CompareMixin, VersionAdmin):
         context.update(extra_context or {})
         return super().history_view(request, object_id, context)
 
+    def _build_base_context(self, request, obj, version1, version2):
+        opts = self.model._meta
+        return {
+            **self.admin_site.each_context(request),
+            'opts': opts,
+            'app_label': opts.app_label,
+            'model_name': capfirst(opts.verbose_name),
+            'title': _('Compare %(name)s') % {'name': version1.object_repr},
+            'obj': obj,
+            'version1': version1,
+            'version2': version2,
+            'changelist_url': reverse(
+                f'{self.admin_site.name}:{opts.app_label}_{opts.model_name}_changelist'
+            ),
+            'original': obj,
+            'history_url': reverse(
+                f'{self.admin_site.name}:{opts.app_label}_{opts.model_name}_history',
+                args=(quote(obj.pk),),
+            ),
+            'save_url': reverse(
+                f'{self.admin_site.name}:{opts.app_label}_{opts.model_name}_revision',
+                args=(quote(version1.object_id), version1.id),
+            ),
+        }
+
     def compare_view(self, request, object_id, extra_context=None):
         """
         compare two versions.
@@ -142,28 +166,12 @@ class BaseCompareVersionAdmin(CompareMixin, VersionAdmin):
         if self.compare is None:
             raise Http404("Compare view not enabled.")
 
-        form = SelectDiffForm(request.GET)
-        if not form.is_valid():
-            msg = "Wrong version IDs."
-            if settings.DEBUG:
-                msg += f" (form errors: {', '.join(form.errors)})"
-            raise Http404(msg)
-
-        version_id1 = form.cleaned_data["version_id1"]
-        version_id2 = form.cleaned_data["version_id2"]
-
-        if version_id1 > version_id2:
-            # Compare always the newest one (#2) with the older one (#1)
-            version_id1, version_id2 = version_id2, version_id1
-
         object_id = unquote(object_id)  # Underscores in primary key get quoted to "_5F"
         obj = get_object_or_404(self.model, pk=object_id)
         queryset = Version.objects.get_for_object(obj)
-        version1 = get_object_or_404(queryset, pk=version_id1)
-        version2 = get_object_or_404(queryset, pk=version_id2)
-
-        next_version = queryset.filter(pk__gt=version_id2).last()
-        prev_version = queryset.filter(pk__lt=version_id1).first()
+        nav = self._resolve_versions_and_navigation(request.GET, queryset)
+        version1 = nav['version1']
+        version2 = nav['version2']
 
         try:
             compare_data, has_unfollowed_fields = self.compare(obj, version1, version2)
@@ -175,41 +183,14 @@ class BaseCompareVersionAdmin(CompareMixin, VersionAdmin):
             # Fallback to JSON compare
             return self.compare_raw(request, obj, version1, version2, compare_error=err, extra_context=extra_context)
 
-        opts = self.model._meta
-
-        context = {
-            **self.admin_site.each_context(request),
-            "opts": opts,
-            "app_label": opts.app_label,
-            "model_name": capfirst(opts.verbose_name),
-            "title": _("Compare %(name)s") % {"name": version1.object_repr},
-            "obj": obj,
-            "compare_data": compare_data,
-            "has_unfollowed_fields": has_unfollowed_fields,
-            "version1": version1,
-            "version2": version2,
-            "changelist_url": reverse(f"{self.admin_site.name}:{opts.app_label}_{opts.model_name}_changelist"),
-            "original": obj,
-            "history_url": reverse(
-                f"{self.admin_site.name}:{opts.app_label}_{opts.model_name}_history", args=(quote(obj.pk),)
-            ),
-            "save_url": reverse(
-                f"{self.admin_site.name}:{opts.app_label}_{opts.model_name}_revision",
-                args=(quote(version1.object_id), version1.id),
-            ),
-        }
-
-        # don't use urlencode with dict for generate prev/next-urls
-        # Otherwise we can't unitests it!
-        if next_version:
-            next_url = f"?version_id1={version2.id:d}&version_id2={next_version.id:d}"
-            context.update({"next_url": next_url})
-        if prev_version:
-            prev_url = f"?version_id1={prev_version.id:d}&version_id2={version1.id:d}"
-            context.update({"prev_url": prev_url})
-
+        context = self._build_base_context(request, obj, version1, version2)
+        context.update({
+            'compare_data': compare_data,
+            'has_unfollowed_fields': has_unfollowed_fields,
+        })
+        context.update(nav)  # merges next_url / prev_url if present
         context.update(extra_context or {})
-        return render(request, self.compare_template or self._get_template_list("compare.html"), context)
+        return render(request, self.compare_template or self._get_template_list('compare.html'), context)
 
     def compare_raw(self, request, obj, version1, version2, compare_error, extra_context=None):
         """
@@ -224,28 +205,11 @@ class BaseCompareVersionAdmin(CompareMixin, VersionAdmin):
         # TODO: Generate a nicer diff ;)
         diff_html = html_diff(version1pformat, version2pformat)
 
-        opts = self.model._meta
-        context = {
-            **self.admin_site.each_context(request),
-            "opts": opts,
-            "app_label": opts.app_label,
-            "model_name": capfirst(opts.verbose_name),
-            "title": _("Compare %(name)s") % {"name": version1.object_repr},
-            "obj": obj,
-            "compare_error": compare_error,
-            "diff_html": diff_html,
-            "version1": version1,
-            "version2": version2,
-            "changelist_url": reverse(f"{self.admin_site.name}:{opts.app_label}_{opts.model_name}_changelist"),
-            "original": obj,
-            "history_url": reverse(
-                f"{self.admin_site.name}:{opts.app_label}_{opts.model_name}_history", args=(quote(obj.pk),)
-            ),
-            "save_url": reverse(
-                f"{self.admin_site.name}:{opts.app_label}_{opts.model_name}_revision",
-                args=(quote(version1.object_id), version1.id),
-            ),
-        }
+        context = self._build_base_context(request, obj, version1, version2)
+        context.update({
+            'compare_error': compare_error,
+            'diff_html': diff_html,
+        })
         context.update(extra_context or {})
         return render(request, self.compare_raw_template or self._get_template_list("compare_raw.html"), context)
 

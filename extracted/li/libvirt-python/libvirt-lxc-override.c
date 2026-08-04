@@ -122,7 +122,15 @@ PyInit_cygvirtmod_lxc
     if (virInitialize() < 0)
         return NULL;
 
+    // PyModule_Create can return NULL if module creation fails
+    // https://docs.python.org/3/c-api/module.html#c.PyModule_Create
     module = PyModule_Create(&moduledef);
+    if (module == NULL)
+        return NULL;
+
+#ifdef Py_GIL_DISABLED
+    PyUnstable_Module_SetGIL(module, Py_MOD_GIL_NOT_USED);
+#endif
 
     return module;
 }

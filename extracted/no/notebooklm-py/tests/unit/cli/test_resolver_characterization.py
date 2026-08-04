@@ -1,8 +1,8 @@
 """Characterization tests for the notebook + partial-ID resolver.
 
-These tests pin observable CLI behavior across the resolver paths in
-``cli/chat.py`` and ``cli/download.py`` BEFORE the P2.T1 consolidation
-refactor. They are intentionally end-to-end at the ``CliRunner`` level so
+These tests pin observable CLI behavior across the chat and download resolver
+paths before the P2.T1 consolidation refactor. They are intentionally
+end-to-end at the ``CliRunner`` level so
 they capture exit codes, stdout/stderr structure, and side-effect counts
 (e.g. "did the notebook listing fire?") that the lower-level unit tests in
 ``test_resolve.py`` and ``test_download_helpers.py`` do not cover holistically.
@@ -19,9 +19,9 @@ Coverage matrix (resolver fallback paths):
 | Context-file fallback               | yes       | yes             |
 | Partial artifact id (download only) | n/a       | yes             |
 
-The chat path also pins the conversation-id fallback order (which is a
-separate concern but co-located here because both fallback ladders live in
-the same file and risk collision during refactoring).
+The chat path also pins the conversation-id fallback order, co-located here
+because it shares the same command workflow and can regress during resolver
+refactors.
 """
 
 from __future__ import annotations
@@ -32,12 +32,15 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from click.testing import CliRunner
 
+import notebooklm.auth as auth_module
+import notebooklm.cli.helpers as helpers_module
 from notebooklm.cli import resolve as resolve_helpers
 from notebooklm.notebooklm_cli import cli
 from notebooklm.types import AskResult
 
 from .conftest import (
     create_mock_client,
+    inject_client,
 )
 
 # ----------------------------------------------------------------------------
@@ -52,7 +55,7 @@ def runner() -> CliRunner:
 
 @pytest.fixture
 def mock_auth():
-    with patch("notebooklm.cli.helpers.load_auth_from_storage") as m:
+    with patch.object(helpers_module, "load_auth_from_storage") as m:
         m.return_value = {
             "SID": "test",
             "__Secure-1PSIDTS": "test_1psidts",
@@ -66,7 +69,7 @@ def mock_auth():
 
 @pytest.fixture
 def mock_fetch():
-    with patch("notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock) as m:
+    with patch.object(auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock) as m:
         m.return_value = ("csrf", "session")
         yield m
 
@@ -95,13 +98,13 @@ class TestChatNotebookResolution:
         backend listing - the explicit arg is the authoritative source.
         """
         full_uuid = "abc12345-6789-4abc-def0-1234567890ab"
-        with patch("notebooklm.cli.chat_cmd.NotebookLMClient") as mock_cls:
-            mock_client = create_mock_client()
-            mock_client.chat.ask = AsyncMock(return_value=_ask_result())
-            mock_client.chat.get_conversation_id = AsyncMock(return_value=None)
-            mock_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.chat.ask = AsyncMock(return_value=_ask_result())
+        mock_client.chat.get_conversation_id = AsyncMock(return_value=None)
 
-            result = runner.invoke(cli, ["ask", "what?", "-n", full_uuid])
+        result = runner.invoke(
+            cli, ["ask", "what?", "-n", full_uuid], obj=inject_client(mock_client)
+        )
 
         assert result.exit_code == 0, result.output
         # No notebook listing should happen with a full UUID-shaped id.
@@ -125,13 +128,11 @@ class TestChatNotebookResolution:
             lambda *a, **kw: tmp_path / "nonexistent.json",
         )
 
-        with patch("notebooklm.cli.chat_cmd.NotebookLMClient") as mock_cls:
-            mock_client = create_mock_client()
-            mock_client.chat.ask = AsyncMock(return_value=_ask_result())
-            mock_client.chat.get_conversation_id = AsyncMock(return_value=None)
-            mock_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.chat.ask = AsyncMock(return_value=_ask_result())
+        mock_client.chat.get_conversation_id = AsyncMock(return_value=None)
 
-            result = runner.invoke(cli, ["ask", "what?"])
+        result = runner.invoke(cli, ["ask", "what?"], obj=inject_client(mock_client))
 
         assert result.exit_code == 0, result.output
         # ``chat.ask`` was called with the env-var-resolved notebook id.
@@ -149,13 +150,11 @@ class TestChatNotebookResolution:
         monkeypatch.delenv("NOTEBOOKLM_NOTEBOOK", raising=False)
         monkeypatch.setattr(resolve_helpers, "get_context_path", lambda *a, **kw: ctx_file)
 
-        with patch("notebooklm.cli.chat_cmd.NotebookLMClient") as mock_cls:
-            mock_client = create_mock_client()
-            mock_client.chat.ask = AsyncMock(return_value=_ask_result())
-            mock_client.chat.get_conversation_id = AsyncMock(return_value=None)
-            mock_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.chat.ask = AsyncMock(return_value=_ask_result())
+        mock_client.chat.get_conversation_id = AsyncMock(return_value=None)
 
-            result = runner.invoke(cli, ["ask", "what?"])
+        result = runner.invoke(cli, ["ask", "what?"], obj=inject_client(mock_client))
 
         assert result.exit_code == 0, result.output
         assert mock_client.chat.ask.await_count == 1
@@ -225,27 +224,26 @@ class TestDownloadNotebookResolution:
         Resolver does not call ``notebooks.list`` for a UUID-shaped id.
         """
         full_uuid = "abc12345-6789-4abc-def0-1234567890ab"
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_cls:
-            mock_client = create_mock_client()
-            mock_client.artifacts.list = AsyncMock(
-                return_value=_make_artifact_list(
-                    [(f"art-{i}-1234-4abc-def0-1234567890ab", f"a{i}") for i in range(1)]
-                )
+        mock_client = create_mock_client()
+        mock_client.artifacts.list = AsyncMock(
+            return_value=_make_artifact_list(
+                [(f"art-{i}-1234-4abc-def0-1234567890ab", f"a{i}") for i in range(1)]
             )
-            mock_client.artifacts.download_audio = AsyncMock(return_value=str(tmp_path / "out.mp3"))
-            mock_cls.return_value = mock_client
+        )
+        mock_client.artifacts.download_audio = AsyncMock(return_value=str(tmp_path / "out.mp3"))
 
-            result = runner.invoke(
-                cli,
-                [
-                    "download",
-                    "audio",
-                    "-n",
-                    full_uuid,
-                    "--latest",
-                    str(tmp_path / "out.mp3"),  # positional output path
-                ],
-            )
+        result = runner.invoke(
+            cli,
+            [
+                "download",
+                "audio",
+                "-n",
+                full_uuid,
+                "--latest",
+                str(tmp_path / "out.mp3"),  # positional output path
+            ],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         # No notebook listing fires for a full-UUID id.
@@ -265,24 +263,23 @@ class TestDownloadNotebookResolution:
                 ("xyz00000-aaaa-4abc-def0-000000000002", "second"),
             ]
         )
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_cls:
-            mock_client = create_mock_client()
-            mock_client.artifacts.list = AsyncMock(return_value=artifacts)
-            mock_client.artifacts.download_audio = AsyncMock(return_value=str(tmp_path / "out.mp3"))
-            mock_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.artifacts.list = AsyncMock(return_value=artifacts)
+        mock_client.artifacts.download_audio = AsyncMock(return_value=str(tmp_path / "out.mp3"))
 
-            result = runner.invoke(
-                cli,
-                [
-                    "download",
-                    "audio",
-                    "-n",
-                    full_uuid,
-                    "--artifact",
-                    "abc",  # unique prefix of the first artifact id
-                    str(tmp_path / "out.mp3"),  # positional output path
-                ],
-            )
+        result = runner.invoke(
+            cli,
+            [
+                "download",
+                "audio",
+                "-n",
+                full_uuid,
+                "--artifact",
+                "abc",  # unique prefix of the first artifact id
+                str(tmp_path / "out.mp3"),  # positional output path
+            ],
+            obj=inject_client(mock_client),
+        )
 
         assert result.exit_code == 0, result.output
         # download_audio signature: (notebook_id, output_path, artifact_id=None).
@@ -312,24 +309,23 @@ class TestDownloadNotebookResolution:
                 ("abc22222-aaaa-4abc-def0-000000000002", "second"),
             ]
         )
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_cls:
-            mock_client = create_mock_client()
-            mock_client.artifacts.list = AsyncMock(return_value=artifacts)
-            mock_client.artifacts.download_audio = AsyncMock()
-            mock_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.artifacts.list = AsyncMock(return_value=artifacts)
+        mock_client.artifacts.download_audio = AsyncMock()
 
-            result = runner.invoke(
-                cli,
-                [
-                    "download",
-                    "audio",
-                    "-n",
-                    full_uuid,
-                    "--artifact",
-                    "abc",  # ambiguous prefix
-                    "--json",
-                ],
-            )
+        result = runner.invoke(
+            cli,
+            [
+                "download",
+                "audio",
+                "-n",
+                full_uuid,
+                "--artifact",
+                "abc",  # ambiguous prefix
+                "--json",
+            ],
+            obj=inject_client(mock_client),
+        )
 
         # Full contract: --json failure exits 1 (post-#925 exit-code parity)
         # with a {"error": ...} envelope on stdout, and the download_audio
@@ -346,24 +342,23 @@ class TestDownloadNotebookResolution:
         """Unknown artifact prefix surfaces ``not found`` in the output."""
         full_uuid = "abc12345-6789-4abc-def0-1234567890ab"
         artifacts = _make_artifact_list([("aaaa1111-aaaa-4abc-def0-000000000001", "only")])
-        with patch("notebooklm.cli.download_cmd.NotebookLMClient") as mock_cls:
-            mock_client = create_mock_client()
-            mock_client.artifacts.list = AsyncMock(return_value=artifacts)
-            mock_client.artifacts.download_audio = AsyncMock()
-            mock_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.artifacts.list = AsyncMock(return_value=artifacts)
+        mock_client.artifacts.download_audio = AsyncMock()
 
-            result = runner.invoke(
-                cli,
-                [
-                    "download",
-                    "audio",
-                    "-n",
-                    full_uuid,
-                    "--artifact",
-                    "zzz",  # no match
-                    "--json",
-                ],
-            )
+        result = runner.invoke(
+            cli,
+            [
+                "download",
+                "audio",
+                "-n",
+                full_uuid,
+                "--artifact",
+                "zzz",  # no match
+                "--json",
+            ],
+            obj=inject_client(mock_client),
+        )
 
         # Full contract: --json failure exits 1 (post-#925 exit-code parity)
         # with {"error": "Artifact 'zzz' not found"} on stdout, and
@@ -392,13 +387,13 @@ class TestChatConversationFallback:
     def test_explicit_conversation_id_wins(self, runner, mock_auth, mock_fetch):
         full_uuid = "abc12345-6789-4abc-def0-1234567890ab"
         conv_id = "11111111-2222-3333-4444-555555555555"
-        with patch("notebooklm.cli.chat_cmd.NotebookLMClient") as mock_cls:
-            mock_client = create_mock_client()
-            mock_client.chat.ask = AsyncMock(return_value=_ask_result())
-            mock_client.chat.get_conversation_id = AsyncMock(return_value="zzz-different-conv")
-            mock_cls.return_value = mock_client
+        mock_client = create_mock_client()
+        mock_client.chat.ask = AsyncMock(return_value=_ask_result())
+        mock_client.chat.get_conversation_id = AsyncMock(return_value="zzz-different-conv")
 
-            result = runner.invoke(cli, ["ask", "what?", "-n", full_uuid, "-c", conv_id])
+        result = runner.invoke(
+            cli, ["ask", "what?", "-n", full_uuid, "-c", conv_id], obj=inject_client(mock_client)
+        )
 
         assert result.exit_code == 0, result.output
         # The conversation_id passed to ``chat.ask`` must be the explicit one.

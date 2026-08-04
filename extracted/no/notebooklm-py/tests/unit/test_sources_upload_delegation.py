@@ -31,9 +31,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 import notebooklm._sources as sources_module
-from _fixtures.fake_core import make_fake_core
 from notebooklm._source.upload import SourceUploadPipeline
 from notebooklm._sources import SourcesAPI
+from tests._fixtures.fake_core import make_fake_core
 
 
 def _parse_sources_module() -> ast.Module:
@@ -300,7 +300,7 @@ def test_sources_module_holds_no_scotty_implementation() -> None:
     leaked = [token for token in forbidden if token in code]
     assert not leaked, (
         "_sources.py leaked resumable-upload implementation tokens in executable "
-        f"code (should delegate to _source_upload.py): {leaked}"
+        f"code (should delegate to notebooklm._source.upload): {leaked}"
     )
 
 
@@ -338,12 +338,16 @@ def test_sources_upload_helpers_are_pure_delegators() -> None:
     # uploader-delegating helper would be silently skipped by the loop below.
     # ``__init__`` is excluded: it only *wires* the uploader (configuring the
     # shared lister/poller and source-limit lookup), it does not delegate an
-    # upload operation to it.
+    # upload operation to it. ``add_drive_file`` (#1884) is excluded too: it only
+    # reads the ``self._uploader.live_cookies`` seam to authenticate the Drive
+    # fetch — it does not re-implement or delegate a resumable-upload operation
+    # (its upload leg goes through the public ``self.add_file``, already covered).
+    _uploader_seam_only = {"__init__", "add_drive_file"}
     uploader_methods = {
         node.name
         for node in class_def.body
         if isinstance(node, func_types)
-        and node.name != "__init__"
+        and node.name not in _uploader_seam_only
         and "self._uploader" in ast.unparse(node)
     }
     assert uploader_methods == set(expected), (

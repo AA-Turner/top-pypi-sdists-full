@@ -18,7 +18,8 @@ from pytest_httpx import HTTPXMock
 
 import notebooklm._sources as _sources_mod
 from notebooklm import NotebookLMClient, Source, SourceType
-from notebooklm.exceptions import RPCError
+from notebooklm._source.add import SourceAddService
+from notebooklm.exceptions import DecodingError, RPCError
 from notebooklm.rpc import RPCMethod
 from notebooklm.types import SourceAddError, SourceNotFoundError
 
@@ -483,7 +484,7 @@ class TestSourcesAPI:
         httpx_mock: HTTPXMock,
         build_rpc_response,
     ):
-        """Test getting a non-existent source."""
+        """Test getting a non-existent source raises SourceNotFoundError."""
         response = build_rpc_response(
             RPCMethod.GET_NOTEBOOK,
             [
@@ -500,13 +501,9 @@ class TestSourcesAPI:
         httpx_mock.add_response(content=response.encode())
 
         async with NotebookLMClient(auth_tokens) as client:
-            # v0.7.0: a miss still returns None but now emits a
-            # DeprecationWarning (flips to raising SourceNotFoundError in
-            # v0.8.0, issue #1247).
-            with pytest.warns(DeprecationWarning, match="SourceNotFoundError"):
-                source = await client.sources.get("nb_123", "nonexistent")
-
-        assert source is None
+            # v0.8.0: a miss now raises SourceNotFoundError (issue #1247).
+            with pytest.raises(SourceNotFoundError):
+                await client.sources.get("nb_123", "nonexistent")
 
     @pytest.mark.asyncio
     async def test_add_drive_source(
@@ -548,7 +545,7 @@ class TestSourcesAPI:
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.sources.refresh("nb_123", "src_001")
 
-        assert result is True
+        assert result is None  # v0.8.0 (#1290): returns None on success
         request = httpx_mock.get_request()
         assert RPCMethod.REFRESH_SOURCE in str(request.url)
 
@@ -653,8 +650,10 @@ class TestSourcesAPI:
         async with NotebookLMClient(auth_tokens) as client:
             guide = await client.sources.get_guide("nb_123", "src_001")
 
-        assert "summary" in guide
-        assert "keywords" in guide
+        # Attribute-only typed return (#1251): the dict-membership bridge was
+        # dropped; summary/keywords are plain attributes.
+        assert hasattr(guide, "summary")
+        assert hasattr(guide, "keywords")
         assert "**summary**" in guide.summary
         assert guide.keywords == ("keyword1", "keyword2", "keyword3")
 
@@ -780,18 +779,20 @@ class TestSourcesAPI:
                 await client.sources.rename("nb_123", "src_001", "New Title")
 
     @pytest.mark.asyncio
-    async def test_rename_source_return_object_false_skips_fetch(self, auth_tokens):
-        """return_object=False returns None and issues no hydrate fetch on a null echo."""
+    async def test_rename_source_return_object_false_raises_on_miss(self, auth_tokens):
+        """v0.8.0 (#1362): return_object=False runs the existence preflight too.
+
+        A null UPDATE_SOURCE echo plus an absent source means the target is
+        missing, so the False path raises SourceNotFoundError instead of
+        silently returning None.
+        """
         async with NotebookLMClient(auth_tokens) as client:
             rpc = AsyncMock(return_value=None)
             client._rpc_executor.rpc_call = rpc
-            result = await client.sources.rename(
-                "nb_123", "src_001", "New Title", return_object=False
-            )
-
-        assert result is None
-        # Only the UPDATE_SOURCE call — no hydrate fetch.
-        rpc.assert_awaited_once()
+            # The existence preflight resolves the source as a genuine miss.
+            client.sources._get_or_none = AsyncMock(return_value=None)
+            with pytest.raises(SourceNotFoundError):
+                await client.sources.rename("nb_123", "src_001", "New Title", return_object=False)
 
 
 class TestAddFileSource:
@@ -1638,74 +1639,85 @@ class TestAddUrlErrorPaths:
         self,
         auth_tokens,
     ):
-        """Test add_url() wraps RPCError from _add_url_source in SourceAddError (lines 327-329)."""
-        async with NotebookLMClient(auth_tokens) as client:
-            with patch.object(
-                client.sources,
-                "_add_url_source",
-                side_effect=RPCError("RPC call failed"),
-            ):
-                with pytest.raises(SourceAddError):
-                    await client.sources.add_url("nb_123", "https://example.com")
+        """Test add_url() wraps RPCError from the regular URL adder in SourceAddError."""
+        service = SourceAddService()
+
+        with pytest.raises(SourceAddError):
+            await service.add_url(
+                "nb_123",
+                "https://example.com",
+                add_youtube_source=AsyncMock(),
+                add_url_source=AsyncMock(side_effect=RPCError("RPC call failed")),
+                list_sources=AsyncMock(return_value=[]),
+                wait_until_ready=AsyncMock(),
+                extract_youtube_video_id=lambda _url: None,
+                is_youtube_url=lambda _url: False,
+                logger=_sources_mod.logger,
+            )
 
     @pytest.mark.asyncio
     async def test_add_url_youtube_rpc_error_raises_source_add_error(
         self,
         auth_tokens,
     ):
-        """Test add_url() wraps RPCError from _add_youtube_source in SourceAddError (lines 327-329)."""
-        async with NotebookLMClient(auth_tokens) as client:
-            with patch.object(
-                client.sources,
-                "_add_youtube_source",
-                side_effect=RPCError("YouTube RPC failed"),
-            ):
-                with pytest.raises(SourceAddError):
-                    await client.sources.add_url(
-                        "nb_123", "https://youtube.com/watch?v=dQw4w9WgXcQ"
-                    )
+        """Test add_url() wraps RPCError from the YouTube adder in SourceAddError."""
+        service = SourceAddService()
+
+        with pytest.raises(SourceAddError):
+            await service.add_url(
+                "nb_123",
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+                add_youtube_source=AsyncMock(side_effect=RPCError("YouTube RPC failed")),
+                add_url_source=AsyncMock(),
+                list_sources=AsyncMock(return_value=[]),
+                wait_until_ready=AsyncMock(),
+                extract_youtube_video_id=lambda _url: "dQw4w9WgXcQ",
+                is_youtube_url=lambda _url: True,
+                logger=_sources_mod.logger,
+            )
 
     @pytest.mark.asyncio
     async def test_add_url_none_result_raises_source_add_error(
         self,
         auth_tokens,
     ):
-        """Test add_url() raises SourceAddError when API returns None (line 332)."""
-        async with NotebookLMClient(auth_tokens) as client:
-            with patch.object(
-                client.sources,
-                "_add_url_source",
-                new_callable=AsyncMock,
-                return_value=None,
-            ):
-                with pytest.raises(SourceAddError, match="API returned no data"):
-                    await client.sources.add_url("nb_123", "https://example.com")
+        """Test add_url() raises SourceAddError when API returns None."""
+        service = SourceAddService()
+
+        with pytest.raises(SourceAddError, match="API returned no data"):
+            await service.add_url(
+                "nb_123",
+                "https://example.com",
+                add_youtube_source=AsyncMock(),
+                add_url_source=AsyncMock(return_value=None),
+                list_sources=AsyncMock(return_value=[]),
+                wait_until_ready=AsyncMock(),
+                extract_youtube_video_id=lambda _url: None,
+                is_youtube_url=lambda _url: False,
+                logger=_sources_mod.logger,
+            )
 
     @pytest.mark.asyncio
     async def test_add_url_wait_true(
         self,
         auth_tokens,
+        httpx_mock: HTTPXMock,
+        build_rpc_response,
     ):
         """Test add_url() with wait=True calls wait_until_ready (lines 335-336)."""
         source_data = [[[["src_wait_url"], "Example", [None, 11], [None, 2]]]]
         ready_source = Source(id="src_wait_url", title="Example")
+        response = build_rpc_response(RPCMethod.ADD_SOURCE, source_data)
+        httpx_mock.add_response(content=response.encode())
 
         async with NotebookLMClient(auth_tokens) as client:
             with patch.object(
                 client.sources,
-                "_add_url_source",
+                "wait_until_ready",
                 new_callable=AsyncMock,
-                return_value=source_data,
-            ):
-                with patch.object(
-                    client.sources,
-                    "wait_until_ready",
-                    new_callable=AsyncMock,
-                    return_value=ready_source,
-                ) as mock_wait:
-                    result = await client.sources.add_url(
-                        "nb_123", "https://example.com", wait=True
-                    )
+                return_value=ready_source,
+            ) as mock_wait:
+                result = await client.sources.add_url("nb_123", "https://example.com", wait=True)
 
         mock_wait.assert_called_once()
         assert result.id == "src_wait_url"
@@ -1726,14 +1738,9 @@ class TestAddUrlErrorPaths:
 
         async with NotebookLMClient(auth_tokens) as client:
             with patch.object(_sources_mod, "is_youtube_url", return_value=True) as mock_is_yt:
-                with patch.object(
-                    client.sources,
-                    "_extract_youtube_video_id",
-                    return_value=None,
-                ):
-                    source = await client.sources.add_url(
-                        "nb_123", "https://youtube.com/channel/UCxxxxxxx"
-                    )
+                source = await client.sources.add_url(
+                    "nb_123", "https://youtube.com/channel/UCxxxxxxx"
+                )
 
         assert source is not None
         mock_is_yt.assert_called_once()
@@ -1888,41 +1895,42 @@ class TestAddDriveWait:
 
 
 class TestCheckFreshnessEdgeCases:
-    """Tests for check_freshness() edge cases (lines 624, 657->667, 659->667)."""
+    """check_freshness() shape handling: recognized shapes yield a bool;
+    genuinely-unrecognized shapes raise DecodingError (drift, #1344)."""
 
     @pytest.mark.asyncio
-    async def test_check_freshness_none_result_returns_false(
+    async def test_check_freshness_none_result_raises_decoding_error(
         self,
         auth_tokens,
         httpx_mock: HTTPXMock,
         build_rpc_response,
     ):
-        """Test check_freshness() returns False when result is None (line 624)."""
-        # None is not True, not False, not a list - falls through to return False
+        """None is not a recognized freshness signal -> drift (#1344)."""
+        # None is not True/False/list - structurally unrecognized, so we can't
+        # tell fresh from stale: raise rather than silently report "stale".
         response = build_rpc_response(RPCMethod.CHECK_SOURCE_FRESHNESS, None)
         httpx_mock.add_response(content=response.encode())
 
         async with NotebookLMClient(auth_tokens) as client:
-            is_fresh = await client.sources.check_freshness("nb_123", "src_001")
-
-        assert is_fresh is False
+            with pytest.raises(DecodingError):
+                await client.sources.check_freshness("nb_123", "src_001")
 
     @pytest.mark.asyncio
-    async def test_check_freshness_list_first_element_not_list(
+    async def test_check_freshness_list_first_element_not_list_raises(
         self,
         auth_tokens,
         httpx_mock: HTTPXMock,
         build_rpc_response,
     ):
-        """Test check_freshness() returns False when result list's first item is not a list (line 624)."""
-        # result is ["some_string"] - first is a string, isinstance(first, list) is False
+        """A list whose first element is a non-list scalar is drift (#1344)."""
+        # result is ["some_value"] - first is a string, not a nested freshness
+        # row: the canonical "genuinely unrecognized" shape.
         response = build_rpc_response(RPCMethod.CHECK_SOURCE_FRESHNESS, ["some_value"])
         httpx_mock.add_response(content=response.encode())
 
         async with NotebookLMClient(auth_tokens) as client:
-            is_fresh = await client.sources.check_freshness("nb_123", "src_001")
-
-        assert is_fresh is False
+            with pytest.raises(DecodingError):
+                await client.sources.check_freshness("nb_123", "src_001")
 
     @pytest.mark.asyncio
     async def test_check_freshness_drive_nested_false_value(
@@ -1931,8 +1939,9 @@ class TestCheckFreshnessEdgeCases:
         httpx_mock: HTTPXMock,
         build_rpc_response,
     ):
-        """Test check_freshness() returns False when nested Drive structure has first[1] != True (lines 657->667, 659->667)."""
-        # result is [[None, False, ...]] - first[1] is False, not True
+        """Recognized stale Drive shape [[None, False, ...]] still returns False."""
+        # result is [[None, False, ...]] - first[1] is False: a recognized stale
+        # shape, NOT drift. Must stay False (does not raise).
         response = build_rpc_response(
             RPCMethod.CHECK_SOURCE_FRESHNESS, [[None, False, ["src_001"]]]
         )
@@ -1944,21 +1953,21 @@ class TestCheckFreshnessEdgeCases:
         assert is_fresh is False
 
     @pytest.mark.asyncio
-    async def test_check_freshness_drive_nested_list_too_short(
+    async def test_check_freshness_drive_nested_list_too_short_raises(
         self,
         auth_tokens,
         httpx_mock: HTTPXMock,
         build_rpc_response,
     ):
-        """Test check_freshness() returns False when nested Drive list has only one element."""
-        # result is [[None]] - first has only 1 element, so len(first) > 1 check fails
+        """A nested list too short to carry the freshness flag is drift (#1344)."""
+        # result is [[None]] - first has only 1 element, so we can't read the
+        # freshness flag at first[1]: unrecognized shape -> raise.
         response = build_rpc_response(RPCMethod.CHECK_SOURCE_FRESHNESS, [[None]])
         httpx_mock.add_response(content=response.encode())
 
         async with NotebookLMClient(auth_tokens) as client:
-            is_fresh = await client.sources.check_freshness("nb_123", "src_001")
-
-        assert is_fresh is False
+            with pytest.raises(DecodingError):
+                await client.sources.check_freshness("nb_123", "src_001")
 
 
 class TestGetFulltextEdgeCases:
@@ -2931,7 +2940,7 @@ class TestWaitUntilReadyErrorPaths:
         async with NotebookLMClient(auth_tokens) as client:
             with patch.object(
                 client.sources,
-                "_get_or_none",
+                "get_or_none",
                 new_callable=AsyncMock,
                 return_value=processing_source,
             ):
@@ -2977,7 +2986,7 @@ class TestWaitUntilReadyMidLoopTimeout:
         async with NotebookLMClient(auth_tokens) as client:
             with patch.object(
                 client.sources,
-                "_get_or_none",
+                "get_or_none",
                 new_callable=AsyncMock,
                 return_value=processing_source,
             ):

@@ -690,6 +690,13 @@ namespace real::detail {
         if (prog_.hints.wb_lead != 0 || prog_.hints.wb_trail != 0) {
           prof::tick_event(prof::event::wb_b2_wrap);
         }
+        // One branch, and everything an anchor implies is behind it. `run()` has to stay small enough
+        // to inline into find_iter (see basic_match_iterator::advance's own note), and an earlier
+        // shape of this -- two lambdas inline here -- cost §Unicode 6-17 % on clang/arm64 while
+        // gaining on gcc/x86-64, which is this translation unit's usual answer to being grown.
+        if (prog_.hints.anchored_start || prog_.hints.greedy_class_loop_end != 0) {
+          return run_class_loop_anchored<Cascade>(text, start, mode, out_slots);
+        }
         return run_class_loop<Cascade>(text, start, mode, out_slots);
       }
       if (sem_ == match_semantics::first && prog_.hints.greedy_cp_class >= 0
@@ -697,6 +704,14 @@ namespace real::detail {
         prof::tick_route(prof::route::cp_class_loop);
         if (prog_.hints.wb_lead != 0 || prog_.hints.wb_trail != 0) {
           prof::tick_event(prof::event::wb_b2_wrap);
+        }
+        if (prog_.hints.anchored_start) {
+          if (start != 0) { // a region past 0 cannot hold a `\A`-anchored match, in any mode
+            out_slots.assign(prog_.slot_count, npos);
+            return false;
+          }
+          return run_cp_class_loop(text, start,
+                                   mode == run_mode::search ? run_mode::prefix : mode, out_slots);
         }
         return run_cp_class_loop(text, start, mode, out_slots);
       }
@@ -745,7 +760,26 @@ namespace real::detail {
         if (!std::is_constant_evaluated() && !inner_literal_route_disabled() && mode == run_mode::search
             && sem_ == match_semantics::first // longest semantics need the general loop (these routes are kFirstMatch)
             && prog_.hints.inner_literal_len > 0 && prog_.hints.inner_literal_prefix >= 1
+            && !prog_.hints.fixed_shape       // see the note below: IL never beats the fixed-shape route
             && (!confirms_by_reverse || !prog_.prefix_code.empty())) {
+          // NOT WHEN A FIXED-SHAPE ROUTE EXISTS. That route scans for the shape's own first-byte class
+          // and confirms a known width, and it is never slower than memmem-plus-reverse-confirm on the
+          // patterns that have both. Measured over 64 KB corpora, inner-literal against the same
+          // pattern with this route disabled:
+          //
+          //     [0-9]{4}-[0-9]{2}-[0-9]{2}   dense   0.859 -> 0.801 ns/B   IL 1.07x slower
+          //     [a-z]{3}-[0-9]{4}            dense   0.805 -> 0.718        IL 1.12x slower
+          //     [0-9]{3}[.][0-9]{3}                  0.554 -> 0.554        tie
+          //     [0-9]{4}-[0-9]{2}-[0-9]{2}   rare    0.022 -> 0.022        tie
+          //
+          // and across a density sweep on the date pattern the gap is widest where the OLD gate was
+          // most confident: 1.25x against fixed-shape at 33 candidates per 1000 bytes, well under the
+          // 60 that would have made il_density_milli_threshold abandon. The gate's threshold was
+          // calibrated against the DFA as the fallback; against fixed_shape the crossover is not
+          // merely elsewhere, it does not exist -- so the fix is a route condition, not a retune.
+          //
+          // Patterns the inner-literal route was built for are unaffected by construction: `\w+@\w+`
+          // and friends are variable-width and have no fixed_shape hint to trip this.
           // A required literal at offset 0 (a match that DOES begin with a literal) is a *prefix*, not an inner
           // literal — it keeps the faster find_prefix path. Only a genuine inner literal (offset >= 1, for which
           // the compiler built a `prefix_code` for the reverse-confirm) takes this route; the old
@@ -1341,6 +1375,24 @@ namespace real::detail {
      * (dens 0.06) sits conservatively above crossover so sparse IL wins (dens ≪ 0.01) stay on IL. Capture-free
      * only (\c slot_count ≤ 2): with groups, IL still beat forced DFA on dense (measured). Probe after K candidates
      * across the haystack (sticky on \ref pike_state::il_density_cands).
+     *
+     * \note **The threshold is calibrated against ONE alternative, and the crossover moves with which
+     *       route the gate is arbitrating against.** It was measured on `(?:\w+)_(?:\w+)`, whose
+     *       fallback is the DFA. `[0-9]{4}-[0-9]{2}-[0-9]{2}` falls back to \ref
+     *       pattern_hints::fixed_shape instead, which is far cheaper -- and on a date-dense corpus
+     *       that route is 1.15x faster than the inner-literal one (0.955 against 1.102 ns/byte, 64 KB)
+     *       while the gate never fires, because `-` at ~32 candidates per 1000 bytes sits under the
+     *       60 calibrated for the other shape. On a sparse corpus the two are equal, so the gate is
+     *       not wrong in general -- its single threshold is.
+     *
+     *       This is the same defect the Aho-Corasick gate had before 2026.8.0: one number where the
+     *       crossover depends on what is being compared against. The AC fix keyed on a PRODUCT once
+     *       the second variable was identified; the analogous variable here is the fallback route's
+     *       cost, not the branch count.
+     *
+     *       Worth chasing because it is on the engine's worst PUBLISHED row: §A's `date` reads 0.51x
+     *       against PCRE2-JIT on x86-64 and 0.59x on arm64, the largest gap in that table. 15 % does
+     *       not close it, but it is the part that is understood.
      */
     static constexpr std::uint32_t il_density_probe_candidates {8};
     static constexpr std::size_t   il_density_milli_threshold  {60}; //!< Candidate density, in candidates per 1000 bytes, at or above which the IL route yields to the DFA.
@@ -1653,7 +1705,17 @@ namespace real::detail {
       // DO extract through op_table. It must be built BEFORE slot.mu is taken -- ensure_op_table locks
       // immut_build_mu, and reset_shared_dfas walks immut_build_mu -> map_mu/slot.mu, so building it inside
       // the lambda would invert that order.
-      ensure_op_table();
+      // The extractor is built ONLY when there is something to extract. `fn`'s confirm step fills
+      // out_slots through op_table, but a 2-slot program has nothing but the span the DFA already
+      // found -- and when the table is absent the confirm falls to run_general, which is the same
+      // path it takes whenever the extractor declines. Building it anyway cost 3330 allocations and
+      // 4.57 MB on a first `\w+@\w+` search over 8 KB, for a table that could not be consulted.
+      if (prog_.slot_count > 2) {
+        ensure_op_table();
+      }
+      else {
+        ensure_immutables(); // the DFAs still need the byte program and the shared alphabet
+      }
       shared_dfa_slot&                  slot {shared_dfa_for(immut)};
       const std::lock_guard<std::mutex> lock {slot.mu};
       ensure_slot_search_dfas_unlocked(*immut, slot);
@@ -1981,6 +2043,15 @@ namespace real::detail {
         }
         state_.table_class = static_cast<std::int32_t>(class_index);
       }
+      // Runtime only, and it is what keeps \ref class_table's leading fast path sound: that path
+      // answers from `row_ptr` whenever the key matches, so every path that claims the key must leave
+      // `row_ptr` on the row it claimed. Reached at runtime only when neither storage kind is present;
+      // under constant evaluation nothing reads `row_ptr`, and the guard keeps the pointer out of the
+      // constexpr state entirely.
+      if (!std::is_constant_evaluated()) {
+        state_.rows_verified_for = static_cast<const void*>(prog_.code.data());
+        state_.row_ptr           = state_.table.data();
+      }
       return state_.table.data();
     }
 
@@ -2116,17 +2187,157 @@ namespace real::detail {
 #endif
     constexpr const std::uint8_t* class_table(std::size_t class_index)
     {
+      const std::int32_t key {static_cast<std::int32_t>(class_index)};
+      // The row-key compare comes FIRST, ahead of both storage-mode tests. Two acquire loads here would
+      // be per-`run()`, and `run()` is per MATCH on a walk — 11 327 times over 64 KiB on `[a-z]+`; the
+      // state is single-threaded by construction, so it remembers which row it last verified and a walk
+      // that stays on one class pays one compare. The storage-mode tests are invariant for the whole
+      // walk while the key is not, so asking them first charged every match two branches that no
+      // compiler can hoist out of a per-match call — and being invariant is exactly why they must be
+      // asked last, not first. Every branch here answers the ONE question the caller asked; ordering is
+      // the whole optimisation.
+      if (!std::is_constant_evaluated() && !row_key_stale(state_.table_class, key)) {
+        return state_.row_ptr;
+      }
+      return resolve_class_table(class_index);
+    }
+
+    /*!
+     * \brief Cold half of the class-loop route: everything a `\A`/`^` or `\Z`/`$` implies.
+     *
+     * Outlined so the unanchored path pays exactly one branch. `\A`/`^` is a MODE (a search becomes
+     * prefix anchoring, and a region beginning past 0 cannot hold the match at all); `\Z`/`$` is a
+     * LIMIT, handled by \ref run_class_loop_end_anchored. Both were peeled out of the program by the
+     * shape recognizers, so this is the only thing left enforcing them.
+     * \tparam Cascade   Whether the memchr stop-tail applies.
+     * \tparam OutSlots  Output slot container.
+     * \param[in]  text      The subject.
+     * \param[in]  start     Region start.
+     * \param[in]  mode      Anchoring mode as the caller asked for it.
+     * \param[out] out_slots Receives the span on success.
+     * \return `true` on a match.
+     */
+    template <bool Cascade, typename OutSlots>
+#if defined(__GNUC__) || defined(__clang__)
+    __attribute__((noinline))
+#endif
+    constexpr bool run_class_loop_anchored(std::string_view text,
+                                           std::size_t      start,
+                                           run_mode         mode,
+                                           OutSlots&        out_slots)
+    {
+      if (prog_.hints.anchored_start && start != 0) {
+        out_slots.assign(prog_.slot_count, npos);
+        return false;
+      }
+      if (prog_.hints.greedy_class_loop_end != 0) {
+        return run_class_loop_end_anchored(text, start, mode, out_slots);
+      }
+      return run_class_loop<Cascade>(text, start,
+                                     prog_.hints.anchored_start && mode == run_mode::search
+                                       ? run_mode::prefix
+                                       : mode,
+                                     out_slots);
+    }
+
+    /*!
+     * \brief `X+$` / `^X+$` in search mode: the run that ENDS at the anchor, found by walking back.
+     *
+     * A trailing `\Z`/`$` pins the end, so the leftmost match is the maximal class run that finishes
+     * exactly there -- one backward walk from the limit, not a forward scan that finds runs and
+     * discards each one whose end is wrong. `[a-z]+$` over 100 KB was 3.100 ms on the general VM.
+     *
+     * The limit is where `$` differs from `\Z` and from `fullmatch`, and getting it wrong is silent:
+     * `$` (kind 2) also matches just before ONE final newline, which is why `^a+$` matches `"aaa\n"`
+     * while `fullmatch(a+)` does not. `\Z` (kind 1) is the strict end.
+     * \tparam OutSlots Output slot container.
+     * \param[in]  text      The subject.
+     * \param[in]  start     Region start; the match may not begin before it.
+     * \param[in]  mode      Anchoring mode: search, prefix or full.
+     * \param[out] out_slots Receives the span on success.
+     * \return `true` when a run ends at the anchor.
+     */
+    template <typename OutSlots>
+    constexpr bool run_class_loop_end_anchored(std::string_view text,
+                                               std::size_t      start,
+                                               run_mode         mode,
+                                               OutSlots&        out_slots)
+    {
+      const std::uint8_t* const tbl {
+        class_table(static_cast<std::size_t>(prog_.hints.greedy_class_loop))};
+      std::size_t limit             {text.size()};
+      if (prog_.hints.greedy_class_loop_end == 2 && limit > 0 && text[limit - 1] == '\n') {
+        --limit; // `$`: the position before one final newline is also an end
+      }
+      const auto fail = [&]() {
+                          out_slots.assign(prog_.slot_count, npos);
+                          return false;
+                        };
+      if (limit <= start) {
+        return fail();
+      }
+      std::size_t match_start {limit};
+      while (match_start > start && tbl[static_cast<std::uint8_t>(text[match_start - 1])] != 0U) {
+        --match_start;
+      }
+      if (match_start == limit) {
+        return fail(); // nothing of the class immediately before the anchor
+      }
+      // `^X+$`: the run must also BEGIN at 0. anchored_impossible() has already refused start != 0.
+      if (prog_.hints.anchored_start && match_start != 0) {
+        return fail();
+      }
+      // ALL modes come here, not just search: the assertion has been peeled OUT of the program, so
+      // whoever handles the shape is the only thing left enforcing it. A prefix (`match`) call that
+      // fell through to the ordinary loop would answer `[a-z]+$` over "abc def" with "abc", which the
+      // pattern forbids.
+      if (mode == run_mode::prefix || mode == run_mode::full) {
+        if (match_start > start) {
+          return fail(); // the run ending at the anchor does not reach back to the required start
+        }
+        match_start = start;
+        if (mode == run_mode::full && limit != text.size()) {
+          return fail(); // a full match must span the WHOLE subject, final newline included
+        }
+      }
+      if (limit - match_start < prog_.hints.greedy_class_loop_min) {
+        return fail();
+      }
+      if (!wb_boundaries_ok(match_start, limit)) {
+        return fail();
+      }
+      fill_span_slots(out_slots, match_start, limit);
+      return true;
+    }
+
+    /*!
+     * \brief Cold half of \ref class_table — the storage-mode resolution, and the only path that writes
+     *        the state's row cache for a byte class.
+     *
+     * Outlined for the reason \ref class_table has an attribute of its own — what has to stay inlined is the
+     * row-key compare and the return, and every byte of resolution beside it competes for the budget
+     * that lets the accessor enter `basic_match_iterator::advance`. Inlined back in, it measured
+     * `[0-9]+` +7.2 % and `[^,]+` +3.9 % on gcc/x86-64 while helping the same rows on clang/arm64: the
+     * hot path was already right, and the cold path's SIZE was what decided the outcome.
+     * \param[in] class_index Index into the program's interned byte classes.
+     * \return Pointer to the 256-entry membership row, also cached in the state.
+     */
+#if defined(__GNUC__) || defined(__clang__)
+    __attribute__((noinline))
+#endif
+    constexpr const std::uint8_t* resolve_class_table(std::size_t class_index)
+    {
       if (!std::is_constant_evaluated() && prog_.class_tables != nullptr) {
-        return prog_.class_tables + (class_index * 256); // pre-built flat tables (compile-time storage)
+        // Compile-time storage. Recorded in the state like every other path so the fast path above
+        // answers for this storage too: the invariant this accessor rests on is that `table_class`
+        // names the row `row_ptr` points at, whichever path filled it.
+        state_.table_class       = static_cast<std::int32_t>(class_index);
+        state_.rows_verified_for = static_cast<const void*>(prog_.code.data());
+        state_.row_ptr           = prog_.class_tables + (class_index * 256);
+        return state_.row_ptr;
       }
       else if (!std::is_constant_evaluated() && prog_.immut != nullptr) {
-        detail::regex_immutables& cache {*prog_.immut};
-        // Two acquire loads here would be per-`run()`, and `run()` is per MATCH on a walk — 11 327 times
-        // over 64 KiB on `[a-z]+`. The state is single-threaded by construction, so it remembers which row
-        // it last verified, so a walk that stays on one class pays one compare.
-        if (row_key_stale(state_.table_class, static_cast<std::int32_t>(class_index))) {
-          verify_class_row(cache, class_index);
-        }
+        verify_class_row(*prog_.immut, class_index);
         return state_.row_ptr;
       }
       else {
@@ -2147,33 +2358,45 @@ namespace real::detail {
 #endif
     constexpr const std::uint8_t* cp_ascii_table(std::size_t cp_index)
     {
+      // Key first, resolution outlined — see \ref class_table, whose shape this is exactly.
+      const std::int32_t key {-2 - static_cast<std::int32_t>(cp_index)};
+      if (!std::is_constant_evaluated() && !row_key_stale(state_.table_class, key)) {
+        return state_.row_ptr;
+      }
       if (!std::is_constant_evaluated() && prog_.cp_ascii_tables != nullptr) {
-        return prog_.cp_ascii_tables + (cp_index * 256); // pre-built flat tables (compile-time storage)
+        // Recorded in the state so the fast path above answers for compile-time storage too — the
+        // invariant is \ref class_table's: `table_class` names the row `row_ptr` points at.
+        state_.table_class       = key;
+        state_.rows_verified_for = static_cast<const void*>(prog_.code.data());
+        state_.row_ptr           = prog_.cp_ascii_tables + (cp_index * 256);
+        return state_.row_ptr;
       }
       else if (!std::is_constant_evaluated() && prog_.immut != nullptr) {
         detail::regex_immutables& cache {*prog_.immut};
-        const std::int32_t        key {-2 - static_cast<std::int32_t>(cp_index)};
-        if (row_key_stale(state_.table_class, key)) { // see class_table
-          if (cache.rows_for.load(std::memory_order_acquire) != static_cast<const void*>(prog_.code.data())) {
-            ensure_membership_rows(cache);
-          }
-          if (!cache.row_ready(cache.cp_ascii_ready_at + cp_index)) {
-            fill_cp_ascii_row(cache, cp_index);
-          }
-          state_.table_class       = key;
-          state_.rows_verified_for = static_cast<const void*>(prog_.code.data());
-          state_.row_ptr           = cache.cp_ascii_rows.data() + (cp_index * 256);
+        if (cache.rows_for.load(std::memory_order_acquire) != static_cast<const void*>(prog_.code.data())) {
+          ensure_membership_rows(cache);
         }
+        if (!cache.row_ready(cache.cp_ascii_ready_at + cp_index)) {
+          fill_cp_ascii_row(cache, cp_index);
+        }
+        state_.table_class       = key;
+        state_.rows_verified_for = static_cast<const void*>(prog_.code.data());
+        state_.row_ptr           = cache.cp_ascii_rows.data() + (cp_index * 256);
         return state_.row_ptr;
       }
       else { // constant evaluation -- see class_table
-        const std::int32_t key {-2 - static_cast<std::int32_t>(cp_index)};
         if (state_.table_class != key) {
           const char_class& klass {prog_.cp_classes[cp_index].ascii};
           for (std::size_t b {0}; b < 256; ++b) {
             state_.table[b] = klass.test(static_cast<std::uint8_t>(b)) ? 1U : 0U;
           }
           state_.table_class = key;
+        }
+        // Runtime only, and only when neither storage kind is present: the fast path answers from
+        // `row_ptr`, so this path must leave it on the row it just claimed.
+        if (!std::is_constant_evaluated()) {
+          state_.rows_verified_for = static_cast<const void*>(prog_.code.data());
+          state_.row_ptr           = state_.table.data();
         }
         return state_.table.data();
       }
@@ -2242,27 +2465,33 @@ namespace real::detail {
 #endif
     constexpr const std::uint64_t* cp_page_table(std::size_t cp_index)
     {
+      // Key first, resolution outlined — see \ref class_table, whose shape this is exactly.
+      const std::int32_t key {-2 - static_cast<std::int32_t>(cp_index)};
+      if (!std::is_constant_evaluated() && !row_key_stale(state_.cp_page_class, key)) {
+        return state_.page_ptr;
+      }
       if (!std::is_constant_evaluated() && prog_.cp_page_tables != nullptr) {
-        return prog_.cp_page_tables + (cp_index * 30); // pre-built flat tables (compile-time storage)
+        // Recorded in the state so the fast path above answers for compile-time storage too — the
+        // invariant is \ref class_table's, on this accessor's own pair of fields.
+        state_.cp_page_class     = key;
+        state_.rows_verified_for = static_cast<const void*>(prog_.code.data());
+        state_.page_ptr          = prog_.cp_page_tables + (cp_index * 30);
+        return state_.page_ptr;
       }
       else if (!std::is_constant_evaluated() && prog_.immut != nullptr) {
         detail::regex_immutables& cache {*prog_.immut};
-        const std::int32_t        key {-2 - static_cast<std::int32_t>(cp_index)};
-        if (row_key_stale(state_.cp_page_class, key)) { // see class_table
-          if (cache.rows_for.load(std::memory_order_acquire) != static_cast<const void*>(prog_.code.data())) {
-            ensure_membership_rows(cache);
-          }
-          if (!cache.row_ready(cache.cp_page_ready_at + cp_index)) {
-            fill_cp_page_row(cache, cp_index);
-          }
-          state_.cp_page_class     = key;
-          state_.rows_verified_for = static_cast<const void*>(prog_.code.data());
-          state_.page_ptr          = cache.cp_page_rows.data() + (cp_index * 30);
+        if (cache.rows_for.load(std::memory_order_acquire) != static_cast<const void*>(prog_.code.data())) {
+          ensure_membership_rows(cache);
         }
+        if (!cache.row_ready(cache.cp_page_ready_at + cp_index)) {
+          fill_cp_page_row(cache, cp_index);
+        }
+        state_.cp_page_class     = key;
+        state_.rows_verified_for = static_cast<const void*>(prog_.code.data());
+        state_.page_ptr          = cache.cp_page_rows.data() + (cp_index * 30);
         return state_.page_ptr;
       }
       else { // constant evaluation -- see class_table
-        const std::int32_t key {-2 - static_cast<std::int32_t>(cp_index)};
         if (state_.cp_page_class != key) {
           state_.cp_page.fill(0);
           const detail::cp_class& cc {prog_.cp_classes[cp_index]};
@@ -2279,6 +2508,12 @@ namespace real::detail {
             }
           }
           state_.cp_page_class = key;
+        }
+        // Runtime only, and only when neither storage kind is present: the fast path answers from
+        // `page_ptr`, so this path must leave it on the page it just claimed.
+        if (!std::is_constant_evaluated()) {
+          state_.rows_verified_for = static_cast<const void*>(prog_.code.data());
+          state_.page_ptr          = state_.cp_page.data();
         }
         return state_.cp_page.data();
       }
@@ -2412,9 +2647,16 @@ namespace real::detail {
     }
 
     //! \brief Below this many total ranges, high-cp membership stays on bsearch (small scripts).
-    //!        Measured: sc=Han=22, scx=Cyrl=18 already quasi-tie; the sparse table pays only for dense
-    //!        classes (L=675, w=767, N=143).
-    static constexpr std::uint32_t cp_hi_range_threshold {32U};
+    //!        Re-measured after this value stood at 32 on the strength of a quasi-tie: at 32 the two
+    //!        classes that straddle it are NOT a tie, they pull opposite ways. `sc=Han` (22 ranges)
+    //!        wants the sparse table -- 10.713 -> 9.147 ns/B on x86-64 (-14.6 %) and 5.729 -> 5.594
+    //!        on arm64 -- while `scx=Cyrl` (18) wants bsearch and loses 2.7 % on the table. So the
+    //!        crossover lies between 18 and 22, and this constant is that gap rather than either
+    //!        measurement: raising it past 22 costs `sc=Han` the figure above, lowering it past 18
+    //!        costs `scx=Cyrl`. Dense classes (L=675, w=767, N=143) are far above and unreachable by
+    //!        any value here -- they are the control, flat to 0.2 % across the change, which is what
+    //!        makes the -14.6 % readable as this decision's own.
+    static constexpr std::uint32_t cp_hi_range_threshold {20U};
 
     /*!
      * \brief Page-bitmap membership for U+0080..U+07FF. Kept separate so class-loop lambdas can
@@ -2777,9 +3019,36 @@ namespace real::detail {
                               };
 
         const auto sub_id {static_cast<std::uint16_t>(prog_.hints.trailing_lookaround)};
+        // Resolve the lookaround ONCE for the whole walk. `lookaround_holds` re-derives, per call,
+        // things that cannot change between calls with the same sub_id: the sub lookup, its code
+        // length, and its body's opcode. Callgrind on `[a-z]+(?=[a-z])` over 64 KB of prose puts it at
+        // 26.6 % of the workload across 1 649 430 calls -- 35 instructions each, of which 22 are
+        // prologue and epilogue and ~10 are that invariant re-checking. Only the class test varies
+        // with the position. Hoisting leaves the loop calling a small inlinable predicate instead of
+        // an out-of-line function; it removes the work rather than moving it, which is what
+        // force-inlining would have done (and that was measured as a regression -- see
+        // basic_match_iterator::advance).
+        const lookaround_sub& la_sub    {prog_.lookarounds[sub_id]};
+        const instr*          la_simple {nullptr};
+        if (la_sub.code_length == 2) {
+          const instr& body {prog_.code[static_cast<std::size_t>(la_sub.code_offset)]};
+          if (body.op == opcode::byte || body.op == opcode::klass
+              || (body.op == opcode::klass_cp && !prog_.byte_mode)) {
+            la_simple = &body;
+          }
+        }
+        const auto la_at = [&](std::size_t e) {
+                             if (la_simple == nullptr) {
+                               return lookaround_holds(sub_id, e);
+                             }
+                             const bool matched {la_sub.direction == look_dir::behind
+                                                   ? single_class_behind(*la_simple, e)
+                                                   : single_class_ahead(*la_simple, e)};
+                             return matched != la_sub.negative;
+                           };
         const auto try_ends = [&](std::size_t ms, std::size_t me) -> bool {
                                 for (std::size_t e = me; e > ms; --e) {
-                                  if (lookaround_holds(sub_id, e)) {
+                                  if (la_at(e)) {
                                     fill_span_slots(out_slots, ms, e);
                                     return true;
                                   }
@@ -2793,7 +3062,7 @@ namespace real::detail {
             return false;
           }
           const std::size_t match_end {scan_end(start)};
-          if (match_end != text.size() || !lookaround_holds(sub_id, match_end)) {
+          if (match_end != text.size() || !la_at(match_end)) {
             out_slots.assign(prog_.slot_count, npos);
             return false;
           }
@@ -2831,6 +3100,190 @@ namespace real::detail {
         out_slots.assign(prog_.slot_count, npos);
         return false;
       }
+    }
+
+    //! \brief One buffered `cp_class_loop` match: the whole-match span, which for this route is the
+    //!        whole answer (a capturing wrap mirrors it, and \ref fill_span_slots reconstructs that).
+    struct cp_span
+    {
+      std::size_t start {}; //!< Match start, byte offset.
+      std::size_t end   {}; //!< Match end, byte offset.
+    };
+
+    /*!
+     * \brief Fills up to \p cap `class_loop` matches from \p start without leaving the route.
+     *
+     * The byte-class twin of \ref fill_cp_class_spans, and it exists for the same measurement: this
+     * route emits a match every few bytes on word text (`[a-z]+` over prose is 42 858 matches in
+     * 200 KB, ~9.9 ns each) and the scan is a table lookup per byte. What is left is the per-match
+     * return, and it is the same return.
+     *
+     * \tparam Cascade Whether the memchr stop-tail applies, chosen once per walk by the caller.
+     * \param[in]  text  The subject.
+     * \param[in]  start Where to begin.
+     * \param[out] out   Buffer for the spans found.
+     * \param[in]  cap   Capacity of \p out.
+     * \return How many spans were written.
+     *
+     * \note A fourth filler for the whole-pattern `.`/negated-class route was written, verified and
+     *       REFUSED. On clang/arm64 it is the best of the three: `.` over an emoji corpus emits a
+     *       match every 1.7 bytes and read 4.664 -> 1.921 ns/B, −58.8 %, with every other row inside
+     *       1.7 %. On gcc/x86-64 the same patch gains almost nothing on its own row (8.532 -> 8.174)
+     *       and takes back most of what the byte filler had won: `words` 1.708 -> 3.155, `digits`
+     *       1.089 -> 1.933, the ASCII witness 1.694 -> 3.165. A third branch in `refill_batch` and a
+     *       fourth scan body in this file is what the translation unit could not absorb
+     *       (docs/design.dox §10.1). Two fillers is what fits; the emoji row keeps its +7 % and the
+     *       reason is written here rather than rediscovered.
+     */
+    template <bool Cascade>
+    constexpr std::size_t fill_class_spans(std::string_view text,
+                                           std::size_t      start,
+                                           cp_span*         out,
+                                           std::size_t      cap)
+    {
+      const std::uint8_t* const tbl {
+        class_table(static_cast<std::size_t>(prog_.hints.greedy_class_loop))};
+      std::size_t n                 {0};
+      std::size_t i                 {start};
+      while (i < text.size()) {
+        if (tbl[static_cast<std::uint8_t>(text[i])] == 0U) {
+          ++i;
+          continue;
+        }
+        std::size_t end {i + 1};
+        if constexpr (Cascade) {
+          while (end < text.size() && tbl[static_cast<std::uint8_t>(text[end])] != 0U) {
+            ++end;
+            if (end - i == cascade_run_threshold) {
+              end = run_cascade_stop(text, end);
+              break;
+            }
+          }
+        }
+        else {
+          while (end < text.size() && tbl[static_cast<std::uint8_t>(text[end])] != 0U) {
+            ++end;
+          }
+        }
+        out[n] = cp_span {.start = i, .end = end};
+        ++n;
+        i = end;
+        if (n == cap) {
+          break;
+        }
+      }
+      return n;
+    }
+
+    /*!
+     * \brief Fills up to \p cap `cp_class_loop` matches from \p start without leaving the route.
+     *
+     * The route's per-match cost is not its scan. Holding the class and the bytes fixed and varying
+     * only how often a match must be emitted puts the inner scan at ~2.2 ns/B against 7.6 for the same
+     * bytes emitted one code point at a time: **71 % of those rows is the per-match return** through
+     * `run()`'s dispatch, `fill_span_slots` and the iterator's re-entry, paid once every three bytes
+     * for a single-code-point pattern. Filling a buffer amortises all of it over \p cap matches and
+     * hoists `asc` once for the batch instead of once per match.
+     *
+     * Narrow by construction, and the guard is the caller's (\ref basic_match_iterator): search
+     * semantics, no `\b`/`\B` wrap, no `{k,}` minimum. Those shapes have bookkeeping this loop does
+     * not reproduce, and batching them would answer a different question than the one asked.
+     * \param[in]  text  The subject.
+     * \param[in]  start Where to begin.
+     * \param[out] out   Buffer for the spans found.
+     * \param[in]  cap   Capacity of \p out; the walk stops there and resumes from the last end.
+     * \return How many spans were written.
+     */
+    constexpr std::size_t fill_cp_class_spans(std::string_view text,
+                                              std::size_t      start,
+                                              cp_span*         out,
+                                              std::size_t      cap)
+    {
+      const std::size_t         cp_index {static_cast<std::size_t>(prog_.hints.greedy_cp_class)};
+      const std::uint8_t* const asc {cp_ascii_table(cp_index)};
+      const auto                member_hi = [&](char32_t cp) -> bool {
+                                              if (cp <= cp_page_max) {
+                                                return cp_member_page(cp_index, cp);
+                                              }
+                                              return cp_member_high(cp_index, cp);
+                                            };
+      const auto width = [&](std::size_t i) -> std::size_t {
+                           const detail::decoded_codepoint dc {detail::decode_codepoint_strict(text, i)};
+                           if (!dc.valid) {
+                             return 0;
+                           }
+                           const bool m {dc.cp < 0x80U ? asc[dc.cp] != 0U : member_hi(dc.cp)};
+                           return m ? dc.length : 0;
+                         };
+      const bool        greedy  {prog_.hints.greedy_cp_class_plus};
+      const std::size_t max_len {prog_.hints.greedy_cp_class_max};
+      std::size_t       n       {0};
+      std::size_t       i       {start};
+      while (i < text.size()) {
+        const auto  lead {static_cast<std::uint8_t>(text[i])};
+        std::size_t w    {asc[lead] != 0U ? std::size_t {1}
+                                       : (lead < 0x80U ? std::size_t {0} : width(i))};
+        if (w == 0) {
+          ++i;
+          continue;
+        }
+        std::size_t end {i + w};
+        if (greedy) {
+          while (end < text.size()) {
+            const auto l2 {static_cast<std::uint8_t>(text[end])};
+            if (asc[l2] != 0U) {
+              ++end;
+              continue;
+            }
+            if (l2 < 0x80U) {
+              break;
+            }
+            const std::size_t w2 {width(end)};
+            if (w2 == 0) {
+              break;
+            }
+            end += w2;
+          }
+        }
+        else if (max_len != 0) {
+          for (std::size_t k {1}; k < max_len && end < text.size(); ++k) {
+            const auto l2 {static_cast<std::uint8_t>(text[end])};
+            if (asc[l2] != 0U) {
+              ++end;
+              continue;
+            }
+            if (l2 < 0x80U) {
+              break;
+            }
+            const std::size_t w2 {width(end)};
+            if (w2 == 0) {
+              break;
+            }
+            end += w2;
+          }
+        }
+        out[n] = cp_span {.start = i, .end = end};
+        ++n;
+        i = end;
+        if (n == cap) {
+          break;
+        }
+      }
+      return n;
+    }
+
+    /*!
+     * \brief Writes a buffered span into a caller's slots exactly as the per-match path would.
+     * \param[out] out_slots Slots to fill.
+     * \param[in]  s         Match start.
+     * \param[in]  e         Match end.
+     */
+    template <typename OutSlots>
+    constexpr void write_cp_span_slots(OutSlots&   out_slots,
+                                       std::size_t s,
+                                       std::size_t e)
+    {
+      fill_span_slots(out_slots, s, e);
     }
 
     /*!
@@ -2982,6 +3435,14 @@ namespace real::detail {
                           return false;
                         };
 
+      // The limit a trailing `\Z`/`$` imposes. The recognizer peeled that assertion out of the
+      // program, so this is the only thing left enforcing it -- and `$` (kind 2) also accepts the
+      // position just before ONE final newline, which is why `^X$` is not fullmatch(X).
+      const std::size_t end_limit {
+        prog_.hints.greedy_cp_class_end == 2 && !text.empty() && text.back() == '\n'
+          ? text.size() - 1
+          : text.size()};
+
       // P1: counts code points in [s, e) -- only walked when min_len > 1 (the {k,} shape); the
       // range is already known to be a valid run of class-member code points (extend_run just
       // built it), so this simply re-walks UTF-8 lead bytes to count boundaries, never re-validates.
@@ -3002,6 +3463,7 @@ namespace real::detail {
         if (mode == run_mode::full || mode == run_mode::prefix) {
           const std::size_t match_end {extend_run(start)};
           if (match_end == npos || (mode == run_mode::full && match_end != text.size()) ||
+              (prog_.hints.greedy_cp_class_end != 0 && match_end != end_limit) ||
               !wb_boundaries_ok(start, match_end) ||
               (min_len > 1 && count_cps(start, match_end) < min_len)) {
             return fail();
@@ -3074,6 +3536,17 @@ namespace real::detail {
         // anchored modes have no retry, so fail outright (mirrors run_class_loop's own min-check).
         if (min_len > 1 && count_cps(match_start, match_end) < min_len) {
           if (mode != run_mode::search) {
+            return fail();
+          }
+          match_start = match_end;
+          continue;
+        }
+        // Same retry shape for the end anchor: a maximal run that stops short of the limit can never
+        // be the match, so skip past it. Placed in the existing loop rather than replaced by a
+        // backward walk -- walking back through UTF-8 means decoding, and this scan's handling of a
+        // malformed sequence is already pinned by the seam differential.
+        if (prog_.hints.greedy_cp_class_end != 0 && match_end != end_limit) {
+          if (mode != run_mode::search || match_end <= match_start) {
             return fail();
           }
           match_start = match_end;

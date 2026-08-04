@@ -73,7 +73,15 @@ class FilesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SGPFile:
         """
-        Upload File
+        Upload a file's bytes directly and create a file record.
+
+        Send the file as multipart/form-data in the `file` field; the request body
+        carries the raw bytes, unlike cloud_imports which only references blobs that
+        already exist in cloud storage. The upload is rejected if it exceeds 25 MB;
+        larger or direct-to-storage uploads use a separate upload flow. Content is
+        deduplicated by checksum and MIME type, so uploading bytes identical to an
+        existing file reuses the already-stored object instead of storing a second copy.
+        Returns the created file's metadata.
 
         Args:
           extra_headers: Send extra headers
@@ -112,7 +120,11 @@ class FilesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SGPFile:
         """
-        Get File
+        Retrieve a single file's metadata by id.
+
+        Returns the file record (id, filename, MIME type, size, tags, and related
+        fields) but not the file's bytes; use the content endpoint to download the
+        bytes.
 
         Args:
           extra_headers: Send extra headers
@@ -146,7 +158,11 @@ class FilesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SGPFile:
         """
-        Update File
+        Update a file's mutable metadata by id.
+
+        Only the file's `tags` can be modified; filename, content, size, and other
+        attributes are immutable through this endpoint. The supplied tags replace the
+        file's existing tags. Returns the updated file metadata.
 
         Args:
           extra_headers: Send extra headers
@@ -185,7 +201,12 @@ class FilesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPage[SGPFile]:
         """
-        List Files
+        List the account's files with pagination.
+
+        Optionally filter by `filename` (case-insensitive partial match). Results are
+        scoped to the files the caller is authorized to read. Files marked hidden
+        (internal or service-owned artifacts) are excluded from this listing but remain
+        retrievable by id. Returns file metadata only, not content.
 
         Args:
           filename: Filter files by filename (case-insensitive partial match)
@@ -233,7 +254,14 @@ class FilesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> FileDeleteResponse:
         """
-        Delete File
+        Delete a file by id, removing its database record.
+
+        This is a hard delete: the file's row is removed from the database, not
+        soft-archived. The underlying stored object is deleted only when no other file
+        record still references the same stored content (identical checksum and MIME
+        type); when another record shares the blob, the blob is retained. If the id
+        refers to an incomplete multipart upload placeholder, its staged parts are
+        aborted instead. Returns a confirmation carrying the deleted file's id.
 
         Args:
           extra_headers: Send extra headers
@@ -266,7 +294,17 @@ class FilesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> FileImportFromCloudResponse:
         """
-        Import files from existing blob storage in cloud (batch operation)
+        Register files that already exist in cloud blob storage as file records, in one
+        batch.
+
+        Unlike upload, this transfers no bytes: each entry references an existing object
+        by its container/bucket, filepath, filename, and MIME type, and only a metadata
+        record pointing at that object is created. Files are imported independently and
+        the response reports a per-file status. The response is 200 when every import
+        succeeds and 207 when results are mixed, with each result marked SUCCESS or a
+        failure reason (file does not exist, invalid permissions, or unknown error).
+        Failed entries carry only the submitted filename and MIME type rather than a
+        full file record.
 
         Args:
           files: List of files to import from cloud storage
@@ -325,7 +363,15 @@ class AsyncFilesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SGPFile:
         """
-        Upload File
+        Upload a file's bytes directly and create a file record.
+
+        Send the file as multipart/form-data in the `file` field; the request body
+        carries the raw bytes, unlike cloud_imports which only references blobs that
+        already exist in cloud storage. The upload is rejected if it exceeds 25 MB;
+        larger or direct-to-storage uploads use a separate upload flow. Content is
+        deduplicated by checksum and MIME type, so uploading bytes identical to an
+        existing file reuses the already-stored object instead of storing a second copy.
+        Returns the created file's metadata.
 
         Args:
           extra_headers: Send extra headers
@@ -364,7 +410,11 @@ class AsyncFilesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SGPFile:
         """
-        Get File
+        Retrieve a single file's metadata by id.
+
+        Returns the file record (id, filename, MIME type, size, tags, and related
+        fields) but not the file's bytes; use the content endpoint to download the
+        bytes.
 
         Args:
           extra_headers: Send extra headers
@@ -398,7 +448,11 @@ class AsyncFilesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SGPFile:
         """
-        Update File
+        Update a file's mutable metadata by id.
+
+        Only the file's `tags` can be modified; filename, content, size, and other
+        attributes are immutable through this endpoint. The supplied tags replace the
+        file's existing tags. Returns the updated file metadata.
 
         Args:
           extra_headers: Send extra headers
@@ -437,7 +491,12 @@ class AsyncFilesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[SGPFile, AsyncCursorPage[SGPFile]]:
         """
-        List Files
+        List the account's files with pagination.
+
+        Optionally filter by `filename` (case-insensitive partial match). Results are
+        scoped to the files the caller is authorized to read. Files marked hidden
+        (internal or service-owned artifacts) are excluded from this listing but remain
+        retrievable by id. Returns file metadata only, not content.
 
         Args:
           filename: Filter files by filename (case-insensitive partial match)
@@ -485,7 +544,14 @@ class AsyncFilesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> FileDeleteResponse:
         """
-        Delete File
+        Delete a file by id, removing its database record.
+
+        This is a hard delete: the file's row is removed from the database, not
+        soft-archived. The underlying stored object is deleted only when no other file
+        record still references the same stored content (identical checksum and MIME
+        type); when another record shares the blob, the blob is retained. If the id
+        refers to an incomplete multipart upload placeholder, its staged parts are
+        aborted instead. Returns a confirmation carrying the deleted file's id.
 
         Args:
           extra_headers: Send extra headers
@@ -518,7 +584,17 @@ class AsyncFilesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> FileImportFromCloudResponse:
         """
-        Import files from existing blob storage in cloud (batch operation)
+        Register files that already exist in cloud blob storage as file records, in one
+        batch.
+
+        Unlike upload, this transfers no bytes: each entry references an existing object
+        by its container/bucket, filepath, filename, and MIME type, and only a metadata
+        record pointing at that object is created. Files are imported independently and
+        the response reports a per-file status. The response is 200 when every import
+        succeeds and 207 when results are mixed, with each result marked SUCCESS or a
+        failure reason (file does not exist, invalid permissions, or unknown error).
+        Failed entries carry only the submitted filename and MIME type rather than a
+        full file record.
 
         Args:
           files: List of files to import from cloud storage

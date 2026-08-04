@@ -102,7 +102,7 @@ class AsyncTextToSpeechStreamingSocketClient(EventEmitterMixin):
             Only supported by bulbul:v3.
         """
         data = ConfigureConnectionData(
-            target_language_code=target_language_code,
+            language_code=target_language_code,
             speaker=speaker,
             pitch=pitch,
             pace=pace,
@@ -251,7 +251,7 @@ class TextToSpeechStreamingSocketClient(EventEmitterMixin):
             Only supported by bulbul:v3.
         """
         data = ConfigureConnectionData(
-            target_language_code=target_language_code,
+            language_code=target_language_code,
             speaker=speaker,
             pitch=pitch,
             pace=pace,

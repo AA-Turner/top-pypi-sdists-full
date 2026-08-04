@@ -78,8 +78,8 @@ def str_replace(
         s,e = _norm_lines(len(lines), start_line, end_line)
         s -= 1
         if not re_filter: return ''.join(lines[:s]) + _repl(''.join(lines[s:e]), f' in lines {s+1}-{e}') + ''.join(lines[e:])
-        pat = re.compile(re_filter)
-        matched = [i for i in range(s,e) if bool(pat.search(lines[i])) != invert_filter]
+        fpat = re.compile(re_filter)
+        matched = [i for i in range(s,e) if bool(fpat.search(lines[i])) != invert_filter]
         if not matched: return text
         for i in matched: lines[i] = _repl(lines[i], f' on line {i+1}')
         return ''.join(lines)
@@ -146,9 +146,9 @@ def del_lines(
 
 # %% ../nbs/12_tools.ipynb #6274581f
 def line_hash(
-    line:str # A single line of text, without trailing newline
+    line:str # Text to hash; when hashing a single line, omit its trailing newline
 )->str:
-    "4-char hex exhash hash of `line`"
+    "4-char hex hash of `line`"
     return f'{zlib.crc32(line.encode()) & 0xffff:04x}'
 
 def lnhash(

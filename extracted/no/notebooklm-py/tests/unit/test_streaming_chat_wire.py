@@ -31,7 +31,7 @@ from notebooklm._chat.wire import (
     parse_streaming_chat_response,
     raise_if_rate_limited,
 )
-from notebooklm.exceptions import ChatError
+from notebooklm.exceptions import ChatError, UnknownRPCMethodError
 from notebooklm.rpc.types import get_query_url
 
 SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "notebooklm"
@@ -425,9 +425,150 @@ def test_extract_score_accepts_float_and_int_rejects_bool_and_out_of_range() -> 
     assert extract_score([None, None, float("-inf")]) is None
 
 
-def test_missing_and_malformed_citation_shapes_degrade_without_raising() -> None:
-    assert parse_citations(["Answer", None, None, None]) == []
-    assert parse_citations(["Answer", None, None, None, [[], None, None, None, 1]]) == []
+def test_citation_absence_shapes_stay_silent(caplog) -> None:
+    """Genuine absence (answer without citations) emits ZERO log records.
+
+    Pins the soft half of the #1505 absence-vs-malformed policy for the
+    citation path: no type block, a short type block, a ``None`` citation
+    slot (the routine real-traffic shape), and an empty citation list all
+    parse to ``[]`` with no logging at any level.
+    """
+    absent_shapes = [
+        ["Answer only"],  # short row: no type block at all
+        ["Answer", None, None, None],  # no first[4]
+        ["Answer", None, None, None, [1, 2, 3]],  # type block too short for [3]
+        ["Answer", None, None, None, [[], None, None, None, 1]],  # slot is None
+        ["Answer", None, None, None, [[], None, None, [], 1]],  # empty citation list
+    ]
+    with caplog.at_level(logging.DEBUG, logger="notebooklm._chat"):
+        for first in absent_shapes:
+            assert parse_citations(first) == []
+    assert [r for r in caplog.records if r.name.startswith("notebooklm")] == []
+
+
+def test_citationless_answer_stream_parses_silently(caplog) -> None:
+    """End-to-end absence pin: a citation-less answer stream stays soft/silent."""
+    with caplog.at_level(logging.DEBUG, logger="notebooklm._chat"):
+        result = parse_streaming_chat_response(
+            _length_prefixed(_chunk("Answer without citations."))
+        )
+    assert result.answer == "Answer without citations."
+    assert result.references == []
+    assert [r for r in caplog.records if r.name.startswith("notebooklm")] == []
+
+
+def test_citation_container_truthy_non_list_raises() -> None:
+    """PRESENT-BUT-MALFORMED container: a truthy non-list at ``first[4][3]`` raises.
+
+    Documented choice (raise, not warn): the surrounding parser already treats
+    equivalent container drift as a raise — ``_extract_chunk_with_parseable``
+    raises ``UnknownRPCMethodError`` for a non-list ``inner_data[0]``, and the
+    #1505 ``unwrap_conversation_turns`` raises for a truthy non-list turn
+    container — so the citation container follows the same precedent.
+    """
+    first = ["Answer", None, None, None, [[], None, None, {"reshaped": True}, 1]]
+    with pytest.raises(UnknownRPCMethodError) as raised:
+        parse_citations(first)
+    assert raised.value.source == "ChatAnswerRow.citations"
+    assert raised.value.path == (4, 3)
+
+
+def test_non_list_answer_row_raises_in_parse_citations() -> None:
+    """A non-list answer row mirrors the stream parser's structural raise."""
+    with pytest.raises(UnknownRPCMethodError) as raised:
+        parse_citations("not-a-row")  # type: ignore[arg-type]
+    assert raised.value.source == "_chat_wire.parse_citations"
+
+
+def test_stream_with_reshaped_citation_container_raises() -> None:
+    """Container drift inside a real stream surfaces loudly (no silent no-citations answer)."""
+    inner = json.dumps([["Answer.", None, None, None, [[], None, None, "drifted", 1]]])
+    chunk = json.dumps([["wrb.fr", None, inner]])
+    with pytest.raises(UnknownRPCMethodError):
+        parse_streaming_chat_response(_length_prefixed(chunk))
+
+
+def test_malformed_citation_rows_warn_and_keep_survivors(caplog) -> None:
+    """Per-row malformation warns (at least once per row) and keeps survivors.
+
+    The rows crafted here each emit exactly one warning. A deep malformed
+    source-id tree could additionally trip the UUID max-recursion warning,
+    so the production contract is "at least one bounded warning per
+    malformed row" rather than exactly one.
+    """
+    good_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+
+    class _ExplodingLen(list):
+        """A list whose ``len()`` raises — exercises the defensive per-row except."""
+
+        def __len__(self) -> int:
+            raise TypeError("boom")
+
+    bad_rows: list = [
+        ["present-but-too-short"],  # no detail slot -> unusable
+        [["chunk-x"], "detail-not-a-list"],  # wrong type at the detail slot
+        _citation(source_id="not-a-uuid"),  # no extractable source id
+        _ExplodingLen(),  # unexpected error while decoding the row
+    ]
+    first = [
+        "Answer",
+        None,
+        None,
+        None,
+        [[], None, None, [*bad_rows, _citation(source_id=good_id)], 1],
+    ]
+
+    with caplog.at_level(logging.WARNING, logger="notebooklm._chat"):
+        refs = parse_citations(first)
+
+    assert [ref.source_id for ref in refs] == [good_id]
+    # The survivor keeps its RAW wire ordinal (position 5, after 4 skipped
+    # rows) — not a dense re-count — so the answer's [5] marker still
+    # resolves to it and [1]-[4] resolve to nothing.
+    assert [ref.citation_number for ref in refs] == [5]
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == len(bad_rows)  # these rows: exactly one each
+    assert all("citation" in r.message for r in warnings)
+
+
+def test_skipped_citation_row_leaves_numbering_hole_for_markers(caplog) -> None:
+    """Regression: raw rows [good#1, bad#2, good#3] yield citation numbers {1, 3}.
+
+    Dense renumbering after a skip would re-anchor the answer's literal
+    ``[2]`` marker onto raw citation #3 (save-as-note would anchor the WRONG
+    chunk via the positional fallback). Survivors must keep raw ordinals so
+    the skipped row leaves a hole: marker ``[2]`` resolves to ``None`` and
+    its anchor is dropped — never mis-anchored.
+    """
+    from notebooklm._chat.notes import _resolve_reference
+
+    good_1 = _citation(source_id="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", chunk_id="chunk-1")
+    bad_2 = ["present-but-unusable"]
+    good_3 = _citation(source_id="11111111-2222-3333-4444-555555555555", chunk_id="chunk-3")
+    first = ["Answer [1][2][3].", None, None, None, [[], None, None, [good_1, bad_2, good_3], 1]]
+
+    with caplog.at_level(logging.WARNING, logger="notebooklm._chat"):
+        refs = parse_citations(first)
+    assert [ref.citation_number for ref in refs] == [1, 3]
+
+    # End-to-end: the stream parser's final dense fill only touches None
+    # numbers, so the hole survives parse_streaming_chat_response.
+    inner = json.dumps([first])
+    chunk = json.dumps([["wrb.fr", None, inner]])
+    result = parse_streaming_chat_response(_length_prefixed(chunk))
+    assert [ref.citation_number for ref in result.references] == [1, 3]
+
+    # Downstream marker resolution: the hole yields None (anchor skipped),
+    # the surviving markers resolve to their own chunks.
+    resolved_1 = _resolve_reference(result.references, 1)
+    assert resolved_1 is not None and resolved_1.chunk_id == "chunk-1"
+    assert _resolve_reference(result.references, 2) is None
+    resolved_3 = _resolve_reference(result.references, 3)
+    assert resolved_3 is not None and resolved_3.chunk_id == "chunk-3"
+
+
+def test_row_level_citation_helpers_keep_soft_contracts() -> None:
+    """Row-level helper contracts are unchanged: unusable rows yield None/defaults."""
     assert parse_single_citation(_citation(source_id="not-a-uuid")) is None
     assert extract_text_passages([None, None, None, None, ["bad-passage"]]) == (
         None,
@@ -571,6 +712,59 @@ def test_error_frame_without_code_still_surfaces_chat_error() -> None:
 
     with pytest.raises(ChatError, match="server returned an error frame"):
         parse_streaming_chat_response(_length_prefixed(error_frame))
+
+
+def test_oversized_request_rejection_surfaces_status_not_parse_error() -> None:
+    """A null-inner ``wrb.fr`` with an item[5] status payload is a rejection.
+
+    The server rejects an over-long question with a ``wrb.fr`` frame carrying no
+    answer JSON (null item[2]) and a bare grpc-style status at item[5]
+    (``[3]`` == ``INVALID_ARGUMENT``), followed by ``di`` / ``af.httprm`` / ``e``
+    stream-bookkeeping frames. The parser used to skip the status frame and
+    raise the generic "No parseable chunks" error, masking the real cause
+    (discussion #1472). It now raises a :class:`ChatError` echoing the status.
+
+    The body below is byte-for-byte the real captured rejection from #1472 — the
+    ``["e", 4, None, None, 132]`` trailer is deliberately included to pin that it
+    is NOT treated as the error (its trailing ``132`` is a response byte count,
+    not an error code).
+    """
+    wire = _length_prefixed(
+        json.dumps([["wrb.fr", None, None, None, None, [3]]]),
+        json.dumps([["di", 198], ["af.httprm", 197, "-1460015816955467607", 6]]),
+        json.dumps([["e", 4, None, None, 132]]),
+    )
+
+    with pytest.raises(ChatError, match=r"rejected by the server \(status 3\)"):
+        parse_streaming_chat_response(wire)
+
+
+def test_null_inner_frame_with_empty_payload_still_raises_without_status() -> None:
+    """A null-inner ``wrb.fr`` with an empty ``[]`` payload is not swallowed.
+
+    Guards the ``is not None`` (not truthy) check: a present-but-empty item[5]
+    has no status to report, but the frame still carries no answer, so it must
+    raise a rejection rather than collapse into "No parseable chunks".
+    """
+    wire = _length_prefixed(json.dumps([["wrb.fr", None, None, None, None, []]]))
+
+    with pytest.raises(ChatError, match=r"rejected by the server\."):
+        parse_streaming_chat_response(wire)
+
+
+def test_e_terminator_frame_does_not_break_successful_answer() -> None:
+    """A trailing ``"e"`` stream terminator must not turn a good answer into an error.
+
+    Successful streamed responses end with an ``["e", n, None, None, bytes]``
+    bookkeeping frame (the trailing number is a running byte count). Regression
+    guard for discussion #1472: the ``"e"`` tag must stay inert so a valid
+    answer parses normally instead of raising.
+    """
+    body = _length_prefixed(_chunk("Real answer."), json.dumps([["e", 15, None, None, 41687]]))
+
+    result = parse_streaming_chat_response(body)
+
+    assert result.answer == "Real answer."
 
 
 def test_chat_wire_static_import_guard() -> None:

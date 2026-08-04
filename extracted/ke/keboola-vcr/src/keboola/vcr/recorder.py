@@ -17,8 +17,9 @@ import json
 import logging
 import os
 import re
+import time
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import IO, Any
 
@@ -49,7 +50,7 @@ try:
     # is present (replay).  http.client.HTTPConnection auto-reconnects on its next
     # send() if the socket has been closed — so reusing the VCRHTTPConnection is safe
     # and reuses the existing ssl_context instead of loading the CA store again.
-    try:
+    with contextlib.suppress(ImportError, AttributeError, TypeError):
         from vcr.stubs import VCRFakeSocket as _VCRFakeSocket
 
         _VCRConnection = _VCRHTTPResponse  # sentinel — replaced below
@@ -64,20 +65,16 @@ try:
             sock = getattr(self, "_sock", None)
             if isinstance(sock, _VCRFakeSocket):
                 return True  # VCR replay: fake socket is always "connected"
+            # VCR recording: always claim connected so urllib3 reuses this
+            # VCRHTTPConnection and its ssl_context instead of calling _new_conn().
+            # http.client.HTTPConnection.send() calls connect() automatically when
+            # the socket has been closed (Connection: close), so the real connection
+            # is re-established transparently on the next request.
             rc = getattr(self, "real_connection", None)
-            if rc is not None:
-                # VCR recording: always claim connected so urllib3 reuses this
-                # VCRHTTPConnection and its ssl_context instead of calling _new_conn().
-                # http.client.HTTPConnection.send() calls connect() automatically when
-                # the socket has been closed (Connection: close), so the real connection
-                # is re-established transparently on the next request.
-                return True
-            return False
+            return rc is not None
 
         _VCRConnection.is_connected = _vcr_is_connected  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         del _vcr_is_connected, _VCRHTTPConnection, _VCRConnection
-    except Exception:
-        pass
     # --- end urllib3 connection-reuse fix ---
 
     # --- VCRHTTPResponse.release_conn fix ---
@@ -104,7 +101,7 @@ try:
     # socket with a VCRFakeSocket / real_connection reconnect as usual.
     if not hasattr(_VCRHTTPResponse, "release_conn"):
 
-        def _vcr_release_conn(self) -> None:  # noqa: E306
+        def _vcr_release_conn(self) -> None:
             pool = getattr(self, "_pool", None)
             conn = getattr(self, "_connection", None)
             if pool is not None and conn is not None:
@@ -145,22 +142,42 @@ from .sanitizers import (
 logger = logging.getLogger(__name__)
 
 
+# Captured at import — before any freeze_time() is ever applied.
+#
+# A bare `_REAL_MONOTONIC = time.monotonic` is NOT enough: freezegun's
+# freeze_time().start() walks every already-imported module's attributes and
+# replaces any value that `is real_monotonic` (a plain identity check) with its
+# fake, specifically to close the "stash a reference before freezing" loophole.
+# Since `keboola.vcr.recorder` is already imported by the time a test enters
+# freeze_time(), a bare module-level reference would get swapped right along
+# with `time.monotonic` itself.
+#
+# Wrapping the captured reference in a closure sidesteps this: the module-level
+# name is bound to a distinct function object (this closure), not to
+# `time.monotonic` itself, so freezegun's identity scan never matches it — the
+# closure keeps calling the genuine builtin even while frozen.
+def _make_real_monotonic() -> Callable[[], float]:
+    real = time.monotonic
+
+    def _real_monotonic() -> float:
+        return real()
+
+    return _real_monotonic
+
+
+_REAL_MONOTONIC: Callable[[], float] = _make_real_monotonic()
+
+
 class VCRRecorderError(Exception):
     """Base exception for VCR recorder errors."""
-
-    pass
 
 
 class CassetteMissingError(VCRRecorderError):
     """Raised when attempting replay without a cassette."""
 
-    pass
-
 
 class SecretsLoadError(VCRRecorderError):
     """Raised when secrets file cannot be loaded."""
-
-    pass
 
 
 class VCRRecorder:
@@ -248,6 +265,7 @@ class VCRRecorder:
         # Each adapter patches its driver's connect() before the component runs.
         self.db_adapters: list = db_adapters or []
         self._db_interaction_log: _StreamingDBLog | list[dict] | None = []
+        self._reset_perf_state()
 
         # Set after replay — can be checked by callers (e.g. VCRTestDataDir)
         self.last_log_comparison: LogComparisonResult | None = None
@@ -282,6 +300,53 @@ class VCRRecorder:
 
         # Configure VCR
         self._vcr = self._create_vcr_instance()
+
+    def _reset_perf_state(self) -> None:
+        """Reset per-recording performance counters and timing anchors."""
+        self._perf_request_pairs = 0
+        self._perf_first_interaction_mono: float | None = None
+        self._perf_last_interaction_mono: float | None = None
+        self._perf_run_start_wall: datetime | None = None
+        self._perf_run_start_mono: float | None = None
+        self._perf_run_end_mono: float | None = None
+
+    def _build_perf_metadata(self) -> dict:
+        """Assemble performance fields for the cassette _metadata from captured anchors.
+
+        Durations come from the real monotonic clock; wall-clock ISO anchors are derived
+        from the single real start reading plus monotonic offsets, so they stay consistent
+        and immune to clock adjustments during the run. Does not include db_query_pairs.
+
+        Preconditions (guaranteed by record() before this is called): the run anchors
+        (_perf_run_start_wall/_perf_run_start_mono/_perf_run_end_mono) are set. Read into
+        locals so the type checker can narrow them from `X | None` to `X`.
+        """
+        start_wall = self._perf_run_start_wall
+        start_mono = self._perf_run_start_mono
+        end_mono = self._perf_run_end_mono
+        assert start_wall is not None and start_mono is not None and end_mono is not None, (
+            "_build_perf_metadata() requires run anchors populated by record() before it is called"
+        )
+        run_dur = end_mono - start_mono
+        meta: dict = {
+            "request_pairs": self._perf_request_pairs,
+            "component_run_started_at": start_wall.isoformat(),
+            "component_run_ended_at": (start_wall + timedelta(seconds=run_dur)).isoformat(),
+            "component_run_duration_seconds": round(run_dur, 3),
+        }
+        first_mono = self._perf_first_interaction_mono
+        last_mono = self._perf_last_interaction_mono
+        if first_mono is not None and last_mono is not None:
+            first_off = first_mono - start_mono
+            last_off = last_mono - start_mono
+            meta["recording_started_at"] = (start_wall + timedelta(seconds=first_off)).isoformat()
+            meta["recording_ended_at"] = (start_wall + timedelta(seconds=last_off)).isoformat()
+            meta["recording_duration_seconds"] = round(last_mono - first_mono, 3)
+        else:
+            meta["recording_started_at"] = None
+            meta["recording_ended_at"] = None
+            meta["recording_duration_seconds"] = None
+        return meta
 
     @classmethod
     def from_test_dir(
@@ -366,7 +431,7 @@ class VCRRecorder:
         output_dir = Path(data_dir) / "out" / "files"
         config_id = os.environ.get("KBC_CONFIGID", "unknown")
         component_id = os.environ.get("KBC_COMPONENTID", "component").replace(".", "-")
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
         # Build sanitizer chain
         config_path = Path(data_dir) / "config.json"
@@ -384,7 +449,7 @@ class VCRRecorder:
             sanitizers=chain,
             secrets=secrets,
             record_mode="all",
-            freeze_time_at=datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+            freeze_time_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
             cassette_file=f"vcr_debug_{component_id}_{config_id}_{timestamp}.json",
         )
 
@@ -440,6 +505,7 @@ class VCRRecorder:
         """
         self.cassette_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Recording HTTP interactions to {self.cassette_path}")
+        self._reset_perf_state()
 
         action = self._get_action_name()
         stdout_capture = io.StringIO() if action != "run" else None
@@ -485,11 +551,16 @@ class VCRRecorder:
                 cassette._save = lambda force=False: None
 
                 with _pool_reuse_patch():
-                    if stdout_capture is not None:
-                        with contextlib.redirect_stdout(stdout_capture):
+                    self._perf_run_start_wall = datetime.now(timezone.utc)
+                    self._perf_run_start_mono = _REAL_MONOTONIC()
+                    try:
+                        if stdout_capture is not None:
+                            with contextlib.redirect_stdout(stdout_capture):
+                                self._run_with_freeze(component_runner)
+                        else:
                             self._run_with_freeze(component_runner)
-                    else:
-                        self._run_with_freeze(component_runner)
+                    finally:
+                        self._perf_run_end_mono = _REAL_MONOTONIC()
 
         run_result: ComponentRunResult | None = None
         try:
@@ -518,15 +589,20 @@ class VCRRecorder:
             else:
                 self.sync_action_result_path.unlink(missing_ok=True)
 
-        metadata = {
+        metadata: dict[str, Any] = {
             "recorded_at": datetime.now(timezone.utc).isoformat(),
             "freeze_time": self.freeze_time_at,
             "keboola_vcr_version": self._get_version(),
         }
+        metadata.update(self._build_perf_metadata())
         # Add DB adapter metadata
         if self.db_adapters:
             metadata["db_driver"] = self.db_adapters[0].driver_name
             metadata["keboola_db_vcr_version"] = self._get_version()
+            # self._db_interaction_log is set to a _StreamingDBLog (never None) above
+            # whenever self.db_adapters is truthy — see the block right before _run_in_vcr.
+            assert self._db_interaction_log is not None
+            metadata["db_query_pairs"] = len(self._db_interaction_log)
 
         try:
             self._write_cassette(temp_path, metadata, db_temp_path=db_temp_path)
@@ -638,7 +714,7 @@ class VCRRecorder:
             with open(config_path) as f:
                 config = json.load(f)
             return config.get("action", "run") or "run"
-        except Exception:
+        except (OSError, json.JSONDecodeError, ValueError, AttributeError):
             return "run"
 
     def _activate_db_replay(self) -> None:
@@ -655,7 +731,7 @@ class VCRRecorder:
                 for adapter in self.db_adapters:
                     adapter.patch_for_replay(interactions)
                 logger.info("DB replay activated: %d interactions loaded", len(interactions))
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  # best-effort DB replay; a hand-edited/scrubbed cassette can fail decode in many ways — log and continue without it
             logger.warning("Failed to activate DB replay: %s", e)
 
     def _deactivate_db_adapters(self) -> None:
@@ -689,10 +765,8 @@ class VCRRecorder:
     def _load_expected_status(self) -> dict | None:
         """Load expected_status.json if it exists."""
         if self.expected_status_path.exists():
-            try:
+            with contextlib.suppress(OSError, json.JSONDecodeError, ValueError):
                 return json.loads(self.expected_status_path.read_text())
-            except Exception:
-                pass
         return None
 
     @staticmethod
@@ -881,6 +955,14 @@ class VCRRecorder:
         if filtered_response is None:
             return
 
+        # Performance accounting — count pairs and stamp the data-collection window.
+        # Uses the pre-freeze real clock so the window is correct even under freeze_time.
+        now_mono = _REAL_MONOTONIC()
+        if self._perf_first_interaction_mono is None:
+            self._perf_first_interaction_mono = now_mono
+        self._perf_last_interaction_mono = now_mono
+        self._perf_request_pairs += 1
+
         with open(temp_path, "a") as f:
             _write_interaction(f, filtered_request._to_dict(), filtered_response)
 
@@ -1013,7 +1095,7 @@ class VCRRecorder:
                     with open(config_path) as f:
                         config = json.load(f)
                 return module.get_sanitizers(config)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  # loading a user-supplied sanitizers module is best-effort; log and continue
             logger.warning(f"Failed to load custom sanitizers from {sanitizers_path}: {e}")
 
         return None
@@ -1033,10 +1115,10 @@ class VCRRecorder:
     def _get_version() -> str:
         """Get keboola.vcr package version."""
         try:
-            from importlib.metadata import version
+            from importlib.metadata import PackageNotFoundError, version
 
             return version("keboola.vcr")
-        except Exception:
+        except PackageNotFoundError:
             return "unknown"
 
     @staticmethod
@@ -1249,7 +1331,7 @@ def _pool_reuse_patch():
             # it ourselves so that certificate verification works correctly.
             ctx.load_default_certs()
             pool.conn_kw["ssl_context"] = ctx
-        except Exception as exc:
+        except (ImportError, AttributeError, TypeError, OSError) as exc:
             logger.warning("VCR: could not inject shared ssl_context into pool for %s: %s", pool.host, exc)
 
     def _reusing_cfh(self, host, port=None, scheme="http", pool_kwargs=None, **kw):
@@ -1266,10 +1348,8 @@ def _pool_reuse_patch():
     finally:
         PoolManager.connection_from_host = _original_cfh
         for pool in _shared_pools.values():
-            try:
+            with contextlib.suppress(OSError):
                 pool.close()
-            except Exception:
-                pass
         _shared_pools.clear()
 
 

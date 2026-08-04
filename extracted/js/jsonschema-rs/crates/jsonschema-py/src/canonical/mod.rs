@@ -132,8 +132,10 @@ impl PyCanonicalSchema {
                         .transpose()?,
                     patterns: view.patterns,
                     formats: view.formats,
+                    excluded_formats: view.excluded_formats,
                     content_media_types: view.content_media_types,
                     content_encodings: view.content_encodings,
+                    excluded: view.excluded,
                 },
             )?
             .into_any(),
@@ -293,6 +295,24 @@ impl PyCanonicalSchema {
         })
     }
 
+    /// Every value both schemas admit.
+    fn intersect(&self, py: Python<'_>, other: &Self) -> PyResult<Self> {
+        self.inner
+            .intersect(&other.inner)
+            .map(|inner| Self { inner })
+            .map_err(|error| canonicalization_error(py, error))
+    }
+
+    /// Every value this schema rejects, or `None` where the canonical form cannot spell it exactly.
+    fn negate(&self) -> Option<Self> {
+        self.inner.negate().map(|inner| Self { inner })
+    }
+
+    /// The reference target registered under `uri`.
+    fn definition(&self, uri: &str) -> Option<Self> {
+        self.inner.definition(uri).map(|inner| Self { inner })
+    }
+
     /// Map of reference URI -> canonical target for every known target reachable from this schema.
     fn definitions<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PyDict>> {
         let dict = pyo3::types::PyDict::new(py);
@@ -397,9 +417,13 @@ pub(crate) struct StringView {
     #[pyo3(get)]
     formats: Vec<String>,
     #[pyo3(get)]
+    excluded_formats: Vec<String>,
+    #[pyo3(get)]
     content_media_types: Vec<String>,
     #[pyo3(get)]
     content_encodings: Vec<String>,
+    #[pyo3(get)]
+    excluded: Vec<String>,
 }
 
 #[pymethods]
@@ -412,14 +436,18 @@ impl StringView {
         &'static str,
         &'static str,
         &'static str,
+        &'static str,
+        &'static str,
     ) {
         (
             "min_length",
             "max_length",
             "patterns",
             "formats",
+            "excluded_formats",
             "content_media_types",
             "content_encodings",
+            "excluded",
         )
     }
 }
@@ -736,6 +764,8 @@ fn canonicalization_error(
     let name = match &error {
         CanonicalizationError::InvalidSchemaType(_) => "InvalidSchemaType",
         CanonicalizationError::InvalidPattern { .. } => "InvalidPattern",
+        CanonicalizationError::IncompatibleOperands(_) => "IncompatibleOperands",
+        CanonicalizationError::UnmodeledOperand => "UnmodeledOperand",
         _ => "CanonicalizationError",
     };
     let built = py.import("jsonschema_rs").and_then(|module| {

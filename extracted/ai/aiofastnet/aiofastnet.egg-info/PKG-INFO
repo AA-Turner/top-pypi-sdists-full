@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiofastnet
-Version: 1.0.2
+Version: 1.0.3
 Summary: Fast transport/protocol networking for asyncio
 Author-email: Taras Kozlov <tarasko.projects@gmail.com>
 Project-URL: Homepage, https://github.com/tarasko/aiofastnet

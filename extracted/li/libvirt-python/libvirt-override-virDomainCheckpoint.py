@@ -6,7 +6,7 @@
         """Get the domain that a checkpoint was created for"""
         return self.domain()
 
-    def listAllChildren(self, flags: int = 0) -> List['virDomainCheckpoint']:
+    def listAllChildren(self, flags: Optional[int] = 0) -> list['virDomainCheckpoint']:
         """List all child checkpoints and returns a list of checkpoint objects"""
         ret = libvirtmod.virDomainCheckpointListAllChildren(self._o, flags)
         if ret is None:

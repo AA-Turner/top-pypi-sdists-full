@@ -54,7 +54,7 @@ class TemplateLoader(SafeLoader):
                 raise ValueError(f'Duplicate "{key}" key found in YAML.')
             keys.add(key)
 
-        mapping = super(TemplateLoader, self).construct_mapping(node, deep=deep)
+        mapping = super().construct_mapping(node, deep=deep)
         # Annotate each node with line number and filename
         # Add 1 so line numbering starts at 1
         mapping["yaml_line"] = node.start_mark.line + 1
@@ -95,7 +95,6 @@ class MonteCarloConfigService:
         response = self._load_project_config()
         assert response is not None
         self.project_config, self.project_config_file_name = response
-        return
 
     def _init_dbt_config(self):
         self.dbt_project = self._get_dbt_project_name()
@@ -166,12 +165,14 @@ class MonteCarloConfigService:
                         f"\n{'_' * 100} "
                         f"\n{resource_modification.diff_string if resource_modification.diff_string else ''}"  # noqa
                         f"{self._generate_significance_text(resource_modification)}"
+                        f"{self._generate_estimated_credits_text(resource_modification)}"
                         f"\n{'_' * 100}"
                         f"\n\n"
                     )
                 self._print_func()
 
                 if dry_run:
+                    self._print_estimated_credits_total(response.resource_modifications)
                     self._print_func("Dry run, none of the changes have been applied.")
                     self._print_func()
                 elif skip_confirmation or click.confirm(
@@ -249,6 +250,45 @@ class MonteCarloConfigService:
         if resource_modification.is_significant_change:
             return "\nWARNING: This is a significant change which will reset/retrain the monitor."
         return ""
+
+    @staticmethod
+    def _generate_estimated_credits_text(resource_modification: ResourceModification) -> str:
+        estimate = resource_modification.estimated_credits
+        if estimate is None:
+            return ""
+        text = f"\nEstimated credits/day: ~{estimate.credits_per_day:.2f}"
+        for warning in estimate.warnings or []:
+            text += f"\n  note: {warning}"
+        return text
+
+    def _print_estimated_credits_total(
+        self, resource_modifications: List[ResourceModification]
+    ) -> None:
+        estimates = [m.estimated_credits for m in resource_modifications if m.estimated_credits]
+        if not estimates:
+            return
+
+        total = sum(estimate.credits_per_day for estimate in estimates)
+        # The total is a lower bound when some CREATE/UPDATE resource could not be
+        # estimated, or when an estimate omitted its segment multiplier (UNRESOLVED).
+        estimatable = [m for m in resource_modifications if self._is_estimatable(m)]
+        is_lower_bound = len(estimates) < len(estimatable) or any(
+            estimate.segment_count_source == "UNRESOLVED" for estimate in estimates
+        )
+        prefix = "at least ~" if is_lower_bound else "~"
+        self._print_func(f"Estimated total credits/day for this namespace: {prefix}{total:.2f}")
+        if is_lower_bound:
+            self._print_func(
+                "  (some monitors could not be fully estimated; the real total may be higher)"
+            )
+        self._print_func()
+
+    @staticmethod
+    def _is_estimatable(resource_modification: ResourceModification) -> bool:
+        # DELETE modifications never carry an estimate; only CREATE/UPDATE do.
+        return resource_modification.type.endswith("CREATE") or resource_modification.type.endswith(
+            "UPDATE"
+        )
 
     @staticmethod
     def _echo_misconfigured_warnings(misconfigured_warnings: List[Dict[str, Any]]):
@@ -437,9 +477,9 @@ class MonteCarloConfigService:
             for key, value in y.items():
                 if key in x:
                     if isinstance(value, dict):
-                        x[key].merge_update(y[key], box_merge_lists="extend")
+                        x[key].merge_update(value, box_merge_lists="extend")
                     elif isinstance(value, list):
-                        x[key].extend(y[key])
+                        x[key].extend(value)
                 else:
                     x[key] = value
 
@@ -1005,7 +1045,7 @@ namespace: {namespace}
         monitor_uuids = []
         with open(monitors_file, "r") as f:
             line_number = 0
-            for line in f.readlines():
+            for line in f:
                 line_number += 1
                 line = line.strip()
                 if line:

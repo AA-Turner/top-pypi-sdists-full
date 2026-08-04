@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stone
-Version: 3.5.3
+Version: 3.5.4
 Summary: Stone is an interface description language (IDL) for APIs.
 Home-page: https://github.com/dropbox/stone
 Author: Ken Elkabany
@@ -21,8 +21,8 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: packaging>=21.0
-Requires-Dist: Jinja2>=3.0.3
+Requires-Dist: packaging>=26.2
+Requires-Dist: Jinja2>=3.1.6
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

@@ -75,7 +75,17 @@ class CompletionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Completion:
         """
-        Completions
+        Generates a legacy text completion from a raw `prompt` (a string or list of
+        strings).
+
+        Use this endpoint for non-chat, prompt-in/text-out inference using the OpenAI
+        text-completion contract; use /v5/chat/completions when you have a structured
+        `messages` array, /v5/responses for the OpenAI Responses API, and /v5/inference
+        for payloads that follow no OpenAI schema. The model is selected from `model`
+        given as `vendor/name` and routed to the matching per-vendor gateway. When
+        `stream` is set the response is delivered as server-sent events; otherwise a
+        single `text_completion` object is returned. Token usage is recorded for the
+        account, read from the final chunk on streaming responses.
 
         Args:
           model: model specified as `model_vendor/model`, for example `openai/gpt-4o`
@@ -164,7 +174,17 @@ class CompletionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Stream[Completion]:
         """
-        Completions
+        Generates a legacy text completion from a raw `prompt` (a string or list of
+        strings).
+
+        Use this endpoint for non-chat, prompt-in/text-out inference using the OpenAI
+        text-completion contract; use /v5/chat/completions when you have a structured
+        `messages` array, /v5/responses for the OpenAI Responses API, and /v5/inference
+        for payloads that follow no OpenAI schema. The model is selected from `model`
+        given as `vendor/name` and routed to the matching per-vendor gateway. When
+        `stream` is set the response is delivered as server-sent events; otherwise a
+        single `text_completion` object is returned. Token usage is recorded for the
+        account, read from the final chunk on streaming responses.
 
         Args:
           model: model specified as `model_vendor/model`, for example `openai/gpt-4o`
@@ -253,7 +273,17 @@ class CompletionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Completion | Stream[Completion]:
         """
-        Completions
+        Generates a legacy text completion from a raw `prompt` (a string or list of
+        strings).
+
+        Use this endpoint for non-chat, prompt-in/text-out inference using the OpenAI
+        text-completion contract; use /v5/chat/completions when you have a structured
+        `messages` array, /v5/responses for the OpenAI Responses API, and /v5/inference
+        for payloads that follow no OpenAI schema. The model is selected from `model`
+        given as `vendor/name` and routed to the matching per-vendor gateway. When
+        `stream` is set the response is delivered as server-sent events; otherwise a
+        single `text_completion` object is returned. Token usage is recorded for the
+        account, read from the final chunk on streaming responses.
 
         Args:
           model: model specified as `model_vendor/model`, for example `openai/gpt-4o`
@@ -427,7 +457,17 @@ class AsyncCompletionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Completion:
         """
-        Completions
+        Generates a legacy text completion from a raw `prompt` (a string or list of
+        strings).
+
+        Use this endpoint for non-chat, prompt-in/text-out inference using the OpenAI
+        text-completion contract; use /v5/chat/completions when you have a structured
+        `messages` array, /v5/responses for the OpenAI Responses API, and /v5/inference
+        for payloads that follow no OpenAI schema. The model is selected from `model`
+        given as `vendor/name` and routed to the matching per-vendor gateway. When
+        `stream` is set the response is delivered as server-sent events; otherwise a
+        single `text_completion` object is returned. Token usage is recorded for the
+        account, read from the final chunk on streaming responses.
 
         Args:
           model: model specified as `model_vendor/model`, for example `openai/gpt-4o`
@@ -516,7 +556,17 @@ class AsyncCompletionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncStream[Completion]:
         """
-        Completions
+        Generates a legacy text completion from a raw `prompt` (a string or list of
+        strings).
+
+        Use this endpoint for non-chat, prompt-in/text-out inference using the OpenAI
+        text-completion contract; use /v5/chat/completions when you have a structured
+        `messages` array, /v5/responses for the OpenAI Responses API, and /v5/inference
+        for payloads that follow no OpenAI schema. The model is selected from `model`
+        given as `vendor/name` and routed to the matching per-vendor gateway. When
+        `stream` is set the response is delivered as server-sent events; otherwise a
+        single `text_completion` object is returned. Token usage is recorded for the
+        account, read from the final chunk on streaming responses.
 
         Args:
           model: model specified as `model_vendor/model`, for example `openai/gpt-4o`
@@ -605,7 +655,17 @@ class AsyncCompletionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Completion | AsyncStream[Completion]:
         """
-        Completions
+        Generates a legacy text completion from a raw `prompt` (a string or list of
+        strings).
+
+        Use this endpoint for non-chat, prompt-in/text-out inference using the OpenAI
+        text-completion contract; use /v5/chat/completions when you have a structured
+        `messages` array, /v5/responses for the OpenAI Responses API, and /v5/inference
+        for payloads that follow no OpenAI schema. The model is selected from `model`
+        given as `vendor/name` and routed to the matching per-vendor gateway. When
+        `stream` is set the response is delivered as server-sent events; otherwise a
+        single `text_completion` object is returned. Token usage is recorded for the
+        account, read from the final chunk on streaming responses.
 
         Args:
           model: model specified as `model_vendor/model`, for example `openai/gpt-4o`

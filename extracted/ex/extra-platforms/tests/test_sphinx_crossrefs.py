@@ -865,7 +865,8 @@ def get_expected_page_for_symbol(role: str, symbol: str) -> str:
 def _get_all_public_symbols() -> Iterator[str]:
     """Collect all public symbols from extra_platforms and pytest modules.
 
-    Returns a list of (symbol_name, is_pytest_decorator) tuples for parametrization.
+    Yields each symbol name as a string; ``pytest`` submodule symbols carry a
+    ``pytest.`` prefix.
     """
 
     # Add all symbols exposed in extra_platforms root.
@@ -878,7 +879,7 @@ def _get_all_public_symbols() -> Iterator[str]:
             yield f"pytest.{symbol_name}"
 
 
-@pytest.mark.parametrize("symbol_name", _get_all_public_symbols())
+@pytest.mark.parametrize("symbol_name", list(_get_all_public_symbols()))
 def test_get_expected_page_for_symbol_handles_public_api(symbol_name):
     """Test that get_expected_page_for_symbol correctly handles each public symbol.
 
@@ -1025,12 +1026,18 @@ def test_all_crossreferences_point_to_correct_pages(
         "extend",
         "insert",
     }
+    # Standard-library members (like ``os.environ``) resolve via intersphinx to the
+    # Python docs, so they have no anchor on a local extra_platforms page to check.
+    stdlib_symbols = {
+        "os.environ",
+    }
     if (
         symbol in python_builtins
         or symbol.split(".")[-1] in python_builtins
         or (role == "meth" and symbol in python_builtin_methods)
+        or symbol in stdlib_symbols
     ):
-        pytest.skip("Skipping builtin symbol")
+        pytest.skip("Skipping builtin or standard-library symbol")
 
     if (
         symbol.startswith((

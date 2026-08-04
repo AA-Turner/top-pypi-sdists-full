@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Iterable
 from typing_extensions import Literal, TypedDict
+
+from .repo_spec_param import RepoSpecParam
 
 __all__ = ["AgentConfigUpdateParams"]
 
@@ -42,6 +44,20 @@ class AgentConfigUpdateParams(TypedDict, total=False):
             "Salesforce",
             "Figma",
             "Granola",
+            "Jira",
+            "Gmail",
+            "GoogleCalendar",
+            "GoogleDrive",
+            "GoogleDocs",
+            "GoogleSheets",
+            "GoogleSlides",
+            "Snowflake",
+            "Redash",
+            "Tableau",
+            "Metabase",
+            "Gong",
+            "ZoomInfo",
+            "Clay",
         ]
     ]
 
@@ -56,5 +72,9 @@ class AgentConfigUpdateParams(TypedDict, total=False):
     model: str
 
     name: str
+
+    persistent_workspace: bool
+
+    repos: Iterable[RepoSpecParam]
 
     system_prompt: str

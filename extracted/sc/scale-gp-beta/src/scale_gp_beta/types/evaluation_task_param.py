@@ -40,6 +40,7 @@ __all__ = [
     "ApplicationVariantV1EvaluationTaskConfigurationOverridesAgenticApplicationOverrides",
     "ApplicationVariantV1EvaluationTaskConfigurationOverridesAgenticApplicationOverridesInitialState",
     "ApplicationVariantV1EvaluationTaskConfigurationOverridesAgenticApplicationOverridesPartialTrace",
+    "ApplicationVariantV1EvaluationTaskConfigurationOverridesUnionMember1ApplicationVariantV1EvaluationTaskConfigurationOverridesUnionMember1Item",
     "AgentexOutputEvaluationTask",
     "AgentexOutputEvaluationTaskConfiguration",
     "MetricEvaluationTask",
@@ -78,58 +79,134 @@ class ChatCompletionEvaluationTaskConfiguration(  # type: ignore[call-arg]
     extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
 ):
     messages: Required[Union[Iterable[Dict[str, object]], ItemLocator]]
+    """openai standard message format"""
 
     model: Required[str]
+    """model specified as `model_vendor/model`, for example `openai/gpt-4o`"""
 
     audio: Union[Dict[str, object], ItemLocator]
+    """Parameters for audio output.
+
+    Required when audio output is requested with modalities: ['audio'].
+    """
 
     frequency_penalty: Union[float, ItemLocator]
+    """Number between -2.0 and 2.0.
+
+    Positive values penalize new tokens based on their existing frequency in the
+    text so far.
+    """
 
     function_call: Union[Dict[str, object], ItemLocator]
+    """Deprecated in favor of tool_choice.
+
+    Controls which function is called by the model.
+    """
 
     functions: Union[Iterable[Dict[str, object]], ItemLocator]
+    """Deprecated in favor of tools.
+
+    A list of functions the model may generate JSON inputs for.
+    """
 
     logit_bias: Union[Dict[str, int], ItemLocator]
+    """Modify the likelihood of specified tokens appearing in the completion.
+
+    Maps tokens to bias values from -100 to 100.
+    """
 
     logprobs: Union[bool, ItemLocator]
+    """Whether to return log probabilities of the output tokens or not."""
 
     max_completion_tokens: Union[int, ItemLocator]
+    """
+    An upper bound for the number of tokens that can be generated, including visible
+    output tokens and reasoning tokens.
+    """
 
     max_tokens: Union[int, ItemLocator]
+    """Deprecated in favor of max_completion_tokens.
+
+    The maximum number of tokens to generate.
+    """
 
     metadata: Union[Dict[str, str], ItemLocator]
+    """
+    Developer-defined tags and values used for filtering completions in the
+    dashboard.
+    """
 
     modalities: Union[SequenceNotStr[str], ItemLocator]
+    """Output types that you would like the model to generate for this request."""
 
     n: Union[int, ItemLocator]
+    """How many chat completion choices to generate for each input message."""
 
     parallel_tool_calls: Union[bool, ItemLocator]
+    """Whether to enable parallel function calling during tool use."""
 
     prediction: Union[Dict[str, object], ItemLocator]
+    """
+    Static predicted output content, such as the content of a text file being
+    regenerated.
+    """
 
     presence_penalty: Union[float, ItemLocator]
+    """Number between -2.0 and 2.0.
+
+    Positive values penalize tokens based on whether they appear in the text so far.
+    """
 
     reasoning_effort: str
+    """For o1 models only. Constrains effort on reasoning. Values: low, medium, high."""
 
     response_format: Union[Dict[str, object], ItemLocator]
+    """An object specifying the format that the model must output."""
 
     seed: Union[int, ItemLocator]
+    """
+    If specified, system will attempt to sample deterministically for repeated
+    requests with same seed.
+    """
 
-    stop: str
+    stop: Union[str, SequenceNotStr[str]]
+    """Up to 4 sequences where the API will stop generating further tokens."""
 
     store: Union[bool, ItemLocator]
+    """Whether to store the output for use in model distillation or evals products."""
 
     temperature: Union[float, ItemLocator]
+    """What sampling temperature to use.
 
-    tool_choice: str
+    Higher values make output more random, lower more focused.
+    """
+
+    tool_choice: Union[str, Dict[str, object]]
+    """Controls which tool is called by the model.
+
+    Values: none, auto, required, or specific tool.
+    """
 
     tools: Union[Iterable[Dict[str, object]], ItemLocator]
+    """A list of tools the model may call.
+
+    Currently, only functions are supported. Max 128 functions.
+    """
 
     top_k: Union[int, ItemLocator]
+    """Only sample from the top K options for each subsequent token"""
 
     top_logprobs: Union[int, ItemLocator]
+    """
+    Number of most likely tokens to return at each position, with associated log
+    probability.
+    """
 
     top_p: Union[float, ItemLocator]
+    """Alternative to temperature.
+
+    Only tokens comprising top_p probability mass are considered.
+    """
 
 
 class ChatCompletionEvaluationTask(TypedDict, total=False):
@@ -148,10 +225,13 @@ GenericInferenceEvaluationTaskConfigurationInferenceConfiguration: TypeAlias = U
 
 class GenericInferenceEvaluationTaskConfiguration(TypedDict, total=False):
     model: Required[str]
+    """model specified as `vendor/name` (ex. openai/gpt-5)"""
 
     args: Union[Dict[str, object], ItemLocator]
+    """Arguments passed into model"""
 
     inference_configuration: GenericInferenceEvaluationTaskConfigurationInferenceConfiguration
+    """Vendor specific configuration"""
 
 
 class GenericInferenceEvaluationTask(TypedDict, total=False):
@@ -218,8 +298,23 @@ class ApplicationVariantV1EvaluationTaskConfigurationOverridesAgenticApplication
     use_channels: bool
 
 
+class ApplicationVariantV1EvaluationTaskConfigurationOverridesUnionMember1ApplicationVariantV1EvaluationTaskConfigurationOverridesUnionMember1Item(
+    TypedDict, total=False
+):
+    artifact_ids_filter: SequenceNotStr[str]
+
+    artifact_name_regex: SequenceNotStr[str]
+
+    type: Literal["knowledge_base_schema"]
+
+
 ApplicationVariantV1EvaluationTaskConfigurationOverrides: TypeAlias = Union[
-    ApplicationVariantV1EvaluationTaskConfigurationOverridesAgenticApplicationOverrides, ItemLocator
+    ApplicationVariantV1EvaluationTaskConfigurationOverridesAgenticApplicationOverrides,
+    Dict[
+        str,
+        ApplicationVariantV1EvaluationTaskConfigurationOverridesUnionMember1ApplicationVariantV1EvaluationTaskConfigurationOverridesUnionMember1Item,
+    ],
+    ItemLocator,
 ]
 
 
@@ -227,15 +322,27 @@ class ApplicationVariantV1EvaluationTaskConfiguration(TypedDict, total=False):
     application_variant_id: Required[str]
 
     inputs: Required[Union[Dict[str, object], ItemLocator]]
+    """Input data for the application.
+
+    For agents service variants, you must provide inputs as a mapping from
+    `{input_name: input_value}`. For V0 variants, you must specify the node your
+    input should be passed to, structuring your input as
+    `{node_id: {input_name: input_value}}`.
+    """
 
     history: Union[
         Iterable[ApplicationVariantV1EvaluationTaskConfigurationHistoryApplicationRequestResponsePairArray], ItemLocator
     ]
+    """History of the application"""
 
     operation_metadata: Union[Dict[str, object], ItemLocator]
+    """
+    Arbitrary user-defined metadata that can be attached to the process operations
+    and will be registered in the interaction.
+    """
 
     overrides: ApplicationVariantV1EvaluationTaskConfigurationOverrides
-    """Execution override options for agentic applications"""
+    """Optional overrides for the application"""
 
 
 class ApplicationVariantV1EvaluationTask(TypedDict, total=False):
@@ -249,14 +356,28 @@ class ApplicationVariantV1EvaluationTask(TypedDict, total=False):
 
 class AgentexOutputEvaluationTaskConfiguration(TypedDict, total=False):
     agentex_agent_id: Required[str]
+    """The ID of the Agentex agent to use"""
 
     input_column: Required[Union[str, Dict[str, object], Iterable[object]]]
+    """The dataset column to use as input for the agent"""
 
     deployment_id: str
+    """Optional Agentex deployment ID to pin the eval to a specific deployment.
+
+    When set, RPC traffic routes through
+    /agents/{agent_id}/deployments/{deployment_id}/rpc. When unset, traffic uses the
+    agent's default RPC endpoint, which resolves through the agent's current routing
+    rules on the Agentex side.
+    """
 
     include_traces: Union[bool, ItemLocator]
+    """Whether to include trace data in the evaluation results"""
 
     timeout_seconds: Union[int, ItemLocator]
+    """Maximum seconds to wait for agent completion per item.
+
+    If not set, the server-side default of 60s applies.
+    """
 
 
 class AgentexOutputEvaluationTask(TypedDict, total=False):

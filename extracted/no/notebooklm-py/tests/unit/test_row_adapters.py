@@ -1,4 +1,4 @@
-"""Tests for row-adapter behavior across the ``_row_adapters_*`` modules.
+"""Tests for row-adapter behavior across the ``notebooklm._row_adapters`` package.
 
 The adapters centralise position knowledge for the ``LIST_ARTIFACTS``,
 ``GET_NOTES_AND_MIND_MAPS``, and source row shapes so consumers
@@ -8,7 +8,7 @@ The adapters centralise position knowledge for the ``LIST_ARTIFACTS``,
 ``NotebooksAPI.get_source_ids``) read named properties instead of
 open-coding ``data[2]`` / ``data[4]`` / ``data[15]`` / ``row[1][1]`` /
 ``row[1][4]`` / ``data[0][0]`` / ``metadata[4]``. See
-``docs/improvement.md`` §6.2 for the motivation and
+``docs/architecture.md``'s ``_row_adapters/`` module map for the motivation and
 ``src/notebooklm/_row_adapters/artifacts.py``,
 ``src/notebooklm/_row_adapters/notes.py``, and
 ``src/notebooklm/_row_adapters/sources.py`` for the position contracts.
@@ -32,10 +32,15 @@ import json
 
 import pytest
 
-from notebooklm._row_adapters.artifacts import ArtifactRow
+from notebooklm._row_adapters.artifacts import ArtifactRow, ReportSuggestionRow
 from notebooklm._row_adapters.notes import NoteRow
-from notebooklm._row_adapters.sources import SourceRow, SourceRowShape
-from notebooklm.exceptions import UnknownRPCMethodError
+from notebooklm._row_adapters.sources import (
+    SourceRow,
+    SourceRowShape,
+    interpret_source_freshness,
+)
+from notebooklm._types.common import _datetime_from_timestamp
+from notebooklm.exceptions import DecodingError, UnknownRPCMethodError
 from notebooklm.rpc.types import ArtifactStatus, ArtifactTypeCode, SourceStatus
 
 # ---------------------------------------------------------------------------
@@ -81,6 +86,9 @@ class TestPositionContract:
     def test_options_position_is_9(self) -> None:
         assert ArtifactRow._OPTIONS_POS == 9
 
+    def test_infographic_metadata_position_is_14(self) -> None:
+        assert ArtifactRow._INFOGRAPHIC_METADATA_POS == 14
+
     def test_timestamp_position_is_15(self) -> None:
         assert ArtifactRow._TIMESTAMP_POS == 15
 
@@ -105,10 +113,11 @@ class TestPositionContract:
             ArtifactRow._REPORT_MARKDOWN_POS,
             ArtifactRow._VIDEO_METADATA_POS,
             ArtifactRow._OPTIONS_POS,
+            ArtifactRow._INFOGRAPHIC_METADATA_POS,
             ArtifactRow._TIMESTAMP_POS,
             ArtifactRow._SLIDE_DECK_METADATA_POS,
             ArtifactRow._DATA_TABLE_PAYLOAD_POS,
-        ) == (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 15, 16, 18)
+        ) == (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 18)
 
 
 # ---------------------------------------------------------------------------
@@ -647,21 +656,33 @@ class TestNoteRowPositionContract:
     def test_inner_title_position_is_4(self) -> None:
         assert NoteRow._INNER_TITLE_POS == 4
 
+    def test_inner_meta_position_is_2(self) -> None:
+        assert NoteRow._INNER_META_POS == 2
+
+    def test_meta_timestamp_position_is_2(self) -> None:
+        assert NoteRow._META_TIMESTAMP_POS == 2
+
+    def test_ts_seconds_position_is_0(self) -> None:
+        assert NoteRow._TS_SECONDS_POS == 0
+
     def test_deleted_sentinel_is_2(self) -> None:
         assert NoteRow._DELETED_SENTINEL == 2
 
     def test_all_positions_at_once(self) -> None:
         """A single tuple pin so a sweeping reshape (e.g. Google inserts
         a new leading element shifting every position by one) fails with
-        one informative assertion rather than six."""
+        one informative assertion rather than several."""
         assert (
             NoteRow._ID_POS,
             NoteRow._CONTENT_POS,
             NoteRow._STATUS_POS,
             NoteRow._INNER_CONTENT_POS,
             NoteRow._INNER_TITLE_POS,
+            NoteRow._INNER_META_POS,
+            NoteRow._META_TIMESTAMP_POS,
+            NoteRow._TS_SECONDS_POS,
             NoteRow._DELETED_SENTINEL,
-        ) == (0, 1, 2, 1, 4, 2)
+        ) == (0, 1, 2, 1, 4, 2, 2, 0, 2)
 
 
 # ---------------------------------------------------------------------------
@@ -761,6 +782,34 @@ class TestNoteRowIsDeleted:
         assert NoteRow([]).is_deleted is False
         assert NoteRow(["id"]).is_deleted is False
         assert NoteRow(["id", None]).is_deleted is False
+
+
+class TestNoteRowHasUnrecognizedTombstone:
+    """``None`` content slot without the recognised soft-delete sentinel.
+
+    The drift predicate consumed by ``Artifact.from_mind_map``: were Google
+    to move the ``[id, None, 2]`` sentinel, deleted rows would silently leak
+    as live — this property is the WARN trigger for that bug class (#1485).
+    """
+
+    def test_recognised_tombstone_is_not_drift(self) -> None:
+        assert NoteRow(_deleted_note_row()).has_unrecognized_tombstone is False
+
+    def test_null_content_with_drifted_sentinel_is_drift(self) -> None:
+        assert NoteRow(["id", None, 5]).has_unrecognized_tombstone is True
+        assert NoteRow(["id", None, 0]).has_unrecognized_tombstone is True
+
+    def test_null_content_without_status_slot_is_drift(self) -> None:
+        assert NoteRow(["id", None]).has_unrecognized_tombstone is True
+
+    def test_live_rows_are_not_drift(self) -> None:
+        assert NoteRow(_legacy_note_row()).has_unrecognized_tombstone is False
+        assert NoteRow(_current_note_row()).has_unrecognized_tombstone is False
+
+    def test_row_too_short_for_content_slot_is_absence(self) -> None:
+        """No content slot at all is genuine absence, not a null content value."""
+        assert NoteRow([]).has_unrecognized_tombstone is False
+        assert NoteRow(["id"]).has_unrecognized_tombstone is False
 
 
 # ---------------------------------------------------------------------------
@@ -909,6 +958,122 @@ class TestNoteRowTitle:
         contract."""
         row = ["id", ["id", "content", None, None, 999]]
         assert NoteRow(row).title == ""
+
+
+# ---------------------------------------------------------------------------
+# NoteRow — created_at (current-shape only; issue #1529)
+# ---------------------------------------------------------------------------
+
+
+def _timestamped_note_row(
+    note_id: str = "note_id",
+    *,
+    seconds: int = 1768311078,
+    nanos: int = 286553000,
+) -> list:
+    """Current shape carrying a real metadata + ``[seconds, nanos]`` block.
+
+    Mirrors the production ``GET_NOTES_AND_MIND_MAPS`` row shape
+    ``[id, [id, content, [marker, srcref, [seconds, nanos], ...], None, title]]``
+    — the timestamp lives at ``row[1][2][2][0]``, the exact slot
+    ``Artifact.from_mind_map`` already decodes.
+    """
+    metadata = [2, "400237754469", [seconds, nanos], 5, [[]]]
+    return [note_id, [note_id, "{}", metadata, None, "Title"]]
+
+
+class TestNoteRowCreatedAtRaw:
+    """``created_at_raw`` returns the exact decoded epoch (TZ-invariant)."""
+
+    def test_raw_epoch_from_current_shape(self) -> None:
+        # Pin the EXACT epoch from the real notes_list.yaml mind-map row —
+        # an int, so the assertion is timezone-invariant (#1511/#1519).
+        assert NoteRow(_timestamped_note_row(seconds=1768311078)).created_at_raw == 1768311078
+
+    def test_raw_epoch_from_create_note_wrapped_shape(self) -> None:
+        """The CREATE_NOTE bare inner envelope, wrapped into the current
+        shape as ``[note_id, inner]`` (how ``create_note`` reads it),
+        exposes the create-time epoch at ``row[1][2][2][0]``."""
+        inner = ["3ba71644", "", [1, "400237754469", [1768312234, 146794000]], None, "New Note"]
+        assert NoteRow(["3ba71644", inner]).created_at_raw == 1768312234
+
+    def test_raw_float_epoch_preserved(self) -> None:
+        row = _timestamped_note_row(seconds=1768311078)
+        row[1][2][2][0] = 1768311078.5
+        assert NoteRow(row).created_at_raw == 1768311078.5
+
+    def test_legacy_shape_returns_none(self) -> None:
+        """Legacy ``[id, content_string]`` has no metadata block."""
+        assert NoteRow(_legacy_note_row()).created_at_raw is None
+
+    def test_deleted_row_returns_none(self) -> None:
+        assert NoteRow(_deleted_note_row()).created_at_raw is None
+
+    def test_empty_row_returns_none(self) -> None:
+        assert NoteRow([]).created_at_raw is None
+
+    def test_id_only_row_returns_none(self) -> None:
+        assert NoteRow(["id"]).created_at_raw is None
+
+    def test_inner_too_short_for_metadata_returns_none(self) -> None:
+        """``inner = [id, content]`` (length 2) predates the metadata
+        block — soft absence, not drift."""
+        assert NoteRow(["id", ["id", "body"]]).created_at_raw is None
+
+    def test_metadata_non_list_returns_none(self) -> None:
+        """A non-list metadata slot (e.g. an int row-status marker)
+        carries no timestamp — degrade to ``None``."""
+        assert NoteRow(["id", ["id", "body", 5, None, "Title"]]).created_at_raw is None
+
+    def test_metadata_too_short_for_timestamp_returns_none(self) -> None:
+        """Metadata present but too short to carry the timestamp list at
+        ``[2]`` — soft absence."""
+        assert NoteRow(["id", ["id", "body", [2, "ref"], None, "Title"]]).created_at_raw is None
+
+    def test_empty_timestamp_list_returns_none(self) -> None:
+        row = ["id", ["id", "body", [2, "ref", []], None, "Title"]]
+        assert NoteRow(row).created_at_raw is None
+
+    def test_non_numeric_timestamp_returns_none(self) -> None:
+        row = ["id", ["id", "body", [2, "ref", ["oops"]], None, "Title"]]
+        assert NoteRow(row).created_at_raw is None
+
+    def test_bool_timestamp_returns_none(self) -> None:
+        """``bool`` is an ``int`` subclass — a boolean in the seconds slot
+        must NOT be mistaken for an epoch (else ``True`` decodes to
+        ``1970-01-01T00:00:01``)."""
+        row = ["id", ["id", "body", [2, "ref", [True]], None, "Title"]]
+        assert NoteRow(row).created_at_raw is None
+
+    def test_short_inner_is_not_drift_in_strict_mode(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A short inner envelope (no metadata block) is a legitimate
+        production shape — length-guarded to ``None`` WITHOUT invoking
+        ``safe_index``, so strict mode does not raise."""
+        monkeypatch.setenv("NOTEBOOKLM_STRICT_DECODE", "1")
+        assert NoteRow(["id", ["id", "body"]]).created_at_raw is None
+
+
+class TestNoteRowCreatedAt:
+    """``created_at`` decodes ``created_at_raw`` into a ``datetime``."""
+
+    def test_returns_datetime_for_present_timestamp(self) -> None:
+        created = NoteRow(_timestamped_note_row(seconds=1768311078)).created_at
+        assert created is not None
+        # TZ-robust: compare the round-tripped epoch, not a wall-time string.
+        # ``_datetime_from_timestamp`` builds a tz-aware UTC datetime (#1519),
+        # whose ``.timestamp()`` round-trips back to the original epoch on any host.
+        assert int(created.timestamp()) == 1768311078
+
+    def test_matches_datetime_from_timestamp_decoder(self) -> None:
+        """``created_at`` is exactly what the shared decoder produces for
+        ``created_at_raw`` — no independent (drift-prone) conversion."""
+        row = NoteRow(_timestamped_note_row(seconds=1768311078))
+        assert row.created_at == _datetime_from_timestamp(row.created_at_raw)
+
+    def test_none_when_timestamp_absent(self) -> None:
+        assert NoteRow(_legacy_note_row()).created_at is None
+        assert NoteRow([]).created_at is None
+        assert NoteRow(_deleted_note_row()).created_at is None
 
 
 # ---------------------------------------------------------------------------
@@ -1074,6 +1239,11 @@ class TestSourceRowPositionContract:
         assert SourceRow._META_TYPE_POS == 4
         assert SourceRow._META_YOUTUBE_POS == 5
         assert SourceRow._META_URL_POS == 7
+        # Drive-hosted MIME positions used to disambiguate the type_code==14
+        # overload (native Sheet vs Drive PDF) — live-captured #1832.
+        assert SourceRow._META_DRIVE_DESCRIPTOR_POS == 9
+        assert SourceRow._META_MIME_POS == 19
+        assert SourceRow._DRIVE_DESCRIPTOR_MIME_POS == 2
 
     def test_id_envelope_positions(self) -> None:
         """Id-envelope positions: plain id at [0]; drive-backed at [2][0]."""
@@ -1102,11 +1272,14 @@ class TestSourceRowPositionContract:
             SourceRow._META_TYPE_POS,
             SourceRow._META_YOUTUBE_POS,
             SourceRow._META_URL_POS,
+            SourceRow._META_DRIVE_DESCRIPTOR_POS,
+            SourceRow._META_MIME_POS,
+            SourceRow._DRIVE_DESCRIPTOR_MIME_POS,
             SourceRow._ID_ENVELOPE_PLAIN_POS,
             SourceRow._ID_ENVELOPE_DRIVE_PAYLOAD_POS,
             SourceRow._ID_ENVELOPE_DRIVE_INNER_POS,
             SourceRow._LIST_FIRST_POS,
-        ) == (0, 1, 2, 3, 1, 0, 2, 4, 5, 7, 0, 2, 0, 0)
+        ) == (0, 1, 2, 3, 1, 0, 2, 4, 5, 7, 9, 19, 2, 0, 2, 0, 0)
 
 
 # ---------------------------------------------------------------------------
@@ -1702,3 +1875,97 @@ class TestSourceRowImmutability:
         _ = row.has_id
 
         assert raw == snapshot
+
+
+class TestInterpretSourceFreshness:
+    """Decodes recognized freshness shapes; raises ``DecodingError`` on drift (#1344)."""
+
+    @pytest.mark.parametrize("payload", [True, [], [[None, True, ["src"]]]])
+    def test_fresh_shapes_return_true(self, payload: object) -> None:
+        assert interpret_source_freshness(payload) is True
+
+    @pytest.mark.parametrize("payload", [False, [[None, False, ["src"]]]])
+    def test_stale_shapes_return_false(self, payload: object) -> None:
+        assert interpret_source_freshness(payload) is False
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            None,
+            "some_value",
+            ["some_value"],
+            [[None]],
+            [[None, "unexpected", ["src"]]],
+            [[None, None, ["src"]]],
+            [[None, 1, ["src"]]],
+        ],
+    )
+    def test_unrecognized_shapes_raise(self, payload: object) -> None:
+        # None, a bare scalar, a list whose first element is a non-list scalar,
+        # a too-short nested list, and a nested list whose freshness flag is
+        # non-boolean are all drift -> raise, not a silent bool.
+        with pytest.raises(DecodingError):
+            interpret_source_freshness(payload)
+
+
+# ---------------------------------------------------------------------------
+# ReportSuggestionRow (GET_SUGGESTED_REPORTS rows, issue #1491)
+# ---------------------------------------------------------------------------
+
+
+class TestReportSuggestionRowPositionContract:
+    """If these fail, Google has likely reshaped the GET_SUGGESTED_REPORTS row."""
+
+    def test_positions_pinned(self) -> None:
+        assert (
+            ReportSuggestionRow._TITLE_POS,
+            ReportSuggestionRow._DESCRIPTION_POS,
+            ReportSuggestionRow._PROMPT_POS,
+            ReportSuggestionRow._AUDIENCE_LEVEL_POS,
+            ReportSuggestionRow._DEFAULT_AUDIENCE_LEVEL,
+            ReportSuggestionRow._MIN_LEN,
+        ) == (0, 1, 4, 5, 2, 5)
+
+
+class TestReportSuggestionRow:
+    """Named-property reads with the historical permissive defaults."""
+
+    def test_full_row_reads_all_fields(self) -> None:
+        row = ReportSuggestionRow(["Title", "Desc", None, None, "Prompt", 3])
+        assert row.is_well_formed is True
+        assert row.title == "Title"
+        assert row.description == "Desc"
+        assert row.prompt == "Prompt"
+        assert row.audience_level == 3
+
+    def test_missing_audience_level_defaults_to_two(self) -> None:
+        # Exactly the historical ``item[5] if len(item) > 5 else 2`` contract.
+        row = ReportSuggestionRow(["Title", "Desc", None, None, "Prompt"])
+        assert row.is_well_formed is True
+        assert row.audience_level == 2
+
+    def test_non_string_fields_degrade_to_empty(self) -> None:
+        row = ReportSuggestionRow([None, 5, None, None, ["nested"], 1])
+        assert row.title == ""
+        assert row.description == ""
+        assert row.prompt == ""
+        assert row.audience_level == 1
+
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            [],
+            ["Title", "Desc"],
+            ["Title", "Desc", None, None],  # len 4 < 5, missing prompt slot
+            "not-a-list",
+            None,
+        ],
+    )
+    def test_short_or_non_list_rows_are_not_well_formed(self, raw: object) -> None:
+        assert ReportSuggestionRow(raw).is_well_formed is False
+
+    def test_present_but_non_int_audience_level_returned_verbatim(self) -> None:
+        # Mirrors the prior inline read: the slot's *presence* is checked, not
+        # its type -- a present non-int value passes through unchanged.
+        row = ReportSuggestionRow(["T", "D", None, None, "P", "high"])
+        assert row.audience_level == "high"

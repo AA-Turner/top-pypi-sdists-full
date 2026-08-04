@@ -29,6 +29,7 @@ __all__ = (
     "DestinationTypeType",
     "EncryptedLogGroupStrategyType",
     "EncryptionConflictResolutionStrategyType",
+    "EncryptionScopeType",
     "EncryptionStrategyType",
     "FilterBehaviorType",
     "FilterRequirementType",
@@ -68,6 +69,7 @@ CentralizationFailureReasonType = Literal[
 DestinationTypeType = Literal["cloud-watch-logs"]
 EncryptedLogGroupStrategyType = Literal["ALLOW", "SKIP"]
 EncryptionConflictResolutionStrategyType = Literal["ALLOW", "SKIP"]
+EncryptionScopeType = Literal["ENCRYPTED_SOURCE_ONLY", "NEW_DESTINATION_LOG_GROUPS"]
 EncryptionStrategyType = Literal["AWS_OWNED", "CUSTOMER_MANAGED"]
 FilterBehaviorType = Literal["DROP", "KEEP"]
 FilterRequirementType = Literal["MEETS_ALL", "MEETS_ANY"]

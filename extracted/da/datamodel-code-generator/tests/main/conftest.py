@@ -13,16 +13,19 @@ import textwrap
 import time
 import warnings
 from argparse import Namespace
-from collections.abc import Callable, Generator, Mapping, Sequence
+from collections.abc import Callable, Collection, Generator, Mapping, Sequence
 from contextlib import contextmanager
+from dataclasses import fields as dataclass_fields
+from dataclasses import is_dataclass
 from functools import cache
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal, get_type_hints
 
 import black
 import pytest
 from packaging import version
 from pydantic import TypeAdapter, ValidationError
+from pydantic.errors import PydanticUndefinedAnnotation
 
 from datamodel_code_generator import DataModelType, InputFileType, enable_parsed_source_cache, generate
 from datamodel_code_generator.__main__ import Exit, main
@@ -723,74 +726,6 @@ def assert_input_file_type(result: object, expected: InputFileType) -> None:
         pytest.fail(f"Expected input file type {expected!r}, got {result!r}")
 
 
-def _value_at_path(value: object, path: Sequence[str | int]) -> object:
-    __tracebackhide__ = True
-    current = value
-    for key in path:
-        match current, key:
-            case Mapping(), _:
-                current = cast("Mapping[object, object]", current)[key]
-            case Sequence(), int() if not isinstance(current, str | bytes | bytearray):
-                current = cast("Sequence[object]", current)[key]
-            case _:
-                pytest.fail(f"Expected cached value to contain path {path!r}, got {value!r}")
-    return current
-
-
-def assert_path_cache_reuses_value(
-    loader: Callable[[Path, str], object],
-    path: Path,
-    *,
-    encoding: str = "utf-8",
-    warmups: int = 0,
-) -> None:
-    """Assert a path-based cache reuses the parsed or decoded value."""
-    __tracebackhide__ = True
-    for _ in range(warmups):
-        loader(path, encoding)
-
-    first = loader(path, encoding)
-    second = loader(path, encoding)
-
-    if first is second:
-        return
-
-    pytest.fail(f"Expected cached value for {path} to be reused")
-
-
-def assert_path_cache_invalidates_after_write(
-    loader: Callable[[Path, str], object],
-    path: Path,
-    new_text: str,
-    expected_value: object,
-    *,
-    encoding: str = "utf-8",
-    expected_value_path: Sequence[str | int] = (),
-    warmups: int = 0,
-) -> None:
-    """Assert a path-based cache reloads after file content changes."""
-    __tracebackhide__ = True
-    for _ in range(warmups):
-        loader(path, encoding)
-
-    first = loader(path, encoding)
-    path.write_text(new_text, encoding=encoding)
-    second = loader(path, encoding)
-
-    if first is second:
-        pytest.fail(f"Expected cached value for {path} to be invalidated after write")
-
-    actual_value = _value_at_path(second, expected_value_path)
-    if actual_value != expected_value:
-        pytest.fail(f"Expected cached value {expected_value!r}, got {actual_value!r}")
-
-    third = loader(path, encoding)
-    if second is third:
-        return
-
-    pytest.fail(f"Expected updated cached value for {path} to be reused")
-
-
 def assert_path_cache_evicts_lru_entries(
     loader: Callable[[Path, str], object],
     first_path: Path,
@@ -1407,6 +1342,26 @@ def _model_json_validator(model: Any) -> Callable[[str], Any]:
     """Return a JSON validation callable for a generated Pydantic model or dataclass."""
     if callable(validate_json := getattr(model, "model_validate_json", None)):
         return validate_json
+    if not is_dataclass(model):
+        return TypeAdapter(model).validate_json
+    try:
+        return TypeAdapter(model).validate_json
+    except PydanticUndefinedAnnotation:
+        pass
+
+    module_namespace = vars(sys.modules[model.__module__])
+    for candidate in tuple(module_namespace.values()):
+        if not (isinstance(candidate, type) and candidate.__module__ == model.__module__ and is_dataclass(candidate)):
+            continue
+        resolved_annotations = get_type_hints(
+            candidate,
+            globalns=module_namespace,
+            localns=module_namespace,
+            include_extras=True,
+        )
+        candidate.__annotations__.update(resolved_annotations)
+        for field in dataclass_fields(candidate):
+            field.type = resolved_annotations.get(field.name, field.type)
     return TypeAdapter(model).validate_json
 
 
@@ -1437,11 +1392,31 @@ def assert_generated_model_json_validation(
     expected_error_type: str,
     expected_attribute_path: Sequence[str] = (),
     expected_attribute_value: Any = None,
+    expected_keyword_only_fields: Collection[str] | None = None,
+    expected_repr: str | None = None,
 ) -> None:
     """Import a generated module and validate JSON data through a generated Pydantic model or dataclass."""
     with _generated_model(output_path, module_name, model_name) as model:
         validate_json = _model_json_validator(model)
         parsed = validate_json(valid_json)
+
+        if expected_keyword_only_fields is not None:
+            signature = inspect.signature(model)
+            actual_keyword_only_fields = (
+                {name for name, field in pydantic_fields.items() if field.kw_only}
+                if (pydantic_fields := getattr(model, "__pydantic_fields__", None)) is not None
+                else {
+                    name
+                    for name, parameter in signature.parameters.items()
+                    if parameter.kind is inspect.Parameter.KEYWORD_ONLY
+                }
+            )
+            if actual_keyword_only_fields != set(expected_keyword_only_fields):  # pragma: no cover
+                pytest.fail(
+                    f"Expected keyword-only fields {set(expected_keyword_only_fields)!r}, "
+                    f"got {actual_keyword_only_fields!r}",
+                    pytrace=False,
+                )
 
         if expected_attribute_path:
             actual: Any = parsed
@@ -1456,6 +1431,9 @@ def assert_generated_model_json_validation(
                     f"Expected {'.'.join(expected_attribute_path)} to be {expected_attribute_value!r}, got {actual!r}",
                     pytrace=False,
                 )
+
+        if expected_repr is not None and repr(parsed) != expected_repr:  # pragma: no cover
+            pytest.fail(f"Expected repr {expected_repr!r}, got {parsed!r}", pytrace=False)
 
         _assert_model_json_invalid(validate_json, invalid_json, expected_error_type)
 

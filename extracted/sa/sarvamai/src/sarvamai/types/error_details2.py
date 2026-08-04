@@ -15,7 +15,7 @@ class ErrorDetails2(UniversalBaseModel):
 
     code: ErrorCode2 = pydantic.Field()
     """
-    Error code for the specific error that has occured. Refer to the error code documentation for more details.
+    Error code for the specific error that has occurred. Refer to the error code documentation for more details.
     """
 
     request_id: typing.Optional[str] = pydantic.Field(default=None)

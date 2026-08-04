@@ -49,8 +49,6 @@ import pytest
 
 import notebooklm._backoff as _backoff
 import notebooklm._runtime.helpers as _runtime_helpers
-from _helpers.client_factory import build_client_shell_for_tests
-from conftest import install_post_as_stream
 from notebooklm._logging import get_request_id
 from notebooklm._middleware.core import RpcRequest, RpcResponse
 from notebooklm._request_types import AuthSnapshot
@@ -62,6 +60,8 @@ from notebooklm._transport_errors import (
 from notebooklm.auth import AuthTokens
 from notebooklm.client import NotebookLMClient
 from notebooklm.rpc import RPCMethod
+from tests._helpers.client_factory import build_client_shell_for_tests
+from tests.unit.conftest import install_post_as_stream
 
 
 @pytest.fixture(autouse=True)
@@ -235,7 +235,7 @@ async def test_auth_refresh_middleware_honors_injected_predicate() -> None:
     exactly once when the injected ``is_auth_error`` predicate returns
     ``True``, regardless of the actual HTTP status code.
 
-    This test avoids the legacy ``_core.is_auth_error`` string-target
+    This test avoids the retired ``_core`` auth-predicate string-target
     monkeypatch and instead constructs the middleware directly with an
     injected predicate. The
     production chain seeds ``AuthRefreshMiddleware`` with a live-binding
@@ -300,13 +300,9 @@ async def test_production_chain_drives_refresh_on_real_401(monkeypatch):
        ``ClientSeams.is_auth_error``.
 
     Restored in Phase 2 PR 4 after the migration of
-    ``test_chain_uses_late_bound_is_auth_error`` (which string-target
-    monkeypatched ``_core.is_auth_error`` to a ``lambda exc: True`` to
-    force ANY exception to be treated as an auth error)
-    deleted the only end-to-end check of that wiring. This test re-adds the coverage
-    without depending on the soon-to-be-retired ``_core`` indirection
-    by using a real 401 that the canonical predicate already
-    recognises.
+    ``test_chain_uses_late_bound_is_auth_error`` deleted the only end-to-end
+    check of that wiring. This test avoids the retired ``_core`` indirection
+    and uses a real 401 recognized by the canonical predicate.
     """
     refresh_calls: list[bool] = []
 
@@ -1346,6 +1342,119 @@ async def test_streamed_response_size_cap(monkeypatch):
         assert exc_info.value.bytes_read > cap
     finally:
         await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_streaming_default_size_cap_reads_current_constant(monkeypatch):
+    """Omitted ``max_bytes`` resolves the module constant at call time."""
+    from contextlib import asynccontextmanager
+
+    import notebooklm._streaming_post as _streaming_post
+    from notebooklm.exceptions import RPCResponseTooLargeError
+
+    cap = 8
+    monkeypatch.setattr(_streaming_post, "MAX_RPC_RESPONSE_BYTES", cap)
+
+    class _FakeResponse:
+        status_code = 200
+        headers: dict[str, str] = {}
+        request = httpx.Request("POST", "https://example.test/x")
+
+        def raise_for_status(self) -> None:
+            return None
+
+        async def aiter_bytes(self):
+            yield b"x" * (cap + 1)
+
+    @asynccontextmanager
+    async def fake_stream(method, url, **kwargs):
+        yield _FakeResponse()
+
+    client = httpx.AsyncClient()
+    try:
+        monkeypatch.setattr(client, "stream", fake_stream)
+
+        with pytest.raises(RPCResponseTooLargeError) as exc_info:
+            await _streaming_post.stream_post_with_size_cap(
+                client,
+                "https://example.test/x",
+                body=b"",
+                headers=None,
+            )
+
+        assert exc_info.value.limit_bytes == cap
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_perform_authed_post_enforces_explicit_max_response_bytes(monkeypatch):
+    """RuntimeTransport forwards a per-call response cap to the stream guard."""
+    from notebooklm.exceptions import RPCResponseTooLargeError
+
+    core = _make_core()
+    await core.__aenter__()
+    try:
+
+        def build(snapshot: AuthSnapshot) -> tuple[str, str, dict[str, str]]:
+            return "https://example.test/x", "payload", {}
+
+        async def fake_post(url, *, content, **kwargs):
+            return httpx.Response(
+                200,
+                content=b"x" * 9,
+                request=httpx.Request("POST", url),
+            )
+
+        install_post_as_stream(monkeypatch, core._collaborators.kernel.get_http_client(), fake_post)
+
+        with pytest.raises(RPCResponseTooLargeError) as exc_info:
+            await core._composed.transport.perform_authed_post(
+                build_request=build,
+                log_label="test",
+                max_response_bytes=8,
+            )
+
+        assert exc_info.value.limit_bytes == 8
+    finally:
+        await core.close()
+
+
+@pytest.mark.asyncio
+async def test_perform_authed_post_without_cap_uses_shared_stream_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Omitted runtime cap keeps ordinary RPCs on the shared stream default."""
+    import notebooklm._streaming_post as _streaming_post
+    from notebooklm.exceptions import RPCResponseTooLargeError
+
+    cap = 8
+    monkeypatch.setattr(_streaming_post, "MAX_RPC_RESPONSE_BYTES", cap)
+    core = _make_core()
+    await core.__aenter__()
+    try:
+
+        def build(snapshot: AuthSnapshot) -> tuple[str, str, dict[str, str]]:
+            return "https://example.test/x", "payload", {}
+
+        async def fake_post(url, *, content, **kwargs):
+            return httpx.Response(
+                200,
+                content=b"x" * (cap + 1),
+                request=httpx.Request("POST", url),
+            )
+
+        install_post_as_stream(monkeypatch, core._collaborators.kernel.get_http_client(), fake_post)
+
+        with pytest.raises(RPCResponseTooLargeError) as exc_info:
+            await core._composed.transport.perform_authed_post(
+                build_request=build,
+                log_label="test",
+            )
+
+        assert exc_info.value.limit_bytes == cap
+    finally:
+        await core.close()
 
 
 @pytest.mark.asyncio

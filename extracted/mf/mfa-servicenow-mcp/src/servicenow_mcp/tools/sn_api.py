@@ -112,6 +112,39 @@ def to_columnar(
     return {"columns": columns, "data": data}
 
 
+def rows_of(response: Any) -> List[Dict[str, Any]]:
+    """The rows of an ``sn_query`` response as dicts, whichever shape it used.
+
+    ``sn_query`` re-encodes results as ``{columns, data}`` at and above
+    ``_COLUMNAR_MIN_ROWS``, and leaves them a list of dicts below it. Every
+    consumer that iterated ``resp["results"]`` directly therefore worked on one
+    and two rows and, from three, iterated the DICT — yielding its two keys as
+    strings and dying on ``row.get(...)``. Two guards on the push path went down
+    that way for eleven days: the shape flips on row COUNT, which no fixture
+    varies, so the tests that fed a two-row list could never reach it.
+
+    Decoding the wire shape is the caller's business exactly once, and this is
+    the once. A padded-short row reads as "empty for this record", matching how
+    a missing dict key already read.
+    """
+    if not isinstance(response, dict):
+        return []
+    res = response.get("results")
+    if isinstance(res, list):
+        return [row for row in res if isinstance(row, dict)]
+    if isinstance(res, dict):
+        columns = [str(c) for c in (res.get("columns") or [])]
+        # strict=False on purpose: a short row is padded above and a row longer
+        # than the header is truncated. Decoding is a rescue path, and raising
+        # here would put a malformed payload back on the crashing branch.
+        return [
+            dict(zip(columns, list(row) + [None] * (len(columns) - len(row)), strict=False))
+            for row in (res.get("data") or [])
+            if isinstance(row, (list, tuple))
+        ]
+    return []
+
+
 def truncate_results(
     results: List[Dict[str, Any]],
     max_len: int = 50000,
@@ -480,8 +513,22 @@ def sn_query_page(
     if fields:
         params["sysparm_fields"] = fields
     if orderby:
-        key = "sysparm_orderby_desc" if orderby.startswith("-") else "sysparm_orderby"
-        params[key] = orderby[1:] if orderby.startswith("-") else orderby
+        # Ordering lives in the ENCODED QUERY. The Table API has no
+        # `sysparm_orderby` / `sysparm_orderby_desc` parameter, and an unknown
+        # parameter is accepted and ignored rather than rejected — so every
+        # "newest first" read in this repo was in fact arbitrary order, silently,
+        # for as long as the parameter has been there.
+        #
+        # Measured on a live instance: `-sys_created_on` over `syslog` returned
+        # rows a month older than the newest, while `ORDERBYDESCsys_created_on`
+        # in `sysparm_query` returned the current ones. The failure direction is
+        # the dangerous one — the rows come back and look like an answer, so a
+        # capped read that calls itself "newest-first" bounds nothing, and a
+        # layout read ordered by `order` renders in whatever sequence it got.
+        descending = orderby.startswith("-")
+        clause = f"ORDERBY{'DESC' if descending else ''}{orderby[1:] if descending else orderby}"
+        existing = str(params.get("sysparm_query") or "")
+        params["sysparm_query"] = f"{existing.rstrip('^')}^{clause}" if existing else clause
     try:
         response = auth_manager.make_request(
             "GET",

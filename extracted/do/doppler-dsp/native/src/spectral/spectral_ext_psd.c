@@ -924,16 +924,21 @@ PSD_getprop_mode (PSDObject *self, void *Py_UNUSED (closure))
 }
 
 static PyGetSetDef PSD_getset[]
-    = { { "n", (getter)PSD_getprop_n, NULL, "N.\n", NULL },
-        { "nfft", (getter)PSD_getprop_nfft, NULL, "Nfft.\n", NULL },
-        { "fs", (getter)PSD_getprop_fs, NULL, "Fs.\n", NULL },
-        { "full_scale", (getter)PSD_getprop_full_scale, NULL, "Full scale.\n",
-          NULL },
-        { "bits", (getter)PSD_getprop_bits, NULL, "Bits.\n", NULL },
-        { "enbw", (getter)PSD_getprop_enbw, NULL, "Enbw.\n", NULL },
+    = { { "n", (getter)PSD_getprop_n, NULL,
+          "Window / frame length (samples).\n", NULL },
+        { "nfft", (getter)PSD_getprop_nfft, NULL,
+          "Zero-padded transform length.\n", NULL },
+        { "fs", (getter)PSD_getprop_fs, NULL, "Sample rate, Hz.\n", NULL },
+        { "full_scale", (getter)PSD_getprop_full_scale, NULL,
+          "Amplitude that reads 0 dBFS.\n", NULL },
+        { "bits", (getter)PSD_getprop_bits, NULL,
+          "ADC depth that set full_scale, else 0.\n", NULL },
+        { "enbw", (getter)PSD_getprop_enbw, NULL,
+          "Equivalent noise bandwidth, bins.\n", NULL },
         { "rbw", (getter)PSD_getprop_rbw, NULL, "Rbw.\n", NULL },
-        { "count", (getter)PSD_getprop_count, NULL, "Count.\n", NULL },
-        { "mode", (getter)PSD_getprop_mode, NULL, "Mode.\n", NULL },
+        { "count", (getter)PSD_getprop_count, NULL,
+          "Frames folded in so far.\n", NULL },
+        { "mode", (getter)PSD_getprop_mode, NULL, "Reduction mode.\n", NULL },
         { NULL } };
 
 static PyObject *
@@ -974,10 +979,28 @@ static PyMethodDef PSDObj_methods[] = {
     "\n"
     "Window, FFT and fold floor(n_in/n) cf32 frames into the average.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import PSD\n"
-    "    >>> obj = PSD(1024, 1.0, \"hann\", 0.0, 1, 1.0, 0, \"mean\", 0.1)\n"
-    "    >>> obj.accumulate(np.zeros(4, dtype=np.complex64))\n" },
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.complex64]\n"
+    "    Complex baseband samples (cf32).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.spectral import PSD\n"
+    ">>> n = 64\n"
+    ">>> w = PSD(n=n, fs=1.0, window=\"hann\", mode=\"mean\")\n"
+    ">>> k = 8\n"
+    ">>> x = np.exp(2j*np.pi*k*np.arange(n)/n).astype(np.complex64)\n"
+    ">>> for _ in range(4):\n"
+    "...     w.accumulate(x)\n"
+    ">>> psd = w.psd_db()\n"
+    ">>> psd.shape\n"
+    "(64,)\n"
+    ">>> int(np.argmax(psd)) == n // 2 + k\n"
+    "True\n"
+    ">>> w.count\n"
+    "4\n" },
   { "accumulate_real", (PyCFunction)(void *)PSDObj_accumulate_real,
     METH_VARARGS | METH_KEYWORDS,
     "accumulate_real(x) -> None\n"
@@ -985,9 +1008,15 @@ static PyMethodDef PSDObj_methods[] = {
     "Window, zero-pad, FFT and fold floor(n_in/n) real frames into the "
     "average.\n"
     "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : NDArray[np.float32]\n"
+    "    Real samples (f32).\n"
+    "\n"
     "    >>> import numpy as np\n"
     "    >>> from doppler import PSD\n"
-    "    >>> obj = PSD(1024, 1.0, \"hann\", 0.0, 1, 1.0, 0, \"mean\", 0.1)\n"
+    "    >>> obj = PSD(n=1024, fs=1.0, window=\"hann\", beta=0.0, pad=1, "
+    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1)\n"
     "    >>> obj.accumulate_real(np.zeros(4, dtype=np.float32))\n" },
   { "reset", (PyCFunction)PSDObj_reset, METH_NOARGS,
     "reset() -> None\n"
@@ -995,7 +1024,8 @@ static PyMethodDef PSDObj_methods[] = {
     "Discard the running average; counters return to zero.\n"
     "\n"
     "    >>> from doppler import PSD\n"
-    "    >>> obj = PSD(1024, 1.0, \"hann\", 0.0, 1, 1.0, 0, \"mean\", 0.1)\n"
+    "    >>> obj = PSD(n=1024, fs=1.0, window=\"hann\", beta=0.0, pad=1, "
+    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1)\n"
     "    >>> obj.reset()\n" },
   { "psd_db", (PyCFunction)(void *)PSDObj_psd_db, METH_VARARGS | METH_KEYWORDS,
     "psd_db(n=1) -> ndarray\n"
@@ -1066,12 +1096,25 @@ static PyMethodDef PSDObj_methods[] = {
     "\n"
     "Integrated power per band in dB; bands = [lo0,hi0,lo1,hi1,...] Hz.\n"
     "\n"
-    "    >>> import numpy as np\n"
-    "    >>> from doppler import PSD\n"
-    "    >>> obj = PSD(1024, 1.0, \"hann\", 0.0, 1, 1.0, 0, \"mean\", 0.1)\n"
-    "    >>> y = obj.band_power(np.zeros(4))\n"
-    "    >>> y.dtype\n"
-    "    dtype('float32')\n" },
+    "Parameters\n"
+    "----------\n"
+    "bands : NDArray[np.float64]\n"
+    "    Flat `[lo,hi,...]` band edges, Hz.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.float32]\n"
+    "    min(n_bands, max_out), or 0 if empty.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.spectral import PSD\n"
+    ">>> w = PSD(n=64, fs=1.0, window=\"hann\", mode=\"mean\")\n"
+    ">>> w.accumulate(np.ones(64, dtype=np.complex64))\n"
+    ">>> pb = w.band_power(np.array([-0.5, 0.0, 0.0, 0.5]))\n"
+    ">>> pb.shape\n"
+    "(2,)\n" },
   { "band_power_max_out", (PyCFunction)PSDObj_band_power_max_out, METH_NOARGS,
     "band_power_max_out() -> int\n\nMax output length band_power() can "
     "produce for the current state.\nUse to size the ``out=`` buffer." },
@@ -1081,9 +1124,20 @@ static PyMethodDef PSDObj_methods[] = {
     "\n"
     "Total integrated power across all bands in dB.\n"
     "\n"
+    "Parameters\n"
+    "----------\n"
+    "bands : NDArray[np.float64]\n"
+    "    Flat `[lo,hi,...]` band edges, Hz.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "float\n"
+    "    Total band power in dB (dB floor if empty).\n"
+    "\n"
     "    >>> import numpy as np\n"
     "    >>> from doppler import PSD\n"
-    "    >>> obj = PSD(1024, 1.0, \"hann\", 0.0, 1, 1.0, 0, \"mean\", 0.1)\n"
+    "    >>> obj = PSD(n=1024, fs=1.0, window=\"hann\", beta=0.0, pad=1, "
+    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1)\n"
     "    >>> obj.total_band_power(np.zeros(4, dtype=np.float64))\n"
     "    0.0\n" },
   { "occupied_bw", (PyCFunction)(void *)PSDObj_occupied_bw,
@@ -1092,9 +1146,20 @@ static PyMethodDef PSDObj_methods[] = {
     "\n"
     "Occupied bandwidth in Hz holding the given fraction of total power.\n"
     "\n"
+    "Parameters\n"
+    "----------\n"
+    "fraction : float\n"
+    "    Power fraction in (0, 1], e.g. 0.99.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "float\n"
+    "    Occupied bandwidth in Hz (0 if empty or no power).\n"
+    "\n"
     "    >>> import numpy as np\n"
     "    >>> from doppler import PSD\n"
-    "    >>> obj = PSD(1024, 1.0, \"hann\", 0.0, 1, 1.0, 0, \"mean\", 0.1)\n"
+    "    >>> obj = PSD(n=1024, fs=1.0, window=\"hann\", beta=0.0, pad=1, "
+    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1)\n"
     "    >>> obj.occupied_bw(0.0)\n"
     "    0.0\n" },
   { "noise_floor", (PyCFunction)PSDObj_noise_floor, METH_NOARGS,
@@ -1102,8 +1167,14 @@ static PyMethodDef PSDObj_methods[] = {
     "\n"
     "Median of the averaged dB trace (noise-floor estimate).\n"
     "\n"
+    "Returns\n"
+    "-------\n"
+    "float\n"
+    "    Median dB level (0 if empty).\n"
+    "\n"
     "    >>> from doppler import PSD\n"
-    "    >>> obj = PSD(1024, 1.0, \"hann\", 0.0, 1, 1.0, 0, \"mean\", 0.1)\n"
+    "    >>> obj = PSD(n=1024, fs=1.0, window=\"hann\", beta=0.0, pad=1, "
+    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1)\n"
     "    >>> obj.noise_floor()\n"
     "    0.0\n" },
   { "snr", (PyCFunction)(void *)PSDObj_snr, METH_VARARGS | METH_KEYWORDS,
@@ -1111,9 +1182,22 @@ static PyMethodDef PSDObj_methods[] = {
     "\n"
     "Peak-in-band level minus noise floor, in dB.\n"
     "\n"
+    "Parameters\n"
+    "----------\n"
+    "lo_hz : float\n"
+    "    Band lower edge, Hz.\n"
+    "hi_hz : float\n"
+    "    Band upper edge, Hz.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "float\n"
+    "    SNR in dB (0 if empty).\n"
+    "\n"
     "    >>> import numpy as np\n"
     "    >>> from doppler import PSD\n"
-    "    >>> obj = PSD(1024, 1.0, \"hann\", 0.0, 1, 1.0, 0, \"mean\", 0.1)\n"
+    "    >>> obj = PSD(n=1024, fs=1.0, window=\"hann\", beta=0.0, pad=1, "
+    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1)\n"
     "    >>> obj.snr(0.0, 0.0)\n"
     "    0.0\n" },
   { "sfdr", (PyCFunction)(void *)PSDObj_sfdr, METH_VARARGS | METH_KEYWORDS,
@@ -1121,21 +1205,108 @@ static PyMethodDef PSDObj_methods[] = {
     "\n"
     "Spurious-free dynamic range in dB from the top two peaks.\n"
     "\n"
+    "Parameters\n"
+    "----------\n"
+    "min_db : float\n"
+    "    Minimum peak level considered, dB.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "float\n"
+    "    Carrier-minus-highest-spur level in dB (0 if fewer than two peaks).\n"
+    "\n"
     "    >>> import numpy as np\n"
     "    >>> from doppler import PSD\n"
-    "    >>> obj = PSD(1024, 1.0, \"hann\", 0.0, 1, 1.0, 0, \"mean\", 0.1)\n"
+    "    >>> obj = PSD(n=1024, fs=1.0, window=\"hann\", beta=0.0, pad=1, "
+    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1)\n"
     "    >>> obj.sfdr(0.0)\n"
     "    0.0\n" },
   { "state_bytes", (PyCFunction)PSDObj_state_bytes, METH_NOARGS,
-    "Serialized state size in bytes." },
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the PSDObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
   { "get_state", (PyCFunction)PSDObj_get_state, METH_NOARGS,
-    "Serialize the engine's mutable state to bytes." },
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the PSDObj has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
   { "set_state", (PyCFunction)PSDObj_set_state, METH_O,
-    "Restore mutable state from a get_state() blob." },
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()` "
+    "before\n"
+    "the blob is handed to the C core, and the core may reject it as well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the PSDObj has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
   { "destroy", (PyCFunction)PSDObj_destroy, METH_NOARGS,
-    "Release resources." },
-  { "__enter__", (PyCFunction)PSDObj_enter, METH_NOARGS, NULL },
-  { "__exit__", (PyCFunction)PSDObj_exit, METH_VARARGS, NULL },
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)PSDObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a Psd be used in a `with` statement so its C resources are "
+    "released\n"
+    "deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "Psd\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)PSDObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the Psd.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never "
+    "suppresses\n"
+    "one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
   { NULL }
 };
 

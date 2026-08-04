@@ -8,13 +8,13 @@ import httpx
 import pytest
 from pytest_httpx import HTTPXMock
 
-from _fixtures.kernel_test_helpers import install_http_client_for_test
-from _helpers.client_factory import build_client_shell_for_tests
-from conftest import install_post_as_stream
 from notebooklm._runtime.helpers import is_auth_error
 from notebooklm.auth import AuthTokens
 from notebooklm.client import NotebookLMClient
 from notebooklm.rpc import AuthError, RPCError, RPCMethod
+from tests._fixtures.kernel_test_helpers import install_http_client_for_test
+from tests._helpers.client_factory import build_client_shell_for_tests
+from tests.unit.conftest import install_post_as_stream
 
 
 @pytest.fixture
@@ -319,17 +319,11 @@ class TestRefreshAuth:
     ):
         """refresh_auth delegates token mutation through the auth-refresh coordinator.
 
-        Wave 2 of plan ``host-protocol-removal`` rewired
-        :meth:`NotebookLMClient.refresh_auth` to call
-        :func:`refresh_auth_session` with explicit collaborator kwargs
-        — the token-mutation hop now invokes
-        ``auth_coord.update_auth_tokens(auth=..., csrf=..., session_id=...)``
-        directly instead of going through the ``Session.update_auth_tokens``
-        delegate. Tests that want to observe the mutation patch the
-        coordinator method (matching the new keyword-only signature) and
-        read the live ``AuthTokens`` instance via ``client._auth``, which
-        the Auth Instance Invariant keeps aliased with the composed
-        Session's ``auth`` attribute.
+        Tests that want to observe the mutation patch the coordinator method
+        (matching the new keyword-only signature) and read the live
+        ``AuthTokens`` instance via ``client._auth``, which the Auth Instance
+        Invariant keeps aliased with the composed runtime's auth snapshot
+        provider.
         """
         client = NotebookLMClient(mock_auth)
         html = '"SNlM0e":"new_csrf_token_123" "FdrFJe":"new_session_id_456"'

@@ -68,6 +68,7 @@ from snowflake.snowpark_connect.config import (
     get_return_dml_metadata_enabled,
     global_config,
     is_dynamic_partition_overwrite_enabled,
+    is_flatten_chained_union_enabled,
     is_iceberg_sql_extensions_enabled,
     record_table_metadata,
     sessions_config,
@@ -100,7 +101,9 @@ from snowflake.snowpark_connect.relation.iceberg_sql_time_travel import (
     resolve_relation_time_travel,
 )
 from snowflake.snowpark_connect.relation.iceberg_tag_ddl import (
+    match_create_tag_as_of_timestamp_sql,
     translate_create_or_replace_tag,
+    translate_create_tag_as_of_timestamp_match,
     translate_drop_tag,
 )
 from snowflake.snowpark_connect.relation.map_relation import (
@@ -259,6 +262,37 @@ def _execute_alter(session: Session, sql: str, table_name: str) -> None:
     if needs_iceberg_keyword:
         sql = sql.replace("ALTER TABLE ", "ALTER ICEBERG TABLE ", 1)
     session.sql(sql).collect()
+
+
+def _drop_table_should_use_cld_iceberg_purge(purge: bool) -> bool:
+    """Return whether to translate ``DROP TABLE ... PURGE`` for Snowflake CLD.
+
+    Spark/Iceberg clients always send ``DROP TABLE <name> PURGE`` (the logical
+    ``DropTable`` plan with ``purge()`` true). SCOS never receives
+    ``DROP ICEBERG TABLE`` from Spark SQL. On catalog-linked sessions only,
+    translate that input to Snowflake ``DROP ICEBERG TABLE <name> PURGE``
+    (SNOW-3485167 / SNOW-3527665). Outside CLD, or when ``purge()`` is false,
+    emit plain ``DROP TABLE`` without ``PURGE`` or the ``ICEBERG`` keyword.
+    """
+    # TODO(SNOW-3527665): For ``database.schema.table`` targets, also gate on
+    # ``get_table_type(...) == "ICEBERG"`` so a CLD session dropping a table in
+    # another database does not emit ``DROP ICEBERG TABLE ... PURGE`` against a
+    # regular table. Keep session-level gating for ``table`` / ``schema.table``.
+    return purge and is_in_cld_context()
+
+
+def _execute_drop_table(
+    session: Session,
+    table_name: str,
+    if_exists: bool,
+    purge: bool,
+) -> None:
+    if_exists_sql = "IF EXISTS " if if_exists else ""
+    if _drop_table_should_use_cld_iceberg_purge(purge):
+        # Spark input: DROP TABLE xyz PURGE  ->  Snowflake: DROP ICEBERG TABLE xyz PURGE
+        session.sql(f"DROP ICEBERG TABLE {if_exists_sql}{table_name} PURGE").collect()
+    else:
+        session.sql(f"DROP TABLE {if_exists_sql}{table_name}").collect()
 
 
 @contextmanager
@@ -537,6 +571,17 @@ def _spark_to_snowflake(multipart_id: jpype.JObject) -> str:
     parts = [str(part) for part in as_java_list(multipart_id)]
     flags = get_multipart_backtick_flags(tuple(parts))
     if flags is None or len(flags) != len(parts):
+        flags = (False,) * len(parts)
+    return ".".join(
+        spark_to_sf_single_id(part, is_backtick_quoted=flag)
+        for part, flag in zip(parts, flags)
+    )
+
+
+def _spark_table_sql_to_snowflake(table_sql: str) -> str:
+    """Resolve a Spark SQL table identifier string to Snowflake form."""
+    parts, flags = split_fully_qualified_spark_name_with_quoting(table_sql)
+    if len(flags) != len(parts):
         flags = (False,) * len(parts)
     return ".".join(
         spark_to_sf_single_id(part, is_backtick_quoted=flag)
@@ -1929,6 +1974,30 @@ def _relation_time_travel_extensions_disabled_exception() -> AnalysisException:
     return exception
 
 
+def _iceberg_tag_ddl_extensions_disabled_exception() -> AnalysisException:
+    """Build the error when tag DDL is requested without Iceberg extensions."""
+    exception = AnalysisException(
+        "Iceberg tag DDL ('ALTER TABLE … CREATE TAG' / 'DROP TAG') "
+        "is gated on the 'spark.sql.extensions' config naming the "
+        "Iceberg Spark SQL extensions class. SCOS translates tag DDL "
+        "to Snowflake 'VERSION_TAG' SQL natively (no extra JAR install "
+        "is required), but the customer-visible support contract still "
+        "requires the flag so Snowpark Connect only activates the "
+        "Iceberg Spark SQL Extensions parser path when the customer has "
+        "opted in. Set it on the SCOS server (e.g. in spark-defaults.conf "
+        "or via the SPARK_CONF_spark__sql__extensions env var) to: "
+        "'org.apache.iceberg.spark.extensions."
+        "IcebergSparkSessionExtensions'."
+    )
+    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+    return exception
+
+
+def _require_iceberg_sql_extensions_for_tag_ddl() -> None:
+    if not is_iceberg_sql_extensions_enabled():
+        raise _iceberg_tag_ddl_extensions_disabled_exception()
+
+
 def map_sql_to_pandas_df(
     sql_string: str,
     named_args: MutableMapping[str, expressions_proto.Expression.Literal],
@@ -1943,6 +2012,19 @@ def map_sql_to_pandas_df(
     snowpark_connect_sql_passthrough, sql_string = is_valid_passthrough_sql(sql_string)
 
     if not snowpark_connect_sql_passthrough:
+        if is_iceberg_sql_extensions_enabled():
+            create_tag_ts_match = match_create_tag_as_of_timestamp_sql(sql_string)
+            if create_tag_ts_match is not None:
+                session = get_or_create_snowpark_session()
+                table_name = _spark_table_sql_to_snowflake(
+                    create_tag_ts_match.table_sql
+                )
+                snowflake_sql = translate_create_tag_as_of_timestamp_match(
+                    create_tag_ts_match,
+                    table_name,
+                )
+                session.sql(snowflake_sql).collect()
+                return pandas.DataFrame(), '{"type": "struct", "fields": []}'
         logical_plan = sql_parser().parsePlan(sql_string)
         parsed_pos_args = parse_pos_args(logical_plan, pos_args)
         set_sql_args(named_args, parsed_pos_args)
@@ -2084,12 +2166,14 @@ def map_sql_to_pandas_df(
                 #       [AS OF VERSION <id>] [RETAIN <N> DAYS]
                 #   ALTER TABLE <t> REPLACE TAG <name> [AS OF VERSION <id>]
                 #       [RETAIN <N> DAYS]
-                # Translated to Snowflake's ``CREATE VERSION_TAG`` /
-                # ``CREATE OR REPLACE VERSION_TAG`` on
-                # ``ALTER ICEBERG TABLE``. Variants that aren't yet
-                # confirmed-supported by Snowflake (AS OF VERSION,
-                # RETAIN, bare REPLACE) raise UNSUPPORTED_OPERATION
-                # with explicit pointers — see ``iceberg_tag_ddl``.
+                # Translated to Snowflake ``CREATE [OR REPLACE] VERSION_TAG
+                # [IF NOT EXISTS] … AS OF VERSION|TIMESTAMP …`` on
+                # ``ALTER ICEBERG TABLE``. Bare REPLACE and RETAIN raise
+                # ``UNSUPPORTED_OPERATION``; bare CREATE (no AS OF binding)
+                # also raises — see ``iceberg_tag_ddl``. ``AS OF TIMESTAMP``
+                # is handled by the pre-parse hook when the Iceberg parser
+                # does not model the binding. Gated on ``spark.sql.extensions``.
+                _require_iceberg_sql_extensions_for_tag_ddl()
                 table_name = _spark_to_snowflake(logical_plan.table())
                 snowflake_sql = translate_create_or_replace_tag(
                     logical_plan, table_name
@@ -2518,6 +2602,10 @@ def map_sql_to_pandas_df(
                 # Spark resolves DROP TABLE to a shadowing temp view before the
                 # physical table, and never drops a permanent view (Snowflake
                 # rejects that, which we surface as AnalysisException).
+                #
+                # Spark SQL input is always ``DROP TABLE <name> [PURGE]`` — never
+                # ``DROP ICEBERG TABLE``. On CLD sessions, ``purge()`` true is
+                # translated to Snowflake ``DROP ICEBERG TABLE <name> PURGE``.
                 temporary_view_name = get_relation_identifier_name_without_uppercasing(
                     logical_plan.child()
                 )
@@ -2525,9 +2613,13 @@ def map_sql_to_pandas_df(
                 if not unregister_snowflake_temp_view(
                     session, temporary_view_name, name, logical_plan.ifExists()
                 ):
-                    if_exists = "IF EXISTS " if logical_plan.ifExists() else ""
                     try:
-                        session.sql(f"DROP TABLE {if_exists}{name}").collect()
+                        _execute_drop_table(
+                            session,
+                            name,
+                            logical_plan.ifExists(),
+                            logical_plan.purge(),
+                        )
                     except SnowparkSQLException as e:
                         if "not specified type 'TABLE'" in str(e):
                             exception = AnalysisException(str(e))
@@ -2541,6 +2633,8 @@ def map_sql_to_pandas_df(
                 #   ALTER TABLE <t> DROP TAG [IF EXISTS] <name>
                 # Translated to Snowflake's ``DROP VERSION_TAG`` on
                 # ``ALTER ICEBERG TABLE``. See ``iceberg_tag_ddl``.
+                # Gated on ``spark.sql.extensions``.
+                _require_iceberg_sql_extensions_for_tag_ddl()
                 table_name = _spark_to_snowflake(logical_plan.table())
                 snowflake_sql = translate_drop_tag(logical_plan, table_name)
                 session.sql(snowflake_sql).collect()
@@ -3440,6 +3534,49 @@ def map_sql(
         return post_process_df(sql_df, rel.common.plan_id)
 
 
+def _map_union_strip_inner_distinct(union_rel: typing.Any) -> relation_proto.Relation:
+    """Map a Catalyst ``Union`` node to a flat ``UNION ALL`` proto chain, dropping
+    any interior ``Distinct(Union(...))`` wrappers.
+
+    Chained SQL ``UNION`` (distinct) parses left-deep as
+    ``Distinct(Union(Distinct(Union(...)), q))`` — a ``Distinct`` on every level.
+    Since ``DISTINCT(A ∪ DISTINCT(B)) ≡ DISTINCT(A ∪ B)``, every *interior*
+    ``Distinct`` under the outer ``Distinct`` is redundant. Dropping them lets the
+    ``UNION ALL`` chain flatten (Snowpark cannot flatten a union when a
+    projection/dedup is interposed between operands), taking nesting depth from
+    O(N) to O(1) with a single terminal dedup applied by the caller. SNOW-3859781.
+    """
+    children = as_java_list(union_rel.children())
+    assert len(children) == 2, len(children)
+
+    mapped_children = []
+    for child in children:
+        child_class = str(child.getClass().getSimpleName())
+        if child_class == "Union":
+            mapped_children.append(_map_union_strip_inner_distinct(child))
+        elif (
+            child_class == "Distinct"
+            and str(child.child().getClass().getSimpleName()) == "Union"
+        ):
+            # Redundant interior DISTINCT under the outer DISTINCT — drop it.
+            mapped_children.append(_map_union_strip_inner_distinct(child.child()))
+        else:
+            mapped_children.append(map_logical_plan_relation(child))
+
+    proto = relation_proto.Relation(
+        set_op=relation_proto.SetOperation(
+            left_input=mapped_children[0],
+            right_input=mapped_children[1],
+            set_op_type=relation_proto.SetOperation.SET_OP_TYPE_UNION,
+            is_all=True,
+            by_name=union_rel.byName(),
+            allow_missing_columns=union_rel.allowMissingCol(),
+        )
+    )
+    proto.common.plan_id = gen_sql_plan_id()
+    return proto
+
+
 def map_logical_plan_relation(
     rel, plan_id: int | None = None
 ) -> relation_proto.Relation:
@@ -3596,10 +3733,21 @@ def map_logical_plan_relation(
                 )
                 proto = relation_proto.Relation(extension=any_proto)
         case "Distinct":
+            child = rel.child()
+            if (
+                is_flatten_chained_union_enabled()
+                and str(child.getClass().getSimpleName()) == "Union"
+            ):
+                # Chained distinct UNION parses to Distinct(Union(Distinct(Union(...)))).
+                # Collapse the redundant interior Distincts into a flat UNION ALL chain
+                # plus this single terminal dedup so the plan flattens instead of nesting
+                # linearly (O(N) subquery depth -> SQL compiler error 603/604). Off by
+                # default; opt in via snowpark.connect.sql.flattenChainedUnion. SNOW-3859781.
+                inner = _map_union_strip_inner_distinct(child)
+            else:
+                inner = map_logical_plan_relation(child)
             proto = relation_proto.Relation(
-                deduplicate=relation_proto.Deduplicate(
-                    input=map_logical_plan_relation(rel.child())
-                )
+                deduplicate=relation_proto.Deduplicate(input=inner)
             )
         case "Except":
             proto = relation_proto.Relation(
@@ -3914,7 +4062,7 @@ def map_logical_plan_relation(
             (
                 snapshot_id,
                 as_of_timestamp_millis,
-                version_tag,
+                version_ref,
             ) = resolve_relation_time_travel(rel)
 
             # Emit the same Read.DataSource proto shape that
@@ -3929,8 +4077,8 @@ def map_logical_plan_relation(
                 iceberg_options["snapshot-id"] = str(snapshot_id)
             if as_of_timestamp_millis is not None:
                 iceberg_options["as-of-timestamp"] = str(as_of_timestamp_millis)
-            if version_tag is not None:
-                iceberg_options["tag"] = version_tag
+            if version_ref is not None:
+                iceberg_options["version-ref"] = version_ref
 
             proto = relation_proto.Relation(
                 read=relation_proto.Read(

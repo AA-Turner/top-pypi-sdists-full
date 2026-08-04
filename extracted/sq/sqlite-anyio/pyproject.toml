@@ -6,12 +6,7 @@ build-backend = "uv_build"
 name = "sqlite-anyio"
 description = "Asynchronous client for SQLite using AnyIO"
 readme = "README.md"
-version = "0.3.0"
-authors = [
-    {name = "Alex Grönholm", email = "alex.gronholm@nextday.fi"},
-    {name = "David Brochart", email = "david.brochart@gmail.com"},
-]
-license = {file = "LICENSE"}
+version = "0.3.1"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -32,6 +27,21 @@ dependencies = [
     "typing-extensions >=4.15.0",
 ]
 
+[[project.authors]]
+name = "Alex Grönholm"
+email = "alex.gronholm@nextday.fi"
+
+[[project.authors]]
+name = "David Brochart"
+email = "david.brochart@gmail.com"
+
+[project.license]
+file = "LICENSE"
+
+[project.urls]
+Source = "https://github.com/davidbrochart/sqlite-anyio"
+Issues = "https://github.com/davidbrochart/sqlite-anyio/issues"
+
 [dependency-groups]
 test = [
     "pytest >=9,<10",
@@ -40,12 +50,11 @@ test = [
     "coverage",
 ]
 
-[project.urls]
-Source = "https://github.com/davidbrochart/sqlite-anyio"
-Issues = "https://github.com/davidbrochart/sqlite-anyio/issues"
-
 [tool.coverage.run]
-source = ["sqlite_anyio", "tests"]
+source = [
+    "sqlite_anyio",
+    "tests",
+]
 
 [tool.coverage.report]
 show_missing = true

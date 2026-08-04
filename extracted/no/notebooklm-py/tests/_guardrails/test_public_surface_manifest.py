@@ -20,6 +20,14 @@ from types import ModuleType
 
 import pytest
 
+from tests._baselines.registry import (
+    BASELINES,
+    UNGATED_PUBLIC_MODULES,
+    Baseline,
+    allowlist_extra_public_names,
+    baseline_by_name,
+)
+
 pytestmark = pytest.mark.repo_lint
 
 # ---------------------------------------------------------------------------
@@ -75,6 +83,7 @@ _DOCUMENTED_PUBLIC_IMPORTS = {
         "select_cited_sources",
     ],
     "notebooklm.rpc": [
+        "resolve_rpc_id",
         "RPCMethod",
     ],
     "notebooklm.types": [
@@ -134,6 +143,96 @@ def test_public_facade_imports_are_identity_reexports() -> None:
     assert notebooklm.ConnectionLimits is public_types.ConnectionLimits
     assert public_rpc.RPCMethod is rpc_types.RPCMethod
     assert public_rpc.resolve_rpc_id is rpc_overrides.resolve_rpc_id
+
+
+# The names de-blessed from ``notebooklm.rpc.__all__`` in #1589. They were
+# removed from ``__all__`` (so the compat gate no longer advertises them) but
+# remain importable as module attributes for back-compat — see
+# ``scripts/api-compat-allowlist.json`` and ``docs/deprecations.md``.
+_RPC_LEGACY_REEXPORTS = [
+    # batchexecute endpoint URL constants + helpers
+    "BATCHEXECUTE_URL",
+    "QUERY_URL",
+    "UPLOAD_URL",
+    "get_batchexecute_url",
+    "get_query_url",
+    "get_upload_url",
+    # artifact-variant constants
+    "FLASHCARDS_VARIANT",
+    "QUIZ_VARIANT",
+    "INTERACTIVE_MIND_MAP_VARIANT",
+    # artifact type-code + status helpers
+    "ArtifactTypeCode",
+    "ArtifactStatus",
+    "artifact_status_to_str",
+    # enum re-exports (also public via notebooklm / notebooklm.types)
+    "AudioFormat",
+    "AudioLength",
+    "VideoFormat",
+    "VideoStyle",
+    "QuizQuantity",
+    "QuizDifficulty",
+    "InfographicOrientation",
+    "InfographicDetail",
+    "InfographicStyle",
+    "SlideDeckFormat",
+    "SlideDeckLength",
+    "ReportFormat",
+    "ChatGoal",
+    "ChatResponseLength",
+    "DriveMimeType",
+    "ExportType",
+    # batchexecute wire helpers
+    "encode_rpc_request",
+    "build_request_body",
+    "nest_source_ids",
+    "strip_anti_xssi",
+    "parse_chunked_response",
+    "extract_rpc_result",
+    "collect_rpc_ids",
+    "decode_response",
+    "safe_index",
+    # exception re-exports (also public via notebooklm / notebooklm.exceptions)
+    "RPCError",
+    "AuthError",
+    "NetworkError",
+    "RPCTimeoutError",
+    "RateLimitError",
+    "ServerError",
+    "ClientError",
+    "UnknownRPCMethodError",
+    # error-code utilities
+    "RPCErrorCode",
+    "get_error_message_for_code",
+]
+
+
+def test_rpc_all_is_minimized_to_documented_power_user_imports() -> None:
+    """``notebooklm.rpc.__all__`` stays frozen to the two blessed imports (#1589).
+
+    Catches a name being re-blessed into ``__all__`` directly (the compat audit
+    only catches this indirectly, via a now-stale allowlist entry).
+    """
+    import notebooklm.rpc as public_rpc
+
+    assert public_rpc.__all__ == ["RPCMethod", "resolve_rpc_id"]
+
+
+def test_rpc_legacy_reexports_stay_importable_but_unblessed() -> None:
+    """The de-blessed RPC names remain importable as attributes (back-compat),
+    while staying out of ``__all__``. Freezes the promise made in #1589 that this
+    is a de-advertisement, not a removal — no existing gate covers importability.
+    """
+    import notebooklm.rpc as public_rpc
+
+    assert len(_RPC_LEGACY_REEXPORTS) == 47
+    assert len(_RPC_LEGACY_REEXPORTS) == len(set(_RPC_LEGACY_REEXPORTS)), (
+        "_RPC_LEGACY_REEXPORTS must not contain duplicate names (a dup could mask a drop)"
+    )
+    missing = [name for name in _RPC_LEGACY_REEXPORTS if not hasattr(public_rpc, name)]
+    assert missing == [], f"de-blessed names must stay importable from notebooklm.rpc: {missing}"
+    re_blessed = [name for name in _RPC_LEGACY_REEXPORTS if name in public_rpc.__all__]
+    assert re_blessed == [], f"de-blessed names must not return to __all__: {re_blessed}"
 
 
 # ---------------------------------------------------------------------------
@@ -204,82 +303,15 @@ _REEXPORTED_RPC_ENUMS = [
     "VideoStyle",
 ]
 
-_FROZEN_TYPES_ALL = [
-    "CitedSourceSelection",
-    "ConnectionLimits",
-    "ClientMetricsSnapshot",
-    "RpcTelemetryEvent",
-    "Notebook",
-    "NotebookDescription",
-    "NotebookMetadata",
-    "SuggestedTopic",
-    "Source",
-    "SourceFulltext",
-    "SourceSummary",
-    "Artifact",
-    "GenerationStatus",
-    "ReportSuggestion",
-    "Note",
-    "ConversationTurn",
-    "ChatReference",
-    "AskResult",
-    "ChatMode",
-    "SharedUser",
-    "ShareStatus",
-    # Research / mind-map / source-guide typed returns (issue #1209).
-    "ResearchStatus",
-    "ResearchSource",
-    "ResearchTask",
-    "ResearchStart",
-    "MindMap",
-    "MindMapKind",
-    "MindMapResult",
-    "SourceGuide",
-    "SourceError",
-    "SourceAddError",
-    "SourceProcessingError",
-    "SourceTimeoutError",
-    "SourceNotFoundError",
-    "ArtifactError",
-    "ArtifactFeatureUnavailableError",
-    "ArtifactNotFoundError",
-    "ArtifactNotReadyError",
-    "ArtifactParseError",
-    "ArtifactDownloadError",
-    "ArtifactTimeoutError",
-    "ArtifactPendingTimeoutError",
-    "ArtifactInProgressTimeoutError",
-    "UnknownTypeWarning",
-    "SourceType",
-    "ArtifactType",
-    "ArtifactStatus",
-    "AudioFormat",
-    "AudioLength",
-    "VideoFormat",
-    "VideoStyle",
-    "QuizQuantity",
-    "QuizDifficulty",
-    "InfographicOrientation",
-    "InfographicDetail",
-    "InfographicStyle",
-    "SlideDeckFormat",
-    "SlideDeckLength",
-    "ReportFormat",
-    "ChatGoal",
-    "ChatResponseLength",
-    "DriveMimeType",
-    "ExportType",
-    "SourceStatus",
-    "ShareAccess",
-    "ShareViewLevel",
-    "SharePermission",
-    "artifact_status_to_str",
-    "source_status_to_str",
-]
+# NOTE: the former hand-typed ``_FROZEN_TYPES_ALL`` snapshot of
+# ``notebooklm.types.__all__`` is gone — it is now the regenerable ``types_all``
+# baseline (``tests/fixtures/baselines/types_all.json``, derived by the
+# ``types_all`` :class:`~tests._baselines.registry.Baseline`). The freeze test is
+# ``test_baseline_matches_committed_file[types_all]`` plus the per-name
+# ``hasattr`` check in ``test_types_all_contract_is_frozen_in_order`` below.
 
 _TOP_LEVEL_TYPE_EXPORTS = [
     "AccountLimits",
-    "AccountTier",
     "Artifact",
     "ArtifactType",
     "AskResult",
@@ -295,10 +327,12 @@ _TOP_LEVEL_TYPE_EXPORTS = [
     "ConversationTurn",
     "DriveMimeType",
     "ExportType",
+    "GenerationState",
     "GenerationStatus",
     "InfographicDetail",
     "InfographicOrientation",
     "InfographicStyle",
+    "Label",
     "MindMapResult",
     "Note",
     "Notebook",
@@ -347,9 +381,12 @@ _TYPES_EXCEPTION_REEXPORTS = [
     "ArtifactTimeoutError",
     "ArtifactPendingTimeoutError",
     "ArtifactInProgressTimeoutError",
+    "LabelError",
+    "LabelNotFoundError",
 ]
 
 _TOP_LEVEL_EXCEPTION_EXPORTS = [
+    "AmbiguousResearchTaskError",
     "ArtifactDownloadError",
     "ArtifactError",
     "ArtifactFeatureUnavailableError",
@@ -366,8 +403,11 @@ _TOP_LEVEL_EXCEPTION_EXPORTS = [
     "ClientError",
     "ConfigurationError",
     "DecodingError",
+    "LabelError",
+    "LabelNotFoundError",
     "MindMapError",
     "MindMapNotFoundError",
+    "MissingDependencyError",
     "NetworkError",
     "NonIdempotentRetryError",
     "NotFoundError",
@@ -379,6 +419,7 @@ _TOP_LEVEL_EXCEPTION_EXPORTS = [
     "NotebookNotFoundError",
     "RateLimitError",
     "ResearchError",
+    "ResearchStartUnavailableError",
     "ResearchTaskMismatchError",
     "ResearchTimeoutError",
     "RPCError",
@@ -455,11 +496,18 @@ def test_rpc_enum_reexports_are_identical(enum_name: str) -> None:
 
 
 def test_types_all_contract_is_frozen_in_order() -> None:
-    """T13 type moves must preserve the exact public types.__all__ ordering."""
+    """T13 type moves must preserve the exact public ``types.__all__`` ordering.
+
+    The frozen ordering itself is the regenerable ``types_all`` baseline
+    (asserted by ``test_baseline_matches_committed_file[types_all]``). This test
+    keeps the per-name ``hasattr`` intent: every name in the committed order must
+    resolve on ``notebooklm.types``.
+    """
     import notebooklm.types as public_types
 
-    assert list(public_types.__all__) == _FROZEN_TYPES_ALL
-    for name in _FROZEN_TYPES_ALL:
+    committed = baseline_by_name("types_all").load()
+    assert list(public_types.__all__) == committed
+    for name in committed:
         assert hasattr(public_types, name), f"notebooklm.types.__all__ misses {name!r}"
 
 
@@ -734,6 +782,13 @@ def test_auth_cookie_domain_constants_are_facade_exports() -> None:
 # ---------------------------------------------------------------------------
 
 
+# NOTE: 22 of the 23 names de-blessed from ``auth.__all__`` in PR-1 (#1592) were
+# removed from this manifest as a deliberate change (the docstring above sanctions
+# removal via a dedicated plan); the 23rd, ``recover_psidts_in_memory``, was never
+# in this list. First-party code now imports the de-blessed names from
+# ``notebooklm._auth.<sub>``; they stay importable from ``notebooklm.auth`` for
+# back-compat, guarded by ``test_auth_deblessed_names_stay_importable_but_unblessed``
+# in ``tests/_guardrails/test_public_surface.py``.
 _AUTH_FIRST_PARTY_COMPATIBILITY_NAMES = [
     "_auth_domain_priority",
     "_EXTRACTION_HINT",
@@ -749,45 +804,23 @@ _AUTH_FIRST_PARTY_COMPATIBILITY_NAMES = [
     "_update_cookie_input",
     "_validate_required_cookies",
     "Account",
-    "advance_cookie_snapshot_after_save",
-    "ALLOWED_COOKIE_DOMAINS",
-    "authuser_query",
     "AuthTokens",
     "build_cookie_jar",
     "build_httpx_cookies_from_storage",
     "clear_account_metadata",
     "convert_rookiepy_cookies_to_storage_state",
-    "CookieSaveResult",
-    "CookieSnapshot",
-    "CookieSnapshotKey",
-    "CookieSnapshotValue",
     "enumerate_accounts",
     "extract_cookies_from_storage",
     "extract_cookies_with_domains",
-    "extract_csrf_from_html",
     "extract_email_from_html",
-    "extract_session_id_from_html",
-    "extract_wiz_field",
-    "fetch_tokens",
     "fetch_tokens_with_domains",
-    "format_authuser_value",
     "get_account_email_for_storage",
     "get_authuser_for_storage",
     "GOOGLE_REGIONAL_CCTLDS",
-    "KEEPALIVE_ROTATE_URL",
-    "load_auth_from_storage",
-    "load_httpx_cookies",
-    "MINIMUM_REQUIRED_COOKIES",
-    "normalize_cookie_map",
-    "NOTEBOOKLM_DISABLE_KEEPALIVE_POKE_ENV",
-    "NOTEBOOKLM_REFRESH_CMD_ENV",
-    "NOTEBOOKLM_REFRESH_CMD_USE_SHELL_ENV",
     "OPTIONAL_COOKIE_DOMAINS",
     "OPTIONAL_COOKIE_DOMAINS_BY_LABEL",
     "read_account_metadata",
     "REQUIRED_COOKIE_DOMAINS",
-    "save_cookies_to_storage",
-    "snapshot_cookie_jar",
     "write_account_metadata",
 ]
 
@@ -855,7 +888,8 @@ def test_auth_paths_facade_delegates_to_private_module() -> None:
     import notebooklm.auth as auth
     from notebooklm._auth import paths
 
-    # Public-surface env-var names (listed in notebooklm.auth.__all__).
+    # Env-var names de-blessed from notebooklm.auth.__all__ in #1592; kept
+    # importable via the facade.
     assert auth.NOTEBOOKLM_REFRESH_CMD_ENV == paths.NOTEBOOKLM_REFRESH_CMD_ENV
     assert auth.NOTEBOOKLM_REFRESH_CMD_USE_SHELL_ENV == paths.NOTEBOOKLM_REFRESH_CMD_USE_SHELL_ENV
     assert auth.NOTEBOOKLM_DISABLE_KEEPALIVE_POKE_ENV == paths.NOTEBOOKLM_DISABLE_KEEPALIVE_POKE_ENV
@@ -870,7 +904,8 @@ def test_auth_extraction_facade_delegates_to_private_module() -> None:
     import notebooklm.auth as auth
     from notebooklm._auth import extraction
 
-    # Public-surface (listed in notebooklm.auth.__all__).
+    # WIZ extractors de-blessed from notebooklm.auth.__all__ in #1592; kept
+    # importable via the facade.
     assert auth.extract_csrf_from_html is extraction.extract_csrf_from_html
     assert auth.extract_session_id_from_html is extraction.extract_session_id_from_html
     assert auth.extract_wiz_field is extraction.extract_wiz_field
@@ -987,6 +1022,265 @@ def test_auth_update_cookie_input_lives_in_cookies_module() -> None:
 # pinned the facade-mirror semantics are gone with the mechanism; the
 # identity / re-export tests above still apply and stay.
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Every discovered public top-level module must declare ``__all__``.
+#
+# ``scripts/audit_public_api_compat.py`` captures ``has_all`` per module but
+# (historically) never asserted it, and the shim-pair sweep below only covered a
+# hardcoded trio. A brand-new public top-level module could therefore ship
+# without ``__all__`` and slip past both gates (issue #1493). This sweep mirrors
+# the audit's module-discovery rule — every non-underscore top-level ``*.py``
+# (minus the excluded entrypoints) plus the public ``rpc`` subpackage and the
+# top-level ``notebooklm`` package — and requires each to declare ``__all__``.
+# ---------------------------------------------------------------------------
+
+# Mirrors scripts/audit_public_api_compat.py: EXCLUDED_TOP_LEVEL_MODULES /
+# EXTRA_PUBLIC_PACKAGES. Keep in sync with the audit's discovery so the two
+# gates agree on the public top-level surface.
+_AUDIT_EXCLUDED_TOP_LEVEL_MODULES = {"__main__", "notebooklm_cli"}
+_AUDIT_EXTRA_PUBLIC_PACKAGES = ("rpc",)
+_NOTEBOOKLM_PACKAGE_DIR = Path(__file__).resolve().parents[2] / "src" / "notebooklm"
+
+
+def _discover_public_top_level_modules() -> list[str]:
+    """Discover the public top-level ``notebooklm`` modules the audit baselines.
+
+    Identical discovery to ``scripts/audit_public_api_compat.py``'s
+    ``discover_modules``: the ``notebooklm`` package itself, every
+    non-underscore top-level ``*.py`` (minus the excluded entrypoints), and each
+    public subpackage in ``EXTRA_PUBLIC_PACKAGES`` that ships an ``__init__``.
+    """
+    modules = {"notebooklm"}
+    for path in _NOTEBOOKLM_PACKAGE_DIR.glob("*.py"):
+        stem = path.stem
+        if stem.startswith("_") or stem in _AUDIT_EXCLUDED_TOP_LEVEL_MODULES:
+            continue
+        modules.add(f"notebooklm.{stem}")
+    for name in _AUDIT_EXTRA_PUBLIC_PACKAGES:
+        if (_NOTEBOOKLM_PACKAGE_DIR / name / "__init__.py").is_file():
+            modules.add(f"notebooklm.{name}")
+    return sorted(modules)
+
+
+_PUBLIC_TOP_LEVEL_MODULES = _discover_public_top_level_modules()
+
+
+def test_public_top_level_module_discovery_is_non_trivial() -> None:
+    """Guard the discovery itself: it must find the known anchor modules.
+
+    A discovery bug that returned an empty/degenerate set would make the
+    per-module ``__all__`` sweep vacuously pass. Pin a few stable anchors so a
+    regression in ``_discover_public_top_level_modules`` is caught loudly.
+    """
+    found = set(_PUBLIC_TOP_LEVEL_MODULES)
+    for anchor in ("notebooklm", "notebooklm.types", "notebooklm.client", "notebooklm.rpc"):
+        assert anchor in found, f"discovery dropped the public anchor module {anchor!r}"
+    # The excluded entrypoints must never be treated as public surface.
+    assert "notebooklm.__main__" not in found
+    assert "notebooklm.notebooklm_cli" not in found
+
+
+def test_discovery_constants_match_the_audit_source() -> None:
+    """The mirrored discovery constants must EQUAL the audit's, self-checked.
+
+    ``_AUDIT_EXCLUDED_TOP_LEVEL_MODULES`` / ``_AUDIT_EXTRA_PUBLIC_PACKAGES`` are
+    hand-copied from ``scripts/audit_public_api_compat.py`` so this gate and the
+    audit agree on the public surface. Assert equality against the source of
+    truth rather than relying on a "keep in sync" comment — an un-enforced copy
+    is exactly the consistency-drift failure shape this gate exists to close
+    (#1493 review).
+    """
+    import scripts.audit_public_api_compat as audit
+
+    assert set(audit.EXCLUDED_TOP_LEVEL_MODULES) == _AUDIT_EXCLUDED_TOP_LEVEL_MODULES
+    assert tuple(_AUDIT_EXTRA_PUBLIC_PACKAGES) == tuple(audit.EXTRA_PUBLIC_PACKAGES)
+
+
+def test_all_enforcement_flags_a_module_without_all() -> None:
+    """Probe: the ``__all__`` requirement catches a module lacking ``__all__``.
+
+    A synthetic public-shaped module with no ``__all__`` would have evaded both
+    gates before issue #1493. This pins that the enforcement predicate
+    (``hasattr(module, "__all__")``) actually distinguishes the two cases, so
+    the per-module sweep above is not vacuous.
+    """
+    without_all = ModuleType("notebooklm._probe_without_all")
+    with_all = ModuleType("notebooklm._probe_with_all")
+    with_all.__all__ = ["x"]  # type: ignore[attr-defined]
+    with_all.x = 1  # type: ignore[attr-defined]
+
+    assert not hasattr(without_all, "__all__")
+    assert hasattr(with_all, "__all__")
+
+
+@pytest.mark.parametrize("module_name", _PUBLIC_TOP_LEVEL_MODULES)
+def test_public_top_level_module_declares_all(module_name: str) -> None:
+    """Every public top-level module must declare ``__all__``.
+
+    This is the assertion behind the audit's captured ``has_all`` flag: a public
+    module without ``__all__`` ships an un-baselined surface. ``__all__`` must be
+    a list/tuple of ``str`` so the audit and ``import *`` consumers see a
+    well-formed export manifest.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        module = importlib.import_module(module_name)
+
+    assert hasattr(module, "__all__"), (
+        f"{module_name} must declare __all__ — every public top-level module "
+        "defines its exported surface so the compat audit can baseline it "
+        "(scripts/audit_public_api_compat.py)."
+    )
+    all_value = module.__all__
+    assert isinstance(all_value, (list, tuple)), (
+        f"{module_name}.__all__ must be a list/tuple, got {type(all_value).__name__}"
+    )
+    assert all(isinstance(name, str) for name in all_value), (
+        f"{module_name}.__all__ must contain only str names"
+    )
+    assert len(all_value) == len(set(all_value)), (
+        f"{module_name}.__all__ contains duplicate entries"
+    )
+    for name in all_value:
+        assert hasattr(module, name), f"{module_name}.__all__ references missing attribute {name!r}"
+
+
+# ---------------------------------------------------------------------------
+# Additions gate (#1592 follow-on): freeze the FULL collected surface of every
+# public module the audit discovers but that has no exact pin yet.
+#
+# The compat audit (scripts/audit_public_api_compat.py::compare_manifests) only
+# flags REMOVED/CHANGED exports vs the last release tag — it never walks
+# current-only names, so a name ADDED to a public ``__all__`` (or a brand-new
+# public module) is invisible and the surface can silently regrow. This snapshot
+# makes every such addition a deliberate, diff-visible, in-PR act.
+#
+# The four modules already exact-pinned elsewhere keep their own gates (NO dedup:
+# ``EXPECTED_AUTH_ALL`` is also load-bearing for the auth snapshot test, and the
+# no-cross-test-import guard forbids importing those lists into this module):
+#   notebooklm.auth   -> EXPECTED_AUTH_ALL                       (test_public_surface.py)
+#   notebooklm.client -> EXPECTED_CLIENT_ALL                     (test_public_surface.py)
+#   notebooklm.rpc    -> test_rpc_all_is_minimized_to_documented_power_user_imports
+#   notebooklm.types  -> ``types_all`` regenerable baseline (tests/_baselines)
+#
+# The ordered collected surface of each ungated module is now the regenerable
+# ``ungated_surface`` baseline (``tests/fixtures/baselines/ungated_surface.json``).
+# ``collect_public_surface`` (the derive helper) and the module set
+# (``UNGATED_PUBLIC_MODULES``) both live in ``tests._baselines.registry`` so the
+# gate and the regen path derive identically. The freeze test is
+# ``test_baseline_matches_committed_file[ungated_surface]``.
+# ---------------------------------------------------------------------------
+
+_EXACT_PINNED_ELSEWHERE = {
+    "notebooklm.auth",
+    "notebooklm.client",
+    "notebooklm.rpc",
+    "notebooklm.types",
+}
+
+
+def test_ungated_public_surface_covers_exactly_the_unpinned_modules() -> None:
+    """Completeness: every audit-discovered public module is addition-gated —
+    either exact-pinned elsewhere (auth/client/rpc/types) or frozen in the
+    ``ungated_surface`` baseline. This fails a BRAND-NEW public module that
+    declares ``__all__`` (which the ``declares_all`` test alone would let pass)
+    until it is added to ``UNGATED_PUBLIC_MODULES`` and the baseline regenerated.
+    """
+    committed_modules = set(baseline_by_name("ungated_surface").load())
+    discovered = set(_PUBLIC_TOP_LEVEL_MODULES)
+    assert discovered == committed_modules | _EXACT_PINNED_ELSEWHERE, (
+        "A public top-level module is neither exact-pinned elsewhere nor frozen in "
+        "the ungated_surface baseline. Add a new public module to "
+        "tests._baselines.registry.UNGATED_PUBLIC_MODULES (or to an existing exact "
+        "pin) and regenerate (`python scripts/regen_baselines.py`) so its additions "
+        "are gated.\n"
+        f"  discovered-not-gated: {sorted(discovered - committed_modules - _EXACT_PINNED_ELSEWHERE)}\n"
+        f"  baselined-not-discovered: {sorted(committed_modules - discovered)}"
+    )
+
+    # The registry's regen seed and the committed baseline keys must agree, so the
+    # parametrized freeze (keyed off the committed file) can't silently skip a
+    # module that ``UNGATED_PUBLIC_MODULES`` intends to gate.
+    assert committed_modules == set(UNGATED_PUBLIC_MODULES), (
+        "ungated_surface baseline keys drifted from UNGATED_PUBLIC_MODULES; "
+        "regenerate the baseline (`python scripts/regen_baselines.py`)."
+    )
+
+    # The 4 exact-pinned modules pin ``__all__`` ONLY; assert no allowlist extra
+    # targets them — an extra would be a *collected* export their ``__all__``-pin
+    # misses and this gate excludes (a latent bypass). If one ever does, add it to
+    # ``UNGATED_PUBLIC_MODULES`` so its collected surface is baselined too.
+    pinned_with_extras = _EXACT_PINNED_ELSEWHERE & set(allowlist_extra_public_names())
+    assert not pinned_with_extras, (
+        f"allowlist extra_public_names target exact-__all__-pinned modules "
+        f"{sorted(pinned_with_extras)} whose pins don't cover extras; add them to "
+        "UNGATED_PUBLIC_MODULES so their collected surface is baselined."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Regenerable-baseline freeze (ADR-0022).
+#
+# Every registered :class:`~tests._baselines.registry.Baseline` (``types_all``,
+# ``ungated_surface``, ``cli_contract``) is frozen here: the committed JSON file
+# must equal ``derive()``. A name added to (or removed from) a public surface
+# fails until the committed file is regenerated in the SAME PR — that diff line
+# is the deliberate, reviewed acknowledgement. Regenerate after an intended
+# change with::
+#
+#     python scripts/regen_baselines.py
+#
+# CI never passes ``--update-baselines``; it only ever diffs (the dev-only-regen
+# invariant). See ADR-0022.
+# ---------------------------------------------------------------------------
+
+
+def test_baseline_registry_is_non_trivial() -> None:
+    """Guard the registry itself: the known baselines must be registered.
+
+    A regression that emptied ``BASELINES`` would make the parametrized freeze
+    below vacuously pass. Pin the stable names so that is caught loudly.
+    """
+    names = {baseline.name for baseline in BASELINES}
+    assert {"types_all", "ungated_surface", "cli_contract"} <= names, names
+    # Names are unique (parametrize ids + lookup rely on it).
+    assert len(names) == len(BASELINES)
+
+
+@pytest.mark.parametrize("baseline", BASELINES, ids=lambda b: b.name)
+def test_baseline_matches_committed_file(baseline: Baseline, update_baselines: bool) -> None:
+    """The committed baseline JSON must equal ``derive()`` (CI-mode assertion).
+
+    With ``--update-baselines`` (dev only — see ``tests/conftest.py``), the
+    ``update_baselines`` fixture is ``True`` and the test instead REWRITES the
+    committed file from ``derive()`` and passes. CI must never set the flag.
+    """
+    if update_baselines:
+        baseline.write()
+        return
+
+    assert baseline.path.is_file(), (
+        f"committed baseline {baseline.path} is missing — regenerate with "
+        "`python scripts/regen_baselines.py`"
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        derived = baseline.derive()
+    committed = baseline.load()
+    assert derived == committed, (
+        f"{baseline.name} baseline ({baseline.path.name}) is stale. If the change "
+        "is intentional, regenerate it in this PR (`python scripts/regen_baselines.py`) "
+        "— that diff is the deliberate acknowledgement."
+    )
+    # The committed bytes must be exactly what ``write()`` would emit, so a
+    # regen is a no-op on a fresh checkout (idempotency) and hand-edits that
+    # happen to parse-equal but differ in formatting are caught.
+    assert baseline.dump(committed) == baseline.path.read_text(encoding="utf-8"), (
+        f"{baseline.name} baseline is not in canonical serialized form; "
+        "regenerate it (`python scripts/regen_baselines.py`)."
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -37,7 +37,7 @@ class TextToSpeechClient:
         self,
         *,
         text: str,
-        target_language_code: TextToSpeechLanguage,
+        language_code: TextToSpeechLanguage,
         speaker: typing.Optional[TextToSpeechSpeaker] = OMIT,
         pitch: typing.Optional[float] = OMIT,
         pace: typing.Optional[float] = OMIT,
@@ -81,7 +81,7 @@ class TextToSpeechClient:
             - For numbers larger than 4 digits, use commas (e.g., '10,000' instead of '10000')
             - This ensures proper pronunciation as a whole number
 
-        target_language_code : TextToSpeechLanguage
+        language_code : TextToSpeechLanguage
             The language code in BCP-47 format.
 
         speaker : typing.Optional[TextToSpeechSpeaker]
@@ -174,13 +174,13 @@ class TextToSpeechClient:
             api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
         )
         client.text_to_speech.convert(
-            text="text",
-            target_language_code="bn-IN",
+            text="Welcome to Sarvam AI!",
+            language_code="hi-IN",
         )
         """
         _response = self._raw_client.convert(
             text=text,
-            target_language_code=target_language_code,
+            language_code=language_code,
             speaker=speaker,
             pitch=pitch,
             pace=pace,
@@ -200,7 +200,7 @@ class TextToSpeechClient:
         self,
         *,
         text: str,
-        target_language_code: typing.Optional[TextToSpeechLanguage] = OMIT,
+        language_code: typing.Optional[TextToSpeechLanguage] = OMIT,
         speaker: typing.Optional[TextToSpeechSpeaker] = OMIT,
         pitch: typing.Optional[float] = OMIT,
         pace: typing.Optional[float] = OMIT,
@@ -235,7 +235,7 @@ class TextToSpeechClient:
             - For numbers larger than 4 digits, use commas (e.g., '10,000' instead of '10000')
             - This ensures proper pronunciation as a whole number
 
-        target_language_code : typing.Optional[TextToSpeechLanguage]
+        language_code : typing.Optional[TextToSpeechLanguage]
             The language code in BCP-47 format.
 
         speaker : typing.Optional[TextToSpeechSpeaker]
@@ -310,12 +310,12 @@ class TextToSpeechClient:
             api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
         )
         client.text_to_speech.convert_stream(
-            text="x",
+            text="Welcome to Sarvam AI!",
         )
         """
         with self._raw_client.convert_stream(
             text=text,
-            target_language_code=target_language_code,
+            language_code=language_code,
             speaker=speaker,
             pitch=pitch,
             pace=pace,
@@ -352,7 +352,7 @@ class AsyncTextToSpeechClient:
         self,
         *,
         text: str,
-        target_language_code: TextToSpeechLanguage,
+        language_code: TextToSpeechLanguage,
         speaker: typing.Optional[TextToSpeechSpeaker] = OMIT,
         pitch: typing.Optional[float] = OMIT,
         pace: typing.Optional[float] = OMIT,
@@ -396,7 +396,7 @@ class AsyncTextToSpeechClient:
             - For numbers larger than 4 digits, use commas (e.g., '10,000' instead of '10000')
             - This ensures proper pronunciation as a whole number
 
-        target_language_code : TextToSpeechLanguage
+        language_code : TextToSpeechLanguage
             The language code in BCP-47 format.
 
         speaker : typing.Optional[TextToSpeechSpeaker]
@@ -494,8 +494,8 @@ class AsyncTextToSpeechClient:
 
         async def main() -> None:
             await client.text_to_speech.convert(
-                text="text",
-                target_language_code="bn-IN",
+                text="Welcome to Sarvam AI!",
+                language_code="hi-IN",
             )
 
 
@@ -503,7 +503,7 @@ class AsyncTextToSpeechClient:
         """
         _response = await self._raw_client.convert(
             text=text,
-            target_language_code=target_language_code,
+            language_code=language_code,
             speaker=speaker,
             pitch=pitch,
             pace=pace,
@@ -523,7 +523,7 @@ class AsyncTextToSpeechClient:
         self,
         *,
         text: str,
-        target_language_code: typing.Optional[TextToSpeechLanguage] = OMIT,
+        language_code: typing.Optional[TextToSpeechLanguage] = OMIT,
         speaker: typing.Optional[TextToSpeechSpeaker] = OMIT,
         pitch: typing.Optional[float] = OMIT,
         pace: typing.Optional[float] = OMIT,
@@ -558,7 +558,7 @@ class AsyncTextToSpeechClient:
             - For numbers larger than 4 digits, use commas (e.g., '10,000' instead of '10000')
             - This ensures proper pronunciation as a whole number
 
-        target_language_code : typing.Optional[TextToSpeechLanguage]
+        language_code : typing.Optional[TextToSpeechLanguage]
             The language code in BCP-47 format.
 
         speaker : typing.Optional[TextToSpeechSpeaker]
@@ -638,7 +638,7 @@ class AsyncTextToSpeechClient:
 
         async def main() -> None:
             await client.text_to_speech.convert_stream(
-                text="x",
+                text="Welcome to Sarvam AI!",
             )
 
 
@@ -646,7 +646,7 @@ class AsyncTextToSpeechClient:
         """
         async with self._raw_client.convert_stream(
             text=text,
-            target_language_code=target_language_code,
+            language_code=language_code,
             speaker=speaker,
             pitch=pitch,
             pace=pace,

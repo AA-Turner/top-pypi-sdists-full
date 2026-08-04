@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hol-guard
-Version: 2.1.29
+Version: 2.2.1
 Summary: Open-source antivirus and runtime protection for AI agents, tools, MCP servers, plugins, skills, and package installs.
 Project-URL: Homepage, https://hol.org/guard
 Project-URL: Documentation, https://github.com/hashgraph-online/hol-guard/tree/main/docs/guard
@@ -27,6 +27,7 @@ Requires-Python: >=3.10
 Requires-Dist: cisco-ai-skill-scanner~=2.0.12
 Requires-Dist: cryptography>=49.0.0
 Requires-Dist: keyring>=25.0
+Requires-Dist: litellm==1.93.0; python_version < '3.15'
 Requires-Dist: mcp<2,>=1.28.1; python_version >= '3.10'
 Requires-Dist: packaging>=24.0
 Requires-Dist: pyyaml>=6.0.3
@@ -424,11 +425,11 @@ Scanner package:
 pip install plugin-scanner
 ```
 
-The lean baseline keeps Python 3.10+ support intact. It includes the shipped `cisco-ai-skill-scanner` integration on Python 3.10 through 3.14 with LiteLLM 1.93+ for resolver-safe Cisco evidence.
+The lean baseline keeps Python 3.10+ support intact. It includes the shipped `cisco-ai-skill-scanner` integration on Python 3.10 through 3.14 and directly pins LiteLLM 1.93.0 so bare `pip` and `pipx` installs cannot drift to an unverified LiteLLM release.
 
 ### Resolver-safe Cisco extra
 
-Install the Cisco extra on Python 3.11 through 3.14 when you want the Cisco-compatible LiteLLM pin in addition to the baseline skill scanner:
+Install the Cisco extra on Python 3.11 through 3.14 when you want to explicitly select the Cisco dependency surface in addition to the baseline skill scanner:
 
 ```bash
 pip install "hol-guard[cisco]"

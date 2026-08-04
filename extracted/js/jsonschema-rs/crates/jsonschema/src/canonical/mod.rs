@@ -42,7 +42,7 @@
 //! }
 //!
 //! // Unsupported constructs keep the whole document as an opaque `Raw` pass-through.
-//! let raw = canonicalize(&json!({"anyOf": [{}], "unevaluatedProperties": false})).unwrap();
+//! let raw = canonicalize(&json!({"if": {}, "unevaluatedProperties": false})).unwrap();
 //! assert_eq!(raw.kind(), CanonicalKind::Raw);
 //! ```
 //!
@@ -93,7 +93,7 @@ pub(crate) mod parse;
 pub(crate) mod schema;
 pub(crate) mod view;
 
-pub use error::CanonicalizationError;
+pub use error::{CanonicalizationError, OperandMismatch};
 pub use options::{options, CanonicalizeOptions};
 pub use schema::CanonicalSchema;
 pub use view::{CanonicalKind, CanonicalView, ContainsView};

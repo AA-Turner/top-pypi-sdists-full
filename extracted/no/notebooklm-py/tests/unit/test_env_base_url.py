@@ -2,7 +2,6 @@
 
 import pytest
 
-from _helpers.client_factory import build_client_shell_for_tests
 from notebooklm._env import get_base_host, get_base_url
 from notebooklm._source.upload import SourceUploadPipeline
 from notebooklm._sources import SourcesAPI
@@ -10,6 +9,7 @@ from notebooklm.auth import AuthTokens
 from notebooklm.client import NotebookLMClient
 from notebooklm.rpc import RPCMethod, get_batchexecute_url, get_query_url, get_upload_url
 from notebooklm.types import ShareStatus
+from tests._helpers.client_factory import build_client_shell_for_tests
 
 
 def test_default_base_url_is_personal(monkeypatch):
@@ -72,8 +72,8 @@ def test_core_build_url_uses_enterprise_base_url(monkeypatch):
     monkeypatch.setenv("NOTEBOOKLM_BASE_URL", "https://notebooklm.cloud.google.com")
     core = build_client_shell_for_tests(AuthTokens(cookies={}, csrf_token="csrf", session_id="sid"))
 
-    # ``RpcExecutor.build_url`` consumes an ``AuthSnapshot`` so callers
-    # outside ``_perform_authed_post`` must build one inline.
+    # ``RpcExecutor.build_url`` consumes an ``AuthSnapshot`` so direct callers
+    # outside the shared transport path must build one inline.
     from notebooklm._request_types import AuthSnapshot
 
     snapshot = AuthSnapshot(

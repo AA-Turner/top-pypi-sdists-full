@@ -15,16 +15,6 @@ function hide(element) {
     element.style.display = "none";
   }
 }
-function toggleDisplay(element) {
-  if (!element) {
-    return;
-  }
-  if (getComputedStyle(element).display === "none") {
-    element.style.display = "";
-  } else {
-    element.style.display = "none";
-  }
-}
 function onReady(callback) {
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", callback);
@@ -364,7 +354,10 @@ function screenshotLoaded(data) {
     summary.textContent = data.summary || "";
   }
   if (data.responseCode !== 200) {
-    screenshotResultError("danger", gettext("Error loading search results!"));
+    screenshotResultError(
+      "danger",
+      data.error || gettext("Error loading search results!"),
+    );
   } else if (data.count === 0) {
     screenshotResultError(
       "warning",
@@ -734,6 +727,35 @@ function initHighlight(root) {
       if (placeables) {
         extension.placeable = new RegExp(placeables);
       }
+      const nestedTokens = {
+        newline: { pattern: newlineRegex },
+        nbsp: { pattern: nonBreakingSpaceRegex },
+      };
+      if (placeables) {
+        nestedTokens.placeable = {
+          pattern: new RegExp(placeables),
+          greedy: true,
+        };
+      }
+      const injectNestedTokens = (grammar, visited) => {
+        if (visited.has(grammar)) {
+          return;
+        }
+        visited.add(grammar);
+        for (const key in grammar) {
+          // biome-ignore lint/suspicious/noPrototypeBuiltins: Firefox < 92 compatibility, Object.hasOwn(grammar, key) should be used instead
+          if (grammar.hasOwnProperty(key)) {
+            const value = grammar[key];
+            const patterns = Array.isArray(value) ? value : [value];
+            patterns.forEach((pattern) => {
+              if (pattern?.inside) {
+                injectNestedTokens(pattern.inside, visited);
+                Object.assign(pattern.inside, nestedTokens);
+              }
+            });
+          }
+        }
+      };
       /*
        * We can not use Prism.extend here as we want whitespace highlighting
        * to apply first. The code is borrowed from Prism.util.clone.
@@ -744,10 +766,22 @@ function initHighlight(root) {
           extension[key] = Prism.util.clone(languageMode[key]);
         }
       }
+      injectNestedTokens(extension, new Set());
       languageMode = extension;
     }
     const syncContent = () => {
-      highlight.innerHTML = Prism.highlight(editor.value, languageMode, mode);
+      /*
+       * Prism turns non-breaking spaces into regular spaces when generating
+       * markup. Restore them.
+       */
+      highlight.innerHTML = Prism.highlight(
+        editor.value,
+        languageMode,
+        mode,
+      ).replaceAll(
+        '<span class="token nbsp"> </span>',
+        '<span class="token nbsp">\u00A0</span>',
+      );
     };
     syncContent();
     editor.addEventListener("input", syncContent);
@@ -1667,7 +1701,9 @@ onReady(() => {
         sortValue.replace("-", "") === sortDropdownValue.replace("-", "") &&
         sortValue !== sortDropdownValue
       ) {
-        document.querySelectorAll("span.search-icon").forEach(toggleDisplay);
+        document.querySelectorAll("span.search-icon").forEach((icon) => {
+          icon.classList.toggle("active");
+        });
       }
     }
   }
@@ -1750,7 +1786,9 @@ onReady(() => {
       form?.querySelectorAll("input[name=offset]").forEach((input) => {
         input.disabled = false;
       });
-      positionInputEditables.forEach(show);
+      positionInputEditables.forEach((element) => {
+        element.style.display = "inline-block";
+      });
       positionInputEditableInput?.setAttribute("type", "number");
       if (positionInputs.length > 1) {
         const input = event.target.parentElement?.querySelector(

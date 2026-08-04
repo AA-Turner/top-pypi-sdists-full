@@ -70,6 +70,21 @@ async def get_layout_class(
         return orbax_v0_layout.OrbaxV0Layout
     case CheckpointLayoutEnum.SAFETENSORS:
       return safetensors_layout.SafetensorsLayout
+    case CheckpointLayoutEnum.ROC:
+      try:
+        # pylint: disable=g-import-not-at-top
+        # pytype: disable=import-error
+        from orbax.checkpoint.experimental.v1._src.layout import roc_layout
+        # pytype: enable=import-error
+        # pylint: enable=g-import-not-at-top
+      except ImportError as e:
+        raise ImportError(
+            "Failed to import `roc_layout`; Roc support may not be linked. "
+            "Please depend on "
+            "//orbax/checkpoint/experimental/v1:roc_support "
+            "in your build rule."
+        ) from e
+      return roc_layout.RocLayout
     case _:
       raise ValueError(f"Unsupported checkpoint layout: {layout_enum}")
 
@@ -103,10 +118,10 @@ async def get_checkpoint_layout(
   except InvalidLayoutError as e:
     raise InvalidLayoutError(
         f"Could not recognize the checkpoint at {path} as a valid"
-        f" {layout_enum.value} checkpoint. If you are trying to load a"
-        " checkpoint that does not conform to the standard Orbax format, use"
-        " `ctx.checkpoint_layout = ...` to specify the expected checkpoint"
-        " layout."
+        f" {layout_enum.value.capitalize()} checkpoint. If you are trying to"
+        " load a checkpoint that does not conform to the standard Orbax"
+        " format, use `ctx.checkpoint_layout = ...` to specify the expected"
+        " checkpoint layout."
     ) from e
 
 
@@ -170,13 +185,13 @@ class CheckpointLayoutResolver:
         except InvalidLayoutError:
           continue
 
-      if isinstance(layout, orbax_v0_layout.OrbaxV0Layout):
+      if not isinstance(layout, orbax_layout.OrbaxLayout):
         try:
           await layout.validate(path, None)
           logging.info(
               "AUTO resolution mode successfully identified a pytree at path"
-              " '%s'. Attempting to load as a flat layout V0 Orbax checkpoint."
-              " with checkpointable_name=None.",
+              " '%s'. Attempting to load as a flat layout checkpoint with"
+              " checkpointable_name=None.",
               path,
           )
           return cls(path, layout_enum, layout, None)

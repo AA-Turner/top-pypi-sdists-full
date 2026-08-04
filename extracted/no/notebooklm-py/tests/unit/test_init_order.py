@@ -9,7 +9,9 @@ The static AST reach-in / runtime-import boundary *gates* live in
 ``tests/_guardrails/test_no_facade_reach_in.py``. What remains here are the
 tests that *exercise* the wired client (constructor-DI seams, seam wiring,
 mind-map flows). The two boundary tests that still inspect production source
-with the AST visitors import those helpers from the guardrails module.
+with the AST visitors import those helpers from the shared non-test module
+``tests/_guardrails/_ast_reach_in.py`` (issue #1431) — the same module the
+gate file imports them from — so neither test imports from the other.
 """
 
 from __future__ import annotations
@@ -22,21 +24,21 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from _fixtures.fake_core import FakeSession, make_fake_core
-from _guardrails.test_no_facade_reach_in import (
-    _assignment_value,
-    _call_keyword_value,
-    _facade_construction_lines,
-    _method_body,
-    _RuntimeImportVisitor,
-    _self_attr_assignment,
-    _self_attr_name,
-)
-from _helpers.client_factory import build_client_shell_for_tests
 from notebooklm._artifacts import ArtifactsAPI
 from notebooklm._notes import NotesAPI
 from notebooklm.auth import AuthTokens
 from notebooklm.client import NotebookLMClient
+from tests._fixtures.fake_core import FakeSession, make_fake_core
+from tests._guardrails._ast_reach_in import (
+    _assignment_value,
+    _call_keyword_value,
+    _facade_construction_lines,
+    _module_function_body,
+    _owned_attr_assignment,
+    _owned_attr_name,
+    _RuntimeImportVisitor,
+)
+from tests._helpers.client_factory import build_client_shell_for_tests
 
 pytestmark = pytest.mark.repo_lint
 
@@ -44,7 +46,7 @@ SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "notebooklm"
 
 
 # ---------------------------------------------------------------------------
-# Constructor-DI seams (``docs/improvement.md`` §4.1 + §4.2)
+# Constructor-DI seams (``src/notebooklm/_runtime/init.py`` + docs/architecture.md)
 #
 # These pin tests guard the post-refactor wiring shape so a future
 # refactor cannot silently re-introduce the retired module-level
@@ -58,18 +60,18 @@ def test_compose_client_internals_exposes_constructor_di_seams() -> None:
     """``compose_client_internals`` MUST expose the four constructor-DI seams.
 
     Stage B1 PR 2 of the post-refactoring plan moved the composition
-    root out of ``Session.__init__`` into
+    root out of ``NotebookLMClient.__init__`` into
     ``notebooklm._runtime.init.compose_client_internals``. The seams live
     on the helper (and on the canonical test builder
     ``build_client_shell_for_tests``), NOT on ``NotebookLMClient.__init__``
     (which preserves the production surface).
 
-    The seams replace the retired module-level late-binding wrappers
-    (see ``docs/improvement.md`` §4.1) and the retired
-    ``Kernel.http_client`` setter (§4.2). Each must be keyword-only and
-    default to ``None`` so the helper can resolve the canonical seam via
-    a fresh module-attribute lookup at construction time (preserving
-    pre-construction monkeypatch propagation).
+    The seams replace the retired module-level late-binding wrappers and the
+    retired ``Kernel.http_client`` setter. Each must be keyword-only and default
+    to ``None`` so the helper can resolve the canonical seam via a fresh
+    module-attribute lookup at construction time (preserving pre-construction
+    monkeypatch propagation). See ``docs/architecture.md`` for the ClientSeams
+    and Kernel entries.
     """
     import inspect
 
@@ -95,10 +97,10 @@ def test_session_wires_seam_attributes_for_executor_and_chain() -> None:
 
     The ``RpcExecutor`` resolves ``decode_response`` / ``is_auth_error`` /
     ``sleep`` through closures over ``ClientSeams`` etc., so that
-    tests which rebind ``session._seams.decode_response = stub`` after
-    ``NotebookLMClient.__init__`` (which eagerly builds the executor via
-    the ``rpc_executor`` accessor wired into sub-APIs in Wave 7) still take
-    effect. This test pins both halves: constructor-injected callables
+    tests which rebind ``client._seams.decode_response = stub`` after
+    ``NotebookLMClient.__init__`` (which binds ``client._rpc_executor`` through
+    ``compose_client_internals`` during assembly) still take effect. This test
+    pins both halves: constructor-injected callables
     reach the executor, AND post-construction rebinds also take effect.
     """
     from notebooklm.auth import AuthTokens
@@ -143,7 +145,7 @@ def test_session_wires_seam_attributes_for_executor_and_chain() -> None:
 
 
 def test_kernel_http_client_is_read_only_property() -> None:
-    """``Kernel.http_client`` MUST have no setter (``docs/improvement.md`` §4.2)."""
+    """``Kernel.http_client`` MUST have no setter."""
     from notebooklm._kernel import Kernel
 
     descriptor = Kernel.__dict__["http_client"]
@@ -151,7 +153,7 @@ def test_kernel_http_client_is_read_only_property() -> None:
     assert descriptor.fset is None, (
         "Kernel.http_client must remain read-only; the retired setter was a "
         "test-injection seam that constructor-time async_client_factory "
-        "injection now replaces (see docs/improvement.md §4.2)."
+        "injection now replaces (see docs/architecture.md Kernel wiring)."
     )
 
 
@@ -235,11 +237,21 @@ def test_notebooks_api_has_no_hidden_sources_api_runtime_dependency() -> None:
 
 
 def test_client_constructs_sources_before_notebooks_and_injects_sources_api() -> None:
-    """Client wiring must avoid hidden SourcesAPI construction inside NotebooksAPI."""
-    client_tree = ast.parse((SRC_ROOT / "client.py").read_text(encoding="utf-8"))
-    init_body = _method_body(client_tree, "NotebookLMClient", "__init__")
-    sources_index, sources_assignment = _self_attr_assignment(init_body, "sources")
-    notebooks_index, notebook_assignment = _self_attr_assignment(init_body, "notebooks")
+    """Client wiring must avoid hidden SourcesAPI construction inside NotebooksAPI.
+
+    The wiring lives in :func:`notebooklm._client_assembly._assemble_client`
+    (the single construction seam ``NotebookLMClient.__init__`` and the
+    canonical test factory both run), where the client instance is bound to
+    the ``client`` parameter — hence the ``owner="client"`` matchers.
+    """
+    assembly_tree = ast.parse((SRC_ROOT / "_client_assembly.py").read_text(encoding="utf-8"))
+    assembly_body = _module_function_body(assembly_tree, "_assemble_client")
+    sources_index, sources_assignment = _owned_attr_assignment(
+        assembly_body, "sources", owner="client"
+    )
+    notebooks_index, notebook_assignment = _owned_attr_assignment(
+        assembly_body, "notebooks", owner="client"
+    )
 
     assert sources_index < notebooks_index
 
@@ -254,7 +266,10 @@ def test_client_constructs_sources_before_notebooks_and_injects_sources_api() ->
     assert isinstance(notebooks_call.func, ast.Name)
     assert notebooks_call.func.id == "NotebooksAPI"
 
-    assert _self_attr_name(_call_keyword_value(notebooks_call, "sources_api")) == "sources"
+    assert (
+        _owned_attr_name(_call_keyword_value(notebooks_call, "sources_api"), owner="client")
+        == "sources"
+    )
 
 
 @pytest.fixture

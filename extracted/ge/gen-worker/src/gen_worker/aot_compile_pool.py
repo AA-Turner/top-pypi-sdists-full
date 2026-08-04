@@ -52,19 +52,20 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
 import signal
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import (
     Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple)
 
 import msgspec
 
-from . import aot_compile_spans, aot_device_lock, env_seal
+from . import aot_compile_spans, aot_device_lock, aot_resume, env_seal
+from . import worker_goals
+from .worker_goals import WorkerGoals
 from .postmortem import cpu_quota_cores
 
 logger = logging.getLogger(__name__)
@@ -190,14 +191,16 @@ FORGE_RSS_RESERVE_BYTES = 1 * 1024**3
 #: figure, because "free right now" is measured between tenant forwards.
 DEVICE_RESERVE_BYTES = 2 * 1024**3
 
-#: Per-entry DEVICE footprint assumed before anything has been measured.
-#: An AOTI compile is not a pure host job: it benchmarks kernels on the card
-#: (and, when ``autotune_at_compile_time`` is explicitly False, runs the whole
-#: model on real inputs), so each concurrent entry child holds its own weight
-#: copy, an activation set and a CUDA context. This is the bound that actually
-#: binds on a 24 GB card, which is why pgw#809's headline K comes from VRAM
-#: and not from vCPUs.
-DEFAULT_ENTRY_DEVICE_BYTES = 8 * 1024**3
+#: pgw#877 #5: there is NO per-entry device default, deliberately.
+#: ``DEFAULT_ENTRY_DEVICE_BYTES = 8 GiB`` sat here and was UNREACHABLE:
+#: ``aot_mint._entry_device_bytes`` returns 0 only when ``co_residency`` is
+#: unprobed, and ``_probe_free_device_bytes`` returns 0 under exactly those
+#: conditions, so ``free_vram <= 0`` short-circuited before the fallback could
+#: be consulted. A constant nothing can reach still reads as a policy, and
+#: this one read as "8 GiB is a reasonable entry". Deleted; a readable card
+#: with no footprint now refuses to widen instead — the rule
+#: ``aot_export_parallel.width_for`` already states for the export footprint,
+#: because the failure mode of guessing here is an OOM on paid work.
 
 #: Programs staged AHEAD of the running set. The export loop hands the pool
 #: every entry at once; staging them all would put ~46 GB of exported programs
@@ -311,15 +314,29 @@ class PoolWidth:
     cpu: Optional[CpuFacts] = None
     memory: Optional[MemoryFacts] = None
     device: Optional[DeviceFacts] = None
-    #: "measured" when the caller handed a probed per-entry ask, "default"
-    #: when the width fell back to a constant. A default is a guess, and a K
-    #: chosen off a guess must not read like a K chosen off a measurement.
+    #: ``"estimated"`` when the caller handed a per-entry device ask,
+    #: ``"default"`` when the width fell back to a constant.
+    #:
+    #: It read ``"measured"`` until pgw#877, and that overstated it. The only
+    #: caller is ``aot_mint._entry_device_bytes``, which returns
+    #: ``mint_budget.co_residency().need_bytes`` — the MINT CHILD's resident
+    #: set times :data:`~gen_worker.mint_budget._UNMEASURED_ACTIVATION_FRACTION`
+    #: plus two flat constants, i.e. ~56 % of the number was never observed and
+    #: no entry child was ever watched. ``EntryReport.peak_device_bytes`` is
+    #: the observation, and nothing reads it yet; until something does, this
+    #: axis has no ``"measured"`` value to report and must not claim one.
     per_entry_device_basis: str = "default"
+    #: ``"measured"`` here is literal: the value is one entry child's VmHWM
+    #: summed over its real descendant tree (``_peak_rss_bytes``), banked by
+    #: the serving parent (``mint_budget.record_entry_peak_rss``).
     per_entry_rss_basis: str = "default"
-    #: th#1359: whether the tenant reserves were applied. A K of 1 on a
-    #: serving pod and a K of 1 on a forge pod are different defects, and the
-    #: row has to say which one it is.
-    forge: bool = False
+    #: pgw#930 (§1.17): the two goals, reported INDEPENDENTLY. A K of 1 on a
+    #: pod holding a serve goal and a K of 1 on a mint-only pod are different
+    #: defects, and the row has to say which one it is. This was one boolean
+    #: named `forge`, which could not describe a pod holding both goals — the
+    #: exact case Paul's ruling requires to work.
+    serve_goal: bool = True
+    mint_goal: bool = False
 
     @property
     def underwidth(self) -> int:
@@ -345,7 +362,8 @@ class PoolWidth:
             "underwidth": int(self.underwidth),
             "per_entry_device_basis": self.per_entry_device_basis,
             "per_entry_rss_basis": self.per_entry_rss_basis,
-            "forge": bool(self.forge),
+            "serve_goal": bool(self.serve_goal),
+            "mint_goal": bool(self.mint_goal),
             "width_reason": self.reason,
         }
         for block in (self.cpu, self.memory, self.device):
@@ -448,11 +466,6 @@ def memory_facts(
     return MemoryFacts(0, "unreadable", 0, -1, 0)
 
 
-def available_memory_bytes() -> int:
-    """The single number :func:`memory_facts` bounds the pool with."""
-    return memory_facts().available_bytes
-
-
 def cpu_facts() -> CpuFacts:
     """The pod's honest core count, and which of the three readings it is."""
     os_count = os.cpu_count() or 1
@@ -520,11 +533,6 @@ def device_facts(
     return DeviceFacts(max(taken), "sampled", tuple(taken))
 
 
-def free_device_bytes(device: int = -1) -> int:
-    """The single free-VRAM number :func:`device_facts` sizes the pool with."""
-    return device_facts(device).free_bytes
-
-
 def entry_workers(
     entries: int,
     *,
@@ -533,9 +541,10 @@ def entry_workers(
     vcpus: int = 0,
     available_bytes: int = -1,
     free_vram_bytes: int = -1,
+    device_basis: str = "",
     limit: int = 0,
     device_lock: Optional[bool] = None,
-    forge: Optional[bool] = None,
+    goals: Optional[WorkerGoals] = None,
 ) -> PoolWidth:
     """How many entries this pod may compile at once.
 
@@ -568,35 +577,49 @@ def entry_workers(
     say why — so an unexplained K is a defect in itself.
     """
     entries = max(0, int(entries))
-    if forge is None:
-        from . import worker_mode
-
-        forge = worker_mode.is_forge()
-    # th#1359 / pgw#848: THREE of this policy's terms are tenant reserves, and
-    # on a forge pod there is no tenant. `SERVING_HEADROOM_CPUS` keeps cores
+    if goals is None:
+        goals = worker_goals.current()
+    # pgw#930 (§1.17): THREE of this policy's terms are tenant reserves, and a
+    # pod with no SERVE goal has no tenant. `SERVING_HEADROOM_CPUS` keeps cores
     # for an eager forward and a heartbeat; `DEVICE_RESERVE_BYTES` keeps VRAM
     # for the tenant's peak; `ENTRY_RSS_RESERVE_BYTES` keeps host RAM so a
-    # request arriving mid-mint does not meet the OOM killer. A mint-only pod
-    # receives no tenant dispatch, so all three protect nobody — and on
-    # pgw#846's attempts fourteen and fifteen the VRAM reserve alone held the
-    # pool at K=1 on a host that could have run it 127 CPU-side.
+    # request arriving mid-mint does not meet the OOM killer. A pod holding no
+    # serve goal receives no tenant dispatch, so all three protect nobody — and
+    # on pgw#846's attempts fourteen and fifteen the VRAM reserve alone held
+    # the pool at K=1 on a host that could have run it 127 CPU-side.
     #
-    # A SMALL host-RAM reserve survives: the OS, the page cache and the mint
-    # child's own supervisor are real on a forge pod too. It is the TENANT's
-    # share that goes, not prudence.
-    cpu_headroom = 0 if forge else SERVING_HEADROOM_CPUS
-    device_reserve = 0 if forge else DEVICE_RESERVE_BYTES
-    rss_reserve = FORGE_RSS_RESERVE_BYTES if forge else ENTRY_RSS_RESERVE_BYTES
+    # These three used to be `0 if forge else X` — strictly two-valued, keyed
+    # on an exclusive mode. Keyed on the SERVE GOAL they compose: a pod serving
+    # one small model while driving a scheduled mint keeps every reserve, which
+    # is the case the mode could not express.
+    #
+    # A SMALL host-RAM reserve survives regardless: the OS, the page cache and
+    # the mint child's own supervisor are real on a mint-only pod too. It is
+    # the TENANT's share that goes, not prudence.
+    reserve = goals.tenant_reserve_applies()
+    cpu_headroom = SERVING_HEADROOM_CPUS if reserve else 0
+    device_reserve = DEVICE_RESERVE_BYTES if reserve else 0
+    rss_reserve = ENTRY_RSS_RESERVE_BYTES if reserve else FORGE_RSS_RESERVE_BYTES
     locked = aot_device_lock.supported() if device_lock is None \
         else bool(device_lock)
     if entries <= 1:
+        # pgw#877: the entry count alone decides this, so no bound is READ —
+        # and the row must not report unread bounds as zeros. It used to say
+        # `available_bytes=0, free_device_bytes=0`: a row whose entire job is
+        # to explain K=1, telling its reader the pod has no RAM and no card.
+        # `-1` is this module's existing "not read" (`cgroup_available_bytes`,
+        # `quota_cores`), and the bases say so in words.
         return PoolWidth(
             workers=1, entries=entries, vcpus=0, cpu_workers=1, mem_workers=1,
-            device_workers=1, available_bytes=0, free_device_bytes=0,
+            device_workers=1, available_bytes=-1, free_device_bytes=-1,
             per_entry_rss_bytes=0, per_entry_device_bytes=0,
+            per_entry_rss_basis="not-read", per_entry_device_basis="not-read",
             device_lock=locked, binding="entries", ceiling=1,
-            forge=bool(forge or False),
-            reason=f"{entries} entr{'y' if entries == 1 else 'ies'}: serial")
+            serve_goal=goals.serve, mint_goal=goals.mint,
+            reason=(
+                f"{entries} entr{'y' if entries == 1 else 'ies'}: serial "
+                f"(no cpu/memory/device bound was read — the entry count "
+                f"decides this width on its own)"))
 
     if vcpus > 0:
         cpu = CpuFacts(int(vcpus), "caller", int(vcpus), int(vcpus), -1.0)
@@ -629,12 +652,24 @@ def entry_workers(
     else:
         device = device_facts()
     free_vram = device.free_bytes
-    per_device = int(device_bytes) if device_bytes > 0 \
-        else DEFAULT_ENTRY_DEVICE_BYTES
+    per_device = max(0, int(device_bytes))
     if free_vram <= 0:
-        # No card, or no reading. A CPU-only cell is not device-bound; a card
-        # we cannot measure does not get to license concurrency on it.
+        # No card, or no reading: the device bound is DROPPED and K falls to
+        # whichever of cpu/mem/ceiling binds. Right for a CPU-only cell, which
+        # is not device-bound at all — and deliberately stated as "dropped"
+        # rather than the "does not get to license concurrency" this comment
+        # used to claim, which is the opposite of what the line does. A GPU pod
+        # whose card reads 0 therefore compiles device-UNBOUNDED; that it has
+        # never happened is a property of `_probe_free_device_bytes` failing
+        # only when there is no card, not of this branch.
         device_workers = MAX_ENTRY_WORKERS
+    elif per_device <= 0:
+        # pgw#877 #5: a card we CAN read but have no per-entry footprint for.
+        # Unreachable in production today (see the note where the deleted
+        # default used to live), and stated explicitly rather than left to a
+        # constant: an unmeasured footprint does not license concurrency on
+        # the card it cannot describe.
+        device_workers = 1
     else:
         device_workers = max(
             1, int(max(0, free_vram - device_reserve) // per_device))
@@ -643,6 +678,21 @@ def entry_workers(
     # asking for more than the ceiling allows, and the ceiling wins.
     ceiling = min(MAX_ENTRY_WORKERS, int(limit)) if limit > 0 \
         else MAX_ENTRY_WORKERS
+    # pgw#877: ONE definition of each basis. It was written twice — once for
+    # the row, once for the reason string — which is how the reason could
+    # have drifted from the field it explains.
+    # THREE values, because there are three provenances and collapsing them is
+    # the defect this issue is named for:
+    #   "measured"   — a real entry child was watched (pgw#877 #1/#2)
+    #   "estimated"  — `co_residency().need_bytes`, ~56 % never observed
+    #   "unmeasured" — a readable card and no footprint at all -> K=1
+    # The caller states which; a bare non-zero ask cannot tell them apart, and
+    # "the caller handed me a number" is precisely the overstatement that made
+    # `"measured"` meaningless in the first place.
+    device_basis = str(device_basis or "").strip() or (
+        "estimated" if device_bytes > 0 else "unmeasured")
+    rss_basis = "measured" if peak_rss_bytes > 0 else "default"
+
     def _width(
         workers: int, *, binding: str, reason: str, lock: bool,
     ) -> PoolWidth:
@@ -654,11 +704,9 @@ def entry_workers(
             per_entry_device_bytes=per_device, device_lock=lock,
             reason=reason, binding=binding, ceiling=ceiling, cpu=cpu,
             memory=memory, device=device,
-            per_entry_device_basis=(
-                "measured" if device_bytes > 0 else "default"),
-            per_entry_rss_basis=(
-                "measured" if peak_rss_bytes > 0 else "default"),
-            forge=bool(forge))
+            per_entry_device_basis=device_basis,
+            per_entry_rss_basis=rss_basis,
+            serve_goal=goals.serve, mint_goal=goals.mint)
 
     workers = max(
         1, min(cpu_workers, mem_workers, device_workers, ceiling, entries))
@@ -675,12 +723,13 @@ def entry_workers(
         (device_workers, "vram"), (ceiling, "ceiling"),
         (entries, "entries"))[1]
     reason = (
-        f"K={workers} ({binding}-bound{', forge' if forge else ''}): "
+        f"K={workers} ({binding}-bound, goals="
+        f"{'serve+mint' if goals.serve and goals.mint else 'serve' if goals.serve else 'mint' if goals.mint else 'none'}): "
         f"{vcpus} vCPU ({cpu.basis}) -> "
         f"{cpu_workers}, {avail / 1024**3:.1f} GiB RAM ({memory.basis}) -> "
         f"{mem_workers}, {free_vram / 1024**3:.1f} GiB VRAM ({device.basis}) "
         f"/ {per_device / 1024**3:.1f} GiB per entry "
-        f"({'measured' if device_bytes > 0 else 'default'}) -> "
+        f"({device_basis}) -> "
         f"{device_workers}")
     return _width(workers, binding=binding, reason=reason, lock=locked)
 
@@ -753,7 +802,6 @@ class EntryReport(msgspec.Struct, frozen=True, kw_only=True):
 
 COMPILED = "compiled"
 REFUSED = "refused"
-CRASHED = "crashed"
 
 EXIT_COMPILED = 0
 EXIT_REFUSED = 2
@@ -847,6 +895,14 @@ class PoolLedger:
     #: which is the pass every CHILD used to pay.
     seal_seed_s: float = 0.0
     entries: int = 0
+    #: pgw#848 item 5: the resume bank's own row (``resume_root``, ``resumed``,
+    #: ``resume_cold``, ``resume_refused`` by reason, ``resume_admit_s``).
+    #: Empty on every mint that runs without a bank, so a pod with no resume
+    #: root reads exactly as it did before. It rides the LEDGER rather than a
+    #: second event because "N of 36 entries were recovered" is the first thing
+    #: that explains a pool wall, and a reader who has to join two rows to
+    #: learn it will price a resumed mint as a fast compile.
+    resume: Dict[str, Any] = field(default_factory=dict)
 
     @property
     def idle_s(self) -> float:
@@ -874,6 +930,7 @@ class PoolLedger:
             "seal_seed_s": round(self.seal_seed_s, 3),
             "pool_entries": int(self.entries),
             "pool_workers": int(self.workers),
+            **dict(self.resume),
         }
 
 
@@ -1089,6 +1146,7 @@ class EntryCompilePool:
         inductor_configs: Optional[Mapping[str, Any]] = None,
         cache_dir: str = "",
         python: str = "",
+        resume_dir: str = "",
     ) -> None:
         self.workdir = Path(workdir)
         self.workdir.mkdir(parents=True, exist_ok=True)
@@ -1098,7 +1156,24 @@ class EntryCompilePool:
         self._emitted_width_facts: Optional[Dict[str, Any]] = None
         self._emit_width("construction")
         self.inductor_configs = dict(inductor_configs or {})
-        self.cache_dir = str(cache_dir or (self.workdir / "inductor-cache"))
+        # pgw#848 item 5: the crash-only half. `bank` is None on every path
+        # that was not told a stable root, and then this class behaves exactly
+        # as it did before — no admission pass, no hashing, no copies.
+        self.bank = aot_resume.open_bank(
+            resume_dir, inductor_configs=self.inductor_configs)
+        #: entry -> the graph hash re-derived at admission, so `_collect` can
+        #: bank the finished files under an identity the parent computed from
+        #: the program it exported (never one read back from an artifact).
+        self._entry_graph: Dict[str, str] = {}
+        # The inductor cache follows the bank when there is one. A per-attempt
+        # cache dir is why a killed mint got not even a cache hit on retry;
+        # inductor's key is the graph, not the process (measured — see this
+        # module's header), so widening the scope from one attempt to one mint
+        # cannot change what is produced.
+        self.cache_dir = str(
+            cache_dir
+            or (self.bank.cache_dir if self.bank is not None else "")
+            or (self.workdir / "inductor-cache"))
         # pgw#809: ONE lock file for the whole pool. Every entry child routes
         # its inductor GPU benchmarks through it, so no two entries ever time
         # a kernel on the card at the same moment.
@@ -1110,6 +1185,11 @@ class EntryCompilePool:
         self.seal_seed_s = 0.0
         self.python = python
         self.peak_rss_bytes = 0
+        #: pgw#877 #2: the widest DEVICE high-water any entry child reported.
+        #: pgw#868 A4 measured this and left it telemetry-only; nothing read
+        #: it, so the per-entry device ask stayed the mint child's whole
+        #: co-residency estimate. This is the number that ends that.
+        self.peak_device_bytes = 0
         self.peak_concurrency = 0
         # pgw#848: the kernel's OOM-kill counter as it stood before this pool
         # ran. A DELTA over the pool's own wall is evidence; the absolute
@@ -1222,6 +1302,10 @@ class EntryCompilePool:
         # pgw#832: seed BEFORE the pool wall starts, so the cost is its own
         # named line (`seal_seed_s`) and never inside the capacity identity.
         self._seed_seal_memo()
+        # pgw#848 item 5: likewise BEFORE the wall. Admission is parent-serial
+        # and occupies no worker slot, so charging it to the pool's capacity
+        # would price a recovered 626 s entry as pool idle.
+        pending = self._admit_banked(pending, done, on_entry, len(entries))
         pool_t0 = mark = time.monotonic()
 
         def charge(bucket: str, free: int) -> None:
@@ -1298,6 +1382,62 @@ class EntryCompilePool:
             self._emit_width("terminus")
             self._emit_ledger()
         return {name: done[name] for name in sorted(done)}
+
+    def _admit_banked(
+        self,
+        pending: List[Tuple[int, str, Any]],
+        done: Dict[str, List[str]],
+        on_entry: Optional[Callable[[str, int, int], None]],
+        total: int,
+    ) -> List[Tuple[int, str, Any]]:
+        """pgw#848 item 5: hand back the entries a previous attempt finished.
+
+        The order of operations is the safety property: the graph hash is
+        re-derived from the ExportedProgram THIS attempt exported and handed to
+        the bank, which compares it against what it recorded. An entry is never
+        admitted because a file exists at a path — under pgw#846 that is how a
+        stale artifact gets packed into a cell that verifies, arms, and is
+        wrong.
+
+        Every refusal falls through to a normal compile. A bank must never be
+        able to cost a mint a cell.
+        """
+        if self.bank is None:
+            return pending
+        remaining: List[Tuple[int, str, Any]] = []
+        for index, name, program in pending:
+            admission = self.bank.admit(name, program)
+            if not admission.ok:
+                remaining.append((index, name, program))
+                continue
+            done[name] = list(admission.files)
+            if on_entry is not None:
+                try:
+                    on_entry(name, len(done), total)
+                except Exception:  # noqa: BLE001 — telemetry never fails a mint
+                    logger.debug(
+                        "entry-pool progress callback failed", exc_info=True)
+        self._refresh_resume_facts()
+        if self.bank.resumed:
+            logger.info(
+                "aot-resume: %d of %d entr%s re-admitted from %s in %.2fs — "
+                "this attempt compiles %d",
+                len(self.bank.resumed), total,
+                "y" if total == 1 else "ies", self.bank.root,
+                self.bank.admit_s, len(remaining))
+        return remaining
+
+    def _refresh_resume_facts(self) -> None:
+        """Keep the LIVE ledger carrying the bank's row.
+
+        pgw#848 refreshes `progress.pool_ledger` on every completed entry, so
+        the phase snapshot an abandoned mint leaves behind already carries K
+        and its binding. The resume row belongs in the same place for the same
+        reason: an abandoned attempt's most useful fact is how much of it the
+        NEXT one will not have to repeat.
+        """
+        if self.bank is not None:
+            self.ledger.resume = self.bank.facts()
 
     def _seed_seal_memo(self) -> None:
         """pgw#832: write the parent's toolchain digests where every entry
@@ -1414,6 +1554,20 @@ class EntryCompilePool:
                 return row
         return None
 
+    def observe_entry_device(self, report: EntryReport) -> None:
+        """Bank one entry child's DEVICE high-water (pgw#877 #2).
+
+        RESERVED in preference to allocated, on the child's own argument:
+        allocated is what the compile needed, reserved is what the caching
+        allocator HELD and therefore what a concurrent sibling actually cannot
+        have — and K is a question about siblings. A child too old to report
+        reserved still contributes its allocated figure rather than nothing.
+        """
+        peak = int(report.peak_device_reserved_bytes or 0) \
+            or int(report.peak_device_bytes or 0)
+        if peak > 0:
+            self.peak_device_bytes = max(self.peak_device_bytes, peak)
+
     def _collect(self, row: _Running) -> List[str]:
         elapsed = time.monotonic() - row.started
         reap_epoch = time.time()
@@ -1424,6 +1578,11 @@ class EntryCompilePool:
         # child exits; drop it before the next stage runs.
         with_suppress_unlink(row.program_path)
         if report is not None:
+            # pgw#877: banked BEFORE any gate can raise, and on the failure
+            # path too — pgw#848's rule for the host half applies unchanged
+            # here: the attempt that FAILED is exactly the attempt whose
+            # measurement the next one has to size against.
+            self.observe_entry_device(report)
             self._verify_child_code(row, report)
         if code == EXIT_COMPILED and report is not None and report.files:
             if report.peak_rss_bytes:
@@ -1445,6 +1604,15 @@ class EntryCompilePool:
                 "aot-pool: entry %r compiled in %.1fs (%d file(s)) spans=%s",
                 row.entry, elapsed, len(report.files),
                 self.entry_phases[row.entry])
+            if self.bank is not None:
+                # pgw#848 item 5: banked HERE, the moment the entry is finished
+                # and verified, never at the end of the pool — a mint that is
+                # SIGKILLed at entry 30 of 36 runs no `finally`, and an
+                # end-of-run bank would be exactly the thing the crash takes.
+                self.bank.put(
+                    row.entry, self.bank.graphs.get(row.entry, ""),
+                    list(report.files))
+                self._refresh_resume_facts()
             return list(report.files)
         detail = report.detail if report is not None else ""
         if not detail:
@@ -1628,19 +1796,10 @@ def _exit_note(code: Optional[int]) -> str:
     return "crashed"
 
 
-def free_disk_bytes(path: Path) -> int:
-    try:
-        usage = shutil.disk_usage(str(path))
-    except OSError:
-        return 0
-    return int(usage.free)
-
-
 __all__ = [
     "CODE_DIGEST",
     "COMPILED",
     "CPUS_PER_ENTRY_WORKER",
-    "CRASHED",
     "DEFAULT_ENTRY_PEAK_RSS_BYTES",
     "ENTRY_CHILD_MODULE",
     "ENTRY_REPORT_NAME",
@@ -1654,7 +1813,6 @@ __all__ = [
     "arm_parent_death_signal",
     "EntryJob",
     "EntryReport",
-    "DEFAULT_ENTRY_DEVICE_BYTES",
     "DEVICE_RESERVE_BYTES",
     "MAX_ENTRY_WORKERS",
     "PACKAGE_ROOT",
@@ -1665,13 +1823,10 @@ __all__ = [
     "MemoryFacts",
     "PoolLedger",
     "PoolWidth",
-    "available_memory_bytes",
     "child_argv",
     "child_env",
     "cpu_facts",
     "device_facts",
     "entry_workers",
-    "free_device_bytes",
-    "free_disk_bytes",
     "memory_facts",
 ]

@@ -24,6 +24,7 @@ else:
 
 __all__ = (
     "AddressFamilyType",
+    "AsPathTypeType",
     "BGPPeerStateType",
     "BGPStatusType",
     "ConnectionStateType",
@@ -45,12 +46,14 @@ __all__ = (
     "PaginatorName",
     "RegionName",
     "ResourceServiceName",
+    "RouteDirectionType",
     "ServiceName",
     "VirtualInterfaceStateType",
 )
 
 
 AddressFamilyType = Literal["ipv4", "ipv6"]
+AsPathTypeType = Literal["seq", "set"]
 BGPPeerStateType = Literal["available", "deleted", "deleting", "pending", "verifying"]
 BGPStatusType = Literal["down", "unknown", "up"]
 ConnectionStateType = Literal[
@@ -90,6 +93,7 @@ LagStateType = Literal[
 ]
 LoaContentTypeType = Literal["application/pdf"]
 NniPartnerTypeType = Literal["nonPartner", "v1", "v2"]
+RouteDirectionType = Literal["accepted", "advertised"]
 VirtualInterfaceStateType = Literal[
     "available",
     "confirming",

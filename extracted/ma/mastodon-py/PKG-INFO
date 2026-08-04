@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Mastodon.py
-Version: 2.2.1
+Version: 2.2.2
 Summary: Python wrapper for the Mastodon API
 Author-email: Lorenz Diener <lorenzd+mastodonpypypi@gmail.com>
 License: MIT
@@ -106,6 +106,9 @@ Citing
 If you use Mastodon.py as part of your research, please review and cite the following paper:
 
     Diener et al., (2026). Mastodon.py: A Python library for the Mastodon API. *Journal of Open Source Software*, 11(120), 8946, https://doi.org/10.21105/joss.08946
+
+.. image:: https://joss.theoj.org/papers/10.21105/joss.08946/status.svg
+   :target: https://doi.org/10.21105/joss.08946
 
 Acknowledgements
 ----------------

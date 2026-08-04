@@ -441,6 +441,57 @@ class LazyFramePlaceholder:
         )
 
     @classmethod
+    def scan_delta(
+        cls,
+        table: str,
+        *,
+        storage_options: typing.Optional[typing.Mapping[str, str]] = None,
+        schema: typing.Optional[pyarrow.Schema] = None,
+        row_sample: typing.Optional[float] = None,
+    ) -> "LazyFramePlaceholder":
+        """Scan a Delta Lake table by URI or Unity Catalog three-part name.
+
+        Parameters
+        ----------
+        table
+            Delta table URI or Unity Catalog three-part name. Also used as the
+            plan-node name.
+        storage_options
+            Object-store, Unity Catalog, and/or cross-account role configuration
+            forwarded to the engine. ``None`` falls back to ambient credentials.
+
+            To assume an IAM role for cross-account S3 access, pass:
+
+            - ``client.assume-role.arn='arn:aws:iam::<account>:role/<role>'``
+            - ``client.assume-role.external-id='<id>'`` (optional, for trust
+              policies with an ``sts:ExternalId`` condition)
+            - ``client.assume-role.session-name='<name>'`` (optional)
+            - ``region_name`` or ``aws_region``
+
+            See :meth:`chalkdf.DataFrame.scan_delta` for the Unity Catalog keys.
+        schema
+            Optional pyarrow schema. If omitted, inferred from Delta metadata,
+            which reads the table at plan time. Passing one explicitly skips that
+            read -- useful to speed up deploys, to keep a deploy from depending on
+            the table being reachable, or to pin the schema against upstream
+            changes.
+        row_sample
+            Bernoulli row-level sample rate in ``(0, 1]``. ``None`` disables.
+
+        Returns
+        -------
+        DataFrame backed by the Delta table.
+        """
+        return LazyFramePlaceholder._construct(
+            self_dataframe=None,
+            function_name="scan_delta",
+            table=table,
+            storage_options=storage_options,
+            schema=schema,
+            row_sample=row_sample,
+        )
+
+    @classmethod
     def scan_glue_iceberg(
         cls,
         glue_table_name: str,

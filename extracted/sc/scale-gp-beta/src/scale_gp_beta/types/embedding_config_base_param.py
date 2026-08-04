@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Union
 from typing_extensions import Literal, Required, TypedDict
 
 from .embedding_model_name import EmbeddingModelName
@@ -10,10 +11,13 @@ __all__ = ["EmbeddingConfigBaseParam"]
 
 
 class EmbeddingConfigBaseParam(TypedDict, total=False):
-    embedding_model: Required[EmbeddingModelName]
+    embedding_model: Required[Union[EmbeddingModelName, str]]
     """The name of the base embedding model to use.
 
-    To use custom models, change to type 'models'.
+    Either a known base model (EmbeddingModelName) or, in ray-serve deployments with
+    NATIVE_OPENAI_EMBEDDING_GATEWAY enabled, any model id served by the
+    OpenAI-compatible inference proxy (e.g. 'nomic-embed-text-v1.5'). For fully
+    custom deployments, use type 'models_api' with a model_deployment_id.
     """
 
     type: Literal["base"]

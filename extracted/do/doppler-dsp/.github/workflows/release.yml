@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get.outputs.version }}
+      jm_version: ${{ steps.get.outputs.jm_version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -27,39 +28,20 @@ jobs:
           TAG="${GITHUB_REF_NAME}"          # e.g. v0.2.1
           VERSION="${TAG#v}"                # e.g.   0.2.1
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          # The jm pin the SDK image bakes in — read from the manifest so the
+          # image's just-makeit stays in lock-step with the repo, never a
+          # hardcoded default.
+          JM=$(grep -m1 '^jm_version' just-makeit.toml | \
+               sed 's/.*"\(.*\)".*/\1/')
+          echo "jm_version=${JM}" >> "$GITHUB_OUTPUT"
 
-      - name: Check pyproject.toml matches tag
-        run: |
-          PY=$(grep '^version' pyproject.toml | head -1 | \
-               sed 's/version = "\(.*\)"/\1/')
-          TAG="${{ steps.get.outputs.version }}"
-          if [ "$PY" != "$TAG" ]; then
-            echo "ERROR: pyproject.toml version ($PY) != tag ($TAG)"
-            echo "Run: make bump-version VERSION=$TAG"
-            exit 1
-          fi
-
-      - name: Check Cargo.toml matches tag
-        run: |
-          CARGO=$(grep '^version' ffi/rust/Cargo.toml | head -1 | \
-                  sed 's/version = "\(.*\)"/\1/')
-          TAG="${{ steps.get.outputs.version }}"
-          if [ "$CARGO" != "$TAG" ]; then
-            echo "ERROR: Cargo.toml version ($CARGO) != tag ($TAG)"
-            echo "Run: make bump-version VERSION=$TAG"
-            exit 1
-          fi
-
-      - name: Check CMakeLists.txt matches tag
-        run: |
-          CMAKE=$(grep '^project' CMakeLists.txt | \
-                  sed 's/.*VERSION \([0-9.]*\).*/\1/')
-          TAG="${{ steps.get.outputs.version }}"
-          if [ "$CMAKE" != "$TAG" ]; then
-            echo "ERROR: CMakeLists.txt version ($CMAKE) != tag ($TAG)"
-            echo "Run: make bump-version VERSION=$TAG"
-            exit 1
-          fi
+      # `make version-check` is the SSOT for "the manifests agree": it probes
+      # pyproject.toml, CMakeLists.txt and ffi/rust/Cargo.toml, and fails if any
+      # disagrees with VERSION (the tag) or with each other — the same three
+      # checks this job used to open-code with three grep/sed blocks. On a
+      # mismatch: `make bump-version VERSION=<tag>`.
+      - name: Verify every manifest matches the tag
+        run: make version-check VERSION="${{ steps.get.outputs.version }}"
 
   # ------------------------------------------------------------------
   # Belt-and-suspenders test gate.
@@ -161,89 +143,18 @@ jobs:
               \$PYTHON -m build --no-isolation --wheel --outdir dist/
             "
 
-      - name: Verify wheel is portable (no -march=native AVX2/AVX-512)
-        if: matrix.arch.tag == 'x86_64'
-        run: |
-          # Defense in depth: a distributed wheel must run on any x86-64 CPU.
-          # -march=native on the build host would spray AVX2 (%ymm) / AVX-512
-          # (%zmm) across every function and SIGILL on older hardware
-          # (doppler-dsp 0.5.1 shipped exactly this bug).
-          #
-          # Wide SIMD is allowed ONLY inside runtime-dispatched functions whose
-          # name contains "avx512" (e.g. awgn's generate_avx512). Those carry a
-          # per-function target attribute and are reached only behind a
-          # __builtin_cpu_supports() check — present in the binary but never
-          # executed on a baseline CPU. Wide SIMD in any other function means
-          # -march=native leaked in → reject.
-          #
-          # Scan ONLY doppler's own compiled extensions (*.cpython-*.so), not
-          # the third-party libraries auditwheel/delocate vendor into the
-          # `<dist>.libs/` (Linux) or `.dylibs/` (macOS) bundle dir. Those
-          # vendored libs are not ours to make portable: glibc's libmvec, for
-          # instance, ships AVX vector-math variants (e.g. _ZGVcN4v_cos) that
-          # are ifunc-/caller-ISA-selected and never executed on a baseline
-          # CPU — scanning them is a guaranteed false positive (it flagged the
-          # cp39 wheel, whose build happened to vendor libmvec).
-          fail=0
-          tmp="$(mktemp -d)"
-          for whl in dist/*.whl; do
-            unzip -q -o "$whl" -d "$tmp/extract"
-            while IFS= read -r so; do
-              bad=$(objdump -d "$so" 2>/dev/null | awk '
-                /^[0-9a-f]+ <.*>:/ { fn=$2; gsub(/[<>:]/, "", fn) }
-                /%zmm[0-9]|%ymm[0-9]/ { if (fn !~ /avx512/) { print fn; exit } }
-              ')
-              if [ -n "$bad" ]; then
-                echo "::error::$(basename "$whl"): $(basename "$so") has wide SIMD in non-dispatched function '${bad}' — non-portable (built with -march=native?)"
-                fail=1
-              fi
-              # The bundled wfmgen CLI binary (wfm/_bin/wfmgen) gets the same
-              # scan — it links the runtime-dispatched AWGN, so wide SIMD is
-              # only legal in *avx512* functions, exactly like the extensions.
-            done < <(find "$tmp/extract" \( -name '*.cpython-*.so' -o -path '*/wfm/_bin/wfmgen' \))
-            rm -rf "$tmp/extract"
-          done
-          rm -rf "$tmp"
-          if [ "$fail" -ne 0 ]; then
-            echo "Refusing to publish a non-portable wheel. Build the wheel WITHOUT -DDOPPLER_NATIVE." >&2
-            exit 1
-          fi
-          echo "Portable: wide SIMD only in runtime-dispatched *avx512* functions."
-
-      - name: Verify wheel is portable (no -mcpu=native SVE)
-        if: matrix.arch.tag == 'aarch64'
-        run: |
-          # The aarch64 analogue of the AVX check above. Baseline for the
-          # wheel is ARMv8.0 — NEON is architecturally guaranteed, so it
-          # needs no scan. What -mcpu=native on a Neoverse build host
-          # would leak is SVE/SVE2 (z vector registers, p predicate
-          # registers), which SIGILLs on non-SVE cores (Raspberry Pi,
-          # Apple Silicon under Docker). doppler has no SVE runtime
-          # dispatch today, so any SVE instruction is a leak; the *sve*
-          # function-name allowance mirrors *avx512* for when it grows
-          # one. Same scan surface: our own extensions + bundled wfmgen.
-          fail=0
-          tmp="$(mktemp -d)"
-          for whl in dist/*.whl; do
-            unzip -q -o "$whl" -d "$tmp/extract"
-            while IFS= read -r so; do
-              bad=$(objdump -d "$so" 2>/dev/null | awk '
-                /^[0-9a-f]+ <.*>:/ { fn=$2; gsub(/[<>:]/, "", fn) }
-                /[ ,](z[0-9]+\.[bhsdq]|p[0-9]+\/[mz])/ { if (fn !~ /sve/) { print fn; exit } }
-              ')
-              if [ -n "$bad" ]; then
-                echo "::error::$(basename "$whl"): $(basename "$so") has SVE in non-dispatched function '${bad}' — non-portable (built with -mcpu=native?)"
-                fail=1
-              fi
-            done < <(find "$tmp/extract" \( -name '*.cpython-*.so' -o -path '*/wfm/_bin/wfmgen' \))
-            rm -rf "$tmp/extract"
-          done
-          rm -rf "$tmp"
-          if [ "$fail" -ne 0 ]; then
-            echo "Refusing to publish a non-portable wheel. Build the wheel WITHOUT -DDOPPLER_NATIVE." >&2
-            exit 1
-          fi
-          echo "Portable: no SVE outside runtime-dispatched *sve* functions."
+      - name: Verify wheel is portable (no -native SIMD leak)
+        # A distributed wheel must run on any CPU of its arch: `-march=native`
+        # (x86) or `-mcpu=native` (aarch64) on the build host sprays wide SIMD
+        # across every function and SIGILLs on older hardware — doppler 0.5.1
+        # shipped exactly that bug. Wide SIMD is legitimate only inside
+        # runtime-dispatched functions, which carry the ISA in their name and
+        # sit behind a __builtin_cpu_supports() check.
+        #
+        # ONE step, not two: `make wheel-check` detects the arch, so the x86
+        # and aarch64 scans — identical but for the register pattern and the
+        # allowed function-name substring — no longer need a condition each.
+        run: make wheel-check
 
       - name: Upload wheel (${{ matrix.python }})
         uses: actions/upload-artifact@v4
@@ -261,6 +172,17 @@ jobs:
     name: Build wheels (macOS arm64)
     needs: verify-version
     runs-on: macos-14
+    # Pin the build to arm64-only, min-os 11.0 (the floor for all Apple
+    # Silicon). Some setup-uv Pythons (3.9/3.11/3.12) are universal2 builds
+    # whose sysconfig reports `macosx-10.13-universal2`, so the wheel got that
+    # tag — but cmake produces an arm64-only .so on this runner, and delocate
+    # then fails demanding the absent x86_64 slice. MACOSX_DEPLOYMENT_TARGET
+    # sets the .so's min-os (cmake reads it); _PYTHON_HOST_PLATFORM overrides
+    # sysconfig.get_platform() so the wheel is tagged macosx_11_0_arm64 to
+    # match the binary. Uniform across every matrix Python.
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
+      _PYTHON_HOST_PLATFORM: "macosx-11.0-arm64"
     strategy:
       fail-fast: false
       matrix:
@@ -268,24 +190,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install uv
+      - name: Install uv + Python ${{ matrix.python }}
         uses: astral-sh/setup-uv@v4
-
-      - name: Install jbx
-        run: |
-          curl -sSL https://just-buildit.github.io/get-jb.sh | bash
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        with:
+          python-version: ${{ matrix.python }}
 
       - name: Install system dependencies
-        run: jbx just-bashit:install-deps -g runtime,dev -s brew
+        run: make install-deps
 
       - name: Build wheel (Python ${{ matrix.python }})
-        run: |
-          uv python install ${{ matrix.python }}
-          uv venv .venv --python ${{ matrix.python }}
-          uv pip install --python .venv/bin/python numpy build just-buildit
-          mkdir -p dist
-          .venv/bin/python -m build --no-isolation --wheel --outdir dist/
+        # Build through the make target, the same way CI builds the extension
+        # (make pyext). `make wheel` runs `uv build --wheel`, whose just-buildit
+        # backend calls `make just-build` (cmake + pyext) and delocate-repairs
+        # the macOS wheel. UV_PYTHON — set by setup-uv's python-version above —
+        # selects the interpreter, so each matrix job emits its own cpXYZ wheel.
+        # No hand-rolled `uv venv`/`uv pip`: the make target owns the build env,
+        # so there is no stray `.venv` for a later step to collide with.
+        run: make wheel
 
       - name: Upload wheel (Python ${{ matrix.python }})
         uses: actions/upload-artifact@v4
@@ -464,6 +385,11 @@ jobs:
         with:
           python-version: '3.12'
 
+      # `make wheel-smoke` builds the throwaway venv with uv (a make target,
+      # not the old inline step), so uv must be on PATH — setup-python alone is
+      # not enough.
+      - uses: astral-sh/setup-uv@v4
+
       - name: Download the cp312 wheel
         uses: actions/download-artifact@v4
         with:
@@ -471,14 +397,13 @@ jobs:
           path: dist/
 
       - name: Install the built wheel + run the e2e from a clean dir
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install dist/*.whl
-          # cd out of the repo so `import doppler` resolves to the installed
-          # wheel, not the ./src tree.
-          cd "${RUNNER_TEMP}"
-          python "${GITHUB_WORKSPACE}/deploy/validation/wfm_e2e.py"
-          python -c "import doppler; print('doppler', doppler.__version__)"
+        # Installs into a THROWAWAY venv and runs from a clean cwd, so
+        # `import doppler` can only resolve to the wheel and never to ./src.
+        # The venv's bin/ goes on PATH because two of the e2e's ten checks
+        # shell out to the `wfmgen` console script — running the target before
+        # wiring it is what caught that, and it read as "the wheel is broken"
+        # (8/10) when it was the harness.
+        run: make wheel-smoke
 
   publish-python:
     name: Publish to PyPI
@@ -509,7 +434,7 @@ jobs:
   # deploy/docker/Dockerfile.cli.
   # ------------------------------------------------------------------
   publish-container:
-    name: Publish container image
+    name: Publish container images
     needs: [verify-version, publish-python]
     runs-on: ubuntu-latest
     permissions:
@@ -571,6 +496,62 @@ jobs:
           docker run --rm --platform linux/arm64 \
             "ghcr.io/${{ github.repository }}:${{ needs.verify-version.outputs.version }}" \
             python -c "import doppler; print('doppler (arm64)', doppler.__version__)"
+
+      # The SDK image (ghcr.io/doppler-dsp/doppler-sdk) — the "build ON
+      # doppler" artifact: doppler installed to /usr/local + toolchain + uv/jm.
+      # Unlike the runtime image it compiles doppler from source, so its arm64
+      # layer is an EMULATED C build under QEMU (a few minutes; BUILD_PYTHON=OFF
+      # keeps it to the C core, not the full extension tree the pre-v0.32
+      # runtime paid ~19 min for). Version-lock is by source, so no PyPI wait.
+      - name: Build and push the SDK image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile.examples
+          target: sdk
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            JM_VERSION=${{ needs.verify-version.outputs.jm_version }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}-sdk:${{ needs.verify-version.outputs.version }}
+            ghcr.io/${{ github.repository }}-sdk:latest
+
+      - name: Smoke-test the pushed SDK image (both architectures)
+        run: |
+          for arch in amd64 arm64; do
+            docker run --rm --platform "linux/$arch" \
+              "ghcr.io/${{ github.repository }}-sdk:${{ needs.verify-version.outputs.version }}" \
+              sh -c 'echo "doppler-sdk ('"$arch"') installs $(pkg-config --modversion doppler)"'
+          done
+
+      # The iqtools showcase (ghcr.io/doppler-dsp/doppler-downstream-jm) — the
+      # flagship worked downstream, shipped already built with its whole suite
+      # green (the build RUNs `make test`). Like the SDK it compiles doppler
+      # from source, so the arm64 layer additionally runs iqtools' ctest+pytest
+      # under emulation — a slower leg, paid once per release.
+      - name: Build and push the downstream-jm showcase image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile.examples
+          target: downstream-jm
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            JM_VERSION=${{ needs.verify-version.outputs.jm_version }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}-downstream-jm:${{ needs.verify-version.outputs.version }}
+            ghcr.io/${{ github.repository }}-downstream-jm:latest
+
+      - name: Smoke-test the pushed downstream-jm image (both architectures)
+        run: |
+          for arch in amd64 arm64; do
+            docker run --rm --platform "linux/$arch" \
+              "ghcr.io/${{ github.repository }}-downstream-jm:${{ needs.verify-version.outputs.version }}" \
+              python3 -c "from iqtools.capture import Capture, RawCapture; \
+                          print('doppler-downstream-jm ('"$arch"')', Capture.__name__)"
+          done
 
   # ------------------------------------------------------------------
   # GitHub Release with auto-generated notes
@@ -667,4 +648,4 @@ jobs:
       - name: Smoke-test the published tarball
         env:
           GH_TOKEN: ${{ github.token }}
-        run: bash tests/install/release-smoke.sh "${{ needs.verify-version.outputs.version }}"
+        run: make release-smoke VERSION="${{ needs.verify-version.outputs.version }}"

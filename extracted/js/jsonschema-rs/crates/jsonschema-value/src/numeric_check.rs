@@ -24,13 +24,23 @@ impl BoundOp {
     }
 }
 
-// Codegen inlines every u64/i64-representable bound and only routes limits with no `as_u64`/`as_i64`
-// representation through `compile_bound`, so no integer variant is ever constructed.
+// An `f64` limit is exact only up to 2^53, so an integer limit keeps its own width and compares
+// against the instance in exact arithmetic.
 #[derive(Clone, Debug, PartialEq)]
 pub enum CompiledBound {
     F64 {
         op: BoundOp,
         limit: f64,
+    },
+    #[cfg(not(feature = "arbitrary-precision"))]
+    I64 {
+        op: BoundOp,
+        limit: i64,
+    },
+    #[cfg(not(feature = "arbitrary-precision"))]
+    U64 {
+        op: BoundOp,
+        limit: u64,
     },
     #[cfg(feature = "arbitrary-precision")]
     BigInt {
@@ -164,16 +174,8 @@ fn check_bigfrac_bound(op: BoundOp, limit: &fraction::BigFraction, value: &Numbe
         };
     }
 
-    if let Some(v) = value.as_f64() {
-        return match op {
-            BoundOp::Lt => numeric::bignum::f64_lt_bigfrac(v, limit),
-            BoundOp::Lte => numeric::bignum::f64_le_bigfrac(v, limit),
-            BoundOp::Gt => numeric::bignum::f64_gt_bigfrac(v, limit),
-            BoundOp::Gte => numeric::bignum::f64_ge_bigfrac(v, limit),
-        };
-    }
-
-    // An integer past the f64 range is exact as a BigInt, e.g. `1e400` against `0.1`.
+    // An integer past i64 is exact as a BigInt, while `f64` rounds it onto limits a fractional
+    // digit separates it from, e.g. `-10000000000000000000000000` against the same with `.1`.
     if let Some(instance_bigint) = numeric::bignum::try_parse_bigint(value) {
         let instance_frac = fraction::BigFraction::from(instance_bigint);
         return match op {
@@ -181,6 +183,15 @@ fn check_bigfrac_bound(op: BoundOp, limit: &fraction::BigFraction, value: &Numbe
             BoundOp::Lte => instance_frac <= *limit,
             BoundOp::Gt => instance_frac > *limit,
             BoundOp::Gte => instance_frac >= *limit,
+        };
+    }
+
+    if let Some(v) = value.as_f64() {
+        return match op {
+            BoundOp::Lt => numeric::bignum::f64_lt_bigfrac(v, limit),
+            BoundOp::Lte => numeric::bignum::f64_le_bigfrac(v, limit),
+            BoundOp::Gt => numeric::bignum::f64_gt_bigfrac(v, limit),
+            BoundOp::Gte => numeric::bignum::f64_ge_bigfrac(v, limit),
         };
     }
 
@@ -197,6 +208,16 @@ pub fn compile_bound(op: BoundOp, limit: &Number) -> CompiledBound {
         }
         if let Some(value) = numeric::bignum::try_parse_bigfraction(limit) {
             return CompiledBound::BigFrac { op, limit: value };
+        }
+    }
+
+    #[cfg(not(feature = "arbitrary-precision"))]
+    {
+        if let Some(value) = limit.as_i64() {
+            return CompiledBound::I64 { op, limit: value };
+        }
+        if let Some(value) = limit.as_u64() {
+            return CompiledBound::U64 { op, limit: value };
         }
     }
 
@@ -223,6 +244,10 @@ pub fn compile_bound(op: BoundOp, limit: &Number) -> CompiledBound {
 pub fn check_bound(compiled: &CompiledBound, value: &Number) -> bool {
     match compiled {
         CompiledBound::F64 { op, limit } => check_primitive_bound(*op, value, *limit),
+        #[cfg(not(feature = "arbitrary-precision"))]
+        CompiledBound::I64 { op, limit } => check_primitive_bound(*op, value, *limit),
+        #[cfg(not(feature = "arbitrary-precision"))]
+        CompiledBound::U64 { op, limit } => check_primitive_bound(*op, value, *limit),
         #[cfg(feature = "arbitrary-precision")]
         CompiledBound::BigInt { op, limit } => check_bigint_bound(*op, limit, value),
         #[cfg(feature = "arbitrary-precision")]

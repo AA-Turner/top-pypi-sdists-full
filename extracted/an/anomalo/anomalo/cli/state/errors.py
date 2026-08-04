@@ -29,6 +29,14 @@ class InvalidFile(StateMachineError):
         return f"{self.filename}: {self.details}"
 
 
+class ConflictingTableFilters(StateMachineError):
+    def __str__(self) -> str:
+        return (
+            "--warehouse_id and --configured_only only apply when no table"
+            " references are given"
+        )
+
+
 class TableRefError(StateMachineError):
     def __init__(self, table_ref: str):
         self.table_ref = table_ref

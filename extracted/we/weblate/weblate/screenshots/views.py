@@ -5,14 +5,17 @@ from __future__ import annotations
 
 import difflib
 import os
-from contextlib import contextmanager
+import tempfile
+from contextlib import contextmanager, suppress
+from time import sleep
 from typing import TYPE_CHECKING, ClassVar, cast
 
+import httpx2
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count
 from django.http import FileResponse, JsonResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import aget_object_or_404, get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.http import urlencode
@@ -157,6 +160,67 @@ TESSERACT_LANGUAGES = {
 }
 
 TESSERACT_URL = "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/{}"
+TESSERACT_DOWNLOAD_ATTEMPTS = 3
+TESSERACT_DOWNLOAD_TIMEOUT = 30
+
+
+def is_retryable_tesseract_download_error(error: httpx2.HTTPError) -> bool:
+    if isinstance(
+        error,
+        (
+            httpx2.NetworkError,
+            httpx2.ProxyError,
+            httpx2.RemoteProtocolError,
+            httpx2.TimeoutException,
+        ),
+    ):
+        return True
+    if not isinstance(error, httpx2.HTTPStatusError):
+        return False
+    return error.response.status_code == 429 or error.response.status_code >= 500
+
+
+def download_tesseract_data(url: str, full_name: str) -> None:
+    temporary_name: str | None = None
+    try:
+        for attempt in range(1, TESSERACT_DOWNLOAD_ATTEMPTS + 1):
+            try:
+                with start_span(op="ocr.download", name=url):
+                    response = fetch_url(
+                        "GET",
+                        url,
+                        follow_redirects=True,
+                        timeout=TESSERACT_DOWNLOAD_TIMEOUT,
+                    )
+            except httpx2.HTTPError as error:
+                if (
+                    attempt == TESSERACT_DOWNLOAD_ATTEMPTS
+                    or not is_retryable_tesseract_download_error(error)
+                ):
+                    raise
+                LOGGER.warning(
+                    "Tesseract data download failed, retrying (%d/%d): %s",
+                    attempt,
+                    TESSERACT_DOWNLOAD_ATTEMPTS,
+                    error,
+                )
+                sleep(2 ** (attempt - 1))
+                continue
+
+            with tempfile.NamedTemporaryFile(
+                dir=os.path.dirname(full_name),
+                prefix=f".{os.path.basename(full_name)}.",
+                delete=False,
+            ) as handle:
+                temporary_name = handle.name
+                handle.write(response.content)
+            os.replace(temporary_name, full_name)
+            temporary_name = None
+            return
+    finally:
+        if temporary_name is not None:
+            with suppress(FileNotFoundError):
+                os.unlink(temporary_name)
 
 
 def ensure_tesseract_language(lang: str) -> None:
@@ -177,8 +241,7 @@ def ensure_tesseract_language(lang: str) -> None:
         ),
         start_span(op="ocr.models"),
     ):
-        if not os.path.isdir(tessdata):
-            os.makedirs(tessdata)
+        os.makedirs(tessdata, exist_ok=True)
 
         for code in (lang, "eng", "osd"):
             filename = f"{code}.traineddata"
@@ -190,11 +253,7 @@ def ensure_tesseract_language(lang: str) -> None:
 
             LOGGER.debug("downloading tesseract data %s", url)
 
-            with start_span(op="ocr.download", name=url):
-                response = fetch_url("GET", url, allow_redirects=True)
-
-            with open(full_name, "xb") as handle:
-                handle.write(response.content)
+            download_tesseract_data(url, full_name)
 
 
 def add_sources(request: AuthenticatedHttpRequest, obj) -> dict[str, int | bool]:
@@ -220,7 +279,7 @@ def add_sources(request: AuthenticatedHttpRequest, obj) -> dict[str, int | bool]
 
     existing = set(obj.units.filter(pk__in=source_ids).values_list("pk", flat=True))
     units = obj.translation.unit_set.in_bulk(source_ids)
-    added = 0
+    units_to_add: list[Unit] = []
     for source_id in source_ids:
         unit = units.get(source_id)
         if unit is None:
@@ -229,9 +288,62 @@ def add_sources(request: AuthenticatedHttpRequest, obj) -> dict[str, int | bool]
         if source_id in existing:
             skipped += 1
             continue
-        obj.add_unit(unit, user=request.user)
+        units_to_add.append(unit)
         existing.add(source_id)
-        added += 1
+
+    obj.add_units(units_to_add, user=request.user)
+    added = len(units_to_add)
+
+    return {
+        "status": added > 0,
+        "added": added,
+        "skipped": skipped,
+        "invalid": invalid,
+    }
+
+
+async def add_sources_async(
+    request: AuthenticatedHttpRequest, obj
+) -> dict[str, int | bool]:
+    sources = request.POST.getlist("source")
+    if not sources:
+        return {"status": False, "added": 0, "skipped": 0, "invalid": 0}
+
+    source_ids: list[int] = []
+    seen: set[int] = set()
+    skipped = 0
+    invalid = 0
+    for source in sources:
+        try:
+            source_id = int(source)
+        except ValueError:
+            invalid += 1
+            continue
+        if source_id in seen:
+            skipped += 1
+            continue
+        seen.add(source_id)
+        source_ids.append(source_id)
+
+    existing = {
+        pk
+        async for pk in obj.units.filter(pk__in=source_ids).values_list("pk", flat=True)
+    }
+    units = await obj.translation.unit_set.ain_bulk(source_ids)
+    units_to_add: list[Unit] = []
+    for source_id in source_ids:
+        unit = units.get(source_id)
+        if unit is None:
+            invalid += 1
+            continue
+        if source_id in existing:
+            skipped += 1
+            continue
+        units_to_add.append(unit)
+        existing.add(source_id)
+
+    await obj.add_units_async(units_to_add, user=request.user)
+    added = len(units_to_add)
 
     return {
         "status": added > 0,
@@ -432,11 +544,13 @@ class ScreenshotBaseView(DetailView):
 class ScreenshotView(ScreenshotBaseView):
     def get(self, request: AuthenticatedHttpRequest, *args, **kwargs) -> FileResponse:  # type: ignore[override]
         obj = self.get_object()
-        # Django will automatically set Content-Type based on the filename
+        with Image.open(obj.image.open(), formats=PIL_FORMATS) as image:
+            content_type = Image.MIME[cast("str", image.format)]
         return FileResponse(
             obj.image.open(),
             as_attachment=False,
             filename=os.path.basename(obj.image.name),
+            content_type=content_type,
         )
 
 
@@ -502,25 +616,45 @@ def get_screenshot(request: AuthenticatedHttpRequest, pk):
     return obj
 
 
+async def aget_screenshot(request: AuthenticatedHttpRequest, pk):
+    await request.user.aprepare_permissions()
+    obj = await aget_object_or_404(
+        Screenshot.objects.filter_access(request.user).select_related(
+            "translation__component__project"
+        ),
+        pk=pk,
+    )
+    if not request.user.has_perm("screenshot.edit", obj.translation.component):
+        raise PermissionDenied
+    return obj
+
+
 @require_POST
 @login_required
-def remove_source(request: AuthenticatedHttpRequest, pk):
-    obj = get_screenshot(request, pk)
+async def remove_source(request: AuthenticatedHttpRequest, pk):
+    obj = await aget_screenshot(request, pk)
 
     try:
-        unit = obj.translation.unit_set.get(pk=int(request.POST["source"]))
+        unit = await obj.translation.unit_set.aget(pk=int(request.POST["source"]))
     except (Unit.DoesNotExist, ValueError):
         messages.error(request, gettext("Invalid unit."))
         return redirect(obj)
 
-    obj.remove_unit(unit, user=request.user)
+    await obj.aremove_unit(unit, user=request.user)
 
     messages.success(request, gettext("Source has been removed."))
 
     return redirect(obj)
 
 
-def search_results(request: AuthenticatedHttpRequest, code, obj, units=None):
+def search_results(
+    request: AuthenticatedHttpRequest,
+    code,
+    obj,
+    units=None,
+    *,
+    error: str | None = None,
+):
     if units is None:
         units = []
         count = 0
@@ -532,28 +666,29 @@ def search_results(request: AuthenticatedHttpRequest, code, obj, units=None):
         )
         count = len(units)
 
-    return JsonResponse(
-        data={
-            "responseCode": code,
-            "count": count,
-            "summary": ngettext(
-                "%(count)s matching source string found.",
-                "%(count)s matching source strings found.",
-                count,
-            )
-            % {"count": count},
-            "empty": gettext("No new matching source strings found."),
-            "results": render_to_string(
-                "screenshots/screenshot_sources_search.html",
-                {
-                    "object": obj,
-                    "units": units,
-                    "user": request.user,
-                    "search_query": "",
-                },
-            ),
-        }
-    )
+    data = {
+        "responseCode": code,
+        "count": count,
+        "summary": ngettext(
+            "%(count)s matching source string found.",
+            "%(count)s matching source strings found.",
+            count,
+        )
+        % {"count": count},
+        "empty": gettext("No new matching source strings found."),
+        "results": render_to_string(
+            "screenshots/screenshot_sources_search.html",
+            {
+                "object": obj,
+                "units": units,
+                "user": request.user,
+                "search_query": "",
+            },
+        ),
+    }
+    if error is not None:
+        data["error"] = error
+    return JsonResponse(data=data)
 
 
 @login_required
@@ -677,6 +812,14 @@ def ocr_search(request: AuthenticatedHttpRequest, pk):
                     resolution=resolution,
                 )
             }
+    except httpx2.HTTPError as error:
+        LOGGER.warning("Could not download Tesseract data: %s", error)
+        return search_results(
+            request,
+            503,
+            obj,
+            error=gettext("OCR data could not be downloaded. Please try again later."),
+        )
     finally:
         ocr_image.close()
 
@@ -687,9 +830,11 @@ def ocr_search(request: AuthenticatedHttpRequest, pk):
 
 @login_required
 @require_POST
-def add_source(request: AuthenticatedHttpRequest, pk):
-    obj = get_screenshot(request, pk)
-    return JsonResponse(data={"responseCode": 200, **add_sources(request, obj)})
+async def add_source(request: AuthenticatedHttpRequest, pk):
+    obj = await aget_screenshot(request, pk)
+    return JsonResponse(
+        data={"responseCode": 200, **await add_sources_async(request, obj)}
+    )
 
 
 @login_required
