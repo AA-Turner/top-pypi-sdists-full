@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dune_client
-Version: 1.11.3
+Version: 1.11.4
 Summary: A simple framework for interacting with Dune Analytics official API service.
 Project-URL: Homepage, https://github.com/duneanalytics/dune-client
 Project-URL: Repository, https://github.com/duneanalytics/dune-client
@@ -140,7 +140,7 @@ query = dune.create_query(
     query_sql=sql,
     # Optional fields
     params=[QueryParameter.number_type(name="N", value=10)],
-    is_private=False  # default
+    is_private=False,  # default
 )
 query_id = query.base.query_id
 print(f"Created query with id {query.base.query_id}")
@@ -154,7 +154,7 @@ dune.update_query(
     query_sql=sql.replace("ethereum", "{{Blockchain}}"),
     params=query.base.parameters() + [QueryParameter.text_type("Blockchain", "ethereum")],
     description="Shows time and hash of the most expensive transactions",
-    tags=["XP€N$IV $H1T"]
+    tags=["XP€N$IV $H1T"],
 )
 
 dune.archive_query(query_id)

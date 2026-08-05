@@ -1298,7 +1298,7 @@ class AssertionInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'assertionInfo'
-    ASPECT_INFO = {'schemaVersion': 4}
+    ASPECT_INFO = {'schemaVersion': 5}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.assertion.AssertionInfo")
 
     def __init__(self,
@@ -1390,7 +1390,8 @@ class AssertionInfoClass(_Aspect):
     
     @property
     def datasetAssertion(self) -> Union[None, "DatasetAssertionInfoClass"]:
-        """A Dataset Assertion definition. This field is populated when the type is DATASET."""
+        """@deprecated A Dataset Assertion definition. This field is populated when the type is DATASET.
+    Prefer customAssertion with AssertionType.CUSTOM for external assertions."""
         return self._inner_dict.get('datasetAssertion')  # type: ignore
     
     @datasetAssertion.setter
@@ -2342,33 +2343,46 @@ class AssertionTypeClass(object):
     """Type of assertion. Assertion types can evolve to span Datasets, Flows (Pipelines), Models, Features etc."""
     
     DATASET = "DATASET"
-    """A single-dataset assertion.
+    """@deprecated Legacy external assertion shape. New external integrations must use CUSTOM
+    with CustomAssertionInfo (including optional structured fields). Retained for
+    backward-compatible reads of stored aspects.
     When this is the value, the datasetAssertion field will be populated."""
     
     FRESHNESS = "FRESHNESS"
     """A freshness assertion, or an assertion which indicates when a particular operation should occur
-    to an asset."""
+    to an asset.
+    Intended for assertions DataHub evaluates / schedules natively. Prefer CUSTOM for externally
+    managed self-reporting."""
     
     VOLUME = "VOLUME"
     """A volume assertion, or an assertion which indicates how much data should be available for a
-    particular asset."""
+    particular asset.
+    Intended for assertions DataHub evaluates / schedules natively. Prefer CUSTOM for externally
+    managed self-reporting."""
     
     SQL = "SQL"
-    """A raw SQL-statement based assertion"""
+    """A raw SQL-statement based assertion
+    Intended for assertions DataHub evaluates / schedules natively. Prefer CUSTOM for externally
+    managed self-reporting."""
     
     FIELD = "FIELD"
-    """A structured assertion targeting a specific column or field of the Dataset."""
+    """A structured assertion targeting a specific column or field of the Dataset.
+    Intended for assertions DataHub evaluates / schedules natively. Prefer CUSTOM for externally
+    managed self-reporting."""
     
     DATA_SCHEMA = "DATA_SCHEMA"
     """A schema or structural assertion.
     
-    Would have named this SCHEMA but the codegen for PDL does not allow this (reserved word)."""
+    Would have named this SCHEMA but the codegen for PDL does not allow this (reserved word).
+    Intended for assertions DataHub evaluates / schedules natively. Prefer CUSTOM for externally
+    managed self-reporting."""
     
     CUSTOM = "CUSTOM"
-    """A custom assertion. 
+    """A custom / externally managed assertion.
     When this is the value, the customAssertion field will be populated.
-    Use this assertion type when the exact type of assertion is not modeled in DataHub or
-    as a starting point when integrating third-party data quality tools."""
+    This is the supported type for third-party tools and self-reported checks
+    (dbt, Great Expectations, partner SDKs). May include structured display fields
+    migrated from DatasetAssertionInfo."""
     
     
     
@@ -2453,13 +2467,24 @@ class BatchSpecClass(DictWrapper):
     
     
 class CustomAssertionInfoClass(DictWrapper):
-    """Attributes that are applicable to Custom Assertions"""
+    """Attributes that are applicable to Custom / externally managed Assertions.
+    This is the supported model for third-party and self-reported data quality checks
+    (dbt, Great Expectations, partner tools, SDK). Prefer this over native typed
+    assertion models (FIELD, VOLUME, FRESHNESS, DATA_SCHEMA, SQL) when the check is
+    defined and evaluated outside DataHub."""
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.assertion.CustomAssertionInfo")
     def __init__(self,
         type: str,
         entity: str,
         field: Union[None, str]=None,
+        fields: Union[None, List[str]]=None,
+        scope: Union[None, Union[str, "DatasetAssertionScopeClass"]]=None,
+        aggregation: Union[None, Union[str, "AssertionStdAggregationClass"]]=None,
+        operator: Union[None, Union[str, "AssertionStdOperatorClass"]]=None,
+        parameters: Union[None, "AssertionStdParametersClass"]=None,
+        nativeType: Union[None, str]=None,
+        nativeParameters: Union[None, Dict[str, str]]=None,
         logic: Union[None, str]=None,
     ):
         super().__init__()
@@ -2467,19 +2492,33 @@ class CustomAssertionInfoClass(DictWrapper):
         self.type = type
         self.entity = entity
         self.field = field
+        self.fields = fields
+        self.scope = scope
+        self.aggregation = aggregation
+        self.operator = operator
+        self.parameters = parameters
+        self.nativeType = nativeType
+        self.nativeParameters = nativeParameters
         self.logic = logic
     
     def _restore_defaults(self) -> None:
         self.type = str()
         self.entity = str()
         self.field = self.RECORD_SCHEMA.fields_dict["field"].default
+        self.fields = self.RECORD_SCHEMA.fields_dict["fields"].default
+        self.scope = self.RECORD_SCHEMA.fields_dict["scope"].default
+        self.aggregation = self.RECORD_SCHEMA.fields_dict["aggregation"].default
+        self.operator = self.RECORD_SCHEMA.fields_dict["operator"].default
+        self.parameters = self.RECORD_SCHEMA.fields_dict["parameters"].default
+        self.nativeType = self.RECORD_SCHEMA.fields_dict["nativeType"].default
+        self.nativeParameters = self.RECORD_SCHEMA.fields_dict["nativeParameters"].default
         self.logic = self.RECORD_SCHEMA.fields_dict["logic"].default
     
     
     @property
     def type(self) -> str:
         """The type of custom assertion.
-    This is how your assertion will appear categorized in DataHub UI. """
+    This is how your assertion will appear categorized in DataHub UI."""
         return self._inner_dict.get('type')  # type: ignore
     
     @type.setter
@@ -2502,12 +2541,87 @@ class CustomAssertionInfoClass(DictWrapper):
     def field(self) -> Union[None, str]:
         """dataset schema field targeted by this assertion.
     
-    This field is expected to be provided if the assertion is on dataset field"""
+    This field is expected to be provided if the assertion is on dataset field.
+    Prefer fields for multi-column support.
+    @deprecated Use fields instead for multi-column support."""
         return self._inner_dict.get('field')  # type: ignore
     
     @field.setter
     def field(self, value: Union[None, str]) -> None:
         self._inner_dict['field'] = value
+    
+    
+    @property
+    def fields(self) -> Union[None, List[str]]:
+        """One or more dataset schema fields targeted by this assertion.
+    Use this field for assertions that involve multiple columns."""
+        return self._inner_dict.get('fields')  # type: ignore
+    
+    @fields.setter
+    def fields(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['fields'] = value
+    
+    
+    @property
+    def scope(self) -> Union[None, Union[str, "DatasetAssertionScopeClass"]]:
+        """Scope of the Assertion. What part of the dataset does this assertion apply to?
+    Optional structured metadata for display/reporting (migrated from DatasetAssertionInfo)."""
+        return self._inner_dict.get('scope')  # type: ignore
+    
+    @scope.setter
+    def scope(self, value: Union[None, Union[str, "DatasetAssertionScopeClass"]]) -> None:
+        self._inner_dict['scope'] = value
+    
+    
+    @property
+    def aggregation(self) -> Union[None, Union[str, "AssertionStdAggregationClass"]]:
+        """Standardized assertion aggregation / metric.
+    Left blank if there is no selected aggregation or metric for a particular column."""
+        return self._inner_dict.get('aggregation')  # type: ignore
+    
+    @aggregation.setter
+    def aggregation(self, value: Union[None, Union[str, "AssertionStdAggregationClass"]]) -> None:
+        self._inner_dict['aggregation'] = value
+    
+    
+    @property
+    def operator(self) -> Union[None, Union[str, "AssertionStdOperatorClass"]]:
+        """Standardized assertion operator."""
+        return self._inner_dict.get('operator')  # type: ignore
+    
+    @operator.setter
+    def operator(self, value: Union[None, Union[str, "AssertionStdOperatorClass"]]) -> None:
+        self._inner_dict['operator'] = value
+    
+    
+    @property
+    def parameters(self) -> Union[None, "AssertionStdParametersClass"]:
+        """Standard parameters required for the assertion. e.g. min_value, max_value, value, columns"""
+        return self._inner_dict.get('parameters')  # type: ignore
+    
+    @parameters.setter
+    def parameters(self, value: Union[None, "AssertionStdParametersClass"]) -> None:
+        self._inner_dict['parameters'] = value
+    
+    
+    @property
+    def nativeType(self) -> Union[None, str]:
+        """Native assertion type (platform-specific), e.g. Great Expectations expectation name."""
+        return self._inner_dict.get('nativeType')  # type: ignore
+    
+    @nativeType.setter
+    def nativeType(self, value: Union[None, str]) -> None:
+        self._inner_dict['nativeType'] = value
+    
+    
+    @property
+    def nativeParameters(self) -> Union[None, Dict[str, str]]:
+        """Native parameters required for the assertion."""
+        return self._inner_dict.get('nativeParameters')  # type: ignore
+    
+    @nativeParameters.setter
+    def nativeParameters(self, value: Union[None, Dict[str, str]]) -> None:
+        self._inner_dict['nativeParameters'] = value
     
     
     @property
@@ -2521,7 +2635,9 @@ class CustomAssertionInfoClass(DictWrapper):
     
     
 class DatasetAssertionInfoClass(DictWrapper):
-    """Attributes that are applicable to single-Dataset Assertions"""
+    """@deprecated Attributes for legacy DATASET assertions.
+    New external integrations should emit AssertionType.CUSTOM with CustomAssertionInfo
+    (which now carries the same structured display fields). Retained for backward-compatible reads."""
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.assertion.DatasetAssertionInfo")
     def __init__(self,
@@ -2653,7 +2769,8 @@ class DatasetAssertionInfoClass(DictWrapper):
     
     
 class DatasetAssertionScopeClass(object):
-    # No docs available.
+    """Scope of an assertion — which part of an asset the check applies to.
+    Used by DatasetAssertionInfo and CustomAssertionInfo."""
     
     DATASET_COLUMN = "DATASET_COLUMN"
     """This assertion applies to dataset column(s)"""
@@ -15834,7 +15951,7 @@ class CorpGroupInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'corpGroupInfo'
-    ASPECT_INFO = {'EntityUrns': ['com.linkedin.pegasus2avro.common.CorpGroupUrn']}
+    ASPECT_INFO = {'EntityUrns': ['com.linkedin.pegasus2avro.common.CorpGroupUrn'], 'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.identity.CorpGroupInfo")
 
     def __init__(self,
@@ -15892,7 +16009,8 @@ class CorpGroupInfoClass(_Aspect):
     @property
     def admins(self) -> List[str]:
         """owners of this group
-    Deprecated! Replaced by Ownership aspect."""
+    Deprecated! Replaced by Ownership aspect.
+    Relationship annotation intentionally omitted so OwnedBy edges are owned solely by the ownership aspect."""
         return self._inner_dict.get('admins')  # type: ignore
     
     @admins.setter
@@ -19760,7 +19878,7 @@ class GlossaryNodeKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'glossaryNodeKey'
-    ASPECT_INFO = {'keyForEntity': 'glossaryNode', 'entityCategory': 'core', 'entityAspects': ['glossaryNodeInfo', 'institutionalMemory', 'ownership', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties', 'assetSettings', 'domains']}
+    ASPECT_INFO = {'keyForEntity': 'glossaryNode', 'entityCategory': 'core', 'entityAspects': ['glossaryNodeInfo', 'institutionalMemory', 'ownership', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties', 'assetSettings', 'domains', 'globalTags']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.GlossaryNodeKey")
 
     def __init__(self,
@@ -30224,6 +30342,9 @@ class OidcSettingsClass(DictWrapper):
         extractJwtAccessTokenClaims: Union[None, bool]=None,
         preferredJwsAlgorithm: Union[None, str]=None,
         preferredJwsAlgorithm2: Union[None, str]=None,
+        requiredGroups: Union[None, List[str]]=None,
+        accessDeniedMessage: Union[None, str]=None,
+        accessDeniedRedirectUrl: Union[None, str]=None,
     ):
         super().__init__()
         
@@ -30246,6 +30367,9 @@ class OidcSettingsClass(DictWrapper):
         self.extractJwtAccessTokenClaims = extractJwtAccessTokenClaims
         self.preferredJwsAlgorithm = preferredJwsAlgorithm
         self.preferredJwsAlgorithm2 = preferredJwsAlgorithm2
+        self.requiredGroups = requiredGroups
+        self.accessDeniedMessage = accessDeniedMessage
+        self.accessDeniedRedirectUrl = accessDeniedRedirectUrl
     
     def _restore_defaults(self) -> None:
         self.enabled = bool()
@@ -30267,6 +30391,9 @@ class OidcSettingsClass(DictWrapper):
         self.extractJwtAccessTokenClaims = self.RECORD_SCHEMA.fields_dict["extractJwtAccessTokenClaims"].default
         self.preferredJwsAlgorithm = self.RECORD_SCHEMA.fields_dict["preferredJwsAlgorithm"].default
         self.preferredJwsAlgorithm2 = self.RECORD_SCHEMA.fields_dict["preferredJwsAlgorithm2"].default
+        self.requiredGroups = self.RECORD_SCHEMA.fields_dict["requiredGroups"].default
+        self.accessDeniedMessage = self.RECORD_SCHEMA.fields_dict["accessDeniedMessage"].default
+        self.accessDeniedRedirectUrl = self.RECORD_SCHEMA.fields_dict["accessDeniedRedirectUrl"].default
     
     
     @property
@@ -30457,6 +30584,36 @@ class OidcSettingsClass(DictWrapper):
     @preferredJwsAlgorithm2.setter
     def preferredJwsAlgorithm2(self, value: Union[None, str]) -> None:
         self._inner_dict['preferredJwsAlgorithm2'] = value
+    
+    
+    @property
+    def requiredGroups(self) -> Union[None, List[str]]:
+        """ADVANCED. Restrict login to users who belong to at least one of these groups (matched against the groups claim). Empty or unset disables group-based access enforcement."""
+        return self._inner_dict.get('requiredGroups')  # type: ignore
+    
+    @requiredGroups.setter
+    def requiredGroups(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['requiredGroups'] = value
+    
+    
+    @property
+    def accessDeniedMessage(self) -> Union[None, str]:
+        """ADVANCED. Message shown to users who are denied login because they are not a member of any required group."""
+        return self._inner_dict.get('accessDeniedMessage')  # type: ignore
+    
+    @accessDeniedMessage.setter
+    def accessDeniedMessage(self, value: Union[None, str]) -> None:
+        self._inner_dict['accessDeniedMessage'] = value
+    
+    
+    @property
+    def accessDeniedRedirectUrl(self) -> Union[None, str]:
+        """ADVANCED. URL to redirect denied users to (e.g. an internal access-request page). When set, takes precedence over the access denied message."""
+        return self._inner_dict.get('accessDeniedRedirectUrl')  # type: ignore
+    
+    @accessDeniedRedirectUrl.setter
+    def accessDeniedRedirectUrl(self, value: Union[None, str]) -> None:
+        self._inner_dict['accessDeniedRedirectUrl'] = value
     
     
 class SsoSettingsClass(DictWrapper):

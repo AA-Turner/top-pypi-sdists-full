@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: assistant-stream
-Version: 0.0.34
+Version: 0.0.36
 Project-URL: Homepage, https://github.com/assistant-ui/assistant-ui
 Project-URL: Issues, https://github.com/assistant-ui/assistant-ui/issues
 Author-email: Simon Farshid <simon@assistant-ui.com>
@@ -12,8 +12,11 @@ Requires-Python: <4.0,>=3.10
 Requires-Dist: starlette>=0.37.2
 Provides-Extra: dev
 Requires-Dist: pytest<8; extra == 'dev'
+Requires-Dist: redis>=5; extra == 'dev'
 Provides-Extra: langgraph
 Requires-Dist: langchain-core>=0.3.0; extra == 'langgraph'
+Provides-Extra: redis
+Requires-Dist: redis>=5; extra == 'redis'
 Description-Content-Type: text/markdown
 
 ## assistant-stream

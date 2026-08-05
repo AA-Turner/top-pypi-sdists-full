@@ -1,0 +1,2 @@
+import"./rolldown-runtime-G-74P12b.js";import"./api-DepWbifE.js";import"./settingStore-FoBj0dOm.js";import"./useFeatureFlags-CPCdmKah.js";Promise.resolve();var useSessionCookie=()=>{let ensureSessionCookie=async()=>{},createSession=async()=>{},createSessionOrThrow=async()=>{},deleteSession=async()=>{};return{createSession,createSessionOrThrow,ensureSessionCookie,deleteSession}};export{useSessionCookie as t};
+//# sourceMappingURL=useSessionCookie-BTymjObe.js.map

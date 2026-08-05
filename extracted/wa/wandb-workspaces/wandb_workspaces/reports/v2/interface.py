@@ -1314,6 +1314,8 @@ class Panel(Base):
     _id: str = Field(
         default_factory=internal._generate_name, init=False, repr=False, kw_only=True
     )
+    # `false` for a UI-customized panel loaded from a spec; None otherwise.
+    _is_auto: Optional[bool] = Field(default=None, init=False, repr=False, kw_only=True)
 
 
 @dataclass(config=dataclass_config, repr=False)
@@ -2103,8 +2105,10 @@ class LinePlot(Panel):
         title_x (Optional[str]): The label of the x-axis.
         title_y (Optional[str]): The label of the y-axis.
         ignore_outliers (Optional[bool]): If set to `True`, do not plot outliers.
-        groupby (Optional[str]): Group runs based on a metric logged to your W&B project that the
-            report pulls information from.
+        groupby (Optional[Union[str, Config, Metric]]): Group runs by a key. A bare
+            string or `wr.Metric(...)` names a run-level attribute (e.g. "Group");
+            `wr.Config(...)` names a config key. A bare string matching an
+            attribute name resolves to the attribute, not a config key.
         groupby_aggfunc (Optional[GroupAgg]): Aggregate runs with specified
             function. Options include "mean", "min", "max", "median", "sum", "samples", or `None`.
         groupby_rangefunc (Optional[GroupArea]):  Group runs based on a range. Options
@@ -2153,7 +2157,7 @@ class LinePlot(Panel):
     title_x: Optional[str] = None
     title_y: Optional[str] = None
     ignore_outliers: Optional[bool] = None
-    groupby: Optional[Union[str, Config]] = None
+    groupby: Optional[Union[str, Config, Metric]] = None
     groupby_aggfunc: Optional[GroupAgg] = None
     groupby_rangefunc: Optional[GroupArea] = None
     smoothing_factor: Optional[float] = None
@@ -2216,6 +2220,7 @@ class LinePlot(Panel):
                 override_marks=self.line_marks,
             ),
             id=self._id,
+            is_auto=self._is_auto,
             layout=self.layout._to_model(),
         )
 
@@ -2263,6 +2268,7 @@ class LinePlot(Panel):
         object.__setattr__(obj, "legend_fields", model.config.legend_fields)
         object.__setattr__(obj, "metric_regex", model.config.metric_regex)
         object.__setattr__(obj, "_id", model.id)
+        object.__setattr__(obj, "_is_auto", model.is_auto)
         object.__setattr__(
             obj, "point_visualization_method", model.config.point_visualization_method
         )
@@ -2349,6 +2355,7 @@ class ScatterPlot(Panel):
             ),
             layout=self.layout._to_model(),
             id=self._id,
+            is_auto=self._is_auto,
         )
 
     @classmethod
@@ -2378,6 +2385,7 @@ class ScatterPlot(Panel):
             layout=Layout._from_model(model.layout),
         )
         obj._id = model.id
+        obj._is_auto = model.is_auto
         return obj
 
 
@@ -2393,8 +2401,10 @@ class BarPlot(Panel):
         range_x (Tuple[float | None, float | None]): Tuple that specifies the range of the x-axis.
         title_x (Optional[str]): The label of the x-axis.
         title_y (Optional[str]): The label of the y-axis.
-        groupby (Optional[str]): Group runs based on a metric logged to your W&B project that the
-            report pulls information from.
+        groupby (Optional[Union[str, Config, Metric]]): Group runs by a key. A bare
+            string or `wr.Metric(...)` names a run-level attribute (e.g. "Group");
+            `wr.Config(...)` names a config key. A bare string matching an
+            attribute name resolves to the attribute, not a config key.
         groupby_aggfunc (Optional[GroupAgg]): Aggregate runs with specified
             function. Options include "mean", "min", "max", "median", "sum", "samples", or `None`.
         groupby_rangefunc (Optional[GroupArea]):  Group runs based on a range. Options
@@ -2416,7 +2426,7 @@ class BarPlot(Panel):
     range_x: Range = Field(default_factory=lambda: (None, None))
     title_x: Optional[str] = None
     title_y: Optional[str] = None
-    groupby: Optional[Union[str, Config]] = None
+    groupby: Optional[Union[str, Config, Metric]] = None
     groupby_aggfunc: Optional[GroupAgg] = None
     groupby_rangefunc: Optional[GroupArea] = None
     max_runs_to_show: Optional[int] = None
@@ -2452,6 +2462,7 @@ class BarPlot(Panel):
             ),
             layout=self.layout._to_model(),
             id=self._id,
+            is_auto=self._is_auto,
         )
 
     @classmethod
@@ -2477,6 +2488,7 @@ class BarPlot(Panel):
             layout=Layout._from_model(model.layout),
         )
         obj._id = model.id
+        obj._is_auto = model.is_auto
         return obj
 
 
@@ -2521,6 +2533,7 @@ class ScalarChart(Panel):
             ),
             layout=self.layout._to_model(),
             id=self._id,
+            is_auto=self._is_auto,
         )
 
     @classmethod
@@ -2536,6 +2549,7 @@ class ScalarChart(Panel):
             layout=Layout._from_model(model.layout),
         )
         obj._id = model.id
+        obj._is_auto = model.is_auto
         return obj
 
 
@@ -2556,6 +2570,7 @@ class CodeComparer(Panel):
             config=internal.CodeComparerConfig(diff=self.diff),
             layout=self.layout._to_model(),
             id=self._id,
+            is_auto=self._is_auto,
         )
 
     @classmethod
@@ -2565,6 +2580,7 @@ class CodeComparer(Panel):
             layout=Layout._from_model(model.layout),
         )
         obj._id = model.id
+        obj._is_auto = model.is_auto
         return obj
 
 
@@ -2639,6 +2655,7 @@ class ParallelCoordinatesPlot(Panel):
             ),
             layout=self.layout._to_model(),
             id=self._id,
+            is_auto=self._is_auto,
         )
 
     @classmethod
@@ -2658,6 +2675,7 @@ class ParallelCoordinatesPlot(Panel):
             layout=Layout._from_model(model.layout),
         )
         obj._id = model.id
+        obj._is_auto = model.is_auto
         return obj
 
 
@@ -2683,6 +2701,7 @@ class ParameterImportancePlot(Panel):
             ),
             layout=self.layout._to_model(),
             id=self._id,
+            is_auto=self._is_auto,
         )
 
     @classmethod
@@ -2692,6 +2711,7 @@ class ParameterImportancePlot(Panel):
             layout=Layout._from_model(model.layout),
         )
         obj._id = model.id
+        obj._is_auto = model.is_auto
 
         return obj
 
@@ -2714,6 +2734,7 @@ class RunComparer(Panel):
             config=internal.RunComparerConfig(diff_only=self.diff_only),
             layout=self.layout._to_model(),
             id=self._id,
+            is_auto=self._is_auto,
         )
 
     @classmethod
@@ -2723,6 +2744,7 @@ class RunComparer(Panel):
             layout=Layout._from_model(model.layout),
         )
         obj._id = model.id
+        obj._is_auto = model.is_auto
 
         return obj
 
@@ -2791,6 +2813,7 @@ class MediaBrowser(Panel):
             ),
             layout=self.layout._to_model(),
             id=self._id,
+            is_auto=self._is_auto,
         )
 
     @classmethod
@@ -2817,6 +2840,7 @@ class MediaBrowser(Panel):
             layout=Layout._from_model(model.layout),
         )
         obj._id = model.id
+        obj._is_auto = model.is_auto
 
         return obj
 
@@ -2837,6 +2861,7 @@ class MarkdownPanel(Panel):
             config=internal.MarkdownPanelConfig(value=self.markdown),
             layout=self.layout._to_model(),
             id=self._id,
+            is_auto=self._is_auto,
         )
 
     @classmethod
@@ -2846,6 +2871,7 @@ class MarkdownPanel(Panel):
             layout=Layout._from_model(model.layout),
         )
         obj._id = model.id
+        obj._is_auto = model.is_auto
 
         return obj
 
@@ -2930,6 +2956,7 @@ class CustomChart(Panel):
             ),
             layout=self.layout._to_model(),
             id=self._id,
+            is_auto=self._is_auto,
         )
 
     @classmethod
@@ -2962,6 +2989,7 @@ class CustomChart(Panel):
             layout=Layout._from_model(model.layout),
         )
         obj._id = model.id
+        obj._is_auto = model.is_auto
         return obj
 
 
@@ -3005,12 +3033,14 @@ class WeavePanel(Panel):
             config=self.config,
             layout=self.layout._to_model(),
             id=self._id,
+            is_auto=self._is_auto,
         )
 
     @classmethod
     def _from_model(cls, model: internal.WeavePanel):
         obj = cls(config=model.config)
         obj._id = model.id
+        obj._is_auto = model.is_auto
         return obj
 
 
@@ -3246,6 +3276,7 @@ class WeavePanelSummaryTable(Panel):
             },
             layout=self.layout._to_model(),
             id=self._id,
+            is_auto=self._is_auto,
         )
 
     @classmethod
@@ -3254,6 +3285,7 @@ class WeavePanelSummaryTable(Panel):
         table_name = inputs["key"]["val"]
         obj = cls(table_name=table_name)
         obj._id = model.id
+        obj._is_auto = model.is_auto
         return obj
 
 
@@ -3383,6 +3415,7 @@ class WeavePanelArtifactVersionedFile(Panel):
             },
             layout=self.layout._to_model(),
             id=self._id,
+            is_auto=self._is_auto,
         )
 
     @classmethod
@@ -3395,6 +3428,7 @@ class WeavePanelArtifactVersionedFile(Panel):
         file = inputs["path"]["val"]
         obj = cls(artifact=artifact, version=version, file=file)
         obj._id = model.id
+        obj._is_auto = model.is_auto
         return obj
 
 
@@ -3497,6 +3531,7 @@ class WeavePanelArtifact(WeavePanel):
             },
             layout=self.layout._to_model(),
             id=self._id,
+            is_auto=self._is_auto,
         )
 
     @classmethod
@@ -3508,6 +3543,7 @@ class WeavePanelArtifact(WeavePanel):
         )
         obj = cls(artifact=artifact, tab=tab)
         obj._id = model.id
+        obj._is_auto = model.is_auto
         return obj
 
 
@@ -3671,6 +3707,44 @@ class Report(Base):
         separator = "&" if "?" in base else "?"
         return f"{base}{separator}accessToken={quote(token, safe='')}"
 
+    def _share_link_projects(self) -> LList[Dict[str, str]]:
+        """Return the projects that an anonymous report viewer must be able to read."""
+        projects: Dict[Tuple[str, str], Dict[str, str]] = {}
+
+        def add_project(entity_name: str, project_name: str) -> None:
+            if entity_name and project_name:
+                projects[(entity_name, project_name)] = {
+                    "entityName": entity_name,
+                    "projectName": project_name,
+                }
+
+        def visit_blocks(blocks: Iterable[BlockTypes]) -> None:
+            for block in blocks:
+                if isinstance(block, PanelGrid):
+                    for runset in block.runsets:
+                        add_project(runset.entity, runset.project)
+
+                if isinstance(block, Heading):
+                    collapsed_blocks = getattr(block, "collapsed_blocks", None)
+                    if collapsed_blocks:
+                        visit_blocks(collapsed_blocks)
+
+        add_project(self.entity, self.project)
+        visit_blocks(self.blocks)
+        return list(projects.values())
+
+    def _update_share_link_projects(
+        self, token: str, projects: LList[Dict[str, str]]
+    ) -> None:
+        """Synchronize an existing public access token with the report's projects."""
+        r = execute_graphql(
+            _get_api(),
+            gql.update_access_token_projects,
+            {"token": token, "projects": projects},
+        )
+        if not r["updateAccessTokenProjects"]["success"]:
+            raise RuntimeError("failed to update access token projects")
+
     def get_share_url(self) -> Optional[str]:
         """Fetch the magic link URL for this report, or None if sharing is not enabled.
 
@@ -3690,7 +3764,7 @@ class Report(Base):
         """Enable "anyone with link can view" sharing for this report.
 
         Creates a public access token for the report. If a share link already
-        exists, returns the existing link.
+        exists, refreshes its project access and returns the existing link.
 
         Returns:
             str: The magic link URL that can be shared.
@@ -3698,9 +3772,21 @@ class Report(Base):
         if not self.id:
             raise ValueError("save report before enabling share link")
 
-        existing = self._get_active_share_token()
-        if existing is not None:
-            url = self._build_share_url(existing)
+        existing_tokens = self._get_active_share_token_objects()
+        if existing_tokens:
+            existing = existing_tokens[0]
+            desired_projects = self._share_link_projects()
+            current_scope = {
+                (project["entityName"], project["name"])
+                for project in existing["projects"]
+            }
+            desired_scope = {
+                (project["entityName"], project["projectName"])
+                for project in desired_projects
+            }
+            if current_scope != desired_scope:
+                self._update_share_link_projects(existing["token"], desired_projects)
+            url = self._build_share_url(existing["token"])
             wandb.termlog("Share link already active.")
             return url
 
@@ -3709,8 +3795,7 @@ class Report(Base):
             gql.create_access_token,
             {
                 "viewId": self.id,
-                "entityName": self.entity,
-                "projectName": self.project,
+                "projects": self._share_link_projects(),
             },
         )
         token = r["createAccessToken"]["accessToken"]["token"]
@@ -3756,6 +3841,10 @@ class Report(Base):
 
     def _get_active_share_tokens(self) -> LList[str]:
         """Return all active PUBLIC access token strings."""
+        return [token["token"] for token in self._get_active_share_token_objects()]
+
+    def _get_active_share_token_objects(self) -> LList[Dict[str, Any]]:
+        """Return all active PUBLIC access token objects."""
         r = execute_graphql(
             _get_api(),
             gql.view_access_tokens,
@@ -3765,7 +3854,7 @@ class Report(Base):
         if not view:
             return []
         return [
-            t["token"]
+            t
             for t in view["accessTokens"]
             if t["type"] == "PUBLIC" and t.get("revokedAt") is None
         ]
@@ -4365,16 +4454,27 @@ def _metric_to_frontend_panel_grid(x: str):
     return _metric_to_frontend(x)
 
 
-def _metric_to_backend_groupby(val: Optional[Union[str, "Config"]]) -> Optional[str]:
+def _metric_to_backend_groupby(
+    val: Optional[Union[str, "Config", "Metric"]]
+) -> Optional[str]:
     """
-    Normalise a group-by key so the backend always receives a path containing
-    ``.value``.
+    Normalise a group-by key into the string the backend expects.
 
-    By default, assumes nested dict config and inserts ``.value`` after the
-    first segment. If ``.value`` already appears anywhere in the path, the
-    value is returned as-is — this allows users to pass the exact backend key
-    for flat dotted config keys (see ambiguity note in
-    ``expr.groupby_str_to_key`` for details).
+    Run-level attributes (``Group``, ``Sweep``, ``State``, ...) are addressed by
+    their backend name with NO ``.value`` suffix, mirroring how
+    ``expr.groupby_str_to_key`` handles Runset grouping. Without this, grouping a
+    panel by ``"Group"`` serialized to ``"Group.value"``, which the frontend
+    could not resolve and rendered as a single collapsed ``"Group: -"`` bar.
+
+    Otherwise the key is assumed to be a config (hyperparameter) key: nested dict
+    config gets ``.value`` inserted after the first segment. If ``.value``
+    already appears anywhere in the path, the value is returned as-is; this
+    allows users to pass the exact backend key for flat dotted config keys (see
+    ambiguity note in ``expr.groupby_str_to_key`` for details).
+
+    A bare string matching a run-level attribute name (any key in
+    ``expr.FE_METRIC_NAME_MAP``) resolves to that attribute, not a config key;
+    use ``wr.Config("State")`` for a config key of the same name.
 
     Accepts
     --------
@@ -4383,21 +4483,35 @@ def _metric_to_backend_groupby(val: Optional[Union[str, "Config"]]) -> Optional[
     3. "epochs" / "a.b"                 ➔ "epochs.value" / "a.value.b"
     4. "a.b.value"                      ➔ "a.b.value"  (pass-through)
     5. "a.value.b"                      ➔ "a.value.b"  (pass-through)
+    6. "Group" / "Sweep" / "State"      ➔ "group" / "sweep" / "state"
+    7. wr.Metric("Group")               ➔ "group"  (explicit run attribute)
     """
     if val in (None, "None"):
         return val
 
-    # 1) unwrap wr.Config
+    # 1) wr.Metric is an explicit run-section key: return its backend name, no
+    #    ".value" (that envelope is config-only). Counterpart to wr.Config.
+    if isinstance(val, Metric):
+        return expr.to_backend_name(val.name)
+
+    # 2) wr.Config / a "config." prefix explicitly marks a config key, so don't
+    #    treat it as a run attribute even if the name collides with one.
+    explicit_config = False
     if isinstance(val, Config):
         val = val.name
-
-    # 2) drop an explicit "config." prefix for uniform handling
-    if val.startswith("config."):
+        explicit_config = True
+    elif val.startswith("config."):
         val = val.split("config.", 1)[1]
+        explicit_config = True
+
+    # 3) bare run-level attributes map to their backend name with no ".value"
+    #    suffix (the same path expr.groupby_str_to_key uses for Runset grouping).
+    if not explicit_config and val in expr.FE_METRIC_NAME_MAP:
+        return expr.to_backend_name(val)
 
     segments = val.split(".")
 
-    # 3) if ".value" is already present anywhere, the user has provided the
+    # 4) if ".value" is already present anywhere, the user has provided the
     #    exact backend key — pass through as-is.
     #    Note: this means a config key literally named "value" (e.g.
     #    wandb.config.settings = {"value": 123} -> backend key
@@ -4417,16 +4531,23 @@ def _metric_to_frontend_groupby(val: Optional[str]):
         "epochs.value"   ➔ Config("epochs")
         "a.value.b"      ➔ Config("a.b")
         "a.b.value"      ➔ Config("a.b")
+        "group"          ➔ "Group"   (known run-level attribute)
     Handles both nested-dict format (``.value`` after first segment) and
-    flat-key format (``.value`` at the end). Anything without ``.value``
-    in the path is returned unchanged.
+    flat-key format (``.value`` at the end). A path without ``.value`` is a
+    run-section key: a known run attribute maps back to its plain frontend name
+    (e.g. "group" ➔ "Group"); any other name is returned as a ``Metric``, since
+    a bare string there would re-serialize down the config ".value" path.
     """
     if val in (None, "None") or not isinstance(val, str):
         return val
 
     parts = val.split(".")
     if "value" not in parts:
-        return val  # not a config key, just return as-is
+        # Run-section key: known run attributes round-trip as their plain
+        # frontend name; anything else must stay a Metric to round-trip.
+        if val in expr.FE_METRIC_NAME_MAP.inv:
+            return expr.to_frontend_name(val)
+        return Metric(val)
 
     # Strip the "value" segment wherever it appears and reconstruct the path
     path_parts = [p for p in parts if p != "value"]

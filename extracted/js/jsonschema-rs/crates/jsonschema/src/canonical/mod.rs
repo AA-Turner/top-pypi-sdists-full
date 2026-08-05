@@ -67,9 +67,8 @@
 //! that consumes structure, so no finite value can satisfy it.
 //!
 //! A cycle closed entirely through in-place applicators (`allOf`, `anyOf`, `oneOf`, `not`) consumes
-//! nothing, so no descent is forced and it is left untouched.
-//!
-//! Detection only ever proves emptiness, so it errs towards satisfiable.
+//! nothing, so no descent is forced. Carrying no assertion anywhere on it, such a cycle leaves
+//! nothing for a value to violate and canonicalizes to `true`; otherwise it is left untouched.
 //!
 //! # Entry points
 //!
@@ -89,6 +88,7 @@ pub(crate) mod error;
 pub(crate) mod ir;
 pub(crate) mod negate;
 pub(crate) mod options;
+pub(crate) mod oracle;
 pub(crate) mod parse;
 pub(crate) mod schema;
 pub(crate) mod view;

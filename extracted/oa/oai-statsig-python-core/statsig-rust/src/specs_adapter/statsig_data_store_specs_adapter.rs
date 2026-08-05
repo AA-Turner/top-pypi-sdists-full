@@ -7,10 +7,10 @@ use crate::data_store_interface::{
     DataStoreTrait, RequestPath,
 };
 use crate::networking::ResponseData;
-use crate::observability::ops_stats::{OpsStatsForInstance, OPS_STATS};
+use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
 use crate::{
-    log_d, log_e, log_w, read_lock_or_else, unwrap_or_else, write_lock_or_else, SpecsAdapter,
-    SpecsUpdateListener,
+    SpecsAdapter, SpecsUpdateListener, log_d, log_e, log_w, read_lock_or_else, unwrap_or_else,
+    write_lock_or_else,
 };
 use crate::{StatsigErr, StatsigOptions, StatsigRuntime};
 use async_trait::async_trait;

@@ -9632,3 +9632,86 @@ fn test_text_reflow_preserves_nested_code_blocks_in_lists() {
 
     assert_eq!(fixed, expected);
 }
+
+#[test]
+fn test_md013_link_with_nested_code_span_exemption() {
+    let url = "/proposals/p004682-the-core-array-type-for-direct-storage-immutably-sized-buffers.md#t-n-builtin-syntax";
+    let content_simple = format!("-   [T; N builtin syntax]({url})\n");
+    let content_nested_brackets = format!("-   [[T; N] builtin syntax]({url})\n");
+    let content_nested_code = format!("-   [`T; N` builtin syntax]({url})\n");
+    let content_nested_code_brackets = format!("-   [`[T; N]` builtin syntax]({url})\n");
+
+    let config = MD013Config {
+        line_length: crate::types::LineLength::from_const(80),
+        stern: true,
+        ignore_link_urls: false,
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    // 1. Simple link should be exempt
+    let ctx_simple = LintContext::new(&content_simple, MarkdownFlavor::Standard, None);
+    let result_simple = rule.check(&ctx_simple).unwrap();
+    assert!(
+        result_simple.is_empty(),
+        "Simple link should be exempt, got: {result_simple:?}"
+    );
+
+    // 2. Link with nested brackets (no backticks)
+    let ctx_nested_brackets = LintContext::new(&content_nested_brackets, MarkdownFlavor::Standard, None);
+    let result_nested_brackets = rule.check(&ctx_nested_brackets).unwrap();
+    assert!(
+        result_nested_brackets.is_empty(),
+        "Link with nested brackets should be exempt"
+    );
+
+    // 3. Link with nested code (no brackets)
+    let ctx_nested_code = LintContext::new(&content_nested_code, MarkdownFlavor::Standard, None);
+    let result_nested_code = rule.check(&ctx_nested_code).unwrap();
+    assert!(result_nested_code.is_empty(), "Link with nested code should be exempt");
+
+    // 4. Link with nested code and brackets (the bug)
+    let ctx_nested_code_brackets = LintContext::new(&content_nested_code_brackets, MarkdownFlavor::Standard, None);
+    let result_nested_code_brackets = rule.check(&ctx_nested_code_brackets).unwrap();
+    assert!(
+        result_nested_code_brackets.is_empty(),
+        "Link with nested code and brackets should be exempt"
+    );
+}
+
+#[test]
+fn test_md013_link_followed_by_parenthetical_is_not_exempt() {
+    let config = MD013Config {
+        line_length: crate::types::LineLength::from_const(80),
+        stern: true,
+        ignore_link_urls: false,
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    // A complete link or image followed by a parenthesized aside is prose. The line can be
+    // wrapped, so the standalone exemption must not cover it.
+    let reported = [
+        "- [ripgrep](https://github.com/BurntSushi/ripgrep) (a line-oriented search tool that recursively searches)\n",
+        "[the docs](https://example.com/d) (updated for 2026, including the new configuration guide)\n",
+        "[NOTE] (this applies only when the feature flag is enabled and the server runs in cluster mode)\n",
+        "![screenshot](img/s.png) (captured on a retina display at 2x scaling with the sidebar hidden)\n",
+        "[the docs](https://example.com/d)(a parenthetical stuck right onto the end of the link here)\n",
+    ];
+    for content in reported {
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert_eq!(result.len(), 1, "line should be reported: {content:?}");
+    }
+
+    // A destination that genuinely holds a space still exempts the line.
+    let exempt = [
+        "![Placeholder Screenshot Here](images/1_<release number>/screenshot-main-window.png)\n",
+        "* [Front Matter Defaults]({{ '/assets/img/very-long-image-name.png' | relative_url }})\n",
+    ];
+    for content in exempt {
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(result.is_empty(), "line should stay exempt: {content:?}");
+    }
+}

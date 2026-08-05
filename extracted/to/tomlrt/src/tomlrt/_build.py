@@ -14,7 +14,6 @@ from tomlrt._comments import _split_preamble
 from tomlrt._container import Container, Document, Table
 from tomlrt._layout_ops import maybe_advance_body_tail, record_ref
 from tomlrt._slots import KVSlot, StructuralHeaderSlot
-from tomlrt._trivia import Trivia
 from tomlrt._values import (
     ArrayValue,
     InlineTableValue,
@@ -238,7 +237,7 @@ def _apply_kv(slot: KVSlot, *, host: Container) -> None:
             slot.value,
             layout_root=target._layout_root,  # noqa: SLF001
             parent=target,
-            path=(*target._path, name),  # noqa: SLF001
+            name=name,
             owner=target._owner_aot_entry,  # noqa: SLF001
         ),
     )
@@ -254,19 +253,28 @@ def _decode_value(
     *,
     layout_root: Document | None,
     parent: Container | None,
-    path: tuple[str, ...],
+    name: str | None,
     owner: AoTEntry | None,
 ) -> object:
-    """Decode any TOML value to its Python representation."""
+    """Decode any TOML value to its Python representation.
+
+    ``parent``/``name`` -- the container and key ``value`` is bound
+    under -- are only consulted for an ``InlineTableValue``: its
+    decoded ``Table`` view is the one kind of result that needs a real
+    path for its own navigation, built here rather than by every
+    caller. Pass ``parent=None`` (with ``name=None``) for a value with
+    no such binding, e.g. an array element.
+    """
     if isinstance(value, ArrayValue):
         return _decode_array(value, layout_root=layout_root, owner=owner)
     if isinstance(value, InlineTableValue):
+        if parent is None:
+            path: tuple[str, ...] = ()
+        else:
+            assert name is not None, "name is required whenever parent is given"
+            path = (*parent._path, name)  # noqa: SLF001
         return _decode_inline_table(
-            value,
-            layout_root=layout_root,
-            parent=parent,
-            path=path,
-            owner=owner,
+            value, layout_root=layout_root, parent=parent, path=path, owner=owner
         )
     return value.value
 
@@ -284,11 +292,7 @@ def _decode_array(
         list.append(
             arr,
             _decode_value(
-                item.value,
-                layout_root=layout_root,
-                parent=None,
-                path=(),
-                owner=owner,
+                item.value, layout_root=layout_root, parent=None, name=None, owner=owner
             ),
         )
     return arr
@@ -321,11 +325,7 @@ def _decode_inline_table(
             cur,
             leaf,
             _decode_value(
-                entry.value,
-                layout_root=layout_root,
-                parent=cur,
-                path=(*cur._path, leaf),  # noqa: SLF001
-                owner=owner,
+                entry.value, layout_root=layout_root, parent=cur, name=leaf, owner=owner
             ),
         )
     return table
@@ -338,7 +338,7 @@ def build_from_parse(result: ParseResult) -> Document:
     doc._head = result.slots[0] if result.slots else None  # noqa: SLF001
     doc._tail = result.slots[-1] if result.slots else None  # noqa: SLF001
     doc._trailing = result.trailing  # noqa: SLF001
-    doc._preamble = Trivia()  # noqa: SLF001
+    doc._preamble = ""  # noqa: SLF001
     doc._newline = result.newline  # noqa: SLF001
     doc._prelude = result.prelude  # noqa: SLF001
     doc._is_private = False  # noqa: SLF001
@@ -351,13 +351,13 @@ def build_from_parse(result: ParseResult) -> Document:
         head = result.slots[0]
         preamble, rest = _split_preamble(head.leading)
         if preamble:
-            doc._preamble = Trivia(preamble)  # noqa: SLF001
-            head.leading = Trivia(rest)
+            doc._preamble = preamble  # noqa: SLF001
+            head.leading = rest
     else:
         # Comment-only source: the parser put everything onto
         # ``trailing``; that's the preamble, not the epilogue.
         doc._preamble = result.trailing  # noqa: SLF001
-        doc._trailing = Trivia()  # noqa: SLF001
+        doc._trailing = ""  # noqa: SLF001
     _build_containers(doc, result.slots)
     return doc
 

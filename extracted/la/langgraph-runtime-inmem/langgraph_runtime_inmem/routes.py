@@ -386,26 +386,28 @@ def get_internal_routes():
 
     async def stream_deploy_logs(request: ApiRequest):
         """SSE stream of buffered deploy events.
+        ---
+        summary: SSE stream of buffered deploy events.
+        description: |
+            Each event carries a monotonic ``id``; clients can resume after a
+            disconnect by passing it back via the standard ``Last-Event-ID``
+            header (sent automatically by ``EventSource`` on auto-reconnect) or
+            a ``last_event_id`` query parameter (for explicit resume on a fresh
+            connection, since browsers don't expose a way to set the header on
+            ``new EventSource``).
 
-        Each event carries a monotonic ``id``; clients can resume after a
-        disconnect by passing it back via the standard ``Last-Event-ID``
-        header (sent automatically by ``EventSource`` on auto-reconnect) or
-        a ``last_event_id`` query parameter (for explicit resume on a fresh
-        connection, since browsers don't expose a way to set the header on
-        ``new EventSource``).
+            Events on this stream:
 
-        Events on this stream:
-
-        * ``log`` — ``{message, level}``. ``level`` is one of ``log``, ``info``,
-          ``warn``, ``note``, ``error``, ``status_change``, ``status_url``
-          (CLI-side severity), letting the frontend color or icon lines.
-        * ``step`` — ``{event, step, message, ...}`` from the CLI.
-        * ``result`` — ``{event, status, deployment_id, message, url?, status_url?}``
-          carrying the final outcome and dashboard/app URLs without a
-          follow-up GET.
-        * ``upload_progress`` — ``{event, size_mb, pct}`` during source archive
-          upload.
-        * ``done`` / ``error`` — terminal markers with ``{exit_code}``.
+            * ``log`` — ``{message, level}``. ``level`` is one of ``log``, ``info``,
+              ``warn``, ``note``, ``error``, ``status_change``, ``status_url``
+              (CLI-side severity), letting the frontend color or icon lines.
+            * ``step`` — ``{event, step, message, ...}`` from the CLI.
+            * ``result`` — ``{event, status, deployment_id, message, url?, status_url?}``
+              carrying the final outcome and dashboard/app URLs without a
+              follow-up GET.
+            * ``upload_progress`` — ``{event, size_mb, pct}`` during source archive
+              upload.
+            * ``done`` / ``error`` — terminal markers with ``{exit_code}``.
         """
         if err := _check_deploy_origin(request):
             return err

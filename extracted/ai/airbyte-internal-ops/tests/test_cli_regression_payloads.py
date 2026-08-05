@@ -7,9 +7,15 @@ import json
 import re
 
 import pytest
+from airbyte_protocol.models import (
+    AirbyteCatalog,
+    AirbyteStream,
+    ConnectorSpecification,
+    SyncMode,
+)
 
 from airbyte_ops_mcp.cli import cloud
-from airbyte_ops_mcp.regression_tests.models import Command
+from airbyte_ops_mcp.regression_tests.models import Command, ComparableOutputs
 
 pytestmark = pytest.mark.unit
 
@@ -30,9 +36,9 @@ def stub_run(monkeypatch):
     monkeypatch.setattr(cloud, "write_github_outputs", gh_outputs.update)
 
     def _install(result: dict) -> dict[str, object]:
-        def _fake_run(*, command: Command, output_dir, **_kwargs) -> dict:
+        def _fake_run(*, command: Command, output_dir, **_kwargs):
             output_dir.mkdir(parents=True, exist_ok=True)
-            return {"command": command.value, **result}
+            return {"command": command.value, **result}, ComparableOutputs()
 
         monkeypatch.setattr(cloud, "_run_connector_command", _fake_run)
         return gh_outputs
@@ -278,13 +284,22 @@ def stub_comparison_run(monkeypatch, tmp_path):
 
     monkeypatch.setattr(cloud, "generate_regression_report", _fake_report)
 
-    def _install(target: dict, control: dict) -> dict[str, object]:
+    def _install(
+        target: dict,
+        control: dict,
+        target_outputs: ComparableOutputs | None = None,
+        control_outputs: ComparableOutputs | None = None,
+    ) -> dict[str, object]:
         def _fake_run(*, command: Command, target_or_control, output_dir, **_kwargs):
             output_dir.mkdir(parents=True, exist_ok=True)
-            side = (
-                target if target_or_control is cloud.TargetOrControl.TARGET else control
+            is_target = target_or_control is cloud.TargetOrControl.TARGET
+            side = target if is_target else control
+            declared = target_outputs if is_target else control_outputs
+
+            return (
+                {"command": command.value, **side},
+                declared or ComparableOutputs(),
             )
-            return {"command": command.value, **side}
 
         monkeypatch.setattr(cloud, "_run_with_optional_http_metrics", _fake_run)
         return seen
@@ -382,6 +397,451 @@ def test_report_generator_still_receives_the_raw_exit_status(
     assert "exited 0 after reporting" not in summary
 
 
+_CLEAN_RUN = {
+    "success": True,
+    "exit_code": 0,
+    "message_counts": {},
+    "record_counts_per_stream": {},
+}
+
+
+def _spec_outputs(properties: dict, required: list[str] | None = None):
+    """A side that emitted a spec with the given config properties."""
+    return ComparableOutputs(
+        spec=ConnectorSpecification(
+            connectionSpecification={
+                "type": "object",
+                "required": required or [],
+                "properties": properties,
+            }
+        )
+    )
+
+
+def _catalog_outputs(json_schema: dict, name: str = "users"):
+    """A side that discovered one stream with the given schema."""
+    return ComparableOutputs(
+        catalog=AirbyteCatalog(
+            streams=[
+                AirbyteStream(
+                    name=name,
+                    json_schema=json_schema,
+                    supported_sync_modes=[SyncMode.full_refresh],
+                )
+            ]
+        )
+    )
+
+
+def test_a_removed_spec_property_fails_a_run_whose_commands_both_passed(
+    tmp_path, capsys, stub_comparison_run
+):
+    """The gap this closes: `spec` exits 0 no matter what the spec says.
+
+    Without the comparison the two clean exits are the whole verdict, and a
+    connector that dropped a config field ships.
+    """
+    seen = stub_comparison_run(
+        dict(_CLEAN_RUN),
+        dict(_CLEAN_RUN),
+        target_outputs=_spec_outputs({"api_key": {"type": "string"}}),
+        control_outputs=_spec_outputs(
+            {"api_key": {"type": "string"}, "start_date": {"type": "string"}}
+        ),
+    )
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="spec",
+        output_dir=str(tmp_path),
+    )
+
+    payload = _logged_payload(capsys.readouterr().out)
+
+    assert payload["success"] is False
+    # Both commands ran cleanly, so the outcome alone would have said no
+    # regression: the finding has to reach the flag the workflow reads.
+    assert payload["both_succeeded"] is True
+    assert payload["regression_detected"] is True
+    assert payload["comparison"]["spec"]["breaking_changes"] == [
+        "`connectionSpecification.properties.start_date` was removed"
+    ]
+
+    summary = "\n".join(seen["step_summary"])
+    assert "Spec compatibility" in summary
+    assert "start_date" in summary
+
+
+def test_an_added_optional_spec_property_passes(tmp_path, capsys, stub_comparison_run):
+    """The additive case still passes, and says what was added."""
+    seen = stub_comparison_run(
+        dict(_CLEAN_RUN),
+        dict(_CLEAN_RUN),
+        target_outputs=_spec_outputs(
+            {"api_key": {"type": "string"}, "page_size": {"type": "integer"}}
+        ),
+        control_outputs=_spec_outputs({"api_key": {"type": "string"}}),
+    )
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="spec",
+        output_dir=str(tmp_path),
+    )
+
+    payload = _logged_payload(capsys.readouterr().out)
+
+    assert payload["success"] is True
+    assert payload["regression_detected"] is False
+    assert payload["comparison"]["spec"]["compatible_changes"] == [
+        "`connectionSpecification.properties.page_size` was added"
+    ]
+    assert "page_size" in "\n".join(seen["step_summary"])
+
+
+def test_a_discovered_schema_change_fails_the_run(
+    tmp_path, capsys, stub_comparison_run
+):
+    """`discover` gets the same treatment, strictly."""
+    seen = stub_comparison_run(
+        dict(_CLEAN_RUN),
+        dict(_CLEAN_RUN),
+        target_outputs=_catalog_outputs(
+            {"type": "object", "properties": {"id": {"type": "string"}}}
+        ),
+        control_outputs=_catalog_outputs(
+            {"type": "object", "properties": {"id": {"type": "integer"}}}
+        ),
+    )
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="discover",
+        output_dir=str(tmp_path),
+    )
+
+    payload = _logged_payload(capsys.readouterr().out)
+
+    assert payload["success"] is False
+    assert payload["comparison"]["catalog_schema"]["changed_streams"] == ["users"]
+    # The diff itself has to survive the trip into the payload.
+    assert payload["comparison"]["catalog_schema"]["streams"]["users"]["diff"]
+    assert "Catalog schema" in "\n".join(seen["step_summary"])
+
+
+def test_the_report_shows_what_changed_not_just_that_something_did(
+    tmp_path, capsys, stub_comparison_run
+):
+    """A one-line check row cannot answer "which field?", so the diff ships too."""
+    stub_comparison_run(
+        dict(_CLEAN_RUN),
+        dict(_CLEAN_RUN),
+        target_outputs=_catalog_outputs(
+            {"type": "object", "properties": {"id": {"type": "string"}}}
+        ),
+        control_outputs=_catalog_outputs(
+            {"type": "object", "properties": {"id": {"type": "integer"}}}
+        ),
+    )
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="discover",
+        output_dir=str(tmp_path),
+    )
+    capsys.readouterr()
+    html = (tmp_path / "report.html").read_text()
+
+    assert "Schema diff — users" in html
+    # The field, and both of its types: the answer to "which field changed?"
+    assert "values_changed" in html
+    assert "&#39;id&#39;" in html
+    assert "integer" in html and "string" in html
+
+
+def test_a_comparison_that_cannot_run_is_not_reported_as_a_regression(
+    tmp_path, stub_comparison_run, monkeypatch
+):
+    """A tooling failure must not be announced as the connector regressing.
+
+    Catching it here produced exactly that: `regression_detected: true` and
+    "REGRESSION DETECTED" over a run where nothing was ever compared. It
+    propagates instead, and the workflow's `internal_failure` path calls it what
+    it is — an infrastructure error, with the artifacts still uploaded.
+    """
+
+    def _boom(*_args, **_kwargs):
+        raise TypeError("unexpected spec shape")
+
+    monkeypatch.setattr(cloud, "compare_specs", _boom)
+    stub_comparison_run(dict(_CLEAN_RUN), dict(_CLEAN_RUN))
+
+    with pytest.raises(TypeError, match="unexpected spec shape"):
+        cloud.regression_test(
+            test_image="airbyte/source-test:2.0.0",
+            control_image="airbyte/source-test:1.0.0",
+            command="spec",
+            output_dir=str(tmp_path),
+        )
+
+
+def test_a_catalog_that_only_grew_warns_instead_of_failing(
+    tmp_path, capsys, stub_comparison_run
+):
+    """Connectors add streams constantly; a red on every one of them is ignored.
+
+    The change is still reported — the row, the findings list and the payload
+    all carry it — it just does not gate the release.
+    """
+    seen = stub_comparison_run(
+        dict(_CLEAN_RUN),
+        dict(_CLEAN_RUN),
+        target_outputs=_catalog_outputs(
+            {
+                "type": "object",
+                "properties": {"id": {"type": "integer"}, "email": {"type": "string"}},
+            }
+        ),
+        control_outputs=_catalog_outputs(
+            {"type": "object", "properties": {"id": {"type": "integer"}}}
+        ),
+    )
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="discover",
+        output_dir=str(tmp_path),
+    )
+
+    payload = _logged_payload(capsys.readouterr().out)
+
+    assert payload["success"] is True
+    assert payload["regression_detected"] is False
+    # Reported, not hidden: the payload says why a `passed: false` did not gate.
+    assert payload["comparison"]["catalog_schema"]["passed"] is False
+    assert payload["comparison"]["catalog_schema"]["additive_only"] is True
+
+    summary = "\n".join(seen["step_summary"])
+    assert "| Catalog schema | ⚠️ |" in summary
+    assert "Stream users has schema differences" in summary
+
+
+def test_a_removed_stream_still_fails_the_run(tmp_path, capsys, stub_comparison_run):
+    """The additive exemption must not swallow a destructive change beside it."""
+    stub_comparison_run(
+        dict(_CLEAN_RUN),
+        dict(_CLEAN_RUN),
+        target_outputs=_catalog_outputs({"type": "object"}, name="brand_new"),
+        control_outputs=_catalog_outputs({"type": "object"}, name="vanished"),
+    )
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="discover",
+        output_dir=str(tmp_path),
+    )
+
+    payload = _logged_payload(capsys.readouterr().out)
+
+    assert payload["success"] is False
+    assert payload["regression_detected"] is True
+    assert payload["comparison"]["catalog_schema"]["additive_only"] is False
+
+
+def test_the_report_carries_findings_the_check_row_truncates(
+    tmp_path, capsys, stub_comparison_run
+):
+    """The step summary pointed at a report that did not carry the rest.
+
+    A stream that is missing or new has no schema diff, so with the row showing
+    only the first three, five of eight findings appeared nowhere in the HTML.
+    """
+    gone = [f"gone_{index}" for index in range(4)]
+    fresh = [f"new_{index}" for index in range(4)]
+
+    def _catalog_of(names):
+        return ComparableOutputs(
+            catalog=AirbyteCatalog(
+                streams=[
+                    AirbyteStream(
+                        name=name,
+                        json_schema={"type": "object"},
+                        supported_sync_modes=[SyncMode.full_refresh],
+                    )
+                    for name in names
+                ]
+            )
+        )
+
+    seen = stub_comparison_run(
+        dict(_CLEAN_RUN),
+        dict(_CLEAN_RUN),
+        target_outputs=_catalog_of(fresh),
+        control_outputs=_catalog_of(gone),
+    )
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="discover",
+        output_dir=str(tmp_path),
+    )
+    capsys.readouterr()
+    html = (tmp_path / "report.html").read_text()
+
+    assert [name for name in gone + fresh if name not in html] == []
+    assert "All 8 findings" in html
+    # The step summary lists them too, so neither surface is the thin one.
+    summary = "\n".join(seen["step_summary"])
+    assert [name for name in gone + fresh if name not in summary] == []
+
+
+def test_an_oversized_catalog_diff_is_bounded_and_says_so(
+    tmp_path, capsys, stub_comparison_run, monkeypatch
+):
+    """The payload goes to `GITHUB_OUTPUT`, which is size-limited.
+
+    Dropping a diff silently would read as "nothing more to see", so the payload
+    names what it dropped and the run says it on the console.
+    """
+    monkeypatch.setattr(cloud, "_MAX_DIFF_PAYLOAD_CHARS", 10)
+    stub_comparison_run(
+        dict(_CLEAN_RUN),
+        dict(_CLEAN_RUN),
+        target_outputs=_catalog_outputs(
+            {"type": "object", "properties": {"id": {"type": "string"}}}
+        ),
+        control_outputs=_catalog_outputs(
+            {"type": "object", "properties": {"id": {"type": "integer"}}}
+        ),
+    )
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="discover",
+        output_dir=str(tmp_path),
+    )
+    captured = capsys.readouterr().out
+    payload = _logged_payload(captured)
+
+    users = payload["comparison"]["catalog_schema"]["streams"]["users"]
+    assert "diff" not in users
+    assert users["diff_omitted"]
+    assert payload["comparison"]["catalog_schema"]["streams_with_omitted_diffs"] == [
+        "users"
+    ]
+    # The verdict is unaffected: the change was still found.
+    assert payload["success"] is False
+    assert "too large" in " ".join(_ANSI_ESCAPE.sub("", captured).split())
+    # And the report says which diff it dropped, rather than skipping it in
+    # silence -- a missing block otherwise reads as "nothing to see".
+    html = (tmp_path / "report.html").read_text()
+    assert "Schema diffs omitted for size" in html
+    assert "catalog.jsonl" in html
+
+
+def test_the_payload_caps_how_many_streams_it_lists(
+    tmp_path, capsys, stub_comparison_run, monkeypatch
+):
+    """Diffs were bounded; one line per stream was not.
+
+    A wide source has thousands of streams, and an entry each is enough to
+    exceed the same `GITHUB_OUTPUT` budget without a single diff attached.
+    """
+    monkeypatch.setattr(cloud, "_MAX_PAYLOAD_STREAMS", 2)
+    changed = {"type": "object", "properties": {"id": {"type": "string"}}}
+    unchanged = {"type": "object", "properties": {"id": {"type": "integer"}}}
+
+    def _catalog_of(first_schema):
+        return ComparableOutputs(
+            catalog=AirbyteCatalog(
+                streams=[
+                    AirbyteStream(
+                        name=name,
+                        json_schema=first_schema if name == "aaa" else unchanged,
+                        supported_sync_modes=[SyncMode.full_refresh],
+                    )
+                    for name in ("aaa", "bbb", "ccc", "ddd")
+                ]
+            )
+        )
+
+    stub_comparison_run(
+        dict(_CLEAN_RUN),
+        dict(_CLEAN_RUN),
+        target_outputs=_catalog_of(changed),
+        control_outputs=_catalog_of(unchanged),
+    )
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="discover",
+        output_dir=str(tmp_path),
+    )
+    captured = capsys.readouterr().out
+    catalog = _logged_payload(captured)["comparison"]["catalog_schema"]
+
+    assert len(catalog["streams"]) == 2
+    assert catalog["streams_omitted"] == 2
+    # The changed stream is kept, not crowded out by the three that passed.
+    assert "aaa" in catalog["streams"]
+    assert "lists 2 of 4 streams" in " ".join(_ANSI_ESCAPE.sub("", captured).split())
+
+
+def test_a_failed_command_is_not_also_reported_as_a_comparison_failure(
+    tmp_path, capsys, stub_comparison_run
+):
+    """A crashed run has nothing to compare; saying so twice weakens the first."""
+    stub_comparison_run(
+        {**_CLEAN_RUN, "success": False, "exit_code": 1},
+        dict(_CLEAN_RUN),
+        control_outputs=_spec_outputs({"api_key": {"type": "string"}}),
+    )
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="spec",
+        output_dir=str(tmp_path),
+    )
+
+    payload = _logged_payload(capsys.readouterr().out)
+
+    assert payload["success"] is False
+    assert payload["regression_detected"] is True
+    assert "comparison" not in payload
+
+
+def test_read_and_check_have_no_declared_output_to_compare(
+    tmp_path, capsys, stub_comparison_run
+):
+    """`check` reports its own status and `read` is compared on its records."""
+    stub_comparison_run(
+        {**_CLEAN_RUN, "connection_status": "SUCCEEDED"},
+        {**_CLEAN_RUN, "connection_status": "SUCCEEDED"},
+    )
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="check",
+        output_dir=str(tmp_path),
+    )
+
+    payload = _logged_payload(capsys.readouterr().out)
+
+    assert payload["success"] is True
+    assert "comparison" not in payload
+
+
 def test_comparison_mode_emits_the_html_report_and_a_concise_summary(
     tmp_path, capsys, stub_comparison_run
 ):
@@ -417,3 +877,111 @@ def test_comparison_mode_emits_the_html_report_and_a_concise_summary(
     # Concise, not the whole report: no execution details, no full markdown dump.
     assert "Execution details" not in summary
     assert len(summary) < 2_000
+
+
+def test_control_runs_before_target_in_comparison_mode(
+    tmp_path, monkeypatch, stub_comparison_run
+):
+    """The whole directional design rests on this order: extra rows created
+    upstream between the two live runs must land in the target output (where
+    they are tolerated), not in the control output (where they would read as
+    records missing from target). A reorder would invert the semantics with
+    every other test still green."""
+    side = {"success": True, "exit_code": 0}
+    stub_comparison_run(dict(side), dict(side))
+
+    inner = cloud._run_with_optional_http_metrics
+    order: list[object] = []
+
+    def _tracking(*, target_or_control, **kwargs):
+        order.append(target_or_control)
+        return inner(target_or_control=target_or_control, **kwargs)
+
+    monkeypatch.setattr(cloud, "_run_with_optional_http_metrics", _tracking)
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        output_dir=str(tmp_path),
+    )
+
+    assert order == [cloud.TargetOrControl.CONTROL, cloud.TargetOrControl.TARGET]
+
+
+def test_skip_record_comparison_gates_on_command_outcomes_only(
+    tmp_path, capsys, monkeypatch, stub_comparison_run
+):
+    """The escape hatch for sources whose data changes between the two live
+    runs: the record comparison must not even run, and the verdict is the
+    command outcome alone."""
+    side = {"success": True, "exit_code": 0}
+    seen = stub_comparison_run(dict(side), dict(side))
+
+    called: list[int] = []
+    monkeypatch.setattr(
+        cloud, "_compare_read_records", lambda **_kwargs: called.append(1)
+    )
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        output_dir=str(tmp_path),
+        skip_record_comparison=True,
+    )
+
+    assert not called
+    payload = _logged_payload(capsys.readouterr().out)
+    assert payload["success"] is True
+    assert payload["regression_detected"] is False
+    assert "record_comparison" not in payload
+    # The skip is visible on the report surfaces, not only on stdout: a
+    # diagnostic (warn) row, so the run cannot read as a pass that
+    # compared records.
+    summary = "\n".join(seen["step_summary"])
+    assert "Record comparison" in summary
+    assert "records were not compared" in summary or "not compared" in summary
+
+
+def test_an_errored_comparison_is_inconclusive_not_a_regression(
+    tmp_path, capsys, monkeypatch, stub_comparison_run
+):
+    """A comparator crash fails the run (fail closed) but must not tell a
+    connector developer their change caused a regression — same treatment
+    as both_failed: success=false, regression_detected=false."""
+    from airbyte_ops_mcp.regression_tests.regression import (
+        ComparisonResult,
+        RecordComparisonSummary,
+    )
+
+    side = {"success": True, "exit_code": 0}
+    stub_comparison_run(dict(side), dict(side))
+    errored_summary = RecordComparisonSummary(
+        passed=False,
+        errored=True,
+        count_comparison=ComparisonResult(
+            passed=False, message="Record comparison errored"
+        ),
+        errors=["Record comparison errored: OSError('boom')"],
+    )
+    monkeypatch.setattr(
+        cloud, "_compare_read_records", lambda **_kwargs: (errored_summary, None)
+    )
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        output_dir=str(tmp_path),
+    )
+
+    captured = capsys.readouterr()
+    payload = _logged_payload(captured.out)
+    assert payload["success"] is False
+    assert payload["regression_detected"] is False
+    assert payload["record_comparison"]["errored"] is True
+    # Errors go to stderr, and the console wraps long lines — normalize.
+    assert "tooling failure, not evidence of a regression" in " ".join(
+        captured.err.split()
+    )

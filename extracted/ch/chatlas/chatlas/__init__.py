@@ -11,6 +11,7 @@ from ._content import (
     ContentToolRequest,
     ContentToolResult,
 )
+from ._content_document import content_document_file, content_document_url
 from ._content_image import content_image_file, content_image_plot, content_image_url
 from ._content_pdf import content_pdf_file, content_pdf_url
 from ._files import FileManager
@@ -18,6 +19,7 @@ from ._interpolate import interpolate, interpolate_file
 from ._parallel import parallel_chat, parallel_chat_structured, parallel_chat_text
 from ._provider import Provider
 from ._provider_anthropic import ChatAnthropic, ChatBedrockAnthropic
+from ._provider_bedrock import ChatBedrock
 from ._provider_cloudflare import ChatCloudflare
 from ._provider_databricks import ChatDatabricks
 from ._provider_deepseek import ChatDeepSeek
@@ -57,6 +59,7 @@ __all__ = (
     "parallel_chat_text",
     "ChatAnthropic",
     "ChatAuto",
+    "ChatBedrock",
     "ChatBedrockAnthropic",
     "ChatCloudflare",
     "ChatDatabricks",
@@ -79,6 +82,8 @@ __all__ = (
     "ChatSnowflake",
     "ChatVertex",
     "Chat",
+    "content_document_file",
+    "content_document_url",
     "content_image_file",
     "content_image_plot",
     "content_image_url",

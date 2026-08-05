@@ -1,16 +1,16 @@
 use crate::{
+    EvaluationDetails, SecondaryExposure,
     evaluation::evaluation_types::ExtraExposureInfo,
     event_logging::{
         event_logger::ExposureTrigger,
         exposure_sampling::{EvtSamplingDecision, ExposureSamplingKey},
         exposure_utils::{get_metadata_with_details, get_statsig_metadata_with_sampling_decision},
         statsig_event::StatsigEvent,
-        statsig_event_internal::{StatsigEventInternal, CONFIG_EXPOSURE_EVENT_NAME},
+        statsig_event_internal::{CONFIG_EXPOSURE_EVENT_NAME, StatsigEventInternal},
     },
     interned_string::InternedString,
     statsig_types::DynamicConfig,
     user::{StatsigUserInternal, StatsigUserLoggable},
-    EvaluationDetails, SecondaryExposure,
 };
 
 use super::queued_event::{EnqueueOperation, QueuedEvent, QueuedExposure};

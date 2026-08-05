@@ -370,7 +370,7 @@ class Client:
             api_params["table"] = table
 
         return self._api_call(
-            f"tables",
+            "tables",
             method="POST",
             **api_params,
         )
@@ -970,7 +970,7 @@ class Client:
         )
 
     def create_access_group_policy(self, policy):
-        return self._api_call(f"access_group_policies", method="POST", **policy)
+        return self._api_call("access_group_policies", method="POST", **policy)
 
     def get_access_group_policy(self, policy_id):
         return self._api_call(
@@ -980,7 +980,7 @@ class Client:
 
     def list_access_group_policies(self, limit=None, offset=None):
         return self._api_call(
-            f"access_group_policies",
+            "access_group_policies",
             limit=limit,
             offset=offset,
             method="GET",

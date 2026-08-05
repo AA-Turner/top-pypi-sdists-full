@@ -1,13 +1,23 @@
 mod nfc;
+mod prepend;
+mod replace;
 
 use std::borrow::Cow;
 
 pub use self::nfc::Nfc;
+pub use self::prepend::Prepend;
+pub use self::replace::Replace;
 use crate::json_structs::{NormalizerConfig, NormalizerKind};
 
 /// Errors from constructing a normalizer.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("invalid config value: {0}")]
+    Json(#[from] serde_json::Error),
+
+    #[error("regex error: {0}")]
+    Regex(#[from] fancy_regex::Error),
+
     #[error("unsupported normalizer type: {0}")]
     Unsupported(String),
 }
@@ -16,6 +26,8 @@ pub enum Error {
 #[derive(Debug)]
 pub enum Normalizer {
     Nfc(Nfc),
+    Prepend(Prepend),
+    Replace(Replace),
     Sequence(Vec<Normalizer>),
 }
 
@@ -24,6 +36,10 @@ impl Normalizer {
     pub fn from_config(config: NormalizerConfig) -> Result<Self, Error> {
         match config {
             NormalizerConfig::Nfc => Ok(Self::Nfc(Nfc)),
+            NormalizerConfig::Prepend { prepend } => Ok(Self::Prepend(Prepend::new(prepend))),
+            NormalizerConfig::Replace { pattern, content } => {
+                Ok(Self::Replace(Replace::from_config(pattern, content)?))
+            }
             NormalizerConfig::Sequence { normalizers } => {
                 let steps = normalizers
                     .into_iter()
@@ -46,6 +62,8 @@ impl Normalizer {
     pub fn normalize<'a>(&self, input: &'a str) -> Cow<'a, str> {
         match self {
             Self::Nfc(nfc) => nfc.normalize(input),
+            Self::Prepend(prepend) => prepend.normalize(input),
+            Self::Replace(replace) => replace.normalize(input),
             Self::Sequence(steps) => {
                 let mut current = Cow::Borrowed(input);
                 for step in steps {

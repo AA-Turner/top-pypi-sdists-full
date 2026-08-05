@@ -11,6 +11,7 @@ import google.protobuf.internal.containers
 import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
 import google.protobuf.timestamp_pb2
+import sentry_protos.billing.v1.common.v1.pricing_tier_pb2
 import sentry_protos.billing.v1.services.contract.v1.billing_config_pb2
 import sentry_protos.billing.v1.services.contract.v1.sku_pb2
 import sentry_protos.billing.v1.sku_pb2
@@ -150,13 +151,21 @@ class PAYGBudget(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     BUDGET_CENTS_FIELD_NUMBER: builtins.int
+    CUSTOM_PAYG_RATE_FIELD_NUMBER: builtins.int
     budget_cents: builtins.int
+    @property
+    def custom_payg_rate(self) -> sentry_protos.billing.v1.common.v1.pricing_tier_pb2.TieredPricingRate:
+        """Overrides package's PAYG rates; only enterprise customers can set custom PAYG rates"""
+
     def __init__(
         self,
         *,
         budget_cents: builtins.int = ...,
+        custom_payg_rate: sentry_protos.billing.v1.common.v1.pricing_tier_pb2.TieredPricingRate | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["budget_cents", b"budget_cents"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_custom_payg_rate", b"_custom_payg_rate", "custom_payg_rate", b"custom_payg_rate"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_custom_payg_rate", b"_custom_payg_rate", "budget_cents", b"budget_cents", "custom_payg_rate", b"custom_payg_rate"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_custom_payg_rate", b"_custom_payg_rate"]) -> typing.Literal["custom_payg_rate"] | None: ...
 
 global___PAYGBudget = PAYGBudget
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: torchrunx
-Version: 0.3.4
+Version: 0.4.0
 Summary: Automatically initialize distributed PyTorch environments
 Author: Apoorv Khandelwal, Peter Curtin
 Author-email: Apoorv Khandelwal <mail@apoorvkh.com>, Peter Curtin <peter_curtin@brown.edu>
@@ -682,10 +682,9 @@ Requires-Dist: cloudpickle>=3.0
 Requires-Dist: fabric>=3.2
 Requires-Dist: torch>=2.0
 Requires-Dist: numpy>=1.20
-Requires-Dist: typing-extensions>=4.9.0
-Requires-Python: >=3.9
-Project-URL: Documentation, https://torchrun.xyz
+Requires-Python: >=3.10
 Project-URL: Repository, https://github.com/apoorvkh/torchrunx.git
+Project-URL: Documentation, https://torchrun.xyz
 Description-Content-Type: text/markdown
 
 # torchrunx 🔥

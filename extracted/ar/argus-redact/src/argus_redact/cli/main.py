@@ -220,6 +220,7 @@ def cmd_info(args):
 
 def cmd_assess(args):
     from argus_redact import redact
+    from argus_redact.pure.wire import common_report_fields, risk_payload
 
     text = _read_input(args.input)
     lang = [code for code in args.lang.split(",") if code] if "," in args.lang else args.lang
@@ -232,6 +233,9 @@ def cmd_assess(args):
     )
 
     data = {
+        # `summary` and `compliance` are the human-facing rollup this command has
+        # always printed; they stay byte-identical. `risk` below is the full
+        # projection, matching the HTTP and MCP faces.
         "summary": {
             "risk_score": report.risk.score,
             "risk_level": report.risk.level,
@@ -240,8 +244,10 @@ def cmd_assess(args):
         "compliance": {
             "pipl_articles": list(report.risk.pipl_articles),
         },
+        "risk": risk_payload(report.risk),
         "entities": list(report.entities),
         "stats": report.stats,
+        **common_report_fields(report),
     }
     output = json.dumps(data, ensure_ascii=False, indent=2)
     if args.output:

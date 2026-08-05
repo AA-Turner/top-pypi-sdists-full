@@ -75,6 +75,9 @@ See: https://git-scm.com/docs/git-config#_conditional_includes
 UNSAFE_CONFIG_CHARS_RE = re.compile(r"[\r\n\x00]")
 """Characters that cannot be safely written in config names or values."""
 
+VALID_CONFIG_OPTION_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+"""Pattern for option names that can be written without changing config syntax."""
+
 
 class MetaParserBuilder(abc.ABCMeta):  # noqa: B024
     """Utility class wrapping base-class methods into decorators that assure read-only
@@ -577,8 +580,12 @@ class GitConfigParser(cp.RawConfigParser, metaclass=MetaParserBuilder):
 
             if keyword in ["gitdir", "gitdir/i"]:
                 value = osp.expanduser(value)
+                git_dir = os.fspath(self._repo.git_dir) if self._repo.git_dir else None
+                if sys.platform == "win32":
+                    git_dir = git_dir.replace("\\", "/") if git_dir else None
 
-                if not any(value.startswith(s) for s in ["./", "/"]):
+                drive, _tail = osp.splitdrive(value)
+                if not drive and not any(value.startswith(s) for s in ["./", "/"]):
                     value = "**/" + value
                 if value.endswith("/"):
                     value += "**"
@@ -590,9 +597,8 @@ class GitConfigParser(cp.RawConfigParser, metaclass=MetaParserBuilder):
                         lambda m: f"[{m.group().lower()!r}{m.group().upper()!r}]",
                         value,
                     )
-                if self._repo.git_dir:
-                    if fnmatch.fnmatchcase(os.fspath(self._repo.git_dir), value):
-                        paths += _all_items(section)
+                if git_dir and fnmatch.fnmatchcase(git_dir, value):
+                    paths += _all_items(section)
 
             elif keyword == "onbranch":
                 try:
@@ -897,6 +903,8 @@ class GitConfigParser(cp.RawConfigParser, metaclass=MetaParserBuilder):
     def _assure_config_name_safe(self, name: "cp._SectionName", label: str) -> None:
         if isinstance(name, str) and UNSAFE_CONFIG_CHARS_RE.search(name):
             raise ValueError("Git config %s names must not contain CR, LF, or NUL" % label)
+        if label == "option" and isinstance(name, str) and not VALID_CONFIG_OPTION_NAME_RE.fullmatch(name):
+            raise ValueError("Git config option names may contain only letters, digits, '-', '_', or '.'")
         if label == "section" and isinstance(name, str):
             in_quotes = False
             escaped = False

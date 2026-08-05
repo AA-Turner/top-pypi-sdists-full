@@ -16,6 +16,7 @@ from agents import (
     MultiProvider,
     RunConfig,
     RunContextWrapper,
+    RunErrorDetails,
     RunResult,
     RunResultStreaming,
     SessionSettings,
@@ -38,6 +39,33 @@ def test_run_config_positional_arguments_remain_backward_compatible() -> None:
 
     assert config.handoff_input_filter is keep_handoff_input
     assert config.session_settings is None
+
+
+def test_run_error_details_positional_prefix_and_defaults_are_preserved() -> None:
+    first = RunErrorDetails(
+        "input",
+        [],
+        [],
+        Agent(name="agent"),
+        RunContextWrapper(context=None),
+        [],
+        [],
+    )
+    second = RunErrorDetails(
+        "input",
+        [],
+        [],
+        Agent(name="agent"),
+        RunContextWrapper(context=None),
+        [],
+        [],
+    )
+
+    first.tool_input_guardrail_results.append(cast(Any, object()))
+    first.tool_output_guardrail_results.append(cast(Any, object()))
+
+    assert second.tool_input_guardrail_results == []
+    assert second.tool_output_guardrail_results == []
 
 
 def test_run_config_session_settings_positional_binding_is_preserved() -> None:
@@ -167,6 +195,44 @@ def test_run_config_tool_not_found_behavior_append_preserves_tool_execution_posi
     assert config.sandbox is None
     assert config.tool_execution is tool_execution
     assert config.tool_not_found_behavior == "return_error_to_model"
+
+
+def test_run_config_tool_name_collision_policy_append_preserves_prior_positions() -> None:
+    session_settings = SessionSettings(limit=123)
+    tool_execution = ToolExecutionConfig(max_function_tool_concurrency=2)
+    config = RunConfig(
+        None,
+        MultiProvider(),
+        None,
+        None,
+        False,
+        None,
+        None,
+        None,
+        False,
+        None,
+        True,
+        "Agent workflow",
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        session_settings,
+        "omit",
+        None,
+        tool_execution,
+        "return_error_to_model",
+        "error",
+    )
+
+    assert config.session_settings == session_settings
+    assert config.reasoning_item_id_policy == "omit"
+    assert config.sandbox is None
+    assert config.tool_execution is tool_execution
+    assert config.tool_not_found_behavior == "return_error_to_model"
+    assert config.tool_name_collision_policy == "error"
 
 
 def test_tool_execution_config_pre_approval_append_preserves_max_concurrency() -> None:

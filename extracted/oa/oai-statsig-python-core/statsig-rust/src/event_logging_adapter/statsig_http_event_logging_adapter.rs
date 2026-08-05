@@ -2,16 +2,16 @@ use crate::compression::compression_helper::{compress_data, get_compression_form
 use crate::event_logging_adapter::EventLoggingAdapter;
 use crate::log_event_payload::LogEventRequest;
 use crate::networking::{NetworkClient, NetworkError, RequestArgs};
-use crate::observability::ops_stats::{OpsStatsForInstance, OPS_STATS};
+use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
 use crate::statsig_metadata::StatsigMetadata;
-use crate::{log_d, StatsigErr, StatsigOptions, StatsigRuntime};
+use crate::{StatsigErr, StatsigOptions, StatsigRuntime, log_d};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-const DEFAULT_LOG_EVENT_URL: &str = "https://prodregistryv2.org/v1/log_event";
+const DEFAULT_LOG_EVENT_URL: &str = "https://api.oaistatsig.com/v1/log_event";
 
 #[derive(Deserialize)]
 struct LogEventResult {

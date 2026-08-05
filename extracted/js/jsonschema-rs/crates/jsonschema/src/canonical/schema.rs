@@ -14,8 +14,8 @@ use crate::{
         context::CanonicalizationContext,
         emit,
         error::OperandMismatch,
-        ir::{Schema, SchemaKind},
-        negate, CanonicalizationError,
+        ir::{Schema, SchemaKind, UncheckableFacet, Verdict},
+        negate, oracle, CanonicalizationError,
     },
     options::PatternEngineOptions,
 };
@@ -146,13 +146,17 @@ impl CanonicalSchema {
     /// # Errors
     ///
     /// [`CanonicalizationError::IncompatibleOperands`] when the operands cannot be combined, and
-    /// [`CanonicalizationError::UnmodeledOperand`] when either side is unmodeled.
+    /// [`CanonicalizationError::UnmodeledOperand`] when either side is unmodeled or the canonical
+    /// form has no exact spelling for their meet.
     pub fn intersect(&self, other: &Self) -> Result<Self, CanonicalizationError> {
         self.check_operands(other)?;
         let definitions = self.merged_definitions(other)?;
         let context =
             CanonicalizationContext::new(self.draft, self.pattern_options, self.validate_formats);
         let inner = algebra::intersect(self.inner.clone(), other.inner.clone(), &context);
+        if context.saw_unspellable_meet() {
+            return Err(CanonicalizationError::UnmodeledOperand);
+        }
         Ok(Self::new(
             inner,
             self.draft,
@@ -160,6 +164,39 @@ impl CanonicalSchema {
             self.validate_formats,
             definitions,
         ))
+    }
+
+    /// Whether `other` admits every value this schema admits.
+    ///
+    /// `None` means undecided, never "not a subset": `Some(false)` is returned only against a
+    /// concrete value this schema admits and `other` rejects.
+    ///
+    /// # Errors
+    ///
+    /// [`CanonicalizationError::IncompatibleOperands`] when the operands cannot be combined, and
+    /// [`CanonicalizationError::UnmodeledOperand`] when either side is unmodeled.
+    pub fn is_subset_of(&self, other: &Self) -> Result<Option<bool>, CanonicalizationError> {
+        self.check_operands(other)?;
+        // References resolve through one map, so distinct maps make the two sides incomparable for
+        // the same reason they cannot be intersected.
+        self.merged_definitions(other)?;
+        let context =
+            CanonicalizationContext::new(self.draft, self.pattern_options, self.validate_formats);
+        if oracle::covers(&self.inner, &other.inner, &context) == Verdict::Admits {
+            return Ok(Some(true));
+        }
+        let Some(values) = self.schema_kind().finite_values() else {
+            return Ok(None);
+        };
+        let refuted = values.iter().any(|value| {
+            algebra::admits_value(
+                &other.inner,
+                value.as_value(),
+                UncheckableFacet::Undecided,
+                &context,
+            ) == Verdict::Rejects
+        });
+        Ok(refuted.then_some(false))
     }
 
     /// Every value this schema rejects, or `None` where the canonical form cannot spell it exactly.

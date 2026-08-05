@@ -2,7 +2,7 @@ use crate::log_e;
 use lazy_static::lazy_static;
 use parking_lot::RwLock;
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use uuid::Uuid;
 

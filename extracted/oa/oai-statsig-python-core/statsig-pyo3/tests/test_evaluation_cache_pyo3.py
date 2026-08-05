@@ -110,6 +110,28 @@ def test_feature_gate_conversions_do_not_participate_in_cache_protocol(statsig):
     assert first["details"] is not second["details"]
 
 
+def test_evaluation_conversions_do_not_materialize_secondary_exposures(statsig):
+    user = StatsigUser("my_user")
+
+    direct = [
+        statsig._INTERNAL_get_feature_gate(user, "test_public"),
+        statsig._INTERNAL_get_dynamic_config(user, "big_number", None, None),
+        statsig._INTERNAL_get_experiment(
+            user, "experiment_with_many_params", None, None, None
+        ),
+        statsig._INTERNAL_get_layer(user, "layer_with_many_params", None, None),
+    ]
+    bulk_result = statsig._INTERNAL_bulk_evaluate(user, None, None)
+    bulk = [
+        evaluation
+        for category in bulk_result.values()
+        for evaluation in category.values()
+    ]
+
+    for evaluation in direct + bulk:
+        assert "secondaryExposures" not in evaluation
+
+
 def test_internal_converters_only_omit_values_when_keys_are_supplied(statsig):
     user = StatsigUser("my_user")
 

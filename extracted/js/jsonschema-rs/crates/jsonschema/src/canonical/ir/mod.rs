@@ -30,13 +30,13 @@ pub(crate) use bound_integer::{BoundInteger, Round};
 pub(crate) use bound_number::{BoundNumber, Side};
 pub(crate) use bound_rational::BoundRational;
 pub(crate) use constructors::{canonicalize_value_set, type_set_schema, typed_group};
-pub(crate) use divisors::Divisors;
+pub(crate) use divisors::{Divisors, ExcludedDivisors};
 pub(crate) use integer_leaves::IntegerLeaves;
 pub(crate) use number_leaves::NumberLeaves;
 pub(crate) use object_leaves::ObjectLeaves;
 pub(crate) use raw::RawJson;
 pub(crate) use string_leaves::StringLeaves;
-pub(crate) use verdict::Verdict;
+pub(crate) use verdict::{UncheckableFacet, Verdict};
 
 /// A `Const`/`Enum` member normalized at construction (`1.0` becomes `1`) so `Value` equality is value equality.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -217,11 +217,20 @@ pub(crate) struct NumberLeaf {
     pub(crate) maximum: Option<BoundNumber>,
     /// Divisors every admitted value is a multiple of.
     pub(crate) multiple_of: Divisors,
+    /// Divisors no admitted value is a multiple of.
+    pub(crate) not_multiple_of: ExcludedDivisors,
+    /// No admitted value is one of the draft's integers. Survives only under Draft 4, whose
+    /// token integers no divisor can name; later drafts respell it as a barred divisor of one.
+    pub(crate) excludes_integers: bool,
 }
 
 impl NumberLeaf {
     /// Whether no real value fits between the two ends.
     pub(crate) fn is_vacant(&self) -> bool {
+        // A demanded divisor whose multiples are all barred leaves nothing.
+        if self.not_multiple_of.conflicts(&self.multiple_of) {
+            return true;
+        }
         // An interval holding no multiple of the divisor admits nothing either.
         if !self
             .multiple_of
@@ -249,11 +258,17 @@ pub(crate) struct IntegerLeaf {
     pub(crate) bounds: IntegerBounds,
     /// Divisors every admitted value is a multiple of.
     pub(crate) multiple_of: Divisors,
+    /// Divisors no admitted value is a multiple of.
+    pub(crate) not_multiple_of: ExcludedDivisors,
 }
 
 impl MaybeEmpty for IntegerLeaf {
     fn is_empty(&self) -> bool {
         self.bounds.is_empty()
+            || self.not_multiple_of.conflicts(&self.multiple_of)
+            // Every integer is a multiple of one, so barring a divisor that covers the whole grid
+            // leaves no integer.
+            || self.not_multiple_of.empties_integers()
     }
 }
 
@@ -320,8 +335,8 @@ pub(crate) struct ObjectLeaf {
     pub(crate) properties: BTreeMap<Arc<str>, Schema>,
     /// The schema every key matching the pattern must satisfy when the object carries it.
     pub(crate) pattern_properties: BTreeMap<Arc<str>, Schema>,
-    /// The schema every key `properties` does not name must satisfy; never `True` or `False`
-    /// (normalized away), and never beside `pattern_properties`.
+    /// The schema every key `properties` does not name and no pattern in `pattern_properties`
+    /// matches must satisfy; never `True` (normalized away).
     pub(crate) additional: Option<Schema>,
 }
 
@@ -400,6 +415,9 @@ pub(crate) struct StringLeaf {
     pub(crate) lengths: LengthBounds,
     /// Sorted, deduplicated. A string must match every pattern.
     pub(crate) patterns: Vec<Arc<str>>,
+    /// Sorted, deduplicated. A string must match none of these patterns. Only syntactic equality
+    /// against `patterns` is decided, so a leaf can be spelled and still admit nothing.
+    pub(crate) excluded_patterns: Vec<Arc<str>>,
     /// Sorted, deduplicated. A string must satisfy every format. Empty unless formats assert.
     pub(crate) formats: Vec<Arc<str>>,
     /// Sorted, deduplicated. A string must satisfy none of these formats. Empty unless formats
@@ -484,12 +502,6 @@ impl<T: MaybeEmpty> NonEmpty<T> {
     }
 }
 
-impl<T: Ord> MaybeEmpty for Bounds<T> {
-    fn is_empty(&self) -> bool {
-        Bounds::is_empty(self)
-    }
-}
-
 impl MaybeEmpty for StringLeaf {
     fn is_empty(&self) -> bool {
         self.lengths.is_empty()
@@ -560,7 +572,19 @@ impl<T: Ord> Bounds<T> {
 
 impl<T: Discrete> Bounds<T> {
     /// Fold windows that overlap or touch into one; windows with a value between them stay apart.
-    pub(crate) fn merge_all(mut windows: Vec<Self>) -> Vec<Self> {
+    pub(crate) fn merge_all(windows: Vec<Self>) -> Vec<Self> {
+        // The window bounds are all that decides membership here, so every value between two of them
+        // is one the pair leaves out.
+        Self::merge_all_across_vacant_gaps(windows, |_, _| false)
+    }
+
+    /// [`Bounds::merge_all`], folding a pair as well when `gap_is_vacant` reports that the values
+    /// strictly between the two ends it is handed are all rejected anyway. Their hull then admits
+    /// nothing the pair did not, so the windows are as good as touching.
+    pub(crate) fn merge_all_across_vacant_gaps(
+        mut windows: Vec<Self>,
+        gap_is_vacant: impl Fn(&T, &T) -> bool,
+    ) -> Vec<Self> {
         if windows.len() < 2 {
             return windows;
         }
@@ -571,14 +595,14 @@ impl<T: Discrete> Bounds<T> {
         let mut merged: Vec<Self> = Vec::with_capacity(windows.len());
         for window in windows {
             match merged.last_mut() {
-                Some(last) if last.reaches(&window) => {
+                Some(last) if last.reaches(&window, &gap_is_vacant) => {
                     *last = std::mem::take(last).hull(window);
                 }
                 _ => merged.push(window),
             }
         }
         debug_assert!(
-            Self::is_canonical(&merged),
+            Self::is_canonical(&merged, &gap_is_vacant),
             "windows left unsorted or mergeable"
         );
         debug_assert!(merged.len() <= count, "merging invented a window");
@@ -587,15 +611,16 @@ impl<T: Discrete> Bounds<T> {
     }
 
     /// Sorted by minimum, with no two neighbours left to merge.
-    fn is_canonical(windows: &[Self]) -> bool {
-        windows
-            .windows(2)
-            .all(|pair| pair[0].minimum <= pair[1].minimum && !pair[0].reaches(&pair[1]))
+    fn is_canonical(windows: &[Self], gap_is_vacant: &impl Fn(&T, &T) -> bool) -> bool {
+        windows.windows(2).all(|pair| {
+            pair[0].minimum <= pair[1].minimum && !pair[0].reaches(&pair[1], gap_is_vacant)
+        })
     }
 
     /// Whether `self` and a window starting no lower than it leave no value between them. The domain
-    /// is discrete, so windows that merely touch (`..=5` and `6..`) also have nothing between.
-    fn reaches(&self, next: &Self) -> bool {
+    /// is discrete, so windows that merely touch (`..=5` and `6..`) also have nothing between, and a
+    /// gap `gap_is_vacant` empties counts as none either.
+    fn reaches(&self, next: &Self, gap_is_vacant: &impl Fn(&T, &T) -> bool) -> bool {
         // Merging the pair takes their hull, which would invent values between two windows compared
         // the wrong way round.
         debug_assert!(
@@ -605,9 +630,15 @@ impl<T: Discrete> Bounds<T> {
         let (Some(end), Some(start)) = (self.maximum.as_ref(), next.minimum.as_ref()) else {
             return true;
         };
-        end.clone()
+        if end
+            .clone()
             .checked_increment()
             .is_none_or(|above| *start <= above)
+        {
+            return true;
+        }
+        // Only a genuine gap reaches here, so `gap_is_vacant` never sees an empty range.
+        gap_is_vacant(end, start)
     }
 }
 
@@ -736,7 +767,8 @@ impl SchemaKind {
         }
     }
 
-    /// The type set `values` saturates - only `null` and `boolean` have finite universes.
+    /// The type set `values` saturates - only `null` and `boolean` have finite universes. Callers
+    /// pass at least two distinct values, so a lone `null` never arrives.
     #[must_use]
     pub(crate) fn finite_values_saturated_domain(values: &[CanonicalJson]) -> Option<JsonTypeSet> {
         const NULL: u8 = 1 << 0;
@@ -756,7 +788,6 @@ impl SchemaKind {
             };
         }
         match bits {
-            NULL => Some(JsonTypeSet::from(JsonType::Null)),
             BOTH_BOOLEANS => Some(JsonTypeSet::from(JsonType::Boolean)),
             ALL => Some(JsonType::Null | JsonType::Boolean),
             _ => None,

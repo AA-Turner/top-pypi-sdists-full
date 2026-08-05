@@ -5,7 +5,7 @@ use crate::utils::mock_event_logging_adapter::MockEventLoggingAdapter;
 use crate::utils::mock_specs_adapter::MockSpecsAdapter;
 use assert_json_diff::assert_json_include;
 use chrono::Utc;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 #[cfg(feature = "ffi-support")]
 use statsig_rust::BulkEvaluationOptions;
 use statsig_rust::{Statsig, StatsigOptions, StatsigUser, StatsigUserBuilder};

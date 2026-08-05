@@ -198,6 +198,7 @@ class RunCacheConfig:
         metadata={"parser": _parse_clone_incremental_in_dev},
     )
     clone_time_travel_limit: t.Optional[int] = field(default=None, metadata={"parser": _parse_time})
+    allow_clones: bool = True
     metadata_cache_ttl: int = field(
         default=METADATA_CACHE_TTL_DEFAULT, metadata={"parser": _parse_time}
     )

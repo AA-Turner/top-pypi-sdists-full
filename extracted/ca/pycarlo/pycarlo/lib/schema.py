@@ -5894,6 +5894,20 @@ class PerformanceInsightCategory(pycarlo.lib.types.Enum):
     __choices__ = ("READ", "RUNTIME", "STORAGE", "WRITE")
 
 
+class PerformanceInsightImpactKind(pycarlo.lib.types.Enum):
+    """Dimension a cost/performance insight's headline impact is measured
+    in.
+
+    Enumeration Choices:
+
+    * `STORAGE`None
+    * `TIME`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("STORAGE", "TIME")
+
+
 class PeriodGrouping(pycarlo.lib.types.Enum):
     """Time size of the periods.
 
@@ -6803,8 +6817,12 @@ class ReinforcementLoopIssueLifecycle(pycarlo.lib.types.Enum):
 
 class ReinforcementLoopSnapshotSelection(pycarlo.lib.types.Enum):
     """Which in-window snapshot carries each issue's payload on the list
-    query.  OLDEST = the issue's first in-window occurrence (matching
-    getAgentHealthIssueFindings' dedupe); LATEST = its most recent.
+    query.  LATEST (the default) = the issue's most recent in-window
+    occurrence; OLDEST = its first (matching
+    getAgentHealthIssueFindings' dedupe). An issue last seen in-window
+    can lack an in-window snapshot entirely (its reports all predate
+    startTime); then its newest snapshot at or before endTime carries
+    the payload regardless of selection.
 
     Enumeration Choices:
 
@@ -8010,6 +8028,24 @@ class TableFlagType(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("DEPRECATION", "WARNING")
+
+
+class TableMonitorAssetRuleType(pycarlo.lib.types.Enum):
+    """The OOTB detector this rule configures. Volume-change and
+    unchanged-size are both     backed by `VolumeSLO` but use
+    different volume metrics. Schema-change is a per-table     on/off
+    flag rather than a `CustomRuleModel`, so it has no YAML/SLO.
+
+    Enumeration Choices:
+
+    * `FRESHNESS`None
+    * `SCHEMA`None
+    * `UNCHANGED_SIZE`None
+    * `VOLUME_CHANGE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("FRESHNESS", "SCHEMA", "UNCHANGED_SIZE", "VOLUME_CHANGE")
 
 
 class TableMonitorMetricType(pycarlo.lib.types.Enum):
@@ -9347,6 +9383,137 @@ class AgentCreditBudgetInput(sgqlc.types.Input):
     """Per-day credit cap for the capability's agent. Must be positive."""
 
 
+class AgentEvalInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "connection_name",
+        "agent",
+        "trace_table",
+        "agent_span_filters",
+        "filters",
+        "segment_fields",
+        "segment_sql",
+        "alert_conditions",
+        "sensitivity",
+        "schedule",
+        "notes",
+        "description",
+        "audiences",
+        "failure_audiences",
+        "priority",
+        "tags",
+        "data_quality_dimension",
+        "domains",
+        "alert_grouping",
+        "disable_look_back_bootstrap",
+        "skip_reset",
+        "fail_on_reset",
+        "high_segment_count",
+        "aggregate_by",
+        "time_bucketed",
+        "collection_lag_hours",
+        "is_agent_trace_aggregation",
+        "is_agent_conversation_aggregation",
+        "is_draft",
+        "transforms",
+        "sampling_config",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+
+    agent = sgqlc.types.Field(String, graphql_name="agent")
+
+    trace_table = sgqlc.types.Field(String, graphql_name="traceTable")
+
+    agent_span_filters = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("AgentSpanFilterInput")),
+        graphql_name="agentSpanFilters",
+    )
+
+    filters = sgqlc.types.Field("FilterGroupInput", graphql_name="filters")
+
+    segment_fields = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="segmentFields"
+    )
+
+    segment_sql = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="segmentSql"
+    )
+
+    alert_conditions = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("MetricAlertConditionInput")),
+        graphql_name="alertConditions",
+    )
+
+    sensitivity = sgqlc.types.Field(String, graphql_name="sensitivity")
+
+    schedule = sgqlc.types.Field("ScheduleInput", graphql_name="schedule")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePairInput")), graphql_name="tags"
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    alert_grouping = sgqlc.types.Field("AlertGroupingInput", graphql_name="alertGrouping")
+
+    disable_look_back_bootstrap = sgqlc.types.Field(
+        Boolean, graphql_name="disableLookBackBootstrap"
+    )
+
+    skip_reset = sgqlc.types.Field(Boolean, graphql_name="skipReset")
+
+    fail_on_reset = sgqlc.types.Field(Boolean, graphql_name="failOnReset")
+
+    high_segment_count = sgqlc.types.Field(Boolean, graphql_name="highSegmentCount")
+
+    aggregate_by = sgqlc.types.Field(String, graphql_name="aggregateBy")
+
+    time_bucketed = sgqlc.types.Field(Boolean, graphql_name="timeBucketed")
+
+    collection_lag_hours = sgqlc.types.Field(Int, graphql_name="collectionLagHours")
+
+    is_agent_trace_aggregation = sgqlc.types.Field(Boolean, graphql_name="isAgentTraceAggregation")
+
+    is_agent_conversation_aggregation = sgqlc.types.Field(
+        Boolean, graphql_name="isAgentConversationAggregation"
+    )
+
+    is_draft = sgqlc.types.Field(Boolean, graphql_name="isDraft")
+
+    transforms = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TransformInput")), graphql_name="transforms"
+    )
+
+    sampling_config = sgqlc.types.Field("MonitorSamplingConfigInput", graphql_name="samplingConfig")
+
+
 class AgentEvaluationRunSamplesInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = (
@@ -9407,6 +9574,129 @@ class AgentFilterInput(sgqlc.types.Input):
     MCON or a platform agent MCON (aiagent object type). Returns
     alerts associated with monitors covering this data source.
     """
+
+
+class AgentMetricInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "connection_name",
+        "agent",
+        "trace_table",
+        "agent_span_filters",
+        "filters",
+        "segment_fields",
+        "segment_sql",
+        "alert_conditions",
+        "sensitivity",
+        "schedule",
+        "notes",
+        "description",
+        "audiences",
+        "failure_audiences",
+        "priority",
+        "tags",
+        "data_quality_dimension",
+        "domains",
+        "alert_grouping",
+        "disable_look_back_bootstrap",
+        "skip_reset",
+        "fail_on_reset",
+        "high_segment_count",
+        "aggregate_by",
+        "time_bucketed",
+        "collection_lag_hours",
+        "is_agent_trace_aggregation",
+        "is_agent_conversation_aggregation",
+        "is_draft",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+
+    agent = sgqlc.types.Field(String, graphql_name="agent")
+
+    trace_table = sgqlc.types.Field(String, graphql_name="traceTable")
+
+    agent_span_filters = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("AgentSpanFilterInput")),
+        graphql_name="agentSpanFilters",
+    )
+
+    filters = sgqlc.types.Field("FilterGroupInput", graphql_name="filters")
+
+    segment_fields = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="segmentFields"
+    )
+
+    segment_sql = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="segmentSql"
+    )
+
+    alert_conditions = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("MetricAlertConditionInput")),
+        graphql_name="alertConditions",
+    )
+
+    sensitivity = sgqlc.types.Field(String, graphql_name="sensitivity")
+
+    schedule = sgqlc.types.Field("ScheduleInput", graphql_name="schedule")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePairInput")), graphql_name="tags"
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    alert_grouping = sgqlc.types.Field("AlertGroupingInput", graphql_name="alertGrouping")
+
+    disable_look_back_bootstrap = sgqlc.types.Field(
+        Boolean, graphql_name="disableLookBackBootstrap"
+    )
+
+    skip_reset = sgqlc.types.Field(Boolean, graphql_name="skipReset")
+
+    fail_on_reset = sgqlc.types.Field(Boolean, graphql_name="failOnReset")
+
+    high_segment_count = sgqlc.types.Field(Boolean, graphql_name="highSegmentCount")
+
+    aggregate_by = sgqlc.types.Field(String, graphql_name="aggregateBy")
+
+    time_bucketed = sgqlc.types.Field(Boolean, graphql_name="timeBucketed")
+
+    collection_lag_hours = sgqlc.types.Field(Int, graphql_name="collectionLagHours")
+
+    is_agent_trace_aggregation = sgqlc.types.Field(Boolean, graphql_name="isAgentTraceAggregation")
+
+    is_agent_conversation_aggregation = sgqlc.types.Field(
+        Boolean, graphql_name="isAgentConversationAggregation"
+    )
+
+    is_draft = sgqlc.types.Field(Boolean, graphql_name="isDraft")
 
 
 class AgentSpanConditionInput(sgqlc.types.Input):
@@ -9494,6 +9784,230 @@ class AgentSpanInput(sgqlc.types.Input):
     """JSON-encoded array of {role, content} objects returned by the
     model.
     """
+
+
+class AgentTrajectoryInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "connection_name",
+        "description",
+        "notes",
+        "severity",
+        "priority",
+        "labels",
+        "audiences",
+        "failure_audiences",
+        "notify_run_failure",
+        "event_rollup_count",
+        "event_rollup_until_changed",
+        "alert_grouping",
+        "metadata",
+        "tags",
+        "data_quality_dimension",
+        "domains",
+        "is_draft",
+        "schedule",
+        "timeout",
+        "agent",
+        "trace_table",
+        "agent_span_alert_condition",
+        "time_filter",
+        "filters",
+        "agent_span_filters",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Human-readable identifier. Optional on the
+    createOrUpdate*FromDefinition surface — server auto-generates a
+    unique name when omitted on create. Cannot be changed on update;
+    omit `name` to keep the existing one.
+    """
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    severity = sgqlc.types.Field(String, graphql_name="severity")
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    labels = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="labels"
+    )
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
+
+    event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
+
+    event_rollup_until_changed = sgqlc.types.Field(Boolean, graphql_name="eventRollupUntilChanged")
+
+    alert_grouping = sgqlc.types.Field("AlertGroupingInput", graphql_name="alertGrouping")
+
+    metadata = sgqlc.types.Field(GenericScalar, graphql_name="metadata")
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePairInput")), graphql_name="tags"
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    is_draft = sgqlc.types.Field(Boolean, graphql_name="isDraft")
+
+    schedule = sgqlc.types.Field("ScheduleInput", graphql_name="schedule")
+
+    timeout = sgqlc.types.Field(Int, graphql_name="timeout")
+
+    agent = sgqlc.types.Field(String, graphql_name="agent")
+
+    trace_table = sgqlc.types.Field(String, graphql_name="traceTable")
+
+    agent_span_alert_condition = sgqlc.types.Field(
+        AgentSpanConditionInput, graphql_name="agentSpanAlertCondition"
+    )
+
+    time_filter = sgqlc.types.Field("TimeFilterInput", graphql_name="timeFilter")
+
+    filters = sgqlc.types.Field("FilterGroupInput", graphql_name="filters")
+
+    agent_span_filters = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AgentSpanFilterInput)),
+        graphql_name="agentSpanFilters",
+    )
+
+
+class AgentValidationInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "connection_name",
+        "description",
+        "notes",
+        "severity",
+        "priority",
+        "labels",
+        "audiences",
+        "failure_audiences",
+        "notify_run_failure",
+        "event_rollup_count",
+        "event_rollup_until_changed",
+        "alert_grouping",
+        "metadata",
+        "tags",
+        "data_quality_dimension",
+        "domains",
+        "is_draft",
+        "schedule",
+        "timeout",
+        "agent",
+        "trace_table",
+        "alert_condition",
+        "time_filter",
+        "filters",
+        "agent_span_filters",
+        "exception_primary_key_column",
+        "is_agent_trace_aggregation",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Human-readable identifier. Optional on the
+    createOrUpdate*FromDefinition surface — server auto-generates a
+    unique name when omitted on create. Cannot be changed on update;
+    omit `name` to keep the existing one.
+    """
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    severity = sgqlc.types.Field(String, graphql_name="severity")
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    labels = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="labels"
+    )
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
+
+    event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
+
+    event_rollup_until_changed = sgqlc.types.Field(Boolean, graphql_name="eventRollupUntilChanged")
+
+    alert_grouping = sgqlc.types.Field("AlertGroupingInput", graphql_name="alertGrouping")
+
+    metadata = sgqlc.types.Field(GenericScalar, graphql_name="metadata")
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePairInput")), graphql_name="tags"
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    is_draft = sgqlc.types.Field(Boolean, graphql_name="isDraft")
+
+    schedule = sgqlc.types.Field("ScheduleInput", graphql_name="schedule")
+
+    timeout = sgqlc.types.Field(Int, graphql_name="timeout")
+
+    agent = sgqlc.types.Field(String, graphql_name="agent")
+
+    trace_table = sgqlc.types.Field(String, graphql_name="traceTable")
+
+    alert_condition = sgqlc.types.Field("FilterGroupInput", graphql_name="alertCondition")
+
+    time_filter = sgqlc.types.Field("TimeFilterInput", graphql_name="timeFilter")
+
+    filters = sgqlc.types.Field("FilterGroupInput", graphql_name="filters")
+
+    agent_span_filters = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AgentSpanFilterInput)),
+        graphql_name="agentSpanFilters",
+    )
+
+    exception_primary_key_column = sgqlc.types.Field(
+        String, graphql_name="exceptionPrimaryKeyColumn"
+    )
+
+    is_agent_trace_aggregation = sgqlc.types.Field(Boolean, graphql_name="isAgentTraceAggregation")
 
 
 class AgenticPlatformConfigInput(sgqlc.types.Input):
@@ -10506,6 +11020,7 @@ class ClusteringConfigInput(sgqlc.types.Input):
         "min_conversations",
         "classify_cadence_minutes",
         "collection_lag_hours",
+        "percentile_window_days",
     )
     discovery_model_id = sgqlc.types.Field(String, graphql_name="discoveryModelId")
     """Bedrock model id for the one-time taxonomy synthesis."""
@@ -10537,21 +11052,31 @@ class ClusteringConfigInput(sgqlc.types.Input):
     """Per-turn cap on agent-response characters sent to the model."""
 
     min_conversations = sgqlc.types.Field(Int, graphql_name="minConversations")
-    """Minimum discovery-eligible conversations before clustering
-    activates.
+    """Minimum historical conversation count before clustering activates:
+    on intent spaces, the discovery activation floor; on issue spaces,
+    the minimum conversations in the percentile trailing window before
+    percentile clusters assign.
     """
 
     classify_cadence_minutes = sgqlc.types.Field(Int, graphql_name="classifyCadenceMinutes")
     """Minimum minutes between COMPLETED runs of a kind before the
-    orchestrator dispatches the next — it rate-limits both
-    classification and (pre-taxonomy) discovery dispatch. A single
-    failed run is retried on the next tick rather than waiting out
-    this interval; consecutive failures back off exponentially, capped
-    at this interval.
+    orchestrator dispatches the next — it paces a space's runs (on
+    intent spaces, classification and pre-taxonomy discovery dispatch;
+    on issue spaces, rule evaluation). A single failed run is retried
+    on the next tick rather than waiting out this interval;
+    consecutive failures back off exponentially, capped at this
+    interval.
     """
 
     collection_lag_hours = sgqlc.types.Field(Int, graphql_name="collectionLagHours")
     """Settle window in hours before a conversation's last turn counts."""
+
+    percentile_window_days = sgqlc.types.Field(Int, graphql_name="percentileWindowDays")
+    """Trailing window, in days, over which issue-space percentile
+    thresholds (e.g. p95 duration) are resolved each run. Issue spaces
+    only — rejected on intent spaces, which are the only spaces
+    creatable via the API today.
+    """
 
 
 class CollectionBlockInput(sgqlc.types.Input):
@@ -10615,6 +11140,81 @@ class ComparisonAlertConditionInput(sgqlc.types.Input):
     threshold_value = sgqlc.types.Field(Float, graphql_name="thresholdValue")
 
     is_threshold_relative = sgqlc.types.Field(Boolean, graphql_name="isThresholdRelative")
+
+
+class ComparisonMonitorInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "source",
+        "target",
+        "alert_conditions",
+        "schedule",
+        "notes",
+        "description",
+        "notify_run_failure",
+        "audiences",
+        "failure_audiences",
+        "priority",
+        "alert_grouping",
+        "tags",
+        "data_quality_dimension",
+        "domains",
+        "is_draft",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Human-readable identifier. Optional on the
+    createOrUpdate*FromDefinition surface — server auto-generates a
+    unique name when omitted on create. Cannot be changed on update;
+    omit `name` to keep the existing one.
+    """
+
+    source = sgqlc.types.Field("MonitorExtendedDataSourceInput", graphql_name="source")
+
+    target = sgqlc.types.Field("MonitorExtendedDataSourceInput", graphql_name="target")
+
+    alert_conditions = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(ComparisonAlertConditionInput)),
+        graphql_name="alertConditions",
+    )
+
+    schedule = sgqlc.types.Field("ScheduleInput", graphql_name="schedule")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    alert_grouping = sgqlc.types.Field(AlertGroupingInput, graphql_name="alertGrouping")
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePairInput")), graphql_name="tags"
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    is_draft = sgqlc.types.Field(Boolean, graphql_name="isDraft")
 
 
 class ConfigureLinearIntegrationInput(sgqlc.types.Input):
@@ -11816,6 +12416,20 @@ class DismissMonitorTuningSuggestionInput(sgqlc.types.Input):
     """UUID of the tuning run backing the suggestion to dismiss."""
 
 
+class DynamicScheduleJobInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("job_type", "job_name", "project_name", "task_name", "mcon")
+    job_type = sgqlc.types.Field(String, graphql_name="jobType")
+
+    job_name = sgqlc.types.Field(String, graphql_name="jobName")
+
+    project_name = sgqlc.types.Field(String, graphql_name="projectName")
+
+    task_name = sgqlc.types.Field(String, graphql_name="taskName")
+
+    mcon = sgqlc.types.Field(String, graphql_name="mcon")
+
+
 class EtlTaskPerformanceV3FilterInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("job_mcon", "start_time", "end_time")
@@ -12413,6 +13027,106 @@ class FreshnessExplicitAlertConditionInput(sgqlc.types.Input):
 
     threshold = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="threshold")
     """Explicit freshness threshold in minutes"""
+
+
+class FreshnessSLOInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "connection_name",
+        "description",
+        "notes",
+        "severity",
+        "priority",
+        "labels",
+        "audiences",
+        "failure_audiences",
+        "notify_run_failure",
+        "event_rollup_count",
+        "event_rollup_until_changed",
+        "alert_grouping",
+        "metadata",
+        "tags",
+        "data_quality_dimension",
+        "domains",
+        "is_draft",
+        "schedule",
+        "table",
+        "tables",
+        "freshness_threshold",
+        "threshold_sensitivity",
+        "is_paused",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Human-readable identifier. Optional on the
+    createOrUpdate*FromDefinition surface — server auto-generates a
+    unique name when omitted on create. Cannot be changed on update;
+    omit `name` to keep the existing one.
+    """
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    severity = sgqlc.types.Field(String, graphql_name="severity")
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    labels = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="labels"
+    )
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
+
+    event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
+
+    event_rollup_until_changed = sgqlc.types.Field(Boolean, graphql_name="eventRollupUntilChanged")
+
+    alert_grouping = sgqlc.types.Field(AlertGroupingInput, graphql_name="alertGrouping")
+
+    metadata = sgqlc.types.Field(GenericScalar, graphql_name="metadata")
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePairInput")), graphql_name="tags"
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    is_draft = sgqlc.types.Field(Boolean, graphql_name="isDraft")
+
+    schedule = sgqlc.types.Field("ScheduleInput", graphql_name="schedule")
+
+    table = sgqlc.types.Field(String, graphql_name="table")
+
+    tables = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="tables"
+    )
+
+    freshness_threshold = sgqlc.types.Field(Int, graphql_name="freshnessThreshold")
+
+    threshold_sensitivity = sgqlc.types.Field(String, graphql_name="thresholdSensitivity")
+
+    is_paused = sgqlc.types.Field(Boolean, graphql_name="isPaused")
 
 
 class GcpDataformConnectionDetails(sgqlc.types.Input):
@@ -13872,6 +14586,144 @@ class MetricAlertConditionInput(sgqlc.types.Input):
     id = sgqlc.types.Field(String, graphql_name="id")
 
 
+class MetricInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "connection_name",
+        "timeout",
+        "data_source",
+        "where_condition",
+        "use_partition_clause",
+        "aggregate_time_field",
+        "aggregate_time_sql",
+        "aggregate_timezone",
+        "aggregate_by",
+        "collection_lag",
+        "high_segment_count",
+        "min_segment_row_count",
+        "min_segment_row_count_share",
+        "segment_fields",
+        "segment_sql",
+        "alert_conditions",
+        "sensitivity",
+        "schedule",
+        "notes",
+        "description",
+        "notify_run_failure",
+        "audiences",
+        "failure_audiences",
+        "priority",
+        "tags",
+        "data_quality_dimension",
+        "domains",
+        "is_draft",
+        "sampling_config",
+        "alert_grouping",
+        "disable_look_back_bootstrap",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Human-readable identifier. Optional on the
+    createOrUpdate*FromDefinition surface — server auto-generates a
+    unique name when omitted on create. Cannot be changed on update;
+    omit `name` to keep the existing one.
+    """
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+
+    timeout = sgqlc.types.Field(Int, graphql_name="timeout")
+
+    data_source = sgqlc.types.Field("MonitorDataSourceInput", graphql_name="dataSource")
+
+    where_condition = sgqlc.types.Field(String, graphql_name="whereCondition")
+
+    use_partition_clause = sgqlc.types.Field(Boolean, graphql_name="usePartitionClause")
+
+    aggregate_time_field = sgqlc.types.Field(String, graphql_name="aggregateTimeField")
+
+    aggregate_time_sql = sgqlc.types.Field(String, graphql_name="aggregateTimeSql")
+
+    aggregate_timezone = sgqlc.types.Field(String, graphql_name="aggregateTimezone")
+
+    aggregate_by = sgqlc.types.Field(String, graphql_name="aggregateBy")
+
+    collection_lag = sgqlc.types.Field(Int, graphql_name="collectionLag")
+
+    high_segment_count = sgqlc.types.Field(Boolean, graphql_name="highSegmentCount")
+
+    min_segment_row_count = sgqlc.types.Field(Int, graphql_name="minSegmentRowCount")
+    """Minimum rolling-average row count for a segment to be monitored.
+    Segments whose average row count falls below this are not detected
+    on. Null disables the filter.
+    """
+
+    min_segment_row_count_share = sgqlc.types.Field(Float, graphql_name="minSegmentRowCountShare")
+    """Minimum share of the table's total rolling-average row count for a
+    segment to be monitored, as a fraction between 0 and 1. Segments
+    contributing a smaller share than this are not detected on. Null
+    disables the filter.
+    """
+
+    segment_fields = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="segmentFields"
+    )
+
+    segment_sql = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="segmentSql"
+    )
+
+    alert_conditions = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(MetricAlertConditionInput)),
+        graphql_name="alertConditions",
+    )
+
+    sensitivity = sgqlc.types.Field(String, graphql_name="sensitivity")
+
+    schedule = sgqlc.types.Field("ScheduleInput", graphql_name="schedule")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePairInput")), graphql_name="tags"
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    is_draft = sgqlc.types.Field(Boolean, graphql_name="isDraft")
+
+    sampling_config = sgqlc.types.Field("MonitorSamplingConfigInput", graphql_name="samplingConfig")
+
+    alert_grouping = sgqlc.types.Field(AlertGroupingInput, graphql_name="alertGrouping")
+
+    disable_look_back_bootstrap = sgqlc.types.Field(
+        Boolean, graphql_name="disableLookBackBootstrap"
+    )
+
+
 class MetricsFilter(sgqlc.types.Input):
     """Filters for the metrics to be fetched"""
 
@@ -13976,6 +14828,56 @@ class MonitorConfigurationInput(sgqlc.types.Input):
         sgqlc.types.non_null(sgqlc.types.list_of("TimestampResult")), graphql_name="timeFields"
     )
     """field and timestamp for monitor configuration"""
+
+
+class MonitorDataSourceInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("table", "sql", "transforms")
+    table = sgqlc.types.Field(String, graphql_name="table")
+
+    sql = sgqlc.types.Field(String, graphql_name="sql")
+
+    transforms = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TransformInput")), graphql_name="transforms"
+    )
+
+
+class MonitorExtendedDataSourceInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "table",
+        "sql",
+        "transforms",
+        "where_condition",
+        "warehouse",
+        "segment_fields",
+        "segment_sql",
+        "connection_name",
+        "timeout",
+    )
+    table = sgqlc.types.Field(String, graphql_name="table")
+
+    sql = sgqlc.types.Field(String, graphql_name="sql")
+
+    transforms = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TransformInput")), graphql_name="transforms"
+    )
+
+    where_condition = sgqlc.types.Field(String, graphql_name="whereCondition")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    segment_fields = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="segmentFields"
+    )
+
+    segment_sql = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="segmentSql"
+    )
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+
+    timeout = sgqlc.types.Field(Int, graphql_name="timeout")
 
 
 class MonitorRecommendationsInput(sgqlc.types.Input):
@@ -14968,6 +15870,171 @@ class RuntimeVariableValueInput(sgqlc.types.Input):
     value = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="value")
 
 
+class SQLRuleComparisonInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "type",
+        "operator",
+        "threshold_value",
+        "baseline_agg_function",
+        "baseline_interval_minutes",
+        "is_threshold_relative",
+        "min_buffer_value",
+        "max_buffer_value",
+        "min_buffer_modifier_type",
+        "max_buffer_modifier_type",
+        "number_of_agg_periods",
+        "threshold_lookback_minutes",
+        "is_percentage_threshold",
+        "percentage_baseline_sql",
+        "threshold_sensitivity",
+        "lower_threshold",
+        "upper_threshold",
+    )
+    type = sgqlc.types.Field(String, graphql_name="type")
+
+    operator = sgqlc.types.Field(String, graphql_name="operator")
+
+    threshold_value = sgqlc.types.Field(Float, graphql_name="thresholdValue")
+
+    baseline_agg_function = sgqlc.types.Field(String, graphql_name="baselineAggFunction")
+
+    baseline_interval_minutes = sgqlc.types.Field(Int, graphql_name="baselineIntervalMinutes")
+
+    is_threshold_relative = sgqlc.types.Field(Boolean, graphql_name="isThresholdRelative")
+
+    min_buffer_value = sgqlc.types.Field(Float, graphql_name="minBufferValue")
+
+    max_buffer_value = sgqlc.types.Field(Float, graphql_name="maxBufferValue")
+
+    min_buffer_modifier_type = sgqlc.types.Field(String, graphql_name="minBufferModifierType")
+
+    max_buffer_modifier_type = sgqlc.types.Field(String, graphql_name="maxBufferModifierType")
+
+    number_of_agg_periods = sgqlc.types.Field(Int, graphql_name="numberOfAggPeriods")
+
+    threshold_lookback_minutes = sgqlc.types.Field(Int, graphql_name="thresholdLookbackMinutes")
+
+    is_percentage_threshold = sgqlc.types.Field(Boolean, graphql_name="isPercentageThreshold")
+
+    percentage_baseline_sql = sgqlc.types.Field(String, graphql_name="percentageBaselineSql")
+
+    threshold_sensitivity = sgqlc.types.Field(String, graphql_name="thresholdSensitivity")
+
+    lower_threshold = sgqlc.types.Field(Float, graphql_name="lowerThreshold")
+
+    upper_threshold = sgqlc.types.Field(Float, graphql_name="upperThreshold")
+
+
+class SQLRuleInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "connection_name",
+        "description",
+        "notes",
+        "severity",
+        "priority",
+        "labels",
+        "audiences",
+        "failure_audiences",
+        "notify_run_failure",
+        "event_rollup_count",
+        "event_rollup_until_changed",
+        "alert_grouping",
+        "metadata",
+        "tags",
+        "data_quality_dimension",
+        "domains",
+        "is_draft",
+        "schedule",
+        "timeout",
+        "sql",
+        "variables",
+        "alert_conditions",
+        "query_result_type",
+        "sampling_sql",
+        "exception_primary_key_column",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Human-readable identifier. Optional on the
+    createOrUpdate*FromDefinition surface — server auto-generates a
+    unique name when omitted on create. Cannot be changed on update;
+    omit `name` to keep the existing one.
+    """
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    severity = sgqlc.types.Field(String, graphql_name="severity")
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    labels = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="labels"
+    )
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
+
+    event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
+
+    event_rollup_until_changed = sgqlc.types.Field(Boolean, graphql_name="eventRollupUntilChanged")
+
+    alert_grouping = sgqlc.types.Field(AlertGroupingInput, graphql_name="alertGrouping")
+
+    metadata = sgqlc.types.Field(GenericScalar, graphql_name="metadata")
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePairInput")), graphql_name="tags"
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    is_draft = sgqlc.types.Field(Boolean, graphql_name="isDraft")
+
+    schedule = sgqlc.types.Field("ScheduleInput", graphql_name="schedule")
+
+    timeout = sgqlc.types.Field(Int, graphql_name="timeout")
+
+    sql = sgqlc.types.Field(String, graphql_name="sql")
+
+    variables = sgqlc.types.Field(GenericScalar, graphql_name="variables")
+
+    alert_conditions = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(SQLRuleComparisonInput)),
+        graphql_name="alertConditions",
+    )
+
+    query_result_type = sgqlc.types.Field(String, graphql_name="queryResultType")
+
+    sampling_sql = sgqlc.types.Field(String, graphql_name="samplingSql")
+
+    exception_primary_key_column = sgqlc.types.Field(
+        String, graphql_name="exceptionPrimaryKeyColumn"
+    )
+
+
 class ScheduleConfigInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = (
@@ -15018,6 +16085,47 @@ class ScheduleConfigInput(sgqlc.types.Input):
 
     timezone = sgqlc.types.Field(String, graphql_name="timezone")
     """Timezone for daylight savings and interpreting cron expressions."""
+
+
+class ScheduleInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "type",
+        "dynamic_schedule_tables",
+        "dynamic_schedule_jobs",
+        "interval_minutes",
+        "interval_crontab",
+        "interval_crontab_day_operator",
+        "start_time",
+        "timezone",
+        "min_interval_minutes",
+    )
+    type = sgqlc.types.Field(String, graphql_name="type")
+
+    dynamic_schedule_tables = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="dynamicScheduleTables"
+    )
+
+    dynamic_schedule_jobs = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(DynamicScheduleJobInput)),
+        graphql_name="dynamicScheduleJobs",
+    )
+
+    interval_minutes = sgqlc.types.Field(Int, graphql_name="intervalMinutes")
+
+    interval_crontab = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="intervalCrontab"
+    )
+
+    interval_crontab_day_operator = sgqlc.types.Field(
+        String, graphql_name="intervalCrontabDayOperator"
+    )
+
+    start_time = sgqlc.types.Field(DateTime, graphql_name="startTime")
+
+    timezone = sgqlc.types.Field(String, graphql_name="timezone")
+
+    min_interval_minutes = sgqlc.types.Field(Int, graphql_name="minIntervalMinutes")
 
 
 class SchemaFieldInput(sgqlc.types.Input):
@@ -15824,6 +16932,85 @@ class TableMonitorAlertConditionInput(sgqlc.types.Input):
     metric = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="metric")
 
     operator = sgqlc.types.Field(String, graphql_name="operator")
+
+
+class TableMonitorInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "description",
+        "notes",
+        "priority",
+        "alert_grouping",
+        "asset_selection",
+        "audiences",
+        "failure_audiences",
+        "domains",
+        "alert_conditions",
+        "tags",
+        "data_quality_dimension",
+        "is_draft",
+        "enable_row_count_collection",
+        "enable_row_count_collection_limit",
+        "sensitivity",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Human-readable identifier. Optional on the
+    createOrUpdate*FromDefinition surface — server auto-generates a
+    unique name when omitted on create. Cannot be changed on update;
+    omit `name` to keep the existing one.
+    """
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    alert_grouping = sgqlc.types.Field(AlertGroupingInput, graphql_name="alertGrouping")
+
+    asset_selection = sgqlc.types.Field(AssetSelectionInput, graphql_name="assetSelection")
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    alert_conditions = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(TableMonitorAlertConditionInput)),
+        graphql_name="alertConditions",
+    )
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePairInput")), graphql_name="tags"
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    is_draft = sgqlc.types.Field(Boolean, graphql_name="isDraft")
+
+    enable_row_count_collection = sgqlc.types.Field(
+        Boolean, graphql_name="enableRowCountCollection"
+    )
+
+    enable_row_count_collection_limit = sgqlc.types.Field(
+        Int, graphql_name="enableRowCountCollectionLimit"
+    )
+
+    sensitivity = sgqlc.types.Field(String, graphql_name="sensitivity")
 
 
 class TableStatsRules(sgqlc.types.Input):
@@ -16954,6 +18141,118 @@ class UserSettingInput(sgqlc.types.Input):
     """Description for this user's settings"""
 
 
+class ValidationInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "connection_name",
+        "description",
+        "notes",
+        "severity",
+        "priority",
+        "labels",
+        "audiences",
+        "failure_audiences",
+        "notify_run_failure",
+        "event_rollup_count",
+        "event_rollup_until_changed",
+        "alert_grouping",
+        "metadata",
+        "tags",
+        "data_quality_dimension",
+        "domains",
+        "is_draft",
+        "schedule",
+        "timeout",
+        "data_source",
+        "alert_condition",
+        "exception_primary_key_column",
+        "percentage_threshold",
+        "percentage_operator",
+        "time_filter",
+        "filters",
+        "time_filter_sql_expression",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Human-readable identifier. Optional on the
+    createOrUpdate*FromDefinition surface — server auto-generates a
+    unique name when omitted on create. Cannot be changed on update;
+    omit `name` to keep the existing one.
+    """
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    severity = sgqlc.types.Field(String, graphql_name="severity")
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    labels = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="labels"
+    )
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
+
+    event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
+
+    event_rollup_until_changed = sgqlc.types.Field(Boolean, graphql_name="eventRollupUntilChanged")
+
+    alert_grouping = sgqlc.types.Field(AlertGroupingInput, graphql_name="alertGrouping")
+
+    metadata = sgqlc.types.Field(GenericScalar, graphql_name="metadata")
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)), graphql_name="tags"
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    is_draft = sgqlc.types.Field(Boolean, graphql_name="isDraft")
+
+    schedule = sgqlc.types.Field(ScheduleInput, graphql_name="schedule")
+
+    timeout = sgqlc.types.Field(Int, graphql_name="timeout")
+
+    data_source = sgqlc.types.Field(MonitorDataSourceInput, graphql_name="dataSource")
+
+    alert_condition = sgqlc.types.Field(FilterGroupInput, graphql_name="alertCondition")
+
+    exception_primary_key_column = sgqlc.types.Field(
+        String, graphql_name="exceptionPrimaryKeyColumn"
+    )
+
+    percentage_threshold = sgqlc.types.Field(Float, graphql_name="percentageThreshold")
+
+    percentage_operator = sgqlc.types.Field(String, graphql_name="percentageOperator")
+
+    time_filter = sgqlc.types.Field(TimeFilterInput, graphql_name="timeFilter")
+
+    filters = sgqlc.types.Field(FilterGroupInput, graphql_name="filters")
+
+    time_filter_sql_expression = sgqlc.types.Field(String, graphql_name="timeFilterSqlExpression")
+
+
 class ValidationRollingWindowInput(sgqlc.types.Input):
     """Structured rolling-window time filter for validation monitors.
     Combines a date/timestamp column with one of a fixed set of
@@ -17083,6 +18382,165 @@ class VolumeChangeExplicitAlertConditionInput(sgqlc.types.Input):
 
     lower_threshold = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="lowerThreshold")
     """Lower threshold in percent"""
+
+
+class VolumeRuleComparisonInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "type",
+        "operator",
+        "threshold_value",
+        "baseline_agg_function",
+        "baseline_interval_minutes",
+        "is_threshold_relative",
+        "min_buffer_value",
+        "max_buffer_value",
+        "min_buffer_modifier_type",
+        "max_buffer_modifier_type",
+        "number_of_agg_periods",
+        "threshold_lookback_minutes",
+        "is_percentage_threshold",
+        "percentage_baseline_sql",
+        "threshold_sensitivity",
+        "lower_threshold",
+        "upper_threshold",
+    )
+    type = sgqlc.types.Field(String, graphql_name="type")
+
+    operator = sgqlc.types.Field(String, graphql_name="operator")
+
+    threshold_value = sgqlc.types.Field(Float, graphql_name="thresholdValue")
+
+    baseline_agg_function = sgqlc.types.Field(String, graphql_name="baselineAggFunction")
+
+    baseline_interval_minutes = sgqlc.types.Field(Int, graphql_name="baselineIntervalMinutes")
+
+    is_threshold_relative = sgqlc.types.Field(Boolean, graphql_name="isThresholdRelative")
+
+    min_buffer_value = sgqlc.types.Field(Float, graphql_name="minBufferValue")
+
+    max_buffer_value = sgqlc.types.Field(Float, graphql_name="maxBufferValue")
+
+    min_buffer_modifier_type = sgqlc.types.Field(String, graphql_name="minBufferModifierType")
+
+    max_buffer_modifier_type = sgqlc.types.Field(String, graphql_name="maxBufferModifierType")
+
+    number_of_agg_periods = sgqlc.types.Field(Int, graphql_name="numberOfAggPeriods")
+
+    threshold_lookback_minutes = sgqlc.types.Field(Int, graphql_name="thresholdLookbackMinutes")
+
+    is_percentage_threshold = sgqlc.types.Field(Boolean, graphql_name="isPercentageThreshold")
+
+    percentage_baseline_sql = sgqlc.types.Field(String, graphql_name="percentageBaselineSql")
+
+    threshold_sensitivity = sgqlc.types.Field(String, graphql_name="thresholdSensitivity")
+
+    lower_threshold = sgqlc.types.Field(Float, graphql_name="lowerThreshold")
+
+    upper_threshold = sgqlc.types.Field(Float, graphql_name="upperThreshold")
+
+
+class VolumeSLOInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "connection_name",
+        "description",
+        "notes",
+        "severity",
+        "priority",
+        "labels",
+        "audiences",
+        "failure_audiences",
+        "notify_run_failure",
+        "event_rollup_count",
+        "event_rollup_until_changed",
+        "alert_grouping",
+        "metadata",
+        "tags",
+        "data_quality_dimension",
+        "domains",
+        "is_draft",
+        "schedule",
+        "table",
+        "tables",
+        "alert_conditions",
+        "volume_metric",
+        "override",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Human-readable identifier. Optional on the
+    createOrUpdate*FromDefinition surface — server auto-generates a
+    unique name when omitted on create. Cannot be changed on update;
+    omit `name` to keep the existing one.
+    """
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    severity = sgqlc.types.Field(String, graphql_name="severity")
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    labels = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="labels"
+    )
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="audiences"
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
+
+    event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
+
+    event_rollup_until_changed = sgqlc.types.Field(Boolean, graphql_name="eventRollupUntilChanged")
+
+    alert_grouping = sgqlc.types.Field(AlertGroupingInput, graphql_name="alertGrouping")
+
+    metadata = sgqlc.types.Field(GenericScalar, graphql_name="metadata")
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)), graphql_name="tags"
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    is_draft = sgqlc.types.Field(Boolean, graphql_name="isDraft")
+
+    schedule = sgqlc.types.Field(ScheduleInput, graphql_name="schedule")
+
+    table = sgqlc.types.Field(String, graphql_name="table")
+
+    tables = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="tables"
+    )
+
+    alert_conditions = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(VolumeRuleComparisonInput)),
+        graphql_name="alertConditions",
+    )
+
+    volume_metric = sgqlc.types.Field(String, graphql_name="volumeMetric")
+
+    override = sgqlc.types.Field(Boolean, graphql_name="override")
 
 
 class WebhookHeaderInput(sgqlc.types.Input):
@@ -20249,6 +21707,145 @@ class AgentDetails(sgqlc.types.Type):
     """
 
 
+class AgentEvalOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "connection_name",
+        "agent",
+        "trace_table",
+        "agent_span_filters",
+        "filters",
+        "segment_fields",
+        "segment_sql",
+        "alert_conditions",
+        "sensitivity",
+        "schedule",
+        "notes",
+        "description",
+        "audiences",
+        "failure_audiences",
+        "priority",
+        "tags",
+        "data_quality_dimension",
+        "domains",
+        "alert_grouping",
+        "disable_look_back_bootstrap",
+        "skip_reset",
+        "fail_on_reset",
+        "high_segment_count",
+        "aggregate_by",
+        "time_bucketed",
+        "collection_lag_hours",
+        "is_agent_trace_aggregation",
+        "is_agent_conversation_aggregation",
+        "is_draft",
+        "transforms",
+        "sampling_config",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+
+    agent = sgqlc.types.Field(String, graphql_name="agent")
+
+    trace_table = sgqlc.types.Field(String, graphql_name="traceTable")
+
+    agent_span_filters = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("AgentSpanFilter"))),
+        graphql_name="agentSpanFilters",
+    )
+
+    filters = sgqlc.types.Field("FilterGroup", graphql_name="filters")
+
+    segment_fields = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="segmentFields",
+    )
+
+    segment_sql = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="segmentSql",
+    )
+
+    alert_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("MetricAlertCondition"))),
+        graphql_name="alertConditions",
+    )
+
+    sensitivity = sgqlc.types.Field(String, graphql_name="sensitivity")
+
+    schedule = sgqlc.types.Field("Schedule", graphql_name="schedule")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="audiences",
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePair"))),
+        graphql_name="tags",
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    alert_grouping = sgqlc.types.Field("AlertGrouping", graphql_name="alertGrouping")
+
+    disable_look_back_bootstrap = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="disableLookBackBootstrap"
+    )
+
+    skip_reset = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="skipReset")
+
+    fail_on_reset = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="failOnReset")
+
+    high_segment_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="highSegmentCount"
+    )
+
+    aggregate_by = sgqlc.types.Field(String, graphql_name="aggregateBy")
+
+    time_bucketed = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="timeBucketed")
+
+    collection_lag_hours = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="collectionLagHours"
+    )
+
+    is_agent_trace_aggregation = sgqlc.types.Field(Boolean, graphql_name="isAgentTraceAggregation")
+
+    is_agent_conversation_aggregation = sgqlc.types.Field(
+        Boolean, graphql_name="isAgentConversationAggregation"
+    )
+
+    is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
+
+    transforms = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("Transform")), graphql_name="transforms"
+    )
+
+    sampling_config = sgqlc.types.Field("MonitorSamplingConfig", graphql_name="samplingConfig")
+
+
 class AgentEvaluationRunSampleRow(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -21365,6 +22962,137 @@ class AgentMetadataV2(sgqlc.types.Type):
     """
 
 
+class AgentMetricOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "connection_name",
+        "agent",
+        "trace_table",
+        "agent_span_filters",
+        "filters",
+        "segment_fields",
+        "segment_sql",
+        "alert_conditions",
+        "sensitivity",
+        "schedule",
+        "notes",
+        "description",
+        "audiences",
+        "failure_audiences",
+        "priority",
+        "tags",
+        "data_quality_dimension",
+        "domains",
+        "alert_grouping",
+        "disable_look_back_bootstrap",
+        "skip_reset",
+        "fail_on_reset",
+        "high_segment_count",
+        "aggregate_by",
+        "time_bucketed",
+        "collection_lag_hours",
+        "is_agent_trace_aggregation",
+        "is_agent_conversation_aggregation",
+        "is_draft",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+
+    agent = sgqlc.types.Field(String, graphql_name="agent")
+
+    trace_table = sgqlc.types.Field(String, graphql_name="traceTable")
+
+    agent_span_filters = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("AgentSpanFilter"))),
+        graphql_name="agentSpanFilters",
+    )
+
+    filters = sgqlc.types.Field("FilterGroup", graphql_name="filters")
+
+    segment_fields = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="segmentFields",
+    )
+
+    segment_sql = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="segmentSql",
+    )
+
+    alert_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("MetricAlertCondition"))),
+        graphql_name="alertConditions",
+    )
+
+    sensitivity = sgqlc.types.Field(String, graphql_name="sensitivity")
+
+    schedule = sgqlc.types.Field("Schedule", graphql_name="schedule")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="audiences",
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePair"))),
+        graphql_name="tags",
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    alert_grouping = sgqlc.types.Field("AlertGrouping", graphql_name="alertGrouping")
+
+    disable_look_back_bootstrap = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="disableLookBackBootstrap"
+    )
+
+    skip_reset = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="skipReset")
+
+    fail_on_reset = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="failOnReset")
+
+    high_segment_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="highSegmentCount"
+    )
+
+    aggregate_by = sgqlc.types.Field(String, graphql_name="aggregateBy")
+
+    time_bucketed = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="timeBucketed")
+
+    collection_lag_hours = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="collectionLagHours"
+    )
+
+    is_agent_trace_aggregation = sgqlc.types.Field(Boolean, graphql_name="isAgentTraceAggregation")
+
+    is_agent_conversation_aggregation = sgqlc.types.Field(
+        Boolean, graphql_name="isAgentConversationAggregation"
+    )
+
+    is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
+
+
 class AgentObservabilityBillingAgent(sgqlc.types.Type):
     """An active agent counted for billing purposes."""
 
@@ -21584,6 +23312,240 @@ class AgentTraceTableEdge(sgqlc.types.Type):
 
     cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
     """A cursor for use in pagination"""
+
+
+class AgentTrajectoryOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "connection_name",
+        "description",
+        "notes",
+        "severity",
+        "priority",
+        "labels",
+        "audiences",
+        "failure_audiences",
+        "notify_run_failure",
+        "event_rollup_count",
+        "event_rollup_until_changed",
+        "alert_grouping",
+        "metadata",
+        "tags",
+        "data_quality_dimension",
+        "domains",
+        "is_draft",
+        "schedule",
+        "timeout",
+        "agent",
+        "trace_table",
+        "agent_span_alert_condition",
+        "time_filter",
+        "filters",
+        "agent_span_filters",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Human-readable identifier. Optional on the
+    createOrUpdate*FromDefinition surface — server auto-generates a
+    unique name when omitted on create. Cannot be changed on update;
+    omit `name` to keep the existing one.
+    """
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    severity = sgqlc.types.Field(String, graphql_name="severity")
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    labels = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="labels",
+    )
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="audiences",
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
+
+    event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
+
+    event_rollup_until_changed = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="eventRollupUntilChanged"
+    )
+
+    alert_grouping = sgqlc.types.Field("AlertGrouping", graphql_name="alertGrouping")
+
+    metadata = sgqlc.types.Field(GenericScalar, graphql_name="metadata")
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePair"))),
+        graphql_name="tags",
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
+
+    schedule = sgqlc.types.Field("Schedule", graphql_name="schedule")
+
+    timeout = sgqlc.types.Field(Int, graphql_name="timeout")
+
+    agent = sgqlc.types.Field(String, graphql_name="agent")
+
+    trace_table = sgqlc.types.Field(String, graphql_name="traceTable")
+
+    agent_span_alert_condition = sgqlc.types.Field(
+        AgentSpanCondition, graphql_name="agentSpanAlertCondition"
+    )
+
+    time_filter = sgqlc.types.Field("TimeFilter", graphql_name="timeFilter")
+
+    filters = sgqlc.types.Field("FilterGroup", graphql_name="filters")
+
+    agent_span_filters = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentSpanFilter))),
+        graphql_name="agentSpanFilters",
+    )
+
+
+class AgentValidationOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "connection_name",
+        "description",
+        "notes",
+        "severity",
+        "priority",
+        "labels",
+        "audiences",
+        "failure_audiences",
+        "notify_run_failure",
+        "event_rollup_count",
+        "event_rollup_until_changed",
+        "alert_grouping",
+        "metadata",
+        "tags",
+        "data_quality_dimension",
+        "domains",
+        "is_draft",
+        "schedule",
+        "timeout",
+        "agent",
+        "trace_table",
+        "alert_condition",
+        "time_filter",
+        "filters",
+        "agent_span_filters",
+        "exception_primary_key_column",
+        "is_agent_trace_aggregation",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Human-readable identifier. Optional on the
+    createOrUpdate*FromDefinition surface — server auto-generates a
+    unique name when omitted on create. Cannot be changed on update;
+    omit `name` to keep the existing one.
+    """
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    severity = sgqlc.types.Field(String, graphql_name="severity")
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    labels = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="labels",
+    )
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="audiences",
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
+
+    event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
+
+    event_rollup_until_changed = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="eventRollupUntilChanged"
+    )
+
+    alert_grouping = sgqlc.types.Field("AlertGrouping", graphql_name="alertGrouping")
+
+    metadata = sgqlc.types.Field(GenericScalar, graphql_name="metadata")
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePair"))),
+        graphql_name="tags",
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
+
+    schedule = sgqlc.types.Field("Schedule", graphql_name="schedule")
+
+    timeout = sgqlc.types.Field(Int, graphql_name="timeout")
+
+    agent = sgqlc.types.Field(String, graphql_name="agent")
+
+    trace_table = sgqlc.types.Field(String, graphql_name="traceTable")
+
+    alert_condition = sgqlc.types.Field("FilterGroup", graphql_name="alertCondition")
+
+    time_filter = sgqlc.types.Field("TimeFilter", graphql_name="timeFilter")
+
+    filters = sgqlc.types.Field("FilterGroup", graphql_name="filters")
+
+    agent_span_filters = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentSpanFilter))),
+        graphql_name="agentSpanFilters",
+    )
+
+    exception_primary_key_column = sgqlc.types.Field(
+        String, graphql_name="exceptionPrimaryKeyColumn"
+    )
+
+    is_agent_trace_aggregation = sgqlc.types.Field(Boolean, graphql_name="isAgentTraceAggregation")
 
 
 class AgenticDomainOutput(sgqlc.types.Type):
@@ -25505,6 +27467,7 @@ class ClusteringConfig(sgqlc.types.Type):
         "min_conversations",
         "classify_cadence_minutes",
         "collection_lag_hours",
+        "percentile_window_days",
     )
     discovery_model_id = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="discoveryModelId"
@@ -25552,25 +27515,37 @@ class ClusteringConfig(sgqlc.types.Type):
     min_conversations = sgqlc.types.Field(
         sgqlc.types.non_null(Int), graphql_name="minConversations"
     )
-    """Minimum discovery-eligible conversations before clustering
-    activates.
+    """Minimum historical conversation count before clustering activates:
+    on intent spaces, the discovery activation floor; on issue spaces,
+    the minimum conversations in the percentile trailing window before
+    percentile clusters assign.
     """
 
     classify_cadence_minutes = sgqlc.types.Field(
         sgqlc.types.non_null(Int), graphql_name="classifyCadenceMinutes"
     )
     """Minimum minutes between COMPLETED runs of a kind before the
-    orchestrator dispatches the next — it rate-limits both
-    classification and (pre-taxonomy) discovery dispatch. A single
-    failed run is retried on the next tick rather than waiting out
-    this interval; consecutive failures back off exponentially, capped
-    at this interval.
+    orchestrator dispatches the next — it paces a space's runs (on
+    intent spaces, classification and pre-taxonomy discovery dispatch;
+    on issue spaces, rule evaluation). A single failed run is retried
+    on the next tick rather than waiting out this interval;
+    consecutive failures back off exponentially, capped at this
+    interval.
     """
 
     collection_lag_hours = sgqlc.types.Field(
         sgqlc.types.non_null(Int), graphql_name="collectionLagHours"
     )
     """Settle window in hours before a conversation's last turn counts."""
+
+    percentile_window_days = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="percentileWindowDays"
+    )
+    """Trailing window, in days, over which issue-space percentile
+    thresholds (e.g. p95 duration) are resolved each run. Issue spaces
+    only — rejected on intent spaces, which are the only spaces
+    creatable via the API today.
+    """
 
 
 class CollectionBlockConnection(sgqlc.types.relay.Connection):
@@ -25932,6 +27907,83 @@ class ComparisonEvaluationResults(sgqlc.types.Type):
     """Maximum number of allowed segments for the given field and metric
     selection.
     """
+
+
+class ComparisonMonitorOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "source",
+        "target",
+        "alert_conditions",
+        "schedule",
+        "notes",
+        "description",
+        "notify_run_failure",
+        "audiences",
+        "failure_audiences",
+        "priority",
+        "alert_grouping",
+        "tags",
+        "data_quality_dimension",
+        "domains",
+        "is_draft",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Human-readable identifier. Optional on the
+    createOrUpdate*FromDefinition surface — server auto-generates a
+    unique name when omitted on create. Cannot be changed on update;
+    omit `name` to keep the existing one.
+    """
+
+    source = sgqlc.types.Field("MonitorExtendedDataSource", graphql_name="source")
+
+    target = sgqlc.types.Field("MonitorExtendedDataSource", graphql_name="target")
+
+    alert_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ComparisonAlertCondition))),
+        graphql_name="alertConditions",
+    )
+
+    schedule = sgqlc.types.Field("Schedule", graphql_name="schedule")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="audiences",
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    alert_grouping = sgqlc.types.Field(AlertGrouping, graphql_name="alertGrouping")
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePair"))),
+        graphql_name="tags",
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
 
 
 class ComparisonMonitorResponseConnection(sgqlc.types.relay.Connection):
@@ -28977,11 +31029,35 @@ class CustomMetric(sgqlc.types.Type):
     """Target SQL expression to evaluate for the custom comparison metric"""
 
 
+class CustomMetricOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("uuid", "display_name", "sql_expression")
+    uuid = sgqlc.types.Field(UUID, graphql_name="uuid")
+
+    display_name = sgqlc.types.Field(String, graphql_name="displayName")
+
+    sql_expression = sgqlc.types.Field(String, graphql_name="sqlExpression")
+
+
 class CustomMetricQuery(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("query",)
     query = sgqlc.types.Field(String, graphql_name="query")
     """SQL query to evaluate the custom metric"""
+
+
+class CustomPiiRegex(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("uuid", "name", "pattern", "case_insensitive")
+    uuid = sgqlc.types.Field(UUID, graphql_name="uuid")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+
+    pattern = sgqlc.types.Field(String, graphql_name="pattern")
+
+    case_insensitive = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="caseInsensitive"
+    )
 
 
 class CustomRuleComparison(sgqlc.types.Type):
@@ -33014,6 +35090,20 @@ class Dynamic(sgqlc.types.Type):
     """Explanation if min/max is missing"""
 
 
+class DynamicScheduleJob(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("job_type", "job_name", "project_name", "task_name", "mcon")
+    job_type = sgqlc.types.Field(String, graphql_name="jobType")
+
+    job_name = sgqlc.types.Field(String, graphql_name="jobName")
+
+    project_name = sgqlc.types.Field(String, graphql_name="projectName")
+
+    task_name = sgqlc.types.Field(String, graphql_name="taskName")
+
+    mcon = sgqlc.types.Field(String, graphql_name="mcon")
+
+
 class ETLJobsConnectionTypeConnection(sgqlc.types.relay.Connection):
     """Etl Jobs"""
 
@@ -35713,6 +37803,18 @@ class FieldOverviewResponse(sgqlc.types.Type):
     )
 
 
+class FieldPattern(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("operator", "value", "case_sensitive", "field_type")
+    operator = sgqlc.types.Field(String, graphql_name="operator")
+
+    value = sgqlc.types.Field(String, graphql_name="value")
+
+    case_sensitive = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="caseSensitive")
+
+    field_type = sgqlc.types.Field(String, graphql_name="fieldType")
+
+
 class FieldPatternMatchResult(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("tables",)
@@ -36095,6 +38197,111 @@ class FreshnessExplicitAlertConditionOutput(sgqlc.types.Type):
 
     threshold = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="threshold")
     """Explicit freshness threshold in minutes"""
+
+
+class FreshnessSLOOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "connection_name",
+        "description",
+        "notes",
+        "severity",
+        "priority",
+        "labels",
+        "audiences",
+        "failure_audiences",
+        "notify_run_failure",
+        "event_rollup_count",
+        "event_rollup_until_changed",
+        "alert_grouping",
+        "metadata",
+        "tags",
+        "data_quality_dimension",
+        "domains",
+        "is_draft",
+        "schedule",
+        "table",
+        "tables",
+        "freshness_threshold",
+        "threshold_sensitivity",
+        "is_paused",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Human-readable identifier. Optional on the
+    createOrUpdate*FromDefinition surface — server auto-generates a
+    unique name when omitted on create. Cannot be changed on update;
+    omit `name` to keep the existing one.
+    """
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    severity = sgqlc.types.Field(String, graphql_name="severity")
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    labels = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="labels",
+    )
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="audiences",
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
+
+    event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
+
+    event_rollup_until_changed = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="eventRollupUntilChanged"
+    )
+
+    alert_grouping = sgqlc.types.Field(AlertGrouping, graphql_name="alertGrouping")
+
+    metadata = sgqlc.types.Field(GenericScalar, graphql_name="metadata")
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePair"))),
+        graphql_name="tags",
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
+
+    schedule = sgqlc.types.Field("Schedule", graphql_name="schedule")
+
+    table = sgqlc.types.Field(String, graphql_name="table")
+
+    tables = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="tables"
+    )
+
+    freshness_threshold = sgqlc.types.Field(Int, graphql_name="freshnessThreshold")
+
+    threshold_sensitivity = sgqlc.types.Field(String, graphql_name="thresholdSensitivity")
+
+    is_paused = sgqlc.types.Field(Boolean, graphql_name="isPaused")
 
 
 class FreshnessTableMonitorConfigOutput(sgqlc.types.Type):
@@ -37948,6 +40155,28 @@ class Insight(sgqlc.types.Type):
 
     available = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="available")
     """True if this insight is currently available"""
+
+
+class InsightImpactOutput(sgqlc.types.Type):
+    """An insight's headline impact in its native, non-dollar unit."""
+
+    __schema__ = schema
+    __field_names__ = ("kind", "value", "unit", "period")
+    kind = sgqlc.types.Field(
+        sgqlc.types.non_null(PerformanceInsightImpactKind), graphql_name="kind"
+    )
+    """Whether the impact is reclaimable storage or recurring compute
+    time.
+    """
+
+    value = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="value")
+    """Impact quantity, in 'unit' over 'period'."""
+
+    unit = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="unit")
+    """Unit of 'value', e.g. 'gb', 'tb', 'hours', 'seconds'."""
+
+    period = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="period")
+    """Period 'value' is expressed over, e.g. 'month'."""
 
 
 class InstallGenieCollector(sgqlc.types.Type):
@@ -40379,6 +42608,59 @@ class MetricAggregationOutputType(sgqlc.types.Type):
     """Metric aggregation function"""
 
 
+class MetricAlertCondition(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "metric",
+        "custom_metric",
+        "custom_pii_regex",
+        "fields",
+        "type",
+        "operator",
+        "threshold_value",
+        "lower_threshold",
+        "upper_threshold",
+        "field_pattern",
+        "baseline_trailing_days",
+        "baseline_start",
+        "baseline_end",
+        "num_bins",
+        "id",
+    )
+    metric = sgqlc.types.Field(String, graphql_name="metric")
+
+    custom_metric = sgqlc.types.Field(CustomMetricOutput, graphql_name="customMetric")
+
+    custom_pii_regex = sgqlc.types.Field(CustomPiiRegex, graphql_name="customPiiRegex")
+
+    fields = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="fields",
+    )
+
+    type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="type")
+
+    operator = sgqlc.types.Field(String, graphql_name="operator")
+
+    threshold_value = sgqlc.types.Field(Float, graphql_name="thresholdValue")
+
+    lower_threshold = sgqlc.types.Field(Float, graphql_name="lowerThreshold")
+
+    upper_threshold = sgqlc.types.Field(Float, graphql_name="upperThreshold")
+
+    field_pattern = sgqlc.types.Field(FieldPattern, graphql_name="fieldPattern")
+
+    baseline_trailing_days = sgqlc.types.Field(Int, graphql_name="baselineTrailingDays")
+
+    baseline_start = sgqlc.types.Field(String, graphql_name="baselineStart")
+
+    baseline_end = sgqlc.types.Field(String, graphql_name="baselineEnd")
+
+    num_bins = sgqlc.types.Field(Int, graphql_name="numBins")
+
+    id = sgqlc.types.Field(String, graphql_name="id")
+
+
 class MetricAnomalyCorrelation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("field", "metric", "correlations")
@@ -40531,6 +42813,152 @@ class MetricMonitoringEdge(sgqlc.types.Type):
 
     cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
     """A cursor for use in pagination"""
+
+
+class MetricOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "connection_name",
+        "timeout",
+        "data_source",
+        "where_condition",
+        "use_partition_clause",
+        "aggregate_time_field",
+        "aggregate_time_sql",
+        "aggregate_timezone",
+        "aggregate_by",
+        "collection_lag",
+        "high_segment_count",
+        "min_segment_row_count",
+        "min_segment_row_count_share",
+        "segment_fields",
+        "segment_sql",
+        "alert_conditions",
+        "sensitivity",
+        "schedule",
+        "notes",
+        "description",
+        "notify_run_failure",
+        "audiences",
+        "failure_audiences",
+        "priority",
+        "tags",
+        "data_quality_dimension",
+        "domains",
+        "is_draft",
+        "sampling_config",
+        "alert_grouping",
+        "disable_look_back_bootstrap",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Human-readable identifier. Optional on the
+    createOrUpdate*FromDefinition surface — server auto-generates a
+    unique name when omitted on create. Cannot be changed on update;
+    omit `name` to keep the existing one.
+    """
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+
+    timeout = sgqlc.types.Field(Int, graphql_name="timeout")
+
+    data_source = sgqlc.types.Field("MonitorDataSourceOutput", graphql_name="dataSource")
+
+    where_condition = sgqlc.types.Field(String, graphql_name="whereCondition")
+
+    use_partition_clause = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="usePartitionClause"
+    )
+
+    aggregate_time_field = sgqlc.types.Field(String, graphql_name="aggregateTimeField")
+
+    aggregate_time_sql = sgqlc.types.Field(String, graphql_name="aggregateTimeSql")
+
+    aggregate_timezone = sgqlc.types.Field(String, graphql_name="aggregateTimezone")
+
+    aggregate_by = sgqlc.types.Field(String, graphql_name="aggregateBy")
+
+    collection_lag = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="collectionLag")
+
+    high_segment_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="highSegmentCount"
+    )
+
+    min_segment_row_count = sgqlc.types.Field(Int, graphql_name="minSegmentRowCount")
+    """Minimum rolling-average row count for a segment to be monitored.
+    Segments whose average row count falls below this are not detected
+    on. Null disables the filter.
+    """
+
+    min_segment_row_count_share = sgqlc.types.Field(Float, graphql_name="minSegmentRowCountShare")
+    """Minimum share of the table's total rolling-average row count for a
+    segment to be monitored, as a fraction between 0 and 1. Segments
+    contributing a smaller share than this are not detected on. Null
+    disables the filter.
+    """
+
+    segment_fields = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="segmentFields",
+    )
+
+    segment_sql = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="segmentSql",
+    )
+
+    alert_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(MetricAlertCondition))),
+        graphql_name="alertConditions",
+    )
+
+    sensitivity = sgqlc.types.Field(String, graphql_name="sensitivity")
+
+    schedule = sgqlc.types.Field("Schedule", graphql_name="schedule")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="audiences",
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePair"))),
+        graphql_name="tags",
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
+
+    sampling_config = sgqlc.types.Field("MonitorSamplingConfig", graphql_name="samplingConfig")
+
+    alert_grouping = sgqlc.types.Field(AlertGrouping, graphql_name="alertGrouping")
+
+    disable_look_back_bootstrap = sgqlc.types.Field(
+        Boolean, graphql_name="disableLookBackBootstrap"
+    )
 
 
 class MetricSampling(sgqlc.types.Type):
@@ -40830,6 +43258,18 @@ class MonitorDataSource(sgqlc.types.Type):
     transforms = sgqlc.types.Field(sgqlc.types.list_of("Transform"), graphql_name="transforms")
 
 
+class MonitorDataSourceOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("table", "sql", "transforms")
+    table = sgqlc.types.Field(String, graphql_name="table")
+
+    sql = sgqlc.types.Field(String, graphql_name="sql")
+
+    transforms = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("Transform")), graphql_name="transforms"
+    )
+
+
 class MonitorDataset(sgqlc.types.Type):
     """Datasets referenced by monitors, grouped by dataset name"""
 
@@ -40858,6 +43298,44 @@ class MonitorError(sgqlc.types.Type):
 
     code = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="code")
     """Error code"""
+
+
+class MonitorExtendedDataSource(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "table",
+        "sql",
+        "transforms",
+        "where_condition",
+        "warehouse",
+        "segment_fields",
+        "segment_sql",
+        "connection_name",
+        "timeout",
+    )
+    table = sgqlc.types.Field(String, graphql_name="table")
+
+    sql = sgqlc.types.Field(String, graphql_name="sql")
+
+    transforms = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("Transform")), graphql_name="transforms"
+    )
+
+    where_condition = sgqlc.types.Field(String, graphql_name="whereCondition")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    segment_fields = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="segmentFields"
+    )
+
+    segment_sql = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="segmentSql"
+    )
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+
+    timeout = sgqlc.types.Field(Int, graphql_name="timeout")
 
 
 class MonitorLabel(sgqlc.types.Type):
@@ -42264,6 +44742,7 @@ class Mutation(sgqlc.types.Type):
         "update_monitors_priorities",
         "update_monitors_schedules",
         "update_monitors_sensitivity",
+        "tune_table_monitor_asset_rule_threshold",
         "pause_monitors",
         "delete_monitors",
         "restore_monitors",
@@ -42511,6 +44990,7 @@ class Mutation(sgqlc.types.Type):
         "toggle_slack_reply_warning",
         "refresh_slack_app_scopes",
         "toggle_slack_agent_dispatch",
+        "toggle_slack_agent_data_sampling",
         "toggle_slack_broadcast_updates",
         "toggle_connection_enable",
         "add_connection",
@@ -47294,6 +49774,10 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(StorageTypeEnum, graphql_name="storageType", default=None),
                 ),
                 ("upgradeable", sgqlc.types.Arg(Boolean, graphql_name="upgradeable", default=None)),
+                (
+                    "validation_name",
+                    sgqlc.types.Arg(String, graphql_name="validationName", default=None),
+                ),
                 ("wrapper_type", sgqlc.types.Arg(String, graphql_name="wrapperType", default=None)),
                 (
                     "wrapper_version",
@@ -47333,6 +49817,10 @@ class Mutation(sgqlc.types.Type):
       Agent.
     * `upgradeable` (`Boolean`): Boolean if the agent is remote
       upgradeable.
+    * `validation_name` (`String`): Run only this single validation
+      instead of the full sequence. Dry-run only (ignored when dry_run
+      is false); lets the UI show per-check progress and short-circuit
+      on prerequisite failures.
     * `wrapper_type` (`String`): The wrapper type of the Agent.
     * `wrapper_version` (`String`): The wrapper version of the Agent.
     """
@@ -52295,6 +54783,83 @@ class Mutation(sgqlc.types.Type):
 
     * `monitor_uuids` (`[UUID!]!`): UUIDs of the monitors to update
     * `sensitivity` (`SensitivityLevels!`): Target sensitivity level
+    """
+
+    tune_table_monitor_asset_rule_threshold = sgqlc.types.Field(
+        "TuneTableMonitorAssetRuleThreshold",
+        graphql_name="tuneTableMonitorAssetRuleThreshold",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "freshness_threshold_minutes",
+                    sgqlc.types.Arg(Int, graphql_name="freshnessThresholdMinutes", default=None),
+                ),
+                (
+                    "rule_type",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(TableMonitorAssetRuleType),
+                        graphql_name="ruleType",
+                        default=None,
+                    ),
+                ),
+                (
+                    "sensitivity",
+                    sgqlc.types.Arg(SensitivityLevels, graphql_name="sensitivity", default=None),
+                ),
+                (
+                    "table",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="table", default=None
+                    ),
+                ),
+                (
+                    "unchanged_size_threshold_minutes",
+                    sgqlc.types.Arg(
+                        Int, graphql_name="unchangedSizeThresholdMinutes", default=None
+                    ),
+                ),
+                (
+                    "volume_lookback_minutes",
+                    sgqlc.types.Arg(Int, graphql_name="volumeLookbackMinutes", default=None),
+                ),
+                (
+                    "volume_lower_threshold",
+                    sgqlc.types.Arg(Float, graphql_name="volumeLowerThreshold", default=None),
+                ),
+                (
+                    "volume_upper_threshold",
+                    sgqlc.types.Arg(Float, graphql_name="volumeUpperThreshold", default=None),
+                ),
+                (
+                    "warehouse",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="warehouse", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Tune only the sensitivity or manual threshold of a
+    table monitor's per-asset OOTB replacement rule (create-or-update)
+
+    Arguments:
+
+    * `freshness_threshold_minutes` (`Int`): Manual freshness
+      threshold in minutes (FRESHNESS only)
+    * `rule_type` (`TableMonitorAssetRuleType!`): Which OOTB detector
+      to tune
+    * `sensitivity` (`SensitivityLevels`): Auto-threshold sensitivity
+      (mutually exclusive with a manual threshold)
+    * `table` (`String!`): Full table id of the asset
+    * `unchanged_size_threshold_minutes` (`Int`): Manual unchanged-
+      size threshold in minutes (UNCHANGED_SIZE only)
+    * `volume_lookback_minutes` (`Int`): Lookback window for the
+      volume-change band (VOLUME_CHANGE only)
+    * `volume_lower_threshold` (`Float`): Manual lower bound of the
+      volume-change band (VOLUME_CHANGE only)
+    * `volume_upper_threshold` (`Float`): Manual upper bound of the
+      volume-change band (VOLUME_CHANGE only)
+    * `warehouse` (`String!`): Warehouse name or UUID
     """
 
     pause_monitors = sgqlc.types.Field(
@@ -62444,6 +65009,30 @@ class Mutation(sgqlc.types.Type):
     * `team_id` (`String`): Slack Team ID
     """
 
+    toggle_slack_agent_data_sampling = sgqlc.types.Field(
+        "ToggleSlackAgentDataSampling",
+        graphql_name="toggleSlackAgentDataSampling",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "enable",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Boolean), graphql_name="enable", default=None
+                    ),
+                ),
+                ("team_id", sgqlc.types.Arg(String, graphql_name="teamId", default=None)),
+            )
+        ),
+    )
+    """(experimental) Enable/disable raw customer data sampling in the
+    Monte Carlo AI (agent) Slack app's answers for this workspace.
+
+    Arguments:
+
+    * `enable` (`Boolean!`): If true, allow data sampling
+    * `team_id` (`String`): Slack Team ID
+    """
+
     toggle_slack_broadcast_updates = sgqlc.types.Field(
         "ToggleSlackBroadcastUpdates",
         graphql_name="toggleSlackBroadcastUpdates",
@@ -67776,6 +70365,7 @@ class PerformancePageInsightOutput(sgqlc.types.Type):
         "related_mcons",
         "related_warehouses",
         "estimated_savings",
+        "impact",
     )
     title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
     """Full insight title, as a sentence."""
@@ -67808,6 +70398,13 @@ class PerformancePageInsightOutput(sgqlc.types.Type):
     estimated_savings = sgqlc.types.Field(EstimatedSavingsOutput, graphql_name="estimatedSavings")
     """Estimated cost saving if the insight's recommendation is acted on.
     Null when the insight has no quantifiable saving.
+    """
+
+    impact = sgqlc.types.Field(InsightImpactOutput, graphql_name="impact")
+    """The insight's headline impact in its native unit (reclaimable
+    storage or recurring compute time). Null when the insight has no
+    storage- or time-based quantity; the dollar figure is on
+    'estimatedSavings'.
     """
 
 
@@ -70856,7 +73453,7 @@ class Query(sgqlc.types.Type):
                     sgqlc.types.Arg(
                         ReinforcementLoopSnapshotSelection,
                         graphql_name="snapshotSelection",
-                        default="oldest",
+                        default="latest",
                     ),
                 ),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=100)),
@@ -70864,7 +73461,7 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Issues observed in a time window for one agent
+    """(experimental) Issues last seen in a time window for one agent
     (optionally narrowed to one workflow or one issue), issue-centric:
     one node per (workflow, issue) with cross-run lifecycle and
     recency from the stable issue record plus one selected in-window
@@ -70885,18 +73482,18 @@ class Query(sgqlc.types.Type):
       (detail views, deep links). ANDs with the other filters — a
       mismatch returns empty, not an error. When given, startTime
       becomes optional and an absent startTime/endTime leaves the
-      snapshot scan unbounded on that side.
-    * `start_time` (`DateTime`): Include snapshots reported at or
-      after this instant (inclusive). Required unless issueUuid is
-      given. Pass an ISO-8601 datetime with a UTC offset.
-    * `end_time` (`DateTime`): Include snapshots reported at or before
+      window unbounded on that side.
+    * `start_time` (`DateTime`): Include issues last seen at or after
+      this instant (inclusive). Required unless issueUuid is given.
+      Pass an ISO-8601 datetime with a UTC offset.
+    * `end_time` (`DateTime`): Include issues last seen at or before
       this instant (inclusive; must not precede startTime). Required
       whenever startTime is given so the window's upper bound stays
       fixed across page fetches; optional only for an issueUuid re-
-      fetch, where its absence leaves the scan unbounded above.
+      fetch, where its absence leaves the window unbounded above.
     * `snapshot_selection` (`ReinforcementLoopSnapshotSelection`):
-      Which in-window snapshot carries each issue's payload — OLDEST
-      by default. (default: `"oldest"`)
+      Which in-window snapshot carries each issue's payload — LATEST
+      by default. (default: `"latest"`)
     * `first` (`Int`): Page size, 1..500. (default: `100`)
     * `after` (`String`): Opaque forward-pagination cursor — the
       previous page's endCursor. Omit for the first page.
@@ -94580,6 +97177,49 @@ class RegisterGitlabApp(sgqlc.types.Type):
     """GitLab URL to request authorization code"""
 
 
+class ReinforcementLoopDraftPrRef(sgqlc.types.Type):
+    """The newest draft-PR workflow dispatch for an issue, list-grade.
+    Enough to render an icon state (pending / opened / failed) and a
+    click-through; the issue's full dispatch history stays on
+    getGithubActionTriggerDispatches.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "status",
+        "pr_url",
+        "pr_number",
+        "gh_run_url",
+        "dispatched_at",
+        "completed_time",
+    )
+    status = sgqlc.types.Field(
+        sgqlc.types.non_null(GithubActionTriggerDispatchStatus), graphql_name="status"
+    )
+    """Dispatch lifecycle: DISPATCHED/RUNNING = pending, SUCCEEDED =
+    draft PR opened, FAILED/EXPIRED = no PR produced.
+    """
+
+    pr_url = sgqlc.types.Field(String, graphql_name="prUrl")
+    """Web URL of the draft PR — set once the workflow reports it
+    (SUCCEEDED).
+    """
+
+    pr_number = sgqlc.types.Field(Int, graphql_name="prNumber")
+    """PR number, set together with prUrl."""
+
+    gh_run_url = sgqlc.types.Field(String, graphql_name="ghRunUrl")
+    """GitHub Actions run URL — the click-through while the workflow is
+    running.
+    """
+
+    dispatched_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="dispatchedAt")
+    """When the workflow dispatch was triggered."""
+
+    completed_time = sgqlc.types.Field(DateTime, graphql_name="completedTime")
+    """When the dispatch reached a terminal status; null while pending."""
+
+
 class ReinforcementLoopIssue(sgqlc.types.Type):
     """One reinforcement-loop issue: cross-run identity plus one selected
     snapshot.
@@ -94599,12 +97239,15 @@ class ReinforcementLoopIssue(sgqlc.types.Type):
         "report_window_start",
         "report_window_end",
         "issue",
+        "linear_ticket",
+        "jira_ticket",
+        "service_now_ticket",
+        "draft_pr",
     )
     issue_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="issueUuid")
     """The stable issue's public id — the handle the ticket and draft-PR
     mutations resolve, and the issueUuid argument for a targeted re-
-    fetch. Falls back to the snapshot's uuid on the rare occurrence
-    not yet backed by a stable issue record.
+    fetch.
     """
 
     stable_issue_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="stableIssueId")
@@ -94619,35 +97262,32 @@ class ReinforcementLoopIssue(sgqlc.types.Type):
 
     lifecycle = sgqlc.types.Field(ReinforcementLoopIssueLifecycle, graphql_name="lifecycle")
     """Cross-run lifecycle of the stable issue record — the full 4-state
-    enum, unlike the nested issue payload's 2-state parity field. Null
-    on an occurrence not yet backed by a stable issue record.
+    enum, unlike the nested issue payload's 2-state parity field.
     """
 
     first_detected_at = sgqlc.types.Field(
         sgqlc.types.non_null(DateTime), graphql_name="firstDetectedAt"
     )
-    """When the issue was FIRST detected across runs — the age anchor.
-    Falls back to the selected snapshot's snapshotReportedAt when no
-    stable issue record exists.
-    """
+    """When the issue was FIRST detected across runs — the age anchor."""
 
     last_seen_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="lastSeenAt")
-    """When any run LAST reported the issue — the sort key, newest first.
-    A global as-of-now value, NOT clamped to the query window: it can
-    exceed endTime when the issue is still occurring. Same fallback as
-    firstDetectedAt.
+    """When any run LAST reported the issue — the field startTime/endTime
+    filter on and the sort key, newest first. Always inside the
+    requested window by construction.
     """
 
     occurrence_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="occurrenceCount")
     """How many runs have reported this issue in total (not clamped to
-    the query window; 1 when no stable issue record exists).
+    the query window).
     """
 
     snapshot_reported_at = sgqlc.types.Field(
         sgqlc.types.non_null(DateTime), graphql_name="snapshotReportedAt"
     )
     """The SELECTED snapshot's report time. With snapshotSelection:
-    OLDEST this equals getAgentHealthIssueFindings' detectionTime.
+    OLDEST this equals getAgentHealthIssueFindings' detectionTime for
+    issues that have an in-window snapshot; when none exists it is the
+    newest report at or before endTime and can precede startTime.
     """
 
     run_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="runUuid")
@@ -94669,7 +97309,26 @@ class ReinforcementLoopIssue(sgqlc.types.Type):
     issue = sgqlc.types.Field(sgqlc.types.non_null(AgentHealthIssue), graphql_name="issue")
     """The selected snapshot's issue payload, evidence and recommended
     actions resolved inline — the same shape
-    getAgentHealthIssueFindings serves.
+    getAgentHealthIssueFindings serves, except its ticket fields stay
+    unset here: tickets are node-level state on this query.
+    """
+
+    linear_ticket = sgqlc.types.Field(AgentHealthIssueLinearTicket, graphql_name="linearTicket")
+    """Linear ticket linked to this issue (at most one); null when none."""
+
+    jira_ticket = sgqlc.types.Field(AgentHealthIssueJiraTicket, graphql_name="jiraTicket")
+    """Jira ticket linked to this issue (at most one); null when none."""
+
+    service_now_ticket = sgqlc.types.Field(
+        AgentHealthIssueServiceNowTicket, graphql_name="serviceNowTicket"
+    )
+    """ServiceNow incident linked to this issue (at most one); null when
+    none.
+    """
+
+    draft_pr = sgqlc.types.Field(ReinforcementLoopDraftPrRef, graphql_name="draftPr")
+    """The newest draft-PR workflow dispatch for this issue; null when
+    never dispatched.
     """
 
 
@@ -95399,6 +98058,176 @@ class SQLResponse(sgqlc.types.Type):
     """Unique ID associated to the executed query."""
 
 
+class SQLRuleComparison(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "type",
+        "operator",
+        "threshold_value",
+        "baseline_agg_function",
+        "baseline_interval_minutes",
+        "is_threshold_relative",
+        "min_buffer_value",
+        "max_buffer_value",
+        "min_buffer_modifier_type",
+        "max_buffer_modifier_type",
+        "number_of_agg_periods",
+        "threshold_lookback_minutes",
+        "is_percentage_threshold",
+        "percentage_baseline_sql",
+        "threshold_sensitivity",
+        "lower_threshold",
+        "upper_threshold",
+    )
+    type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="type")
+
+    operator = sgqlc.types.Field(String, graphql_name="operator")
+
+    threshold_value = sgqlc.types.Field(Float, graphql_name="thresholdValue")
+
+    baseline_agg_function = sgqlc.types.Field(String, graphql_name="baselineAggFunction")
+
+    baseline_interval_minutes = sgqlc.types.Field(Int, graphql_name="baselineIntervalMinutes")
+
+    is_threshold_relative = sgqlc.types.Field(Boolean, graphql_name="isThresholdRelative")
+
+    min_buffer_value = sgqlc.types.Field(Float, graphql_name="minBufferValue")
+
+    max_buffer_value = sgqlc.types.Field(Float, graphql_name="maxBufferValue")
+
+    min_buffer_modifier_type = sgqlc.types.Field(String, graphql_name="minBufferModifierType")
+
+    max_buffer_modifier_type = sgqlc.types.Field(String, graphql_name="maxBufferModifierType")
+
+    number_of_agg_periods = sgqlc.types.Field(Int, graphql_name="numberOfAggPeriods")
+
+    threshold_lookback_minutes = sgqlc.types.Field(Int, graphql_name="thresholdLookbackMinutes")
+
+    is_percentage_threshold = sgqlc.types.Field(Boolean, graphql_name="isPercentageThreshold")
+
+    percentage_baseline_sql = sgqlc.types.Field(String, graphql_name="percentageBaselineSql")
+
+    threshold_sensitivity = sgqlc.types.Field(String, graphql_name="thresholdSensitivity")
+
+    lower_threshold = sgqlc.types.Field(Float, graphql_name="lowerThreshold")
+
+    upper_threshold = sgqlc.types.Field(Float, graphql_name="upperThreshold")
+
+
+class SQLRuleOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "connection_name",
+        "description",
+        "notes",
+        "severity",
+        "priority",
+        "labels",
+        "audiences",
+        "failure_audiences",
+        "notify_run_failure",
+        "event_rollup_count",
+        "event_rollup_until_changed",
+        "alert_grouping",
+        "metadata",
+        "tags",
+        "data_quality_dimension",
+        "domains",
+        "is_draft",
+        "schedule",
+        "timeout",
+        "sql",
+        "variables",
+        "alert_conditions",
+        "query_result_type",
+        "sampling_sql",
+        "exception_primary_key_column",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Human-readable identifier. Optional on the
+    createOrUpdate*FromDefinition surface — server auto-generates a
+    unique name when omitted on create. Cannot be changed on update;
+    omit `name` to keep the existing one.
+    """
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    severity = sgqlc.types.Field(String, graphql_name="severity")
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    labels = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="labels",
+    )
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="audiences",
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
+
+    event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
+
+    event_rollup_until_changed = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="eventRollupUntilChanged"
+    )
+
+    alert_grouping = sgqlc.types.Field(AlertGrouping, graphql_name="alertGrouping")
+
+    metadata = sgqlc.types.Field(GenericScalar, graphql_name="metadata")
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePair"))),
+        graphql_name="tags",
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
+
+    schedule = sgqlc.types.Field("Schedule", graphql_name="schedule")
+
+    timeout = sgqlc.types.Field(Int, graphql_name="timeout")
+
+    sql = sgqlc.types.Field(String, graphql_name="sql")
+
+    variables = sgqlc.types.Field(sgqlc.types.non_null(GenericScalar), graphql_name="variables")
+
+    alert_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(SQLRuleComparison))),
+        graphql_name="alertConditions",
+    )
+
+    query_result_type = sgqlc.types.Field(String, graphql_name="queryResultType")
+
+    sampling_sql = sgqlc.types.Field(String, graphql_name="samplingSql")
+
+    exception_primary_key_column = sgqlc.types.Field(
+        String, graphql_name="exceptionPrimaryKeyColumn"
+    )
+
+
 class SamlIdentityProvider(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -95490,6 +98319,47 @@ class ScalarChange(sgqlc.types.Type):
 
     after = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="after")
     """Value after change"""
+
+
+class Schedule(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "type",
+        "dynamic_schedule_tables",
+        "dynamic_schedule_jobs",
+        "interval_minutes",
+        "interval_crontab",
+        "interval_crontab_day_operator",
+        "start_time",
+        "timezone",
+        "min_interval_minutes",
+    )
+    type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="type")
+
+    dynamic_schedule_tables = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="dynamicScheduleTables"
+    )
+
+    dynamic_schedule_jobs = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(DynamicScheduleJob)),
+        graphql_name="dynamicScheduleJobs",
+    )
+
+    interval_minutes = sgqlc.types.Field(Int, graphql_name="intervalMinutes")
+
+    interval_crontab = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="intervalCrontab"
+    )
+
+    interval_crontab_day_operator = sgqlc.types.Field(
+        String, graphql_name="intervalCrontabDayOperator"
+    )
+
+    start_time = sgqlc.types.Field(DateTime, graphql_name="startTime")
+
+    timezone = sgqlc.types.Field(String, graphql_name="timezone")
+
+    min_interval_minutes = sgqlc.types.Field(Int, graphql_name="minIntervalMinutes")
 
 
 class ScheduleConfig(sgqlc.types.Type):
@@ -97143,6 +100013,7 @@ class SlackCredentialsV2(sgqlc.types.Type):
         "team_id",
         "team_name",
         "agent_dispatch_enabled",
+        "agent_data_sampling_enabled",
         "is_notification_dispatcher",
         "binding_health",
         "notification_settings_count",
@@ -97169,6 +100040,13 @@ class SlackCredentialsV2(sgqlc.types.Type):
     agent_dispatch_enabled = sgqlc.types.Field(Boolean, graphql_name="agentDispatchEnabled")
     """Whether the customer opted this AGENT binding into dispatching
     notifications (AGENT bindings only; false for OBSERVE).
+    """
+
+    agent_data_sampling_enabled = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="agentDataSamplingEnabled"
+    )
+    """Whether the agent bot may sample raw customer data while answering
+    this workspace's turns (AGENT bindings only; false for OBSERVE).
     """
 
     is_notification_dispatcher = sgqlc.types.Field(Boolean, graphql_name="isNotificationDispatcher")
@@ -98883,6 +101761,87 @@ class TableMonitorMetric(sgqlc.types.Type):
     value = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="value")
 
 
+class TableMonitorOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "description",
+        "notes",
+        "priority",
+        "alert_grouping",
+        "asset_selection",
+        "audiences",
+        "failure_audiences",
+        "domains",
+        "alert_conditions",
+        "tags",
+        "data_quality_dimension",
+        "is_draft",
+        "enable_row_count_collection",
+        "enable_row_count_collection_limit",
+        "sensitivity",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Human-readable identifier. Optional on the
+    createOrUpdate*FromDefinition surface — server auto-generates a
+    unique name when omitted on create. Cannot be changed on update;
+    omit `name` to keep the existing one.
+    """
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    alert_grouping = sgqlc.types.Field(AlertGrouping, graphql_name="alertGrouping")
+
+    asset_selection = sgqlc.types.Field(AssetSelection, graphql_name="assetSelection")
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="audiences",
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    alert_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(TableMonitorAlertCondition))),
+        graphql_name="alertConditions",
+    )
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePair"))),
+        graphql_name="tags",
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
+
+    enable_row_count_collection = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="enableRowCountCollection"
+    )
+
+    enable_row_count_collection_limit = sgqlc.types.Field(
+        Int, graphql_name="enableRowCountCollectionLimit"
+    )
+
+    sensitivity = sgqlc.types.Field(String, graphql_name="sensitivity")
+
+
 class TableMonitorStatus(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -99250,6 +102209,14 @@ class TagInfoOutput(sgqlc.types.Type):
 
     id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="id")
     """Tag ID"""
+
+
+class TagKeyValuePair(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("name", "value")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+
+    value = sgqlc.types.Field(String, graphql_name="value")
 
 
 class TagKeyValuePairOutput(sgqlc.types.Type):
@@ -100567,6 +103534,17 @@ class ToggleSizeCollection(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("enabled",)
     enabled = sgqlc.types.Field(Boolean, graphql_name="enabled")
+
+
+class ToggleSlackAgentDataSampling(sgqlc.types.Type):
+    """Enable/disable raw customer data sampling in the Monte Carlo AI
+    (agent) Slack app's answers for this workspace.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("enabled",)
+    enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="enabled")
+    """The resulting enabled/disabled state for the feature"""
 
 
 class ToggleSlackAgentDispatch(sgqlc.types.Type):
@@ -101970,6 +104948,37 @@ class TsaAnalysisResultType(sgqlc.types.Type):
     """LangGraph run ID for feedback submission. Available when status is
     COMPLETED.
     """
+
+
+class TuneTableMonitorAssetRuleThreshold(sgqlc.types.Type):
+    """Tune ONLY the breach boundary of a table monitor's per-asset OOTB
+    replacement rule.  Changes a single asset/metric detector's auto
+    sensitivity OR its manual threshold — for freshness, volume
+    change, or unchanged size — creating the replacement rule on first
+    use and updating it thereafter, without touching schedule,
+    notifications, severity, or any other part of the rule. Available
+    to a tune-capable role without broad table-edit access; the caller
+    must still be able to see the table.  Supply exactly one knob.
+    Sensitivity and the manual threshold are mutually exclusive modes;
+    the manual threshold's shape depends on `ruleType`:  -
+    `FRESHNESS`: `freshnessThresholdMinutes` (alert when not updated
+    for longer than this). - `UNCHANGED_SIZE`:
+    `unchangedSizeThresholdMinutes` (alert when unchanged for longer
+    than this). - `VOLUME_CHANGE`: an out-of-range band
+    `volumeUpperThreshold` / `volumeLowerThreshold`   (optionally with
+    `volumeLookbackMinutes`).
+    """
+
+    __schema__ = schema
+    __field_names__ = ("success", "uuid", "rule_type")
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """UUID of the created or updated OOTB replacement rule"""
+
+    rule_type = sgqlc.types.Field(
+        sgqlc.types.non_null(TableMonitorAssetRuleType), graphql_name="ruleType"
+    )
 
 
 class UCSAutomatedAlertConditionOutput(sgqlc.types.Type):
@@ -103889,6 +106898,123 @@ class ValidationFailure(sgqlc.types.Type):
     """Helpful instructions on how to resolve the validation failure."""
 
 
+class ValidationOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "connection_name",
+        "description",
+        "notes",
+        "severity",
+        "priority",
+        "labels",
+        "audiences",
+        "failure_audiences",
+        "notify_run_failure",
+        "event_rollup_count",
+        "event_rollup_until_changed",
+        "alert_grouping",
+        "metadata",
+        "tags",
+        "data_quality_dimension",
+        "domains",
+        "is_draft",
+        "schedule",
+        "timeout",
+        "data_source",
+        "alert_condition",
+        "exception_primary_key_column",
+        "percentage_threshold",
+        "percentage_operator",
+        "time_filter",
+        "filters",
+        "time_filter_sql_expression",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Human-readable identifier. Optional on the
+    createOrUpdate*FromDefinition surface — server auto-generates a
+    unique name when omitted on create. Cannot be changed on update;
+    omit `name` to keep the existing one.
+    """
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    severity = sgqlc.types.Field(String, graphql_name="severity")
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    labels = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="labels",
+    )
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="audiences",
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
+
+    event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
+
+    event_rollup_until_changed = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="eventRollupUntilChanged"
+    )
+
+    alert_grouping = sgqlc.types.Field(AlertGrouping, graphql_name="alertGrouping")
+
+    metadata = sgqlc.types.Field(GenericScalar, graphql_name="metadata")
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePair))),
+        graphql_name="tags",
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
+
+    schedule = sgqlc.types.Field(Schedule, graphql_name="schedule")
+
+    timeout = sgqlc.types.Field(Int, graphql_name="timeout")
+
+    data_source = sgqlc.types.Field(MonitorDataSourceOutput, graphql_name="dataSource")
+
+    alert_condition = sgqlc.types.Field("FilterGroup", graphql_name="alertCondition")
+
+    exception_primary_key_column = sgqlc.types.Field(
+        String, graphql_name="exceptionPrimaryKeyColumn"
+    )
+
+    percentage_threshold = sgqlc.types.Field(Float, graphql_name="percentageThreshold")
+
+    percentage_operator = sgqlc.types.Field(String, graphql_name="percentageOperator")
+
+    time_filter = sgqlc.types.Field(TimeFilter, graphql_name="timeFilter")
+
+    filters = sgqlc.types.Field("FilterGroup", graphql_name="filters")
+
+    time_filter_sql_expression = sgqlc.types.Field(String, graphql_name="timeFilterSqlExpression")
+
+
 class VariableDefinition(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("name", "runtime", "values")
@@ -104040,6 +107166,170 @@ class VolumeChangeTableMonitorConfigOutput(sgqlc.types.Type):
 
     most_recent_total_size = sgqlc.types.Field(Float, graphql_name="mostRecentTotalSize")
     """Most recent total size value collected"""
+
+
+class VolumeRuleComparison(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "type",
+        "operator",
+        "threshold_value",
+        "baseline_agg_function",
+        "baseline_interval_minutes",
+        "is_threshold_relative",
+        "min_buffer_value",
+        "max_buffer_value",
+        "min_buffer_modifier_type",
+        "max_buffer_modifier_type",
+        "number_of_agg_periods",
+        "threshold_lookback_minutes",
+        "is_percentage_threshold",
+        "percentage_baseline_sql",
+        "threshold_sensitivity",
+        "lower_threshold",
+        "upper_threshold",
+    )
+    type = sgqlc.types.Field(String, graphql_name="type")
+
+    operator = sgqlc.types.Field(String, graphql_name="operator")
+
+    threshold_value = sgqlc.types.Field(Float, graphql_name="thresholdValue")
+
+    baseline_agg_function = sgqlc.types.Field(String, graphql_name="baselineAggFunction")
+
+    baseline_interval_minutes = sgqlc.types.Field(Int, graphql_name="baselineIntervalMinutes")
+
+    is_threshold_relative = sgqlc.types.Field(Boolean, graphql_name="isThresholdRelative")
+
+    min_buffer_value = sgqlc.types.Field(Float, graphql_name="minBufferValue")
+
+    max_buffer_value = sgqlc.types.Field(Float, graphql_name="maxBufferValue")
+
+    min_buffer_modifier_type = sgqlc.types.Field(String, graphql_name="minBufferModifierType")
+
+    max_buffer_modifier_type = sgqlc.types.Field(String, graphql_name="maxBufferModifierType")
+
+    number_of_agg_periods = sgqlc.types.Field(Int, graphql_name="numberOfAggPeriods")
+
+    threshold_lookback_minutes = sgqlc.types.Field(Int, graphql_name="thresholdLookbackMinutes")
+
+    is_percentage_threshold = sgqlc.types.Field(Boolean, graphql_name="isPercentageThreshold")
+
+    percentage_baseline_sql = sgqlc.types.Field(String, graphql_name="percentageBaselineSql")
+
+    threshold_sensitivity = sgqlc.types.Field(String, graphql_name="thresholdSensitivity")
+
+    lower_threshold = sgqlc.types.Field(Float, graphql_name="lowerThreshold")
+
+    upper_threshold = sgqlc.types.Field(Float, graphql_name="upperThreshold")
+
+
+class VolumeSLOOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse",
+        "name",
+        "connection_name",
+        "description",
+        "notes",
+        "severity",
+        "priority",
+        "labels",
+        "audiences",
+        "failure_audiences",
+        "notify_run_failure",
+        "event_rollup_count",
+        "event_rollup_until_changed",
+        "alert_grouping",
+        "metadata",
+        "tags",
+        "data_quality_dimension",
+        "domains",
+        "is_draft",
+        "schedule",
+        "table",
+        "tables",
+        "alert_conditions",
+        "volume_metric",
+        "override",
+    )
+    uuid = sgqlc.types.Field(String, graphql_name="uuid")
+
+    warehouse = sgqlc.types.Field(String, graphql_name="warehouse")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Human-readable identifier. Optional on the
+    createOrUpdate*FromDefinition surface — server auto-generates a
+    unique name when omitted on create. Cannot be changed on update;
+    omit `name` to keep the existing one.
+    """
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
+
+    severity = sgqlc.types.Field(String, graphql_name="severity")
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+    labels = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="labels",
+    )
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="audiences",
+    )
+
+    failure_audiences = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="failureAudiences"
+    )
+
+    notify_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRunFailure")
+
+    event_rollup_count = sgqlc.types.Field(Int, graphql_name="eventRollupCount")
+
+    event_rollup_until_changed = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="eventRollupUntilChanged"
+    )
+
+    alert_grouping = sgqlc.types.Field(AlertGrouping, graphql_name="alertGrouping")
+
+    metadata = sgqlc.types.Field(GenericScalar, graphql_name="metadata")
+
+    tags = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePair))),
+        graphql_name="tags",
+    )
+
+    data_quality_dimension = sgqlc.types.Field(String, graphql_name="dataQualityDimension")
+
+    domains = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="domains"
+    )
+
+    is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
+
+    schedule = sgqlc.types.Field(Schedule, graphql_name="schedule")
+
+    table = sgqlc.types.Field(String, graphql_name="table")
+
+    tables = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="tables"
+    )
+
+    alert_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(VolumeRuleComparison))),
+        graphql_name="alertConditions",
+    )
+
+    volume_metric = sgqlc.types.Field(String, graphql_name="volumeMetric")
+
+    override = sgqlc.types.Field(Boolean, graphql_name="override")
 
 
 class Warehouse(sgqlc.types.Type):

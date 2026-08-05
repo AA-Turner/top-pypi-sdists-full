@@ -292,6 +292,7 @@ def _run_step(
             "started_at": float(context.get("started_at") or 0.0),
             "instance_host": str(context.get("instance_host") or ""),
             "allow_discard": bool(context.get("allow_discard")),
+            "carrier_url": str(context.get("carrier_url") or ""),
             "timeout_ms": timeout_ms,
         }
         login_user = str(context.get("login_user") or "")
@@ -383,7 +384,7 @@ def act(
     profile: str,
     account: str = "",
     actions: Sequence[Dict[str, Any]] = (),
-    after_seq: int = 0,
+    marks: Any = 0,
     settle_ms: int = 0,
     screenshot: str = "none",
     selector: Optional[str] = None,
@@ -482,18 +483,20 @@ def act(
                 except Exception as exc:  # noqa: BLE001
                     logger.debug("Could not detach the dialog listener: %s", exc)
 
-                drained = page.evaluate(drain_script(after_seq)) or {}
-                shot = _screenshot(
+                drained = page.evaluate(drain_script(marks)) or {}
+                shot, shot_note = _screenshot(
                     page, mode=screenshot, selector=selector, destination=screenshot_path
                 )
                 return {
                     "url": str(page.url),
                     "title": str(drained.get("title") or page.title()),
                     "seq": int(drained.get("seq") or 0),
+                    "tab_id": str(drained.get("tabId") or ""),
                     "dropped": int(drained.get("dropped") or 0),
                     "events": list(drained.get("events") or []),
                     "styles": {},
                     "screenshot": shot,
+                    "screenshot_note": shot_note,
                     "effective_user": _effective_user(page),
                     "watched_seconds": settle_s,
                     "steps": results,

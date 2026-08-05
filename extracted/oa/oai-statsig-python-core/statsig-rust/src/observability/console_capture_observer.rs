@@ -3,8 +3,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use crate::{
-    console_capture::console_capture_handler::ConsoleCaptureHandler,
-    observability::ops_stats::OpsStatsEvent, user::StatsigUserLoggable, OpsStatsEventObserver,
+    OpsStatsEventObserver, console_capture::console_capture_handler::ConsoleCaptureHandler,
+    observability::ops_stats::OpsStatsEvent, user::StatsigUserLoggable,
 };
 
 #[derive(Clone)]

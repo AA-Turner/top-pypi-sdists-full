@@ -10,8 +10,9 @@ use crate::gcir::gcir_formatter::GCIRHashable;
 use crate::hashing::opt_bool_to_hashable;
 use crate::interned_string::InternedString;
 use crate::specs_response::explicit_params::ExplicitParameters;
+use crate::specs_response::parse_options::{SpecsResponseParseOptions, with_parse_options};
 use crate::specs_response::specs_hash_map::SpecsHashMap;
-use crate::{hashing, DynamicValue};
+use crate::{DynamicValue, hashing};
 
 use super::{cmab_types::CMABConfig, param_store_types::ParameterStore};
 
@@ -336,6 +337,13 @@ response_struct!(SpecsResponsePartial, {
 });
 
 impl SpecsResponseFull {
+    pub fn deserialize_json_with_options(
+        data: &[u8],
+        options: SpecsResponseParseOptions,
+    ) -> Result<Self, serde_json::Error> {
+        with_parse_options(options, || serde_json::from_slice(data))
+    }
+
     pub fn reset(&mut self) {
         *self = SpecsResponseFull::default();
     }

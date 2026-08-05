@@ -17,13 +17,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from typing import TYPE_CHECKING, Final
 
 from tomlrt._errors import TOMLParseError
-from tomlrt._trivia import (
-    CommentNode,
-    EolTrivia,
-    NewlineNode,
-    Trivia,
-    WhitespaceNode,
-)
+from tomlrt._trivia import EolTrivia
 from tomlrt._values import (
     BoolValue,
     DateTimeValue,
@@ -51,6 +45,12 @@ _RE_ML_LITERAL_BODY: Final = re.compile(r"[^'\r\n\x00-\x08\x0b-\x1f\x7f]+")
 # Bare key: ASCII alphanum + underscore + dash. (TOML 1.1 broadens
 # this; if/when tomlrt opts in, widen the pattern here.)
 _RE_BARE_KEY: Final = re.compile(r"[A-Za-z0-9_\-]+")
+
+# Per-flavour multi-line string body pattern and name for diagnostics.
+_ML_FLAVOURS: Final = {
+    '"': (_RE_ML_BASIC_BODY, "basic"),
+    "'": (_RE_ML_LITERAL_BODY, "literal"),
+}
 
 _HEX_DIGITS: Final[frozenset[str]] = frozenset("0123456789abcdefABCDEF")
 _OCT_DIGITS: Final[frozenset[str]] = frozenset("01234567")
@@ -105,34 +105,6 @@ class _Scanner:
             return "\r\n"
         return "\n"
 
-    def peek(self, offset: int = 0) -> str:
-        """Return the character `offset` chars ahead of the cursor.
-
-        Returns the empty string at or past EOF; never raises.
-        """
-        i = self.pos + offset
-        if i >= self.end:
-            return ""
-        return self.src[i]
-
-    def starts_with(self, s: str) -> bool:
-        """Return True iff `s` matches the source from the cursor."""
-        return self.src.startswith(s, self.pos)
-
-    def eof(self) -> bool:
-        return self.pos >= self.end
-
-    def advance(self, n: int = 1) -> str:
-        """Move the cursor forward `n` chars; return the consumed slice.
-
-        Does *not* validate that `n` characters remain — the caller is
-        responsible (this is fine because every existing call site
-        first peeks for the characters it expects).
-        """
-        s = self.src[self.pos : self.pos + n]
-        self.pos += n
-        return s
-
     def line_col(self, pos: int) -> tuple[int, int]:
         """Return the 1-based (line, column) for source offset `pos`."""
         line = 1
@@ -150,7 +122,7 @@ class _Scanner:
         line, col = self.line_col(offset)
         return TOMLParseError(message, line=line, col=col, offset=offset)
 
-    def scan_comment(self) -> CommentNode:
+    def scan_comment(self) -> str:
         """Consume a comment from `#` to (but not including) the newline.
 
         The cursor must be on `#`. Raises if the comment body contains
@@ -169,37 +141,28 @@ class _Scanner:
                 msg = f"invalid control character U+{cp:04X} in comment"
                 raise self.error(msg)
         self.pos = end_pos
-        return CommentNode(src[start:end_pos])
+        return src[start:end_pos]
 
-    def scan_doc_trivia(self) -> Trivia:
+    def scan_doc_trivia(self) -> str:
         """Consume a document-scope trivia block.
 
         Whitespace, blank lines and full-line comments are consumed.
         Stops before the next structural token (or EOF).
         """
-        trivia = Trivia()
-        pieces = trivia.pieces
+        start = self.pos
         src = self.src
         end = self.end
         pos = self.pos
         while pos < end:
             ch = src[pos]
             if ch == " " or ch == "\t":
-                ws_start = pos
                 pos += 1
-                while pos < end:
-                    c = src[pos]
-                    if c != " " and c != "\t":
-                        break
-                    pos += 1
-                pieces.append(WhitespaceNode(src[ws_start:pos]))
             elif ch == "#":
                 self.pos = pos
-                pieces.append(self.scan_comment())
+                self.scan_comment()
                 pos = self.pos
             elif ch == "\n":
                 pos += 1
-                pieces.append(NewlineNode("\n"))
                 self._seen_lf = True
             elif ch == "\r":
                 if pos + 1 >= end or src[pos + 1] != "\n":
@@ -207,42 +170,17 @@ class _Scanner:
                     msg = "stray carriage return"
                     raise self.error(msg)
                 pos += 2
-                pieces.append(NewlineNode("\r\n"))
                 self._seen_crlf = True
             else:
                 break
         self.pos = pos
-        return trivia
-
-    def scan_inline_ws(self) -> WhitespaceNode | None:
-        """Consume one run of inline whitespace; no newlines or comments.
-
-        Returns `None` (and leaves the cursor untouched) if the next
-        character is not space or tab.
-        """
-        src = self.src
-        end = self.end
-        pos = self.pos
-        if pos >= end:
-            return None
-        ch = src[pos]
-        if ch != " " and ch != "\t":
-            return None
-        start = pos
-        pos += 1
-        while pos < end:
-            c = src[pos]
-            if c != " " and c != "\t":
-                break
-            pos += 1
-        self.pos = pos
-        return WhitespaceNode(src[start:pos])
+        return src[start:pos]
 
     def scan_inline_ws_text(self) -> str:
         """Consume one run of inline whitespace; return raw text (or "").
 
-        Like :meth:`scan_inline_ws`, but skips the ``WhitespaceNode``
-        allocation for parser fields stored as plain ``str``.
+        Newlines and comments are not whitespace here; the cursor stops
+        at the first character that is neither space nor tab.
         """
         src = self.src
         end = self.end
@@ -262,44 +200,34 @@ class _Scanner:
         self.pos = pos
         return src[start:pos]
 
-    def scan_array_trivia(self) -> Trivia:
+    def scan_array_trivia(self) -> str:
         """Consume trivia inside an array (or TOML 1.1 inline table).
 
         Whitespace, newlines and comments are all permitted. Stops
         before the next structural character.
         """
-        trivia = Trivia()
-        pieces = trivia.pieces
+        start = self.pos
         src = self.src
         end = self.end
         pos = self.pos
         while pos < end:
             ch = src[pos]
             if ch == " " or ch == "\t":
-                ws_start = pos
                 pos += 1
-                while pos < end:
-                    c = src[pos]
-                    if c != " " and c != "\t":
-                        break
-                    pos += 1
-                pieces.append(WhitespaceNode(src[ws_start:pos]))
             elif ch == "\n":
                 pos += 1
-                pieces.append(NewlineNode("\n"))
                 self._seen_lf = True
             elif ch == "\r" and pos + 1 < end and src[pos + 1] == "\n":
                 pos += 2
-                pieces.append(NewlineNode("\r\n"))
                 self._seen_crlf = True
             elif ch == "#":
                 self.pos = pos
-                pieces.append(self.scan_comment())
+                self.scan_comment()
                 pos = self.pos
             else:
                 break
         self.pos = pos
-        return trivia
+        return src[start:pos]
 
     def scan_eol(self) -> EolTrivia:
         """Consume optional trailing-ws + comment + newline (or EOF).
@@ -307,8 +235,8 @@ class _Scanner:
         Raises if a non-newline, non-comment, non-EOF character is
         found after the optional whitespace.
         """
-        trailing = self.scan_inline_ws()
-        comment: CommentNode | None = None
+        trailing = self.scan_inline_ws_text()
+        comment = ""
         src = self.src
         end = self.end
         pos = self.pos
@@ -317,14 +245,14 @@ class _Scanner:
             comment = self.scan_comment()
             pos = self.pos
             ch = src[pos] if pos < end else ""
-        newline: NewlineNode | None = None
+        newline = ""
         if ch == "\n":
             self.pos = pos + 1
-            newline = NewlineNode("\n")
+            newline = "\n"
             self._seen_lf = True
         elif ch == "\r" and pos + 1 < end and src[pos + 1] == "\n":
             self.pos = pos + 2
-            newline = NewlineNode("\r\n")
+            newline = "\r\n"
             self._seen_crlf = True
         elif pos < end:
             msg = f"expected newline or end of file, got {ch!r}"
@@ -339,26 +267,24 @@ class _Scanner:
         value, and style. Key parsers pass ``allow_multiline=False`` to
         reject multi-line strings.
 
-        Precondition: cursor is at `"` or `'`. Callers always peek
-        first; this is asserted, not validated.
+        Precondition: cursor is at `"` or `'`. Callers look at the
+        character first; this is asserted, not validated.
         """
+        src = self.src
         start = self.pos
-        ch = self.peek()
+        ch = src[start]
         assert ch in ('"', "'"), f"scan_string called at {ch!r}"
         if ch == '"':
-            node = self._scan_basic_string(allow_multiline=allow_multiline)
+            ml = allow_multiline and src.startswith('"""', start)
+            node = self._scan_ml_string(ch) if ml else self._scan_basic_string()
         else:
-            node = self._scan_literal_string(allow_multiline=allow_multiline)
-        node.lexeme = self.src[start : self.pos]
+            ml = allow_multiline and src.startswith("'''", start)
+            node = self._scan_ml_string(ch) if ml else self._scan_literal_string()
+        node.lexeme = src[start : self.pos]
         return node
 
-    def _scan_basic_string(self, *, allow_multiline: bool) -> StringValue:
-        """Scan a basic string. Decodes escapes; never sets `raw`.
-
-        Precondition: cursor is at `"`.
-        """
-        if allow_multiline and self.starts_with('"""'):
-            return self._scan_ml_basic_string()
+    def _scan_basic_string(self) -> StringValue:
+        """Scan a single-line basic string. Precondition: cursor is at `"`."""
         src = self.src
         end = self.end
         # Fast path: simple basic string with no escapes.
@@ -368,7 +294,7 @@ class _Scanner:
             body_end = m.end()
             if body_end < end and src[body_end] == '"':
                 self.pos = body_end + 1
-                return StringValue(lexeme="", value=src[body_start:body_end])
+                return StringValue("", src[body_start:body_end])
             self.pos = body_end
         else:
             self.pos = body_start
@@ -382,112 +308,107 @@ class _Scanner:
             ch = src[self.pos]
             if ch == '"':
                 self.pos += 1
-                return StringValue(lexeme="", value="".join(out))
+                return StringValue("", "".join(out))
             if ch == "\\":
                 out.append(self._scan_escape())
             elif ch == "\n" or ch == "\r":
                 msg = "newline in basic string"
                 raise self.error(msg)
             else:
-                cp = ord(ch)
-                if cp == 0x7F:
-                    msg = "invalid control character U+007F in string"
-                    raise self.error(msg)
-                msg = f"invalid control character U+{cp:04X} in string"
+                msg = f"invalid control character U+{ord(ch):04X} in string"
                 raise self.error(msg)
             m = _RE_BASIC_STR_BODY.match(src, self.pos)
             if m is not None:
                 out.append(m.group(0))
                 self.pos = m.end()
 
-    def _scan_ml_basic_string(self) -> StringValue:
-        """Scan a ``\"\"\"``-delimited string. Precondition: cursor is at ``\"\"\"``."""
-        self.pos += 3
+    def _scan_ml_string(self, quote: str) -> StringValue:
+        """Scan a ``\"\"\"`` / ``\'\'\'``-delimited string.
+
+        Precondition: cursor is at the opening delimiter. ``body``
+        matches the flavour's run of ordinary characters, so the tail
+        below only ever sees the delimiter quote, a line ending, a
+        backslash -- which reaches it in a basic string but is ordinary
+        body in a literal one -- or an invalid control character.
+        """
+        body, kind = _ML_FLAVOURS[quote]
+        src = self.src
+        end = self.end
+        delim = quote * 3
+        pos = self.pos + 3
         # A newline immediately after the opening delimiter is trimmed.
-        if self.peek() == "\n":
-            self.pos += 1
-        elif self.peek() == "\r" and self.peek(1) == "\n":
-            self.pos += 2
+        if src.startswith("\n", pos):
+            pos += 1
+        elif src.startswith("\r\n", pos):
+            pos += 2
         out: list[str] = []
         while True:
-            if self.eof():
-                msg = "unterminated multi-line basic string"
-                raise self.error(msg)
-            m = _RE_ML_BASIC_BODY.match(self.src, self.pos)
+            m = body.match(src, pos)
             if m is not None:
                 out.append(m.group(0))
-                self.pos = m.end()
-                if self.eof():
-                    continue
-            if self.starts_with('"""'):
+                pos = m.end()
+            self.pos = pos
+            if pos >= end:
+                msg = f"unterminated multi-line {kind} string"
+                raise self.error(msg)
+            if src.startswith(delim, pos):
                 # Up to two extra trailing quotes are allowed inside.
-                self.pos += 3
+                pos += 3
                 extras = 0
-                while extras < 2 and self.peek() == '"':
-                    out.append('"')
-                    self.pos += 1
+                while extras < 2 and pos < end and src[pos] == quote:
+                    out.append(quote)
+                    pos += 1
                     extras += 1
-                return StringValue(lexeme="", value="".join(out))
-            ch = self.peek()
-            if ch == '"':
-                # Single or double quote, not the closing triple.
-                out.append('"')
-                self.pos += 1
-                continue
-            if ch == "\\":
-                # Line-ending backslash: trim trailing ws+newline+leading-ws.
-                if self.peek(1) in ("\n", " ", "\t", "\r"):
-                    save = self.pos
-                    self.pos += 1
-                    # Skip trailing inline ws on this line.
-                    while self.peek() in (" ", "\t"):
-                        self.pos += 1
-                    if self.peek() == "\n" or (
-                        self.peek() == "\r" and self.peek(1) == "\n"
-                    ):
-                        # Eat one or more whitespace lines.
-                        while True:
-                            if self.peek() == "\n":
-                                self.pos += 1
-                            elif self.peek() == "\r" and self.peek(1) == "\n":
-                                self.pos += 2
-                            else:
-                                break
-                            while self.peek() in (" ", "\t"):
-                                self.pos += 1
-                        continue
-                    # Not a line-ending backslash; rewind and parse an escape.
-                    self.pos = save
-                out.append(self._scan_escape())
-                continue
-            if ch == "\r":
-                if self.peek(1) != "\n":
+                self.pos = pos
+                return StringValue("", "".join(out))
+            ch = src[pos]
+            if ch == quote:
+                out.append(quote)
+                pos += 1
+            elif ch == "\\":
+                pos = self._scan_ml_escape(out, pos)
+            elif ch == "\n":
+                out.append("\n")
+                pos += 1
+            elif ch == "\r":
+                if not src.startswith("\r\n", pos):
                     msg = "stray carriage return in string"
                     raise self.error(msg)
                 out.append("\r\n")
-                self.pos += 2
-                continue
-            if ch == "\n":
-                out.append("\n")
-                self.pos += 1
-                continue
-            cp = ord(ch)
-            if cp <= 0x1F and cp != 0x09:
-                msg = f"invalid control character U+{cp:04X} in string"
+                pos += 2
+            else:
+                msg = f"invalid control character U+{ord(ch):04X} in string"
                 raise self.error(msg)
-            if cp == 0x7F:
-                msg = "invalid control character U+007F in string"
-                raise self.error(msg)
-            msg = "multi-line basic body regex left an ordinary character"
-            raise AssertionError(msg)
 
-    def _scan_literal_string(self, *, allow_multiline: bool) -> StringValue:
-        """Scan a literal string. No escapes; never sets `raw`.
+    def _scan_ml_escape(self, out: list[str], pos: int) -> int:
+        """Consume one backslash inside a multi-line basic string.
 
-        Precondition: cursor is at `'`.
+        A backslash that ends a line swallows the trailing whitespace,
+        the line break, and the indent of every following blank line;
+        anything else is an ordinary escape. Returns the new cursor.
         """
-        if allow_multiline and self.starts_with("'''"):
-            return self._scan_ml_literal_string()
+        src = self.src
+        end = self.end
+        if src[pos + 1 : pos + 2] in ("\n", " ", "\t", "\r"):
+            scan = pos + 1
+            while scan < end and src[scan] in " \t":
+                scan += 1
+            if src.startswith("\n", scan) or src.startswith("\r\n", scan):
+                while True:
+                    if src.startswith("\n", scan):
+                        scan += 1
+                    elif src.startswith("\r\n", scan):
+                        scan += 2
+                    else:
+                        return scan
+                    while scan < end and src[scan] in " \t":
+                        scan += 1
+        self.pos = pos
+        out.append(self._scan_escape())
+        return self.pos
+
+    def _scan_literal_string(self) -> StringValue:
+        """Scan a single-line literal string. Precondition: cursor is at `'`."""
         self.pos += 1
         src = self.src
         end = self.end
@@ -506,68 +427,14 @@ class _Scanner:
         if ch == "\n" or ch == "\r":
             msg = "newline in literal string"
             raise self.error(msg)
-        cp = ord(ch)
-        if cp == 0x7F:
-            msg = "invalid control character U+007F in string"
-            raise self.error(msg)
-        msg = f"invalid control character U+{cp:04X} in string"
+        msg = f"invalid control character U+{ord(ch):04X} in string"
         raise self.error(msg)
-
-    def _scan_ml_literal_string(self) -> StringValue:
-        """Scan a ``'''``-delimited string. Precondition: cursor is at ``'''``."""
-        self.pos += 3
-        if self.peek() == "\n":
-            self.pos += 1
-        elif self.peek() == "\r" and self.peek(1) == "\n":
-            self.pos += 2
-        out: list[str] = []
-        while True:
-            if self.eof():
-                msg = "unterminated multi-line literal string"
-                raise self.error(msg)
-            m = _RE_ML_LITERAL_BODY.match(self.src, self.pos)
-            if m is not None:
-                out.append(m.group(0))
-                self.pos = m.end()
-                if self.eof():
-                    continue
-            if self.starts_with("'''"):
-                self.pos += 3
-                extras = 0
-                while extras < 2 and self.peek() == "'":
-                    out.append("'")
-                    self.pos += 1
-                    extras += 1
-                return StringValue(lexeme="", value="".join(out))
-            ch = self.peek()
-            if ch == "'":
-                # Single quote, not the closing triple.
-                out.append("'")
-                self.pos += 1
-                continue
-            if ch == "\n":
-                out.append("\n")
-                self.pos += 1
-                continue
-            if ch == "\r":
-                if self.peek(1) != "\n":
-                    msg = "stray carriage return in string"
-                    raise self.error(msg)
-                out.append("\r\n")
-                self.pos += 2
-                continue
-            cp = ord(ch)
-            if cp == 0x7F:
-                msg = "invalid control character U+007F in string"
-                raise self.error(msg)
-            msg = f"invalid control character U+{cp:04X} in string"
-            raise self.error(msg)
 
     def _scan_escape(self) -> str:
         r"""Scan one ``\\``-escape. Precondition: cursor is at ``\\``."""
-        self.pos += 1
-        ch = self.peek()
-        self.pos += 1
+        pos = self.pos + 1
+        ch = self.src[pos : pos + 1]
+        self.pos = pos + 1
         escaped = _SIMPLE_ESCAPES.get(ch)
         if escaped is not None:
             return escaped
@@ -596,50 +463,38 @@ class _Scanner:
             raise self.error(msg)
         return chr(cp)
 
-    def scan_key_part(self) -> KeyPart:
-        """Scan one key part: bare, basic-quoted, or literal-quoted."""
-        src = self.src
-        pos = self.pos
-        ch = src[pos] if pos < self.end else ""
-        if ch == '"' or ch == "'":
-            s = self.scan_string(allow_multiline=False)
-            return KeyPart(s.lexeme, s.value)
-        m = _RE_BARE_KEY.match(src, pos)
-        if m is not None:
-            end_pos = m.end()
-            raw = src[pos:end_pos]
-            self.pos = end_pos
-            return KeyPart(raw, raw)
-        msg = f"expected key, got {ch!r}"
-        raise self.error(msg)
+    def scan_key(self) -> tuple[list[KeyPart], list[str], str]:
+        """Scan a dotted key; return its parts, separators, trailing ws.
 
-    def scan_key_separator(self) -> tuple[str, bool]:
-        """Scan an optional dotted-key separator and trailing whitespace.
-
-        If the next non-whitespace char is ``.``, consumes ``ws "." ws``
-        and returns ``(lexeme, True)``. Otherwise returns leading
-        whitespace as ``(ws_text, False)`` for ``pre_eq`` / ``inner_post``.
+        Each part is bare, basic-quoted or literal-quoted; each
+        separator is the literal ``ws "." ws`` between two parts. The
+        whitespace after the last part is consumed too, and can be used
+        directly as ``pre_eq`` / ``inner_post``.
         """
         src = self.src
-        end = self.end
-        save = self.pos
-        ws_end = save
-        while ws_end < end:
-            c = src[ws_end]
-            if c != " " and c != "\t":
-                break
-            ws_end += 1
-        if ws_end >= end or src[ws_end] != ".":
-            self.pos = ws_end
-            return src[save:ws_end], False
-        sep_end = ws_end + 1
-        while sep_end < end:
-            c = src[sep_end]
-            if c != " " and c != "\t":
-                break
-            sep_end += 1
-        self.pos = sep_end
-        return src[save:sep_end], True
+        parts: list[KeyPart] = []
+        seps: list[str] = []
+        while True:
+            start = self.pos
+            ch = src[start] if start < self.end else ""
+            if ch == '"' or ch == "'":
+                quoted = self.scan_string(allow_multiline=False)
+                parts.append(KeyPart(quoted.lexeme, quoted.value))
+            else:
+                m = _RE_BARE_KEY.match(src, start)
+                if m is None:
+                    msg = f"expected key, got {ch!r}"
+                    raise self.error(msg)
+                self.pos = m.end()
+                raw = src[start : self.pos]
+                parts.append(KeyPart(raw, raw))
+            sep_start = self.pos
+            ws = self.scan_inline_ws_text()
+            if self.pos >= self.end or src[self.pos] != ".":
+                return parts, seps, ws
+            self.pos += 1
+            self.scan_inline_ws_text()
+            seps.append(src[sep_start : self.pos])
 
     # Bare value tokens: bool, special floats, numbers, and date/time values.
     # The parser dispatches strings, arrays, and inline tables itself.
@@ -655,21 +510,19 @@ class _Scanner:
         end = self._scan_value_end(start)
         token = self.src[start:end]
         if not token:
-            msg = f"expected value, got {self.peek()!r}"
+            msg = f"expected value, got {self.src[start : start + 1]!r}"
             raise self.error(msg)
         self.pos = end
 
         # Whole-token keyword classification.
-        if token == "true":  # noqa: S105
-            return BoolValue("true", value=True)
-        if token == "false":  # noqa: S105
-            return BoolValue("false", value=False)
+        if token in ("true", "false"):
+            return BoolValue(token, token == "true")  # noqa: S105
         if token in ("inf", "+inf"):
-            return FloatValue(lexeme=token, value=float("inf"))
+            return FloatValue(token, float("inf"))
         if token == "-inf":  # noqa: S105
-            return FloatValue(lexeme=token, value=float("-inf"))
+            return FloatValue(token, float("-inf"))
         if token in ("nan", "+nan", "-nan"):
-            return FloatValue(lexeme=token, value=float("nan"))
+            return FloatValue(token, float("nan"))
 
         # Date/time literals always carry a fixed punctuation char in
         # a known position. Try them before numbers so e.g. ``1979-…``

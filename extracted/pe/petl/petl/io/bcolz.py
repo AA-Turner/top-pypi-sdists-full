@@ -64,7 +64,7 @@ class BcolzView(Table):
         self.expression = expression
         self.outcols = outcols
         self.limit = limit
-        self.skip = skip
+        self._skip = skip
 
     def __iter__(self):
 
@@ -86,10 +86,10 @@ class BcolzView(Table):
 
         # obtain iterator
         if self.expression is None:
-            it = ctbl.iter(outcols=self.outcols, skip=self.skip,
+            it = ctbl.iter(outcols=self.outcols, skip=self._skip,
                            limit=self.limit)
         else:
-            it = ctbl.where(self.expression, outcols=self.outcols, skip=self.skip,
+            it = ctbl.where(self.expression, outcols=self.outcols, skip=self._skip,
                            limit=self.limit)
 
         for row in it:

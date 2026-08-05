@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: quart-schema
-Version: 0.23.0
+Version: 0.24.0
 Summary: A Quart extension to provide schema validation
 Author-Email: pgjones <philip.graham.jones@googlemail.com>
 License: MIT

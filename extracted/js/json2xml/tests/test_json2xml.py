@@ -4,6 +4,7 @@
 
 from pyexpat import ExpatError
 from typing import Any
+from unittest.mock import Mock
 
 import pytest
 import xmltodict
@@ -137,8 +138,8 @@ class TestJson2xml:
             '{"login":"mojombo","id":1,"avatar_url":"https://avatars0.githubusercontent.com/u/1?v=4"}'
         )
         xmldata = json2xml.Json2xml(data, root=False, pretty=False).to_xml()
-        if xmldata:
-            assert xmldata.startswith(b'<login type="str">mojombo</login>')
+        assert isinstance(xmldata, bytes)
+        assert xmldata.startswith(b'<login type="str">mojombo</login>')
         pytest.raises(ExpatError, xmltodict.parse, xmldata)
 
     def test_item_wrap(self) -> None:
@@ -208,6 +209,16 @@ class TestJson2xml:
             json2xml.Json2xml({"bad": decoded}).to_xml()
         assert pytest_wrapped_e.type == InvalidDataError
 
+    def test_pretty_print_parser_errors_are_wrapped(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Parser failures preserve the public InvalidDataError contract."""
+        parse_string = Mock(side_effect=ExpatError("malformed XML"))
+        monkeypatch.setattr("defusedxml.minidom.parseString", parse_string)
+
+        with pytest.raises(InvalidDataError):
+            json2xml.Json2xml({"valid": "data"}).to_xml()
+
     def test_read_boolean_data_from_json(self) -> None:
         """Test correct return for boolean types."""
         data = readfromjson("examples/booleanjson.json")
@@ -250,69 +261,70 @@ class TestJson2xml:
         assert dict_from_xml["all"]["product"]["@attr_name"] == "attr_value"
         assert dict_from_xml["all"]["product"]["@a"] == "b"
 
+    # @lat: [[tests#Conversion behavior#Json2xml return types match pretty mode]]
     def test_encoding_pretty_print(self) -> None:
         data = readfromstring(
             '{"login":"mojombo","id":1,"avatar_url":"https://avatars0.githubusercontent.com/u/1?v=4"}'
         )
         xmldata = json2xml.Json2xml(data, pretty=True).to_xml()
-        if xmldata:
-            assert 'encoding="UTF-8"' in xmldata
+        assert isinstance(xmldata, str)
+        assert 'encoding="UTF-8"' in xmldata
 
     def test_encoding_without_pretty_print(self) -> None:
         data = readfromstring(
             '{"login":"mojombo","id":1,"avatar_url":"https://avatars0.githubusercontent.com/u/1?v=4"}'
         )
         xmldata = json2xml.Json2xml(data, pretty=False).to_xml()
-        if xmldata:
-            assert b'encoding="UTF-8"' in xmldata
+        assert isinstance(xmldata, bytes)
+        assert b'encoding="UTF-8"' in xmldata
 
     # @lat: [[tests#Conversion behavior#XPath format adds functions namespace]]
     def test_xpath_format_basic(self) -> None:
         """Test XPath 3.1 json-to-xml format with basic types."""
         data = {"name": "John", "age": 30, "active": True}
         xmldata = json2xml.Json2xml(data, xpath_format=True, pretty=False).to_xml()
-        if xmldata:
-            assert b'xmlns="http://www.w3.org/2005/xpath-functions"' in xmldata
-            assert b'<string key="name">John</string>' in xmldata
-            assert b'<number key="age">30</number>' in xmldata
-            assert b'<boolean key="active">true</boolean>' in xmldata
+        assert isinstance(xmldata, bytes)
+        assert b'xmlns="http://www.w3.org/2005/xpath-functions"' in xmldata
+        assert b'<string key="name">John</string>' in xmldata
+        assert b'<number key="age">30</number>' in xmldata
+        assert b'<boolean key="active">true</boolean>' in xmldata
 
     def test_xpath_format_nested_dict(self) -> None:
         """Test XPath 3.1 format with nested dictionaries."""
         data = {"person": {"name": "Alice", "age": 25}}
         xmldata = json2xml.Json2xml(data, xpath_format=True, pretty=False).to_xml()
-        if xmldata:
-            assert b'<map key="person">' in xmldata
-            assert b'<string key="name">Alice</string>' in xmldata
-            assert b'<number key="age">25</number>' in xmldata
+        assert isinstance(xmldata, bytes)
+        assert b'<map key="person">' in xmldata
+        assert b'<string key="name">Alice</string>' in xmldata
+        assert b'<number key="age">25</number>' in xmldata
 
     def test_xpath_format_array(self) -> None:
         """Test XPath 3.1 format with arrays."""
         data = {"numbers": [1, 2, 3]}
         xmldata = json2xml.Json2xml(data, xpath_format=True, pretty=False).to_xml()
-        if xmldata:
-            assert b'<array key="numbers">' in xmldata
-            assert b'<number>1</number>' in xmldata
-            assert b'<number>2</number>' in xmldata
-            assert b'<number>3</number>' in xmldata
+        assert isinstance(xmldata, bytes)
+        assert b'<array key="numbers">' in xmldata
+        assert b'<number>1</number>' in xmldata
+        assert b'<number>2</number>' in xmldata
+        assert b'<number>3</number>' in xmldata
 
     def test_xpath_format_null(self) -> None:
         """Test XPath 3.1 format with null values."""
         data = {"value": None}
         xmldata = json2xml.Json2xml(data, xpath_format=True, pretty=False).to_xml()
-        if xmldata:
-            assert b'<null key="value"/>' in xmldata
+        assert isinstance(xmldata, bytes)
+        assert b'<null key="value"/>' in xmldata
 
     def test_xpath_format_mixed_array(self) -> None:
         """Test XPath 3.1 format with mixed type arrays."""
         data = {"items": ["text", 42, True, None]}
         xmldata = json2xml.Json2xml(data, xpath_format=True, pretty=False).to_xml()
-        if xmldata:
-            assert b'<array key="items">' in xmldata
-            assert b'<string>text</string>' in xmldata
-            assert b'<number>42</number>' in xmldata
-            assert b'<boolean>true</boolean>' in xmldata
-            assert b'<null/>' in xmldata
+        assert isinstance(xmldata, bytes)
+        assert b'<array key="items">' in xmldata
+        assert b'<string>text</string>' in xmldata
+        assert b'<number>42</number>' in xmldata
+        assert b'<boolean>true</boolean>' in xmldata
+        assert b'<null/>' in xmldata
 
     def test_xpath_format_complex_nested(self) -> None:
         """Test XPath 3.1 format with complex nested structures."""
@@ -322,33 +334,33 @@ class TestJson2xml:
             ]
         }
         xmldata = json2xml.Json2xml(data, xpath_format=True, pretty=False).to_xml()
-        if xmldata:
-            assert b'<array key="content">' in xmldata
-            assert b'<number key="id">70805774</number>' in xmldata
-            assert b'<string key="value">1001</string>' in xmldata
-            assert b'<array key="position">' in xmldata
-            assert b'<number>1004.0</number>' in xmldata
+        assert isinstance(xmldata, bytes)
+        assert b'<array key="content">' in xmldata
+        assert b'<number key="id">70805774</number>' in xmldata
+        assert b'<string key="value">1001</string>' in xmldata
+        assert b'<array key="position">' in xmldata
+        assert b'<number>1004.0</number>' in xmldata
 
     def test_xpath_format_escaping(self) -> None:
         """Test XPath 3.1 format properly escapes special characters."""
         data = {"text": "<script>alert('xss')</script>"}
         xmldata = json2xml.Json2xml(data, xpath_format=True, pretty=False).to_xml()
-        if xmldata:
-            assert b"&lt;script&gt;" in xmldata
-            assert b"&apos;xss&apos;" in xmldata
+        assert isinstance(xmldata, bytes)
+        assert b"&lt;script&gt;" in xmldata
+        assert b"&apos;xss&apos;" in xmldata
 
     def test_xpath_format_with_pretty_print(self) -> None:
         """Test XPath 3.1 format works with pretty printing."""
         data = {"name": "Test"}
         xmldata = json2xml.Json2xml(data, xpath_format=True, pretty=True).to_xml()
-        if xmldata:
-            assert 'xmlns="http://www.w3.org/2005/xpath-functions"' in xmldata
-            assert '<string key="name">Test</string>' in xmldata
+        assert isinstance(xmldata, str)
+        assert 'xmlns="http://www.w3.org/2005/xpath-functions"' in xmldata
+        assert '<string key="name">Test</string>' in xmldata
 
     def test_xpath_format_root_array(self) -> None:
         """Test XPath 3.1 format with root-level array."""
         data = [1, 2, 3]
         xmldata = json2xml.Json2xml(data, xpath_format=True, pretty=False).to_xml()
-        if xmldata:
-            assert b'<array xmlns="http://www.w3.org/2005/xpath-functions">' in xmldata
-            assert b'<number>1</number>' in xmldata
+        assert isinstance(xmldata, bytes)
+        assert b'<array xmlns="http://www.w3.org/2005/xpath-functions">' in xmldata
+        assert b'<number>1</number>' in xmldata

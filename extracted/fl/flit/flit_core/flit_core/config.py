@@ -33,26 +33,6 @@ metadata_list_fields = {
     'dev-requires'
 }
 
-metadata_allowed_fields = {
-    'module',
-    'author',
-    'author-email',
-    'maintainer',
-    'maintainer-email',
-    'home-page',
-    'license',
-    'keywords',
-    'requires-python',
-    'dist-name',
-    'description-file',
-    'requires-extra',
-} | metadata_list_fields
-
-metadata_required_fields = {
-    'module',
-    'author',
-}
-
 pep621_allowed_fields = {
     'name',
     'version',
@@ -72,10 +52,20 @@ pep621_allowed_fields = {
     'dependencies',
     'optional-dependencies',
     'dynamic',
+    'import-names',  # PEP 794
+    'import-namespaces'
 }
 
-default_license_files_globs = ['COPYING*', 'LICEN[CS]E*']
-license_files_allowed_chars = re.compile(r'^[\w\-\.\/\*\?\[\]]+$')
+allowed_dynamic_fields = {
+    'version',
+    'description',
+    'import-names',
+    'import-namespaces'
+}
+
+
+default_license_files_globs = ['COPYING*', 'LICEN[CS]E*', 'NOTICE*', 'AUTHORS*']
+license_files_allowed_chars = re.compile(r'^[\w\-\.\/\*\?\[\] ]+$')
 
 
 def read_flit_config(path):
@@ -97,50 +87,61 @@ def prep_toml_config(d, path):
     """
     dtool = d.get('tool', {}).get('flit', {})
 
-    if 'project' in d:
-        # Metadata in [project] table (PEP 621)
-        if 'metadata' in dtool:
-            raise ConfigError(
-                "Use [project] table for metadata or [tool.flit.metadata], not both."
-            )
-        if ('scripts' in dtool) or ('entrypoints' in dtool):
-            raise ConfigError(
-                "Don't mix [project] metadata with [tool.flit.scripts] or "
-                "[tool.flit.entrypoints]. Use [project.scripts],"
-                "[project.gui-scripts] or [project.entry-points] as replacements."
-            )
-        loaded_cfg = read_pep621_metadata(d['project'], path)
-
-        module_tbl = dtool.get('module', {})
-        if 'name' in module_tbl:
-            loaded_cfg.module = module_tbl['name']
-    elif 'metadata' in dtool:
-        # Metadata in [tool.flit.metadata] (pre PEP 621 format)
-        if 'module' in dtool:
-            raise ConfigError(
-                "Use [tool.flit.module] table with new-style [project] metadata, "
-                "not [tool.flit.metadata]"
-            )
-        loaded_cfg = _prep_metadata(dtool['metadata'], path)
-        loaded_cfg.dynamic_metadata = ['version', 'description']
-
-        if 'entrypoints' in dtool:
-            loaded_cfg.entrypoints = flatten_entrypoints(dtool['entrypoints'])
-
-        if 'scripts' in dtool:
-            loaded_cfg.add_scripts(dict(dtool['scripts']))
-    else:
+    if 'metadata' in dtool:
         raise ConfigError(
-            "Neither [project] nor [tool.flit.metadata] found in pyproject.toml"
+            "The [tool.flit.metadata] table is no longer supported. "
+            "Switch to the standard [project] table or require flit_core<4 "
+            "to build this package."
+        )
+    if ('scripts' in dtool) or ('entrypoints' in dtool):
+        raise ConfigError(
+            "The [tool.flit.scripts] and [tool.flit.entrypoints] tables are no "
+            "longer supported. Use [project.scripts], [project.gui-scripts] or"
+            "[project.entry-points] as replacements."
         )
 
-    unknown_sections = set(dtool) - {
-        'metadata', 'module', 'scripts', 'entrypoints', 'sdist', 'external-data'
-    }
+    if 'project' not in d:
+        raise ConfigError("No [project] table found in pyproject.toml")
+
+    loaded_cfg = read_pep621_metadata(d['project'], path)
+
+    module_tbl = dtool.get('module', {})
+    if 'name' in module_tbl:
+        loaded_cfg.module = module_tbl['name']
+
+    if 'import-names' in d['project']:
+        import_names_from_config = [
+            s.split(';')[0] for s in loaded_cfg.metadata['import_name']
+        ]
+        if import_names_from_config != [loaded_cfg.module]:
+            raise ConfigError(
+                f"Specified import-names {import_names_from_config} do not match "
+                f"the module present ({loaded_cfg.module})"
+            )
+    else:
+        loaded_cfg.metadata['import_name'] = [loaded_cfg.module]
+
+    namespace_parts = loaded_cfg.module.split('.')[:-1]
+    nspkgs_from_mod_name = [
+        '.'.join(namespace_parts[:i]) for i in range(1, len(namespace_parts) + 1)
+    ]
+    if 'import-namespaces' in d['project']:
+        nspkgs_from_config = [
+            s.split(';')[0] for s in loaded_cfg.metadata['import_namespace']
+        ]
+        if set(nspkgs_from_config) != set(nspkgs_from_mod_name):
+            raise ConfigError(
+                f"Specified import-namespaces {nspkgs_from_config} do not match "
+                f"the namespace packages present ({nspkgs_from_mod_name})"
+            )
+    else:
+        loaded_cfg.metadata['import_namespace'] = nspkgs_from_mod_name
+
+    unknown_sections = set(dtool) - {'module', 'sdist', 'external-data'}
     unknown_sections = [s for s in unknown_sections if not s.lower().startswith('x-')]
     if unknown_sections:
         raise ConfigError('Unexpected tables in pyproject.toml: ' + ', '.join(
-            '[tool.flit.{}]'.format(s) for s in unknown_sections
+            f'[tool.flit.{s}]' for s in unknown_sections
         ))
 
     if 'sdist' in dtool:
@@ -184,44 +185,11 @@ def prep_toml_config(d, path):
 
     return loaded_cfg
 
-def flatten_entrypoints(ep):
-    """Flatten nested entrypoints dicts.
-
-    Entry points group names can include dots. But dots in TOML make nested
-    dictionaries:
-
-    [entrypoints.a.b]    # {'entrypoints': {'a': {'b': {}}}}
-
-    The proper way to avoid this is:
-
-    [entrypoints."a.b"]  # {'entrypoints': {'a.b': {}}}
-
-    But since there isn't a need for arbitrarily nested mappings in entrypoints,
-    flit allows you to use the former. This flattens the nested dictionaries
-    from loading pyproject.toml.
-    """
-    def _flatten(d, prefix):
-        d1 = {}
-        for k, v in d.items():
-            if isinstance(v, dict):
-                for flattened in _flatten(v, prefix+'.'+k):
-                    yield flattened
-            else:
-                d1[k] = v
-
-        if d1:
-            yield prefix, d1
-
-    res = {}
-    for k, v in ep.items():
-        res.update(_flatten(v, k))
-    return res
-
 
 def _check_glob_patterns(pats, clude):
     """Check and normalise glob patterns for sdist include/exclude"""
     if not isinstance(pats, list):
-        raise ConfigError("sdist {} patterns must be a list".format(clude))
+        raise ConfigError(f"sdist {clude} patterns must be a list")
 
     # Windows filenames can't contain these (nor * or ?, but they are part of
     # glob patterns) - https://stackoverflow.com/a/31976060/434217
@@ -232,8 +200,7 @@ def _check_glob_patterns(pats, clude):
     for p in pats:
         if bad_chars.search(p):
             raise ConfigError(
-                '{} pattern {!r} contains bad characters (<>:\"\\ or control characters)'
-                .format(clude, p)
+                f'{clude} pattern {p!r} contains bad characters (<>:\"\\ or control characters)'
             )
 
         normp = osp.normpath(p)
@@ -244,15 +211,14 @@ def _check_glob_patterns(pats, clude):
             )
         if normp.startswith('..' + os.sep):
             raise ConfigError(
-                '{} pattern {!r} points out of the directory containing pyproject.toml'
-                .format(clude, p)
+                f'{clude} pattern {p!r} points out of the directory containing pyproject.toml'
             )
         normed.append(normp)
 
     return normed
 
 
-class LoadedConfig(object):
+class LoadedConfig:
     def __init__(self):
         self.module = None
         self.metadata = {}
@@ -286,10 +252,10 @@ def description_from_file(rel_path: str, proj_dir: Path, guess_mimetype=True):
     try:
         with desc_path.open('r', encoding='utf-8') as f:
             raw_desc = f.read()
-    except IOError as e:
+    except OSError as e:
         if e.errno == errno.ENOENT:
             raise ConfigError(
-                "Description file {} does not exist".format(desc_path)
+                f"Description file {desc_path} does not exist"
             )
         raise
 
@@ -308,148 +274,14 @@ def description_from_file(rel_path: str, proj_dir: Path, guess_mimetype=True):
     return raw_desc, mimetype
 
 
-def _prep_metadata(md_sect, path):
-    """Process & verify the metadata from a config file
-
-    - Pull out the module name we're packaging.
-    - Read description-file and check that it's valid rst
-    - Convert dashes in key names to underscores
-      (e.g. home-page in config -> home_page in metadata)
-    """
-    if not set(md_sect).issuperset(metadata_required_fields):
-        missing = metadata_required_fields - set(md_sect)
-        raise ConfigError("Required fields missing: " + '\n'.join(missing))
-
-    res = LoadedConfig()
-
-    res.module = md_sect.get('module')
-    if not all([m.isidentifier() for m in res.module.split(".")]):
-        raise ConfigError("Module name %r is not a valid identifier" % res.module)
-
-    md_dict = res.metadata
-
-    # Description file
-    if 'description-file' in md_sect:
-        desc_path = md_sect.get('description-file')
-        res.referenced_files.append(desc_path)
-        desc_content, mimetype = description_from_file(desc_path, path.parent)
-        md_dict['description'] =  desc_content
-        md_dict['description_content_type'] = mimetype
-
-    if 'urls' in md_sect:
-        project_urls = md_dict['project_urls'] = []
-        for label, url in sorted(md_sect.pop('urls').items()):
-            project_urls.append("{}, {}".format(label, url))
-
-    for key, value in md_sect.items():
-        if key in {'description-file', 'module'}:
-            continue
-        if key not in metadata_allowed_fields:
-            closest = difflib.get_close_matches(key, metadata_allowed_fields,
-                                                n=1, cutoff=0.7)
-            msg = "Unrecognised metadata key: {!r}".format(key)
-            if closest:
-                msg += " (did you mean {!r}?)".format(closest[0])
-            raise ConfigError(msg)
-
-        k2 = key.replace('-', '_')
-        md_dict[k2] = value
-        if key in metadata_list_fields:
-            if not isinstance(value, list):
-                raise ConfigError('Expected a list for {} field, found {!r}'
-                                    .format(key, value))
-            if not all(isinstance(a, str) for a in value):
-                raise ConfigError('Expected a list of strings for {} field'
-                                    .format(key))
-        elif key == 'requires-extra':
-            if not isinstance(value, dict):
-                raise ConfigError('Expected a dict for requires-extra field, found {!r}'
-                                    .format(value))
-            if not all(isinstance(e, list) for e in value.values()):
-                raise ConfigError('Expected a dict of lists for requires-extra field')
-            for e, reqs in value.items():
-                if not all(isinstance(a, str) for a in reqs):
-                    raise ConfigError('Expected a string list for requires-extra. (extra {})'
-                                        .format(e))
-        else:
-            if not isinstance(value, str):
-                raise ConfigError('Expected a string for {} field, found {!r}'
-                                    .format(key, value))
-
-    # What we call requires in the ini file is technically requires_dist in
-    # the metadata.
-    if 'requires' in md_dict:
-        md_dict['requires_dist'] = md_dict.pop('requires')
-
-    # And what we call dist-name is name in the metadata
-    if 'dist_name' in md_dict:
-        md_dict['name'] = md_dict.pop('dist_name')
-
-    # Move dev-requires into requires-extra
-    reqs_noextra = md_dict.pop('requires_dist', [])
-
-    reqs_extra = md_dict.pop('requires_extra', {})
-    extra_names_by_normed = {}
-    for e, reqs in reqs_extra.items():
-        if not all(isinstance(a, str) for a in reqs):
-            raise ConfigError(
-                f'Expected a string list for requires-extra group {e}'
-            )
-        if not name_is_valid(e):
-            raise ConfigError(
-                f'requires-extra group name {e!r} is not valid'
-            )
-        enorm = normalise_core_metadata_name(e)
-        extra_names_by_normed.setdefault(enorm, set()).add(e)
-        res.reqs_by_extra[enorm] = reqs
-
-    clashing_extra_names = [
-        g for g in extra_names_by_normed.values() if len(g) > 1
-    ]
-    if clashing_extra_names:
-        fmted = ['/'.join(sorted(g)) for g in clashing_extra_names]
-        raise ConfigError(
-            f"requires-extra group names clash: {'; '.join(fmted)}"
-        )
-
-    dev_requires = md_dict.pop('dev_requires', None)
-    if dev_requires is not None:
-        if 'dev' in res.reqs_by_extra:
-            raise ConfigError(
-                'dev-requires occurs together with its replacement requires-extra.dev.')
-        else:
-            log.warning(
-                '"dev-requires = ..." is obsolete. Use "requires-extra = {"dev" = ...}" instead.')
-            res.reqs_by_extra['dev'] = dev_requires
-
-    # Add requires-extra requirements into requires_dist
-    md_dict['requires_dist'] = \
-        reqs_noextra + list(_expand_requires_extra(res.reqs_by_extra))
-
-    md_dict['provides_extra'] = sorted(res.reqs_by_extra.keys())
-
-    # For internal use, record the main requirements as a '.none' extra.
-    res.reqs_by_extra['.none'] = reqs_noextra
-
-    if path:
-        license_files = sorted(
-            _license_files_from_globs(
-                path.parent, default_license_files_globs, warn_no_files=False
-            )
-        )
-        res.referenced_files.extend(license_files)
-        md_dict['license_files'] = license_files
-
-    return res
-
 def _expand_requires_extra(re):
     for extra, reqs in sorted(re.items()):
         for req in reqs:
             if ';' in req:
                 name, envmark = req.split(';', 1)
-                yield '{} ; extra == "{}" and ({})'.format(name, extra, envmark)
+                yield f'{name} ; extra == "{extra}" and ({envmark})'
             else:
-                yield '{} ; extra == "{}"'.format(req, extra)
+                yield f'{req} ; extra == "{extra}"'
 
 
 def _license_files_from_globs(project_dir: Path, globs, warn_no_files = True):
@@ -457,17 +289,17 @@ def _license_files_from_globs(project_dir: Path, globs, warn_no_files = True):
     for pattern in globs:
         if isabs_ish(pattern):
             raise ConfigError(
-                "Invalid glob pattern for [project.license-files]: '{}'. "
-                "Pattern must not start with '/'.".format(pattern)
+                f"Invalid glob pattern for [project.license-files]: {pattern!r}. "
+                "Pattern must not start with '/'."
             )
         if ".." in pattern:
             raise ConfigError(
-                "Invalid glob pattern for [project.license-files]: '{}'. "
-                "Pattern must not contain '..'".format(pattern)
+                f"Invalid glob pattern for [project.license-files]: {pattern!r}. "
+                "Pattern must not contain '..'"
             )
         if license_files_allowed_chars.match(pattern) is None:
             raise ConfigError(
-                "Invalid glob pattern for [project.license-files]: '{}'. "
+                f"Invalid glob pattern for [project.license-files]: {pattern!r}. "
                 "Pattern contains invalid characters. "
                 "https://packaging.python.org/en/latest/specifications/pyproject-toml/#license-files"
             )
@@ -479,12 +311,12 @@ def _license_files_from_globs(project_dir: Path, globs, warn_no_files = True):
             ]
         except ValueError as ex:
             raise ConfigError(
-                "Invalid glob pattern for [project.license-files]: '{}'. {}".format(pattern, ex.args[0])
+                f"Invalid glob pattern for [project.license-files]: {pattern!r}. {ex.args[0]}"
             )
 
         if not files and warn_no_files:
             raise ConfigError(
-                "No files found for [project.license-files]: '{}' pattern".format(pattern)
+                f"No files found for [project.license-files]: {pattern!r} pattern"
             )
         license_files.update(files)
     return license_files
@@ -492,15 +324,14 @@ def _license_files_from_globs(project_dir: Path, globs, warn_no_files = True):
 def _check_type(d, field_name, cls):
     if not isinstance(d[field_name], cls):
         raise ConfigError(
-            "{} field should be {}, not {}".format(field_name, cls, type(d[field_name]))
+            f"{field_name} field should be {cls}, not {type(d[field_name])}"
         )
 
 def _check_types(d, field_name, cls_list) -> None:
     if not isinstance(d[field_name], cls_list):
+        cls_str = ' or '.join(map(str, cls_list))
         raise ConfigError(
-            "{} field should be {}, not {}".format(
-                field_name, ' or '.join(map(str, cls_list)), type(d[field_name])
-            )
+            f"{field_name} field should be {cls_str}, not {type(d[field_name])}"
         )
 
 def _check_list_of_str(d, field_name):
@@ -508,8 +339,34 @@ def _check_list_of_str(d, field_name):
         isinstance(e, str) for e in d[field_name]
     ):
         raise ConfigError(
-            "{} field should be a list of strings".format(field_name)
+            f"{field_name} field should be a list of strings"
         )
+
+def normalize_pkg_name(name: str) -> str:
+    if name.endswith('-stubs'):
+        # TODO: use `str.removesuffix` after we drop py3.8
+        return name[:-6].replace('-','_') + '-stubs'
+    return name.replace('-','_')
+
+
+def normalize_import_name(name: str) -> str:
+    if ';' in name:
+        name, annotation = name.split(';', 1)
+        name = name.rstrip()
+        annotation = annotation.lstrip()
+        if annotation != 'private':
+            raise ConfigError(
+                f"{annotation!r} for import name {name!r} is not allowed "
+                "(the only valid annotation is 'private')"
+            )
+    else:
+        annotation = None
+
+    if not all(p.isidentifier() for p in name.split('.')):
+        raise ConfigError(f"{name!r} is not a valid import name")
+
+    return f"{name}; {annotation}" if annotation else name
+
 
 def read_pep621_metadata(proj, path) -> LoadedConfig:
     lc = LoadedConfig()
@@ -521,11 +378,13 @@ def read_pep621_metadata(proj, path) -> LoadedConfig:
     if not name_is_valid(proj['name']):
         raise ConfigError(f"name {proj['name']} is not valid")
     md_dict['name'] = proj['name']
-    lc.module = md_dict['name'].replace('-', '_')
+    lc.module = normalize_pkg_name(md_dict['name'])
 
     unexpected_keys = proj.keys() - pep621_allowed_fields
     if unexpected_keys:
-        log.warning("Unexpected names under [project]: %s", ', '.join(unexpected_keys))
+        raise ConfigError(
+            "Unrecognised key(s) in [project] table: " + ', '.join(unexpected_keys)
+        )
 
     if 'version' in proj:
         _check_type(proj, 'version', str)
@@ -543,14 +402,14 @@ def read_pep621_metadata(proj, path) -> LoadedConfig:
             unrec_keys = set(readme.keys()) - {'text', 'file', 'content-type'}
             if unrec_keys:
                 raise ConfigError(
-                    "Unrecognised keys in [project.readme]: {}".format(unrec_keys)
+                    f"Unrecognised keys in [project.readme]: {unrec_keys}"
                 )
             if 'content-type' in readme:
                 mimetype = readme['content-type']
                 mtype_base = mimetype.split(';')[0].strip()  # e.g. text/x-rst
                 if mtype_base not in readme_ext_to_content_type.values():
                     raise ConfigError(
-                        "Unrecognised readme content-type: {!r}".format(mtype_base)
+                        f"Unrecognised readme content-type: {mtype_base!r}"
                     )
                 # TODO: validate content-type parameters (charset, md variant)?
             else:
@@ -594,7 +453,7 @@ def read_pep621_metadata(proj, path) -> LoadedConfig:
             unrec_keys = set(license_tbl.keys()) - {'text', 'file'}
             if unrec_keys:
                 raise ConfigError(
-                    "Unrecognised keys in [project.license]: {}".format(unrec_keys)
+                    f"Unrecognised keys in [project.license]: {unrec_keys}"
                 )
 
             # The 'License' field in packaging metadata is a brief description of
@@ -666,7 +525,7 @@ def read_pep621_metadata(proj, path) -> LoadedConfig:
                     continue
                 raise ConfigError(
                     "License classifiers are deprecated in favor of the license expression. "
-                    "Remove the '{}' classifier".format(cl)
+                    f"Remove the '{cl}' classifier"
                 )
         md_dict['classifiers'] = proj['classifiers']
 
@@ -674,7 +533,7 @@ def read_pep621_metadata(proj, path) -> LoadedConfig:
         _check_type(proj, 'urls', dict)
         project_urls = md_dict['project_urls'] = []
         for label, url in sorted(proj['urls'].items()):
-            project_urls.append("{}, {}".format(label, url))
+            project_urls.append(f"{label}, {url}")
 
     if 'entry-points' in proj:
         _check_type(proj, 'entry-points', dict)
@@ -727,7 +586,7 @@ def read_pep621_metadata(proj, path) -> LoadedConfig:
         for e, reqs in optdeps.items():
             if not all(isinstance(a, str) for a in reqs):
                 raise ConfigError(
-                    'Expected a string list for optional-dependencies ({})'.format(e)
+                    f'Expected a string list for optional-dependencies ({e})'
                 )
             if not name_is_valid(e):
                 raise ConfigError(
@@ -755,13 +614,27 @@ def read_pep621_metadata(proj, path) -> LoadedConfig:
     if reqs_noextra:
         lc.reqs_by_extra['.none'] = reqs_noextra
 
+    if 'import-names' in proj:  # PEP 794
+        _check_list_of_str(proj, 'import-names')
+        md_dict['import_name'] = [
+            normalize_import_name(s) for s in proj['import-names']
+        ]
+
+    if 'import-namespaces' in proj:
+        _check_list_of_str(proj, 'import-namespaces')
+        md_dict['import_namespace'] = [
+            normalize_import_name(s) for s in proj['import-namespaces']
+        ]
+
     if 'dynamic' in proj:
         _check_list_of_str(proj, 'dynamic')
         dynamic = set(proj['dynamic'])
-        unrec_dynamic = dynamic - {'version', 'description'}
+        unrec_dynamic = dynamic - allowed_dynamic_fields
         if unrec_dynamic:
             raise ConfigError(
-                "flit only supports dynamic metadata for 'version' & 'description'"
+                "flit only supports dynamic metadata for:" + ', '.join(
+                    sorted(allowed_dynamic_fields)
+                )
             )
         if dynamic.intersection(proj):
             raise ConfigError(
@@ -792,11 +665,11 @@ def pep621_people(people, group_name='author') -> dict:
     names, emails = [], []
     for person in people:
         if not isinstance(person, dict):
-            raise ConfigError("{} info must be list of dicts".format(group_name))
+            raise ConfigError(f"{group_name} info must be list of dicts")
         unrec_keys = set(person.keys()) - {'name', 'email'}
         if unrec_keys:
             raise ConfigError(
-                "Unrecognised keys in {} info: {}".format(group_name, unrec_keys)
+                f"Unrecognised keys in {group_name} info: {unrec_keys}"
             )
         if 'email' in person:
             email = person['email']
@@ -824,7 +697,7 @@ def isabs_ish(path):
 
 
 def normalise_compound_license_expr(s: str) -> str:
-    """Validate and normalise a compund SPDX license expression.
+    """Validate and normalise a compound SPDX license expression.
 
     Per the specification, licence expression operators (AND, OR and WITH)
     are matched case-sensitively. The WITH operator is not currently supported.
@@ -833,7 +706,7 @@ def normalise_compound_license_expr(s: str) -> str:
     """
     invalid_msg = "'{s}' is not a valid SPDX license expression: {reason}"
     if not s or s.isspace():
-        raise ConfigError(f"The SPDX license expression must not be empty")
+        raise ConfigError("The SPDX license expression must not be empty")
 
     stack = 0
     parts = []
@@ -841,7 +714,7 @@ def normalise_compound_license_expr(s: str) -> str:
         for part in filter(None, re.split(r' +|([()])', s)):
             if part.upper() == 'WITH':
                 # provide a sensible error message for the WITH operator
-                raise ConfigError(f"The SPDX 'WITH' operator is not yet supported!")
+                raise ConfigError("The SPDX 'WITH' operator is not yet supported!")
             elif part in {'AND', 'OR'}:
                 if not parts or parts[-1] in {' AND ', ' OR ', ' WITH ', '('}:
                     reason = f"a license ID is missing before '{part}'"
@@ -853,7 +726,7 @@ def normalise_compound_license_expr(s: str) -> str:
                 raise ConfigError(invalid_msg.format(s=s, reason=reason))
             elif part == '(':
                 if parts and parts[-1] not in {' AND ', ' OR ', '('}:
-                    reason = f"'(' must follow either AND, OR, or '('"
+                    reason = "'(' must follow either AND, OR, or '('"
                     raise ConfigError(invalid_msg.format(s=s, reason=reason))
                 stack += 1
                 parts.append(part)
@@ -868,7 +741,7 @@ def normalise_compound_license_expr(s: str) -> str:
                 parts.append(part)
             else:
                 if parts and parts[-1] not in {' AND ', ' OR ', '('}:
-                    reason = f"a license ID must follow either AND, OR, or '('"
+                    reason = "a license ID must follow either AND, OR, or '('"
                     raise ConfigError(invalid_msg.format(s=s, reason=reason))
                 simple_expr = normalise_simple_license_expr(part)
                 parts.append(simple_expr)
@@ -882,7 +755,7 @@ def normalise_compound_license_expr(s: str) -> str:
             raise ConfigError(invalid_msg.format(s=s, reason=reason))
     except ConfigError:
         if os.environ.get('FLIT_ALLOW_INVALID'):
-            log.warning(f"Invalid license ID {s!r} allowed by FLIT_ALLOW_INVALID")
+            log.warning("Invalid license ID %r allowed by FLIT_ALLOW_INVALID", s)
             return s
         raise
 

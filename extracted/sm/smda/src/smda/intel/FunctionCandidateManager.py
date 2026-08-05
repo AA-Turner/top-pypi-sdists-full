@@ -74,6 +74,8 @@ class FunctionCandidateManager(_CommonFunctionCandidateManager):
         # just a common byte anywhere in code). Require the multi-byte tables' natural
         # score floor so this gate isn't satisfied by ordinary mid-function bytes; the
         # single strong single-byte case (0x55 "push ebp/rbp") clears it too.
+        if self.disassembly.binary_info is None:
+            return False
         return FunctionCandidate(self.disassembly.binary_info, addr).getFunctionStartScore() >= _ENTRY_SHAPE_MIN_SCORE
 
     def isAlignmentSequence(self, instruction_sequence, raw_bytes=None):
@@ -115,8 +117,12 @@ class FunctionCandidateManager(_CommonFunctionCandidateManager):
             return None
         if self.gap_pointer is None:
             self.initGapSearch()
-        if start_gap_pointer:
+        # Explicit None test: a gap start at VA 0x0 (valid for a base-0 buffer) is a
+        # real argument, not "unset", so a truthiness check would wrongly drop it.
+        if start_gap_pointer is not None:
             self.gap_pointer = start_gap_pointer
+        if self.gap_pointer is None:
+            return None
         LOGGER.debug(
             "nextGapCandidate() finding new gap candidate, current gap_ptr: 0x%08x",
             self.gap_pointer,

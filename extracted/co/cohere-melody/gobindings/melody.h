@@ -169,6 +169,50 @@ extern CRenderResult* melody_render_cmd4(const CRenderCmd4Options* opts);
 extern CRenderResult* melody_render_cmd5(const CRenderCmd5Options* opts);
 extern void melody_render_result_free(CRenderResult* res);
 
+// ============================================================================
+// Vision generation parsing (unary)
+// ============================================================================
+
+typedef enum {
+    CVisionSegmentType_Text = 0,
+    CVisionSegmentType_Element = 1,
+} CVisionSegmentType;
+
+typedef struct {
+    int32_t top_left_x;
+    int32_t top_left_y;
+    int32_t bottom_right_x;
+    int32_t bottom_right_y;
+} CVisionBBox;
+
+
+typedef struct {
+    char* element_type;
+    CVisionBBox* bbox;       // null if absent
+    char* description;       // null if absent
+    char* title;             // null if absent
+    char* html;              // null if absent
+} CVisionElement;
+
+typedef struct {
+    CVisionSegmentType type_;
+    char* text;              // set when type_ == Text
+    CVisionElement* element; // set when type_ == Element
+} CVisionSegment;
+
+typedef struct {
+    CVisionSegment* segments;
+    size_t segments_len;
+} CVisionGeneration;
+
+typedef struct {
+    CVisionGeneration* result; // null if error
+    char* error;               // null if success
+} CVisionGenerationResponse;
+
+extern CVisionGenerationResponse* melody_parse_vision_generation(const char* text);
+extern void melody_vision_generation_free(CVisionGenerationResponse* res);
+
 typedef struct CFilter CFilter;
 typedef struct CFilterOptions CFilterOptions;
 

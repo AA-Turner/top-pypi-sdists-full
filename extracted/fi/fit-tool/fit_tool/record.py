@@ -1,9 +1,11 @@
-from typing import Dict as dict
-from typing import List as list
+from __future__ import annotations
+
+import warnings
 
 from fit_tool.data_message import DataMessage
 from fit_tool.definition_message import DefinitionMessage
 from fit_tool.developer_field import DeveloperField
+from fit_tool.exceptions import FitRecordError
 from fit_tool.message import Message
 
 
@@ -99,10 +101,47 @@ class RecordHeader:
 
 
 class Record:
+    """One definition or data record in a FIT file.
 
-    def __init__(self, header: RecordHeader, message: Message):
+    When projected from the wire layer, :attr:`source_bytes` holds the original
+    on-wire bytes for that record. :attr:`dirty` is set when in-memory edits
+    invalidate those bytes so :meth:`~fit_tool.fit_file.FitFile.to_bytes` can
+    re-encode only edited records while copying untouched ``source_bytes``
+    (post-edit PRESERVATION).
+    """
+
+    def __init__(
+            self,
+            header: RecordHeader,
+            message: Message,
+            *,
+            source_bytes: bytes | None = None,
+            dirty: bool = False,
+    ):
         self.header = header
         self.message = message
+        self.source_bytes = source_bytes
+        self.dirty = dirty
+
+    def mark_dirty(self) -> None:
+        """Mark this record as edited (drop reliance on :attr:`source_bytes`)."""
+        self.dirty = True
+
+    def bind_mutation_hooks(self) -> None:
+        """Wire field setters so API mutations set :attr:`dirty`.
+
+        Decode paths use ``check_validity=False`` on field writes and do not
+        mark dirty. Authoring mutations (``check_validity=True``, the default)
+        call :meth:`mark_dirty`.
+        """
+        message = self.message
+        if not isinstance(message, DataMessage):
+            return
+        host = self.mark_dirty
+        for field in message.fields:
+            field._dirty_host = host  # noqa: SLF001 — intentional host binding
+        for field in message.developer_fields:
+            field._dirty_host = host  # noqa: SLF001
 
     @property
     def local_id(self) -> int:
@@ -122,8 +161,33 @@ class Record:
         return cls(header, message)
 
     @classmethod
-    def from_bytes(cls, definition_messages: dict[int, DefinitionMessage], bytes_buffer: bytes, offset: int = 0,
-                   developer_fields_by_data_index: dict[int, dict[int, DeveloperField]] = None):
+    def from_bytes(
+            cls,
+            definition_messages: dict[int, DefinitionMessage],
+            bytes_buffer: bytes,
+            offset: int = 0,
+            developer_fields_by_data_index: dict[int, dict[int, DeveloperField]] = None,
+    ):
+        """Parse a single record from a buffer (legacy / unit-test helper).
+
+        **Production decode path** is the wire layer, not this method:
+
+        * :meth:`fit_tool.fit_file.FitFile.from_bytes` / :meth:`FitFile.from_file`
+        * :class:`fit_tool.wire.decoder.WireDecoder` →
+          :mod:`fit_tool.compatibility` projection
+
+        This helper does not handle file headers, file CRC, chained segments,
+        compressed timestamps, or component expansion. Prefer the APIs above
+        for real FIT files; keep using this for isolated record pack/unpack
+        tests and builder-style round-trips.
+        """
+        warnings.warn(
+            'Record.from_bytes is a legacy single-record helper. '
+            'For full FIT files use FitFile.from_bytes / WireDecoder + compatibility. '
+            'This method remains for unit tests and low-level pack/unpack.',
+            DeprecationWarning,
+            stacklevel=2,
+        )
         header = RecordHeader.from_bytes(bytes_buffer, offset=offset)
         offset += header.size
 
@@ -131,16 +195,19 @@ class Record:
             message = DefinitionMessage.from_bytes(bytes_buffer, offset=offset,
                                                    has_developer_fields=header.has_developer_fields)
         else:
-            definition_message = definition_messages[header.local_id]
-
-            if not definition_message:
-                raise Exception(f'DefinitionMessage not defined for local_id: {header.local_id}')
+            definition_message = definition_messages.get(header.local_id)
+            if definition_message is None:
+                raise FitRecordError(f'DefinitionMessage not defined for local_id: {header.local_id}')
 
             if developer_fields_by_data_index:
                 developer_fields = definition_message.get_developer_fields(developer_fields_by_data_index)
             else:
                 developer_fields = []
             message = DataMessage.from_bytes(definition_message, developer_fields, bytes_buffer, offset=offset)
+
+        # Local message type lives only in the record header on the wire; copy it onto the
+        # message so callers and rebuild paths see the same local_id as the header.
+        message.local_id = header.local_id
 
         return cls(header, message)
 

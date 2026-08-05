@@ -3,7 +3,7 @@ mod utils;
 use crate::utils::mock_scrapi::StubData;
 use crate::utils::mock_specs_adapter::MockSpecsAdapter;
 use statsig_rust::{Statsig, StatsigOptions, StatsigUser};
-use std::sync::{mpsc, Arc};
+use std::sync::{Arc, mpsc};
 use std::time::{Duration, Instant};
 use utils::mock_scrapi::{Endpoint, EndpointStub, Method, MockScrapi};
 

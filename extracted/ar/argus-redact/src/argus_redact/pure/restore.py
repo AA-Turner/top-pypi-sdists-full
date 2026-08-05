@@ -72,15 +72,15 @@ def _event_from_core(event: dict) -> dict:
     core decides WHICH check fired and how big/which tokens it carries, but
     carries zero prose (see ``GuardEvent`` in the Rust ``restore.rs``). This is
     the one place that turns ``kind`` back into the Python reason_code
-    constant and renders the exact detail string every caller (the
-    SecurityWarning, ``detailed=True``, the docs) has always seen, so the two
-    can never drift apart.
+    constant and builds the (PII-free) ``detail`` string that
+    ``detailed=True`` and the docs describe, so callers can never see it
+    rendered two different ways.
 
     ``guard_no_anchor`` never reaches here: core only ever runs from
     ``restore()`` once a real anchor exists, so that event is built directly
     in Python, in the ``anchor is None`` branch above.
     """
-    kind, count, tokens = event["kind"], event["count"], event["tokens"]
+    kind, count = event["kind"], event["count"]
     if kind == PROVENANCE_FAILED:
         return security_event(PROVENANCE_FAILED, count=count, detail="nonce absent from response")
     if kind == EMPTY_KEY_WITH_SCOPE:
@@ -90,10 +90,15 @@ def _event_from_core(event: dict) -> dict:
             detail="anchor.scope excluded every key entry; nothing was restored",
         )
     if kind == OUT_OF_SCOPE_PSEUDONYM:
+        # Mirrors the ALIAS_COLLISION branch below: names how many were withheld,
+        # never the tokens themselves — see "injection_suspected and
+        # out_of_scope_pseudonym report counts, not specifics" in
+        # docs/known-issues.md. A caller that needs the specific codes already
+        # holds everything needed to derive them: `set(key) - set(anchor.scope)`.
         return security_event(
             OUT_OF_SCOPE_PSEUDONYM,
             count=count,
-            detail=f"withheld: {', '.join(tokens)}",  # already sorted+deduped by core
+            detail=f"{count} pseudonym(s) withheld: outside this anchor's scope",
         )
     if kind == ALIAS_COLLISION:
         # Mirrors `alias_collision_event`: names how many collided, never the raw

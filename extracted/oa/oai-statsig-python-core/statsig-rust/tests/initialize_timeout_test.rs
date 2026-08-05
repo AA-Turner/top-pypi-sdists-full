@@ -6,8 +6,8 @@ use utils::{
 };
 
 use statsig_rust::{
-    networking::{NetworkClient, RequestArgs},
     Statsig, StatsigOptions, StatsigUser,
+    networking::{NetworkClient, RequestArgs},
 };
 
 const SDK_KEY: &str = "secret-key";

@@ -10,6 +10,7 @@ from langgraph.checkpoint.base import (
 )
 from langgraph.types import Send
 
+from langgraph_grpc_common.conversion._compat import TASKS
 from langgraph_grpc_common.conversion.config import (
     config_from_proto,
     config_from_proto_optional,
@@ -18,6 +19,7 @@ from langgraph_grpc_common.conversion.config import (
 from langgraph_grpc_common.conversion.struct import dict_from_raw_map, raw_map_from_dict
 from langgraph_grpc_common.conversion.value import (
     base_value_to_proto,
+    coerce_tasks_value,
     send_to_proto,
     value_from_proto,
     value_to_proto,
@@ -79,7 +81,27 @@ def checkpoint_to_proto(checkpoint: Checkpoint) -> engine_common_pb2.Checkpoint:
     # langgraph versions. update_state(values=..., as_node=None) on a thread
     # with no prior checkpoint produces None, which would crash extend().
     checkpoint_proto.updated_channels.extend(checkpoint.get("updated_channels") or ())
+    # Only TASKS is Send-aware. Other channels must stay on base_value_to_proto
+    # so user state that happens to hold a Command (or similar) still serializes.
+    # For TASKS we coerce JS `{lg_name: "Send", …}` dicts to real Send objects,
+    # then keep the historical encoding: single Send → Sends oneof, list/empty →
+    # msgpack. Routing empty TASKS through sends_to_proto would store `missing`
+    # instead of msgpack `[]` and break checkpoint compatibility snapshots.
     for k, v in checkpoint["channel_values"].items():
+        if k == TASKS:
+            v = coerce_tasks_value(v)
+            if isinstance(v, list):
+                for item in v:
+                    if not isinstance(item, Send):
+                        raise ValueError(
+                            "Task must be a list of Send objects."
+                            f" Got types={[type(x) for x in v]} values={v}",
+                        )
+            elif not isinstance(v, Send):
+                raise ValueError(
+                    "Task must be a Send object objects."
+                    f" Got type={type(v)} value={v}",
+                )
         if isinstance(v, Send):
             checkpoint_proto.channel_values[k].CopyFrom(
                 engine_common_pb2.ChannelValue(

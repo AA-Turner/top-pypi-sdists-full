@@ -23,6 +23,29 @@ import queue
 import time
 
 
+# The streaming signals common to all v1 devices, keyed by the canonical
+# short name used by the 'signals' parameter.  Each topic prefix provides
+# '!data' and 'ctrl' subtopics.  idx is the StreamBuffer buffer key.
+_SIGNALS_BASE = {
+    'i': {'topic': 's/i/', 'idx': (1, 0)},
+    'v': {'topic': 's/v/', 'idx': (2, 0)},
+    'p': {'topic': 's/p/', 'idx': (3, 0)},
+    'r': {'topic': 's/i/range/', 'idx': (4, 0)},
+    '0': {'topic': 's/gpi/0/', 'idx': (5, 0)},
+    '1': {'topic': 's/gpi/1/', 'idx': (5, 1)},
+}
+
+# The extended signals available on the JS220 and JS320.
+_SIGNALS_EXTENDED = {
+    '2': {'topic': 's/gpi/2/', 'idx': (5, 2)},
+    '3': {'topic': 's/gpi/3/', 'idx': (5, 3)},
+    'T': {'topic': 's/gpi/7/', 'idx': (5, 7)},
+}
+
+# Map the short signal names to StreamBuffer extended signal names.
+_SIGNALS_SHORT_TO_EXTENDED = {'2': 'gpi2', '3': 'gpi3', 'T': 'trigger_in'}
+
+
 class Device:
 
     def __init__(self, driver, device_path):
@@ -38,19 +61,28 @@ class Device:
         self._stop_fn = None
         self._input_sampling_frequency = 0
         self._output_sampling_frequency = 0
+        self._h_fs = 2000000  # value published to h/fs on open: the maximum streaming rate
         self._statistics_callbacks = []
         self._statistics_offsets = []
         self._is_streaming = False
-        self._stream_topics = []
+        self._signals_map = dict(_SIGNALS_BASE)
+        self._streaming_topics = []
         self._buffer_duration = 30
         self.stream_buffer = None
         self._on_stats_cbk = self._on_stats  # hold reference for unsub
         self._on_stream_cbk = self._on_stream  # hold reference for unsub
         self._parameters = {}
+        self._parameters_override = {}  # name -> device-specific Parameter
         self._parameter_set_queue = []
         for p in PARAMETERS:
             if p.default is not None:
-                self._parameters[p.name] = name_to_value(p.name, p.default)
+                try:
+                    self._parameters[p.name] = name_to_value(p.name, p.default)
+                except KeyError:
+                    if p.validator is not None:
+                        self._parameters[p.name] = p.validator(p.default)
+                    else:
+                        self._parameters[p.name] = p.default
 
     def __str__(self):
         _, model, serial_number = self._path.split('/')
@@ -59,6 +91,11 @@ class Device:
     @property
     def device_path(self):
         return self._path
+
+    @property
+    def driver(self):
+        """The underlying pyjoulescope_driver.Driver instance."""
+        return self._driver
 
     @property
     def usb_device(self):
@@ -224,13 +261,18 @@ class Device:
             None (default) returns a list of all parameters.
         :return: The list of all parameters.  If name is provided, then just
             return that single parameters.
+
+        The parameter options reflect the values supported by this device.
+        For backwards compatibility, :meth:`parameter_set` also accepts the
+        legacy values of other Joulescope models where possible.
         """
+        params = [self._parameters_override.get(p.name, p) for p in PARAMETERS]
         if name is not None:
-            for p in PARAMETERS:
+            for p in params:
                 if p.name == name:
                     return copy.deepcopy(p)
             return None
-        return copy.deepcopy(PARAMETERS)
+        return copy.deepcopy(params)
 
     def parameter_set(self, name, value):
         """Set a parameter value.
@@ -355,6 +397,28 @@ class Device:
         """
         pass
 
+    @property
+    def _signals_selected(self):
+        """The list of selected signal short names."""
+        return self._parameters['signals'].split(',')
+
+    def _on_signals(self, value):
+        """Validate the 'signals' parameter selection for this device.
+
+        :param value: The canonical comma-separated short-name string.
+        :raise ValueError: If this device does not support a selected signal.
+
+        The selection takes effect when streaming (re)starts.
+        """
+        selected = value.split(',')
+        unsupported = [s for s in selected if s not in self._signals_map]
+        if unsupported:
+            raise ValueError(
+                f'signals not supported by {self.model}: {unsupported}')
+        if self._is_streaming:
+            self._log.warning(
+                'signals changed while streaming; takes effect on next start')
+
     def open(self, event_callback_fn=None, mode=None, timeout=None):
         """Open this device.
 
@@ -371,7 +435,7 @@ class Device:
         """
         rc = self._driver.open(self._path, mode, timeout)
         self.is_open = True
-        self.publish('h/fs', 2000000)
+        self.publish('h/fs', self._h_fs)
         while len(self._parameter_set_queue):
             name, value = self._parameter_set_queue.pop(0)
             self.parameter_set(name, value)
@@ -390,10 +454,16 @@ class Device:
 
         :param timeout: The timeout in seconds.  None uses the default timeout.
         """
+        if not self.is_open:
+            return
         if len(self._statistics_callbacks):
             self._statistics_stop()
         self.stop()
         self.is_open = False
+        # notify and unregister the stream process objects (v0 compatible)
+        self._stream_process_call('close')
+        self._stream_cbk_objs.clear()
+        self._stream_cbk_objs_add.clear()
         self.stream_buffer = None
         return self._driver.close(self._path, timeout)
 
@@ -444,6 +514,8 @@ class Device:
         return rv
 
     def _on_stream(self, topic, value):
+        # runs on the driver thread; use a local reference since close()
+        # may set self.stream_buffer to None concurrently
         b = self.stream_buffer
         if b is None:
             return False
@@ -455,10 +527,10 @@ class Device:
             return False
         if e0 == e2:
             return False
-        rv = self._stream_process_call('stream_notify', self.stream_buffer)
+        rv = self._stream_process_call('stream_notify', b)
         if rv:
             self.stop()
-        if self.stream_buffer.is_duration_max or self.stream_buffer.is_contiguous_duration_max:
+        if b.is_duration_max or b.is_contiguous_duration_max:
             self.stop()
 
     def start(self, stop_fn=None, duration=None, contiguous_duration=None):
@@ -478,17 +550,31 @@ class Device:
         If streaming was already in progress, it will be restarted.
         """
         self.stop()
+        # unwind any partial subscriptions left by a prior start() that
+        # failed mid-loop (e.g. device removal); no-op normally
+        topics, self._streaming_topics = self._streaming_topics, []
+        for topic in topics:
+            self.unsubscribe(topic + '!data', self._on_stream_cbk, timeout=0)
+            self.publish(topic + 'ctrl', 0, timeout=0)
+        selected = self._signals_selected
+        extras = [_SIGNALS_SHORT_TO_EXTENDED[s] for s in selected
+                  if s in _SIGNALS_SHORT_TO_EXTENDED]
+        self.stream_buffer.extra_signals = extras  # no-op when unchanged
         self.stream_buffer.reset()
         self.stream_buffer.duration_max = duration
         self.stream_buffer.contiguous_duration_max = contiguous_duration
         self._stop_fn = stop_fn
-        for topic, b in zip(self._stream_topics, self.stream_buffer.buffers.values()):
-            if topic is None:
+        for name, info in self._signals_map.items():
+            b = self.stream_buffer.buffers.get(info['idx'])
+            if name in selected:
+                topic = info['topic']
+                if b is not None:
+                    b.active = True
+                self.subscribe(topic + '!data', 'pub', self._on_stream_cbk)
+                self.publish(topic + 'ctrl', 1)
+                self._streaming_topics.append(topic)
+            elif b is not None:
                 b.active = False
-                continue
-            b.active = True
-            self.subscribe(topic + '!data', 'pub', self._on_stream_cbk)
-            self.publish(topic + 'ctrl', 1)
         self._is_streaming = True
         self._stream_process_call('start', self.stream_buffer)
 
@@ -502,10 +588,10 @@ class Device:
         """
         if self._is_streaming:
             self._is_streaming = False
-            for topic in self._stream_topics:
-                if topic is not None:
-                    self.unsubscribe(topic + '!data', self._on_stream_cbk, timeout=0)
-                    self.publish(topic + 'ctrl', 0, timeout=0)
+            topics, self._streaming_topics = self._streaming_topics, []
+            for topic in topics:
+                self.unsubscribe(topic + '!data', self._on_stream_cbk, timeout=0)
+                self.publish(topic + 'ctrl', 0, timeout=0)
             fn, self._stop_fn = self._stop_fn, None
             if callable(fn):
                 fn(0, '')  # status, message
@@ -615,19 +701,6 @@ class Device:
                 }
             }
         }
-
-    def extio_status(self):
-        """Read the EXTIO GPI value.
-
-        :return: A dict containing the extio status.  Each key is the status
-            item name.  The value is itself a dict with the following keys:
-
-            * name: The status name, which is the same as the top-level key.
-            * value: The actual value
-            * units: The units, if applicable.
-            * format: The recommended formatting string (optional).
-        """
-        return {}
 
     def __enter__(self):
         """Device context manager, automatically open."""

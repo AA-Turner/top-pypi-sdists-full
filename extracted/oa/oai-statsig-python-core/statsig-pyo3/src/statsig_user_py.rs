@@ -10,7 +10,7 @@ use pyo3::types::PyBytes;
 use pyo3::{prelude::*, types::PyDict};
 use pyo3_stub_gen::derive::*;
 use statsig_rust::user::fast_statsig_user::{FastStatsigUser, FastUserCustomMap, FastUserData};
-use statsig_rust::{log_e, log_w, DynamicValue, StatsigUserDataMap, StatsigUserValue};
+use statsig_rust::{DynamicValue, StatsigUserDataMap, StatsigUserValue, log_e, log_w};
 use std::{collections::HashMap, str};
 
 const TAG: &str = stringify!(StatsigUserPy);

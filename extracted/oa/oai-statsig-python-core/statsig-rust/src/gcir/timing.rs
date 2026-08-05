@@ -2,8 +2,8 @@
 use std::{
     collections::HashMap,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Mutex, OnceLock,
+        atomic::{AtomicBool, Ordering},
     },
     time::{Duration, Instant},
 };

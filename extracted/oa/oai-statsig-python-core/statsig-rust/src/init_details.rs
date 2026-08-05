@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::{networking::NetworkError, SpecsInfo, SpecsSource, StatsigErr};
+use crate::{SpecsInfo, SpecsSource, StatsigErr, networking::NetworkError};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct FailureDetails {

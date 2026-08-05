@@ -54,7 +54,6 @@ __all__ = (
     "ListResourceSnapshotsPaginatorName",
     "ListSolutionsPaginatorName",
     "ListTasksSortNameType",
-    "MarketSegmentType",
     "MarketingSourceType",
     "NationalSecurityType",
     "OpportunityEngagementInvitationSortNameType",
@@ -700,7 +699,6 @@ ListResourceSnapshotJobsPaginatorName = Literal["list_resource_snapshot_jobs"]
 ListResourceSnapshotsPaginatorName = Literal["list_resource_snapshots"]
 ListSolutionsPaginatorName = Literal["list_solutions"]
 ListTasksSortNameType = Literal["StartTime"]
-MarketSegmentType = Literal["Enterprise", "Large", "Medium", "Micro", "Small"]
 MarketingSourceType = Literal["Marketing Activity", "None"]
 NationalSecurityType = Literal["No", "Yes"]
 OpportunityEngagementInvitationSortNameType = Literal["InvitationDate"]
@@ -1092,6 +1090,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -1109,6 +1108,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

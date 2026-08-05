@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 import asyncio
 import inspect
+import math
 import sys
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager, AsyncExitStack, asynccontextmanager
@@ -34,6 +35,8 @@ from mcp.types import (
     ListPromptsResult,
     ListResourcesResult,
     ListResourceTemplatesResult,
+    ListToolsResult,
+    PaginatedRequestParams,
     ReadResourceResult,
 )
 from typing_extensions import NotRequired, TypedDict
@@ -103,6 +106,33 @@ T = TypeVar("T")
 
 _SAFE_EXCEPTION_GROUP_MESSAGE = "MCP request failed with additional errors."
 _SAFE_EXCEPTION_MESSAGE = "An additional error occurred during the MCP request."
+
+
+def _client_session_read_timeout(timeout_seconds: float | None) -> timedelta | None:
+    """Convert an MCP read timeout while intentionally treating zero as no timeout."""
+    if timeout_seconds is None:
+        return None
+    if isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, int | float):
+        raise TypeError("client_session_timeout_seconds must be a number of seconds or None.")
+    if timeout_seconds == 0:
+        return None
+    try:
+        is_finite = math.isfinite(timeout_seconds)
+    except OverflowError as error:
+        raise ValueError(
+            "client_session_timeout_seconds must fit in a datetime.timedelta."
+        ) from error
+    if not is_finite or timeout_seconds < 0:
+        raise ValueError("client_session_timeout_seconds must be zero or a positive finite value.")
+    if timeout_seconds < timedelta.resolution.total_seconds():
+        raise ValueError("client_session_timeout_seconds must be zero or at least one microsecond.")
+    try:
+        timeout = timedelta(seconds=timeout_seconds)
+    except OverflowError as error:
+        raise ValueError(
+            "client_session_timeout_seconds must fit in a datetime.timedelta."
+        ) from error
+    return timeout
 
 
 def _transport_error_urls_are_safe(
@@ -706,7 +736,10 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
             server will not change its tools list, because it can drastically improve latency
             (by avoiding a round-trip to the server every time).
 
-            client_session_timeout_seconds: the read timeout passed to the MCP ClientSession.
+            client_session_timeout_seconds: The MCP ClientSession read timeout. Positive finite
+                values representable by `datetime.timedelta` and at least one microsecond set a
+                timeout; `None` and `0` disable it. Other values are rejected during server
+                construction.
             tool_filter: The tool filter to use for filtering tools.
             use_structured_content: Whether to use `tool_result.structured_content` when calling an
                 MCP tool. Defaults to False for backwards compatibility - most MCP servers still
@@ -745,6 +778,9 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
         self.cache_tools_list = cache_tools_list
         self.server_initialize_result: InitializeResult | None = None
 
+        # Validate during construction, then convert again when connecting in case callers mutate
+        # the public timeout attribute before a later connection attempt.
+        _client_session_read_timeout(client_session_timeout_seconds)
         self.client_session_timeout_seconds = client_session_timeout_seconds
         self.max_retry_attempts = max_retry_attempts
         self.retry_backoff_seconds_base = retry_backoff_seconds_base
@@ -763,6 +799,27 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
             return await func()
         async with self._request_lock:
             return await func()
+
+    async def _list_tools_page(
+        self, session: ClientSession, cursor: str | None = None
+    ) -> ListToolsResult:
+        return await self._maybe_serialize_request(
+            lambda: session.list_tools()
+            if cursor is None
+            else session.list_tools(params=PaginatedRequestParams(cursor=cursor))
+        )
+
+    async def _list_prompts_page(
+        self, session: ClientSession, cursor: str | None = None
+    ) -> ListPromptsResult:
+        return await self._run_request_with_transport_error_redaction(
+            "list prompts",
+            lambda: self._maybe_serialize_request(
+                lambda: session.list_prompts()
+                if cursor is None
+                else session.list_prompts(params=PaginatedRequestParams(cursor=cursor))
+            ),
+        )
 
     async def _apply_tool_filter(
         self,
@@ -1011,6 +1068,7 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
 
     async def connect(self):
         """Connect to the server."""
+        read_timeout = _client_session_read_timeout(self.client_session_timeout_seconds)
         connection_succeeded = False
         connection_error: UserError | None = None
         connection_cause: Exception | None = None
@@ -1029,9 +1087,7 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
                 ClientSession(
                     read,
                     write,
-                    timedelta(seconds=self.client_session_timeout_seconds)
-                    if self.client_session_timeout_seconds
-                    else None,
+                    read_timeout,
                     message_handler=self.message_handler,
                 )
             )
@@ -1120,17 +1176,61 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
         transport_error: UserError | None = None
         transport_cause: Exception | None = None
         try:
+            tools: list[MCPTool]
             # Return from cache if caching is enabled, we have tools, and the cache is not dirty
             if self.cache_tools_list and not self._cache_dirty and self._tools_list:
                 tools = self._tools_list
             else:
-                # Fetch the tools from the server
-                result = await self._run_with_retries(
-                    lambda: self._maybe_serialize_request(lambda: session.list_tools())
-                )
-                self._tools_list = result.tools
+                tools = []
+                cursor: str | None = None
+                seen_cursors: set[str | None] = set()
+
+                async def fetch_pages() -> bool:
+                    nonlocal cursor
+                    while True:
+                        result = await self._list_tools_page(session, cursor)
+                        tools.extend(result.tools)
+                        seen_cursors.add(cursor)
+                        next_cursor = result.nextCursor
+                        if next_cursor is None:
+                            return True
+                        if next_cursor in seen_cursors:
+                            return False
+                        cursor = next_cursor
+
+                pagination_complete = False
+                pagination_failure: BaseException | None = None
+                try:
+                    pagination_complete = await self._run_with_retries(fetch_pages)
+                except BaseException as error:
+                    if cursor is None:
+                        raise
+                    if isinstance(error, BaseExceptionGroup):
+                        pagination_failure = _credential_safe_exception_group(error)
+                    elif isinstance(error, Exception):
+                        pagination_failure = self._user_error_for_request_operation(
+                            "list tools", error
+                        )
+                    else:
+                        pagination_failure = _credential_safe_exception_leaf(error)
+
+                if pagination_failure is not None or not pagination_complete:
+                    cursor = None
+                    seen_cursors.clear()
+                    tools.clear()
+                    del fetch_pages
+                    if pagination_failure is not None:
+                        raise pagination_failure from None
+                    raise UserError(
+                        f"MCP server '{self._error_name}' returned a repeated cursor while "
+                        "listing tools."
+                    ) from None
+
+                cursor = None
+                seen_cursors.clear()
+                del fetch_pages
+                self._tools_list = tools
                 self._cache_dirty = False
-                tools = self._tools_list
 
             # Filter tools based on tool_filter
             filtered_tools = tools
@@ -1265,10 +1365,52 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
             raise UserError("Server not initialized. Make sure you call `connect()` first.")
         session = self.session
         assert session is not None
-        return await self._run_request_with_transport_error_redaction(
-            "list prompts",
-            lambda: self._maybe_serialize_request(lambda: session.list_prompts()),
-        )
+        result = await self._list_prompts_page(session)
+        if result.nextCursor is None:
+            return result
+
+        prompts = list(result.prompts)
+        cursor: str | None = result.nextCursor
+        seen_cursors: set[str | None] = {None}
+        pagination_failure: BaseException | None = None
+        repeated_cursor = False
+        page: ListPromptsResult | None = None
+        next_cursor: str | None = None
+        while cursor is not None:
+            try:
+                page = await self._list_prompts_page(session, cursor)
+            except BaseException as error:
+                if isinstance(error, BaseExceptionGroup):
+                    pagination_failure = _credential_safe_exception_group(error)
+                elif isinstance(error, Exception):
+                    pagination_failure = self._user_error_for_request_operation(
+                        "list prompts", error
+                    )
+                else:
+                    pagination_failure = _credential_safe_exception_leaf(error)
+                break
+            prompts.extend(page.prompts)
+            seen_cursors.add(cursor)
+            next_cursor = page.nextCursor
+            if next_cursor is not None and next_cursor in seen_cursors:
+                repeated_cursor = True
+                break
+            cursor = next_cursor
+
+        if pagination_failure is not None or repeated_cursor:
+            cursor = None
+            seen_cursors.clear()
+            prompts.clear()
+            page = None
+            next_cursor = None
+            del result
+            if pagination_failure is not None:
+                raise pagination_failure from None
+            raise UserError(
+                f"MCP server '{self._error_name}' returned a repeated cursor while listing prompts."
+            ) from None
+
+        return result.model_copy(update={"prompts": prompts, "nextCursor": None})
 
     async def get_prompt(
         self, name: str, arguments: dict[str, Any] | None = None
@@ -1488,7 +1630,10 @@ class MCPServerStdio(_MCPServerWithClientSession):
                 improve latency (by avoiding a round-trip to the server every time).
             name: A readable name for the server. If not provided, we'll create one from the
                 command.
-            client_session_timeout_seconds: the read timeout passed to the MCP ClientSession.
+            client_session_timeout_seconds: The MCP ClientSession read timeout. Positive finite
+                values representable by `datetime.timedelta` and at least one microsecond set a
+                timeout; `None` and `0` disable it. Other values are rejected during server
+                construction.
             tool_filter: The tool filter to use for filtering tools.
             use_structured_content: Whether to use `tool_result.structured_content` when calling an
                 MCP tool. Defaults to False for backwards compatibility - most MCP servers still
@@ -1615,7 +1760,10 @@ class MCPServerSse(_MCPServerWithClientSession):
             name: A readable name for the server. If not provided, we'll create one from the
                 URL.
 
-            client_session_timeout_seconds: the read timeout passed to the MCP ClientSession.
+            client_session_timeout_seconds: The MCP ClientSession read timeout. Positive finite
+                values representable by `datetime.timedelta` and at least one microsecond set a
+                timeout; `None` and `0` disable it. Other values are rejected during server
+                construction.
             tool_filter: The tool filter to use for filtering tools.
             use_structured_content: Whether to use `tool_result.structured_content` when calling an
                 MCP tool. Defaults to False for backwards compatibility - most MCP servers still
@@ -1756,7 +1904,10 @@ class MCPServerStreamableHttp(_MCPServerWithClientSession):
             name: A readable name for the server. If not provided, we'll create one from the
                 URL.
 
-            client_session_timeout_seconds: the read timeout passed to the MCP ClientSession.
+            client_session_timeout_seconds: The MCP ClientSession read timeout. Positive finite
+                values representable by `datetime.timedelta` and at least one microsecond set a
+                timeout; `None` and `0` disable it. Other values are rejected during server
+                construction.
             tool_filter: The tool filter to use for filtering tools.
             use_structured_content: Whether to use `tool_result.structured_content` when calling an
                 MCP tool. Defaults to False for backwards compatibility - most MCP servers still
@@ -1826,6 +1977,7 @@ class MCPServerStreamableHttp(_MCPServerWithClientSession):
 
     @asynccontextmanager
     async def _isolated_client_session(self):
+        read_timeout = _client_session_read_timeout(self.client_session_timeout_seconds)
         async with AsyncExitStack() as exit_stack:
             transport = await exit_stack.enter_async_context(self.create_streams())
             read, write, *_ = transport
@@ -1833,9 +1985,7 @@ class MCPServerStreamableHttp(_MCPServerWithClientSession):
                 ClientSession(
                     read,
                     write,
-                    timedelta(seconds=self.client_session_timeout_seconds)
-                    if self.client_session_timeout_seconds
-                    else None,
+                    read_timeout,
                     message_handler=self.message_handler,
                 )
             )
@@ -1952,6 +2102,11 @@ class MCPServerStreamableHttp(_MCPServerWithClientSession):
         try:
             self._validate_required_parameters(tool_name=tool_name, arguments=arguments)
             retries_used = 0
+            # `retries_used` measures the retry budget, not elapsed backoffs: it is
+            # deliberately not advanced while `max_retry_attempts` is -1, and a single
+            # isolated-session retry charges it twice. Count backoffs separately so the
+            # delay follows the configured schedule in both cases.
+            backoffs_taken = 0
             first_attempt = True
             while True:
                 if not first_attempt and self.max_retry_attempts != -1:
@@ -1975,12 +2130,14 @@ class MCPServerStreamableHttp(_MCPServerWithClientSession):
                         if exc.__cause__ is not None:
                             raise exc.__cause__ from exc
                         raise
-                    backoff = self.retry_backoff_seconds_base * (2 ** (retries_used - 1))
+                    backoff = self.retry_backoff_seconds_base * (2**backoffs_taken)
+                    backoffs_taken += 1
                     await asyncio.sleep(backoff)
                 except Exception:
                     if self.max_retry_attempts != -1 and retries_used >= self.max_retry_attempts:
                         raise
-                    backoff = self.retry_backoff_seconds_base * (2**retries_used)
+                    backoff = self.retry_backoff_seconds_base * (2**backoffs_taken)
+                    backoffs_taken += 1
                     await asyncio.sleep(backoff)
                 first_attempt = False
         except httpx.HTTPStatusError as e:

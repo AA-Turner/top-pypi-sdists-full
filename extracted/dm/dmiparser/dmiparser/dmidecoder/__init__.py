@@ -12,10 +12,10 @@ def main() -> None:
         "-a", "--arguments", nargs=1, type=str, required=False, help="arguments passed to dmidecode command"
     )
     args = parser.parse_args()
-    fmtOpts = {"sort_keys": True, "indent": 2}
+    fmt_opts = {"sort_keys": True, "indent": 2}
     dmidecoder = DmiDecoder(
         args.arguments[0] if isinstance(args.arguments, list) and len(args.arguments) > 0 else None,
-        **(fmtOpts if args.format is True else {})
+        **(fmt_opts if args.format is True else {})
     )
 
     print(dmidecoder.text)

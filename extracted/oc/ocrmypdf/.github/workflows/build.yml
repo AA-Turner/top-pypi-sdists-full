@@ -26,7 +26,7 @@ jobs:
           version: "0.9.x"
 
       - name: "Set up Python"
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -60,7 +60,7 @@ jobs:
           version: "0.9.x"
 
       - name: "Set up Python"
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
 
@@ -151,7 +151,7 @@ jobs:
           version: "0.9.x"
 
       - name: "Set up Python"
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
 
@@ -200,7 +200,7 @@ jobs:
           version: "0.9.x"
 
       - name: "Set up Python"
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
 
@@ -274,6 +274,14 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           TAG="v${{ steps.version.outputs.version }}"
+
+          # If release.yml already published this version, _version.py may
+          # still reflect it until the next version bump commit. Don't
+          # re-draft an already-published release on later pushes to main.
+          if [[ "$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null)" == "false" ]]; then
+            echo "Release $TAG is already published; skipping."
+            exit 0
+          fi
 
           # Delete existing draft release if it exists (ignore errors)
           gh release delete "$TAG" --yes 2>/dev/null || true

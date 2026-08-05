@@ -15,6 +15,22 @@ from ._utils import index_status_to_tool_error, resolve_repo, resolve_fqn
 logger = logging.getLogger(__name__)
 
 
+def _offload():
+    """The optional offloadable-work annotator, or None.
+
+    ⚠ Imported lazily and allowed to be ABSENT. The module is optional and is
+    not present in every build, so a missing import must degrade to "no
+    annotation" rather than breaking symbol retrieval outright. Off by default
+    regardless: the module's own env gate decides whether anything is emitted.
+    """
+    try:
+        from ..retrieval import offload
+
+        return offload
+    except ImportError:
+        return None
+
+
 def _make_meta(timing_ms: float, **kwargs) -> dict:
     """Build a _meta envelope dict."""
     meta = {"timing_ms": round(timing_ms, 1)}
@@ -308,14 +324,44 @@ def _slice_matches(file_content: str, cached_slice: str, line: int, end_line: in
     # Slicing to `len(cached_slice)` turns this into a PREFIX match, so a cache
     # holding only the first part of a symbol — a bad `byte_length`, a partial
     # write, exactly the corruption this mode exists to catch — would be
-    # attested as matching on the part it does hold. Requiring the same line
-    # COUNT rules that out while still permitting the one shortfall that is
-    # legitimate: the cached byte range stops at the symbol's last byte, so
-    # trailing text on the LAST line is allowed to go uncompared, but no line
-    # may go missing.
+    # attested as matching on the part it does hold.
+    #
+    # ⚠ The line-count check below closes ONLY the whole-line case. It is not
+    # sufficient on its own and this comment used to claim that it was (#412):
+    # a cache cut mid-way through its FINAL line keeps the newline count intact
+    # and sailed through. The boundary check after the equality test is the
+    # other half. Neither guard is redundant: line-count rejects a missing line
+    # whose text would never have matched anyway, the boundary check rejects a
+    # same-line-count prefix that does.
+    #
+    # The one legitimate shortfall stays permitted: the cached byte range stops
+    # at the symbol's last byte, so trailing text on the LAST line goes
+    # uncompared. No line may go missing.
     if cached_slice.count("\n") != file_slice.count("\n"):
         return False
-    return candidate == cached_slice
+    if candidate != cached_slice:
+        return False
+    # ⚠⚠ #412: the line-count guard above does NOT close truncation, and the
+    # comment that said it did was wrong. Dropping bytes from INSIDE the final
+    # line preserves the newline count, so `return 4` against a committed
+    # `return 42` stayed a same-line-count prefix and was attested as matching.
+    #
+    # The remaining signal is what FOLLOWS the cached extent on that last line.
+    # The one legitimate shortfall is trailing text after the symbol ends, and
+    # text that trails a symbol is SEPARATED from it — a comment, a closing
+    # delimiter of an enclosing construct. A truncation instead cuts mid-token,
+    # so the next character continues the token the cache ends on. Requiring the
+    # remainder to start on whitespace separates the two without needing to know
+    # the language.
+    #
+    # ⚠ This is deliberately biased toward REFUSING. A symbol whose last line is
+    # followed immediately by text with no separating space (`return 42# note`)
+    # now reports divergence rather than a match. That is the safe direction for
+    # a verification path: a false `git_sha_mismatch` costs a re-read, a false
+    # `git_sha_match` attests bytes nobody checked — and this verdict rides an
+    # evidence receipt, where it becomes a provenance claim.
+    remainder = file_slice[indent + len(cached_slice):]
+    return remainder == "" or remainder[0].isspace()
 
 
 def get_symbol_source(
@@ -624,14 +670,48 @@ def get_symbol_source(
             meta["unavailable_source_ids"] = unavailable_source_ids
         if _runtime_summary:
             meta["runtime_freshness"] = _runtime_summary
-        return {"symbols": symbols_out, "errors": errors_out, "_meta": meta}
+        out = {"symbols": symbols_out, "errors": errors_out, "_meta": meta}
+        _mod = _offload()
+        if _mod is not None:
+            # Attached LAST, so the shape it reads is the payload actually
+            # served — verdict, freshness and all. Reading a half-built meta
+            # would classify something the caller never receives.
+            # One adjudicating call PER symbol, named explicitly. A single
+            # `args` would have to pick one of N names and imply the rest were
+            # covered; `args_each` says what it means.
+            _names = [
+                s.get("name") for s in symbols_out
+                if isinstance(s, dict) and s.get("name")
+            ]
+            _mod.annotate(
+                out,
+                retrieval_mode=_mod.MODE_IDENTITY,
+                unit_field="symbols",
+                verify_with=(
+                    {
+                        "tool": "check_references",
+                        "args_each": [{"identifier": n} for n in _names],
+                    }
+                    if _names
+                    else None
+                ),
+            )
+        return out
 
     # Single mode: flat object or error
     if errors_out:
         verdict = symbol_verdict_for_index(
             index, found_count=0, requested_id=errors_out[0]["id"]
         )
-        return {"error": errors_out[0]["error"], "_meta": {"verdict": verdict}}
+        err_out = {"error": errors_out[0]["error"], "_meta": {"verdict": verdict}}
+        _mod = _offload()
+        if _mod is not None:
+            # ⚠ Explicitly `not_evaluated`, not silence. With the gate ON, a
+            # missing block would be indistinguishable from the gate being OFF,
+            # and "we did not assess it" is a third state that has to be
+            # sayable — the same reason the verdict itself is tri-state.
+            _mod.not_evaluated(err_out, reason="error payload carries no evidence")
+        return err_out
     result = symbols_out[0]
     meta["hint"] = "Use get_context_bundle(symbol_id) to retrieve source + imports in one call"
     meta["verdict"] = symbol_verdict_for_index(
@@ -644,4 +724,16 @@ def get_symbol_source(
     if _runtime_summary:
         meta["runtime_freshness"] = _runtime_summary
     result["_meta"] = meta
+    _mod = _offload()
+    if _mod is not None:
+        _name = result.get("name") if isinstance(result, dict) else None
+        _mod.annotate(
+            result,
+            retrieval_mode=_mod.MODE_IDENTITY,
+            verify_with=(
+                {"tool": "check_references", "args": {"identifier": _name}}
+                if _name
+                else None
+            ),
+        )
     return result

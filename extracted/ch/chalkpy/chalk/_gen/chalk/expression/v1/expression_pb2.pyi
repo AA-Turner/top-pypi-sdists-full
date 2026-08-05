@@ -41,6 +41,12 @@ class PyObjectType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     PY_OBJECT_TYPE_DATETIME: _ClassVar[PyObjectType]
     PY_OBJECT_TYPE_TIMEDELTA: _ClassVar[PyObjectType]
     PY_OBJECT_TYPE_LIST: _ClassVar[PyObjectType]
+    PY_OBJECT_TYPE_FILTER_OPERAND: _ClassVar[PyObjectType]
+    PY_OBJECT_TYPE_FILTER_PARSED_REF: _ClassVar[PyObjectType]
+    PY_OBJECT_TYPE_DATAFRAME_REF: _ClassVar[PyObjectType]
+    PY_OBJECT_TYPE_FEATURE_REF: _ClassVar[PyObjectType]
+    PY_OBJECT_TYPE_HAS_MANY_FEATURE_REFS: _ClassVar[PyObjectType]
+    PY_OBJECT_TYPE_RESOLVER_FEATURE_SET_REFS: _ClassVar[PyObjectType]
 
 class ScalarFunction(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -267,6 +273,12 @@ PY_OBJECT_TYPE_FLOAT: PyObjectType
 PY_OBJECT_TYPE_DATETIME: PyObjectType
 PY_OBJECT_TYPE_TIMEDELTA: PyObjectType
 PY_OBJECT_TYPE_LIST: PyObjectType
+PY_OBJECT_TYPE_FILTER_OPERAND: PyObjectType
+PY_OBJECT_TYPE_FILTER_PARSED_REF: PyObjectType
+PY_OBJECT_TYPE_DATAFRAME_REF: PyObjectType
+PY_OBJECT_TYPE_FEATURE_REF: PyObjectType
+PY_OBJECT_TYPE_HAS_MANY_FEATURE_REFS: PyObjectType
+PY_OBJECT_TYPE_RESOLVER_FEATURE_SET_REFS: PyObjectType
 SCALAR_FUNCTION_UNSPECIFIED: ScalarFunction
 SCALAR_FUNCTION_ABS: ScalarFunction
 SCALAR_FUNCTION_ACOS: ScalarFunction

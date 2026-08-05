@@ -1,6 +1,6 @@
 mod utils;
 
-use assert_json_diff::{assert_json_matches, CompareMode, Config, NumericMode};
+use assert_json_diff::{CompareMode, Config, NumericMode, assert_json_matches};
 use serde_json::Value;
 use statsig_rust::{
     interned_string::InternedString, specs_response::spec_types::SpecsResponseFull,

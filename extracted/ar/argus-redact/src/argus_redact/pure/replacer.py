@@ -18,8 +18,10 @@ from argus_redact.pure._strategy_kind import (
 from argus_redact.pure.grammar import SELF_REF_PRONOUNS, normalize_grammar_en
 from argus_redact.pure.security_events import (
     ALIAS_COLLISION,
+    COVERAGE_RESTORED,
     KEEP_DOWNGRADED,
     MASK_COLLISION,
+    _auto_stacklevel,
     security_event,
 )
 
@@ -116,6 +118,19 @@ def _keep_downgraded_entities(entities, config: dict | None):
     return out
 
 
+def _types_event(reason_code: str, count: int, types) -> dict:
+    """Build a PII-free security_event whose detail names entity TYPES only.
+
+    THE single source of the ``"types: a, b"`` detail convention, shared by
+    every redact-side builder below. That string is what reaches the PII-free
+    audit ledger, so it must never carry a raw or masked value — keeping one
+    formatter means a change to the convention cannot land in some builders and
+    not others.
+    """
+    detail = "types: " + ", ".join(sorted(set(types)))
+    return security_event(reason_code, count=count, detail=detail)
+
+
 def keep_downgraded_event(entities, config: dict | None) -> dict | None:
     """A PII-free KEEP_DOWNGRADED security_event, or None if nothing downgraded.
     count = unique downgraded entity texts; detail names the TYPES only (never raw
@@ -123,8 +138,7 @@ def keep_downgraded_event(entities, config: dict | None) -> dict | None:
     ents = _keep_downgraded_entities(entities, config)
     if not ents:
         return None
-    types = sorted({e.type for e in ents})
-    return security_event(KEEP_DOWNGRADED, count=len(ents), detail="types: " + ", ".join(types))
+    return _types_event(KEEP_DOWNGRADED, len(ents), (e.type for e in ents))
 
 
 def mask_collision_event(mask_collisions: list[str]) -> dict | None:
@@ -136,10 +150,7 @@ def mask_collision_event(mask_collisions: list[str]) -> dict | None:
     TYPES only (never the raw or masked value) — mirrors ``keep_downgraded_event``."""
     if not mask_collisions:
         return None
-    types = sorted(set(mask_collisions))
-    return security_event(
-        MASK_COLLISION, count=len(mask_collisions), detail="types: " + ", ".join(types)
-    )
+    return _types_event(MASK_COLLISION, len(mask_collisions), mask_collisions)
 
 
 def warn_mask_collisions(mask_collisions: list[str]) -> None:
@@ -156,6 +167,54 @@ def warn_mask_collisions(mask_collisions: list[str]) -> None:
         f"may misattribute them.",
         SecurityWarning,
         stacklevel=2,
+    )
+
+
+def coverage_restored_event(restored_types: list[str]) -> dict | None:
+    """A PII-free COVERAGE_RESTORED security_event, or None if the post-merge
+    coverage invariant did not fire this call.
+
+    ``restored_types`` is the Rust core's authoritative list — one entry per
+    entity whose coverage a post-merge filter destroyed and the invariant
+    re-admitted. count = number of restored entities; detail names the TYPES
+    only (never the raw value), mirroring ``mask_collision_event``.
+    """
+    if not restored_types:
+        return None
+    return _types_event(COVERAGE_RESTORED, len(restored_types), restored_types)
+
+
+def warn_coverage_restored(restored_types: list[str]) -> None:
+    """Emit the ``coverage_restored`` SecurityWarning — a no-op when the list is
+    empty. THE single source for that warning's text/category.
+
+    This exists because the structured event is assembled only inside
+    ``if report or detailed:``; the warning is what reaches the default 2-tuple
+    caller. A firing means the merge absorbed one entity into another (an
+    overlapping span won and the loser's bytes were folded into it), and a
+    later filter — a type filter or the self-reference tier — then dropped
+    that winning span; the invariant re-admitted the entities it had absorbed
+    so they stay redacted. Expected on type-filtered calls (``types=``/
+    ``types_exclude=`` legitimately excluding a winner that had absorbed
+    something else during merge); rare on an unfiltered call. See
+    ``coverage_restored_event`` for the sibling structured channel.
+
+    The stacklevel is auto-detected (``_auto_stacklevel``), same as the restore
+    guard's warnings — this function is called directly from every public
+    entry point (``redact()``, ``redact_json``/``redact_csv``,
+    ``StreamingRedactor.feed``/``flush``, ``redact_pseudonym_llm()``), each at
+    a different wrapping depth, and a hardcoded number would attribute the
+    warning to one of THIS package's own call sites instead of the caller's.
+    """
+    if not restored_types:
+        return
+    types = ", ".join(sorted(set(restored_types)))
+    warnings.warn(
+        f"{len(restored_types)} entity/entities ({types}) lost redaction coverage "
+        f"when a filter removed a span that had absorbed them during the merge; "
+        f"they were re-admitted and remain redacted in the output.",
+        SecurityWarning,
+        stacklevel=_auto_stacklevel(),
     )
 
 

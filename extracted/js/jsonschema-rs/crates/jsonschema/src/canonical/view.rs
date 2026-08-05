@@ -6,7 +6,8 @@ use crate::{
     canonical::{
         ir::{
             ArrayLeaf, BoundCardinality, BoundInteger, BoundNumber, BoundRational, CanonicalJson,
-            Divisors, IntegerLeaf, NumberLeaf, ObjectLeaf, SchemaKind, StringLeaf,
+            Divisors, ExcludedDivisors, IntegerLeaf, NumberLeaf, ObjectLeaf, SchemaKind,
+            StringLeaf,
         },
         CanonicalSchema,
     },
@@ -66,13 +67,15 @@ pub struct TypedGroupView {
     pub body: CanonicalSchema,
 }
 
-/// Payload of [`CanonicalView::String`]: the `minLength`/`maxLength` bounds, patterns, formats,
-/// media types, encodings, and excluded values on a string value.
+/// Payload of [`CanonicalView::String`]: the `minLength`/`maxLength` bounds and the required and
+/// barred facets on a string value.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StringView {
     pub min_length: Option<Number>,
     pub max_length: Option<Number>,
     pub patterns: Vec<String>,
+    /// Patterns the string must not match.
+    pub excluded_patterns: Vec<String>,
     pub formats: Vec<String>,
     /// Formats the string must fail.
     pub excluded_formats: Vec<String>,
@@ -91,6 +94,11 @@ pub struct NumberView {
     pub maximum: Option<Number>,
     pub exclusive_maximum: bool,
     pub multiple_of: Vec<Number>,
+    /// Divisors no admitted value is a multiple of.
+    pub not_multiple_of: Vec<Number>,
+    /// No admitted value is one of the draft's integers (Draft 4 only; later drafts respell this
+    /// as a barred divisor of one).
+    pub excludes_integers: bool,
 }
 
 /// Payload of [`CanonicalView::Array`]: the constraints on an array value.
@@ -139,6 +147,8 @@ pub struct IntegerView {
     pub minimum: Option<Number>,
     pub maximum: Option<Number>,
     pub multiple_of: Vec<Number>,
+    /// Divisors no admitted value is a multiple of.
+    pub not_multiple_of: Vec<Number>,
 }
 
 impl CanonicalSchema {
@@ -246,6 +256,8 @@ fn number_view(leaf: &NumberLeaf) -> NumberView {
         maximum: leaf.maximum.as_ref().map(BoundNumber::to_number),
         exclusive_maximum: leaf.maximum.as_ref().is_some_and(|b| !b.is_inclusive()),
         multiple_of: divisor_numbers(&leaf.multiple_of),
+        not_multiple_of: excluded_divisor_numbers(&leaf.not_multiple_of),
+        excludes_integers: leaf.excludes_integers,
     }
 }
 
@@ -254,7 +266,16 @@ fn integer_view(leaf: &IntegerLeaf) -> IntegerView {
         minimum: leaf.bounds.minimum.as_ref().map(BoundInteger::to_number),
         maximum: leaf.bounds.maximum.as_ref().map(BoundInteger::to_number),
         multiple_of: divisor_numbers(&leaf.multiple_of),
+        not_multiple_of: excluded_divisor_numbers(&leaf.not_multiple_of),
     }
+}
+
+fn excluded_divisor_numbers(barred: &ExcludedDivisors) -> Vec<Number> {
+    barred
+        .as_slice()
+        .iter()
+        .map(BoundRational::to_number)
+        .collect()
 }
 
 // The element-schema children need the schema-level wrapping only the caller can do, so they arrive
@@ -316,6 +337,11 @@ fn string_view(leaf: &StringLeaf) -> StringView {
             .as_ref()
             .map(BoundCardinality::to_number),
         patterns: leaf.patterns.iter().map(ToString::to_string).collect(),
+        excluded_patterns: leaf
+            .excluded_patterns
+            .iter()
+            .map(ToString::to_string)
+            .collect(),
         formats: leaf.formats.iter().map(ToString::to_string).collect(),
         excluded_formats: leaf
             .excluded_formats

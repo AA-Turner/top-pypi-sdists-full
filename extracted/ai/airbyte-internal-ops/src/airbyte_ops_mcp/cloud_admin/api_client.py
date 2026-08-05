@@ -175,6 +175,57 @@ def _get_access_token(
     return data["access_token"]
 
 
+def config_api_headers(access_token: str) -> dict[str, str]:
+    """Build standard headers for Config API requests."""
+    return {
+        "Authorization": f"Bearer {access_token}",
+        "User-Agent": ops_constants.USER_AGENT,
+        "Content-Type": "application/json",
+    }
+
+
+def make_config_api_request(
+    *,
+    path: str,
+    json: dict[str, object],
+    operation: str,
+    client_id: str | None = None,
+    client_secret: str | None = None,
+    bearer_token: str | None = None,
+    config_api_root: str | None = None,
+    extra_context: dict[str, Any] | None = None,
+    timeout: int = 30,
+) -> dict[str, Any]:
+    """Make an authenticated request to the Config API.
+
+    The request uses the shared Cloud authentication and error handling paths.
+    `operation` and `extra_context` describe the call for the error raised on
+    a failed response.
+    """
+    config_root = config_api_root or constants.CLOUD_CONFIG_API_ROOT
+    access_token = _get_access_token(
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+        config_api_root=config_root,
+    )
+    endpoint = f"{config_root.rstrip('/')}/{path.lstrip('/')}"
+    response = requests.post(
+        endpoint,
+        json=json,
+        headers=config_api_headers(access_token),
+        timeout=timeout,
+    )
+    if not response.ok:
+        _raise_config_api_error(
+            response,
+            operation=operation,
+            endpoint=endpoint,
+            extra_context={"payload": json, **(extra_context or {})},
+        )
+    return response.json()
+
+
 @lru_cache
 def get_user_id_by_email(
     email: str,
@@ -199,11 +250,7 @@ def get_user_id_by_email(
     response = requests.post(
         endpoint,
         json={},
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "User-Agent": ops_constants.USER_AGENT,
-            "Content-Type": "application/json",
-        },
+        headers=config_api_headers(access_token),
         timeout=30,
     )
 
@@ -250,11 +297,7 @@ def list_instance_admin_users(
     response = requests.post(
         endpoint,
         json={},
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "User-Agent": ops_constants.USER_AGENT,
-            "Content-Type": "application/json",
-        },
+        headers=config_api_headers(access_token),
         timeout=30,
     )
 
@@ -322,11 +365,7 @@ def resolve_connector_version_id(
     response = requests.post(
         endpoint,
         json=payload,
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "User-Agent": ops_constants.USER_AGENT,
-            "Content-Type": "application/json",
-        },
+        headers=config_api_headers(access_token),
         timeout=30,
     )
 
@@ -374,11 +413,7 @@ def _resolve_connector_definition_id(
     definitions_response = requests.post(
         definitions_endpoint,
         json={},
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "User-Agent": ops_constants.USER_AGENT,
-            "Content-Type": "application/json",
-        },
+        headers=config_api_headers(access_token),
         timeout=30,
     )
     if definitions_response.status_code != 200:
@@ -452,11 +487,7 @@ def _get_scoped_configuration_context(
     response = requests.post(
         endpoint,
         json=context_payload,
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "User-Agent": ops_constants.USER_AGENT,
-            "Content-Type": "application/json",
-        },
+        headers=config_api_headers(access_token),
         timeout=30,
     )
 
@@ -597,11 +628,7 @@ def get_connector_version(
     response = requests.post(
         endpoint,
         json=payload,
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "User-Agent": ops_constants.USER_AGENT,
-            "Content-Type": "application/json",
-        },
+        headers=config_api_headers(access_token),
         timeout=30,
     )
 
@@ -636,11 +663,7 @@ def get_connector_version(
         get_response = requests.post(
             get_endpoint,
             json=get_payload,
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "User-Agent": ops_constants.USER_AGENT,
-                "Content-Type": "application/json",
-            },
+            headers=config_api_headers(access_token),
             timeout=30,
         )
 
@@ -654,11 +677,7 @@ def get_connector_version(
                 workspace_response = requests.post(
                     workspace_endpoint,
                     json={"workspaceId": workspace_id},
-                    headers={
-                        "Authorization": f"Bearer {access_token}",
-                        "User-Agent": ops_constants.USER_AGENT,
-                        "Content-Type": "application/json",
-                    },
+                    headers=config_api_headers(access_token),
                     timeout=30,
                 )
 
@@ -758,11 +777,7 @@ def set_connector_version_override(
         get_response = requests.post(
             get_endpoint,
             json=get_payload,
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "User-Agent": ops_constants.USER_AGENT,
-                "Content-Type": "application/json",
-            },
+            headers=config_api_headers(access_token),
             timeout=30,
         )
 
@@ -806,11 +821,7 @@ def set_connector_version_override(
         response = requests.post(
             delete_endpoint,
             json=delete_payload,
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "User-Agent": ops_constants.USER_AGENT,
-                "Content-Type": "application/json",
-            },
+            headers=config_api_headers(access_token),
             timeout=30,
         )
 
@@ -837,11 +848,7 @@ def set_connector_version_override(
         get_response = requests.post(
             get_endpoint,
             json=get_payload,
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "User-Agent": ops_constants.USER_AGENT,
-                "Content-Type": "application/json",
-            },
+            headers=config_api_headers(access_token),
             timeout=30,
         )
 
@@ -883,11 +890,7 @@ def set_connector_version_override(
         workspace_response = requests.post(
             workspace_endpoint,
             json=workspace_payload,
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "User-Agent": ops_constants.USER_AGENT,
-                "Content-Type": "application/json",
-            },
+            headers=config_api_headers(access_token),
             timeout=30,
         )
         if workspace_response.status_code != 200:
@@ -1017,11 +1020,7 @@ def set_connector_version_override(
             delete_response = requests.post(
                 delete_endpoint,
                 json=delete_payload,
-                headers={
-                    "Authorization": f"Bearer {access_token}",
-                    "User-Agent": ops_constants.USER_AGENT,
-                    "Content-Type": "application/json",
-                },
+                headers=config_api_headers(access_token),
                 timeout=30,
             )
 
@@ -1106,11 +1105,7 @@ def set_connector_version_override(
         response = requests.post(
             endpoint,
             json=payload,
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "User-Agent": ops_constants.USER_AGENT,
-                "Content-Type": "application/json",
-            },
+            headers=config_api_headers(access_token),
             timeout=30,
         )
 
@@ -1270,11 +1265,7 @@ def set_workspace_connector_version_override(
         response = requests.post(
             delete_endpoint,
             json=delete_payload,
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "User-Agent": ops_constants.USER_AGENT,
-                "Content-Type": "application/json",
-            },
+            headers=config_api_headers(access_token),
             timeout=30,
         )
 
@@ -1341,11 +1332,7 @@ def set_workspace_connector_version_override(
             delete_response = requests.post(
                 delete_endpoint,
                 json=delete_payload,
-                headers={
-                    "Authorization": f"Bearer {access_token}",
-                    "User-Agent": ops_constants.USER_AGENT,
-                    "Content-Type": "application/json",
-                },
+                headers=config_api_headers(access_token),
                 timeout=30,
             )
 
@@ -1393,11 +1380,7 @@ def set_workspace_connector_version_override(
     response = requests.post(
         endpoint,
         json=payload,
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "User-Agent": ops_constants.USER_AGENT,
-            "Content-Type": "application/json",
-        },
+        headers=config_api_headers(access_token),
         timeout=30,
     )
 
@@ -1523,11 +1506,7 @@ def set_organization_connector_version_override(
         response = requests.post(
             delete_endpoint,
             json=delete_payload,
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "User-Agent": ops_constants.USER_AGENT,
-                "Content-Type": "application/json",
-            },
+            headers=config_api_headers(access_token),
             timeout=30,
         )
 
@@ -1594,11 +1573,7 @@ def set_organization_connector_version_override(
             delete_response = requests.post(
                 delete_endpoint,
                 json=delete_payload,
-                headers={
-                    "Authorization": f"Bearer {access_token}",
-                    "User-Agent": ops_constants.USER_AGENT,
-                    "Content-Type": "application/json",
-                },
+                headers=config_api_headers(access_token),
                 timeout=30,
             )
 
@@ -1646,11 +1621,7 @@ def set_organization_connector_version_override(
     response = requests.post(
         endpoint,
         json=payload,
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "User-Agent": ops_constants.USER_AGENT,
-            "Content-Type": "application/json",
-        },
+        headers=config_api_headers(access_token),
         timeout=30,
     )
 
@@ -1744,11 +1715,7 @@ def start_connector_rollout(
     response = requests.post(
         endpoint,
         json=payload,
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "User-Agent": ops_constants.USER_AGENT,
-            "Content-Type": "application/json",
-        },
+        headers=config_api_headers(access_token),
         timeout=60,
     )
 
@@ -1858,11 +1825,7 @@ def progress_connector_rollout(
     response = requests.post(
         endpoint,
         json=payload,
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "User-Agent": ops_constants.USER_AGENT,
-            "Content-Type": "application/json",
-        },
+        headers=config_api_headers(access_token),
         timeout=60,
     )
 
@@ -1981,11 +1944,7 @@ def finalize_connector_rollout(
     response = requests.post(
         endpoint,
         json=payload,
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "User-Agent": ops_constants.USER_AGENT,
-            "Content-Type": "application/json",
-        },
+        headers=config_api_headers(access_token),
         timeout=60,
     )
 
@@ -2076,11 +2035,7 @@ def get_actor_sync_info(
     response = requests.post(
         endpoint,
         json=payload,
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "User-Agent": ops_constants.USER_AGENT,
-            "Content-Type": "application/json",
-        },
+        headers=config_api_headers(access_token),
         timeout=60,
     )
 

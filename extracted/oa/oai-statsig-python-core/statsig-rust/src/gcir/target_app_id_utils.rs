@@ -1,7 +1,7 @@
 use crate::{
-    evaluation::evaluation_data::SpecView, hashing::HashUtil, interned_string::InternedString,
-    specs_response::spec_types::SpecsResponseFull, ClientInitResponseOptions, DynamicValue,
-    HashAlgorithm,
+    ClientInitResponseOptions, DynamicValue, HashAlgorithm, evaluation::evaluation_data::SpecView,
+    hashing::HashUtil, interned_string::InternedString,
+    specs_response::spec_types::SpecsResponseFull,
 };
 
 pub(crate) fn select_app_id_for_gcir<'a>(

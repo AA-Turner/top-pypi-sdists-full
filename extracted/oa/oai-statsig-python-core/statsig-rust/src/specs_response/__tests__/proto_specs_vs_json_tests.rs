@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use assert_json_diff::{CompareMode, Config, NumericMode};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::{
     interned_str,
@@ -238,21 +238,25 @@ fn test_regex_compilation() {
     let proto_condition = proto_specs.condition_map.get(&key).unwrap();
     let json_condition = json_specs.condition_map.get(&key).unwrap();
 
-    assert!(proto_condition
-        .target_value
-        .as_ref()
-        .unwrap()
-        .as_ref()
-        .regex_value
-        .is_some());
+    assert!(
+        proto_condition
+            .target_value
+            .as_ref()
+            .unwrap()
+            .as_ref()
+            .regex_value
+            .is_some()
+    );
 
-    assert!(json_condition
-        .target_value
-        .as_ref()
-        .unwrap()
-        .as_ref()
-        .regex_value
-        .is_some());
+    assert!(
+        json_condition
+            .target_value
+            .as_ref()
+            .unwrap()
+            .as_ref()
+            .regex_value
+            .is_some()
+    );
 }
 
 fn deserialize_from(

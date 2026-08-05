@@ -1,8 +1,8 @@
-use crate::{global_configs::GlobalConfigs, hashing::HashUtil, DynamicValue, StatsigOptions};
+use crate::{DynamicValue, StatsigOptions, global_configs::GlobalConfigs, hashing::HashUtil};
 use chrono::Utc;
 use std::sync::{
-    atomic::{AtomicU64, Ordering},
     Arc,
+    atomic::{AtomicU64, Ordering},
 };
 
 const SEC_EXPO_AS_PRIMARY_FLAG_PREFIX: &str = "sec_expo_as_primary:";

@@ -1,11 +1,14 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Tests for Cloud API client authentication root selection."""
 
+from unittest.mock import patch
+
 import pytest
 from airbyte import constants
 from airbyte.exceptions import PyAirbyteInputError
 from requests import Response
 
+from airbyte_ops_mcp import constants as ops_constants
 from airbyte_ops_mcp.cloud_admin import api_client
 
 
@@ -21,6 +24,65 @@ def test_auth_root_for_config_api_root_uses_local_config_api() -> None:
         api_client._auth_root_for_config_api_root("http://localhost:8000/api/v1")
         == "http://localhost:8000/api/v1"
     )
+
+
+def test_config_api_headers_uses_standard_values() -> None:
+    assert api_client.config_api_headers("token") == {
+        "Authorization": "Bearer token",
+        "User-Agent": ops_constants.USER_AGENT,
+        "Content-Type": "application/json",
+    }
+
+
+def test_make_config_api_request_returns_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    response = Response()
+    response.status_code = 200
+    response._content = b'{"connectionId":"connection-id"}'
+    monkeypatch.setattr(api_client, "_get_access_token", lambda **_: "token")
+    monkeypatch.setattr(api_client.requests, "post", lambda *args, **kwargs: response)
+
+    result = api_client.make_config_api_request(
+        path="/connections/get",
+        json={"connectionId": "connection-id"},
+        operation="get connection resource requirements",
+        bearer_token="token",
+    )
+
+    assert result == {"connectionId": "connection-id"}
+
+
+def test_make_config_api_request_uses_config_api_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    response = Response()
+    response.status_code = 500
+    response._content = b'{"message":"Internal Server Error"}'
+    error = RuntimeError("config API error")
+    monkeypatch.setattr(api_client, "_get_access_token", lambda **_: "token")
+    monkeypatch.setattr(api_client.requests, "post", lambda *args, **kwargs: response)
+    with patch.object(
+        api_client,
+        "_raise_config_api_error",
+        side_effect=error,
+    ) as raise_error, pytest.raises(RuntimeError, match="config API error"):
+        api_client.make_config_api_request(
+            path="/connections/get",
+            json={"connectionId": "connection-id"},
+            operation="get connection resource requirements",
+            bearer_token="token",
+            extra_context={"connection_id": "connection-id"},
+        )
+
+    raise_error.assert_called_once()
+    assert raise_error.call_args.kwargs["operation"] == (
+        "get connection resource requirements"
+    )
+    assert raise_error.call_args.kwargs["extra_context"] == {
+        "payload": {"connectionId": "connection-id"},
+        "connection_id": "connection-id",
+    }
 
 
 @pytest.mark.parametrize(

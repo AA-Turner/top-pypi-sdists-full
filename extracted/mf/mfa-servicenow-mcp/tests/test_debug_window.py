@@ -25,6 +25,7 @@ from servicenow_mcp.browser import (
     login,
     report,
     server_scripts,
+    session,
     window,
 )
 from servicenow_mcp.browser.badge import badge_init_script, badge_label, hide_badge_script
@@ -369,27 +370,114 @@ def test_a_fresh_claim_held_by_a_live_process_is_not_stale(tmp_path):
 
 def test_cursor_round_trips(tmp_path):
     path = str(tmp_path / "c.json")
-    cursor.write_cursor(path, 42)
+    cursor.write_mark(path, "tab-a", 42)
 
+    assert cursor.read_marks(path) == {"tab-a": 42}
     assert cursor.read_cursor(path) == 42
+
+
+def test_each_tab_keeps_its_own_mark(tmp_path):
+    # The bug: seq counts from 1 in every tab, but the mark was one number per
+    # WINDOW. A mark of 120 from one tab, applied to a second tab sitting at 40,
+    # filtered away every event it had — and `dropped` computed to 0, so the
+    # answer was "no errors" over a tab nobody had read.
+    path = str(tmp_path / "c.json")
+    cursor.write_mark(path, "tab-a", 120)
+    cursor.write_mark(path, "tab-b", 40)
+
+    assert cursor.resolve_marks(path, since_last=True) == {"tab-a": 120, "tab-b": 40}
 
 
 def test_since_last_false_reads_from_the_beginning(tmp_path):
     path = str(tmp_path / "c.json")
-    cursor.write_cursor(path, 42)
+    cursor.write_mark(path, "tab-a", 42)
 
-    assert cursor.resolve_after_seq(path, since_last=False) == 0
+    assert cursor.resolve_marks(path, since_last=False) == {}
 
 
 def test_an_explicit_after_seq_overrides_the_cursor(tmp_path):
     path = str(tmp_path / "c.json")
-    cursor.write_cursor(path, 42)
+    cursor.write_mark(path, "tab-a", 42)
 
-    assert cursor.resolve_after_seq(path, since_last=True, explicit=7) == 7
+    # Stays an int: it is aimed at whatever tab the call lands on, by definition.
+    assert cursor.resolve_marks(path, since_last=True, explicit=7) == 7
 
 
 def test_a_missing_cursor_reads_everything(tmp_path):
-    assert cursor.resolve_after_seq(str(tmp_path / "nope.json"), since_last=True) == 0
+    assert cursor.resolve_marks(str(tmp_path / "nope.json"), since_last=True) == {}
+
+
+def test_a_pre_tab_cursor_file_is_not_applied_to_a_real_tab(tmp_path):
+    # {"seq": N} was written before tab ids existed. It belongs to whichever tab
+    # was inspected last and nothing records which, so it must not match one.
+    path = str(tmp_path / "c.json")
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write('{"seq": 99}')
+
+    marks = cursor.resolve_marks(path, since_last=True)
+
+    assert marks == {cursor.LEGACY_KEY: 99}
+    assert "tab-a" not in marks
+
+
+def test_the_tab_map_stays_bounded(tmp_path):
+    path = str(tmp_path / "c.json")
+    for index in range(cursor.MAX_TRACKED_TABS + 5):
+        cursor.write_mark(path, f"tab-{index}", index + 1)
+
+    marks = cursor.read_marks(path)
+
+    assert len(marks) == cursor.MAX_TRACKED_TABS
+    # The least advanced went first; the most recent survive.
+    assert f"tab-{cursor.MAX_TRACKED_TABS + 4}" in marks
+    assert "tab-0" not in marks
+
+
+def test_the_drain_script_hands_the_page_the_whole_map():
+    # The page picks its own entry, because which tab this lands on is not
+    # knowable until it lands — applying another tab's number is the bug.
+    script = drain_script({"tab-a": 120, "tab-b": 40})
+
+    assert '"tab-a": 120' in script and '"tab-b": 40' in script
+    assert "p.drain(" in script
+
+
+def test_the_probe_in_the_page_decides_which_shape_it_gets():
+    # Found on a live window minutes after v1.24.5 shipped, and not by CI: a
+    # window open across the upgrade still runs the OLD probe (the script
+    # returns early when its global exists). Its drain treats the argument as a
+    # number, so a map made `seq - events.length - {object}` = NaN, which came
+    # back as a float NaN and took down EVERY inspect on that window until the
+    # page was reloaded — worse than the bug being fixed.
+    script = drain_script({"tab-a": 120})
+
+    assert "(p.version || 0) >= 4" in script
+    # Old probe: start of buffer. Over-fetches rather than misreporting.
+    assert script.rstrip().endswith(": 0); })()")
+
+
+def test_an_explicit_mark_reaches_an_older_probe_intact():
+    # A number is a number in either dialect, so it is not reset to 0.
+    script = drain_script(7)
+
+    assert "7 : 7" in script.replace("? ", "").replace(" :", " :")
+
+
+def test_a_count_the_page_could_not_compute_does_not_take_down_the_report():
+    # JavaScript yields NaN where Python raises. A malformed count is worth 0.
+    assert report._whole(float("nan")) == 0
+    assert report._whole(None) == 0
+    assert report._whole("12") == 12
+    assert report._whole(-4) == 0
+
+
+def test_a_tab_the_map_forgot_re_reads_rather_than_reporting_nothing(tmp_path):
+    path = str(tmp_path / "c.json")
+    cursor.write_mark(path, "tab-a", 40)
+
+    # An unknown tab has no entry, so drain() sees 0 and hands back everything
+    # it buffered. Over-fetching is the direction this may fail in.
+    assert cursor.resolve_marks(path, since_last=True).get("tab-z", 0) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -538,7 +626,7 @@ def test_pointer_and_key_events_are_watched_for_presence():
 
 def test_human_presence_survives_a_navigation():
     """Clicking a link IS an interaction; losing it per document inverts the signal."""
-    assert "JSON.stringify({ events, seq, lastHuman })" in PROBE_SCRIPT
+    assert "JSON.stringify({ events, seq, lastHuman, tabId })" in PROBE_SCRIPT
     assert "lastHuman = parsed.lastHuman || 0;" in PROBE_SCRIPT
 
 
@@ -983,6 +1071,36 @@ def test_the_signed_in_user_is_read_in_the_page_not_baked_in():
     assert "trackUser" in script
 
 
+def test_the_badge_looks_into_frames_for_the_user():
+    # Measured live: the Next Experience shell (/now/nav/ui/...) exposes g_ck but
+    # no user at all — the classic UI it wraps sits in an iframe inside a shadow
+    # root, and g_user is in there. Reading only this document showed a blank
+    # user on every Next Experience page.
+    script = badge_init_script("dev")
+
+    assert "el.tagName === 'IFRAME'" in script
+    assert "el.contentWindow" in script
+    assert "el.shadowRoot && walk(el.shadowRoot, depth + 1)" in script
+
+
+def test_the_user_watch_slows_down_rather_than_stopping():
+    # It used to stop on the first name, because an impersonation reloads the
+    # page and re-runs this script. That is false on Next Experience: the shell
+    # survives and only the inner frame navigates, so the badge would have gone
+    # on naming the account after the session had become somebody else.
+    script = badge_init_script("dev")
+
+    assert "if (shown) { setTimeout(tick, 2000); return; }" in script
+    assert "if (user && user !== shown)" in script
+
+
+def test_the_resolved_frame_is_remembered_so_the_watch_stays_cheap():
+    script = badge_init_script("dev")
+
+    assert "userSource" in script
+    assert "userSource ? readFrom(userSource) : ''" in script
+
+
 def test_the_badge_lives_in_a_closed_shadow_root_so_page_css_cannot_reach_it():
     script = badge_init_script("dev")
 
@@ -1014,7 +1132,9 @@ def test_the_probe_records_a_payload_hash_not_the_payload():
 
 
 def test_drain_reads_only_events_after_the_high_water_mark():
-    assert "drain(12)" in drain_script(12)
+    # An explicit mark is a plain number, and reaches either probe version as
+    # itself — see test_an_explicit_mark_reaches_an_older_probe_intact.
+    assert "12 : 12" in drain_script(12)
     assert PROBE_GLOBAL in drain_script(0)
 
 
@@ -1479,6 +1599,184 @@ def test_the_already_attempted_message_says_how_to_retry():
 def test_nothing_is_said_when_nothing_happened():
     assert login.describe({"status": "no_login_form"}) is None
     assert login.describe({"status": "no_credentials"}) is None
+
+
+# ---------------------------------------------------------------------------
+# login.py — which tab the password may be typed into
+# ---------------------------------------------------------------------------
+
+_HOST = "dev.example.com"
+
+
+def test_the_instance_tab_is_chosen_over_whatever_happens_to_be_first():
+    # The window is shared with the person using it, and their tab is routinely
+    # the first one. This used to take pages[0] regardless.
+    theirs = FakePage(known=["input#user_password"], url="https://intranet.example.org/doc")
+    ours = FakePage(known=[], url="https://dev.example.com/navpage.do")
+
+    page, why = login._login_page([theirs, ours], instance_host=_HOST)
+
+    assert page is ours
+    assert why == ""
+
+
+def test_auto_login_never_types_into_a_tab_nobody_here_navigated():
+    # The severe version of the bug: a foreign login form filled and submitted
+    # with the instance credentials.
+    theirs = FakePage(known=["input#user_password"], url="https://intranet.example.org/signin")
+    another = FakePage(known=[], url="https://news.example.org/")
+
+    page, why = login._login_page([theirs, another], instance_host=_HOST)
+
+    assert page is None
+    assert why == "no_instance_page"
+
+
+def test_the_tab_we_drove_still_qualifies_after_an_sso_redirect():
+    # SSO lands the tab on the IdP's host, so nothing is on the instance host —
+    # but it is still our tab, and refusing here would break SSO auto-login.
+    theirs = FakePage(known=[], url="https://intranet.example.org/doc")
+    ours = FakePage(known=["input#user_password"], url="https://idp.example.org/authorize?x=1")
+
+    page, why = login._login_page(
+        [theirs, ours], instance_host=_HOST, driven_url="https://idp.example.org/authorize?x=1"
+    )
+
+    assert page is ours
+    assert why == ""
+
+
+def test_a_freshly_launched_window_has_only_the_tab_we_asked_for():
+    # The launch case: Chromium got the URL on its command line, so the URL
+    # after the redirect was never seen here. One tab means no ambiguity.
+    only = FakePage(known=["input#user_password"], url="https://idp.example.org/authorize")
+
+    page, why = login._login_page(
+        [only], instance_host=_HOST, driven_url="https://dev.example.com/navpage.do"
+    )
+
+    assert page is only
+    assert why == ""
+
+
+def test_one_untouched_foreign_tab_is_still_not_ours():
+    # Same single tab, but this call drove nothing — so nothing says it is ours.
+    only = FakePage(known=["input#user_password"], url="https://intranet.example.org/signin")
+
+    assert login._login_page([only], instance_host=_HOST) == (None, "no_instance_page")
+
+
+def test_devtools_tabs_are_not_pages():
+    assert login._login_page([FakePage(url="devtools://devtools/x")], instance_host=_HOST) == (
+        None,
+        "no_page",
+    )
+
+
+# ---------------------------------------------------------------------------
+# login.py — the attempt is spent by a REFUSAL, not by a submit
+# ---------------------------------------------------------------------------
+
+
+class _VerdictPage(FakePage):
+    """A login page whose form may disappear part-way through the watch.
+
+    ``readings`` is consumed one per poll — True while the password field is
+    still standing. ``_credentials_accepted`` reads the document's liveness
+    first on every poll, which is where the next reading is applied.
+    """
+
+    def __init__(self, readings, readable=True):
+        super().__init__(known=["input#user_password"], url="https://dev.example.com/login.do")
+        self._readings = list(readings)
+        self._standing = True
+        self.readable = readable
+        self.evaluations = 0
+
+    def evaluate(self, script):
+        if not self.readable:
+            raise RuntimeError("Target page, context or browser has been closed")
+        self.evaluations += 1
+        if self._readings:
+            self._standing = self._readings.pop(0)
+        self.known = {"input#user_password"} if self._standing else set()
+        return 1
+
+
+@pytest.fixture()
+def _fast_verdict(monkeypatch):
+    monkeypatch.setattr(login, "_VERDICT_POLL_S", 0.0)
+    monkeypatch.setattr(login, "CREDENTIAL_VERDICT_S", 0.5)
+
+
+def test_a_form_that_stays_gone_means_the_credentials_were_not_refused(_fast_verdict):
+    # Gone = signed in, or standing at an MFA challenge. Either way the server
+    # took the password, and replaying an accepted one cannot lock the account.
+    page = _VerdictPage([True, False, False, False, False])
+
+    assert login._credentials_accepted(page) is True
+
+
+def test_a_form_still_standing_is_a_refusal(_fast_verdict):
+    page = _VerdictPage([True])
+
+    assert login._credentials_accepted(page) is False
+
+
+def test_a_navigation_blip_is_not_an_acceptance(_fast_verdict):
+    # A submit navigates, and a page mid-navigation briefly has no fields at
+    # all. Reading that single frame as "accepted" would hand the attempt back
+    # to a password the instance refused.
+    page = _VerdictPage([True, False, True, True, True, True, True, True])
+
+    assert login._credentials_accepted(page) is False
+
+
+def test_a_page_that_cannot_be_read_proves_nothing(_fast_verdict):
+    # _selector_exists answers False for a page it could not read, which looks
+    # exactly like "the form is gone". The liveness read is what tells them apart.
+    page = _VerdictPage([False], readable=False)
+
+    assert login._credentials_accepted(page) is None
+
+
+def test_an_accepted_login_hands_the_attempt_back(tmp_path):
+    # The bug this fixes: a window that signed in successfully at 09:00 had no
+    # attempt left when its session expired at 14:00, for a login that never
+    # failed.
+    path = str(tmp_path / "login.json")
+    login.record_attempt(path, _state())
+    assert login.already_attempted(path, _state()) is True
+
+    login.release_attempt(path)
+
+    assert login.already_attempted(path, _state()) is False
+
+
+def test_releasing_an_attempt_that_was_never_recorded_is_not_an_error(tmp_path):
+    login.release_attempt(str(tmp_path / "nothing.json"))
+
+
+def test_the_refusal_message_names_the_config_not_the_window(tmp_path):
+    note = login.describe({"status": "rejected", "user": "alice"})
+
+    assert "did not accept" in note
+    assert "config" in note
+
+
+def test_an_unreadable_verdict_says_the_attempt_is_held(tmp_path):
+    note = login.describe({"status": "unverified", "user": "alice"})
+
+    assert "could not read" in note
+    assert "spent" in note
+
+
+def test_declining_a_foreign_tab_is_said_out_loud():
+    # A silent no-op is what let the pages[0] bug go unnoticed.
+    note = login.describe({"status": "no_instance_page"})
+
+    assert "other site" in note
+    assert "open_debug_window" in note
 
 
 # ---------------------------------------------------------------------------
@@ -2364,18 +2662,24 @@ class FakeSessionPage(FakePage):
         becomes=None,
         dirty=(),
         impersonating=None,
+        frames=(),
+        guest=None,
+        redirects=None,
     ):
-        super().__init__(known=[], url=url)
+        super().__init__(known=[], url=url, frames=frames)
         self.user = user
         self.impersonating = impersonating
         self.becomes = becomes
         self.dirty = list(dirty)
+        self.guest = guest
+        self.redirects = dict(redirects or {})
         self.response = (
             response
             if response is not None
             else {"sent": True, "ok": True, "status": 200, "had_token": True, "body": ""}
         )
         self.posts = []
+        self.gotos = []
         self.reloads = 0
 
     def evaluate(self, script):
@@ -2384,14 +2688,37 @@ class FakeSessionPage(FakePage):
             return {"ok": True, "value": self.response, "type": "object"}
         if "p.dirty()" in script:
             return {"fields": self.dirty, "observedFromStart": True}
+        if "'guest'" in script:
+            return self.guest
         if not self.user:
             return None
         return {"user": self.user, "source": "g_user", "impersonating": self.impersonating}
 
+    def goto(self, url, wait_until=None, timeout=None):
+        self.gotos.append(url)
+        self.url = self.redirects.get(url, url)
+
     def reload(self, wait_until=None, timeout=None):
         self.reloads += 1
+        self.url = self.redirects.get(self.url, self.url)
         if self.becomes is not None:
             self.user = self.becomes
+
+
+class FakeUserFrame:
+    """A frame that names a user — Next Experience keeps g_user inside one."""
+
+    def __init__(self, user, url="https://dev.example.com/incident_list.do", impersonating=None):
+        self.user = user
+        self.url = url
+        self.impersonating = impersonating
+        self.reads = 0
+
+    def evaluate(self, script):
+        self.reads += 1
+        if not self.user:
+            return None
+        return {"user": self.user, "source": "g_user", "impersonating": self.impersonating}
 
 
 def _marker(tmp_path):
@@ -2440,6 +2767,194 @@ def test_impersonating_from_a_page_that_is_not_the_instance_is_refused():
     assert "example.org" in out["error"]
     # Never fired: a relative POST would have gone to the wrong origin.
     assert page.posts == []
+    assert page.gotos == []
+
+
+# ---------------------------------------------------------------------------
+# Impersonation — reading the user, and carrying the call from somewhere usable
+# ---------------------------------------------------------------------------
+
+
+def test_the_user_is_read_from_a_frame_when_the_shell_does_not_name_one():
+    # Measured live: /now/nav/ui/... exposes g_ck but no user — the classic UI
+    # it wraps is an iframe inside a shadow root and g_user lives in there.
+    # Reading only the main frame turned a switch that HAD happened into "the
+    # page never reported a signed-in user".
+    inner = FakeUserFrame("alice")
+    shell = FakeSessionPage(user=None, url="https://dev.example.com/now/nav/ui/x", frames=[inner])
+
+    identity = impersonate.current_identity(shell)
+
+    assert identity["user"] == "alice"
+    assert identity["frame"] == "https://dev.example.com/incident_list.do"
+
+
+def test_a_frame_on_another_host_is_not_asked_who_we_are():
+    # A third-party widget's globals are not this session's.
+    stranger = FakeUserFrame("mallory", url="https://ads.example.net/pixel")
+    shell = FakeSessionPage(
+        user=None, url="https://dev.example.com/now/nav/ui/x", frames=[stranger]
+    )
+
+    assert impersonate.current_identity(shell)["user"] == ""
+    assert stranger.reads == 0
+
+
+def test_the_main_document_still_wins_when_it_answers():
+    inner = FakeUserFrame("bob")
+    page = FakeSessionPage(user="alice", frames=[inner])
+
+    assert impersonate.current_identity(page)["user"] == "alice"
+    assert inner.reads == 0
+
+
+def test_inspect_reads_the_user_out_of_a_frame_too():
+    # The third surface with the same root: `inspect` reported "could not read a
+    # signed-in user — the window may still need a login" on a signed-in Next
+    # Experience window, sending people after a login problem that was not there.
+    inner = FakeUserFrame("alice")
+    shell = FakeSessionPage(user=None, url="https://dev.example.com/now/nav/ui/x", frames=[inner])
+
+    assert capture_module._effective_user(shell)["user"] == "alice"
+
+
+def test_one_reader_serves_the_badge_the_inspect_and_the_switch():
+    # Three copies of "read the current document" is how one of them stayed
+    # wrong. They share session.read_effective_user now.
+    inner = FakeUserFrame("alice")
+    shell = FakeSessionPage(user=None, url="https://dev.example.com/now/nav/ui/x", frames=[inner])
+
+    assert session.read_effective_user(shell)["frame"] == inner.url
+    assert impersonate.current_identity(shell)["frame"] == inner.url
+    assert capture_module._effective_user(shell)["frame"] == inner.url
+
+
+def test_a_signed_out_window_is_told_apart_from_a_missing_role(tmp_path):
+    # The login page carries a g_ck of its own, so the "no token" branch never
+    # fired there and a signed-out window came back as "you need the
+    # impersonator role" — sending the reader to an admin for nothing.
+    page = FakeSessionPage(user="", guest=True)
+
+    out = impersonate.become(
+        page,
+        target="bob",
+        marker_path=_marker(tmp_path),
+        started_at=1.0,
+        instance_host="dev.example.com",
+    )
+
+    assert out["ok"] is False
+    assert "not signed in" in out["error"]
+    assert "guest" in out["error"]
+    assert page.posts == []
+
+
+def test_a_page_that_does_not_say_is_not_treated_as_signed_out():
+    assert impersonate.signed_out(FakeSessionPage(guest=None)) is None
+
+
+def test_a_tab_off_the_instance_is_driven_to_the_instance_and_back(tmp_path):
+    page = FakeSessionPage(user="alice", url="https://intranet.example.org/doc", becomes="bob")
+
+    out = impersonate.become(
+        page,
+        target="bob",
+        marker_path=_marker(tmp_path),
+        started_at=1.0,
+        instance_host="dev.example.com",
+        carrier_url="https://dev.example.com/",
+    )
+
+    assert out["ok"] is True
+    assert out["now"] == "bob"
+    assert page.posts, "the switch has to actually be made on the carrier"
+    # There and back: the window is a shared screen, so it is put back.
+    assert page.gotos == ["https://dev.example.com/", "https://intranet.example.org/doc"]
+    assert out["switched_on"] == "https://dev.example.com/"
+    assert out["returned_to"] == "https://intranet.example.org/doc"
+
+
+def test_relocating_is_not_a_way_around_unsaved_input(tmp_path):
+    # Moving the tab destroys input exactly like the reload does.
+    page = FakeSessionPage(
+        url="https://intranet.example.org/doc", dirty=["short_description"], becomes="bob"
+    )
+
+    out = impersonate.become(
+        page,
+        target="bob",
+        marker_path=_marker(tmp_path),
+        started_at=1.0,
+        instance_host="dev.example.com",
+        carrier_url="https://dev.example.com/",
+    )
+
+    assert out["ok"] is False
+    assert out["blocked_by_unsaved_input"] == ["short_description"]
+    assert page.gotos == [] and page.posts == []
+
+
+def test_a_window_signed_out_on_the_carrier_stops_rather_than_posting(tmp_path):
+    # Moving the tab cannot fix a session that is not signed in.
+    page = FakeSessionPage(user="", url="https://intranet.example.org/doc", guest=True)
+
+    out = impersonate.become(
+        page,
+        target="bob",
+        marker_path=_marker(tmp_path),
+        started_at=1.0,
+        instance_host="dev.example.com",
+        carrier_url="https://dev.example.com/",
+    )
+
+    assert out["ok"] is False
+    assert "not signed in" in out["error"]
+    assert out["relocated_to"] == "https://dev.example.com/"
+    assert page.posts == []
+
+
+def test_a_redirect_on_the_way_back_says_the_user_may_not_see_that_page(tmp_path):
+    page = FakeSessionPage(
+        user="alice",
+        url="https://intranet.example.org/doc",
+        becomes="bob",
+        redirects={"https://intranet.example.org/doc": "https://intranet.example.org/denied"},
+    )
+
+    out = impersonate.become(
+        page,
+        target="bob",
+        marker_path=_marker(tmp_path),
+        started_at=1.0,
+        instance_host="dev.example.com",
+        carrier_url="https://dev.example.com/",
+    )
+
+    assert out["ok"] is True
+    assert "denied" in out["landing_note"]
+
+
+def test_a_reload_that_lands_somewhere_else_is_reported_without_relocating(tmp_path):
+    # The common case: the switch happens in place, and the page the caller
+    # asked to look at comes back as a different one for the new user.
+    page = FakeSessionPage(
+        user="alice",
+        url="https://dev.example.com/secret_list.do",
+        becomes="bob",
+        redirects={"https://dev.example.com/secret_list.do": "https://dev.example.com/welcome.do"},
+    )
+
+    out = impersonate.become(
+        page,
+        target="bob",
+        marker_path=_marker(tmp_path),
+        started_at=1.0,
+        instance_host="dev.example.com",
+    )
+
+    assert out["ok"] is True
+    assert "welcome.do" in out["landing_note"]
+    assert page.gotos == []
 
 
 def test_switching_user_refuses_to_reload_a_form_holding_unsaved_input(tmp_path):
@@ -3078,6 +3593,74 @@ def test_a_script_runner_page_is_recognised_however_it_is_addressed(url, surface
 def test_an_ordinary_page_is_not_a_script_runner():
     assert server_scripts.surface_for_url("https://dev.example.com/incident.do?sys_id=1") is None
     assert server_scripts.surface_for_url("") is None
+
+
+def test_pointing_the_window_at_a_script_runner_is_refused_before_it_moves(monkeypatch):
+    # v1.24.4 reversal: opening these pages used to be free, on the reasoning
+    # that looking is not running. Nobody navigates to Background Scripts to
+    # read it — it is an empty textarea — and arriving there is the first move
+    # of running something.
+    def _explode(*args, **kwargs):
+        raise AssertionError("the window must not open or move before the question")
+
+    monkeypatch.setattr(tools, "ensure_window", _explode)
+
+    result = tools.open_debug_window(
+        SimpleNamespace(instance_url="https://dev.example.com"),
+        MagicMock(),
+        tools.OpenDebugWindowParams(url="/sys.scripts.do"),
+    )
+
+    assert result["success"] is False
+    assert result["script_exec_surface"] == "Background Scripts"
+    # A wall, not a door, and the only one in the repo: an approval field here
+    # would read as "ask and you shall receive", when the answer is always no.
+    assert "retry_with" not in result
+    assert "confirm_script_exec" not in result["error"]
+
+
+def test_an_encoded_script_runner_url_does_not_walk_through_the_door(monkeypatch):
+    monkeypatch.setattr(
+        tools,
+        "ensure_window",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not open")),
+    )
+
+    result = tools.open_debug_window(
+        SimpleNamespace(instance_url="https://dev.example.com"),
+        MagicMock(),
+        tools.OpenDebugWindowParams(url="/nav_to.do?uri=%2Fsys.scripts.do"),
+    )
+
+    assert result["success"] is False
+
+
+def test_the_navigation_refusal_does_not_claim_a_script_ran():
+    # Nothing has run. Saying "this would run a script" about a navigation
+    # would be exactly the kind of false claim this repo hunts.
+    note = server_scripts.navigation_rejection("Background Scripts", url="/sys.scripts.do")
+
+    assert "RUN a server-side script" not in note
+    assert "WRITE THE SCRIPT TO A FILE" in note
+
+
+def test_the_navigation_refusal_offers_no_way_through():
+    # An approval field here would read as "ask and you shall receive". The
+    # answer is always no, so it does not offer one.
+    note = server_scripts.navigation_rejection("Background Scripts")
+
+    assert "confirm_script_exec" not in note
+    assert "approve" not in note
+
+
+def test_an_ordinary_url_opens_without_any_approval():
+    assert tools._script_surface_refusal("https://dev.example.com/incident_list.do") is None
+    assert tools._script_surface_refusal("") is None
+
+
+def test_no_argument_gets_the_window_onto_a_script_runner():
+    # The escape hatch that exists for RUNNING does not open this door.
+    assert tools._script_surface_refusal("https://dev.example.com/sys.scripts.do") is not None
 
 
 def test_the_run_verb_is_recognised_without_any_url():

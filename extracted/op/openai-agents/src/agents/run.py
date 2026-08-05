@@ -8,18 +8,19 @@ from typing import Any, cast
 from typing_extensions import Unpack
 
 from . import _debug
-from ._tool_identity import get_tool_trace_name_for_tool
 from .agent import Agent
 from .agent_tool_state import set_agent_tool_state_scope
 from .exceptions import (
     AgentsException,
     InputGuardrailTripwireTriggered,
     MaxTurnsExceeded,
+    OutputGuardrailTripwireTriggered,
     RunErrorDetails,
     UserError,
 )
 from .guardrail import (
     InputGuardrailResult,
+    OutputGuardrailResult,
 )
 from .items import (
     ItemHelpers,
@@ -41,6 +42,7 @@ from .run_config import (
     ToolErrorFormatter,
     ToolErrorFormatterArgs,
     ToolExecutionConfig,
+    ToolNameCollisionPolicy as ToolNameCollisionPolicy,
     ToolNotFoundBehavior,
     _coerce_run_config,
 )
@@ -60,6 +62,7 @@ from .run_internal.agent_runner_helpers import (
     resolve_processed_response,
     resolve_resumed_context,
     resolve_trace_settings,
+    save_final_turn_items_after_guardrails,
     save_turn_items_if_needed,
     should_cancel_parallel_model_task_on_input_guardrail_trip,
     snapshot_usage,
@@ -69,6 +72,7 @@ from .run_internal.agent_runner_helpers import (
 )
 from .run_internal.approvals import approvals_from_step
 from .run_internal.error_handlers import (
+    attach_generic_agent_error,
     build_run_error_data,
     create_message_output_item,
     format_final_output_text,
@@ -84,9 +88,9 @@ from .run_internal.oai_conversation import OpenAIServerConversationTracker
 from .run_internal.prompt_cache_key import PromptCacheKeyResolver
 from .run_internal.run_grouping import resolve_run_grouping_id
 from .run_internal.run_loop import (
+    _retained_items_for_blocked_output,
     cleanup_models_after_run,
     get_all_tools,
-    get_handoffs,
     get_output_schema,
     initialize_computer_tools,
     resolve_interrupted_turn,
@@ -142,6 +146,7 @@ __all__ = [
     "ModelInputData",
     "CallModelData",
     "CallModelInputFilter",
+    "ToolNameCollisionPolicy",
     "ReasoningItemIdPolicy",
     "ToolExecutionConfig",
     "ToolErrorFormatter",
@@ -723,6 +728,9 @@ class AgentRunner:
                 input_guardrail_results: list[InputGuardrailResult] = (
                     list(run_state._input_guardrail_results) if run_state is not None else []
                 )
+                # Output guardrails run once, at the end of the run. Accumulate their results
+                # here so the failure handler below can report them on the raised exception.
+                output_guardrail_results: list[OutputGuardrailResult] = []
                 tool_input_guardrail_results: list[ToolInputGuardrailResult] = (
                     list(getattr(run_state, "_tool_input_guardrail_results", []))
                     if run_state is not None
@@ -1002,12 +1010,13 @@ class AgentRunner:
                             )
 
                             if isinstance(turn_result.next_step, NextStepFinalOutput):
-                                output_guardrail_results = await run_output_guardrails(
+                                await run_output_guardrails(
                                     current_agent.output_guardrails
                                     + (run_config.output_guardrails or []),
                                     current_agent,
                                     turn_result.next_step.output,
                                     context_wrapper,
+                                    output_guardrail_results,
                                 )
                                 current_step = getattr(run_state, "_current_step", None)
                                 approvals_from_state = approvals_from_step(current_step)
@@ -1076,10 +1085,6 @@ class AgentRunner:
                     )
 
                     if current_span is None:
-                        handoff_names = [
-                            h.agent_name
-                            for h in await get_handoffs(execution_agent, context_wrapper)
-                        ]
                         if output_schema := get_output_schema(execution_agent):
                             output_type_name = output_schema.name()
                         else:
@@ -1087,15 +1092,11 @@ class AgentRunner:
 
                         current_span = agent_span(
                             name=current_agent.name,
-                            handoffs=handoff_names,
+                            handoffs=[],
+                            tools=[],
                             output_type=output_type_name,
                         )
                         current_span.start(mark_as_current=True)
-                        current_span.span_data.tools = [
-                            tool_name
-                            for tool in all_tools
-                            if (tool_name := get_tool_trace_name_for_tool(tool)) is not None
-                        ]
 
                     current_turn += 1
                     if max_turns is not None and current_turn > max_turns:
@@ -1140,11 +1141,12 @@ class AgentRunner:
                             context_wrapper,
                             validated_output,
                         )
-                        output_guardrail_results = await run_output_guardrails(
+                        await run_output_guardrails(
                             current_agent.output_guardrails + (run_config.output_guardrails or []),
                             current_agent,
                             validated_output,
                             context_wrapper,
+                            output_guardrail_results,
                         )
                         current_step = getattr(run_state, "_current_step", None)
                         approvals_from_state = approvals_from_step(current_step)
@@ -1176,12 +1178,18 @@ class AgentRunner:
                                 if session_input_items_for_persistence is not None
                                 else []
                             )
+                            # The synthesized item is a fresh one-item list, not the
+                            # cumulative turn item list, so the run state's per-turn
+                            # persisted count must not be applied as a slice offset here.
+                            # Pass the reasoning item id policy explicitly instead, the same
+                            # way `save_resumed_turn_items` does.
                             await save_result_to_session(
                                 session,
                                 handler_input_items_for_save,
                                 [synthesized_item],
-                                run_state,
+                                None,
                                 response_id=None,
+                                reasoning_item_id_policy=resolved_reasoning_item_id_policy,
                                 store=store_setting,
                             )
                         result._original_input = copy_input_items(original_input)
@@ -1262,6 +1270,7 @@ class AgentRunner:
                                     reasoning_item_id_policy=resolved_reasoning_item_id_policy,
                                     prompt_cache_key_resolver=prompt_cache_key_resolver,
                                     error_handlers=error_handlers,
+                                    agent_span=current_span,
                                 )
                             )
 
@@ -1332,6 +1341,7 @@ class AgentRunner:
                                 reasoning_item_id_policy=resolved_reasoning_item_id_policy,
                                 prompt_cache_key_resolver=prompt_cache_key_resolver,
                                 error_handlers=error_handlers,
+                                agent_span=current_span,
                             )
                     finally:
                         if current_turn_span:
@@ -1372,15 +1382,6 @@ class AgentRunner:
 
                     items_to_save_turn = list(turn_session_items)
                     if not isinstance(turn_result.next_step, NextStepInterruption):
-                        # When resuming a turn we have already persisted the tool_call items;
-                        if (
-                            is_resumed_state
-                            and run_state
-                            and run_state._current_turn_persisted_item_count > 0
-                        ):
-                            items_to_save_turn = [
-                                item for item in items_to_save_turn if item.type != "tool_call_item"
-                            ]
                         if session_persistence_enabled:
                             output_call_ids = {
                                 item.raw_item.get("call_id")
@@ -1412,7 +1413,9 @@ class AgentRunner:
                                     )
                                 ):
                                     items_to_save_turn.append(item)
-                            if items_to_save_turn:
+                            if items_to_save_turn and not isinstance(
+                                turn_result.next_step, NextStepFinalOutput
+                            ):
                                 logger.debug(
                                     "Persisting turn items (types=%s)",
                                     [item.type for item in items_to_save_turn],
@@ -1446,12 +1449,48 @@ class AgentRunner:
 
                     try:
                         if isinstance(turn_result.next_step, NextStepFinalOutput):
-                            output_guardrail_results = await run_output_guardrails(
-                                current_agent.output_guardrails
-                                + (run_config.output_guardrails or []),
-                                current_agent,
-                                turn_result.next_step.output,
-                                context_wrapper,
+                            try:
+                                await run_output_guardrails(
+                                    current_agent.output_guardrails
+                                    + (run_config.output_guardrails or []),
+                                    current_agent,
+                                    turn_result.next_step.output,
+                                    context_wrapper,
+                                    output_guardrail_results,
+                                )
+                            except OutputGuardrailTripwireTriggered:
+                                await save_final_turn_items_after_guardrails(
+                                    session=session,
+                                    run_state=run_state,
+                                    session_persistence_enabled=session_persistence_enabled,
+                                    input_guardrail_results=input_guardrail_results,
+                                    items=_retained_items_for_blocked_output(items_to_save_turn),
+                                    response_id=turn_result.model_response.response_id,
+                                    store=store_setting,
+                                )
+                                raise
+                            except (Exception, asyncio.CancelledError):
+                                # Preserve the released non-stream behavior for guardrail errors
+                                # and cancellation: the completed final turn remains replayable.
+                                await save_final_turn_items_after_guardrails(
+                                    session=session,
+                                    run_state=run_state,
+                                    session_persistence_enabled=session_persistence_enabled,
+                                    input_guardrail_results=input_guardrail_results,
+                                    items=items_to_save_turn,
+                                    response_id=turn_result.model_response.response_id,
+                                    store=store_setting,
+                                )
+                                raise
+
+                            await save_final_turn_items_after_guardrails(
+                                session=session,
+                                run_state=run_state,
+                                session_persistence_enabled=session_persistence_enabled,
+                                input_guardrail_results=input_guardrail_results,
+                                items=items_to_save_turn,
+                                response_id=turn_result.model_response.response_id,
+                                store=store_setting,
                             )
 
                             # Ensure starting_input is not None and not RunState
@@ -1482,15 +1521,6 @@ class AgentRunner:
                                 result._current_turn_persisted_item_count = (
                                     run_state._current_turn_persisted_item_count
                                 )
-                            await save_turn_items_if_needed(
-                                session=session,
-                                run_state=run_state,
-                                session_persistence_enabled=session_persistence_enabled,
-                                input_guardrail_results=input_guardrail_results,
-                                items=session_items_for_turn(turn_result),
-                                response_id=turn_result.model_response.response_id,
-                                store=store_setting,
-                            )
                             result._original_input = copy_input_items(original_input)
                             return _finalize_result(result)
                         elif isinstance(turn_result.next_step, NextStepInterruption):
@@ -1585,6 +1615,11 @@ class AgentRunner:
                         turn_result.new_step_items.clear()
             except BaseException as exc:
                 run_exception = exc
+                attach_generic_agent_error(
+                    current_span,
+                    exc,
+                    trace_include_sensitive_data=run_config.trace_include_sensitive_data,
+                )
                 if isinstance(exc, AgentsException):
                     exc.run_data = RunErrorDetails(
                         input=original_input,
@@ -1593,7 +1628,9 @@ class AgentRunner:
                         last_agent=current_agent,
                         context_wrapper=context_wrapper,
                         input_guardrail_results=input_guardrail_results,
-                        output_guardrail_results=[],
+                        output_guardrail_results=output_guardrail_results,
+                        tool_input_guardrail_results=tool_input_guardrail_results,
+                        tool_output_guardrail_results=tool_output_guardrail_results,
                     )
                 raise
             finally:
@@ -1691,6 +1728,10 @@ class AgentRunner:
             except RuntimeError:
                 default_loop = policy.new_event_loop()
                 policy.set_event_loop(default_loop)
+
+        if default_loop.is_closed():
+            default_loop = policy.new_event_loop()
+            policy.set_event_loop(default_loop)
 
         # We intentionally leave the default loop open even if we had to create one above. Session
         # instances and other helpers stash loop-bound primitives between calls and expect to find
@@ -1961,6 +2002,7 @@ class AgentRunner:
                 conversation_id=conversation_id,
                 session=session,
                 run_state=run_state,
+                trace_workflow_name=trace_workflow_name,
                 is_resumed_state=is_resumed_state,
                 sandbox_runtime=sandbox_runtime,
             )

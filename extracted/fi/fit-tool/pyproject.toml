@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fit-tool"
-version = "0.9.15"
+version = "0.9.16"
 description = "A library for reading and writing Garmin FIT files."
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -17,7 +17,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -25,13 +24,17 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
-requires-python = ">=3.8"
-dependencies = [
-    "openpyxl>=2.5.12",
-    "bitstruct>=8.11.1",
-]
+requires-python = ">=3.9"
+# Runtime library and fit-tool CLI need no third-party packages.
+# Profile generation tooling lives under the optional [gen] extra.
+dependencies = []
 
 [project.optional-dependencies]
+gen = [
+    "openpyxl>=2.5.12",
+    "inflection>=0.5.1",
+    "jinja2>=3.0",
+]
 test = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
@@ -45,6 +48,7 @@ Changelog = "https://github.com/shaonianche/python_fit_tool/blob/main/CHANGELOG.
 
 [project.scripts]
 fit-tool = "fit_tool.cli:main"
+gen-profile = "fit_tool.gen.gen_profile:main"
 
 [tool.setuptools.packages.find]
 include = ["fit_tool*"]
@@ -62,9 +66,15 @@ addopts = "-r aR"
 
 [dependency-groups]
 dev = [
+    "mypy>=1.14.1",
     "pytest>=7.0",
     "pytest-cov>=4.0",
+    "ruff>=0.15.22",
     "towncrier>=24.8.0",
+    # Gen tooling (also published as the [gen] extra) so full suite / gen-profile work.
+    "openpyxl>=2.5.12",
+    "inflection>=0.5.1",
+    "jinja2>=3.0",
 ]
 
 [tool.coverage.run]
@@ -76,6 +86,7 @@ omit = [
     "fit_tool/gen/*",
     "fit_tool/profile/messages/*",
     "fit_tool/profile/profile_type.py",
+    "fit_tool/profile/component_registry.py",
 ]
 
 [tool.coverage.report]
@@ -91,7 +102,11 @@ ignore_errors = true
 
 [tool.ruff]
 line-length = 120
-target-version = "py38"
+target-version = "py39"
+extend-exclude = [
+    "fit_tool/profile/profile_type.py",
+    "fit_tool/profile/messages",
+]
 
 [tool.ruff.lint]
 extend-select = [

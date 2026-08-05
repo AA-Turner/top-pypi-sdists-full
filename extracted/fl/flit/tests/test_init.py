@@ -118,7 +118,8 @@ def test_init():
         assert_isfile(license)
         with license.open() as f:
             license_text = f.read()
-        assert license_text.startswith("The MIT License (MIT)")
+        assert license_text.startswith("Copyright (c)")
+        assert "Permission is hereby granted, free of charge" in license_text
         assert "{year}" not in license_text
         assert "Test Author" in license_text
 
@@ -206,7 +207,7 @@ def test_find_readme_not_found():
         assert ib.find_readme() is None
 
 
-def test_init_readme_found_yes_choosen():
+def test_init_readme_found_yes_chosen():
     responses = ['test_module_name',
                  'Test Author',
                  'test_email@example.com',

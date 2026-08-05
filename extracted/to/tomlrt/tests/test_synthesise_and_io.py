@@ -245,6 +245,31 @@ def test_assign_offset_datetime() -> None:
     assert re_value == datetime(2024, 7, 4, 12, 0, 0, tzinfo=tz)
 
 
+def test_assign_datetime_utc_offset() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    doc["x"] = datetime(2024, 7, 4, 12, 0, 0, tzinfo=timezone.utc)
+    out = tomlrt.dumps(doc)
+    assert out == "x = 2024-07-04T12:00:00+00:00\n"
+    re_value = tomlrt.loads(out)["x"]
+    assert isinstance(re_value, datetime)
+    assert re_value == datetime(2024, 7, 4, 12, 0, 0, tzinfo=timezone.utc)
+
+
+def test_assign_datetime_seconds_offset_rejected() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    tz = timezone(timedelta(hours=1, minutes=2, seconds=3))
+    dt = datetime(2020, 1, 1, 10, 0, 0, tzinfo=tz)
+    with pytest.raises(ValueError, match="whole number of minutes"):
+        doc["x"] = dt
+
+
+def test_assign_local_time_with_tzinfo_rejected() -> None:
+    doc = tomlrt.loads("x = 0\n")
+    t = time(10, 0, 0, tzinfo=timezone(timedelta(hours=2)))
+    with pytest.raises(ValueError, match="local time cannot carry a timezone"):
+        doc["x"] = t
+
+
 def test_assign_plain_list_becomes_inline_array() -> None:
     doc = tomlrt.loads("x = 0\n")
     doc["x"] = [1, 2, 3]
@@ -851,3 +876,116 @@ def test_typed_container_assign_now_clones_from_other_doc() -> None:
     assert src["a"] is not dst["a"]
     src["a"]["x"] = 99
     assert dst["a"]["x"] == 1
+
+
+def test_dumps_a_popped_subtree_leaves_it_intact() -> None:
+    """Rendering a mapping must not consume it.
+
+    A popped subtree's slots live in a private document, and installing
+    from one of those is a move — right when a caller assigns a value
+    somewhere, wrong when the value is only being read to build a new
+    document from. Nested trivia survives, exactly as it does when the
+    same subtree is still attached.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [root]
+        x = 1
+
+        [root.sub]
+        # lead
+        y = 2  # eol
+        """)
+    )
+    orphan = doc.pop("root")
+
+    rendered = tomlrt.dumps(orphan)
+    assert rendered == td("""
+        x = 1
+
+        [sub]
+        # lead
+        y = 2  # eol
+        """)
+    assert orphan.to_dict() == {"x": 1, "sub": {"y": 2}}
+    # Still renderable, and still the same: the first dump consumed nothing.
+    assert tomlrt.dumps(orphan) == rendered
+
+
+def test_dumps_a_popped_subtree_holding_an_array_of_tables() -> None:
+    """The same, for the shape that used to raise instead.
+
+    Installing an AoT unbinds it from the document it came from, which
+    while iterating that document's own items ended the iteration.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [[root.t]]
+        x = 1
+
+        [[root.t]]
+        x = 2
+        """)
+    )
+    orphan = doc.pop("root")
+
+    assert tomlrt.dumps(orphan) == td("""
+        [[t]]
+        x = 1
+
+        [[t]]
+        x = 2
+        """)
+    assert orphan.to_dict() == {"t": [{"x": 1}, {"x": 2}]}
+
+
+def test_update_from_a_popped_subtree_leaves_it_intact() -> None:
+    """``update`` reads its argument; it does not take it apart."""
+    doc = tomlrt.loads(
+        td("""
+        [root]
+        x = 1
+
+        [root.sub]
+        y = 2
+        """)
+    )
+    orphan = doc.pop("root")
+
+    built = tomlrt.Document()
+    built.update(orphan)
+
+    assert tomlrt.dumps(built) == td("""
+        x = 1
+
+        [sub]
+        y = 2
+        """)
+    assert orphan.to_dict() == {"x": 1, "sub": {"y": 2}}
+
+
+def test_dumps_a_popped_subtree_wrapped_in_plain_mappings() -> None:
+    """A source one level down is still the caller's.
+
+    The plain mappings around it are rebuilt on the way in, but the view
+    inside them is installed as it is — so it has to be recognised
+    through them, not just at the top level.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [root]
+        x = 1
+
+        [root.sub]
+        # lead
+        y = 2  # eol
+        """)
+    )
+    orphan = doc.pop("root")
+
+    assert tomlrt.dumps({"a": {"b": orphan["sub"]}}) == td("""
+        [a.b]
+        # lead
+        y = 2  # eol
+        """)
+    assert orphan.to_dict() == {"x": 1, "sub": {"y": 2}}

@@ -5,6 +5,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
+from ..errors import HwpxStateError, HwpxValueError
+from ..objects.results import (
+    ColumnLayout,
+    ListFormatResult,
+    PageMargins,
+    PageSetup,
+    PageSize,
+    ParagraphFormatResult,
+    Units,
+)
 from ..oxml.namespaces import HH
 from ._units import _mm_to_hwp_units, _pt_to_hwp_units
 
@@ -45,7 +55,12 @@ def _normalize_page_orientation(value: str | None) -> str | None:
     }
     orientation = aliases.get(normalized)
     if orientation is None:
-        raise ValueError(f"unsupported page orientation: {value}")
+        raise HwpxValueError(
+            f"unsupported page orientation: {value}",
+            code="page-orientation-unsupported",
+            context={"requested": str(value)},
+            suggestion="Pass 'PORTRAIT' or 'LANDSCAPE'.",
+        )
     return orientation
 
 
@@ -57,16 +72,28 @@ def _resolve_paragraph_targets(
 ) -> list[tuple[int, HwpxOxmlParagraph]]:
     paragraphs = doc.paragraphs
     if not paragraphs:
-        raise ValueError("document does not contain any paragraphs")
+        raise HwpxValueError(
+            "document does not contain any paragraphs",
+            code="paragraph-missing",
+            suggestion="Call doc.add_paragraph() first.",
+        )
     if paragraph_index is not None and paragraph_indexes is not None:
-        raise ValueError("use either paragraph_index or paragraph_indexes, not both")
+        raise HwpxValueError(
+            "use either paragraph_index or paragraph_indexes, not both",
+            code="paragraph-argument-conflict",
+            suggestion="Pass only one.",
+        )
 
     if paragraph_indexes is None:
         indexes = list(range(len(paragraphs))) if paragraph_index is None else [paragraph_index]
     else:
         indexes = [int(index) for index in paragraph_indexes]
         if not indexes:
-            raise ValueError("paragraph_indexes must not be empty")
+            raise HwpxValueError(
+            "paragraph_indexes 가 비어 있습니다.",
+            code="paragraph-indexes-empty",
+            suggestion="서식을 적용할 문단 인덱스를 하나 이상 지정하세요.",
+        )
 
     targets: list[tuple[int, HwpxOxmlParagraph]] = []
     for index in indexes:
@@ -95,7 +122,7 @@ def set_paragraph_format(
     bottom_border: bool = False,
     border_color: str = "#BFBFBF",
     border_width: str = "0.12 mm",
-) -> dict[str, Any]:
+) -> ParagraphFormatResult:
     """Apply paragraph-level formatting using human units.
 
     Millimetre inputs are converted to HWP units; paragraph spacing uses
@@ -105,11 +132,19 @@ def set_paragraph_format(
     """
 
     if not doc._root.headers:
-        raise ValueError("document does not contain any headers")
+        raise HwpxValueError(
+            "document does not contain any headers",
+            code="document-header-missing",
+            suggestion="Check that this is an intact HWPX package.",
+        )
     header = doc._root.headers[0]
 
     if line_spacing_percent is not None and float(line_spacing_percent) <= 0:
-        raise ValueError("line_spacing_percent must be positive")
+        raise HwpxValueError(
+            "line_spacing_percent must be positive",
+            code="paragraph-line-spacing-invalid",
+            suggestion="100 is the default (100%).",
+        )
 
     margins: dict[str, int] = {}
     if first_line_indent_mm is not None:
@@ -131,7 +166,12 @@ def set_paragraph_format(
         elif level <= 10:
             heading = {"type": "OUTLINE", "idRef": "0", "level": str(level - 1)}
         else:
-            raise ValueError("outline_level must be between 0 and 10")
+            raise HwpxValueError(
+                "outline_level must be between 0 and 10",
+                code="paragraph-outline-level-out-of-range",
+                context={"requested": level, "min": 0, "max": 10},
+                suggestion="0 means no outline. Use doc.add_heading() for heading paragraphs.",
+            )
 
     break_setting: dict[str, bool] = {}
     if keep_with_next is not None:
@@ -149,7 +189,11 @@ def set_paragraph_format(
         and not bottom_border
         and not break_setting
     ):
-        raise ValueError("at least one paragraph formatting option is required")
+        raise HwpxValueError(
+            "at least one paragraph formatting option is required",
+            code="paragraph-format-empty",
+            suggestion="Pass alignment, line_spacing_percent, or another option to change.",
+        )
 
     border: dict[str, str] | None = None
     if bottom_border:
@@ -172,7 +216,7 @@ def set_paragraph_format(
         paragraph_index=paragraph_index,
         paragraph_indexes=paragraph_indexes,
     )
-    formatted: list[dict[str, Any]] = []
+    formatted: list[int] = []
     for index, paragraph in targets:
         para_pr_id = header.ensure_paragraph_format(
             base_para_pr_id=paragraph.para_pr_id_ref,
@@ -184,17 +228,13 @@ def set_paragraph_format(
             break_setting=break_setting or None,
         )
         paragraph.para_pr_id_ref = para_pr_id
-        formatted.append({"paragraph_index": index, "paraPrIDRef": para_pr_id})
+        formatted.append(index)
 
-    return {
-        "formatted": len(formatted),
-        "paragraphs": formatted,
-        "units": {
-            "indent": "mm",
-            "paragraphSpacing": "pt",
-            "lineSpacing": "%",
-        },
-    }
+    return ParagraphFormatResult(
+        formatted=len(formatted),
+        paragraphs=tuple(formatted),
+        units=Units(indent="mm", paragraph_spacing="pt", line_spacing="%"),
+    )
 
 
 def set_list_format(
@@ -207,13 +247,22 @@ def set_list_format(
     bullet_char: str | None = None,
     number_format: str | None = None,
     start: int | None = None,
-) -> dict[str, Any]:
+) -> ListFormatResult:
     """Apply bullet or numbered-list paragraph properties to paragraphs."""
 
     if level < 1:
-        raise ValueError("level must be 1 or greater")
+        raise HwpxValueError(
+            "level must be 1 or greater",
+            code="style-list-level-invalid",
+            context={"requested": level},
+            suggestion="Levels start at 1.",
+        )
     if not doc._root.headers:
-        raise ValueError("document does not contain any headers")
+        raise HwpxValueError(
+            "document does not contain any headers",
+            code="document-header-missing",
+            suggestion="Check that this is an intact HWPX package.",
+        )
 
     level_specs: list[dict[str, str]] = [{} for _ in range(level)]
     if bullet_char:
@@ -229,7 +278,11 @@ def set_list_format(
     list_para_pr = header.element.find(f".//{_HH}paraPr[@id='{list_para_pr_id}']")
     heading_element = list_para_pr.find(f"{_HH}heading") if list_para_pr is not None else None
     if heading_element is None:
-        raise RuntimeError("failed to create list paragraph property")
+        raise HwpxStateError(
+            "failed to create list paragraph property",
+            code="style-list-property-failed",
+            suggestion="Check that the document header.xml is intact.",
+        )
     heading = {
         "type": heading_element.get("type", "NONE"),
         "idRef": heading_element.get("idRef", "0"),
@@ -240,22 +293,25 @@ def set_list_format(
         paragraph_indexes=paragraph_indexes,
     )
 
-    formatted: list[dict[str, Any]] = []
+    formatted: list[int] = []
+    first_para_pr_id: str | None = None
     for index, paragraph in targets:
         para_pr_id = header.ensure_paragraph_format(
             base_para_pr_id=paragraph.para_pr_id_ref,
             heading=heading,
         )
         paragraph.para_pr_id_ref = para_pr_id
-        formatted.append({"paragraph_index": index, "paraPrIDRef": para_pr_id})
+        formatted.append(index)
+        if first_para_pr_id is None:
+            first_para_pr_id = para_pr_id
 
-    return {
-        "formatted": len(formatted),
-        "paragraphs": formatted,
-        "kind": kind,
-        "level": level,
-        "paraPrIDRef": formatted[0]["paraPrIDRef"] if formatted else list_para_pr_id,
-    }
+    return ListFormatResult(
+        formatted=len(formatted),
+        paragraphs=tuple(formatted),
+        kind=kind,
+        level=level,
+        para_pr_id_ref=first_para_pr_id if first_para_pr_id is not None else list_para_pr_id,
+    )
 
 
 def set_page_setup(
@@ -277,7 +333,7 @@ def set_page_setup(
     column_gap_mm: float | None = None,
     section: HwpxOxmlSection | None = None,
     section_index: int | None = None,
-) -> dict[str, Any]:
+) -> PageSetup:
     """Set page size, margins, orientation, and optional columns in human units."""
 
     normalized_orientation = _normalize_page_orientation(orientation)
@@ -286,7 +342,12 @@ def set_page_setup(
     if paper_size:
         paper_key = paper_size.strip().upper()
         if paper_key not in _PAPER_SIZES_MM:
-            raise ValueError(f"unsupported paper_size: {paper_size}")
+            raise HwpxValueError(
+            f"unsupported paper_size: {paper_size}",
+            code="page-paper-size-unsupported",
+            context={"requested": str(paper_size), "supported": sorted(_PAPER_SIZES_MM)},
+            suggestion=f"Supported: {', '.join(sorted(_PAPER_SIZES_MM))}",
+        )
         paper_width, paper_height = _PAPER_SIZES_MM[paper_key]
         target_width_mm = paper_width if target_width_mm is None else target_width_mm
         target_height_mm = paper_height if target_height_mm is None else target_height_mm
@@ -300,7 +361,14 @@ def set_page_setup(
     width = _mm_to_hwp_units(float(target_width_mm)) if target_width_mm is not None else None
     height = _mm_to_hwp_units(float(target_height_mm)) if target_height_mm is not None else None
     if width is not None or height is not None or normalized_orientation is not None:
-        doc.set_page_size(
+        # Call the local primitives directly rather than `doc.set_page_size`/
+        # `doc.set_page_margins`/`doc.set_columns` below — all three names
+        # moved in 6.0 (design table rows 88/91/82 respectively), and going
+        # through the facade would fire a DeprecationWarning on every
+        # `set_page_setup` call even when reached via the new
+        # `doc.page.setup` namespace path.
+        set_page_size(
+            doc,
             width=width,
             height=height,
             orientation=normalized_orientation,
@@ -324,32 +392,44 @@ def set_page_setup(
         if value is not None
     }
     if hwp_margins:
-        doc.set_page_margins(
+        set_page_margins(
+            doc,
             section=section,
             section_index=section_index,
             **hwp_margins,
         )
 
-    column_result: dict[str, Any] | None = None
+    column_layout: ColumnLayout | None = None
     if columns is not None:
         col_count = int(columns)
         if col_count < 1:
-            raise ValueError("columns must be 1 or greater")
-        gap = _mm_to_hwp_units(float(column_gap_mm or 0))
-        doc.set_columns(
+            raise HwpxValueError(
+            "columns must be 1 or greater",
+            code="page-columns-invalid",
+            context={"requested": col_count},
+            suggestion="Use columns=1 to remove columns.",
+        )
+        gap_mm = float(column_gap_mm or 0)
+        gap = _mm_to_hwp_units(gap_mm)
+        set_columns(
+            doc,
             col_count=col_count,
             same_gap=gap,
             section=section,
             section_index=section_index,
         )
-        column_result = {"count": col_count, "gap": gap}
+        column_layout = ColumnLayout(count=col_count, gap_mm=gap_mm)
 
-    return {
-        "pageSize": {"width": width, "height": height, "orientation": normalized_orientation},
-        "margins": hwp_margins,
-        "columns": column_result,
-        "units": {"page": "mm", "margins": "mm", "columnsGap": "mm"},
-    }
+    return PageSetup(
+        page_size=PageSize(
+            width_mm=target_width_mm,
+            height_mm=target_height_mm,
+            orientation=normalized_orientation,
+        ),
+        margins=PageMargins(**margin_values),
+        columns=column_layout,
+        units=Units(page="mm", margins="mm", columns_gap="mm"),
+    )
 
 
 def set_columns(
@@ -436,7 +516,12 @@ def add_hyperlink(
     Returns the ``<hp:ctrl>`` wrapper containing the ``<hp:fieldBegin>``.
     """
     if char_pr_id_ref is None:
-        char_pr_id_ref = doc.ensure_run_style(
+        # `doc._root.ensure_run_style` rather than `doc.ensure_run_style` —
+        # that facade name moved in 6.0 (design table row 52) and is a pure
+        # passthrough to `_root`, so this is byte-identical minus the
+        # DeprecationWarning it would otherwise fire on every hyperlink even
+        # when reached via the new `doc.refs.add_hyperlink` namespace path.
+        char_pr_id_ref = doc._root.ensure_run_style(
             underline=True,
             color="#0000FF",
             underline_color="#0000FF",
@@ -459,7 +544,11 @@ def _resolve_section(
         target_section = doc._root.sections[section_index]
     if target_section is None:
         if not doc._root.sections:
-            raise ValueError("document does not contain any sections")
+            raise HwpxValueError(
+            "document does not contain any sections",
+            code="section-missing",
+            suggestion="Call doc.add_section() first.",
+        )
         target_section = doc._root.sections[-1]
     return target_section
 
@@ -582,18 +671,34 @@ def set_header_footer(
 
     normalized = kind.strip().lower()
     if normalized not in {"header", "footer"}:
-        raise ValueError("kind must be 'header' or 'footer'")
+        raise HwpxValueError(
+            "kind must be 'header' or 'footer'",
+            code="page-kind-invalid",
+            context={"requested": kind},
+            suggestion="Use doc.page.set_header() / doc.page.set_footer().",
+        )
     if content is not None and text is not None:
-        raise ValueError("use either text or content, not both")
+        raise HwpxValueError(
+            "use either text or content, not both",
+            code="page-argument-conflict",
+            suggestion="Use text= for one line, content= for multiple paragraphs.",
+        )
+    # Call the local primitives directly rather than `doc.set_header_content`/
+    # `doc.set_footer_content`/`doc.set_header_text`/`doc.set_footer_text` —
+    # all four names moved in 6.0 (design table rows 83-86), and going
+    # through the facade would fire a DeprecationWarning on every call even
+    # when reached via the new `doc.page.set_header`/`set_footer` paths.
     if content is not None:
         if normalized == "header":
-            return doc.set_header_content(
+            return set_header_content(
+                doc,
                 content,
                 section=section,
                 section_index=section_index,
                 page_type=page_type,
             )
-        return doc.set_footer_content(
+        return set_footer_content(
+            doc,
             content,
             section=section,
             section_index=section_index,
@@ -602,13 +707,15 @@ def set_header_footer(
 
     value = "" if text is None else text
     if normalized == "header":
-        return doc.set_header_text(
+        return set_header_text(
+            doc,
             value,
             section=section,
             section_index=section_index,
             page_type=page_type,
         )
-    return doc.set_footer_text(
+    return set_footer_text(
+        doc,
         value,
         section=section,
         section_index=section_index,
@@ -646,7 +753,12 @@ def set_page_number(
     if suffix:
         children.append({"type": "run", "text": suffix})
 
-    return doc.set_header_footer(
+    # `set_header_footer` (local) rather than `doc.set_header_footer` — that
+    # facade name is demoted (not just moved) in 6.0 (design table row 102),
+    # so the shim warns too; calling the primitive directly avoids that on
+    # every `set_page_number` call even via `doc.page.set_page_number`.
+    return set_header_footer(
+        doc,
         kind=target,
         content=[{"align": align, "children": children}],
         section=section,

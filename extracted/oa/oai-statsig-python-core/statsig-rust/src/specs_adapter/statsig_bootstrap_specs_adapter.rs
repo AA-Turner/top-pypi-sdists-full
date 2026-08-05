@@ -1,7 +1,7 @@
 use crate::networking::ResponseData;
 use crate::specs_adapter::{SpecsAdapter, SpecsSource, SpecsUpdate, SpecsUpdateListener};
 use crate::statsig_err::StatsigErr;
-use crate::{log_e, StatsigRuntime};
+use crate::{StatsigRuntime, log_e};
 use async_trait::async_trait;
 use chrono::Utc;
 use parking_lot::RwLock;
@@ -29,7 +29,7 @@ impl StatsigBootstrapSpecsAdapter {
             None => {
                 return Err(StatsigErr::LockFailure(
                     "Failed to acquire write lock on data".to_string(),
-                ))
+                ));
             }
         };
 
@@ -42,7 +42,7 @@ impl StatsigBootstrapSpecsAdapter {
             None => {
                 return Err(StatsigErr::LockFailure(
                     "Failed to acquire read lock on data".to_string(),
-                ))
+                ));
             }
         };
 

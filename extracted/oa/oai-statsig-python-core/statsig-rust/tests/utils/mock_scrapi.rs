@@ -4,17 +4,17 @@ use std::{
     fmt::{Display, Formatter},
     io::Read,
     sync::{
-        atomic::{AtomicU64, Ordering},
         Arc, Mutex,
+        atomic::{AtomicU64, Ordering},
     },
     time::Duration,
 };
 use uuid;
 use uuid::Uuid;
 use wiremock::{
+    Mock, MockBuilder, MockServer, Request, ResponseTemplate,
     http::Method as WiremockMethod,
     matchers::{method, path, path_regex},
-    Mock, MockBuilder, MockServer, Request, ResponseTemplate,
 };
 
 #[allow(clippy::upper_case_acronyms)]

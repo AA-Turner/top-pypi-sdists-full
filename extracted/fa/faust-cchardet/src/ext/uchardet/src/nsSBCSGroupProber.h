@@ -39,19 +39,20 @@
 #ifndef nsSBCSGroupProber_h__
 #define nsSBCSGroupProber_h__
 
-
-#define NUM_OF_SBCS_PROBERS 100
-
 class nsCharSetProber;
 class nsSBCSGroupProber: public nsCharSetProber {
 public:
   nsSBCSGroupProber();
   virtual ~nsSBCSGroupProber();
-  nsProbingState HandleData(const char* aBuf, PRUint32 aLen);
-  const char* GetCharSetName();
+  nsProbingState HandleData(const char* aBuf, PRUint32 aLen,
+                            int** codePointBuffer,
+                            int*  codePointBufferIdx);
+  virtual int GetCandidates() { return 1; }
+  const char* GetCharSetName(int);
+  const char* GetLanguage(int);
   nsProbingState GetState(void) {return mState;}
   void      Reset(void);
-  float     GetConfidence(void);
+  float     GetConfidence(int);
   void      SetOpion() {}
 
 #ifdef DEBUG_chardet
@@ -59,12 +60,12 @@ public:
 #endif
 
 protected:
-  nsProbingState mState;
-  nsCharSetProber* mProbers[NUM_OF_SBCS_PROBERS];
-  PRBool          mIsActive[NUM_OF_SBCS_PROBERS];
-  PRInt32 mBestGuess;
-  PRUint32 mActiveNum;
+  nsProbingState    mState;
+  nsCharSetProber **mProbers;
+  PRBool           *mIsActive;
+  PRInt32           mBestGuess;
+  PRUint32          mActiveNum;
+  PRUint32          n_sbcs_probers;
 };
 
 #endif /* nsSBCSGroupProber_h__ */
-

@@ -546,6 +546,11 @@ class FunctionTool:
     _is_agent_tool: bool = field(default=False, kw_only=True, repr=False)
     """Internal flag indicating if this tool is an agent-as-tool."""
 
+    _agent_tool_default_identity: tuple[str, str] | None = field(
+        default=None, kw_only=True, repr=False
+    )
+    """The source agent name and derived tool name when the default was used."""
+
     _is_codex_tool: bool = field(default=False, kw_only=True, repr=False)
     """Internal flag indicating if this tool is a Codex tool wrapper."""
 
@@ -766,7 +771,9 @@ class FileSearchTool:
     """The IDs of the vector stores to search."""
 
     max_num_results: int | None = None
-    """The maximum number of results to return."""
+    """The maximum number of results to return, from 1 through 50. None or zero uses the
+    provider default.
+    """
 
     include_search_results: bool = False
     """Whether to include the search results in the output produced by the LLM."""
@@ -2593,6 +2600,8 @@ def function_tool(
             json_data = _parse_function_tool_json_input(tool_name=tool_name, input_json=input)
             _log_function_tool_invocation(tool_name=tool_name, input_json=input)
 
+            base_message = f"Invalid JSON input for tool {tool_name}"
+            validation_failed = False
             try:
                 parsed = (
                     schema.params_pydantic_model(**json_data)
@@ -2600,7 +2609,12 @@ def function_tool(
                     else schema.params_pydantic_model()
                 )
             except ValidationError as e:
-                raise ModelBehaviorError(f"Invalid JSON input for tool {tool_name}: {e}") from e
+                if not _debug.DONT_LOG_TOOL_DATA:
+                    raise ModelBehaviorError(f"{base_message}: {e}") from e
+                validation_failed = True
+
+            if validation_failed:
+                raise ModelBehaviorError(base_message)
 
             args, kwargs_dict = schema.to_call_args(parsed)
 

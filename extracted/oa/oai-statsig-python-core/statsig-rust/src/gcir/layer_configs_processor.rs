@@ -2,6 +2,7 @@ use ahash::AHashMap;
 use std::collections::HashMap;
 
 use crate::{
+    ClientInitResponseOptions, SecondaryExposure, StatsigErr,
     evaluation::{
         dynamic_returnable::DynamicReturnable,
         evaluation_data::SpecView,
@@ -18,7 +19,6 @@ use crate::{
     },
     hashing::HashUtil,
     interned_string::InternedString,
-    ClientInitResponseOptions, SecondaryExposure, StatsigErr,
 };
 
 use super::{

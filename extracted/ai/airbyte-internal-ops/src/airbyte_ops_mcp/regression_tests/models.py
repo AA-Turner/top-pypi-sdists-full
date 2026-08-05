@@ -4,13 +4,15 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import logging
-from collections import defaultdict
+import re
+from collections import Counter, OrderedDict, defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Iterator
+from typing import IO, Any, Iterator
 
 from airbyte_protocol.models import (
     AirbyteCatalog,
@@ -263,3 +265,180 @@ class ExecutionResult:
             self.logger.info(f"Saved configured catalog to {catalog_path}")
 
         self.logger.info(f"Artifacts saved to {output_dir}")
+
+
+def get_primary_keys_per_stream(
+    configured_catalog: ConfiguredAirbyteCatalog,
+) -> dict[str, list[list[str]] | None]:
+    """Extract primary key paths per stream from a configured catalog.
+
+    Prefers the source-defined primary key (which comes from the discovered
+    catalog) and falls back to the primary key configured on the stream.
+    Streams with no primary key map to None.
+
+    The whole record-comparison pipeline downstream of this map keys streams
+    by name alone (the RECORD messages are routed on `record.stream`), so a
+    name that repeats across namespaces -- `public.users` and
+    `reporting.users` on any database source -- would merge two streams'
+    records and apply one stream's PK to the other's rows, reporting phantom
+    duplicate PKs on a run where nothing changed. Until the pipeline is
+    namespace-aware, such names degrade to no-PK (count-comparison-only),
+    which is safe rather than falsely failing; the caller is expected to
+    surface `duplicate_stream_names` as a warning.
+
+    Returns:
+        Mapping of stream name to primary key paths in protocol format
+        (a list of nested field paths, e.g. [["id"]]). Names that appear
+        more than once in the catalog map to None.
+    """
+    primary_keys: dict[str, list[list[str]] | None] = {}
+    for configured_stream in configured_catalog.streams:
+        pk = (
+            configured_stream.stream.source_defined_primary_key
+            or configured_stream.primary_key
+            or None
+        )
+        primary_keys[configured_stream.stream.name] = pk
+    for name in duplicate_stream_names(configured_catalog):
+        primary_keys[name] = None
+    return primary_keys
+
+
+def duplicate_stream_names(configured_catalog: ConfiguredAirbyteCatalog) -> list[str]:
+    """Stream names that appear more than once in the catalog.
+
+    Two streams share a name when a table repeats across namespaces (schemas),
+    which is routine for database sources. Sorted, so callers' warnings and
+    reports are deterministic.
+    """
+    counts = Counter(
+        configured_stream.stream.name
+        for configured_stream in configured_catalog.streams
+    )
+
+    return sorted(name for name, count in counts.items() if count > 1)
+
+
+def _stream_file_name(stream: str, used: set[str]) -> str:
+    """Build a filesystem-safe, collision-free file stem for a stream name."""
+    base = re.sub(r"[^\w.-]", "_", stream) or "stream"
+    name = base
+    suffix = 2
+    while name in used:
+        name = f"{base}_{suffix}"
+        suffix += 1
+    used.add(name)
+    return name
+
+
+# Open per-stream file handles the splitter holds at once. Database sources
+# can sync thousands of tables, and one handle per stream would cross the
+# process fd limit (macOS defaults its soft limit to 256). Connector output
+# emits streams in contiguous chunks, so with an LRU this size the
+# evict-and-reopen path stays cold.
+MAX_OPEN_RECORD_FILES = 64
+
+
+def split_records_per_stream(
+    stdout_path: Path,
+    output_dir: Path | None = None,
+) -> dict[str, Path]:
+    """Split a run's stdout into one records-only jsonl file per stream.
+
+    Single streaming pass over the connector output: each RECORD message
+    line is appended to `<output_dir>/<stream>.jsonl`; lines that are not
+    JSON RECORD messages (e.g. plain log lines) are skipped. Splitting
+    needs only the message type and stream name, so lines are routed on a
+    plain JSON parse -- the comparison layer, which reads these files one
+    stream at a time, does the full protocol validation once per record
+    instead of twice. Records are never held in memory and at most
+    `MAX_OPEN_RECORD_FILES` file handles are open at once (least recently
+    written streams are closed and reopened in append mode), so this scales
+    to arbitrarily large outputs and stream counts; the per-stream files
+    double as debugging artifacts.
+
+    Args:
+        stdout_path: The connector run's stdout file.
+        output_dir: Where to write the per-stream files. Defaults to a
+            `records_per_stream` directory next to the stdout file.
+
+    Returns:
+        Mapping of stream name to its records file. Streams with no
+        records have no entry.
+    """
+    records_dir = (
+        output_dir
+        if output_dir is not None
+        else stdout_path.parent / "records_per_stream"
+    )
+    records_dir.mkdir(parents=True, exist_ok=True)
+
+    paths: dict[str, Path] = {}
+    handles: OrderedDict[str, IO[str]] = OrderedDict()
+    used_names: set[str] = set()
+
+    def handle_for(stream: str) -> IO[str]:
+        handle = handles.get(stream)
+        if handle is not None:
+            handles.move_to_end(stream)
+            return handle
+        if stream not in paths:
+            path = records_dir / f"{_stream_file_name(stream, used_names)}.jsonl"
+            # Truncate exactly once per run, so appending after an LRU
+            # eviction keeps the same rerun semantics as a single open("w").
+            path.write_text("")
+            paths[stream] = path
+        if len(handles) >= MAX_OPEN_RECORD_FILES:
+            _, evicted = handles.popitem(last=False)
+            evicted.close()
+        handle = paths[stream].open("a")
+        handles[stream] = handle
+        return handle
+
+    try:
+        with stdout_path.open() as stdout:
+            for line in stdout:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    payload = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(payload, dict) or payload.get("type") != "RECORD":
+                    continue
+                record = payload.get("record")
+                if not isinstance(record, dict):
+                    continue
+                stream = record.get("stream")
+                if not isinstance(stream, str):
+                    continue
+                handle_for(stream).write(line + "\n")
+    finally:
+        for handle in handles.values():
+            handle.close()
+    return paths
+
+
+@dataclass(frozen=True)
+class ComparableOutputs:
+    """What a connector declared about itself, kept for the comparison.
+
+    An `ExecutionResult` holds every message the run emitted -- for a `read`,
+    the whole dataset -- so keeping one alive per side while the other version
+    runs would double a comparison's peak memory for the sake of two small
+    objects. These two are bounded, so this is what outlives the run: the flat
+    result dict several consumers already read stays about counts and exit
+    status, and the comparison gets the protocol objects themselves.
+
+    Both are `None` for a command that does not emit them, and for a run that
+    failed before it could.
+    """
+
+    spec: Any | None = None
+    catalog: AirbyteCatalog | None = None
+
+    @classmethod
+    def from_execution_result(cls, result: ExecutionResult) -> ComparableOutputs:
+        """Lift the comparable objects out of a finished run."""
+        return cls(spec=result.get_spec(), catalog=result.get_catalog())

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: music_assistant_models
-Version: 1.1.178
+Version: 1.1.180
 Summary: Music Assistant Base Models
 Author-email: The Music Assistant Authors <music_assistant@users.noreply.github.com>
 License: Apache-2.0
@@ -14,6 +14,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: orjson>=3.9
 Requires-Dist: mashumaro>=3.14
+Requires-Dist: unidecode==1.4.0
 Provides-Extra: test
 Requires-Dist: codespell==2.4.3; extra == "test"
 Requires-Dist: isort==8.0.1; extra == "test"

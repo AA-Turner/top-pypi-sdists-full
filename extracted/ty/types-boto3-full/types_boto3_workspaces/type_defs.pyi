@@ -427,6 +427,7 @@ class CertificateBasedAuthPropertiesTypeDef(TypedDict):
 class ClientPropertiesTypeDef(TypedDict):
     ReconnectEnabled: NotRequired[ReconnectEnumType]
     LogUploadEnabled: NotRequired[LogUploadEnumType]
+    ClientExperiencePolicy: NotRequired[str]
 
 class ComputeTypeTypeDef(TypedDict):
     Name: NotRequired[ComputeType]

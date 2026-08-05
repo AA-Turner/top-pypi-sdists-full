@@ -6,9 +6,13 @@ import dataclasses
 import logging
 import time
 from collections.abc import Awaitable, Callable, Iterable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeAlias
 
-from braintrust.integrations.utils import _materialize_attachment
+from braintrust.integrations.utils import (
+    _extract_google_usage_metadata_metrics,
+    _extract_google_usage_metadata_provider_metadata,
+    _materialize_attachment,
+)
 from braintrust.logger import (
     NOOP_SPAN,
     _state,
@@ -63,6 +67,7 @@ _TOOL_RESULT_TYPES = {
     "mcp_server_tool_result",
     "file_search_result",
 }
+_LoggedResult: TypeAlias = tuple[Any, dict[str, Any]] | tuple[Any, dict[str, Any], dict[str, Any] | None]
 
 
 @dataclasses.dataclass
@@ -330,19 +335,11 @@ def _prepare_interaction_id_traced_call(
 # ---------------------------------------------------------------------------
 
 
-def _extract_usage_metadata_metrics(
-    usage_metadata: "GenerateContentResponseUsageMetadata", metrics: dict[str, Any]
-) -> None:
-    if hasattr(usage_metadata, "prompt_token_count"):
-        metrics["prompt_tokens"] = usage_metadata.prompt_token_count
-    if hasattr(usage_metadata, "candidates_token_count"):
-        metrics["completion_tokens"] = usage_metadata.candidates_token_count
-    if hasattr(usage_metadata, "total_token_count"):
-        metrics["tokens"] = usage_metadata.total_token_count
-    if hasattr(usage_metadata, "cached_content_token_count"):
-        metrics["prompt_cached_tokens"] = usage_metadata.cached_content_token_count
-    if hasattr(usage_metadata, "thoughts_token_count"):
-        metrics["completion_reasoning_tokens"] = usage_metadata.thoughts_token_count
+def _extract_usage_metadata_provider_metadata(
+    usage_metadata: "GenerateContentResponseUsageMetadata",
+) -> dict[str, Any] | None:
+    metadata = _extract_google_usage_metadata_provider_metadata(usage_metadata)
+    return _materialize_interaction_value(metadata) if metadata is not None else None
 
 
 def _extract_generate_content_metrics(response: "GenerateContentResponse", start: float) -> dict[str, Any]:
@@ -354,7 +351,7 @@ def _extract_generate_content_metrics(response: "GenerateContentResponse", start
     )
 
     if hasattr(response, "usage_metadata") and response.usage_metadata:
-        _extract_usage_metadata_metrics(response.usage_metadata, metrics)
+        metrics.update(_extract_google_usage_metadata_metrics(response.usage_metadata))
 
     return clean_nones(dict(metrics))
 
@@ -472,16 +469,18 @@ def _extract_interaction_usage_metrics(usage: Any, metrics: dict[str, Any]) -> N
 
     if hasattr(usage, "total_input_tokens") and usage.total_input_tokens is not None:
         metrics["prompt_tokens"] = usage.total_input_tokens
-    if hasattr(usage, "total_output_tokens") and usage.total_output_tokens is not None:
-        metrics["completion_tokens"] = usage.total_output_tokens
+
+    total_output_tokens = getattr(usage, "total_output_tokens", None)
+    total_thought_tokens = getattr(usage, "total_thought_tokens", None)
+    if total_output_tokens is not None or total_thought_tokens is not None:
+        metrics["completion_tokens"] = (total_output_tokens or 0) + (total_thought_tokens or 0)
+
     if hasattr(usage, "total_tokens") and usage.total_tokens is not None:
         metrics["tokens"] = usage.total_tokens
     if hasattr(usage, "total_cached_tokens") and usage.total_cached_tokens is not None:
         metrics["prompt_cached_tokens"] = usage.total_cached_tokens
-    if hasattr(usage, "total_thought_tokens") and usage.total_thought_tokens is not None:
-        metrics["completion_reasoning_tokens"] = usage.total_thought_tokens
-    if hasattr(usage, "total_tool_use_tokens") and usage.total_tool_use_tokens is not None:
-        metrics["tool_use_tokens"] = usage.total_tool_use_tokens
+    if total_thought_tokens is not None:
+        metrics["completion_reasoning_tokens"] = total_thought_tokens
 
 
 def _extract_interaction_text(outputs: list[dict[str, Any]]) -> str | None:
@@ -552,6 +551,9 @@ def _extract_interaction_metadata(response: "Interaction") -> dict[str, Any]:
             "role": getattr(response, "role", None),
             "response_mime_type": getattr(response, "response_mime_type", None),
             "response_modalities": _materialize_interaction_value(getattr(response, "response_modalities", None)),
+            "total_tool_use_tokens": (
+                usage_serialized.get("total_tool_use_tokens") if isinstance(usage_serialized, dict) else None
+            ),
             "usage_by_modality": usage_by_modality,
         }
     )
@@ -568,8 +570,15 @@ def _extract_interaction_metrics(response: "Interaction", start: float) -> dict[
 # ---------------------------------------------------------------------------
 
 
-def _gc_process_result(result: "GenerateContentResponse", start: float) -> tuple[Any, dict[str, Any]]:
-    return result, _extract_generate_content_metrics(result, start)
+def _gc_process_result(
+    result: "GenerateContentResponse", start: float
+) -> tuple[Any, dict[str, Any], dict[str, Any] | None]:
+    usage_metadata = getattr(result, "usage_metadata", None)
+    return (
+        result,
+        _extract_generate_content_metrics(result, start),
+        _extract_usage_metadata_provider_metadata(usage_metadata) if usage_metadata is not None else None,
+    )
 
 
 def _embed_process_result(result: "EmbedContentResponse", start: float) -> tuple[Any, dict[str, Any]]:
@@ -631,7 +640,7 @@ def _generic_process_result(result: Any, start: float) -> tuple[Any, dict[str, A
 
 def _aggregate_generate_content_chunks(
     chunks: "list[GenerateContentResponse]", start: float, first_token_time: float | None = None
-) -> tuple[dict[str, Any], dict[str, Any]]:
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any] | None]:
     end_time = time.time()
     metrics = dict(
         start=start,
@@ -643,7 +652,7 @@ def _aggregate_generate_content_chunks(
         metrics["time_to_first_token"] = first_token_time - start
 
     if not chunks:
-        return {}, metrics
+        return {}, metrics, None
 
     text = ""
     thought_text = ""
@@ -701,12 +710,16 @@ def _aggregate_generate_content_chunks(
 
     if usage_metadata:
         aggregated["usage_metadata"] = usage_metadata
-        _extract_usage_metadata_metrics(usage_metadata, metrics)
+        metrics.update(_extract_google_usage_metadata_metrics(usage_metadata))
 
     if text:
         aggregated["text"] = text
 
-    return aggregated, clean_nones(dict(metrics))
+    return (
+        aggregated,
+        clean_nones(dict(metrics)),
+        _extract_usage_metadata_provider_metadata(usage_metadata) if usage_metadata is not None else None,
+    )
 
 
 def _is_interaction_content_event(event: Any) -> bool:
@@ -1036,7 +1049,7 @@ def _run_traced_call(
     *,
     name: str,
     invoke: Callable[[], Any],
-    process_result: Callable[[Any, float], tuple[Any, dict[str, Any]] | tuple[Any, dict[str, Any], dict[str, Any]]],
+    process_result: Callable[[Any, float], _LoggedResult],
     prepare_call: Callable[
         [Any, list[Any], dict[str, Any]], tuple[dict[str, Any], dict[str, Any]]
     ] = _prepare_traced_call,
@@ -1060,7 +1073,7 @@ def _run_traced_call(
         span.log(output=output, metrics=metrics, metadata=metadata)
         parent_export = span.export()
 
-    if finalize_logged_output is not None and parent_export is not None and metrics is not None:
+    if finalize_logged_output is not None and parent_export is not None:
         finalize_logged_output(output, metrics, metadata, parent_export)
 
     return result
@@ -1073,7 +1086,7 @@ async def _run_async_traced_call(
     *,
     name: str,
     invoke: Callable[[], Awaitable[Any]],
-    process_result: Callable[[Any, float], tuple[Any, dict[str, Any]] | tuple[Any, dict[str, Any], dict[str, Any]]],
+    process_result: Callable[[Any, float], _LoggedResult],
     prepare_call: Callable[
         [Any, list[Any], dict[str, Any]], tuple[dict[str, Any], dict[str, Any]]
     ] = _prepare_traced_call,
@@ -1097,7 +1110,7 @@ async def _run_async_traced_call(
         span.log(output=output, metrics=metrics, metadata=metadata)
         parent_export = span.export()
 
-    if finalize_logged_output is not None and parent_export is not None and metrics is not None:
+    if finalize_logged_output is not None and parent_export is not None:
         finalize_logged_output(output, metrics, metadata, parent_export)
 
     return result
@@ -1150,9 +1163,7 @@ def _run_stream_traced_call(
     *,
     name: str,
     invoke: Callable[[], Any],
-    aggregate: Callable[
-        [list[Any], float, float | None], tuple[Any, dict[str, Any]] | tuple[Any, dict[str, Any], dict[str, Any]]
-    ],
+    aggregate: Callable[[list[Any], float, float | None], _LoggedResult],
     span_type: SpanTypeAttribute = SpanTypeAttribute.LLM,
     first_token_predicate: Callable[[Any], bool] | None = None,
     prepare_call: Callable[
@@ -1194,7 +1205,7 @@ def _run_stream_traced_call(
             span.log(output=output, metrics=metrics, metadata=metadata)
             parent_export = span.export()
 
-        if finalize_logged_output is not None and parent_export is not None and metrics is not None:
+        if finalize_logged_output is not None and parent_export is not None:
             finalize_logged_output(output, metrics, metadata, parent_export)
 
         return output
@@ -1209,9 +1220,7 @@ def _run_async_stream_traced_call(
     *,
     name: str,
     invoke: Callable[[], Awaitable[Any]],
-    aggregate: Callable[
-        [list[Any], float, float | None], tuple[Any, dict[str, Any]] | tuple[Any, dict[str, Any], dict[str, Any]]
-    ],
+    aggregate: Callable[[list[Any], float, float | None], _LoggedResult],
     span_type: SpanTypeAttribute = SpanTypeAttribute.LLM,
     first_token_predicate: Callable[[Any], bool] | None = None,
     prepare_call: Callable[
@@ -1253,7 +1262,7 @@ def _run_async_stream_traced_call(
             span.log(output=output, metrics=metrics, metadata=metadata)
             parent_export = span.export()
 
-        if finalize_logged_output is not None and parent_export is not None and metrics is not None:
+        if finalize_logged_output is not None and parent_export is not None:
             finalize_logged_output(output, metrics, metadata, parent_export)
 
     return stream_generator()

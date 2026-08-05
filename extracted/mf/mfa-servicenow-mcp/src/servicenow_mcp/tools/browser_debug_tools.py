@@ -31,13 +31,17 @@ Running JavaScript is graded in two, because "read a value off the page" and
 ``act_in_debug_window`` action ``eval``  arbitrary source, and therefore
     confirm='approve' AND confirm_eval='approve'.
 
-Running SERVER-side code is graded above both, because a click on Run in
-Background Scripts is not a click a person's ACLs constrain — see
-browser/server_scripts.py. Reaching those pages costs nothing; pulling the
-trigger on one costs confirm_script_exec='approve'. That gate is enforced twice:
-here, against the verb a step names, before the browser is touched — and in
-actions.py against the window's live URL, which is the only place a click that
-navigates onto Background Scripts mid-batch can be caught.
+Running SERVER-side code is not graded above both — it is off, and it is the one
+capability in this repo that is refused rather than priced. ``open_debug_window``
+will not point the window at Background Scripts, a Fix Script, a scheduled job or
+an ATF run at all, and there is no approval argument that changes it
+(_script_surface_refusal). The platform keeps those pages for a person who
+genuinely needs one; whether a tool may steer there is a different question.
+
+The older gates stay behind that block, for the window a person navigated by
+hand: confirm_script_exec='approve' on the verb a step names, checked here before
+the browser is touched, and in actions.py against the window's live URL — the
+only place a click that lands on a runner mid-batch can be caught.
 
 Impersonation is a step, not a tool, for the same reason: testing "what does
 this user see" is never one call. It changes the whole window's session — which
@@ -63,7 +67,7 @@ from ..browser._offload import PlaywrightUnavailable
 from ..browser.actions import EVAL_ACTION, MAX_ACTIONS, act, normalize
 from ..browser.badge import profile_label
 from ..browser.capture import MAX_WATCH_SECONDS, NoPageFound, arm, capture, navigate
-from ..browser.cursor import resolve_after_seq, write_cursor
+from ..browser.cursor import resolve_marks, write_mark
 from ..browser.impersonate import END_IMPERSONATION_ACTION, IMPERSONATE_ACTION
 from ..browser.impersonate import describe_detected as describe_impersonation
 from ..browser.impersonate import read_marker
@@ -73,7 +77,7 @@ from ..browser.login import describe as describe_login
 from ..browser.login import saved_credentials
 from ..browser.reaper import reap_idle_windows
 from ..browser.report import compact
-from ..browser.server_scripts import ServerScriptBlocked
+from ..browser.server_scripts import ServerScriptBlocked, navigation_rejection, surface_for_url
 from ..browser.session import api_username, describe_window_user
 from ..browser.window import (
     ensure_window,
@@ -104,6 +108,36 @@ MAX_STYLE_SELECTORS = 5
 def _numbered(steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Steps with their 1-based position, so a rejection can name which one."""
     return [{**step, "step": index} for index, step in enumerate(steps, start=1)]
+
+
+def _script_surface_refusal(target_url: str) -> Optional[Dict[str, Any]]:
+    """Refuse to point the window at a server-script runner. No approval argument.
+
+    A wall, not a door, and that is deliberate here — the one place in this
+    repo where the usual "gate it, never block it" rule does not apply, on the
+    maintainer's instruction. The rule buys something specific: the person
+    watching the screen sees the thing before it happens, in cases where they
+    might reasonably say yes. Here they would not. Background Scripts via MCP is
+    off, not expensive; the platform keeps the page for a human who really needs
+    it, which is a different question from whether a tool may drive there.
+
+    So there is no approval field to fill in. A gate whose answer is always no
+    is just a prompt the model learns to answer for itself, and meanwhile the
+    window has already moved onto the runner.
+
+    Checked before anything opens or moves. This does not touch the window a
+    person is driving by hand: they can navigate wherever they like.
+    """
+    if not target_url:
+        return None
+    surface = surface_for_url(target_url)
+    if not surface:
+        return None
+    return {
+        "success": False,
+        "error": navigation_rejection(surface, url=target_url),
+        "script_exec_surface": surface,
+    }
 
 
 class OpenDebugWindowParams(BaseModel):
@@ -268,6 +302,12 @@ def open_debug_window(
 ) -> Dict[str, Any]:
     target_url = _resolve_url(config, params.url)
 
+    # Checked before the window is opened or moved. See _script_surface_refusal:
+    # this one is a block rather than a gate, and it is the only one.
+    landing = _script_surface_refusal(target_url)
+    if landing:
+        return landing
+
     # Before the population grows, retire whatever is provably unused. Never
     # fatal: an unusable reaper must not stand between the user and a window.
     try:
@@ -341,6 +381,11 @@ def open_debug_window(
         if moved.get("new_tab"):
             result["new_tab"] = True
             result["tabs"] = moved.get("tabs")
+        # Said, never silent: a tab disappearing from the user's screen is
+        # their tab, and a cap that gave up must not look like one that worked.
+        for key in ("closed_tabs_note", "tabs_note"):
+            if moved.get(key):
+                result[key] = moved[key]
         if moved.get("kept_input"):
             # Said, not silent: a tab appeared that the caller did not ask for,
             # and the reason is fields that merely look edited.
@@ -370,10 +415,15 @@ def open_debug_window(
     # Sign the window in with what the server already knows, once per window.
     # Runs after arming so the login round-trip is itself recorded, and after
     # navigation so the form it looks at is the one on the target page.
+    #
+    # ``driven_url`` is which tab that was. The window is shared with the person
+    # using it, and their tabs are not places to type an instance password —
+    # login.py fills the tab we pointed at the instance, or none at all.
     login = auto_login(
         state,
         credentials=saved_credentials(config),
         marker_path=window_login_path(auth_manager),
+        driven_url=str(result.get("url") or ""),
     )
     if login.get("status") not in (None, "no_credentials", "no_login_form", "no_page"):
         result["auto_login"] = login.get("status")
@@ -450,9 +500,7 @@ def inspect_debug_window(
         }
 
     cursor_path = window_cursor_path(auth_manager)
-    after_seq = resolve_after_seq(
-        cursor_path, since_last=params.since_last, explicit=params.after_seq
-    )
+    marks = resolve_marks(cursor_path, since_last=params.since_last, explicit=params.after_seq)
     artifacts_dir = window_artifacts_dir(auth_manager)
     shot_path = (
         os.path.join(artifacts_dir, f"shot-{int(time.time() * 1000)}.png")
@@ -465,7 +513,7 @@ def inspect_debug_window(
             state,
             profile=profile_label(config),
             account=_window_account(config, auth_manager, state),
-            after_seq=after_seq,
+            marks=marks,
             watch_seconds=min(float(params.watch_seconds), MAX_WATCH_SECONDS),
             screenshot=params.screenshot,
             selector=params.selector,
@@ -480,7 +528,7 @@ def inspect_debug_window(
         return {"success": False, "window_open": True, "error": str(exc)}
 
     report = compact(raw, artifacts_dir=artifacts_dir)
-    write_cursor(cursor_path, report.get("next_seq", 0))
+    write_mark(cursor_path, report.get("tab_id", ""), report.get("next_seq", 0))
 
     identity = describe_window_user(raw.get("effective_user"), api_username(config))
     result: Dict[str, Any] = {
@@ -594,7 +642,7 @@ def act_in_debug_window(
         }
 
     cursor_path = window_cursor_path(auth_manager)
-    after_seq = resolve_after_seq(cursor_path, since_last=params.since_last)
+    marks = resolve_marks(cursor_path, since_last=params.since_last)
     artifacts_dir = window_artifacts_dir(auth_manager)
     shot_path = (
         os.path.join(artifacts_dir, f"shot-{int(time.time() * 1000)}.png")
@@ -608,7 +656,7 @@ def act_in_debug_window(
             profile=profile_label(config),
             account=_window_account(config, auth_manager, state),
             actions=steps,
-            after_seq=after_seq,
+            marks=marks,
             settle_ms=params.settle_ms,
             screenshot=params.screenshot,
             selector=params.selector,
@@ -622,6 +670,11 @@ def act_in_debug_window(
                 "instance_host": state.instance_host,
                 "login_user": (saved_credentials(config) or ("", ""))[0],
                 "allow_discard": params.discard_unsaved_input,
+                # Where to make the switch from when the tab is off the instance
+                # and a relative POST would go to somebody else's site. The
+                # instance root, because it is the one URL every instance has —
+                # a deeper page would be a guess about this customer's menu.
+                "carrier_url": str(config.instance_url or "").rstrip("/") + "/",
             },
             allow_server_script=allow_server_script,
         )
@@ -641,7 +694,7 @@ def act_in_debug_window(
         return {"success": False, "window_open": True, "error": str(exc)}
 
     report = compact(raw, artifacts_dir=artifacts_dir)
-    write_cursor(cursor_path, report.get("next_seq", 0))
+    write_mark(cursor_path, report.get("tab_id", ""), report.get("next_seq", 0))
 
     failed_step = raw.get("failed_step")
     result: Dict[str, Any] = {

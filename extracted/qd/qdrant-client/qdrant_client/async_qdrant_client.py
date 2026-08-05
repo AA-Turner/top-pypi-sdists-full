@@ -63,7 +63,7 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
             Default: `None`
         timeout:
             Timeout for REST and gRPC API requests.
-            Default: 5 seconds for REST and unlimited for gRPC
+            Default: 5 seconds for both REST and gRPC (when timeout is None)
         host: Host name of Qdrant service. If url and host are None, set to 'localhost'.
             Default: `None`
         path: Persistence path for QdrantLocal. Default: `None`
@@ -1630,6 +1630,7 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
         timeout: int | None = None,
         strict_mode_config: types.StrictModeConfig | None = None,
         metadata: types.Payload | None = None,
+        payload: types.PayloadStorageParams | None = None,
         **kwargs: Any,
     ) -> bool:
         """Create empty collection with given parameters
@@ -1676,6 +1677,9 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
                 If timeout is reached - request will return with service error.
             strict_mode_config: Configure limitations for the collection, such as max size, rate limits, etc.
             metadata: Arbitrary JSON-like metadata for the collection
+            payload:
+                Configuration of the payload storage, e.g. the memory placement of the payload.
+                Overrides the deprecated `on_disk_payload` flag if both are set.
 
         Returns:
             Operation result
@@ -1697,6 +1701,7 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
             sparse_vectors_config=sparse_vectors_config,
             strict_mode_config=strict_mode_config,
             metadata=metadata,
+            payload=payload,
             **kwargs,
         )
 
@@ -1717,6 +1722,7 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
         timeout: int | None = None,
         strict_mode_config: types.StrictModeConfig | None = None,
         metadata: types.Payload | None = None,
+        payload: types.PayloadStorageParams | None = None,
         **kwargs: Any,
     ) -> bool:
         """Delete and create empty collection with given parameters
@@ -1763,6 +1769,9 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
                 If timeout is reached - request will return with service error.
             strict_mode_config: Configure limitations for the collection, such as max size, rate limits, etc.
             metadata: Arbitrary JSON metadata for the collection
+            payload:
+                Configuration of the payload storage, e.g. the memory placement of the payload.
+                Overrides the deprecated `on_disk_payload` flag if both are set.
 
         Returns:
             Operation result
@@ -1789,6 +1798,7 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
             sparse_vectors_config=sparse_vectors_config,
             strict_mode_config=strict_mode_config,
             metadata=metadata,
+            payload=payload,
             **kwargs,
         )
 

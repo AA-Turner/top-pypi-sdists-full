@@ -1,6 +1,8 @@
+import html
 import json
 import os
 import re
+from urllib.parse import quote
 
 from anyio import open_file
 from orjson import loads
@@ -19,6 +21,16 @@ class UiSchema(TypedDict):
 
 
 _UI_SCHEMAS_CACHE: dict[str, UiSchema] | None = None
+
+
+def _quote_path_segment(value: str) -> str:
+    """Encode a dynamic URL path segment for safe HTML attribute use."""
+    return quote(value, safe="")
+
+
+def _html_safe_json_arg(value: object) -> str:
+    """Serialize a value for a JavaScript argument inside an HTML attribute."""
+    return html.escape(json.dumps(value), quote=True)
 
 
 async def load_ui_schemas() -> dict[str, UiSchema]:
@@ -40,7 +52,6 @@ async def load_ui_schemas() -> dict[str, UiSchema]:
 async def handle_ui(request: ApiRequest) -> Response:
     """Serve UI HTML with appropriate script/style tags."""
     graph_id = request.path_params["graph_id"]
-    host = request.headers.get("host")
     message = await request.json(schema=None)
 
     # Load UI file paths from schema
@@ -54,24 +65,20 @@ async def handle_ui(request: ApiRequest) -> Response:
         basename = os.path.basename(filepath)
         ext = os.path.splitext(basename)[1]
 
-        # Use http:// protocol if accessing a localhost service
-        def is_host(needle: str) -> bool:
-            if not isinstance(host, str):
-                return False
-            return host.startswith(needle + ":") or host == needle
-
-        protocol = "http:" if is_host("localhost") or is_host("127.0.0.1") else ""
         valid_js_name = re.sub(r"[^a-zA-Z0-9]", "_", graph_id)
+        asset_url = (
+            f"/ui/{_quote_path_segment(graph_id)}/{_quote_path_segment(basename)}"
+        )
+        safe_asset_url = html.escape(asset_url, quote=True)
 
         if ext == ".css":
-            result.append(
-                f'<link rel="stylesheet" href="{protocol}//{host}/ui/{graph_id}/{basename}" />'
-            )
+            result.append(f'<link rel="stylesheet" href="{safe_asset_url}" />')
         elif ext == ".js":
-            safe_name = json.dumps(message["name"]).replace("'", "&#39;")
+            safe_name = _html_safe_json_arg(message["name"])
             result.append(
-                f'<script src="{protocol}//{host}/ui/{graph_id}/{basename}" '
-                f"onload='__LGUI_{valid_js_name}.render({safe_name}, \"{{{{shadowRootId}}}}\")'>"
+                f'<script src="{safe_asset_url}" '
+                f"onload='__LGUI_{valid_js_name}.render("
+                f'{safe_name}, "{{{{shadowRootId}}}}")\'>'
                 "</script>"
             )
 

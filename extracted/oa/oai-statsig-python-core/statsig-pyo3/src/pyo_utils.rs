@@ -4,10 +4,10 @@ use pyo3::types::{
     PyString, PyStringMethods, PyTypeMethods,
 };
 use pyo3::{Bound, IntoPyObject, Py, PyAny, PyErr, PyResult, PyTypeCheck, Python};
-use serde_json::{json, Number, Value};
+use serde_json::{Number, Value, json};
 use statsig_rust::evaluation::dynamic_string::DynamicString;
 use statsig_rust::user::fast_statsig_user::{FastUserCustomMap, FastUserUnitIDMap};
-use statsig_rust::{log_e, log_w, DynamicValue, StatsigUserDataMap, StatsigUserValue};
+use statsig_rust::{DynamicValue, StatsigUserDataMap, StatsigUserValue, log_e, log_w};
 use std::borrow::Cow;
 use std::collections::HashMap;
 
@@ -228,10 +228,12 @@ pub fn py_any_to_dynamic_value(value: &Bound<PyAny>) -> PyResult<DynamicValue> {
             })?;
             hashmap.insert(key_str, py_any_to_dynamic_value(&val)?);
         }
-        let json_value = json!(hashmap
-            .iter()
-            .map(|(k, v)| (k, &v.json_value))
-            .collect::<HashMap<_, _>>());
+        let json_value = json!(
+            hashmap
+                .iter()
+                .map(|(k, v)| (k, &v.json_value))
+                .collect::<HashMap<_, _>>()
+        );
         return Ok(DynamicValue {
             object_value: Some(hashmap.clone()),
             json_value,

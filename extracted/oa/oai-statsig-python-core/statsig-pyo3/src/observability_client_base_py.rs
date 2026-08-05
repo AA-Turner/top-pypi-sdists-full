@@ -1,6 +1,6 @@
-use pyo3::{prelude::*, pyclass, pymethods, FromPyObject};
+use pyo3::{FromPyObject, prelude::*, pyclass, pymethods};
 use pyo3_stub_gen::derive::*;
-use statsig_rust::{log_e, ObservabilityClient, OpsStatsEventObserver};
+use statsig_rust::{ObservabilityClient, OpsStatsEventObserver, log_e};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -138,7 +138,11 @@ impl ObservabilityClient for ObservabilityClientBasePy {
             let value = match func.as_ref().call1(py, (tag,)) {
                 Ok(value) => value,
                 Err(e) => {
-                    log_e!(TAG, "Failed to call ObservabilityClient.should_enable_high_cardinality_for_this_tag: {:?}", e);
+                    log_e!(
+                        TAG,
+                        "Failed to call ObservabilityClient.should_enable_high_cardinality_for_this_tag: {:?}",
+                        e
+                    );
                     return None;
                 }
             };
@@ -146,7 +150,11 @@ impl ObservabilityClient for ObservabilityClientBasePy {
             match value.extract(py) {
                 Ok(value) => Some(value),
                 Err(e) => {
-                    log_e!(TAG, "Failed to extract ObservabilityClient.should_enable_high_cardinality_for_this_tag: {:?}", e);
+                    log_e!(
+                        TAG,
+                        "Failed to extract ObservabilityClient.should_enable_high_cardinality_for_this_tag: {:?}",
+                        e
+                    );
                     None
                 }
             }

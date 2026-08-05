@@ -5,12 +5,14 @@ use serde_json::json;
 use std::{collections::HashMap, io::Write, sync::Arc, time::Instant};
 
 use crate::{
-    dyn_value,
+    DynamicReturnable, OverrideAdapter, SpecStore, SpecsSource, SpecsUpdate, StatsigErr,
+    StatsigLocalOverrideAdapter, StatsigRuntime, StatsigUser, dyn_value,
     evaluation::{
         comparisons::{
             compare_arrays, compare_numbers, compare_str_with_regex, compare_strings_in_array,
             compare_time, compare_versions,
         },
+        dynamic_returnable::DynamicReturnableValue,
         evaluator::{Evaluator, Recognition, SpecType},
         evaluator_context::{EvaluatorContext, IdListResolution},
         evaluator_value::{
@@ -18,29 +20,32 @@ use crate::{
         },
     },
     hashing::{self, HashUtil},
+    interned_string::InternedStringValue,
     interned_values::{
-        interned_store::{preload_mmap_v2_for_test, write_mmap_v2_for_test},
-        mmap_data_v2::{
-            spec_content_hash, ArchivedMmapDataV2, MmapDataV2, MmapEvaluatorValue,
-            MmapEvaluatorValueType, MmapReturnable, MmapSpec,
+        InternedStore, MmapPreloadOptions,
+        interned_store::{
+            preload_mmap_v2_for_test, preload_mmap_v2_multi_for_test,
+            preload_mmap_v2_multi_with_options_for_test, write_mmap_v2_for_test,
         },
-        InternedStore,
+        mmap_data_v2::{
+            ArchivedMmapDataV2, MmapDataV2, MmapEvaluatorValue, MmapEvaluatorValueType,
+            MmapReturnable, MmapSpec, spec_content_hash,
+        },
     },
     networking::ResponseData,
     observability::{
         observability_client_adapter::MetricType,
-        ops_stats::{OpsStatsEvent, OpsStatsForInstance, OPS_STATS},
+        ops_stats::{OPS_STATS, OpsStatsEvent, OpsStatsForInstance},
     },
     sdk_event_emitter::SdkEventEmitter,
     specs_response::{
-        proto_specs::deserialize_protobuf,
+        parse_options::SpecsResponseParseOptions,
+        proto_specs::{deserialize_protobuf, deserialize_protobuf_with_options},
         proto_stream_reader::BUFFER_SIZE,
         spec_types::{ConditionOperator, Spec, SpecsResponseFull},
         statsig_config_specs as pb,
     },
-    user::{user_value::UserValueRef, StatsigUserInternal},
-    OverrideAdapter, SpecStore, SpecsSource, SpecsUpdate, StatsigErr, StatsigLocalOverrideAdapter,
-    StatsigRuntime, StatsigUser,
+    user::{StatsigUserInternal, user_value::UserValueRef},
 };
 
 const EVAL_PROJ_JSON: &[u8] = include_bytes!("../../../tests/data/eval_proj_dcs.json");
@@ -140,6 +145,7 @@ fn materialized_delta(current: &SpecsResponseFull, lcut: u64) -> ResponseData {
                     response_format: current.response_format.clone().unwrap_or_default(),
                     checksum: "spec-decode-mmap-delta".to_string(),
                     rest: serde_json::to_vec(&common_fields).unwrap(),
+                    may_have_remote_config_metadata: None,
                 }
                 .encode_to_vec(),
             ),
@@ -184,15 +190,72 @@ fn materialized_delta(current: &SpecsResponseFull, lcut: u64) -> ResponseData {
     )
 }
 
+fn multi_sdk_payload(checksum: &str, salt: &str, enabled: bool) -> Vec<u8> {
+    serde_json::to_vec(&json!({
+        "experiment_to_layer": {},
+        "condition_map": {},
+        "dynamic_configs": {
+            "project_config": {
+                "checksum": format!("config-{checksum}"),
+                "type": "dynamic_config",
+                "salt": format!("config-{salt}"),
+                "defaultValue": {"project": salt},
+                "enabled": true,
+                "rules": [],
+                "idType": "userID",
+                "entity": "dynamic_config"
+            }
+        },
+        "feature_gates": {
+            "shared_gate": {
+                "checksum": checksum,
+                "type": "feature_gate",
+                "salt": salt,
+                "defaultValue": false,
+                "enabled": enabled,
+                "rules": [],
+                "idType": "userID",
+                "entity": "feature_gate"
+            }
+        },
+        "layer_configs": {},
+        "has_updates": true,
+        "time": 1
+    }))
+    .unwrap()
+}
+
+fn test_spec_store(sdk_key: &str) -> SpecStore {
+    SpecStore::new(
+        sdk_key,
+        sdk_key.to_string(),
+        StatsigRuntime::get_runtime(),
+        Arc::new(SdkEventEmitter::default()),
+        None,
+    )
+}
+
+fn apply_payload(store: &SpecStore, payload: Vec<u8>) {
+    store
+        .set_values(SpecsUpdate {
+            data: ResponseData::from_bytes(payload),
+            source: SpecsSource::Network,
+            received_at: 2_000,
+            source_api: Some("multi-sdk-test".to_string()),
+            has_updates: None,
+        })
+        .unwrap();
+}
+
 rusty_fork_test! {
     #[test]
     fn v2_spec_decode_metric_reports_mmap_delta_and_mixed_roots() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("interned-store-v2-spec-decode-metric.mmap");
-        write_mmap_v2_for_test(EVAL_PROJ_JSON, &path).unwrap();
-        preload_mmap_v2_for_test(&path).unwrap();
-
         let sdk_key = "secret-mmap-metric-test";
+        write_mmap_v2_for_test(EVAL_PROJ_JSON, &path).unwrap();
+        preload_mmap_v2_multi_for_test(&[(sdk_key, &path)]).unwrap();
+
         let ops_stats = OPS_STATS.get_for_instance(sdk_key);
         let mut receiver = ops_stats.subscribe_for_test();
         let store = SpecStore::new(
@@ -238,6 +301,131 @@ rusty_fork_test! {
             tags.get("reason").map(String::as_str),
             Some("partial_match")
         );
+    }
+
+    #[test]
+    fn multi_sdk_keys_scope_specs_share_leaves_and_preserve_owned_fallback() {
+        let directory = tempfile::tempdir().unwrap();
+        let path_a = directory.path().join("interned-store-multi-a.mmap");
+        let path_b = directory.path().join("interned-store-multi-b.mmap");
+        let payload_a = multi_sdk_payload("checksum-a", "salt-a", true);
+        let payload_b = multi_sdk_payload("checksum-b", "salt-b", false);
+
+        write_mmap_v2_for_test(&payload_a, &path_a).unwrap();
+        write_mmap_v2_for_test(&payload_b, &path_b).unwrap();
+        let project_b_value = HashMap::from([(
+            "project".to_string(),
+            serde_json::Value::String("salt-b".to_string()),
+        )]);
+        let owned_project_b = DynamicReturnable::from_map(project_b_value.clone());
+        let project_b_content_hash = owned_project_b.get_hash();
+        let project_b_stable_hash = owned_project_b.get_stable_hash();
+        assert!(matches!(
+            owned_project_b.value,
+            DynamicReturnableValue::JsonPointer(_)
+        ));
+        // "Aa" and "BB" intentionally share the 32-bit artifact filename hash.
+        assert_eq!(hashing::djb2_number("Aa"), hashing::djb2_number("BB"));
+        let collision =
+            preload_mmap_v2_multi_for_test(&[("Aa", &path_a), ("BB", &path_b)]).unwrap_err();
+        assert!(collision
+            .to_string()
+            .contains("Duplicate or colliding interned mmap SDK key identifier"));
+        assert!(!InternedStore::has_preloaded_mmap_v2());
+
+        preload_mmap_v2_multi_with_options_for_test(
+            &[("Aa", &path_a), ("sdk-b", &path_b)],
+            &MmapPreloadOptions {
+                precompute_returnable_stable_hashes: true,
+            },
+        )
+        .unwrap();
+
+        let memory = InternedStore::mmap_reader_memory_snapshot()
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            memory.mapped_bytes,
+            std::fs::metadata(&path_a).unwrap().len()
+                + std::fs::metadata(&path_b).unwrap().len()
+        );
+        assert_eq!(memory.loaded_generation_count, 2);
+
+        let mapped_project_b = DynamicReturnable::from_map(project_b_value);
+        assert!(matches!(
+            mapped_project_b.value,
+            DynamicReturnableValue::JsonArchived(_)
+        ));
+        assert_eq!(
+            InternedStore::get_mmap_returnable_stable_hash(project_b_content_hash),
+            Some(project_b_stable_hash)
+        );
+        assert_eq!(mapped_project_b.get_stable_hash(), project_b_stable_hash);
+
+        let store_a = test_spec_store("Aa");
+        let store_b = test_spec_store("sdk-b");
+        let unloaded_store = test_spec_store("BB");
+        apply_payload(&store_a, payload_a.clone());
+        apply_payload(&store_b, payload_b);
+        apply_payload(&unloaded_store, payload_a);
+
+        let data_a = store_a.load_data();
+        let data_b = store_b.load_data();
+        let unloaded_data = unloaded_store.load_data();
+        let (name_a, gate_a) = data_a.snapshot.feature_gates.iter().next().unwrap();
+        let (name_b, gate_b) = data_b.snapshot.feature_gates.iter().next().unwrap();
+        let (unloaded_name, unloaded_gate) =
+            unloaded_data.snapshot.feature_gates.iter().next().unwrap();
+
+        assert!(gate_a.is_mmap());
+        assert!(gate_b.is_mmap());
+        assert!(gate_a.view().enabled());
+        assert!(!gate_b.view().enabled());
+        assert_eq!(gate_a.view().salt().as_str(), "salt-a");
+        assert_eq!(gate_b.view().salt().as_str(), "salt-b");
+
+        assert!(!unloaded_gate.is_mmap());
+        assert!(unloaded_gate.view().enabled());
+        assert_eq!(unloaded_gate.view().salt().as_str(), "salt-a");
+
+        assert!(matches!(name_a.value, InternedStringValue::Static(_)));
+        assert!(matches!(name_b.value, InternedStringValue::Static(_)));
+        assert!(matches!(unloaded_name.value, InternedStringValue::Static(_)));
+        assert!(std::ptr::eq(name_a.as_str(), name_b.as_str()));
+        assert!(std::ptr::eq(name_a.as_str(), unloaded_name.as_str()));
+    }
+
+    #[test]
+    fn multi_sdk_preload_rejects_conflicting_global_hashes_atomically() {
+        let directory = tempfile::tempdir().unwrap();
+        let path_a = directory.path().join("interned-store-conflict-a.mmap");
+        let path_b = directory.path().join("interned-store-conflict-b.mmap");
+        let data_a = MmapDataV2 {
+            strings: vec![(7, Arc::new("alpha".to_string()))],
+            ..MmapDataV2::default()
+        };
+        let data_b = MmapDataV2 {
+            strings: vec![(7, Arc::new("beta".to_string()))],
+            ..MmapDataV2::default()
+        };
+        std::fs::write(
+            &path_a,
+            rkyv::to_bytes::<rkyv::rancor::Error>(&data_a).unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            &path_b,
+            rkyv::to_bytes::<rkyv::rancor::Error>(&data_b).unwrap(),
+        )
+        .unwrap();
+
+        let error = preload_mmap_v2_multi_for_test(&[("sdk-a", &path_a), ("sdk-b", &path_b)])
+            .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("conflicting string hash 7"));
+        assert!(!InternedStore::has_preloaded_mmap_v2());
     }
 
     #[test]
@@ -602,6 +790,492 @@ rusty_fork_test! {
     }
 
     #[test]
+    fn v2_materialized_delta_preserves_mmap_reuse_and_owned_fallback_semantics() {
+        let condition = |checksum: &str, email: &str| {
+            json!({
+                "type": "user_field",
+                "targetValue": [email],
+                "operator": "any",
+                "field": "email",
+                "additionalValues": {},
+                "idType": "userID",
+                "checksum": checksum
+            })
+        };
+        let gate =
+            |checksum: &str, salt: &str, condition_name: &str, return_value: bool, version: u32| {
+                json!({
+                    "checksum": checksum,
+                    "type": "feature_gate",
+                    "salt": salt,
+                    "defaultValue": false,
+                    "enabled": true,
+                    "rules": [{
+                        "name": format!("{salt}-rule"),
+                        "passPercentage": 100,
+                        "returnValue": return_value,
+                        "id": format!("{salt}-rule"),
+                        "salt": "",
+                        "conditions": [condition_name],
+                        "idType": "userID"
+                    }],
+                    "idType": "userID",
+                    "entity": "feature_gate",
+                    "version": version
+                })
+            };
+
+        let baseline_json = json!({
+            "checksum": "delta-baseline",
+            "company_id": "delta-company",
+            "response_format": "delta-test",
+            "experiment_to_layer": {},
+            "condition_map": {
+                "retained_condition": condition("11", "retained@example.com"),
+                "replaced_condition": condition("12", "before@example.com"),
+                "obsolete_condition": condition("13", "obsolete@example.com")
+            },
+            "dynamic_configs": {},
+            "feature_gates": {
+                "retained_gate": gate(
+                    "101",
+                    "retained",
+                    "retained_condition",
+                    true,
+                    1
+                ),
+                "changed_gate": gate(
+                    "102",
+                    "changed-v1",
+                    "replaced_condition",
+                    false,
+                    1
+                ),
+                "deleted_gate": gate(
+                    "103",
+                    "deleted",
+                    "obsolete_condition",
+                    true,
+                    1
+                )
+            },
+            "has_updates": true,
+            "layer_configs": {},
+            "time": 1
+        });
+        let final_json = json!({
+            "checksum": "delta-final",
+            "company_id": "delta-company",
+            "response_format": "delta-test",
+            "experiment_to_layer": {},
+            "condition_map": {
+                "retained_condition": condition("11", "retained@example.com"),
+                "replaced_condition": condition("22", "after@example.com"),
+                "added_condition": condition("33", "added@example.com")
+            },
+            "dynamic_configs": {},
+            "feature_gates": {
+                "retained_gate": gate(
+                    "101",
+                    "retained",
+                    "retained_condition",
+                    true,
+                    1
+                ),
+                "changed_gate": gate(
+                    "202",
+                    "changed-v2",
+                    "replaced_condition",
+                    true,
+                    2
+                ),
+                "added_gate": gate(
+                    "303",
+                    "added",
+                    "added_condition",
+                    true,
+                    1
+                )
+            },
+            "has_updates": true,
+            "layer_configs": {},
+            "time": 2
+        });
+        let baseline = serde_json::to_vec(&baseline_json).unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("interned-store-v2-materialized-delta.mmap");
+        let sdk_key = "secret-materialized-delta";
+        write_mmap_v2_for_test(&baseline, &path).unwrap();
+
+        // Parse the expected snapshot after writing (so it is not captured in the artifact) and
+        // before preloading (so its representation is independently owned).
+        let expected_final: SpecsResponseFull = serde_json::from_value(final_json).unwrap();
+        assert!(expected_final
+            .feature_gates
+            .iter()
+            .all(|(_, spec)| !spec.is_mmap()));
+        assert!(expected_final
+            .condition_map
+            .values()
+            .filter_map(|condition| condition.target_value.as_ref())
+            .all(|value| matches!(value.inner, EvaluatorValueInner::Pointer(_))));
+
+        let expected_feature_gates =
+            serde_json::to_value(&expected_final.feature_gates).unwrap();
+        let expected_condition_map =
+            serde_json::to_value(&expected_final.condition_map).unwrap();
+        let mut common_fields = serde_json::to_value(&expected_final).unwrap();
+        let fields = common_fields.as_object_mut().unwrap();
+        for field in [
+            "checksum",
+            "company_id",
+            "condition_map",
+            "dynamic_configs",
+            "feature_gates",
+            "has_updates",
+            "layer_configs",
+            "param_stores",
+            "response_format",
+            "time",
+        ] {
+            fields.remove(field);
+        }
+        let expected_evaluations = [
+            ("retained_gate", "retained@example.com", true),
+            ("retained_gate", "no-match@example.com", false),
+            ("changed_gate", "after@example.com", true),
+            ("changed_gate", "before@example.com", false),
+            ("added_gate", "added@example.com", true),
+            ("added_gate", "no-match@example.com", false),
+        ]
+        .map(|(gate_name, email, expected_bool)| {
+            let mut user = StatsigUser::with_user_id("delta-test-user");
+            user.set_email(email);
+            let snapshot = evaluate(&expected_final, &user, gate_name, SpecType::Gate);
+            assert_eq!(snapshot.bool_value, expected_bool);
+            (gate_name, email, snapshot)
+        });
+        // Do not let independently owned target-value Arcs participate in delta interning.
+        drop(expected_final);
+
+        preload_mmap_v2_multi_for_test(&[(sdk_key, &path)]).unwrap();
+
+        let store = test_spec_store(sdk_key);
+        apply_payload(&store, baseline);
+        {
+            let current = store.load_data();
+            assert_eq!(current.lcut(), 1);
+            assert_eq!(current.snapshot.checksum.as_deref(), Some("delta-baseline"));
+            assert_specs_are_mmap_backed(current.snapshot.as_ref());
+            assert!(current
+                .snapshot
+                .condition_map
+                .values()
+                .filter_map(|condition| condition.target_value.as_ref())
+                .all(|value| matches!(value.inner, EvaluatorValueInner::Mmap(_))));
+        }
+
+        let user_id = || pb::IdType {
+            id_type: Some(pb::id_type::IdType::KnownIdType(
+                pb::KnownIdType::UserId as i32,
+            )),
+        };
+        let protobuf_gate =
+            |salt: &str, condition_name: &str, return_value: bool, version: u32| pb::Spec {
+                salt: salt.to_string(),
+                enabled: true,
+                default_value: Some(pb::ReturnValue {
+                    value: Some(pb::return_value::Value::BoolValue(false)),
+                }),
+                entity: pb::EntityType::EntityFeatureGate as i32,
+                id_type: Some(user_id()),
+                version,
+                rules: vec![pb::Rule {
+                    name: format!("{salt}-rule"),
+                    pass_percentage: 100,
+                    id: format!("{salt}-rule"),
+                    salt: Some(String::new()),
+                    conditions: vec![condition_name.to_string()],
+                    id_type: Some(user_id()),
+                    return_value: Some(pb::ReturnValue {
+                        value: Some(pb::return_value::Value::BoolValue(return_value)),
+                    }),
+                    ..pb::Rule::default()
+                }],
+                ..pb::Spec::default()
+            };
+        let protobuf_condition = |email: &str| pb::Condition {
+            condition_type: pb::ConditionType::UserField as i32,
+            id_type: Some(user_id()),
+            target_value: Some(pb::AnyValue {
+                value: Some(pb::any_value::Value::RawValue(
+                    serde_json::to_vec(&json!([email])).unwrap(),
+                )),
+            }),
+            operator: Some(pb::Operator::Any as i32),
+            field: Some("email".to_string()),
+            additional_values: Some(serde_json::to_vec(&json!({})).unwrap()),
+        };
+
+        let envelopes = vec![
+            pb::SpecsEnvelope {
+                kind: pb::SpecsEnvelopeKind::CopyPrev as i32,
+                ..pb::SpecsEnvelope::default()
+            },
+            pb::SpecsEnvelope {
+                kind: pb::SpecsEnvelopeKind::TopLevel as i32,
+                data: Some(
+                    pb::SpecsTopLevel {
+                        has_updates: true,
+                        time: 2,
+                        company_id: "delta-company".to_string(),
+                        response_format: "delta-test".to_string(),
+                        checksum: "delta-final".to_string(),
+                        rest: serde_json::to_vec(&common_fields).unwrap(),
+                        may_have_remote_config_metadata: None,
+                    }
+                    .encode_to_vec(),
+                ),
+                ..pb::SpecsEnvelope::default()
+            },
+            pb::SpecsEnvelope {
+                kind: pb::SpecsEnvelopeKind::FeatureGate as i32,
+                name: "changed_gate".to_string(),
+                checksum: "202".to_string(),
+                data: Some(protobuf_gate("changed-v2", "replaced_condition", true, 2).encode_to_vec()),
+            },
+            pb::SpecsEnvelope {
+                kind: pb::SpecsEnvelopeKind::FeatureGate as i32,
+                name: "added_gate".to_string(),
+                checksum: "303".to_string(),
+                data: Some(protobuf_gate("added", "added_condition", true, 1).encode_to_vec()),
+            },
+            pb::SpecsEnvelope {
+                kind: pb::SpecsEnvelopeKind::Condition as i32,
+                name: "replaced_condition".to_string(),
+                checksum: "22".to_string(),
+                data: Some(protobuf_condition("after@example.com").encode_to_vec()),
+            },
+            pb::SpecsEnvelope {
+                kind: pb::SpecsEnvelopeKind::Condition as i32,
+                name: "added_condition".to_string(),
+                checksum: "33".to_string(),
+                data: Some(protobuf_condition("added@example.com").encode_to_vec()),
+            },
+            pb::SpecsEnvelope {
+                kind: pb::SpecsEnvelopeKind::Deletions as i32,
+                data: Some(
+                    pb::RulesetsResponseDeletions {
+                        feature_gates: vec!["deleted_gate".to_string()],
+                        condition_map: vec!["obsolete_condition".to_string()],
+                        ..pb::RulesetsResponseDeletions::default()
+                    }
+                    .encode_to_vec(),
+                ),
+                ..pb::SpecsEnvelope::default()
+            },
+            pb::SpecsEnvelope {
+                kind: pb::SpecsEnvelopeKind::Checksums as i32,
+                data: Some(
+                    pb::RulesetsChecksums {
+                        field_checksums: HashMap::from([
+                            ("condition_map".to_string(), 66),
+                            ("dynamic_configs".to_string(), 0),
+                            ("feature_gates".to_string(), 606),
+                            ("layer_configs".to_string(), 0),
+                            ("param_stores".to_string(), 0),
+                        ]),
+                    }
+                    .encode_to_vec(),
+                ),
+                ..pb::SpecsEnvelope::default()
+            },
+            pb::SpecsEnvelope {
+                kind: pb::SpecsEnvelopeKind::Done as i32,
+                ..pb::SpecsEnvelope::default()
+            },
+        ];
+        let mut encoded = Vec::new();
+        for envelope in envelopes {
+            envelope.encode_length_delimited(&mut encoded).unwrap();
+        }
+        let mut compressed = Vec::new();
+        {
+            let mut writer = brotli::CompressorWriter::with_params(
+                &mut compressed,
+                BUFFER_SIZE,
+                &BrotliEncoderParams::default(),
+            );
+            writer.write_all(&encoded).unwrap();
+            writer.flush().unwrap();
+        }
+        store
+            .set_values(SpecsUpdate {
+                data: ResponseData::from_bytes_with_headers(
+                    compressed,
+                    Some(HashMap::from([
+                        (
+                            "content-type".to_string(),
+                            "application/octet-stream".to_string(),
+                        ),
+                        ("content-encoding".to_string(), "statsig-br".to_string()),
+                        ("x-deltas-used".to_string(), "true".to_string()),
+                    ])),
+                ),
+                source: SpecsSource::Network,
+                received_at: 3_000,
+                source_api: Some("materialized-delta-test".to_string()),
+                has_updates: None,
+            })
+            .unwrap();
+
+        let updated = store.load_data();
+        assert_eq!(updated.lcut(), 2);
+        assert_eq!(updated.snapshot.checksum.as_deref(), Some("delta-final"));
+
+        let retained_gate =
+            crate::interned_string::InternedString::from_str_ref("retained_gate");
+        let changed_gate = crate::interned_string::InternedString::from_str_ref("changed_gate");
+        let added_gate = crate::interned_string::InternedString::from_str_ref("added_gate");
+        let deleted_gate = crate::interned_string::InternedString::from_str_ref("deleted_gate");
+        assert!(updated
+            .snapshot
+            .feature_gates
+            .get(&retained_gate)
+            .unwrap()
+            .is_mmap());
+        assert!(!updated
+            .snapshot
+            .feature_gates
+            .get(&changed_gate)
+            .unwrap()
+            .is_mmap());
+        assert!(!updated
+            .snapshot
+            .feature_gates
+            .get(&added_gate)
+            .unwrap()
+            .is_mmap());
+        assert!(updated.snapshot.feature_gates.get(&deleted_gate).is_none());
+
+        let retained_condition =
+            crate::interned_string::InternedString::from_str_ref("retained_condition");
+        let replaced_condition =
+            crate::interned_string::InternedString::from_str_ref("replaced_condition");
+        let added_condition =
+            crate::interned_string::InternedString::from_str_ref("added_condition");
+        let obsolete_condition =
+            crate::interned_string::InternedString::from_str_ref("obsolete_condition");
+        assert!(matches!(
+            updated.snapshot.condition_map[&retained_condition]
+                .target_value
+                .as_ref()
+                .unwrap()
+                .inner,
+            EvaluatorValueInner::Mmap(_)
+        ));
+        assert!(matches!(
+            updated.snapshot.condition_map[&replaced_condition]
+                .target_value
+                .as_ref()
+                .unwrap()
+                .inner,
+            EvaluatorValueInner::Pointer(_)
+        ));
+        assert!(matches!(
+            updated.snapshot.condition_map[&added_condition]
+                .target_value
+                .as_ref()
+                .unwrap()
+                .inner,
+            EvaluatorValueInner::Pointer(_)
+        ));
+        assert!(!updated
+            .snapshot
+            .condition_map
+            .contains_key(&obsolete_condition));
+
+        assert_eq!(
+            serde_json::to_value(&updated.snapshot.feature_gates).unwrap(),
+            expected_feature_gates
+        );
+        assert_eq!(
+            serde_json::to_value(&updated.snapshot.condition_map).unwrap(),
+            expected_condition_map
+        );
+
+        for (gate_name, email, expected) in expected_evaluations {
+            let mut user = StatsigUser::with_user_id("delta-test-user");
+            user.set_email(email);
+            assert_eq!(
+                evaluate(updated.snapshot.as_ref(), &user, gate_name, SpecType::Gate),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn v2_json_session_update_mode_is_only_preserved_by_opt_in_parser() {
+        let mut payload: serde_json::Value = serde_json::from_slice(EVAL_PROJ_JSON).unwrap();
+        let gates = payload["feature_gates"].as_object_mut().unwrap();
+        let mut names = gates.keys().cloned().collect::<Vec<_>>();
+        names.sort();
+        let live_name = &names[0];
+        let unchanged_name = &names[1];
+        gates[live_name]["sessionUpdateMode"] = json!("live");
+        let payload = serde_json::to_vec(&payload).unwrap();
+
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("interned-store-v2-session-update-mode.mmap");
+        write_mmap_v2_for_test(&payload, &path).unwrap();
+        preload_mmap_v2_for_test(&path).unwrap();
+
+        let live = crate::interned_string::InternedString::from_str_ref(live_name);
+        let unchanged = crate::interned_string::InternedString::from_str_ref(unchanged_name);
+
+        let default_specs: SpecsResponseFull = serde_json::from_slice(&payload).unwrap();
+        let default_live_spec = default_specs.feature_gates.get(&live).unwrap();
+        assert!(default_live_spec.is_mmap());
+        assert_eq!(default_live_spec.session_update_mode(), None);
+
+        let specs = SpecsResponseFull::deserialize_json_with_options(
+            &payload,
+            SpecsResponseParseOptions::preserving_session_update_mode(),
+        )
+        .unwrap();
+        let live_spec = specs.feature_gates.get(&live).unwrap();
+        assert!(live_spec.is_mmap());
+        assert_eq!(live_spec.session_update_mode(), Some("live"));
+        assert_ne!(live_spec, default_live_spec);
+        assert_eq!(live_spec, &live_spec.clone());
+        assert!(live_spec.clone().into_pointer().is_none());
+        assert_eq!(
+            live_spec.as_spec_ref().session_update_mode.as_deref(),
+            Some("live")
+        );
+        assert_eq!(
+            serde_json::to_value(live_spec).unwrap()["sessionUpdateMode"],
+            json!("live")
+        );
+        assert!(specs.feature_gates.get(&unchanged).unwrap().is_mmap());
+
+        let mut response = materialized_delta(&specs, specs.time + 1);
+        let mut next = SpecsResponseFull::default();
+        deserialize_protobuf_with_options(
+            &OpsStatsForInstance::new(),
+            &specs,
+            &mut next,
+            &mut response,
+            SpecsResponseParseOptions::preserving_session_update_mode(),
+        )
+        .unwrap();
+
+        let copied_live_spec = next.feature_gates.get(&live).unwrap();
+        assert!(copied_live_spec.is_mmap());
+        assert_eq!(copied_live_spec.session_update_mode(), Some("live"));
+    }
+
+    #[test]
     fn v2_json_checksum_presence_mismatch_stays_owned() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("interned-store-v2-json-checksum.mmap");
@@ -829,7 +1503,12 @@ rusty_fork_test! {
         assert_eq!(InternedStore::get_mmap_spec_materialization_len(), 0);
         let serialized = serde_json::to_value(&mapped_specs).unwrap();
         assert_eq!(InternedStore::get_mmap_spec_materialization_len(), 0);
-        for field in ["feature_gates", "dynamic_configs", "layer_configs"] {
+        for field in [
+            "condition_map",
+            "feature_gates",
+            "dynamic_configs",
+            "layer_configs",
+        ] {
             assert_eq!(serialized[field], baseline_serialized[field]);
         }
 

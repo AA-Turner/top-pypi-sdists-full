@@ -1,5 +1,5 @@
 use std::{
-    fs::{create_dir_all, File},
+    fs::{File, create_dir_all},
     io::Read,
     path::Path,
     time::UNIX_EPOCH,
@@ -10,7 +10,7 @@ use std::os::unix::fs::{MetadataExt, PermissionsExt};
 #[cfg(windows)]
 use std::os::windows::io::AsRawHandle;
 
-use crate::{log_w, StatsigErr};
+use crate::{StatsigErr, log_w};
 
 use super::TAG;
 
@@ -77,7 +77,7 @@ impl MmapArtifactIdentity {
 #[cfg(windows)]
 fn windows_file_identity(file: &File) -> Result<(u32, u64), StatsigErr> {
     use windows_sys::Win32::Storage::FileSystem::{
-        GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
+        BY_HANDLE_FILE_INFORMATION, GetFileInformationByHandle,
     };
 
     let mut information = unsafe { std::mem::zeroed::<BY_HANDLE_FILE_INFORMATION>() };
@@ -295,9 +295,11 @@ mod tests {
         replacement.persist(&v1_path).unwrap();
 
         write_mmap_manifest(&manifest_path, Some(&v1_file), &v2_file).unwrap();
-        assert!(open_committed_mmap_v2(&manifest_path, &v1_path, &v2_path)
-            .unwrap()
-            .is_none());
+        assert!(
+            open_committed_mmap_v2(&manifest_path, &v1_path, &v2_path)
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
@@ -312,9 +314,11 @@ mod tests {
         let v2_file = v2_temp.persist(&v2_path).unwrap();
         write_mmap_manifest(&manifest_path, None, &v2_file).unwrap();
 
-        assert!(open_committed_mmap_v2(&manifest_path, &v1_path, &v2_path)
-            .unwrap()
-            .is_some());
+        assert!(
+            open_committed_mmap_v2(&manifest_path, &v1_path, &v2_path)
+                .unwrap()
+                .is_some()
+        );
     }
 
     #[test]

@@ -12,14 +12,15 @@ use super::{
     statsig_event_internal::StatsigEventInternal,
 };
 use crate::{
+    EventLoggingAdapter, StatsigErr, StatsigOptions, StatsigRuntime,
     event_logging::{
         event_logger_constants::EventLoggerConstants, event_queue::queue::QueueAddResult,
     },
     log_d, log_e, log_w,
     networking::NetworkError,
-    observability::ops_stats::{OpsStatsForInstance, OPS_STATS},
+    observability::ops_stats::{OPS_STATS, OpsStatsForInstance},
     statsig_metadata::StatsigMetadata,
-    write_lock_or_noop, EventLoggingAdapter, StatsigErr, StatsigOptions, StatsigRuntime,
+    write_lock_or_noop,
 };
 use chrono::Utc;
 use parking_lot::RwLock;
@@ -394,7 +395,7 @@ impl EventLogger {
         let observability_tags = self.logging_adapter.get_observability_tags();
 
         self.ops_stats.log_event_request_batch_stats(
-            batch.events.len(),
+            batch.len(),
             max_event_queue_time_ms,
             flush_type,
             observability_tags.clone(),
@@ -402,12 +403,12 @@ impl EventLogger {
 
         let result = self.logging_adapter.log_events(request).await;
 
-        batch.attempts += 1;
+        batch.increment_attempts();
 
         match result {
             Ok(true) => {
                 self.ops_stats.log_event_request_success(
-                    batch.events.len(),
+                    batch.len(),
                     flush_type,
                     observability_tags,
                 );
@@ -456,7 +457,7 @@ impl EventLogger {
             StatsigErr::NetworkError(NetworkError::RequestNotRetryable(_, _, _))
         );
 
-        let is_max_retries = batch.attempts > EventLoggerConstants::max_log_event_retries();
+        let is_max_retries = batch.attempts() > EventLoggerConstants::max_log_event_retries();
 
         if is_non_retryable || is_max_retries {
             self.drop_events_for_failure(error, batch, flush_type);
@@ -495,7 +496,7 @@ impl EventLogger {
         batch: EventBatch,
         flush_type: FlushType,
     ) {
-        let dropped_events_count = batch.events.len() as u64;
+        let dropped_events_count = batch.len() as u64;
 
         let kind = match flush_type {
             FlushType::ScheduledMaxTime => "Scheduled (Max Time)",
@@ -509,7 +510,7 @@ impl EventLogger {
             TAG,
             "{} flush failed after {} attempt(s). {} Event(s) will be dropped. {}",
             kind,
-            batch.attempts,
+            batch.attempts(),
             dropped_events_count,
             error
         );

@@ -74,8 +74,19 @@ def guarded_restore(
     if redacted is not None and key_dict:
         hints = check_restore_safety(redacted, text, key_dict)
         if hints:
+            # Count only, never the specifics — see "injection_suspected and
+            # out_of_scope_pseudonym report counts, not specifics" in
+            # docs/known-issues.md for why the pseudonym code and proximity-check
+            # match are both unsafe to carry here. `len(hints)` is (pseudonym x
+            # finding) pairs across all three check_restore_safety checks, so
+            # "pattern(s)" would mislabel two of the three.
             h_events.append(
-                security_event(INJECTION_SUSPECTED, count=len(hints), detail="; ".join(hints))
+                security_event(
+                    INJECTION_SUSPECTED,
+                    count=len(hints),
+                    detail=f"{len(hints)} suspicious finding(s) from the injection "
+                    "heuristic; specifics available via check_restore_safety",
+                )
             )
 
     # Fail closed BEFORE restoring, so on a suspected injection no original is ever

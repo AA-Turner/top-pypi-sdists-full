@@ -3,6 +3,8 @@ use std::sync::Arc;
 use chrono::Utc;
 
 use crate::{
+    DynamicReturnable, EvaluationDetails, ExperimentEvaluationOptions, LayerEvaluationOptions,
+    PersistentStorage, SpecStore, StickyValues,
     evaluation::evaluation_types::{
         BaseEvaluation, ExperimentEvaluation, ExtraExposureInfo, LayerEvaluation,
     },
@@ -12,8 +14,6 @@ use crate::{
     spec_store::SpecStoreData,
     statsig_types::{Experiment, Layer},
     user::StatsigUserInternal,
-    DynamicReturnable, EvaluationDetails, ExperimentEvaluationOptions, LayerEvaluationOptions,
-    PersistentStorage, SpecStore, StickyValues,
 };
 
 #[cfg(feature = "ffi-support")]

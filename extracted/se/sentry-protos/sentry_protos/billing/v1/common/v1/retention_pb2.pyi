@@ -31,9 +31,10 @@ class RetentionSettings(google.protobuf.message.Message):
     downsampled_days: builtins.int
     """The number of calendar days to retain downsampled data.
 
-    If this field is absent, the category has no separate downsampled data. If
-    the value is zero, the resolver uses the effective standard retention. This
-    value preserves legacy behavior. A positive value is a concrete duration.
+    If this field is absent, the category has no separate downsampled data. A
+    positive value is a concrete duration. A value of zero marks a downsampled
+    representation that follows the standard retention; the consuming service
+    decides how to apply it. This zero mirrors the legacy plan-item value.
     """
     def __init__(
         self,

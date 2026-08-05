@@ -5,8 +5,8 @@ use serde_json::json;
 use statsig_rust::{
     Statsig, StatsigOptions, StatsigUser, StatsigUserBuilder, StatsigUserDataStringMap,
 };
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use utils::mock_event_logging_adapter::MockEventLoggingAdapter;
 
 const DCS_EVAL_PROJ: &str = "eval_proj_dcs";

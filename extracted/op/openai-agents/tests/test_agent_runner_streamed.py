@@ -36,6 +36,9 @@ from agents import (
     OutputGuardrailTripwireTriggered,
     RunContextWrapper,
     Runner,
+    ToolGuardrailFunctionOutput,
+    ToolInputGuardrailData,
+    ToolOutputGuardrailData,
     UserError,
     function_tool,
     handoff,
@@ -54,7 +57,8 @@ from agents.run import RunConfig
 from agents.run_internal import run_loop
 from agents.run_internal.run_loop import QueueCompleteSentinel
 from agents.stream_events import AgentUpdatedStreamEvent, RawResponsesStreamEvent, StreamEvent
-from agents.tool import Tool
+from agents.tool import FunctionTool, Tool
+from agents.tool_guardrails import tool_input_guardrail, tool_output_guardrail
 from agents.usage import Usage
 
 from .fake_model import FakeModel, get_response_obj
@@ -1821,11 +1825,11 @@ async def test_streaming_events():
     # Now lets check the events
 
     expected_item_type_map = {
-        # 3 tool_call_item events:
+        # 2 tool_call_item events:
         #   1. get_function_tool_call("foo", ...)
-        #   2. get_handoff_tool_call(agent_1) because handoffs are implemented via tool calls too
-        #   3. get_function_tool_call("bar", ...)
-        "tool_call": 3,
+        #   2. get_function_tool_call("bar", ...)
+        # get_handoff_tool_call(agent_1) is only reported as a handoff_call_item.
+        "tool_call": 2,
         # Only 2 outputs, handoff tool call doesn't have corresponding tool_call_output event
         "tool_call_output": 2,
         "message": 2,  # get_text_message("a_message") + get_final_output_message(...)
@@ -1979,6 +1983,483 @@ async def test_streaming_resume_with_session_does_not_duplicate_items():
 
     assert call_count == 1
     assert output_count == 1
+
+
+@pytest.mark.parametrize("mode", ["non_streamed", "streamed"])
+@pytest.mark.parametrize("tripwire", [False, True], ids=["passes", "trips"])
+@pytest.mark.asyncio
+async def test_resumed_approved_tool_final_persists_call_output_before_output_guardrails(
+    mode: str,
+    tripwire: bool,
+) -> None:
+    guardrail_state = {"tripwire": tripwire}
+
+    @function_tool(name_override="approval_tool", needs_approval=True)
+    def approval_tool() -> str:
+        return "approved-result"
+
+    def output_guardrail(
+        _context: RunContextWrapper[Any],
+        _agent: Agent[Any],
+        _output: Any,
+    ) -> GuardrailFunctionOutput:
+        return GuardrailFunctionOutput(
+            output_info=None,
+            tripwire_triggered=guardrail_state["tripwire"],
+        )
+
+    model = FakeModel()
+    model.set_next_output([get_function_tool_call("approval_tool", "{}", call_id="call-approved")])
+    agent = Agent(
+        name="test",
+        model=model,
+        tools=[approval_tool],
+        tool_use_behavior="stop_on_first_tool",
+        output_guardrails=[OutputGuardrail(guardrail_function=output_guardrail)],
+    )
+    session = SimpleListSession()
+
+    async def run_once(input_value: Any) -> Any:
+        if mode == "non_streamed":
+            return await Runner.run(agent, input_value, session=session)
+        result = Runner.run_streamed(agent, input_value, session=session)
+        await consume_stream(result)
+        return result
+
+    first = await run_once("Use approval_tool")
+    assert first.interruptions
+    state = first.to_state()
+    state.approve(first.interruptions[0])
+
+    if tripwire:
+        with pytest.raises(OutputGuardrailTripwireTriggered):
+            await run_once(state)
+    else:
+        resumed = await run_once(state)
+        assert resumed.final_output == "approved-result"
+
+    saved_items = await session.get_items()
+    saved_types = [
+        item.get("type") or item.get("role") for item in saved_items if isinstance(item, dict)
+    ]
+    assert saved_types == ["user", "function_call", "function_call_output"]
+    saved_tool_items = [
+        item
+        for item in saved_items
+        if isinstance(item, dict) and item.get("type") in {"function_call", "function_call_output"}
+    ]
+    assert [(item.get("type"), item.get("call_id")) for item in saved_tool_items] == [
+        ("function_call", "call-approved"),
+        ("function_call_output", "call-approved"),
+    ]
+    assert saved_tool_items[1].get("output") == "approved-result"
+
+    if tripwire:
+        guardrail_state["tripwire"] = False
+        model.set_next_output([get_text_message("done")])
+        next_result = await run_once("Continue")
+        assert next_result.final_output == "done"
+
+        model_input = model.last_turn_args["input"]
+        assert isinstance(model_input, list)
+        replayed_tool_items = [
+            item
+            for item in model_input
+            if isinstance(item, dict)
+            and item.get("type") in {"function_call", "function_call_output"}
+        ]
+        assert [(item.get("type"), item.get("call_id")) for item in replayed_tool_items] == [
+            ("function_call", "call-approved"),
+            ("function_call_output", "call-approved"),
+        ]
+        assert replayed_tool_items[1].get("output") == "approved-result"
+
+
+@pytest.mark.parametrize("mode", ["non_streamed", "streamed"])
+@pytest.mark.asyncio
+async def test_stop_on_first_tool_final_persists_committed_tool_items_on_tripwire(
+    mode: str,
+) -> None:
+    """A blocked final output must not discard the session record of a tool that already ran."""
+
+    calls: list[str] = []
+
+    @function_tool(name_override="commit_tool")
+    def commit_tool() -> str:
+        calls.append("ran")
+        return "committed-result"
+
+    def output_guardrail(
+        _context: RunContextWrapper[Any],
+        _agent: Agent[Any],
+        _output: Any,
+    ) -> GuardrailFunctionOutput:
+        return GuardrailFunctionOutput(output_info=None, tripwire_triggered=True)
+
+    model = FakeModel()
+    model.set_next_output([get_function_tool_call("commit_tool", "{}", call_id="call-committed")])
+    agent = Agent(
+        name="test",
+        model=model,
+        tools=[commit_tool],
+        tool_use_behavior="stop_on_first_tool",
+        output_guardrails=[OutputGuardrail(guardrail_function=output_guardrail)],
+    )
+    session = SimpleListSession()
+
+    with pytest.raises(OutputGuardrailTripwireTriggered):
+        if mode == "non_streamed":
+            await Runner.run(agent, "Use commit_tool", session=session)
+        else:
+            result = Runner.run_streamed(agent, "Use commit_tool", session=session)
+            await consume_stream(result)
+
+    assert calls == ["ran"], "the tool never ran, so the test proves nothing"
+
+    saved_items = await session.get_items()
+    saved = [
+        (item.get("type") or item.get("role"), item.get("call_id"))
+        for item in saved_items
+        if isinstance(item, dict)
+    ]
+    assert saved == [
+        ("user", None),
+        ("function_call", "call-committed"),
+        ("function_call_output", "call-committed"),
+    ]
+
+    # The next run must see the completed call instead of re-issuing the same side effect.
+    agent.output_guardrails = []
+    model.set_next_output([get_text_message("done")])
+    if mode == "non_streamed":
+        followup: Any = await Runner.run(agent, "Continue", session=session)
+    else:
+        followup = Runner.run_streamed(agent, "Continue", session=session)
+        await consume_stream(followup)
+    assert followup.final_output == "done"
+    assert calls == ["ran"]
+
+    model_input = model.last_turn_args["input"]
+    assert isinstance(model_input, list)
+    replayed = [
+        (item.get("type"), item.get("call_id"))
+        for item in model_input
+        if isinstance(item, dict) and item.get("type") in {"function_call", "function_call_output"}
+    ]
+    assert replayed == [
+        ("function_call", "call-committed"),
+        ("function_call_output", "call-committed"),
+    ]
+
+
+@pytest.mark.parametrize("mode", ["non_streamed", "streamed"])
+@pytest.mark.asyncio
+async def test_blocked_message_final_output_is_not_persisted(mode: str) -> None:
+    """Control for the committed-tool case: a rejected message is withheld from the session."""
+
+    def output_guardrail(
+        _context: RunContextWrapper[Any],
+        _agent: Agent[Any],
+        _output: Any,
+    ) -> GuardrailFunctionOutput:
+        return GuardrailFunctionOutput(output_info=None, tripwire_triggered=True)
+
+    model = FakeModel()
+    model.set_next_output([get_text_message("should_not_be_saved")])
+    agent = Agent(
+        name="test",
+        model=model,
+        output_guardrails=[OutputGuardrail(guardrail_function=output_guardrail)],
+    )
+    session = SimpleListSession()
+
+    with pytest.raises(OutputGuardrailTripwireTriggered):
+        if mode == "non_streamed":
+            await Runner.run(agent, "user_message", session=session)
+        else:
+            result = Runner.run_streamed(agent, "user_message", session=session)
+            await consume_stream(result)
+
+    saved_items = await session.get_items()
+    saved = [item.get("type") or item.get("role") for item in saved_items if isinstance(item, dict)]
+    assert saved == ["user"]
+
+
+@pytest.mark.parametrize("mode", ["non_streamed", "streamed"])
+@pytest.mark.asyncio
+async def test_blocked_final_persists_tool_items_but_not_the_message(mode: str) -> None:
+    """A mixed final turn splits: the tool record is kept, the blocked message is not."""
+
+    @function_tool(name_override="commit_tool")
+    def commit_tool() -> str:
+        return "committed-result"
+
+    def output_guardrail(
+        _context: RunContextWrapper[Any],
+        _agent: Agent[Any],
+        _output: Any,
+    ) -> GuardrailFunctionOutput:
+        return GuardrailFunctionOutput(output_info=None, tripwire_triggered=True)
+
+    model = FakeModel()
+    model.add_multiple_turn_outputs(
+        [
+            [get_function_tool_call("commit_tool", "{}", call_id="call-mixed")],
+            [get_text_message("should_not_be_saved")],
+        ]
+    )
+    agent = Agent(
+        name="test",
+        model=model,
+        tools=[commit_tool],
+        output_guardrails=[OutputGuardrail(guardrail_function=output_guardrail)],
+    )
+    session = SimpleListSession()
+
+    with pytest.raises(OutputGuardrailTripwireTriggered):
+        if mode == "non_streamed":
+            await Runner.run(agent, "Use commit_tool", session=session)
+        else:
+            result = Runner.run_streamed(agent, "Use commit_tool", session=session)
+            await consume_stream(result)
+
+    saved_items = await session.get_items()
+    saved = [item.get("type") or item.get("role") for item in saved_items if isinstance(item, dict)]
+    assert saved == ["user", "function_call", "function_call_output"]
+
+
+@pytest.mark.parametrize("mode", ["non_streamed", "streamed"])
+@pytest.mark.parametrize("tripwire", [False, True], ids=["passes", "trips"])
+@pytest.mark.asyncio
+async def test_mixed_final_turn_session_order_and_committed_items(
+    mode: str,
+    tripwire: bool,
+) -> None:
+    """A final turn holding a message *and* a committed tool call keeps model order when it passes.
+
+    Only the tripwire case may drop anything, and only the undeliverable message. The passing case
+    must persist the whole batch in the model's order, so a later run does not replay a reordered
+    or truncated history.
+    """
+
+    @function_tool(name_override="commit_tool")
+    def commit_tool() -> str:
+        return "committed-result"
+
+    def output_guardrail(
+        _context: RunContextWrapper[Any],
+        _agent: Agent[Any],
+        _output: Any,
+    ) -> GuardrailFunctionOutput:
+        return GuardrailFunctionOutput(output_info=None, tripwire_triggered=tripwire)
+
+    model = FakeModel()
+    # The message precedes the tool call, so a split save would reorder the persisted turn.
+    model.set_next_output(
+        [
+            get_text_message("assistant-preamble"),
+            get_function_tool_call("commit_tool", "{}", call_id="call-mixed"),
+        ]
+    )
+    agent = Agent(
+        name="test",
+        model=model,
+        tools=[commit_tool],
+        tool_use_behavior="stop_on_first_tool",
+        output_guardrails=[OutputGuardrail(guardrail_function=output_guardrail)],
+    )
+    session = SimpleListSession()
+
+    async def run_once() -> Any:
+        if mode == "non_streamed":
+            return await Runner.run(agent, "Use commit_tool", session=session)
+        result = Runner.run_streamed(agent, "Use commit_tool", session=session)
+        await consume_stream(result)
+        return result
+
+    if tripwire:
+        with pytest.raises(OutputGuardrailTripwireTriggered):
+            await run_once()
+    else:
+        assert (await run_once()).final_output == "committed-result"
+
+    saved_items = await session.get_items()
+    saved = [item.get("type") or item.get("role") for item in saved_items if isinstance(item, dict)]
+
+    if tripwire:
+        # The undeliverable message is withheld; the tool that already ran is not.
+        assert saved == ["user", "function_call", "function_call_output"]
+    else:
+        assert saved == ["user", "message", "function_call", "function_call_output"]
+
+
+@pytest.mark.parametrize("mode", ["non_streamed", "streamed"])
+@pytest.mark.parametrize("tripwire", [False, True], ids=["passes", "trips"])
+@pytest.mark.asyncio
+async def test_blocked_tool_final_keeps_reasoning_context_with_the_committed_call(
+    mode: str,
+    tripwire: bool,
+) -> None:
+    """A retained tool call keeps the reasoning item it belongs to, in order.
+
+    A reasoning model requires the reasoning item that preceded a function call to accompany that
+    call in the next request, so persisting the call/output pair without it leaves an unreplayable
+    turn. Asserted on both the session contents and the next run's model input.
+    """
+
+    @function_tool(name_override="commit_tool")
+    def commit_tool() -> str:
+        return "committed-result"
+
+    def output_guardrail(
+        _context: RunContextWrapper[Any],
+        _agent: Agent[Any],
+        _output: Any,
+    ) -> GuardrailFunctionOutput:
+        return GuardrailFunctionOutput(output_info=None, tripwire_triggered=tripwire)
+
+    model = FakeModel()
+    model.set_next_output(
+        [
+            ResponseReasoningItem(
+                id="rs_committed",
+                summary=[Summary(text="deciding to call the tool", type="summary_text")],
+                type="reasoning",
+            ),
+            get_function_tool_call("commit_tool", "{}", call_id="call-reasoned"),
+        ]
+    )
+    agent = Agent(
+        name="test",
+        model=model,
+        tools=[commit_tool],
+        tool_use_behavior="stop_on_first_tool",
+        output_guardrails=[OutputGuardrail(guardrail_function=output_guardrail)],
+    )
+    session = SimpleListSession()
+
+    async def run_once(input_value: Any) -> Any:
+        if mode == "non_streamed":
+            return await Runner.run(agent, input_value, session=session)
+        result = Runner.run_streamed(agent, input_value, session=session)
+        await consume_stream(result)
+        return result
+
+    if tripwire:
+        with pytest.raises(OutputGuardrailTripwireTriggered):
+            await run_once("Use commit_tool")
+    else:
+        assert (await run_once("Use commit_tool")).final_output == "committed-result"
+
+    saved_items = await session.get_items()
+    saved = [item.get("type") or item.get("role") for item in saved_items if isinstance(item, dict)]
+    assert saved == ["user", "reasoning", "function_call", "function_call_output"]
+
+    # The reasoning/call/output group has to reach the next request in that order.
+    agent.output_guardrails = []
+    model.set_next_output([get_text_message("done")])
+    followup = await run_once("Continue")
+    assert followup.final_output == "done"
+
+    model_input = model.last_turn_args["input"]
+    assert isinstance(model_input, list)
+    replayed = [
+        item.get("type")
+        for item in model_input
+        if isinstance(item, dict)
+        and item.get("type") in {"reasoning", "function_call", "function_call_output"}
+    ]
+    assert replayed == ["reasoning", "function_call", "function_call_output"]
+
+
+@pytest.mark.parametrize("mode", ["non_streamed", "streamed"])
+@pytest.mark.asyncio
+async def test_blocked_tool_final_drops_reasoning_tied_to_the_rejected_message(
+    mode: str,
+) -> None:
+    """Only the reasoning tied to a retained call survives; the message's reasoning goes with it.
+
+    The turn is `reasoning_for_message -> message -> reasoning_for_call -> function_call`. A
+    reasoning item belongs to the next non-reasoning item, so retaining every reasoning item
+    whenever the turn happens to contain a tool call would leave the rejected message's reasoning
+    dangling in the next request.
+
+    """
+
+    @function_tool(name_override="commit_tool")
+    def commit_tool() -> str:
+        return "committed-result"
+
+    def output_guardrail(
+        _context: RunContextWrapper[Any],
+        _agent: Agent[Any],
+        _output: Any,
+    ) -> GuardrailFunctionOutput:
+        return GuardrailFunctionOutput(output_info=None, tripwire_triggered=True)
+
+    model = FakeModel()
+    model.set_next_output(
+        [
+            ResponseReasoningItem(
+                id="rs_rejected",
+                summary=[Summary(text="drafting the message", type="summary_text")],
+                type="reasoning",
+            ),
+            get_text_message("rejected-preamble"),
+            ResponseReasoningItem(
+                id="rs_committed",
+                summary=[Summary(text="deciding to call the tool", type="summary_text")],
+                type="reasoning",
+            ),
+            get_function_tool_call("commit_tool", "{}", call_id="call-reasoned"),
+        ]
+    )
+    agent = Agent(
+        name="test",
+        model=model,
+        tools=[commit_tool],
+        tool_use_behavior="stop_on_first_tool",
+        output_guardrails=[OutputGuardrail(guardrail_function=output_guardrail)],
+    )
+    session = SimpleListSession()
+
+    async def run_once(input_value: Any) -> Any:
+        if mode == "non_streamed":
+            return await Runner.run(agent, input_value, session=session)
+        result = Runner.run_streamed(agent, input_value, session=session)
+        await consume_stream(result)
+        return result
+
+    with pytest.raises(OutputGuardrailTripwireTriggered):
+        await run_once("Use commit_tool")
+
+    saved_items = await session.get_items()
+    saved = [item.get("type") or item.get("role") for item in saved_items if isinstance(item, dict)]
+    assert saved == ["user", "reasoning", "function_call", "function_call_output"]
+
+    saved_reasoning_ids = [
+        item.get("id") for item in saved_items if isinstance(item, dict) and item.get("id")
+    ]
+    assert "rs_committed" in saved_reasoning_ids
+    assert "rs_rejected" not in saved_reasoning_ids, (
+        "reasoning tied to the rejected message must not be persisted"
+    )
+
+    # ...and the surviving group still replays in order, with no dangling reasoning item.
+    agent.output_guardrails = []
+    model.set_next_output([get_text_message("done")])
+    followup = await run_once("Continue")
+    assert followup.final_output == "done"
+
+    model_input = model.last_turn_args["input"]
+    assert isinstance(model_input, list)
+    replayed = [
+        item.get("type")
+        for item in model_input
+        if isinstance(item, dict)
+        and item.get("type") in {"reasoning", "message", "function_call", "function_call_output"}
+    ]
+    assert replayed == ["reasoning", "function_call", "function_call_output"]
 
 
 @pytest.mark.asyncio
@@ -2259,3 +2740,348 @@ async def test_streaming_hitl_server_conversation_tracker_priming():
     # Should complete successfully without message duplication
     assert result2.final_output == "Second response"
     assert len(result2.new_items) >= 1
+
+
+def _tool_with_guardrails() -> FunctionTool:
+    """Build a function tool guarded by one input and one output tool guardrail."""
+
+    @tool_input_guardrail
+    def record_input(_data: ToolInputGuardrailData) -> ToolGuardrailFunctionOutput:
+        return ToolGuardrailFunctionOutput.allow(output_info="input-checked")
+
+    @tool_output_guardrail
+    def record_output(_data: ToolOutputGuardrailData) -> ToolGuardrailFunctionOutput:
+        return ToolGuardrailFunctionOutput.allow(output_info="output-checked")
+
+    @function_tool(
+        name_override="guarded_tool",
+        tool_input_guardrails=[record_input],
+        tool_output_guardrails=[record_output],
+    )
+    def guarded_tool() -> str:
+        return "tool-result"
+
+    return guarded_tool
+
+
+@pytest.mark.asyncio
+async def test_streamed_run_reports_tool_guardrail_results():
+    """Streamed runs must expose tool guardrail results like non-streamed runs do."""
+    model, agent = make_model_and_agent(tools=[_tool_with_guardrails()])
+    model.add_multiple_turn_outputs(
+        [
+            [get_function_tool_call("guarded_tool", "{}", call_id="call_1")],
+            [get_text_message("done")],
+        ]
+    )
+
+    result = Runner.run_streamed(agent, input="hello")
+    await consume_stream(result)
+
+    assert result.final_output == "done"
+    assert len(result.tool_input_guardrail_results) == 1
+    assert result.tool_input_guardrail_results[0].output.output_info == "input-checked"
+    assert len(result.tool_output_guardrail_results) == 1
+    assert result.tool_output_guardrail_results[0].output.output_info == "output-checked"
+
+
+@pytest.mark.asyncio
+async def test_streamed_tool_guardrail_results_match_non_streamed():
+    """The same run reports the same tool guardrail results in both execution modes."""
+
+    def _build() -> tuple[FakeModel, Agent[Any]]:
+        model, agent = make_model_and_agent(tools=[_tool_with_guardrails()])
+        model.add_multiple_turn_outputs(
+            [
+                [get_function_tool_call("guarded_tool", "{}", call_id="call_1")],
+                [get_function_tool_call("guarded_tool", "{}", call_id="call_2")],
+                [get_text_message("done")],
+            ]
+        )
+        return model, agent
+
+    _, non_streamed_agent = _build()
+    non_streamed = await Runner.run(non_streamed_agent, input="hello")
+
+    _, streamed_agent = _build()
+    streamed = Runner.run_streamed(streamed_agent, input="hello")
+    await consume_stream(streamed)
+
+    assert len(non_streamed.tool_input_guardrail_results) == 2
+    assert len(non_streamed.tool_output_guardrail_results) == 2
+    assert len(streamed.tool_input_guardrail_results) == len(
+        non_streamed.tool_input_guardrail_results
+    )
+    assert len(streamed.tool_output_guardrail_results) == len(
+        non_streamed.tool_output_guardrail_results
+    )
+
+
+@pytest.mark.asyncio
+async def test_streamed_tool_guardrail_results_survive_handoff():
+    """Tool guardrail results from a handoff turn reach the streamed result."""
+    model = FakeModel()
+    target = Agent(name="target", model=model)
+    agent = Agent(
+        name="source",
+        model=model,
+        tools=[_tool_with_guardrails()],
+        handoffs=[target],
+    )
+    model.add_multiple_turn_outputs(
+        [
+            [
+                get_function_tool_call("guarded_tool", "{}", call_id="call_1"),
+                get_handoff_tool_call(target),
+            ],
+            [get_text_message("done")],
+        ]
+    )
+
+    result = Runner.run_streamed(agent, input="hello")
+    await consume_stream(result)
+
+    assert result.final_output == "done"
+    assert len(result.tool_input_guardrail_results) == 1
+    assert len(result.tool_output_guardrail_results) == 1
+
+
+@pytest.mark.asyncio
+async def test_streamed_interruption_reports_tool_guardrail_results():
+    """An interrupted streamed turn reports the tool guardrail results it produced."""
+
+    @tool_input_guardrail
+    def record_input(_data: ToolInputGuardrailData) -> ToolGuardrailFunctionOutput:
+        return ToolGuardrailFunctionOutput.allow(output_info="input-checked")
+
+    @function_tool(name_override="plain_tool", tool_input_guardrails=[record_input])
+    def plain_tool() -> str:
+        return "plain-result"
+
+    @function_tool(name_override="approval_tool", needs_approval=True)
+    def approval_tool() -> str:
+        return "approved-result"
+
+    model, agent = make_model_and_agent(tools=[plain_tool, approval_tool])
+    model.set_next_output(
+        [
+            get_function_tool_call("plain_tool", "{}", call_id="call_plain"),
+            get_function_tool_call("approval_tool", "{}", call_id="call_approval"),
+        ]
+    )
+
+    result = Runner.run_streamed(agent, input="hello")
+    await consume_stream(result)
+
+    assert len(result.interruptions) == 1
+    assert len(result.tool_input_guardrail_results) == 1
+    assert result.tool_input_guardrail_results[0].output.output_info == "input-checked"
+
+
+@pytest.mark.asyncio
+async def test_streamed_tool_guardrail_results_persist_into_run_state():
+    """Tool guardrail results from a streamed run round-trip through RunState."""
+    model, agent = make_model_and_agent(tools=[_tool_with_guardrails()])
+    model.add_multiple_turn_outputs(
+        [
+            [get_function_tool_call("guarded_tool", "{}", call_id="call_1")],
+            [get_text_message("done")],
+        ]
+    )
+
+    result = Runner.run_streamed(agent, input="hello")
+    await consume_stream(result)
+
+    state = result.to_state()
+    assert len(state._tool_input_guardrail_results) == 1
+    assert len(state._tool_output_guardrail_results) == 1
+
+
+@pytest.mark.asyncio
+async def test_streamed_resume_tool_guardrail_results_match_non_streamed():
+    """Resumed-turn accounting stays identical across execution modes.
+
+    Accumulating tool guardrail results for streamed runs must not change how a resumed turn
+    reports them, so this pins streamed and non-streamed resumes to the same value rather than
+    to a specific count.
+    """
+
+    def _build() -> tuple[FakeModel, Agent[Any]]:
+        @tool_input_guardrail
+        def record_input(_data: ToolInputGuardrailData) -> ToolGuardrailFunctionOutput:
+            return ToolGuardrailFunctionOutput.allow(output_info="input-checked")
+
+        @tool_output_guardrail
+        def record_output(_data: ToolOutputGuardrailData) -> ToolGuardrailFunctionOutput:
+            return ToolGuardrailFunctionOutput.allow(output_info="output-checked")
+
+        @function_tool(
+            name_override="approval_tool",
+            needs_approval=True,
+            tool_input_guardrails=[record_input],
+            tool_output_guardrails=[record_output],
+        )
+        def approval_tool() -> str:
+            return "approved-result"
+
+        model, agent = make_model_and_agent(tools=[approval_tool])
+        model.add_multiple_turn_outputs(
+            [
+                [get_function_tool_call("approval_tool", "{}", call_id="call_approval")],
+                [get_text_message("done")],
+            ]
+        )
+        return model, agent
+
+    _, non_streamed_agent = _build()
+    non_streamed_first = await Runner.run(non_streamed_agent, "hello")
+    assert len(non_streamed_first.interruptions) == 1
+    non_streamed_state = non_streamed_first.to_state()
+    non_streamed_state.approve(non_streamed_first.interruptions[0])
+    non_streamed = await Runner.run(non_streamed_agent, non_streamed_state)
+
+    _, streamed_agent = _build()
+    streamed_first = Runner.run_streamed(streamed_agent, input="hello")
+    await consume_stream(streamed_first)
+    assert len(streamed_first.interruptions) == 1
+    streamed = await resume_streamed_after_first_approval(streamed_agent, streamed_first)
+
+    assert non_streamed.final_output == "done"
+    assert streamed.final_output == "done"
+    assert len(streamed.tool_input_guardrail_results) == len(
+        non_streamed.tool_input_guardrail_results
+    )
+    assert len(streamed.tool_output_guardrail_results) == len(
+        non_streamed.tool_output_guardrail_results
+    )
+
+
+@pytest.mark.asyncio
+async def test_streamed_resume_terminal_turn_reports_tool_guardrail_results():
+    """A resumed streamed turn that ends the run reports its tool guardrail results.
+
+    With `tool_use_behavior="stop_on_first_tool"` the approved tool produces the final output
+    inside the resumed turn, so the run finalizes from the resume branch rather than from the
+    regular turn loop.
+    """
+
+    def _build() -> tuple[FakeModel, Agent[Any]]:
+        @tool_input_guardrail
+        def record_input(_data: ToolInputGuardrailData) -> ToolGuardrailFunctionOutput:
+            return ToolGuardrailFunctionOutput.allow(output_info="input-checked")
+
+        @tool_output_guardrail
+        def record_output(_data: ToolOutputGuardrailData) -> ToolGuardrailFunctionOutput:
+            return ToolGuardrailFunctionOutput.allow(output_info="output-checked")
+
+        @function_tool(
+            name_override="approval_tool",
+            needs_approval=True,
+            tool_input_guardrails=[record_input],
+            tool_output_guardrails=[record_output],
+        )
+        def approval_tool() -> str:
+            return "approved-result"
+
+        model = FakeModel()
+        agent = Agent(
+            name="TestAgent",
+            model=model,
+            tools=[approval_tool],
+            tool_use_behavior="stop_on_first_tool",
+        )
+        model.set_next_output(
+            [get_function_tool_call("approval_tool", "{}", call_id="call_approval")]
+        )
+        return model, agent
+
+    _, streamed_agent = _build()
+    streamed_first = Runner.run_streamed(streamed_agent, input="hello")
+    await consume_stream(streamed_first)
+    assert len(streamed_first.interruptions) == 1
+    streamed = await resume_streamed_after_first_approval(streamed_agent, streamed_first)
+
+    assert streamed.final_output == "approved-result"
+    assert len(streamed.tool_input_guardrail_results) == 1
+    assert streamed.tool_input_guardrail_results[0].output.output_info == "input-checked"
+    assert len(streamed.tool_output_guardrail_results) == 1
+    assert streamed.tool_output_guardrail_results[0].output.output_info == "output-checked"
+
+    _, non_streamed_agent = _build()
+    non_streamed_first = await Runner.run(non_streamed_agent, "hello")
+    assert len(non_streamed_first.interruptions) == 1
+    non_streamed_state = non_streamed_first.to_state()
+    non_streamed_state.approve(non_streamed_first.interruptions[0])
+    non_streamed = await Runner.run(non_streamed_agent, non_streamed_state)
+
+    assert len(streamed.tool_input_guardrail_results) == len(
+        non_streamed.tool_input_guardrail_results
+    )
+    assert len(streamed.tool_output_guardrail_results) == len(
+        non_streamed.tool_output_guardrail_results
+    )
+
+
+@pytest.mark.asyncio
+async def test_streamed_resume_handoff_turn_reports_tool_guardrail_results():
+    """A resumed streamed turn that hands off keeps the guardrail results it produced."""
+
+    def _build() -> tuple[FakeModel, Agent[Any]]:
+        @tool_input_guardrail
+        def record_input(_data: ToolInputGuardrailData) -> ToolGuardrailFunctionOutput:
+            return ToolGuardrailFunctionOutput.allow(output_info="input-checked")
+
+        @tool_output_guardrail
+        def record_output(_data: ToolOutputGuardrailData) -> ToolGuardrailFunctionOutput:
+            return ToolGuardrailFunctionOutput.allow(output_info="output-checked")
+
+        @function_tool(
+            name_override="approval_tool",
+            needs_approval=True,
+            tool_input_guardrails=[record_input],
+            tool_output_guardrails=[record_output],
+        )
+        def approval_tool() -> str:
+            return "approved-result"
+
+        model = FakeModel()
+        target = Agent(name="target", model=model)
+        agent = Agent(
+            name="TestAgent",
+            model=model,
+            tools=[approval_tool],
+            handoffs=[target],
+        )
+        model.add_multiple_turn_outputs(
+            [
+                [
+                    get_function_tool_call("approval_tool", "{}", call_id="call_approval"),
+                    get_handoff_tool_call(target),
+                ],
+                [get_text_message("done")],
+            ]
+        )
+        return model, agent
+
+    _, streamed_agent = _build()
+    streamed_first = Runner.run_streamed(streamed_agent, input="hello")
+    await consume_stream(streamed_first)
+    assert len(streamed_first.interruptions) == 1
+    streamed = await resume_streamed_after_first_approval(streamed_agent, streamed_first)
+
+    assert streamed.final_output == "done"
+    assert len(streamed.tool_input_guardrail_results) == 1
+    assert len(streamed.tool_output_guardrail_results) == 1
+
+    _, non_streamed_agent = _build()
+    non_streamed_first = await Runner.run(non_streamed_agent, "hello")
+    non_streamed_state = non_streamed_first.to_state()
+    non_streamed_state.approve(non_streamed_first.interruptions[0])
+    non_streamed = await Runner.run(non_streamed_agent, non_streamed_state)
+
+    assert len(streamed.tool_input_guardrail_results) == len(
+        non_streamed.tool_input_guardrail_results
+    )
+    assert len(streamed.tool_output_guardrail_results) == len(
+        non_streamed.tool_output_guardrail_results
+    )

@@ -11,8 +11,8 @@ use crate::networking::proxy_config::ProxyConfig;
 use crate::output_logger::{LogLevel, OutputLogProvider};
 use crate::persistent_storage::persistent_storage_trait::PersistentStorage;
 use crate::{
-    log_d, log_w, serialize_if_not_none, ConfigCompressionMode, ObservabilityClient,
-    OverrideAdapter, SpecAdapterConfig, SpecsAdapter,
+    ConfigCompressionMode, ObservabilityClient, OverrideAdapter, SpecAdapterConfig, SpecsAdapter,
+    log_d, log_w, serialize_if_not_none,
 };
 use std::collections::{HashMap, HashSet};
 use std::fmt;

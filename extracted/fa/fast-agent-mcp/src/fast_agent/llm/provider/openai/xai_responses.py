@@ -4,7 +4,7 @@ import json
 import os
 from typing import TYPE_CHECKING, Any
 
-from mcp.types import ContentBlock, TextContent
+from mcp_types import ContentBlock, TextContent
 
 from fast_agent.core.exceptions import ProviderKeyError
 from fast_agent.llm.provider.openai.responses import ResponsesLLM
@@ -169,7 +169,10 @@ class XAIResponsesLLM(ResponsesLLM):
     def _resolve_reasoning_effort(self) -> str | None:
         setting = self.reasoning_effort
         if setting is None:
-            return "low"
+            default = self._reasoning_effort_spec.default if self._reasoning_effort_spec else None
+            if default is not None and default.kind == "effort" and isinstance(default.value, str):
+                return default.value
+            return "high"
         return super()._resolve_reasoning_effort()
 
     def _provider_base_url(self) -> str | None:
@@ -223,7 +226,7 @@ class XAIResponsesLLM(ResponsesLLM):
         if get_xai_access_token(force_refresh=True) is None:
             raise ProviderKeyError(
                 "xAI OAuth token rejected",
-                "Run `fast-agent auth login xai` to reauthenticate.",
+                "Run `fast-agent auth provider login xai` to reauthenticate.",
             )
         return await super()._create_websocket_connection(
             url,

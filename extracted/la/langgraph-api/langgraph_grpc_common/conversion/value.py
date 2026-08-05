@@ -57,26 +57,76 @@ def value_from_proto(value: engine_common_pb2.ChannelValue) -> Any:
     raise NotImplementedError(f"Unrecognized value kind: {value_kind}")
 
 
+def _send_timeout_unsupported_error(timeout: Any) -> ValueError:
+    return ValueError(
+        "Per-task Send timeouts are not supported. "
+        f"Omit timeout and retry. Got timeout={timeout!r}."
+    )
+
+
+def _coerce_send(value: Any) -> Any:
+    """Revive JS / JSON Send shapes into ``langgraph.types.Send``.
+
+    The JS sidecar checkpointers ``JSON.stringify`` ``Send`` instances, which
+    yields ``{lg_name: "Send", node, args, timeout?}``. Outbound Python→JS
+    helpers use ``{node, args}``, and the HTTP Command API uses
+    ``{node, input}``. Without revival, TASKS writes hit
+    ``isinstance(..., Send)`` and fail with HTTP 400.
+
+    ``timeout`` is rejected rather than accepted with changed semantics: the
+    gRPC ``Send`` protobuf only carries ``node`` and ``arg``, so a coerced
+    timeout would be dropped on ``sends_to_proto`` / ``value_from_proto``.
+    """
+    if isinstance(value, Send):
+        return value
+    if not isinstance(value, dict):
+        return value
+    node = value.get("node")
+    if not isinstance(node, str):
+        return value
+    if "arg" in value:
+        arg = value["arg"]
+    elif "args" in value:
+        arg = value["args"]
+    elif "input" in value:
+        arg = value["input"]
+    elif value.get("lg_name") == "Send":
+        arg = None
+    else:
+        return value
+    timeout = value.get("timeout")
+    if timeout is not None:
+        raise _send_timeout_unsupported_error(timeout)
+    return Send(node, arg)
+
+
+def coerce_tasks_value(value: Any) -> Any:
+    """Coerce JS/JSON Send shapes inside a TASKS channel value."""
+    if isinstance(value, list):
+        return [_coerce_send(v) for v in value]
+    return _coerce_send(value)
+
+
 def value_to_proto(
     channel_name: str | None, value: Any
 ) -> engine_common_pb2.ChannelValue:
     """Convert a Python value to a ChannelValue proto."""
     if channel_name == TASKS and value != MISSING:
-        if not isinstance(value, list):
-            if not isinstance(value, Send):
+        # Preserve empty TASKS as msgpack `[]` (not missing) for checkpoint
+        # blob compatibility with existing snapshots / Python savers.
+        if isinstance(value, list) and not value:
+            return base_value_to_proto([])
+        values = value if isinstance(value, list) else [value]
+        coerced: list[Send] = []
+        for v in values:
+            send = _coerce_send(v)
+            if not isinstance(send, Send):
                 raise ValueError(
                     "Task must be a Send object objects."
-                    f" Got type={type(value)} value={value}",
+                    f" Got type={type(v)} value={v}",
                 )
-            value = [value]
-        else:
-            for v in value:
-                if not isinstance(v, Send):
-                    raise ValueError(
-                        "Task must be a list of Send objects."
-                        f" Got types={[type(v) for v in value]} values={value}",
-                    )
-        return sends_to_proto(value)
+            coerced.append(send)
+        return sends_to_proto(coerced)
     if value == MISSING:
         return missing_to_proto()
     if isinstance(value, Command):
@@ -89,6 +139,9 @@ def value_to_proto(
 
 
 def send_to_proto(send: Send) -> engine_common_pb2.Send:
+    timeout = getattr(send, "timeout", None)
+    if timeout is not None:
+        raise _send_timeout_unsupported_error(timeout)
     encoding, ser_val = serde.get_serializer().dumps_typed(send.arg)
     return engine_common_pb2.Send(
         node=send.node,

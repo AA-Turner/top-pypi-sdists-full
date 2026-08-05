@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use crate::{
+    StatsigErr,
     observability::{
+        ErrorBoundaryEvent,
         observability_client_adapter::{MetricType, ObservabilityEvent},
         ops_stats::{OpsStatsEvent, OpsStatsForInstance},
-        ErrorBoundaryEvent,
     },
-    StatsigErr,
 };
 
 use super::{event_queue::queue::EventQueue, flush_interval::FlushInterval, flush_type::FlushType};

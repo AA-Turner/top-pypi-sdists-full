@@ -908,6 +908,7 @@ class DescribeInstanceResponseTypeDef(TypedDict):
     Status: InstanceStatusType
     StatusReason: str
     EncryptionConfigurationDetails: EncryptionConfigurationDetailsTypeDef
+    PermissionSetsEnabled: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribePermissionSetProvisioningStatusResponseTypeDef(TypedDict):
@@ -922,6 +923,7 @@ class UpdateInstanceRequestTypeDef(TypedDict):
     InstanceArn: str
     Name: NotRequired[str]
     EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+    PermissionSetsEnabled: NotRequired[bool]
 
 class InstanceMetadataTypeDef(TypedDict):
     InstanceArn: NotRequired[str]

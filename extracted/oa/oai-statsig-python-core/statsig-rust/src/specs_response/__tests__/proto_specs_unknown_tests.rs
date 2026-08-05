@@ -4,14 +4,14 @@ use async_trait::async_trait;
 use parking_lot::Mutex;
 
 use crate::{
+    OpsStatsEventObserver, StatsigErr, StatsigRuntime,
     interned_string::InternedString,
     networking::ResponseData,
     observability::{
-        ops_stats::{OpsStatsEvent, OpsStatsForInstance},
         ErrorBoundaryEvent,
+        ops_stats::{OpsStatsEvent, OpsStatsForInstance},
     },
     specs_response::{proto_specs::deserialize_protobuf, spec_types::SpecsResponseFull},
-    OpsStatsEventObserver, StatsigErr, StatsigRuntime,
 };
 
 lazy_static::lazy_static! {

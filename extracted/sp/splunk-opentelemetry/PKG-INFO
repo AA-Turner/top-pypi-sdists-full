@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: splunk-opentelemetry
-Version: 2.11.0
+Version: 2.12.1
 Project-URL: Documentation, https://github.com/signalfx/splunk-otel-python#readme
 Project-URL: Issues, https://github.com/signalfx/splunk-otel-python/issues
 Project-URL: Source, https://github.com/signalfx/splunk-otel-python
@@ -16,19 +16,20 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.10
-Requires-Dist: opentelemetry-api==1.42.1
-Requires-Dist: opentelemetry-exporter-otlp-proto-grpc==1.42.1
-Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.42.1
-Requires-Dist: opentelemetry-instrumentation-logging==0.63b1
-Requires-Dist: opentelemetry-instrumentation-system-metrics==0.63b1
-Requires-Dist: opentelemetry-instrumentation==0.63b1
-Requires-Dist: opentelemetry-propagator-b3==1.42.1
-Requires-Dist: opentelemetry-sdk==1.42.1
-Requires-Dist: opentelemetry-semantic-conventions==0.63b1
+Requires-Dist: opentelemetry-api==1.44.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc==1.44.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.44.0
+Requires-Dist: opentelemetry-instrumentation-logging==0.65b0
+Requires-Dist: opentelemetry-instrumentation-system-metrics==0.65b0
+Requires-Dist: opentelemetry-instrumentation==0.65b0
+Requires-Dist: opentelemetry-opamp-client==0.3b0
+Requires-Dist: opentelemetry-propagator-b3==1.44.0
+Requires-Dist: opentelemetry-sdk==1.44.0
+Requires-Dist: opentelemetry-semantic-conventions==0.65b0
 Requires-Dist: protobuf>=6.33.5
-Requires-Dist: wrapt>=1.0.0
+Requires-Dist: wrapt>=2.2.2
 Provides-Extra: secureapp
-Requires-Dist: secureapp-python-agent>=26.6.0; extra == 'secureapp'
+Requires-Dist: secureapp-python-agent>=26.7.1; extra == 'secureapp'
 Description-Content-Type: text/markdown
 
 # splunk-opentelemetry
@@ -67,6 +68,36 @@ libraries are listed
 For complete instructions on how to get started with the Splunk Distribution of OpenTelemetry Python, see
 [Instrument a Python application for Splunk Observability Cloud](https://quickdraw.splunk.com/redirect/?product=Observability&version=current&location=python.application) in the official documentation.
 
+For the standard OpenTelemetry setup, install the Splunk distribution in your
+application environment. The distribution configures OTLP exporters for traces,
+metrics, and logs, includes system metrics instrumentation, and enables Python
+logging instrumentation.
+
+```bash
+pip install splunk-opentelemetry
+```
+
+Install instrumentation packages for the libraries your application uses:
+
+```bash
+opentelemetry-bootstrap -a install
+```
+
+Then run your application with `opentelemetry-instrument`:
+
+```bash
+OTEL_SERVICE_NAME=my-python-service opentelemetry-instrument python app.py
+```
+
+By default, OTLP exporters send telemetry to a locally running
+[Splunk OpenTelemetry Collector](https://github.com/signalfx/splunk-otel-collector)
+at `http://localhost:4317`. To send telemetry directly to Splunk Observability
+Cloud instead, set `SPLUNK_REALM` and `SPLUNK_ACCESS_TOKEN` before starting your
+application. `SPLUNK_REALM` configures direct ingest endpoints for traces and
+metrics.
+
+### Optional: Cisco SecureApp
+
 To also install the [Cisco SecureApp](https://pypi.org/project/secureapp-python-agent/)
 OpenTelemetry extension, specify the `secureapp` extra:
 
@@ -84,6 +115,16 @@ exporter. See [docs/secureapp.md](docs/secureapp.md) for setup details and
 [docs/examples/secureapp-collector-config.yaml](docs/examples/secureapp-collector-config.yaml)
 for a collector example.
 
+## Fleet Management with OpAMP
+
+Splunk OTel Python provides OpAMP support. When enabled, the OpAMP client
+connects to the configured endpoint and reports the Python agent's status and
+settings. Agents connected to Splunk Observability Cloud appear on the Fleet
+Management page.
+
+The default OpAMP endpoint is a local Splunk OpenTelemetry Collector. Set
+`SPLUNK_OPAMP_ENDPOINT` to use another OpAMP endpoint. See
+[OpAMP](docs/opamp.md) for setup and limits.
 
 # License
 

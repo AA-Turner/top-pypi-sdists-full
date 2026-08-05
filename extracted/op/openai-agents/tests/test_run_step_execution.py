@@ -12,6 +12,11 @@ from typing import Any, cast
 
 import pytest
 from openai.types.responses import ResponseFunctionToolCall
+from openai.types.responses.response_computer_tool_call import (
+    ActionScreenshot,
+    PendingSafetyCheck,
+    ResponseComputerToolCall,
+)
 from openai.types.responses.response_output_item import McpApprovalRequest
 from openai.types.responses.response_output_message import ResponseOutputMessage
 from openai.types.responses.response_output_refusal import ResponseOutputRefusal
@@ -21,6 +26,7 @@ from agents import (
     Agent,
     AgentBase,
     ApplyPatchTool,
+    ComputerTool,
     FunctionTool,
     HostedMCPTool,
     MCPApprovalRequestItem,
@@ -52,7 +58,7 @@ from agents import (
     trace,
 )
 from agents._public_agent import set_public_agent
-from agents.run_internal import run_loop, turn_resolution
+from agents.run_internal import run_loop, tool_execution, turn_resolution
 from agents.run_internal.agent_bindings import bind_execution_agent, bind_public_agent
 from agents.run_internal.run_loop import (
     NextStepFinalOutput,
@@ -94,6 +100,11 @@ from .utils.hitl import (
     make_shell_call,
     reject_tool_call,
 )
+
+# Deadlock detector for the parent-cancellation tests below. It is deliberately far larger
+# than any bound the runtime itself applies (see `_FUNCTION_TOOL_CANCELLED_DRAIN_SECONDS`),
+# so it cannot become the behavioral assertion.
+_CANCELLATION_HANG_GUARD_SECONDS = 5.0
 
 
 def _function_spans() -> list[dict[str, Any]]:
@@ -2089,15 +2100,23 @@ async def test_multiple_tool_calls_surface_post_invoke_failure_unblocked_during_
 
 
 @pytest.mark.asyncio
-async def test_multiple_tool_calls_surface_sleeping_post_invoke_failure_before_sibling_error():
+async def test_multiple_tool_calls_surface_sleeping_post_invoke_failure_before_sibling_error(
+    monkeypatch: pytest.MonkeyPatch,
+):
     loop = asyncio.get_running_loop()
     original_handler = loop.get_exception_handler()
     unhandled_contexts: list[dict[str, Any]] = []
+    post_invoke_started = asyncio.Event()
+
+    # Widen the post-invoke drain budget so the guardrail delay below stays well inside
+    # it. Otherwise a scheduling hiccup, not the runtime, decides which failure wins.
+    monkeypatch.setattr(tool_execution, "_FUNCTION_TOOL_POST_INVOKE_WAIT_SECONDS", 5.0)
 
     @tool_output_guardrail
     async def sleeping_tripwire_guardrail(
         _data: ToolOutputGuardrailData,
     ) -> ToolGuardrailFunctionOutput:
+        post_invoke_started.set()
         await asyncio.sleep(0.05)
         return ToolGuardrailFunctionOutput.raise_exception(output_info={"status": "sleep-tripwire"})
 
@@ -2105,6 +2124,8 @@ async def test_multiple_tool_calls_surface_sleeping_post_invoke_failure_before_s
         return "ok"
 
     async def _error_tool() -> str:
+        # Fail only once the sibling guardrail is provably in its post-invoke phase.
+        await post_invoke_started.wait()
         raise ValueError("boom")
 
     ok_tool = function_tool(
@@ -2135,7 +2156,7 @@ async def test_multiple_tool_calls_surface_sleeping_post_invoke_failure_before_s
     loop.set_exception_handler(_exception_handler)
     try:
         with pytest.raises(ToolOutputGuardrailTripwireTriggered):
-            await asyncio.wait_for(get_execute_result(agent, response), timeout=0.2)
+            await asyncio.wait_for(get_execute_result(agent, response), timeout=10)
         gc.collect()
         await asyncio.sleep(0)
     finally:
@@ -2150,13 +2171,18 @@ async def test_multiple_tool_calls_surface_sleeping_post_invoke_failure_before_s
 
 @pytest.mark.asyncio
 async def test_multiple_tool_calls_do_not_wait_indefinitely_for_sleeping_post_invoke_sibling():
+    post_invoke_started = asyncio.Event()
+    release_guardrail = asyncio.Event()
     guardrail_finished = asyncio.Event()
 
     @tool_output_guardrail
-    async def long_sleeping_guardrail(
+    async def blocked_post_invoke_guardrail(
         _data: ToolOutputGuardrailData,
     ) -> ToolGuardrailFunctionOutput:
-        await asyncio.sleep(0.3)
+        post_invoke_started.set()
+        # Outlast the post-invoke drain budget by construction: only the test can
+        # release this guardrail, and it does so after the sibling error propagated.
+        await release_guardrail.wait()
         guardrail_finished.set()
         return ToolGuardrailFunctionOutput.allow(output_info="done")
 
@@ -2164,13 +2190,15 @@ async def test_multiple_tool_calls_do_not_wait_indefinitely_for_sleeping_post_in
         return "ok"
 
     async def _error_tool() -> str:
+        # Fail only once the sibling guardrail is provably in its post-invoke phase.
+        await post_invoke_started.wait()
         raise ValueError("boom")
 
     ok_tool = function_tool(
         _ok_tool,
         name_override="ok_tool",
         failure_error_function=None,
-        tool_output_guardrails=[long_sleeping_guardrail],
+        tool_output_guardrails=[blocked_post_invoke_guardrail],
     )
     error_tool = function_tool(
         _error_tool,
@@ -2188,10 +2216,17 @@ async def test_multiple_tool_calls_do_not_wait_indefinitely_for_sleeping_post_in
         response_id=None,
     )
 
-    with pytest.raises(UserError, match="Error running tool error_tool: boom"):
-        await asyncio.wait_for(get_execute_result(agent, response), timeout=0.2)
+    try:
+        with pytest.raises(UserError, match="Error running tool error_tool: boom"):
+            await asyncio.wait_for(get_execute_result(agent, response), timeout=5)
+    finally:
+        # Release the detached guardrail even when the assertion fails so the test
+        # cannot leave a blocked task behind.
+        release_guardrail.set()
 
-    await asyncio.wait_for(guardrail_finished.wait(), timeout=0.5)
+    # The post-invoke sibling was still pending when the failure surfaced, and it
+    # must remain able to finish in the background.
+    await asyncio.wait_for(guardrail_finished.wait(), timeout=5)
 
 
 @pytest.mark.asyncio
@@ -2356,6 +2391,7 @@ async def test_multiple_tool_calls_drain_completed_fatal_failures_before_raising
 @pytest.mark.asyncio
 @pytest.mark.parametrize("delay_ticks", [1, 6, 20])
 async def test_multiple_tool_calls_raise_late_fatal_sibling_exception_after_cancellation(
+    monkeypatch: pytest.MonkeyPatch,
     delay_ticks: int,
 ):
     class ToolAborted(BaseException):
@@ -2363,6 +2399,10 @@ async def test_multiple_tool_calls_raise_late_fatal_sibling_exception_after_canc
 
     sibling_ready = asyncio.Event()
     sibling_cancelled = asyncio.Event()
+
+    # Keep the cancelled-sibling drain open long enough for every parametrized
+    # scheduling step. This test covers failure arbitration, not the default budget.
+    monkeypatch.setattr(tool_execution, "_FUNCTION_TOOL_CANCELLED_DRAIN_SECONDS", 5.0)
 
     async def _error_tool_1() -> str:
         await sibling_ready.wait()
@@ -2401,7 +2441,7 @@ async def test_multiple_tool_calls_raise_late_fatal_sibling_exception_after_canc
     )
 
     with pytest.raises(ToolAborted, match=f"boom-{delay_ticks}"):
-        await asyncio.wait_for(get_execute_result(agent, response), timeout=0.2)
+        await asyncio.wait_for(get_execute_result(agent, response), timeout=5)
 
     assert sibling_cancelled.is_set()
 
@@ -2510,11 +2550,13 @@ async def test_multiple_tool_calls_report_late_cleanup_exception_from_cancelled_
 
     loop.set_exception_handler(_exception_handler)
     try:
-        with pytest.raises(UserError, match="Error running tool error_tool: boom"):
-            await asyncio.wait_for(get_execute_result(agent, response), timeout=0.2)
+        try:
+            with pytest.raises(UserError, match="Error running tool error_tool: boom"):
+                await asyncio.wait_for(get_execute_result(agent, response), timeout=5)
 
-        assert cleanup_blocked.is_set()
-        release_cleanup.set()
+            assert cleanup_blocked.is_set()
+        finally:
+            release_cleanup.set()
         await asyncio.wait_for(cleanup_finished.wait(), timeout=0.2)
         await asyncio.wait_for(late_cleanup_reported.wait(), timeout=0.5)
     finally:
@@ -2585,11 +2627,22 @@ async def test_multiple_tool_calls_cancel_pending_tasks_when_parent_cancelled():
 
 
 @pytest.mark.asyncio
-async def test_parent_cancellation_does_not_wait_for_tool_cleanup():
+async def test_parent_cancellation_does_not_wait_for_tool_cleanup(
+    monkeypatch: pytest.MonkeyPatch,
+):
     tool_started = asyncio.Event()
     cleanup_started = asyncio.Event()
     cleanup_finished = asyncio.Event()
     allow_cleanup_exit = asyncio.Event()
+
+    settle_calls: list[set[asyncio.Task[Any]]] = []
+    original_settle = tool_execution._settle_pending_function_tool_tasks
+
+    async def _recording_settle(*args: Any, **kwargs: Any) -> tuple[Any, set[asyncio.Task[Any]]]:
+        settle_calls.append(set(kwargs["pending_tasks"]))
+        return await original_settle(*args, **kwargs)
+
+    monkeypatch.setattr(tool_execution, "_settle_pending_function_tool_tasks", _recording_settle)
 
     async def _slow_cancel_tool() -> str:
         tool_started.set()
@@ -2616,15 +2669,20 @@ async def test_parent_cancellation_does_not_wait_for_tool_cleanup():
     )
 
     execution_task = asyncio.create_task(get_execute_result(agent, response))
-    await asyncio.wait_for(tool_started.wait(), timeout=0.2)
+    await asyncio.wait_for(tool_started.wait(), timeout=_CANCELLATION_HANG_GUARD_SECONDS)
 
     execution_task.cancel()
-    with pytest.raises(asyncio.CancelledError):
-        await asyncio.wait_for(execution_task, timeout=0.1)
+    try:
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(execution_task, timeout=_CANCELLATION_HANG_GUARD_SECONDS)
 
-    await asyncio.wait_for(cleanup_started.wait(), timeout=0.2)
-    allow_cleanup_exit.set()
-    await asyncio.wait_for(cleanup_finished.wait(), timeout=0.2)
+        await asyncio.wait_for(cleanup_started.wait(), timeout=_CANCELLATION_HANG_GUARD_SECONDS)
+        assert settle_calls == []
+        assert not cleanup_finished.is_set()
+    finally:
+        allow_cleanup_exit.set()
+
+    await asyncio.wait_for(cleanup_finished.wait(), timeout=_CANCELLATION_HANG_GUARD_SECONDS)
 
 
 @pytest.mark.asyncio
@@ -2656,19 +2714,50 @@ async def test_parent_cancellation_wins_when_shield_raises_after_tool_finishes(
 
 
 @pytest.mark.asyncio
-async def test_parent_cancellation_does_not_report_tool_failure_as_background_error():
+async def test_parent_cancellation_does_not_report_tool_failure_as_background_error(
+    monkeypatch: pytest.MonkeyPatch,
+):
     loop = asyncio.get_running_loop()
     original_handler = loop.get_exception_handler()
     reported_contexts: list[dict[str, Any]] = []
     tool_started = asyncio.Event()
+    cleanup_started = asyncio.Event()
+    allow_cleanup_failure = asyncio.Event()
+    background_callback_ran = asyncio.Event()
+    background_task: asyncio.Task[Any] | None = None
+    background_exception: UserError | None = None
 
     def _exception_handler(_loop: asyncio.AbstractEventLoop, context: dict[str, Any]) -> None:
         reported_contexts.append(context)
 
+    original_consume = tool_execution._consume_function_tool_task_result
+
+    def _recording_consume(task: asyncio.Task[Any], **kwargs: Any) -> None:
+        nonlocal background_task, background_exception
+        try:
+            original_consume(task, **kwargs)
+        finally:
+            if not task.cancelled():
+                exception = task.exception()
+                if (
+                    isinstance(exception, UserError)
+                    and str(exception) == "Error running tool failing_tool: boom"
+                ):
+                    background_task = task
+                    background_exception = exception
+                    background_callback_ran.set()
+
+    monkeypatch.setattr(tool_execution, "_consume_function_tool_task_result", _recording_consume)
+
     async def _failing_tool() -> str:
         tool_started.set()
-        await asyncio.sleep(0)
-        raise ValueError("boom")
+        try:
+            await asyncio.Future()
+            return "unreachable"
+        except asyncio.CancelledError:
+            cleanup_started.set()
+            await allow_cleanup_failure.wait()
+            raise ValueError("boom") from None
 
     tool = function_tool(
         _failing_tool,
@@ -2685,23 +2774,25 @@ async def test_parent_cancellation_does_not_report_tool_failure_as_background_er
     loop.set_exception_handler(_exception_handler)
     try:
         execution_task = asyncio.create_task(get_execute_result(agent, response))
-        await asyncio.wait_for(tool_started.wait(), timeout=0.2)
+        await asyncio.wait_for(tool_started.wait(), timeout=_CANCELLATION_HANG_GUARD_SECONDS)
 
         execution_task.cancel()
         with pytest.raises(asyncio.CancelledError):
-            await execution_task
+            await asyncio.wait_for(execution_task, timeout=_CANCELLATION_HANG_GUARD_SECONDS)
 
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
+        await asyncio.wait_for(cleanup_started.wait(), timeout=_CANCELLATION_HANG_GUARD_SECONDS)
+        allow_cleanup_failure.set()
+        await asyncio.wait_for(
+            background_callback_ran.wait(), timeout=_CANCELLATION_HANG_GUARD_SECONDS
+        )
     finally:
+        allow_cleanup_failure.set()
         loop.set_exception_handler(original_handler)
 
+    assert background_task is not None
+    assert background_exception is not None
     assert not any(
-        context.get("message")
-        == "Background function tool task raised during cancellation cleanup after failure "
-        "propagation."
-        and isinstance(context.get("exception"), UserError)
-        and str(context["exception"]) == "Error running tool failing_tool: boom"
+        context.get("task") is background_task and context.get("exception") is background_exception
         for context in reported_contexts
     )
 
@@ -3618,3 +3709,365 @@ async def test_execute_tools_emits_hosted_mcp_rejection_reason_from_explicit_mes
     assert responses[0].raw_item["approve"] is False
     assert responses[0].raw_item["approval_request_id"] == "mcp-approval-reject-reason"
     assert responses[0].raw_item["reason"] == "Denied by policy"
+
+
+@pytest.mark.asyncio
+async def test_execute_tool_plan_cancels_sibling_category_on_failure() -> None:
+    from agents.run_internal.tool_planning import ToolExecutionPlan, _execute_tool_plan
+
+    from .test_computer_tool_lifecycle import FakeComputer
+
+    shell_started = asyncio.Event()
+    shell_cancelled = asyncio.Event()
+    shell_finished = asyncio.Event()
+
+    async def blocking_executor(_request: Any) -> str:
+        shell_started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            shell_cancelled.set()
+            raise
+        finally:
+            shell_finished.set()
+        return "unreachable"
+
+    async def reject_once_shell_is_running(_data: Any) -> bool:
+        await shell_started.wait()
+        return False
+
+    shell_tool = ShellTool(executor=blocking_executor)
+    computer_tool = ComputerTool(
+        computer=FakeComputer(), on_safety_check=reject_once_shell_is_running
+    )
+    agent: Agent[Any] = Agent(name="test", tools=[shell_tool, computer_tool])
+    plan = ToolExecutionPlan(
+        shell_calls=[
+            ToolRunShellCall(
+                tool_call=cast(Any, make_shell_call("shell-1", commands=["sleep 1000"])),
+                shell_tool=shell_tool,
+            )
+        ],
+        computer_actions=[
+            ToolRunComputerAction(
+                tool_call=ResponseComputerToolCall(
+                    id="computer-1",
+                    type="computer_call",
+                    call_id="computer-1",
+                    action=ActionScreenshot(type="screenshot"),
+                    pending_safety_checks=[
+                        PendingSafetyCheck(id="sc-1", code="malicious", message="nope")
+                    ],
+                    status="completed",
+                ),
+                computer_tool=computer_tool,
+            )
+        ],
+    )
+
+    with pytest.raises(UserError, match="safety check was not acknowledged"):
+        await _execute_tool_plan(
+            plan=plan,
+            bindings=bind_public_agent(agent),
+            hooks=RunHooks[Any](),
+            context_wrapper=RunContextWrapper(context=None),
+            run_config=RunConfig(),
+        )
+
+    assert shell_cancelled.is_set()
+    assert shell_finished.is_set()
+
+
+@pytest.mark.asyncio
+async def test_execute_tool_plan_drains_function_tools_on_sibling_failure() -> None:
+    from agents.run_internal.tool_planning import ToolExecutionPlan, _execute_tool_plan
+
+    from .test_computer_tool_lifecycle import FakeComputer
+
+    tool_started = asyncio.Event()
+    tool_cancelled = asyncio.Event()
+    tool_unwound = asyncio.Event()
+
+    @function_tool
+    async def slow_tool() -> str:
+        tool_started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            tool_cancelled.set()
+            await asyncio.sleep(0)
+            tool_unwound.set()
+            raise
+        return "unreachable"
+
+    async def reject_once_tool_is_running(_data: Any) -> bool:
+        await tool_started.wait()
+        return False
+
+    computer_tool = ComputerTool(
+        computer=FakeComputer(), on_safety_check=reject_once_tool_is_running
+    )
+    agent: Agent[Any] = Agent(name="test", tools=[slow_tool, computer_tool])
+    plan = ToolExecutionPlan(
+        function_runs=[
+            ToolRunFunction(
+                tool_call=ResponseFunctionToolCall(
+                    id="fn-1",
+                    call_id="fn-1",
+                    name="slow_tool",
+                    arguments="{}",
+                    type="function_call",
+                ),
+                function_tool=cast(Any, slow_tool),
+            )
+        ],
+        computer_actions=[
+            ToolRunComputerAction(
+                tool_call=ResponseComputerToolCall(
+                    id="computer-1",
+                    type="computer_call",
+                    call_id="computer-1",
+                    action=ActionScreenshot(type="screenshot"),
+                    pending_safety_checks=[
+                        PendingSafetyCheck(id="sc-1", code="malicious", message="nope")
+                    ],
+                    status="completed",
+                ),
+                computer_tool=computer_tool,
+            )
+        ],
+    )
+
+    with pytest.raises(UserError, match="safety check was not acknowledged"):
+        await _execute_tool_plan(
+            plan=plan,
+            bindings=bind_public_agent(agent),
+            hooks=RunHooks[Any](),
+            context_wrapper=RunContextWrapper(context=None),
+            run_config=RunConfig(),
+        )
+
+    assert tool_cancelled.is_set()
+    assert tool_unwound.is_set()
+
+
+class _SlowToolEndHooks(RunHooks[Any]):
+    def __init__(self, started: asyncio.Event, finished: asyncio.Event) -> None:
+        self.started = started
+        self.finished = finished
+
+    async def on_tool_end(self, context: Any, agent: Any, tool: Any, result: Any) -> None:
+        self.started.set()
+        await asyncio.sleep(0.05)
+        self.finished.set()
+
+
+@pytest.mark.asyncio
+async def test_execute_tool_plan_preserves_function_tool_post_invoke_work() -> None:
+    from agents.run_internal.tool_planning import ToolExecutionPlan, _execute_tool_plan
+
+    from .test_computer_tool_lifecycle import FakeComputer
+
+    post_invoke_started = asyncio.Event()
+    post_invoke_finished = asyncio.Event()
+
+    @function_tool
+    async def quick_tool() -> str:
+        return "ok"
+
+    async def reject_once_post_invoke_is_running(_data: Any) -> bool:
+        await post_invoke_started.wait()
+        return False
+
+    computer_tool = ComputerTool(
+        computer=FakeComputer(), on_safety_check=reject_once_post_invoke_is_running
+    )
+    agent: Agent[Any] = Agent(name="test", tools=[quick_tool, computer_tool])
+    plan = ToolExecutionPlan(
+        function_runs=[
+            ToolRunFunction(
+                tool_call=ResponseFunctionToolCall(
+                    id="fn-1",
+                    call_id="fn-1",
+                    name="quick_tool",
+                    arguments="{}",
+                    type="function_call",
+                ),
+                function_tool=cast(Any, quick_tool),
+            )
+        ],
+        computer_actions=[
+            ToolRunComputerAction(
+                tool_call=ResponseComputerToolCall(
+                    id="computer-1",
+                    type="computer_call",
+                    call_id="computer-1",
+                    action=ActionScreenshot(type="screenshot"),
+                    pending_safety_checks=[
+                        PendingSafetyCheck(id="sc-1", code="malicious", message="nope")
+                    ],
+                    status="completed",
+                ),
+                computer_tool=computer_tool,
+            )
+        ],
+    )
+
+    with pytest.raises(UserError, match="safety check was not acknowledged"):
+        await _execute_tool_plan(
+            plan=plan,
+            bindings=bind_public_agent(agent),
+            hooks=_SlowToolEndHooks(post_invoke_started, post_invoke_finished),
+            context_wrapper=RunContextWrapper(context=None),
+            run_config=RunConfig(),
+        )
+
+    assert post_invoke_started.is_set()
+    assert post_invoke_finished.is_set()
+
+
+@pytest.mark.asyncio
+async def test_execute_tool_plan_parent_cancellation_does_not_wait_for_function_cleanup() -> None:
+    from agents.run_internal.tool_planning import ToolExecutionPlan, _execute_tool_plan
+
+    tool_started = asyncio.Event()
+    cleanup_started = asyncio.Event()
+    cleanup_finished = asyncio.Event()
+    allow_cleanup_exit = asyncio.Event()
+
+    @function_tool
+    async def slow_tool() -> str:
+        tool_started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cleanup_started.set()
+            await allow_cleanup_exit.wait()
+            cleanup_finished.set()
+            raise
+        return "unreachable"
+
+    agent: Agent[Any] = Agent(name="test", tools=[slow_tool])
+    plan = ToolExecutionPlan(
+        function_runs=[
+            ToolRunFunction(
+                tool_call=ResponseFunctionToolCall(
+                    id="fn-1",
+                    call_id="fn-1",
+                    name="slow_tool",
+                    arguments="{}",
+                    type="function_call",
+                ),
+                function_tool=cast(Any, slow_tool),
+            )
+        ]
+    )
+    execution_task = asyncio.create_task(
+        _execute_tool_plan(
+            plan=plan,
+            bindings=bind_public_agent(agent),
+            hooks=RunHooks[Any](),
+            context_wrapper=RunContextWrapper(context=None),
+            run_config=RunConfig(),
+        )
+    )
+    await tool_started.wait()
+
+    execution_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(execution_task, timeout=0.1)
+
+    await cleanup_started.wait()
+    allow_cleanup_exit.set()
+    await cleanup_finished.wait()
+
+
+@pytest.mark.asyncio
+async def test_execute_tool_plan_parent_cancellation_interrupts_sibling_failure_drain() -> None:
+    from agents.run_internal.tool_planning import ToolExecutionPlan, _execute_tool_plan
+
+    from .test_computer_tool_lifecycle import FakeComputer
+
+    tool_started = asyncio.Event()
+    cleanup_started = asyncio.Event()
+    allow_cleanup_exit = asyncio.Event()
+    cleanup_finished = asyncio.Event()
+    loop_errors: list[dict[str, object]] = []
+    loop = asyncio.get_running_loop()
+    previous_exception_handler = loop.get_exception_handler()
+
+    @function_tool
+    async def slow_tool() -> str:
+        tool_started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cleanup_started.set()
+            await allow_cleanup_exit.wait()
+            cleanup_finished.set()
+            raise RuntimeError("late cleanup failure") from None
+        return "unreachable"
+
+    async def reject_once_tool_is_running(_data: Any) -> bool:
+        await tool_started.wait()
+        return False
+
+    computer_tool = ComputerTool(
+        computer=FakeComputer(), on_safety_check=reject_once_tool_is_running
+    )
+    agent: Agent[Any] = Agent(name="test", tools=[slow_tool, computer_tool])
+    plan = ToolExecutionPlan(
+        function_runs=[
+            ToolRunFunction(
+                tool_call=ResponseFunctionToolCall(
+                    id="fn-1",
+                    call_id="fn-1",
+                    name="slow_tool",
+                    arguments="{}",
+                    type="function_call",
+                ),
+                function_tool=cast(Any, slow_tool),
+            )
+        ],
+        computer_actions=[
+            ToolRunComputerAction(
+                tool_call=ResponseComputerToolCall(
+                    id="computer-1",
+                    type="computer_call",
+                    call_id="computer-1",
+                    action=ActionScreenshot(type="screenshot"),
+                    pending_safety_checks=[
+                        PendingSafetyCheck(id="sc-1", code="malicious", message="nope")
+                    ],
+                    status="completed",
+                ),
+                computer_tool=computer_tool,
+            )
+        ],
+    )
+
+    loop.set_exception_handler(lambda _loop, context: loop_errors.append(context))
+    try:
+        execution_task = asyncio.create_task(
+            _execute_tool_plan(
+                plan=plan,
+                bindings=bind_public_agent(agent),
+                hooks=RunHooks[Any](),
+                context_wrapper=RunContextWrapper(context=None),
+                run_config=RunConfig(),
+            )
+        )
+        await cleanup_started.wait()
+
+        execution_task.cancel()
+        try:
+            with pytest.raises(asyncio.CancelledError):
+                await execution_task
+        finally:
+            allow_cleanup_exit.set()
+        await asyncio.wait_for(cleanup_finished.wait(), timeout=1.0)
+        await asyncio.sleep(0)
+    finally:
+        loop.set_exception_handler(previous_exception_handler)
+
+    assert loop_errors == []

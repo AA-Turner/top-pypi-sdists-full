@@ -29,14 +29,7 @@ class TestChats:
     def test_method_create(self, client: LinqAPIV3) -> None:
         chat = client.chats.create(
             from_="+12052535597",
-            message={
-                "parts": [
-                    {
-                        "type": "text",
-                        "value": "Hello! How can I help you today?",
-                    }
-                ]
-            },
+            message={},
             to=["+12052532136"],
         )
         assert_matches_type(ChatCreateResponse, chat, path=["response"])
@@ -47,10 +40,22 @@ class TestChats:
         chat = client.chats.create(
             from_="+12052535597",
             message={
+                "action": {
+                    "action": "attach_card",
+                    "experience": "agentcard",
+                    "params": {"foo": "bar"},
+                },
+                "effect": {
+                    "name": "confetti",
+                    "type": "screen",
+                },
+                "idempotency_key": "msg-abc123xyz",
                 "parts": [
                     {
                         "type": "text",
                         "value": "Hello! How can I help you today?",
+                        "mention": "+14155551234",
+                        "mention_range": [4, 9],
                         "text_decorations": [
                             {
                                 "range": [0, 5],
@@ -65,11 +70,6 @@ class TestChats:
                         ],
                     }
                 ],
-                "effect": {
-                    "name": "confetti",
-                    "type": "screen",
-                },
-                "idempotency_key": "msg-abc123xyz",
                 "preferred_service": "iMessage",
                 "reply_to": {
                     "message_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -77,6 +77,7 @@ class TestChats:
                 },
             },
             to=["+12052532136"],
+            override_optout=False,
         )
         assert_matches_type(ChatCreateResponse, chat, path=["response"])
 
@@ -85,14 +86,7 @@ class TestChats:
     def test_raw_response_create(self, client: LinqAPIV3) -> None:
         response = client.chats.with_raw_response.create(
             from_="+12052535597",
-            message={
-                "parts": [
-                    {
-                        "type": "text",
-                        "value": "Hello! How can I help you today?",
-                    }
-                ]
-            },
+            message={},
             to=["+12052532136"],
         )
 
@@ -106,14 +100,7 @@ class TestChats:
     def test_streaming_response_create(self, client: LinqAPIV3) -> None:
         with client.chats.with_streaming_response.create(
             from_="+12052535597",
-            message={
-                "parts": [
-                    {
-                        "type": "text",
-                        "value": "Hello! How can I help you today?",
-                    }
-                ]
-            },
+            message={},
             to=["+12052532136"],
         ) as response:
             assert not response.is_closed
@@ -355,6 +342,7 @@ class TestChats:
         chat = client.chats.send_voicememo(
             chat_id="f19ee7b8-8533-4c5c-83ec-4ef8d6d1ddbd",
             attachment_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            override_optout=False,
             voice_memo_url="https://example.com/voice-memo.m4a",
         )
         assert_matches_type(ChatSendVoicememoResponse, chat, path=["response"])
@@ -446,14 +434,7 @@ class TestAsyncChats:
     async def test_method_create(self, async_client: AsyncLinqAPIV3) -> None:
         chat = await async_client.chats.create(
             from_="+12052535597",
-            message={
-                "parts": [
-                    {
-                        "type": "text",
-                        "value": "Hello! How can I help you today?",
-                    }
-                ]
-            },
+            message={},
             to=["+12052532136"],
         )
         assert_matches_type(ChatCreateResponse, chat, path=["response"])
@@ -464,10 +445,22 @@ class TestAsyncChats:
         chat = await async_client.chats.create(
             from_="+12052535597",
             message={
+                "action": {
+                    "action": "attach_card",
+                    "experience": "agentcard",
+                    "params": {"foo": "bar"},
+                },
+                "effect": {
+                    "name": "confetti",
+                    "type": "screen",
+                },
+                "idempotency_key": "msg-abc123xyz",
                 "parts": [
                     {
                         "type": "text",
                         "value": "Hello! How can I help you today?",
+                        "mention": "+14155551234",
+                        "mention_range": [4, 9],
                         "text_decorations": [
                             {
                                 "range": [0, 5],
@@ -482,11 +475,6 @@ class TestAsyncChats:
                         ],
                     }
                 ],
-                "effect": {
-                    "name": "confetti",
-                    "type": "screen",
-                },
-                "idempotency_key": "msg-abc123xyz",
                 "preferred_service": "iMessage",
                 "reply_to": {
                     "message_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -494,6 +482,7 @@ class TestAsyncChats:
                 },
             },
             to=["+12052532136"],
+            override_optout=False,
         )
         assert_matches_type(ChatCreateResponse, chat, path=["response"])
 
@@ -502,14 +491,7 @@ class TestAsyncChats:
     async def test_raw_response_create(self, async_client: AsyncLinqAPIV3) -> None:
         response = await async_client.chats.with_raw_response.create(
             from_="+12052535597",
-            message={
-                "parts": [
-                    {
-                        "type": "text",
-                        "value": "Hello! How can I help you today?",
-                    }
-                ]
-            },
+            message={},
             to=["+12052532136"],
         )
 
@@ -523,14 +505,7 @@ class TestAsyncChats:
     async def test_streaming_response_create(self, async_client: AsyncLinqAPIV3) -> None:
         async with async_client.chats.with_streaming_response.create(
             from_="+12052535597",
-            message={
-                "parts": [
-                    {
-                        "type": "text",
-                        "value": "Hello! How can I help you today?",
-                    }
-                ]
-            },
+            message={},
             to=["+12052532136"],
         ) as response:
             assert not response.is_closed
@@ -772,6 +747,7 @@ class TestAsyncChats:
         chat = await async_client.chats.send_voicememo(
             chat_id="f19ee7b8-8533-4c5c-83ec-4ef8d6d1ddbd",
             attachment_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            override_optout=False,
             voice_memo_url="https://example.com/voice-memo.m4a",
         )
         assert_matches_type(ChatSendVoicememoResponse, chat, path=["response"])

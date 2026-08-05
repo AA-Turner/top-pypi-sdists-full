@@ -1,14 +1,14 @@
+from __future__ import annotations
+
 import struct
 from enum import Enum
-from typing import Dict as dict
-from typing import List as list
-from typing import Optional
 
 from fit_tool.base_type import BaseType
 from fit_tool.endian import Endian
+from fit_tool.exceptions import FitEncodingError
 from fit_tool.field_component import FieldComponent
 from fit_tool.field_definition import FieldDefinition
-from fit_tool.sub_field import SubField
+from fit_tool.sub_field import SubField, SubFieldResolution
 
 
 class ArrayType(Enum):
@@ -17,8 +17,6 @@ class ArrayType(Enum):
 
 
 class Field:
-    encoded_values = []
-
     def __init__(self, field_id: int = 0, name: str = '', base_type: BaseType = BaseType.ENUM,
                  offset: float = None,
                  scale: float = None,
@@ -60,7 +58,7 @@ class Field:
                       is_expanded_field=other.is_expanded_field, sub_fields=other.sub_fields,
                       components=other.components,
                       size=other.size, growable=other.growable, type_name=other.type_name)
-        field.encoded_values = other.encoded_values
+        field.encoded_values = other.encoded_values.copy()
         return field
 
     @classmethod
@@ -73,7 +71,7 @@ class Field:
 
         return field
 
-    def get_sub_field(self, name: str = None, index: int = None) -> Optional[SubField]:
+    def get_sub_field(self, name: str = None, index: int = None) -> SubField | None:
         if index is not None and 0 <= index < len(self.sub_fields):
             return self.sub_fields[index]
 
@@ -131,7 +129,7 @@ class Field:
             return self.base_type
 
     def get_offset(self, sub_field: SubField = None, sub_field_name: str = None, sub_field_index: int = None) -> \
-            Optional[float]:
+            float | None:
         if sub_field:
             sb = sub_field
         elif sub_field_name is not None:
@@ -147,7 +145,7 @@ class Field:
             return self.offset
 
     def get_scale(self, sub_field: SubField = None, sub_field_name: str = None, sub_field_index: int = None) -> \
-            Optional[float]:
+            float | None:
         if sub_field:
             sb = sub_field
         elif sub_field_name is not None:
@@ -165,6 +163,12 @@ class Field:
     def clear(self):
         self.size = 0
         self.encoded_values = []
+        # Generated property setters assign None via clear() rather than
+        # set_encoded_value(); still mark the owning Record dirty so
+        # preserve=True re-encodes instead of replaying stale source_bytes.
+        dirty_host = getattr(self, '_dirty_host', None)
+        if dirty_host is not None:
+            dirty_host()
 
     def is_valid(self) -> bool:
         return self.size != 0
@@ -188,7 +192,7 @@ class Field:
             self.set_value(index, value)
 
     def decode_value(self, encoded_value, sub_field: SubField = None):
-        if encoded_value is None or type(encoded_value) == str:
+        if encoded_value is None or isinstance(encoded_value, str):
             return encoded_value
 
         scale = self.get_scale(sub_field=sub_field)
@@ -214,11 +218,7 @@ class Field:
 
     @staticmethod
     def un_scale_offset_value(encoded_value: int, scale: float, offset: float) -> float:
-        try:
-            value = encoded_value / scale - offset
-        except Exception as ex:
-            raise ex
-        return value
+        return encoded_value / scale - offset
 
     @property
     def length(self) -> int:
@@ -232,15 +232,20 @@ class Field:
         if index < 0:
             return
 
+        # None is only a valid encoded form for floating-point fields (FIT invalid bit pattern).
+        # Integer/enum fields must keep rejecting None at the setter so they cannot enter an
+        # unserializable state that only fails later in to_bytes().
         if check_validity and self.base_type != BaseType.STRING:
-            if not self.base_type.is_valid(encoded_value):
-                raise Exception(
-                    f'{self.name} encoded value {encoded_value} is not in valid range [{self.base_type.min}, {self.base_type.max}]')
+            is_float_invalid = encoded_value is None and self.base_type.is_float()
+            if not is_float_invalid and not self.base_type.is_valid(encoded_value):
+                raise FitEncodingError(
+                    f'{self.name} encoded value {encoded_value} is not in valid range '
+                    f'[{self.base_type.min}, {self.base_type.max}]')
 
         size_changed = False
         while index >= self.length:
             if (self.base_type != BaseType.STRING or self.array_type is not None) and not self.growable:
-                raise Exception('Field is not growable')
+                raise FitEncodingError('Field is not growable')
 
             self.encoded_values.append(None)
             size_changed = True
@@ -251,48 +256,68 @@ class Field:
             new_size = self.calculate_size()
             if new_size > self.size:
                 if not self.growable:
-                    raise Exception('Size exceeds fixed field size of $size bytes. Consider making field growable.')
+                    raise FitEncodingError(
+                        f'Size exceeds fixed field size of {self.size} bytes. Consider making field growable.'
+                    )
                 self.size = new_size
+
+        # API mutations (check_validity=True) notify the owning Record for
+        # post-edit PRESERVATION dirty tracking. Decode uses check_validity=False.
+        if check_validity:
+            dirty_host = getattr(self, '_dirty_host', None)
+            if dirty_host is not None:
+                dirty_host()
 
     def encode_value(self, value, sub_field: SubField = None):
         if isinstance(value, str):
             return value
 
         if value is None:
-            encoded_value = self.base_type.invalid_raw_value()
-        else:
-            scale = self.get_scale(sub_field=sub_field)
-            offset = self.get_offset(sub_field=sub_field)
-            if isinstance(value, Enum):
-                encoded_value = value.value
-            elif (scale is None or scale == 1.0) and (offset is None or offset == 0.0):
-                encoded_value = int(value)
-            else:
-                encoded_value = self.scale_offset_value(value, scale, offset)
-        return encoded_value
+            # Float invalid values are represented as None until packed to the FIT bit pattern.
+            # Integer/enum types keep the protocol invalid raw integer for encoding.
+            if self.base_type.is_float():
+                return None
+            return self.base_type.invalid_raw_value()
 
-    def read_all_from_bytes(self, bytes_buffer: bytes, endian: Endian = Endian.LITTLE):
+        scale = self.get_scale(sub_field=sub_field)
+        offset = self.get_offset(sub_field=sub_field)
+        if isinstance(value, Enum):
+            return value.value
+
+        if self.base_type.is_float():
+            if (scale is None or scale == 1.0) and (offset is None or offset == 0.0):
+                return float(value)
+            scale = scale if scale is not None else 1.0
+            offset = offset if offset is not None else 0.0
+            return (float(value) + offset) * scale
+
+        if (scale is None or scale == 1.0) and (offset is None or offset == 0.0):
+            return int(value)
+
+        return self.scale_offset_value(value, scale, offset)
+
+    def read_all_from_bytes(self, bytes_buffer: bytes, endian: Endian = Endian.LITTLE, offset: int = 0):
         if self.base_type == BaseType.STRING:
-            self.read_strings_from_bytes(bytes_buffer)
+            self.read_strings_from_bytes(bytes_buffer, offset=offset, size=self.size)
         else:
-            start = 0
+            start = offset
             for index in range(len(self.encoded_values)):
-                value_bytes = bytes_buffer[start:(start + self.base_type.size)]
-                self.read_from_bytes(value_bytes, index, endian=endian)
+                self.read_from_bytes(bytes_buffer, index, endian=endian, offset=start)
                 start += self.base_type.size
 
-    def read_from_bytes(self, bytes_buffer: bytes, index: int, endian: Endian = Endian.LITTLE):
+    def read_from_bytes(self, bytes_buffer: bytes, index: int, endian: Endian = Endian.LITTLE, offset: int = 0):
         if self.base_type == BaseType.STRING:
-            raise Exception('Type cannot be string')
+            raise TypeError('Type cannot be string')
 
-        encoded_value = self.get_encoded_value_from_bytes(bytes_buffer, endian=endian)
+        encoded_value = self.get_encoded_value_from_bytes(bytes_buffer, offset=offset, endian=endian)
         self.set_encoded_value(index, encoded_value, check_validity=False)
 
-    def read_strings_from_bytes(self, bytes_buffer: bytes):
+    def read_strings_from_bytes(self, bytes_buffer: bytes, offset: int = 0, size: int = None):
         # The number of strings is dynamic and is determined by the number of null
         # terminations in the string container
 
-        string_container = bytes_buffer.decode('utf-8')
+        end = None if size is None else offset + size
+        string_container = bytes(bytes_buffer[offset:end]).decode('utf-8')
         strings = string_container.split('\u0000')
         strings = strings[:-1]
         strings = [x for x in strings if x]
@@ -307,7 +332,9 @@ class Field:
             length = size // base_type.size
 
             if length * base_type.size != size:
-                raise Exception('Size is not a multiple of type: size: $size, type: $type')
+                raise FitEncodingError(
+                    f'Size is not a multiple of type: size: {size}, type: {base_type}'
+                )
 
             return length
 
@@ -322,85 +349,62 @@ class Field:
             return self.length * self.base_type.size
 
     def get_encoded_value_from_bytes(self, bytes_buffer: bytes, offset: int = 0, endian: Endian = Endian.LITTLE):
-        endian_symbol = '<' if endian == Endian.LITTLE else '>'
-
-        if self.base_type in {BaseType.ENUM, BaseType.UINT8, BaseType.UINT8Z, BaseType.BYTE}:
-            value, = struct.unpack_from(f'{endian_symbol}B', bytes_buffer, offset)
-
-        elif self.base_type == BaseType.SINT8:
-            value, = struct.unpack_from(f'{endian_symbol}b', bytes_buffer, offset)
-
-        elif self.base_type == BaseType.SINT16:
-            value, = struct.unpack_from(f'{endian_symbol}h', bytes_buffer, offset)
-
-        elif self.base_type in {BaseType.UINT16, BaseType.UINT16Z}:
-            value, = struct.unpack_from(f'{endian_symbol}H', bytes_buffer, offset)
-
-        elif self.base_type == BaseType.SINT32:
-            value, = struct.unpack_from(f'{endian_symbol}i', bytes_buffer, offset)
-
-        elif self.base_type in {BaseType.UINT32, BaseType.UINT32Z}:
-            value, = struct.unpack_from(f'{endian_symbol}I', bytes_buffer, offset)
-
-        elif self.base_type == BaseType.SINT64:
-            value, = struct.unpack_from(f'{endian_symbol}q', bytes_buffer, offset)
-
-        elif self.base_type in {BaseType.UINT64, BaseType.UINT64Z}:
-            value, = struct.unpack_from(f'{endian_symbol}Q', bytes_buffer, offset)
-
-        elif self.base_type == BaseType.FLOAT32:
-            value, = struct.unpack_from(f'{endian_symbol}f', bytes_buffer, offset)
-
-        elif self.base_type == BaseType.FLOAT64:
-            value, = struct.unpack_from(f'{endian_symbol}d', bytes_buffer, offset)
-
-        elif self.base_type == BaseType.STRING:
+        if self.base_type == BaseType.STRING:
             length = len(bytes_buffer) - 1 - offset
             value, = struct.unpack_from(f'{length}s', bytes_buffer, offset)
-            value = value.decode('utf-8')
-        else:
-            value = None
+            return value.decode('utf-8')
+
+        endian_symbol = '<' if endian == Endian.LITTLE else '>'
+
+        # FIT float invalid values are a specific all-ones bit pattern, not an ordinary NaN.
+        if self.base_type.is_float():
+            unsigned_format = 'I' if self.base_type == BaseType.FLOAT32 else 'Q'
+            raw_bits, = struct.unpack_from(f'{endian_symbol}{unsigned_format}', bytes_buffer, offset)
+            if raw_bits == self.base_type.invalid_raw_value():
+                return None
+            value, = struct.unpack_from(f'{endian_symbol}{self.base_type.struct_format}', bytes_buffer, offset)
+            return value
+
+        value, = struct.unpack_from(f'{endian_symbol}{self.base_type.struct_format}', bytes_buffer, offset)
 
         return value
 
     def encoded_value_to_bytes(self, encoded_value, endian: Endian = Endian.LITTLE) -> bytes:
-        if encoded_value is None:
-            raise Exception('Value cannot be None')
-
         if self.base_type == BaseType.STRING:
+            if encoded_value is None:
+                raise FitEncodingError('Value cannot be None')
             return encoded_value.encode('utf-8') + b'\0'
 
         endian_symbol = '<' if endian == Endian.LITTLE else '>'
         bytes_buffer = bytearray(b'\0' * self.base_type.size)
-        if self.base_type in {BaseType.ENUM, BaseType.UINT8, BaseType.UINT8Z, BaseType.BYTE}:
-            struct.pack_into('B', bytes_buffer, 0, encoded_value)
 
-        elif self.base_type == BaseType.SINT8:
-            struct.pack_into('b', bytes_buffer, 0, encoded_value)
+        if self.base_type.is_float():
+            # None (and legacy integer invalid markers) encode to the FIT invalid bit pattern.
+            if encoded_value is None or (
+                isinstance(encoded_value, int)
+                and encoded_value == self.base_type.invalid_raw_value()
+            ):
+                unsigned_format = 'I' if self.base_type == BaseType.FLOAT32 else 'Q'
+                struct.pack_into(
+                    f'{endian_symbol}{unsigned_format}',
+                    bytes_buffer,
+                    0,
+                    self.base_type.invalid_raw_value(),
+                )
+                return bytes_buffer
 
-        elif self.base_type == BaseType.SINT16:
-            struct.pack_into(f'{endian_symbol}h', bytes_buffer, 0, encoded_value)
+            struct.pack_into(
+                f'{endian_symbol}{self.base_type.struct_format}',
+                bytes_buffer,
+                0,
+                float(encoded_value),
+            )
+            return bytes_buffer
 
-        elif self.base_type in {BaseType.UINT16, BaseType.UINT16Z}:
-            struct.pack_into(f'{endian_symbol}H', bytes_buffer, 0, encoded_value)
+        if encoded_value is None:
+            raise FitEncodingError('Value cannot be None')
 
-        elif self.base_type == BaseType.SINT32:
-            struct.pack_into(f'{endian_symbol}i', bytes_buffer, 0, encoded_value)
-
-        elif self.base_type in {BaseType.UINT32, BaseType.UINT32Z}:
-            struct.pack_into(f'{endian_symbol}I', bytes_buffer, 0, encoded_value)
-
-        elif self.base_type == BaseType.SINT64:
-            struct.pack_into(f'{endian_symbol}q', bytes_buffer, 0, encoded_value)
-
-        elif self.base_type in {BaseType.UINT64, BaseType.UINT64Z}:
-            struct.pack_into(f'{endian_symbol}Q', bytes_buffer, 0, encoded_value)
-
-        elif self.base_type == BaseType.FLOAT32:
-            struct.pack_into(f'{endian_symbol}f', bytes_buffer, 0, encoded_value)
-
-        elif self.base_type == BaseType.FLOAT64:
-            struct.pack_into(f'{endian_symbol}d', bytes_buffer, 0, encoded_value)
+        struct.pack_into(f'{endian_symbol}{self.base_type.struct_format}', bytes_buffer, 0, encoded_value)
 
         return bytes_buffer
 
@@ -416,15 +420,54 @@ class Field:
 
         return bytes_buffer
 
-    def get_valid_sub_field(self, fields: list) -> Optional[SubField]:
+    def invalid_bytes_for_definition_size(
+            self,
+            size: int,
+            endian: Endian = Endian.LITTLE,
+    ) -> bytes:
+        """Emit protocol-invalid payload matching *size* (cleared field on wire).
+
+        Used when the field was cleared in memory (``size == 0``) but the active
+        definition still lists the field id — keeps definition and data aligned
+        after post-edit ``None`` assignment without rewriting the definition.
+        """
+        if size <= 0:
+            return b''
+        if self.base_type == BaseType.STRING:
+            return b'\x00' * size
+        element = max(self.base_type.size, 1)
+        count = size // element
+        rem = size % element
+        chunks = [
+            self.encoded_value_to_bytes(self.base_type.invalid_raw_value(), endian=endian)
+            for _ in range(count)
+        ]
+        if rem:
+            chunks.append(b'\x00' * rem)
+        return b''.join(chunks)
+
+    def resolve_sub_field(self, fields: list) -> SubFieldResolution:
+        """Resolve active subfield(s) from sibling field values (Profile order).
+
+        Selection is deterministic: the first matching subfield is ``selected``.
+        When more than one subfield matches, ``is_ambiguous`` is True; callers
+        that validate Profile conformance should treat that as an ERROR (see
+        design doc §5.6). Decode still uses the first match so type/scale/units
+        remain defined.
+        """
         if not self.sub_fields:
-            return None
+            return SubFieldResolution(selected=None, matches=())
 
-        for sub_field in self.sub_fields:
-            if sub_field.is_valid(fields):
-                return sub_field
+        matches = tuple(sub_field for sub_field in self.sub_fields if sub_field.is_valid(fields))
+        selected = matches[0] if matches else None
+        return SubFieldResolution(selected=selected, matches=matches)
 
-        return None
+    def get_valid_sub_field(self, fields: list) -> SubField | None:
+        """Return the first Profile-matching subfield, or ``None``.
+
+        Prefer :meth:`resolve_sub_field` when ambiguity must be reported.
+        """
+        return self.resolve_sub_field(fields).selected
 
     def to_row(self, sub_field: SubField = None) -> list:
         row = []
@@ -444,3 +487,56 @@ class Field:
         row.append(sub_field.units if sub_field else self.units)
 
         return row
+
+
+class UnknownField(Field):
+    """Native field id present on the wire but not in the Profile schema.
+
+    Used when a known global message definition includes field numbers the
+    bundled Profile does not declare for that message. Decoded values use the
+    definition's base type; :attr:`raw_bytes` holds the original payload slice
+    for bit-preserving rewrite (post-edit PRESERVATION, Stage 3 F).
+    """
+
+    def __init__(self, definition: FieldDefinition):
+        super().__init__(
+            field_id=definition.field_id,
+            name=f'unknown_{definition.field_id}',
+            base_type=definition.base_type,
+            size=definition.size,
+            growable=False,
+            type_name='unknown',
+        )
+        self.raw_bytes: bytes | None = None
+
+    @property
+    def is_unknown(self) -> bool:
+        return True
+
+    @classmethod
+    def from_field_definition(cls, definition: FieldDefinition) -> UnknownField:
+        return cls(definition)
+
+    def read_all_from_bytes(
+            self,
+            bytes_buffer: bytes,
+            endian: Endian = Endian.LITTLE,
+            offset: int = 0,
+    ) -> None:
+        end = offset + self.size
+        # Capture wire slice first; super() may call set_encoded_value.
+        wire_slice = bytes(bytes_buffer[offset:end])
+        super().read_all_from_bytes(bytes_buffer, endian=endian, offset=offset)
+        self.raw_bytes = wire_slice
+
+    def set_encoded_value(self, index: int, encoded_value, check_validity: bool = True):
+        # API mutations (check_validity=True) invalidate the captured wire slice.
+        # Decode uses check_validity=False and restores raw_bytes after the read.
+        if check_validity:
+            self.raw_bytes = None
+        super().set_encoded_value(index, encoded_value, check_validity=check_validity)
+
+    def to_bytes(self, endian: Endian = Endian.LITTLE) -> bytes:
+        if self.raw_bytes is not None and len(self.raw_bytes) == self.size:
+            return self.raw_bytes
+        return super().to_bytes(endian=endian)

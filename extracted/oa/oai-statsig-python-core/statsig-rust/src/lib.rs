@@ -11,8 +11,8 @@ pub use init_details::{FailureDetails, InitializeDetails};
 pub use initialize_response::InitializeResponse;
 pub use instance_registry::InstanceRegistry;
 pub use observability::{
-    observability_client_adapter::ObservabilityClient, ops_stats::OpsStatsEventObserver,
-    ops_stats::OPS_STATS,
+    observability_client_adapter::ObservabilityClient, ops_stats::OPS_STATS,
+    ops_stats::OpsStatsEventObserver,
 };
 pub use override_adapter::{
     override_adapter_trait::OverrideAdapter,
@@ -84,6 +84,7 @@ pub mod statsig_types;
 pub mod statsig_types_raw;
 pub mod user;
 
+#[cfg(test)]
 mod dcs_str;
 mod event_logging_adapter;
 mod id_lists_adapter;

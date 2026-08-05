@@ -4,6 +4,7 @@ use super::{
     target_app_id_utils::{should_filter_config_for_app, should_filter_spec_for_app},
 };
 use crate::{
+    ClientInitResponseOptions, StatsigErr,
     evaluation::{
         evaluation_data::SpecView,
         evaluator::{Evaluator, SpecType},
@@ -13,7 +14,6 @@ use crate::{
     hashing,
     interned_string::InternedString,
     specs_response::specs_hash_map::SpecsHashMap,
-    ClientInitResponseOptions, StatsigErr,
 };
 use std::collections::{HashMap, HashSet};
 
@@ -32,6 +32,7 @@ pub(crate) fn gcir_process_iter<T: GCIRHashable>(
         0
     });
     let pipeline_override_names = get_pipeline_override_names(context);
+    let remove_default_value_gates = should_remove_default_value_gates(context, options);
     let mut keys = specs_map.keys().cloned().collect::<Vec<_>>();
     if options.previous_response_hash.is_some() {
         keys.sort_by(|a, b| a.as_str().cmp(b.as_str()));
@@ -66,7 +67,7 @@ pub(crate) fn gcir_process_iter<T: GCIRHashable>(
         let spec_type = get_spec_type(spec);
         Evaluator::evaluate(context, name.as_str(), &spec_type)?;
 
-        if options.remove_default_value_gates.unwrap_or(false)
+        if remove_default_value_gates
             && entity.as_str() == "feature_gate"
             && context.result.rule_id.as_deref() == Some("default")
             && !context.result.bool_value
@@ -169,7 +170,7 @@ impl PlanProcessOptions {
                     .app_id
                     .as_ref()
                     .is_some_and(|app_id| app_id.string_value.is_some()),
-            remove_default_value_gates: options.remove_default_value_gates.unwrap_or(false),
+            remove_default_value_gates: should_remove_default_value_gates(context, options),
         }
     }
 
@@ -180,6 +181,19 @@ impl PlanProcessOptions {
     fn has_pre_eval_filters(self) -> bool {
         self.has_entity_filters || self.remove_experiments_in_layers || self.should_filter_for_app
     }
+}
+
+fn should_remove_default_value_gates(
+    context: &EvaluatorContext,
+    options: &ClientInitResponseOptions,
+) -> bool {
+    options.remove_default_value_gates.unwrap_or_else(|| {
+        context
+            .specs_data
+            .gcir_config
+            .as_ref()
+            .is_some_and(|config| config.remove_default_value_gates)
+    })
 }
 
 fn gcir_process_plan_impl<T: GCIRHashable, const WITH_CHECKSUM: bool, const WITH_FILTERS: bool>(

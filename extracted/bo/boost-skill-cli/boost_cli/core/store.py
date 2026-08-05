@@ -11,7 +11,6 @@ import shutil
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from ..errors import BoostError
 from . import (
@@ -32,13 +31,13 @@ class InstallResult:
     """Outcome of one install: dest, linked agents, conflicts, kind."""
     name: str
     dest: Path
-    linked: List[str] = field(default_factory=list)
-    conflicts: List[str] = field(default_factory=list)
+    linked: list[str] = field(default_factory=list)
+    conflicts: list[str] = field(default_factory=list)
     # Agents that can already use this skill without a symlink because they read
     # the canonical store directly (agents.native_store_agents). Kept apart from
     # `linked` so the lock records only real links, while the install report can
     # still tell the user the skill reached them.
-    native: List[str] = field(default_factory=list)
+    native: list[str] = field(default_factory=list)
     score: int = 0
     upgraded: bool = False
     kind: str = "skill"
@@ -46,15 +45,15 @@ class InstallResult:
     # For rules/workflows the installed content is a single file (or a merged
     # CLAUDE.md block), not a SKILL.md tree — carry the raw source so the caller
     # scans exactly what it installed instead of a non-existent SKILL.md.
-    scan_text: Optional[str] = None
+    scan_text: str | None = None
     # MCP servers the skill declares (mcpdecl.servers_for rows). Detected here
     # but never acted on: core stays non-interactive, so the command layer owns
     # the offer to register them — same split as `conflicts` and `score`.
-    mcp_servers: List[dict] = field(default_factory=list)
+    mcp_servers: list[dict] = field(default_factory=list)
     # Names actually written to the project's .mcp.json — not what was
     # declared. The two differ when the file could not be written, and the
     # install report must show the former.
-    mcp_recorded: List[str] = field(default_factory=list)
+    mcp_recorded: list[str] = field(default_factory=list)
 
 
 def skill_store_dir(name: str) -> Path:
@@ -85,7 +84,7 @@ def source_dir_for(entry: dict) -> Path:
     return src
 
 
-def link_agents(name: str, only: Optional[List[str]] = None) -> InstallResult:
+def link_agents(name: str, only: list[str] | None = None) -> InstallResult:
     """Symlink store/<name> into each linking agent dir. Returns result with
     .linked (agent names), .conflicts (paths that were real files/dirs) and
     .native (agents that read the store directly and needed no link)."""
@@ -114,8 +113,8 @@ def link_agents(name: str, only: Optional[List[str]] = None) -> InstallResult:
     return res
 
 
-def preserved_agent_scope(only_agents: Optional[List[str]],
-                          existing: Optional[dict]) -> Optional[List[str]]:
+def preserved_agent_scope(only_agents: list[str] | None,
+                          existing: dict | None) -> list[str] | None:
     """Agent scope for a re-install: the caller's if given, else the lock's.
 
     ``boost install foo --agent claude-code`` records exactly that subset. But
@@ -153,8 +152,8 @@ def preserved_agent_scope(only_agents: Optional[List[str]],
     return [a for a in recorded if a] or None
 
 
-def declared_agent_scope(only_agents: Optional[List[str]],
-                         existing: Optional[dict]) -> Optional[List[str]]:
+def declared_agent_scope(only_agents: list[str] | None,
+                         existing: dict | None) -> list[str] | None:
     """The scope to RECORD in the lock: an explicit narrowing, or the last one.
 
     Deliberately *not* :func:`preserved_agent_scope`. That one answers "which
@@ -174,7 +173,7 @@ def declared_agent_scope(only_agents: Optional[List[str]],
     return (existing or {}).get("only_agents")
 
 
-def scoped_agents(entry: dict, enabled: Dict[str, Path]) -> Dict[str, Path]:
+def scoped_agents(entry: dict, enabled: dict[str, Path]) -> dict[str, Path]:
     """The enabled agents a locked skill is supposed to be linked into.
 
     Fails **open**: an entry with no ``only_agents`` — every entry written
@@ -188,7 +187,7 @@ def scoped_agents(entry: dict, enabled: Dict[str, Path]) -> Dict[str, Path]:
     return {a: d for a, d in enabled.items() if a in scope}
 
 
-def unlink_agents(name: str) -> List[str]:
+def unlink_agents(name: str) -> list[str]:
     """Remove the ``name`` symlink from every linking agent dir.
 
     Returns the agents unlinked; non-symlink files are left alone. Agents that
@@ -205,7 +204,7 @@ def unlink_agents(name: str) -> List[str]:
     return removed
 
 
-def linked_agents(name: str) -> List[str]:
+def linked_agents(name: str) -> list[str]:
     """The linking agents that currently hold a symlink for ``name``.
 
     Measured from disk, not inherited from the lock, because this is what the
@@ -224,8 +223,8 @@ def linked_agents(name: str) -> List[str]:
             if (adir / name).is_symlink()]
 
 
-def _untouched_materializations(existing: Optional[dict],
-                                linked: List[str]) -> List[dict]:
+def _untouched_materializations(existing: dict | None,
+                                linked: list[str]) -> list[dict]:
     """Recorded materializations for agents a run did not write to.
 
     Rules and workflows rebuild ``materializations`` from scratch on every
@@ -292,7 +291,7 @@ def _remove_backup(backup: Path) -> None:
         shutil.rmtree(backup, ignore_errors=True)
 
 
-def declared_mcp_servers(skill_dir) -> List[dict]:
+def declared_mcp_servers(skill_dir) -> list[dict]:
     """MCP servers an installed skill declares — ``mcpdecl.servers_for`` rows.
 
     Reads the installed copy's ``SKILL.md`` frontmatter and its bundled
@@ -326,7 +325,7 @@ def project_mcp_sidecar(base) -> Path:
     return Path(base) / mcpdecl.SIDECAR
 
 
-def _load_sidecar(path: Path) -> Optional[dict]:
+def _load_sidecar(path: Path) -> dict | None:
     """The sidecar document, or None if absent or unreadable.
 
     Best-effort by design, exactly like :func:`declared_mcp_servers`: by the
@@ -361,7 +360,7 @@ def _write_sidecar(path: Path, doc: dict) -> bool:
         return False
 
 
-def register_project_mcp(base, rows, skill: str) -> List[str]:
+def register_project_mcp(base, rows, skill: str) -> list[str]:
     """Record ``skill``'s declared MCP servers in the repo. Returns names added.
 
     Never overwrites a server already present — one the user configured by hand,
@@ -379,7 +378,7 @@ def register_project_mcp(base, rows, skill: str) -> List[str]:
     return added
 
 
-def unregister_project_mcp(base, skill: str) -> List[str]:
+def unregister_project_mcp(base, skill: str) -> list[str]:
     """Remove the servers boost recorded for ``skill``. Returns names removed.
 
     Marker-keyed entries only, so a hand-configured server and another skill's
@@ -419,7 +418,7 @@ def _enforce_capability_policy(name: str, skill_md: Path) -> None:
                  "install a skill that needs less")
 
 
-def _resolve_base(scope: str, base) -> Optional[Path]:
+def _resolve_base(scope: str, base) -> Path | None:
     """Directory a project-scoped install materializes under (the repo), or None
     for user scope.
 
@@ -430,7 +429,7 @@ def _resolve_base(scope: str, base) -> Optional[Path]:
     return scopes.resolve_base(scope, base)
 
 
-def _require_project_base(scope: str, base, what: str) -> Optional[Path]:
+def _require_project_base(scope: str, base, what: str) -> Path | None:
     """``_resolve_base``, but a project scope that resolves to nothing is fatal.
 
     ``resolve_base`` returns ``None`` for project scope in ``$HOME`` with no
@@ -448,7 +447,7 @@ def _require_project_base(scope: str, base, what: str) -> Optional[Path]:
 
 
 def install(entry: dict, force: bool = False,
-            only_agents: Optional[List[str]] = None,
+            only_agents: list[str] | None = None,
             scope: str = "user", base=None) -> InstallResult:
     """Install a catalog entry. Raises BoostError on policy block or conflict.
 
@@ -527,7 +526,7 @@ def install(entry: dict, force: bool = False,
 
 
 def _install_project_skill(entry: dict, force: bool = False,
-                           only_agents: Optional[List[str]] = None,
+                           only_agents: list[str] | None = None,
                            base=None) -> InstallResult:
     """Materialize a skill into the repo itself, once per enabled agent.
 
@@ -588,9 +587,9 @@ def _install_project_skill(entry: dict, force: bool = False,
                 hint="move it aside, or `boost install %s --local --force` to "
                      "overwrite it" % name)
 
-    materializations: List[dict] = []
-    linked: List[str] = []
-    first: Optional[Path] = None
+    materializations: list[dict] = []
+    linked: list[str] = []
+    first: Path | None = None
     for agent, dest in targets:
         _copy_skill(src, dest)
         # Relative, because this record is committed and read on machines where
@@ -658,7 +657,7 @@ def uninstall_project(name: str, base=None) -> dict:
     if not entry:
         raise BoostError("%s is not installed in this project" % name,
                         hint="see what is with `boost list --local`")
-    removed: List[str] = []
+    removed: list[str] = []
     for m in entry.get("materializations") or []:
         path = scopes.resolve_in_base(resolved_base, m.get("path"))
         if path is None or not path.is_dir():
@@ -678,7 +677,7 @@ def uninstall_project(name: str, base=None) -> dict:
             "scope": scopes.SCOPE_PROJECT, "base": str(resolved_base)}
 
 
-def project_sync_plan(base=None) -> Dict[str, list]:
+def project_sync_plan(base=None) -> dict[str, list]:
     """Compare the project lock against what is actually on disk.
 
     Returns ``{missing, orphaned}``: lock entries whose directory is gone, and
@@ -686,7 +685,7 @@ def project_sync_plan(base=None) -> Dict[str, list]:
     A teammate who clones the repo has the files but may be missing one an
     ``update`` added, so this is the repair list for a shared checkout.
     """
-    plan: Dict[str, list] = {"missing": [], "orphaned": []}
+    plan: dict[str, list] = {"missing": [], "orphaned": []}
     resolved_base = _resolve_base(scopes.SCOPE_PROJECT, base)
     # No lock file means this directory does not use project scope at all. Bail
     # before the orphan scan, or every repo with a hand-written
@@ -710,7 +709,7 @@ def project_sync_plan(base=None) -> Dict[str, list]:
     return plan
 
 
-def project_sync_apply(plan: Dict[str, list], base=None) -> List[str]:
+def project_sync_apply(plan: dict[str, list], base=None) -> list[str]:
     """Re-materialize the project skills :func:`project_sync_plan` found missing.
 
     Orphans are reported but never deleted: an unclaimed directory in someone's
@@ -718,7 +717,7 @@ def project_sync_apply(plan: Dict[str, list], base=None) -> List[str]:
     a package manager that silently removes files it did not write is one nobody
     should run in their working tree.
     """
-    actions: List[str] = []
+    actions: list[str] = []
     resolved_base = _resolve_base(scopes.SCOPE_PROJECT, base)
     if resolved_base is None:
         return actions
@@ -726,7 +725,7 @@ def project_sync_apply(plan: Dict[str, list], base=None) -> List[str]:
     # committed files a team edits in place, so repairing one agent must not
     # re-copy over the others. Re-installing the whole skill would silently
     # revert a teammate's edit to a file they had checked in.
-    wanted: Dict[str, list] = {}
+    wanted: dict[str, list] = {}
     for name, agent in plan.get("missing", []):
         wanted.setdefault(name, []).append(agent)
     for name in sorted(wanted):
@@ -752,7 +751,7 @@ def project_sync_apply(plan: Dict[str, list], base=None) -> List[str]:
 
 
 def _install_rule(entry: dict, force: bool = False,
-                  only_agents: Optional[List[str]] = None,
+                  only_agents: list[str] | None = None,
                   scope: str = "user", base=None) -> InstallResult:
     """Materialize a rule into each enabled agent's native format.
 
@@ -792,8 +791,8 @@ def _install_rule(entry: dict, force: bool = False,
     claude_body = rules.render_claude_body(str(meta.get("name") or name), body)
 
     paths.ensure_dirs()
-    materializations: List[dict] = []
-    linked: List[str] = []
+    materializations: list[dict] = []
+    linked: list[str] = []
     for agent, skills_dir in agents.enabled_agents().items():
         if only_agents and agent not in only_agents:
             continue
@@ -807,9 +806,15 @@ def _install_rule(entry: dict, force: bool = False,
         if mode == rules.MODE_CLAUDE:
             current = path.read_text(encoding="utf-8") if path.exists() else ""
             util.atomic_write_text(path, rules.merge_block(current, name, claude_body))
+            # Hash what `rules.read_block` will read back (the stripped body),
+            # so `boost verify` can tell an edited managed block from ours.
+            written = claude_body.strip("\n")
         else:
             util.atomic_write_text(path, raw)
-        materializations.append({"agent": agent, "mode": mode, "path": str(path)})
+            written = raw
+        materializations.append({
+            "agent": agent, "mode": mode, "path": str(path),
+            "sha256": hashlib.sha256(written.encode("utf-8")).hexdigest()})
         linked.append(agent)
 
     # Carry forward the agents this run did not touch — the same reason the
@@ -832,6 +837,11 @@ def _install_rule(entry: dict, force: bool = False,
         "base": str(resolved_base) if resolved_base is not None else None,
         "installed_at": (existing or {}).get("installed_at", now),
         "updated_at": now,
+        # Same governance contract as a skill entry: a pin survives a forced
+        # reinstall, quarantine does not — the reinstall just re-materialized
+        # the content, so a surviving flag would be a lie.
+        "pinned": bool((existing or {}).get("pinned")),
+        "quarantined": False,
         "materializations": materializations,
     })
     journal.log("install", name, tap=entry["tap"], version=entry.get("version"))
@@ -849,7 +859,7 @@ def _install_rule(entry: dict, force: bool = False,
 def _uninstall_rule(name: str, rule: dict) -> dict:
     """Reverse every materialization recorded for an installed rule."""
     from . import rules
-    removed: List[str] = []
+    removed: list[str] = []
     for m in rule.get("materializations", []):
         path = Path(m.get("path", ""))
         if m.get("mode") == rules.MODE_CLAUDE:
@@ -868,8 +878,118 @@ def _uninstall_rule(name: str, rule: dict) -> dict:
     return {"name": name, "unlinked": removed, "entry": rule}
 
 
+def quarantine_materialized(kind: str, name: str, entry: dict) -> list[str]:
+    """Remove every recorded materialization of a rule/workflow, stashing it.
+
+    The counterpart of skill quarantine's "store intact, links removed". These
+    kinds have no store copy — the materialization IS the only artifact — so
+    what gets removed is stashed on the lock entry and
+    :func:`release_materialized` restores it byte-for-byte. Restoring from the
+    stash rather than the tap matters: the tap may have moved (or vanished)
+    since, and a release must never be a covert update.
+
+    Persists the entry (``quarantined`` + ``quarantine_stash``) and returns the
+    agents whose artifacts were removed.
+    """
+    from . import rules
+    # Prior stash contents win over a fresh None: re-running after an
+    # interrupted quarantine must never overwrite a saved copy with "the
+    # artifact was already gone".
+    prior = {m.get("path"): m.get("content")
+             for m in entry.get("quarantine_stash") or []}
+    stash: list[dict] = []
+    affected: list[str] = []
+    for m in entry.get("materializations") or []:
+        path = Path(m.get("path", ""))
+        content: str | None = None
+        if m.get("mode") == rules.MODE_CLAUDE:
+            if path.exists():
+                content = rules.read_block(
+                    path.read_text(encoding="utf-8"), name)
+        elif path.is_file():
+            content = path.read_text(encoding="utf-8")
+        if content is None:
+            content = prior.get(m.get("path"))
+        stash.append({**m, "content": content})
+        if m.get("agent"):
+            affected.append(m["agent"])
+    # Persist the stash BEFORE removing anything. A crash mid-removal then
+    # leaves a lock that already says quarantined-with-stash — release still
+    # restores, and re-running quarantine finishes the removal. The reverse
+    # order could remove an artifact whose only copy died with the crash.
+    entry["quarantined"] = True
+    entry["quarantine_stash"] = stash
+    lockfile.set_entry(kind, name, entry)
+    for m in entry.get("materializations") or []:
+        path = Path(m.get("path", ""))
+        if m.get("mode") == rules.MODE_CLAUDE:
+            if path.exists():
+                text = path.read_text(encoding="utf-8")
+                if rules.read_block(text, name) is not None:
+                    stripped = rules.strip_block(text, name)
+                    if stripped:
+                        util.atomic_write_text(path, stripped)
+                    else:
+                        path.unlink()  # file held only our block
+        elif path.is_file():
+            path.unlink()
+    journal.log("quarantine", name)
+    return affected
+
+
+def stale_quarantine_artifacts(name: str, entry: dict) -> bool:
+    """True when a quarantined rule/workflow still has artifacts on disk.
+
+    That is the signature of an interrupted quarantine (the stash persisted,
+    the removal pass did not finish) — re-running
+    :func:`quarantine_materialized` completes it without touching the stash.
+    """
+    from . import rules
+    for m in entry.get("materializations") or []:
+        p = Path(m.get("path", ""))
+        if m.get("mode") == rules.MODE_CLAUDE:
+            try:
+                if p.exists() and rules.read_block(
+                        p.read_text(encoding="utf-8"), name) is not None:
+                    return True
+            except OSError:
+                continue
+        elif p.is_file():
+            return True
+    return False
+
+
+def release_materialized(kind: str, name: str, entry: dict) -> list[str]:
+    """Restore what :func:`quarantine_materialized` removed, byte-for-byte.
+
+    A stash record whose ``content`` is None (the artifact was already gone at
+    quarantine time) is skipped — there is nothing truthful to restore.
+    Persists the entry and returns the agents restored.
+    """
+    from . import rules
+    restored: list[str] = []
+    for m in entry.get("quarantine_stash") or []:
+        content = m.get("content")
+        if content is None:
+            continue
+        path = Path(m.get("path", ""))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if m.get("mode") == rules.MODE_CLAUDE:
+            current = path.read_text(encoding="utf-8") if path.exists() else ""
+            util.atomic_write_text(path, rules.merge_block(current, name, content))
+        else:
+            util.atomic_write_text(path, content)
+        if m.get("agent"):
+            restored.append(m["agent"])
+    entry["quarantined"] = False
+    entry.pop("quarantine_stash", None)
+    lockfile.set_entry(kind, name, entry)
+    journal.log("release", name)
+    return restored
+
+
 def _install_workflow(entry: dict, force: bool = False,
-                      only_agents: Optional[List[str]] = None,
+                      only_agents: list[str] | None = None,
                       scope: str = "user", base=None) -> InstallResult:
     """Materialize a workflow (slash command / subagent) into each enabled agent.
 
@@ -905,8 +1025,8 @@ def _install_workflow(entry: dict, force: bool = False,
     slot = workflows.detect_slot(source_rel)
 
     paths.ensure_dirs()
-    materializations: List[dict] = []
-    linked: List[str] = []
+    materializations: list[dict] = []
+    linked: list[str] = []
     for agent, skills_dir in agents.enabled_agents().items():
         if only_agents and agent not in only_agents:
             continue
@@ -918,8 +1038,11 @@ def _install_workflow(entry: dict, force: bool = False,
         if resolved_base is not None:
             scopes.ensure_in_base(resolved_base, path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        util.atomic_write_text(path, workflows.render(agent, slot, name, raw))
-        materializations.append({"agent": agent, "slot": slot, "path": str(path)})
+        rendered = workflows.render(agent, slot, name, raw)
+        util.atomic_write_text(path, rendered)
+        materializations.append({
+            "agent": agent, "slot": slot, "path": str(path),
+            "sha256": hashlib.sha256(rendered.encode("utf-8")).hexdigest()})
         linked.append(agent)
 
     # As for rules: an unrecorded materialization is a live slash command that
@@ -939,6 +1062,10 @@ def _install_workflow(entry: dict, force: bool = False,
         "base": str(resolved_base) if resolved_base is not None else None,
         "installed_at": (existing or {}).get("installed_at", now),
         "updated_at": now,
+        # Same governance contract as a skill entry: a pin survives a forced
+        # reinstall, quarantine does not.
+        "pinned": bool((existing or {}).get("pinned")),
+        "quarantined": False,
         "materializations": materializations,
     })
     journal.log("install", name, tap=entry["tap"], version=entry.get("version"))
@@ -955,7 +1082,7 @@ def _install_workflow(entry: dict, force: bool = False,
 
 def _uninstall_workflow(name: str, workflow: dict) -> dict:
     """Remove every file dropped for an installed workflow."""
-    removed: List[str] = []
+    removed: list[str] = []
     for m in workflow.get("materializations", []):
         path = Path(m.get("path", ""))
         if path.is_file() or path.is_symlink():
@@ -967,9 +1094,9 @@ def _uninstall_workflow(name: str, workflow: dict) -> dict:
     return {"name": name, "unlinked": removed, "entry": workflow}
 
 
-def install_from_path(src_dir: Path, name: Optional[str] = None,
+def install_from_path(src_dir: Path, name: str | None = None,
                       tap_label: str = "local",
-                      only_agents: Optional[List[str]] = None,
+                      only_agents: list[str] | None = None,
                       force: bool = False) -> InstallResult:
     """Install directly from a local directory (used by `boost import`).
 
@@ -1125,7 +1252,7 @@ def points_into_store(link: Path) -> bool:
         return False
 
 
-def sync_plan() -> Dict[str, list]:
+def sync_plan() -> dict[str, list]:
     """Compare lock file <-> store <-> agent symlinks.
 
     Returns {missing_store, missing_links, stale_links, orphaned_store}
@@ -1191,10 +1318,17 @@ def sync_plan() -> Dict[str, list]:
     # A materialization whose file (or CLAUDE.md block) is gone can be repaired
     # by re-materializing from the tap, same as a missing skill store dir.
     for name, entry in lockfile.installed_rules().items():
+        # A quarantined rule's materializations are ABSENT BY DESIGN — the
+        # stash holds them. Repairing here would re-arm what quarantine
+        # disarmed, making `boost sync` an accidental release.
+        if entry.get("quarantined"):
+            continue
         if any(not _rule_materialization_ok(name, m)
                for m in entry.get("materializations") or []):
             plan["missing_materializations"].append(("rule", name))
     for name, entry in lockfile.installed_workflows().items():
+        if entry.get("quarantined"):
+            continue
         if any(not Path(m.get("path", "")).is_file()
                for m in entry.get("materializations") or []):
             plan["missing_materializations"].append(("workflow", name))
@@ -1215,7 +1349,7 @@ def _rule_materialization_ok(name: str, m: dict) -> bool:
     return p.is_file()
 
 
-def prune_out_of_scope_links(plan: Dict[str, list]) -> List[str]:
+def prune_out_of_scope_links(plan: dict[str, list]) -> list[str]:
     """Remove the links :func:`sync_plan` found outside a declared scope.
 
     Kept out of :func:`sync_apply` on purpose. Everything sync_apply does is
@@ -1246,7 +1380,41 @@ def prune_out_of_scope_links(plan: Dict[str, list]) -> List[str]:
     return removed
 
 
-def sync_apply(plan: Dict[str, list]) -> List[str]:
+def _skill_source_sha(cat_entry: dict) -> str | None:
+    """sha256 of a catalog entry's tap source directory, or None if unreadable."""
+    try:
+        return util.sha256_dir(source_dir_for(cat_entry))
+    except BoostError:
+        return None
+
+
+def _source_text_sha(tap_name: str, cat_entry: dict) -> str | None:
+    """sha256 of a rule/workflow's tap source text, or None if unreadable."""
+    import hashlib
+    try:
+        src = registry.get(tap_name).path / cat_entry.get("skill_md", "")
+        return hashlib.sha256(src.read_text(
+            encoding="utf-8", errors="replace").encode("utf-8")).hexdigest()
+    except (OSError, BoostError):
+        return None
+
+
+def _pinned_repair_blocked(entry: dict, source_sha: str | None) -> bool:
+    """True when repairing ``entry`` from its tap would bypass a pin.
+
+    sync repairs by re-installing from the tap's CURRENT content. For an
+    unpinned entry that is the point of `boost sync`; for a pinned one whose
+    source has moved it would be the covert update the pin exists to prevent —
+    the same guard the update loops apply, on the repair path. An unreadable
+    source fails closed: better to leave a pinned item broken and say so than
+    to guess.
+    """
+    if not entry.get("pinned"):
+        return False
+    return source_sha is None or source_sha != entry.get("sha256")
+
+
+def sync_apply(plan: dict[str, list]) -> list[str]:
     """Fix what sync_plan found. Returns human-readable actions taken."""
     actions = []
     for name, agent in plan["missing_links"]:
@@ -1267,6 +1435,12 @@ def sync_apply(plan: Dict[str, list]) -> List[str]:
                 from . import catalog
                 matches = [e for e in catalog.find(name) if e["tap"] == tap_name]
                 if matches:
+                    if _pinned_repair_blocked(entry, _skill_source_sha(matches[0])):
+                        actions.append(
+                            "%s is pinned and its tap source has moved — repair "
+                            "declined (unpin, or `boost reinstall %s` to accept "
+                            "the new content)" % (name, name))
+                        continue
                     install(matches[0], force=True)
                     actions.append("reinstalled missing %s from %s" % (name, tap_name))
                     restored = True
@@ -1285,6 +1459,13 @@ def sync_apply(plan: Dict[str, list]) -> List[str]:
                 matches = [e for e in catalog.find(name)
                            if e["tap"] == tap_name and e.get("kind", "skill") == kind]
                 if matches:
+                    if _pinned_repair_blocked(
+                            entry, _source_text_sha(tap_name, matches[0])):
+                        actions.append(
+                            "%s %s is pinned and its tap source has moved — "
+                            "repair declined (unpin, or `boost reinstall %s` to "
+                            "accept the new content)" % (kind, name, name))
+                        continue
                     # preserve the original scope/base so a project rule repairs
                     # into its repo, not wherever sync happens to run.
                     install(matches[0], force=True,

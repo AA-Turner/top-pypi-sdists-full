@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: polymarket-client
-Version: 0.2.0
+Version: 0.3.0
 Summary: Official Python client for Polymarket
 Project-URL: Homepage, https://polymarket.com
 Project-URL: Documentation, https://docs.polymarket.com
@@ -11,7 +11,7 @@ Maintainer-email: Polymarket Engineering <engineering@polymarket.com>
 License: MIT
 License-File: LICENSE
 Keywords: client,polymarket,prediction-markets,trading,web3
-Classifier: Development Status :: 5 - Production/Stable
+Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent

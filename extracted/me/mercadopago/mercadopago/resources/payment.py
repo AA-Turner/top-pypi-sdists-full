@@ -5,7 +5,9 @@ payments.
 
 `API reference <https://www.mercadopago.com/developers/en/reference/online-payments/checkout-api-payments/create-payment/post>`_
 """
+import warnings
 from mercadopago.core import MPBase
+from mercadopago.pagination.iterator import search_auto_paging_iter as _paging_iter
 
 
 class Payment(MPBase):
@@ -69,7 +71,13 @@ class Payment(MPBase):
         """
         if not isinstance(payment_object, dict):
             raise ValueError("Param payment_object must be a Dictionary")
-
+        if "notification_url" in payment_object:
+            warnings.warn(
+                "notification_url is deprecated; use Webhooks instead. "
+                "See https://www.mercadopago.com/developers/en/docs/your-integrations/notifications/webhooks",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         return self._post(uri="/v1/payments", data=payment_object, request_options=request_options)
 
     def update(self, payment_id, payment_object, request_options=None):
@@ -96,3 +104,39 @@ class Payment(MPBase):
 
         return self._put(uri="/v1/payments/" + self._path_param(payment_id), data=payment_object,
                          request_options=request_options)
+
+    def capture(self, payment_id, amount=None, request_options=None):
+        """Captures an authorized payment.
+
+        Args:
+            payment_id: Identifier of the authorized payment to capture.
+            amount: Amount to capture. If ``None``, the full authorized amount
+                is captured.
+            request_options: Per-call configuration overrides.
+
+        Returns:
+            dict: Updated payment object reflecting the captured state.
+
+        Reference: https://www.mercadopago.com/developers/en/reference/online-payments/checkout-api-payments/update-payment/put
+        """
+        payload = {"capture": True}
+        if amount is not None:
+            payload["transaction_amount"] = amount
+        return self._put(
+            uri="/v1/payments/" + self._path_param(payment_id),
+            data=payload,
+            request_options=request_options,
+        )
+
+    def search_auto_paging_iter(self, filters=None, request_options=None, limit=100):
+        """Lazily yields every payment matching *filters* across all pages.
+
+        Args:
+            filters: Search criteria (e.g. ``{"status": "approved"}``).
+            request_options: Per-call configuration overrides.
+            limit: Items per page. Defaults to 100.
+
+        Yields:
+            dict: Individual payment objects.
+        """
+        return _paging_iter(self.search, filters, request_options, limit)

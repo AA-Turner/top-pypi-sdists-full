@@ -22,6 +22,7 @@ from ._content import (
     PROVIDER_ANNOTATION_TYPES,
     Content,
     ContentCitation,
+    ContentDocument,
     ContentImageInline,
     ContentImageRemote,
     ContentJson,
@@ -38,7 +39,9 @@ from ._content import (
     ContentUploaded,
     ProviderAnnotation,
     WebSource,
+    check_image_content_type_supported,
 )
+from ._content_file import ensure_bytes
 from ._files import FileMetadata, maybe_write, open_binary
 from ._logging import log_model_default
 from ._provider import (
@@ -291,7 +294,7 @@ def ChatAnthropic(
     """
 
     if model is None:
-        model = log_model_default("claude-sonnet-4-6")
+        model = log_model_default("claude-sonnet-5")
 
     kwargs_chat: "SubmitInputArgs" = {}
     if isinstance(reasoning, str):
@@ -336,9 +339,31 @@ def normalize_finish_reason(reason: str | None) -> str | None:
     return _ANTHROPIC_FINISH_REASON_MAP.get(reason, reason)
 
 
+def serving_model(completion: Message) -> str:
+    """
+    The model that actually served the response.
+
+    A server-side refusal fallback
+    (https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback)
+    can route a request to a different model than the one requested.
+    `completion.model` is unreliable for a mid-response fallback in a stream
+    (it keeps the requested model named at `message_start`), so prefer the
+    last `fallback` content block's `to.model`.
+    """
+    served_model = None
+    for content in completion.content:
+        if getattr(content, "type", None) == "fallback":
+            to = getattr(content, "to", None)
+            if isinstance(to, dict) and "model" in to:
+                served_model = to["model"]
+    return served_model or completion.model
+
+
 class AnthropicProvider(
     Provider[Message, RawMessageStreamEvent, Message, "SubmitInputArgs"]
 ):
+    supported_builtin_tools = (ToolWebSearch, ToolWebFetch)
+
     def __init__(
         self,
         *,
@@ -670,6 +695,25 @@ class AnthropicProvider(
             usage.cache_read_input_tokens if usage.cache_read_input_tokens else 0,
         )
 
+    def value_cost(
+        self,
+        completion,
+        tokens: tuple[int, int, int] | None = None,
+    ) -> float | None:
+        """
+        Compute the cost for a completion, pricing a refusal fallback at the
+        serving model's rate rather than the requested model's.
+        """
+        from ._tokens import get_token_cost
+
+        if tokens is None:
+            tokens = self.value_tokens(completion)
+        if tokens is None:
+            return None
+
+        model = serving_model(completion) if completion is not None else self.model
+        return get_token_cost(self.name, model, tokens)
+
     def token_count(
         self,
         turns: list[Turn],
@@ -840,20 +884,58 @@ class AnthropicProvider(
             text = orjson.dumps(content.value).decode("utf-8")
             return {"text": text, "type": "text"}
         elif isinstance(content, ContentPDF):
+            if content.url is not None:
+                return {
+                    "type": "document",
+                    "source": {"type": "url", "url": content.url},
+                }
+            data = ensure_bytes(content, "PDF")
             return {
                 "type": "document",
                 "source": {
                     "type": "base64",
                     "media_type": "application/pdf",
-                    "data": base64.b64encode(content.data).decode("utf-8"),
+                    "data": base64.b64encode(data).decode("utf-8"),
+                },
+            }
+        elif isinstance(content, ContentDocument):
+            if not is_anthropic_text_document(content.mime_type):
+                raise ValueError(
+                    f"Anthropic doesn't support document content type "
+                    f"'{content.mime_type}'. Convert the file to plain text "
+                    "or PDF first (see content_pdf_file())."
+                )
+            data = ensure_bytes(content, "document")
+            try:
+                text = data.decode("utf-8")
+            except UnicodeDecodeError as e:
+                raise ValueError(
+                    "Anthropic requires document content to be UTF-8 text, "
+                    f"but '{content.filename}' ({content.mime_type}) could "
+                    f"not be decoded: {e}. Convert the file to plain text or "
+                    "PDF first (see content_pdf_file())."
+                ) from e
+            return {
+                "type": "document",
+                # Coercing to `text/plain` loses the real MIME type, so `title`
+                # is the only thing left telling the model what it's looking at
+                # (and how to refer to it in a multi-document prompt).
+                "title": content.filename,
+                "source": {
+                    "type": "text",
+                    "media_type": "text/plain",
+                    "data": text,
                 },
             }
         elif isinstance(content, ContentImageInline):
+            media_type = check_image_content_type_supported(
+                "Anthropic", content.image_content_type
+            )
             return {
                 "type": "image",
                 "source": {
                     "type": "base64",
-                    "media_type": content.image_content_type,
+                    "media_type": media_type,
                     "data": content.data or "",
                 },
             }
@@ -919,8 +1001,10 @@ class AnthropicProvider(
 
         raise ValueError(f"Unknown content type: {type(content)}")
 
-    @staticmethod
-    def _anthropic_tool_schema(tool: "Tool | ToolBuiltIn") -> "ToolUnionParam":
+    def _anthropic_tool_schema(self, tool: "Tool | ToolBuiltIn") -> "ToolUnionParam":
+        if isinstance(tool, ToolBuiltIn):
+            self.check_builtin_tool_support(tool)
+
         if isinstance(tool, ToolWebSearch):
             return tool.get_definition("anthropic")
         if isinstance(tool, ToolWebFetch):
@@ -1012,6 +1096,9 @@ class AnthropicProvider(
                 contents.append(anthropic_search_result(content))
             elif content.type == "web_fetch_tool_result":
                 contents.append(anthropic_fetch_result(content))
+            elif content.type == "fallback":
+                # https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback
+                pass
 
         return AssistantTurn(
             contents,
@@ -1349,7 +1436,7 @@ def ChatBedrockAnthropic(
     """
 
     if model is None:
-        model = log_model_default("us.anthropic.claude-sonnet-4-6")
+        model = log_model_default("us.anthropic.claude-sonnet-5")
 
     kwargs_chat: "SubmitInputArgs" = {}
     if reasoning is not None:
@@ -1379,6 +1466,15 @@ def ChatBedrockAnthropic(
 # Bedrock's Anthropic client has no `.beta.files`.
 @no_file_management
 class AnthropicBedrockProvider(AnthropicProvider):
+    # Bedrock hosts Claude but not Anthropic's server-side tools:
+    # https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool
+    supported_builtin_tools = ()
+
+    unsupported_builtin_tool_hint = (
+        "Amazon Bedrock does not run Anthropic's server-side tools; "
+        "`ChatAnthropic()` does."
+    )
+
     def __init__(
         self,
         *,
@@ -1566,4 +1662,19 @@ def anthropic_replayable(content: ProviderAnnotation) -> bool:
     return (
         isinstance(extra, dict)
         and extra.get("type") in ANTHROPIC_SERVER_TOOL_BLOCK_TYPES
+    )
+
+
+def is_anthropic_text_document(mime_type: str) -> bool:
+    """Whether Anthropic's `text/plain` document source can hold this MIME type.
+
+    Anthropic's document block only has one text-ish source variant --
+    `PlainTextSourceParam`, whose `media_type` is literally `"text/plain"` --
+    so any MIME type that's really just decodable text (Markdown, CSV, code,
+    JSON, XML, ...) is coerced to that on the way out. Binary formats like
+    docx/xlsx have no equivalent and must be converted first.
+    """
+    return mime_type.startswith("text/") or mime_type in (
+        "application/json",
+        "application/xml",
     )

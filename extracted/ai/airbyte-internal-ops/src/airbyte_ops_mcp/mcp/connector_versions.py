@@ -48,7 +48,6 @@ from airbyte_ops_mcp.cloud_admin.models import (
     WorkspaceVersionOverrideResult,
 )
 from airbyte_ops_mcp.cloud_admin.version_overrides import (
-    ResolvedCloudAuth,
     VersionOverrideTarget,
     get_connector_version_info,
     set_version_override,
@@ -63,39 +62,10 @@ from airbyte_ops_mcp.github_api import (
     get_pr_head_ref,
     resolve_ci_trigger_github_token,
 )
+from airbyte_ops_mcp.mcp.cloud_auth import resolve_cloud_auth
 from airbyte_ops_mcp.tier_cache import TierFilter, resolve_workspace
 
 logger = logging.getLogger(__name__)
-
-
-def _resolve_version_override_cloud_auth(ctx: Context) -> ResolvedCloudAuth:
-    """Resolve authentication credentials for Airbyte Cloud API from `ctx`.
-
-    Credentials are resolved in priority order:
-
-    1. Bearer token (`Authorization` header or `AIRBYTE_CLOUD_BEARER_TOKEN` env var)
-    2. Client credentials (`X-Airbyte-Cloud-Client-Id`/`Secret` headers or env vars)
-
-    Raises `CloudAuthError` if credentials cannot be resolved.
-    """
-    bearer_token = get_mcp_config(ctx, ServerConfigKey.BEARER_TOKEN)
-    if bearer_token:
-        return ResolvedCloudAuth(bearer_token=bearer_token)
-
-    try:
-        client_id = get_mcp_config(ctx, ServerConfigKey.CLIENT_ID)
-        client_secret = get_mcp_config(ctx, ServerConfigKey.CLIENT_SECRET)
-        return ResolvedCloudAuth(
-            client_id=client_id,
-            client_secret=client_secret,
-        )
-    except ValueError as e:
-        raise CloudAuthError(
-            f"Failed to resolve credentials. Ensure credentials are provided "
-            f"via Authorization header (Bearer token), "
-            f"HTTP headers (X-Airbyte-Cloud-Client-Id, X-Airbyte-Cloud-Client-Secret), "
-            f"or environment variables. Error: {e}"
-        ) from e
 
 
 @mcp_tool(
@@ -145,7 +115,7 @@ def get_cloud_connector_version(
     assert resolved_workspace_id is not None  # workspace_id is required
 
     return get_connector_version_info(
-        auth=_resolve_version_override_cloud_auth(ctx),
+        auth=resolve_cloud_auth(ctx),
         workspace_id=resolved_workspace_id,
         actor_id=actor_id,
         actor_type=actor_type,
@@ -311,7 +281,7 @@ def set_cloud_connector_version_override(
         )
 
     result = set_version_override(
-        auth=_resolve_version_override_cloud_auth(ctx),
+        auth=resolve_cloud_auth(ctx),
         target=VersionOverrideTarget(
             scope="actor",
             organization_id=ws_resolution.organization_id,
@@ -485,7 +455,7 @@ def set_workspace_connector_version_override(
         )
 
     result = set_version_override(
-        auth=_resolve_version_override_cloud_auth(ctx),
+        auth=resolve_cloud_auth(ctx),
         target=VersionOverrideTarget(
             scope="workspace",
             organization_id=ws_resolution.organization_id,
@@ -640,7 +610,7 @@ def set_organization_connector_version_override(
     the check (a warning is still emitted for sensitive tiers).
     """
     result = set_version_override(
-        auth=_resolve_version_override_cloud_auth(ctx),
+        auth=resolve_cloud_auth(ctx),
         target=VersionOverrideTarget(
             scope="organization",
             organization_id=organization_id,

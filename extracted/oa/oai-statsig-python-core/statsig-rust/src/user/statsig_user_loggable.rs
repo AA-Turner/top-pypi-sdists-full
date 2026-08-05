@@ -4,8 +4,8 @@ use super::{
 };
 use crate::{DynamicValue, StatsigUser};
 use serde::{
-    ser::{SerializeMap, SerializeStruct},
     Deserialize, Serialize,
+    ser::{SerializeMap, SerializeStruct},
 };
 use serde_json::Value;
 use std::{collections::HashMap, sync::Arc};

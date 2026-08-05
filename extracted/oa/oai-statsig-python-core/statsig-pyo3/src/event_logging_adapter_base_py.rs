@@ -1,8 +1,8 @@
 use async_trait::async_trait;
-use pyo3::{prelude::*, pyclass, pymethods, types::PyDict, FromPyObject};
+use pyo3::{FromPyObject, prelude::*, pyclass, pymethods, types::PyDict};
 use pyo3_stub_gen::derive::*;
 use statsig_rust::{
-    log_e, log_event_payload::LogEventRequest, EventLoggingAdapter, StatsigErr, StatsigRuntime,
+    EventLoggingAdapter, StatsigErr, StatsigRuntime, log_e, log_event_payload::LogEventRequest,
 };
 use std::sync::Arc;
 

@@ -1,4 +1,4 @@
-use pyo3::{prelude::*, Python};
+use pyo3::{Python, prelude::*};
 use pyo3_stub_gen::derive::gen_stub_pyfunction;
 use statsig_rust::statsig_global::StatsigGlobal;
 use std::sync::atomic::{AtomicBool, Ordering};

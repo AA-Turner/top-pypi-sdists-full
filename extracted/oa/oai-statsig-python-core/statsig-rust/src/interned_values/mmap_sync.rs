@@ -1,10 +1,10 @@
 use serde::Deserialize;
 
 use crate::{
+    StatsigErr,
     networking::ResponseData,
     observability::ops_stats::OpsStatsForInstance,
     specs_response::{proto_specs::deserialize_protobuf, spec_types::SpecsResponseFull},
-    StatsigErr,
 };
 
 /// Identifies the config generation used to build an mmap artifact.
@@ -287,11 +287,7 @@ impl<'a> ChecksumIdentity<'a> {
     }
 
     fn prefer(self, fallback: Self) -> Self {
-        if self.is_known {
-            self
-        } else {
-            fallback
-        }
+        if self.is_known { self } else { fallback }
     }
 
     fn conflicts_with(self, other: Self) -> bool {

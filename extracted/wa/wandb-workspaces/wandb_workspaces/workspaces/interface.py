@@ -528,9 +528,14 @@ class Section(Base):
     )
     panel_settings: SectionPanelSettings = Field(default_factory=SectionPanelSettings)
 
+    # Set from a loaded spec's `__id__`, never generated (unlike Panel._id). A
+    # fresh section then omits `__id__`; a loaded one keeps its id so placement
+    # overrides resolve.
+    _id: Optional[str] = Field(default=None, init=False, repr=False)
+
     @classmethod
     def _from_model(cls, model: internal.PanelBankConfigSectionsItem):
-        return cls(
+        obj = cls(
             name=model.name,
             panels=[_lookup_panel(p) for p in model.panels],
             is_open=model.is_open,
@@ -538,6 +543,8 @@ class Section(Base):
             layout_settings=SectionLayoutSettings._from_model(model.flow_config),
             panel_settings=SectionPanelSettings._from_model(model.local_panel_settings),
         )
+        obj._id = model.id
+        return obj
 
     def _to_model(self):
         panel_models = [p._to_model() for p in self.panels]
@@ -547,6 +554,7 @@ class Section(Base):
         # Add warning that panel layout only works if they set section settings layout = "custom"
 
         return internal.PanelBankConfigSectionsItem(
+            id=self._id or None,
             name=self.name,
             panels=panel_models,
             is_open=self.is_open,
@@ -850,9 +858,10 @@ class Workspace(Base):
             the top of the workspace in the UI.
         runset_settings (RunsetSettings): Settings for the runset
             (the left bar containing runs) in a workspace.
-        auto_generate_panels (bool): Whether to automatically generate panels for all keys logged in this project.
+        auto_generate_panels (Optional[bool]): Whether to automatically generate panels for all keys logged in this project.
             Recommended if you would like all available data to be visualized by default.
-            This can only be set during workspace creation and cannot be modified afterward.
+            None defers to the app default (generate); a value loaded from an existing
+            view is preserved on save. This can only be set during workspace creation.
     """
 
     entity: str
@@ -861,7 +870,9 @@ class Workspace(Base):
     sections: LList[Section] = Field(default_factory=list)
     settings: WorkspaceSettings = Field(default_factory=WorkspaceSettings)
     runset_settings: RunsetSettings = Field(default_factory=RunsetSettings)
-    _auto_generate_panels: bool = Field(
+    # Default False keeps from-scratch workspaces curated (explicit false). A
+    # value loaded via _from_model (None/True/False) is preserved on round-trip.
+    _auto_generate_panels: Optional[bool] = Field(
         default=False, repr=True, alias="auto_generate_panels"
     )
 
@@ -875,11 +886,24 @@ class Workspace(Base):
     _internal_runset_id: str = Field("", init=False, repr=False)
     "The runset ID of the workspace."
 
+    # Wire values stashed on load and replayed on save, so a load -> save
+    # round-trip preserves what _to_model would otherwise regenerate or drop.
     _stashed_filters_v2: Optional[dict] = Field(default=None, init=False, repr=False)
     _stashed_filter_string: Optional[str] = Field(default=None, init=False, repr=False)
+    _stashed_panel_config_overrides: Optional[dict] = Field(
+        default=None, init=False, repr=False
+    )
+    _stashed_panel_placement_overrides: Optional[dict] = Field(
+        default=None, init=False, repr=False
+    )
+    # Per-custom-panel wire dumps captured on load, keyed by `__custom_panel__:<_id>`.
+    # Lets _to_model detect an SDK edit that a preserved config override would shadow.
+    _stashed_custom_panel_dumps: Optional[dict] = Field(
+        default=None, init=False, repr=False
+    )
 
     @property
-    def auto_generate_panels(self) -> bool:
+    def auto_generate_panels(self) -> Optional[bool]:
         return self._auto_generate_panels
 
     @property
@@ -946,6 +970,19 @@ class Workspace(Base):
 
         section_settings = model.spec.section.settings
         panel_bank_settings = model.spec.section.panel_bank_config.settings
+
+        # shouldAutoGeneratePanels moved from legacy `section.settings` to modern
+        # `section.workspaceSettings`, so prefer a populated modern block (more
+        # than just `ref`) and fall back to legacy, matching the app. Guard for a
+        # bool because the app can store a transient 'pending'.
+        workspace_settings_raw = model.spec.section.workspace_settings or {}
+        if any(key != "ref" for key in workspace_settings_raw):
+            raw_auto_generate = workspace_settings_raw.get("shouldAutoGeneratePanels")
+            auto_generate_panels = (
+                raw_auto_generate if isinstance(raw_auto_generate, bool) else None
+            )
+        else:
+            auto_generate_panels = section_settings.should_auto_generate_panels
         x_axis = expr._convert_be_to_fe_metric_name(section_settings.x_axis)
         point_viz_method: Literal["bucketing", "downsampling"]
         if (pvm := section_settings.point_visualization_method) == "bucketing-gorilla":
@@ -1016,6 +1053,7 @@ class Workspace(Base):
             entity=model.entity,
             project=model.project,
             name=model.display_name,
+            auto_generate_panels=auto_generate_panels,
             sections=[
                 Section._from_model(s)
                 for s in model.spec.section.panel_bank_config.sections
@@ -1049,10 +1087,85 @@ class Workspace(Base):
         obj._internal_runset_id = runset_model.id
         obj._stashed_filters_v2 = stashed_v2
         obj._stashed_filter_string = filter_string
+        panel_bank_config = model.spec.section.panel_bank_config
+        obj._stashed_panel_config_overrides = panel_bank_config.panel_config_overrides
+        obj._stashed_panel_placement_overrides = (
+            panel_bank_config.panel_placement_overrides
+        )
+        obj._stashed_custom_panel_dumps = {
+            key: dump for key, (_, dump) in obj._custom_panel_index().items()
+        } or None
         return obj
+
+    def _custom_panel_index(self) -> Dict[str, Tuple[Optional[str], dict]]:
+        """Map each custom panel's override key to its `(section._id, wire dump)`.
+
+        Only panels marked `isAuto is False` are custom and keyed as
+        `__custom_panel__:<_id>` (matching the app's `getOverrideKey`). Auto panels and
+        `UnknownPanel`s (which lack `_is_auto`) are skipped.
+        """
+        index: Dict[str, Tuple[Optional[str], dict]] = {}
+        for section in self.sections:
+            for panel in section.panels:
+                # UnknownPanel has neither attribute; getattr keeps it out safely.
+                panel_id = getattr(panel, "_id", None)
+                if getattr(panel, "_is_auto", None) is False and panel_id is not None:
+                    key = f"__custom_panel__:{panel_id}"
+                    index[key] = (
+                        section._id,
+                        panel._to_model().model_dump(by_alias=True),
+                    )
+        return index
+
+    def _reconciled_overrides(self) -> Tuple[Optional[dict], Optional[dict]]:
+        """Reconcile the stashed override maps against the current (maybe edited) panels.
+
+        Returns `(config_overrides, placement_overrides)` to emit. A placement override
+        for a custom panel that moved to a different section is dropped so the SDK move
+        takes effect (the panel falls back to its spec-array position); config overrides
+        are preserved, but a warning is raised for any customized panel whose config was
+        edited, since the override still takes precedence.
+        """
+        config_overrides = self._stashed_panel_config_overrides
+        placement_overrides = self._stashed_panel_placement_overrides
+        if not config_overrides and not placement_overrides:
+            return config_overrides, placement_overrides
+
+        index = self._custom_panel_index()
+
+        if placement_overrides:
+            pruned = dict(placement_overrides)
+            for key, (section_id, _) in index.items():
+                override = pruned.get(key)
+                # Drop only when we're sure this is a genuine cross-section move; leave
+                # entries of unexpected shape intact rather than risk corrupting them.
+                if (
+                    isinstance(override, dict)
+                    and "sectionId" in override
+                    and override["sectionId"] != section_id
+                ):
+                    del pruned[key]
+            placement_overrides = pruned or None
+
+        if config_overrides:
+            baseline = self._stashed_custom_panel_dumps or {}
+            edited = [
+                key
+                for key, (_, dump) in index.items()
+                if key in config_overrides and dump != baseline.get(key)
+            ]
+            if edited:
+                wandb.termwarn(
+                    f"{len(edited)} customized panel(s) were edited in the SDK, but their "
+                    "saved UI customizations are preserved and may take precedence over "
+                    "those edits. Editing customized panels is not yet fully supported."
+                )
+
+        return config_overrides, placement_overrides
 
     def _to_model(self) -> internal.View:
         sections = [s._to_model() for s in self.sections]
+        config_overrides, placement_overrides = self._reconciled_overrides()
 
         is_regex = True if self.runset_settings.regex_query else None
         auto_organize_prefix = 2 if self.settings.group_by_prefix == "last" else 1
@@ -1142,6 +1255,8 @@ class Workspace(Base):
                             auto_organize_prefix=auto_organize_prefix,
                         ),
                         sections=sections,
+                        panel_config_overrides=config_overrides,
+                        panel_placement_overrides=placement_overrides,
                     ),
                     panel_bank_section_config=internal.PanelBankSectionConfig(
                         pinned=False

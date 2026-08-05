@@ -1,4 +1,4 @@
-use crate::{log_e, DynamicValue};
+use crate::{DynamicValue, log_e};
 use lazy_static::lazy_static;
 use parking_lot::RwLock;
 use std::{

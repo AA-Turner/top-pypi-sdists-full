@@ -11,14 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TypedDict
-
-from typing_extensions import NotRequired, Required
+from typing import NotRequired, Required, TypedDict
 
 
 class Service(TypedDict, total=False):
     aliases: NotRequired[list[str]]
     api_reference: Required[str]
+    api_reference_project: NotRequired[str]
     project: Required[str]
     service_type: Required[str]
 

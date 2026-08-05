@@ -32,6 +32,7 @@ from ..tracing import generation_span
 from ..tracing.span_data import GenerationSpanData
 from ..tracing.spans import Span
 from ..usage import Usage
+from ..util._error_tracing import model_span_errors
 from ..util._json import _to_dump_compatible
 from ._openai_retry import get_openai_retry_advice
 from ._retry_runtime import should_disable_provider_managed_retries
@@ -139,11 +140,33 @@ class OpenAIChatCompletionsModel(Model):
                 await close_result
 
     def _schedule_async_iterator_close(self, iterator: Any) -> None:
-        task = asyncio.create_task(self._maybe_aclose_async_iterator(iterator))
-        task.add_done_callback(self._consume_background_cleanup_task_result)
+        self._detach_stream_close(
+            asyncio.ensure_future(self._maybe_aclose_async_iterator(iterator))
+        )
+
+    async def _close_stream_allowing_background_completion(self, iterator: Any) -> None:
+        """Close the provider stream, letting an in-flight close finish in the background.
+
+        Cancellation can arrive while `aclose()` is already awaiting the provider. Shielding the
+        close and detaching that exact task keeps it running instead of abandoning it half-done,
+        and avoids starting a second close: re-closing a provider stream is not guaranteed to be
+        safe or idempotent.
+        """
+        close_task = asyncio.ensure_future(self._maybe_aclose_async_iterator(iterator))
+        try:
+            await asyncio.shield(close_task)
+        except asyncio.CancelledError:
+            self._detach_stream_close(close_task)
+            raise
+
+    def _detach_stream_close(self, close_task: asyncio.Future[None]) -> None:
+        if close_task.done():
+            self._consume_background_cleanup_task_result(close_task)
+            return
+        close_task.add_done_callback(self._consume_background_cleanup_task_result)
 
     @staticmethod
-    def _consume_background_cleanup_task_result(task: asyncio.Task[Any]) -> None:
+    def _consume_background_cleanup_task_result(task: asyncio.Future[Any]) -> None:
         try:
             task.result()
         except asyncio.CancelledError:
@@ -206,11 +229,18 @@ class OpenAIChatCompletionsModel(Model):
         )
         self._handle_unsupported_prompt(prompt)
 
-        with generation_span(
-            model=str(self.model),
-            model_config=model_config_for_trace(model_settings, base_url=self._client.base_url),
-            disabled=tracing.is_disabled(),
-        ) as span_generation:
+        with (
+            generation_span(
+                model=str(self.model),
+                model_config=model_config_for_trace(model_settings, base_url=self._client.base_url),
+                disabled=tracing.is_disabled(),
+            ) as span_generation,
+            model_span_errors(
+                span_generation,
+                message="Error getting response",
+                trace_include_sensitive_data=tracing.include_data(),
+            ),
+        ):
             response = await self._fetch_response(
                 system_instructions,
                 input,
@@ -263,6 +293,20 @@ class OpenAIChatCompletionsModel(Model):
                 if response.usage
                 else Usage()
             )
+
+            # Some providers signal a filtered non-streaming completion only through
+            # finish_reason="content_filter" and an otherwise empty message. Preserve
+            # that terminal signal as a refusal instead of returning an empty output.
+            if (
+                message is not None
+                and first_choice is not None
+                and first_choice.finish_reason == "content_filter"
+                and not message.content
+                and not message.refusal
+                and not message.tool_calls
+            ):
+                message.refusal = "Response withheld by the provider's content filter."
+
             if tracing.include_data():
                 span_generation.span_data.output = (
                     [message.model_dump()] if message is not None else []
@@ -340,11 +384,18 @@ class OpenAIChatCompletionsModel(Model):
         )
         self._handle_unsupported_prompt(prompt)
 
-        with generation_span(
-            model=str(self.model),
-            model_config=model_config_for_trace(model_settings, base_url=self._client.base_url),
-            disabled=tracing.is_disabled(),
-        ) as span_generation:
+        with (
+            generation_span(
+                model=str(self.model),
+                model_config=model_config_for_trace(model_settings, base_url=self._client.base_url),
+                disabled=tracing.is_disabled(),
+            ) as span_generation,
+            model_span_errors(
+                span_generation,
+                message="Error streaming response",
+                trace_include_sensitive_data=tracing.include_data(),
+            ),
+        ):
             response, stream = await self._fetch_response(
                 system_instructions,
                 input,
@@ -386,7 +437,7 @@ class OpenAIChatCompletionsModel(Model):
             finally:
                 if not close_stream_in_background:
                     try:
-                        await self._maybe_aclose_async_iterator(stream)
+                        await self._close_stream_allowing_background_completion(stream)
                     except Exception as exc:
                         if yielded_terminal_event:
                             log_model_action_debug(

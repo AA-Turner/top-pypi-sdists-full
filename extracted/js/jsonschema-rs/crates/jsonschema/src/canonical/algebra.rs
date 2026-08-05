@@ -10,11 +10,12 @@ use crate::{
         ir::{
             canonicalize_value_set, tighter, type_set_schema, typed_group, ArrayLeaf, ArrayLeaves,
             AtLeastTwo, BoundCardinality, BoundInteger, BoundNumber, BoundRational, CanonicalJson,
-            ContainsFacet, Discrete, Divisors, IntegerBounds, IntegerLeaf, IntegerLeaves,
-            LengthBounds, NonEmpty, NumberLeaf, NumberLeaves, ObjectLeaf, ObjectLeaves, Round,
-            Schema, SchemaKind, Side, StringLeaf, StringLeaves, Verdict,
+            ContainsFacet, Discrete, Divisors, ExcludedDivisors, IntegerBounds, IntegerLeaf,
+            IntegerLeaves, LengthBounds, NonEmpty, NumberLeaf, NumberLeaves, ObjectLeaf,
+            ObjectLeaves, Round, Schema, SchemaKind, Side, StringLeaf, StringLeaves,
+            UncheckableFacet, Verdict,
         },
-        negate, parse,
+        negate, oracle, parse,
     },
     JsonType, JsonTypeSet,
 };
@@ -736,15 +737,20 @@ pub(crate) fn union(branches: Vec<Schema>, ctx: &CanonicalizationContext) -> Sch
     }
     let mut widened = types;
     integers.retain(|leaf| {
-        let spans_domain = leaf.bounds.is_unbounded() && leaf.multiple_of.is_empty();
+        let spans_domain = leaf.bounds.is_unbounded()
+            && leaf.multiple_of.is_empty()
+            && leaf.not_multiple_of.is_empty();
         if spans_domain {
             widened = union_type_sets(widened, JsonTypeSet::from(JsonType::Integer));
         }
         !spans_domain
     });
     numbers.retain(|leaf| {
-        let spans_domain =
-            leaf.minimum.is_none() && leaf.maximum.is_none() && leaf.multiple_of.is_empty();
+        let spans_domain = leaf.minimum.is_none()
+            && leaf.maximum.is_none()
+            && leaf.multiple_of.is_empty()
+            && leaf.not_multiple_of.is_empty()
+            && !leaf.excludes_integers;
         if spans_domain {
             widened = union_type_sets(widened, JsonTypeSet::from(JsonType::Number));
         }
@@ -753,6 +759,7 @@ pub(crate) fn union(branches: Vec<Schema>, ctx: &CanonicalizationContext) -> Sch
     strings.retain(|leaf| {
         let spans_domain = leaf.lengths.is_unbounded()
             && leaf.patterns.is_empty()
+            && leaf.excluded_patterns.is_empty()
             && leaf.formats.is_empty()
             && leaf.excluded_formats.is_empty()
             && leaf.content_media_types.is_empty()
@@ -799,6 +806,41 @@ pub(crate) fn union(branches: Vec<Schema>, ctx: &CanonicalizationContext) -> Sch
         );
     }
 
+    // An integer branch whose values a real interval also accepts adds nothing beside it. A divisor
+    // of one over a whole number leaves every integer a multiple, so an interval spanning the window
+    // under such a divisor takes it entire.
+    // e.g.  anyOf [
+    //         {"type": "integer", "minimum": -5},
+    //         {"type": "number", "multipleOf": 0.1}
+    //       ]  =>  {"type": "number", "multipleOf": 0.1}
+    // A divisor the window's integers step past keeps the two apart.
+    // e.g.  anyOf [
+    //         {"type": "integer", "minimum": -5},
+    //         {"type": "number", "multipleOf": 1.5}
+    //       ]  =>  unchanged
+    if !numbers.is_empty() {
+        let intervals = numbers.as_slice();
+        integers.retain(|window| {
+            !intervals
+                .iter()
+                .any(|interval| number_leaf_covers_integer_leaf(interval, window))
+        });
+        // Draft 4 keeps a whole value under an `integer` guard, where `7` does not match `7.0`. The
+        // interval matches both, so it still holds everything the guard leaves.
+        // e.g.  Draft 4, anyOf [
+        //         {"type": "integer", "enum": [1, 2]},
+        //         {"type": "number", "multipleOf": 0.5}
+        //       ]  =>  {"type": "number", "multipleOf": 0.5}
+        groups.retain(|(ty, values)| {
+            *ty != JsonType::Integer
+                || !values.iter().all(|member| {
+                    intervals
+                        .iter()
+                        .any(|leaf| number_leaf_admits(leaf, member))
+                })
+        });
+    }
+
     // A value one of the surviving windows already accepts adds nothing beside it.
     // e.g.  anyOf [
     //         {"type": "string", "minLength": 1},
@@ -811,20 +853,10 @@ pub(crate) fn union(branches: Vec<Schema>, ctx: &CanonicalizationContext) -> Sch
             || !arrays.is_empty()
             || !objects.is_empty())
     {
-        let compiled: Vec<(&StringLeaf, Vec<Arc<CompiledMatcher>>)> = strings
+        let compiled: Vec<(&StringLeaf, StringMatchers)> = strings
             .as_slice()
             .iter()
-            .map(|leaf| {
-                let regexes = leaf
-                    .patterns
-                    .iter()
-                    .map(|pattern| {
-                        ctx.compile_regex(pattern)
-                            .expect("pattern validated during parsing")
-                    })
-                    .collect();
-                (leaf, regexes)
-            })
+            .map(|leaf| (leaf, StringMatchers::compile(leaf, ctx)))
             .collect();
         let windows = integers.as_slice();
         let intervals = numbers.as_slice();
@@ -998,9 +1030,23 @@ pub(crate) fn union(branches: Vec<Schema>, ctx: &CanonicalizationContext) -> Sch
         out.push(value_set);
     }
 
-    // Shedding a conjunct leaves a branch the absorptions below can then take whole, so the
-    // rewrite goes first.
-    drop_conjuncts_a_complement_branch_covers(&mut out);
+    // Shedding a conjunct leaves a plain leaf where a conjunction stood, and leaves are weighed
+    // against each other in the pools this pass has already run, so the pass runs again over the
+    // shed branches. Every shed lowers the number of conjuncts the branches hold and a pass mints
+    // no conjunction of its own, which bounds the recursion.
+    // e.g.  anyOf [
+    //         {"type": "object", "properties": {"a": false}},
+    //         allOf [{"type": "object"}, {"$ref": "#/$defs/integer"}],
+    //         {"not": {"$ref": "#/$defs/integer"}}
+    //       ]  =>  anyOf [{"type": "object"}, {"not": {"$ref": "#/$defs/integer"}}]
+    let held = conjuncts_held(&out);
+    if drop_conjuncts_a_complement_branch_covers(&mut out) {
+        debug_assert!(
+            conjuncts_held(&out) < held,
+            "shedding left the branches as they were"
+        );
+        return union(out, ctx);
+    }
     // A direct branch absorbs every stricter conjunction containing it: `A or (A and B) = A`.
     let top_level: ahash::AHashSet<Schema> = out.iter().cloned().collect();
     // A branch beside its own complement leaves no value out: `A or (not A) = true`.
@@ -1095,6 +1141,7 @@ fn lift_degenerate_member(
                     maximum: Some(BoundCardinality::from(0)),
                 },
                 patterns: Vec::new(),
+                excluded_patterns: Vec::new(),
                 formats: Vec::new(),
                 excluded_formats: Vec::new(),
                 content_media_types: Vec::new(),
@@ -1117,6 +1164,7 @@ fn lift_degenerate_member(
                     maximum: Some(bound),
                 },
                 multiple_of: Divisors::default(),
+                not_multiple_of: ExcludedDivisors::default(),
             });
             true
         }
@@ -1134,6 +1182,8 @@ fn lift_degenerate_member(
                 minimum: Some(bound.clone()),
                 maximum: Some(bound),
                 multiple_of: Divisors::default(),
+                not_multiple_of: ExcludedDivisors::default(),
+                excludes_integers: false,
             };
             let collapses_back = matches!(
                 number_leaf(window.clone(), ctx).kind(),
@@ -1332,7 +1382,8 @@ fn collapse_object_leaves_covering_domain(
         pattern_properties: BTreeMap::new(),
         additional: None,
     };
-    if !split_piece_is_covered(piece.clone(), leaves, &keys, ctx) {
+    let packed = packed_leaves(leaves, ctx);
+    if !split_piece_is_covered(piece.clone(), &packed, &keys, ctx) {
         return false;
     }
     leaves.clear();
@@ -1340,23 +1391,70 @@ fn collapse_object_leaves_covering_domain(
     true
 }
 
+/// Pack every leaf into a node once. The coverage walk below tests one node against the same set of
+/// leaves at every step of a split, and packing carries a full copy of the property map.
+fn packed_leaves(leaves: &[ObjectLeaf], ctx: &CanonicalizationContext) -> Vec<Schema> {
+    leaves
+        .iter()
+        .map(|leaf| object_leaf(leaf.clone(), ctx))
+        .collect()
+}
+
+/// The packed leaves other than `index`.
+fn siblings_of(packed: &[Schema], index: usize) -> Vec<Schema> {
+    packed
+        .iter()
+        .enumerate()
+        .filter(|(sibling, _)| *sibling != index)
+        .map(|(_, schema)| schema.clone())
+        .collect()
+}
+
+/// Every key the leaves other than `index` name, sorted and deduplicated.
+fn keys_beside(leaves: &[ObjectLeaf], index: usize) -> Vec<Arc<str>> {
+    let mut keys: Vec<Arc<str>> = leaves
+        .iter()
+        .enumerate()
+        .filter(|(sibling, _)| *sibling != index)
+        .flat_map(|(_, leaf)| leaf.required.iter().chain(leaf.properties.keys()).cloned())
+        .collect();
+    keys.sort();
+    keys.dedup();
+    keys
+}
+
 /// Whether some leaf admits the whole piece, or both halves of a key-presence split do
 /// recursively. The key list shrinks with each split, which bounds the recursion.
 fn split_piece_is_covered(
     piece: ObjectLeaf,
-    leaves: &[ObjectLeaf],
+    leaves: &[Schema],
     keys: &[Arc<str>],
     ctx: &CanonicalizationContext,
 ) -> bool {
+    debug_assert!(
+        keys.windows(2).all(|pair| pair[0] < pair[1]),
+        "the split keys are sorted and deduplicated"
+    );
     let schema = object_leaf(piece.clone(), ctx);
     if matches!(schema.kind(), SchemaKind::False) {
         return true;
     }
-    if leaves
-        .iter()
-        .any(|leaf| intersect(schema.clone(), object_leaf(leaf.clone(), ctx), ctx) == schema)
-    {
-        return true;
+    let mut any_within_reach = false;
+    for leaf in leaves {
+        if !piece_meets_demands(&schema, leaf) {
+            continue;
+        }
+        any_within_reach = true;
+        if oracle::covers(&schema, leaf, ctx) == Verdict::Admits {
+            return true;
+        }
+    }
+    // Barring a key leaves the required list alone, so a leaf out of reach here is out of reach for
+    // every piece down the chain of missing halves. That chain ends out of keys, uncovered, and -
+    // when barring cannot empty a piece - still admitting something, so it answers no, and one no
+    // settles the conjunction below.
+    if !any_within_reach && barring_keys_keeps_the_piece(&piece, keys) {
+        return false;
     }
     let Some((key, rest)) = keys.split_first() else {
         return false;
@@ -1373,6 +1471,40 @@ fn split_piece_is_covered(
         && split_piece_is_covered(missing, leaves, rest, ctx)
 }
 
+/// Whether the piece demands every key the leaf does, both already packed by [`object_leaf`].
+///
+/// A leaf failing this cannot admit the piece: the intersection unions the two required lists and
+/// packing never touches that list, so a key only the leaf demands survives into the result and
+/// tells the two apart. Deciding it reads the required lists alone, where the intersection would
+/// merge the property maps - the part that costs, a piece carrying one entry per split key.
+fn piece_meets_demands(piece: &Schema, leaf: &Schema) -> bool {
+    let (SchemaKind::Object(piece_leaf), SchemaKind::Object(other)) = (piece.kind(), leaf.kind())
+    else {
+        return true;
+    };
+    let demanded = &piece_leaf.get().required;
+    other
+        .get()
+        .required
+        .iter()
+        .all(|key| demanded.binary_search(key).is_ok())
+}
+
+/// Whether barring any of these keys leaves the piece saying the same thing about its required
+/// list and still admitting something. A key constraint, a shield, a pattern map or a size ceiling
+/// read the key set as a whole, so under any of them a barred key reaches further than the entry it
+/// adds; and barring a key the piece demands empties it outright.
+fn barring_keys_keeps_the_piece(piece: &ObjectLeaf, keys: &[Arc<str>]) -> bool {
+    piece.property_names.is_none()
+        && piece.additional.is_none()
+        && piece.pattern_properties.is_empty()
+        && piece.sizes.maximum.is_none()
+        && piece
+            .required
+            .iter()
+            .all(|key| keys.binary_search(key).is_err())
+}
+
 /// Drop a size bound when the region it excludes - the leaf's other facets on the outer ray - is
 /// jointly covered by the siblings, so the wider window admits nothing new.
 /// ```text
@@ -1387,6 +1519,7 @@ fn widen_size_window_covered_by_siblings(
     leaves: &mut [ObjectLeaf],
     ctx: &CanonicalizationContext,
 ) -> bool {
+    let packed = packed_leaves(leaves, ctx);
     for index in 0..leaves.len() {
         let Some(rays) = negate::length_windows(&leaves[index].sizes) else {
             continue;
@@ -1394,18 +1527,8 @@ fn widen_size_window_covered_by_siblings(
         if rays.is_empty() {
             continue;
         }
-        let siblings: Vec<ObjectLeaf> = leaves
-            .iter()
-            .enumerate()
-            .filter(|(sibling, _)| *sibling != index)
-            .map(|(_, leaf)| leaf.clone())
-            .collect();
-        let mut keys: Vec<Arc<str>> = siblings
-            .iter()
-            .flat_map(|leaf| leaf.required.iter().chain(leaf.properties.keys()).cloned())
-            .collect();
-        keys.sort();
-        keys.dedup();
+        let siblings = siblings_of(&packed, index);
+        let keys = keys_beside(leaves, index);
         for ray in rays {
             let drops_minimum = ray.minimum.is_none();
             let mut piece = leaves[index].clone();
@@ -1440,19 +1563,10 @@ fn drop_object_branch_covered_by_siblings(
     leaves: &mut Vec<ObjectLeaf>,
     ctx: &CanonicalizationContext,
 ) -> bool {
+    let packed = packed_leaves(leaves, ctx);
     for index in 0..leaves.len() {
-        let siblings: Vec<ObjectLeaf> = leaves
-            .iter()
-            .enumerate()
-            .filter(|(sibling, _)| *sibling != index)
-            .map(|(_, leaf)| leaf.clone())
-            .collect();
-        let mut keys: Vec<Arc<str>> = siblings
-            .iter()
-            .flat_map(|leaf| leaf.required.iter().chain(leaf.properties.keys()).cloned())
-            .collect();
-        keys.sort();
-        keys.dedup();
+        let siblings = siblings_of(&packed, index);
+        let keys = keys_beside(leaves, index);
         if split_piece_is_covered(leaves[index].clone(), &siblings, &keys, ctx) {
             leaves.remove(index);
             return true;
@@ -1465,14 +1579,17 @@ fn drop_object_branch_covered_by_siblings(
         //         {"type": "object", "minProperties": 2, "properties": {"a": {"type": "string"}}}
         //       ]  =>  the first branch dissolves: at one key the entry says nothing beside the
         //              filled slots, above that the third branch holds it
-        for divider in 0..siblings.len() {
-            let Some(mut windows) = negate::length_windows(&siblings[divider].sizes) else {
+        for divider in 0..leaves.len() {
+            if divider == index {
+                continue;
+            }
+            let Some(mut windows) = negate::length_windows(&leaves[divider].sizes) else {
                 continue;
             };
             if windows.is_empty() {
                 continue;
             }
-            windows.push(siblings[divider].sizes.clone());
+            windows.push(leaves[divider].sizes.clone());
             let all_covered = windows.iter().all(|window| {
                 let mut piece = leaves[index].clone();
                 piece.sizes = LengthBounds {
@@ -1802,21 +1919,20 @@ fn restrict_members(
         SchemaKind::MultiType(set) => parse::restrict_values_to_types(members, set, ctx),
         // `other` is a string leaf: keep the members that fit its window and match every pattern.
         SchemaKind::String(leaf) => {
-            let regexes: Vec<_> = leaf
-                .get()
-                .patterns
-                .iter()
-                .map(|pattern| {
-                    ctx.compile_regex(pattern)
-                        .expect("pattern validated during parsing")
-                })
-                .collect();
+            let matchers = StringMatchers::compile(leaf.get(), ctx);
             let kept = members
                 .into_iter()
-                // Dropping a member narrows the schema, so only a definite rejection drops one.
+                // A value set holds no facet, so a facet no checker covers cannot survive beside a
+                // member and reads here the way a validator without a checker reads it.
                 .filter(|member| {
                     !matches!(
-                        string_leaf_admits(leaf.get(), &regexes, member, ctx),
+                        string_leaf_admits(
+                            leaf.get(),
+                            &matchers,
+                            member,
+                            UncheckableFacet::Skipped,
+                            ctx
+                        ),
                         Verdict::Rejects
                     )
                 })
@@ -1847,13 +1963,21 @@ fn restrict_members(
             typed_group(ty, canonicalize_value_set(kept))
         }
         // Intersect dispatch already handled `True`/`False`/`AnyOf`/`Raw`, so `other` is a leaf here.
-        // `other` is a number interval: keep the numeric members it admits.
+        // `other` is a number interval: keep the numeric members it fully admits, and pin a member
+        // the leaf admits only outside its integer tokens to the leaf shape carrying that.
         SchemaKind::Number(leaf) => {
-            let kept = members
-                .into_iter()
-                .filter(|member| number_leaf_admits(leaf.get(), member))
-                .collect();
-            canonicalize_value_set(kept)
+            let mut kept = Vec::new();
+            let mut partial = Vec::new();
+            for member in members {
+                match restrict_number_member(leaf.get(), &member, ctx) {
+                    MemberRestriction::Full => kept.push(member),
+                    MemberRestriction::Empty => {}
+                    MemberRestriction::Partial(schema) => partial.push(schema),
+                }
+            }
+            let mut branches = vec![canonicalize_value_set(kept)];
+            branches.extend(partial);
+            union(branches, ctx)
         }
         // `other` is an array leaf: keep the array members it fully admits, and pin a member an
         // element schema only partially admits to the admitted part of its equality class.
@@ -1935,7 +2059,7 @@ fn value_set_admits_group(value_set: &Schema, body: &Schema) -> bool {
 // The arms are guarded on the draft, so they cannot be enumerated.
 #[allow(clippy::wildcard_enum_match_arm)]
 fn leaf_absorbs_member(
-    strings: &[(&StringLeaf, Vec<Arc<CompiledMatcher>>)],
+    strings: &[(&StringLeaf, StringMatchers)],
     integers: &[IntegerLeaf],
     numbers: &[NumberLeaf],
     arrays: &[ArrayLeaf],
@@ -1951,9 +2075,9 @@ fn leaf_absorbs_member(
         Value::Object(map) => objects
             .iter()
             .any(|leaf| matches!(object_leaf_admits(leaf, map, ctx), Verdict::Admits)),
-        Value::String(_) => strings.iter().any(|(leaf, regexes)| {
+        Value::String(_) => strings.iter().any(|(leaf, matchers)| {
             matches!(
-                string_leaf_admits(leaf, regexes, member, ctx),
+                string_leaf_admits(leaf, matchers, member, UncheckableFacet::Undecided, ctx),
                 Verdict::Admits
             )
         }),
@@ -1977,19 +2101,23 @@ fn union_type_sets(left: JsonTypeSet, right: JsonTypeSet) -> JsonTypeSet {
 
 /// A `String` node, collapsed to `False` when its length window is empty.
 pub(crate) fn string_leaf(mut leaf: StringLeaf, ctx: &CanonicalizationContext) -> Schema {
-    if formats_conflict(&leaf, ctx) {
+    if formats_conflict(&leaf, ctx) || patterns_conflict(&leaf) {
         return Schema::new(SchemaKind::False);
     }
     absorb_empty_exclusion(&mut leaf);
+    // No barred-pattern counterpart: a format has a length window to test against, a regex has
+    // none, so nothing prunes one that cannot bite.
     prune_excluded_formats(&mut leaf, ctx);
     prune_excluded(&mut leaf, ctx);
     let Some(leaf) = NonEmpty::new(leaf) else {
         return Schema::new(SchemaKind::False);
     };
     // `maxLength: 0` accepts the empty string and nothing else. A leaf this narrow is spelled as
-    // the constant before anything can exclude from it, so exclusions cannot reach here.
+    // the constant before anything can exclude from it, so exclusions cannot reach here. Nothing
+    // prunes a barred pattern against the window, so the collapse gives way to one.
     // e.g.  {"type": "string", "maxLength": 0}  =>  {"const": ""}
     if leaf.get().patterns.is_empty()
+        && leaf.get().excluded_patterns.is_empty()
         && leaf.get().formats.is_empty()
         && leaf.get().content_media_types.is_empty()
         && leaf.get().content_encodings.is_empty()
@@ -2010,7 +2138,8 @@ pub(crate) fn string_leaf(mut leaf: StringLeaf, ctx: &CanonicalizationContext) -
 /// A complement branch takes every value its own operand rejects, so a sibling conjunction holding
 /// that operand says nothing by holding it: `(not A) or (A and B) = (not A) or B`. A conjunction
 /// made entirely of covered operands keeps its form, since the union around it is then every value.
-fn drop_conjuncts_a_complement_branch_covers(branches: &mut [Schema]) {
+/// Reports whether a branch shed anything.
+fn drop_conjuncts_a_complement_branch_covers(branches: &mut [Schema]) -> bool {
     let complemented: ahash::AHashSet<Schema> = branches
         .iter()
         .filter_map(|branch| {
@@ -2022,8 +2151,9 @@ fn drop_conjuncts_a_complement_branch_covers(branches: &mut [Schema]) {
         })
         .collect();
     if complemented.is_empty() {
-        return;
+        return false;
     }
+    let mut shed = false;
     for branch in branches.iter_mut() {
         let SchemaKind::AllOf(conjuncts) = branch.kind() else {
             continue;
@@ -2041,7 +2171,15 @@ fn drop_conjuncts_a_complement_branch_covers(branches: &mut [Schema]) {
             Ok(remaining) => Schema::new(SchemaKind::AllOf(remaining)),
             Err(mut lone) => lone.pop().expect("a non-empty conjunct list"),
         };
+        shed = true;
     }
+    shed
+}
+
+/// How many conjuncts the branches hold between them, counting a branch that is not a conjunction
+/// as the single demand it makes.
+fn conjuncts_held(branches: &[Schema]) -> usize {
+    branches.iter().map(|branch| demands(branch).len()).sum()
 }
 
 /// Narrow a property entry spelling several alternatives down to the ones its own branch needs: the
@@ -2265,20 +2403,13 @@ fn prune_excluded(leaf: &mut StringLeaf, ctx: &CanonicalizationContext) {
     if leaf.excluded.is_empty() {
         return;
     }
-    let regexes: Vec<Arc<CompiledMatcher>> = leaf
-        .patterns
-        .iter()
-        .map(|pattern| {
-            ctx.compile_regex(pattern)
-                .expect("pattern validated during parsing")
-        })
-        .collect();
+    let matchers = StringMatchers::compile(leaf, ctx);
     let excluded = std::mem::take(&mut leaf.excluded);
     leaf.excluded = excluded
         .into_iter()
         .filter(|value| {
             !matches!(
-                string_leaf_admits_text(leaf, &regexes, value, ctx),
+                string_leaf_admits_text(leaf, &matchers, value, UncheckableFacet::Undecided, ctx),
                 Verdict::Rejects
             )
         })
@@ -2292,6 +2423,8 @@ fn intersect_integer_leaves(first: IntegerLeaf, second: IntegerLeaf) -> IntegerL
     IntegerLeaf {
         bounds: first.bounds.intersect(second.bounds),
         multiple_of: first.multiple_of.intersect(second.multiple_of),
+        // Meeting both sets of exclusions is meeting their union.
+        not_multiple_of: first.not_multiple_of.intersect(second.not_multiple_of),
     }
 }
 
@@ -2300,6 +2433,19 @@ fn intersect_integer_leaves(first: IntegerLeaf, second: IntegerLeaf) -> IntegerL
 /// the number domain, so the value needs no type guard.
 /// e.g.  {"type": "number", "minimum": 5, "maximum": 5}  =>  {"const": 5}
 pub(crate) fn number_leaf(leaf: NumberLeaf, ctx: &CanonicalizationContext) -> Schema {
+    // Outside Draft 4 the draft's integers are exactly the multiples of one, so the exclusion
+    // respells as a barred divisor and both spellings land on one form.
+    let leaf = if leaf.excludes_integers && !matches!(ctx.draft(), Draft::Draft4) {
+        NumberLeaf {
+            not_multiple_of: leaf
+                .not_multiple_of
+                .intersect(ExcludedDivisors::one(whole_divisor())),
+            excludes_integers: false,
+            ..leaf
+        }
+    } else {
+        leaf
+    };
     let leaf = snap_to_progression(leaf);
     // Every draft after 4 counts `2.0` as an integer, so a whole divisor already restricts the leaf
     // to the integers it admits and both spellings denote one set.
@@ -2316,6 +2462,7 @@ pub(crate) fn number_leaf(leaf: NumberLeaf, ctx: &CanonicalizationContext) -> Sc
                 IntegerLeaf {
                     bounds,
                     multiple_of: leaf.multiple_of,
+                    not_multiple_of: leaf.not_multiple_of,
                 },
                 ctx,
             );
@@ -2327,7 +2474,14 @@ pub(crate) fn number_leaf(leaf: NumberLeaf, ctx: &CanonicalizationContext) -> Sc
     if let (Some(min), Some(max)) = (&leaf.get().minimum, &leaf.get().maximum) {
         if min.is_inclusive() && max.is_inclusive() && min.to_number() == max.to_number() {
             let point = min.to_number();
-            return if leaf.get().multiple_of.divide(&point) {
+            // A whole point under the exclusion still admits its non-integer tokens, which only
+            // the leaf shape can say.
+            if leaf.get().excludes_integers && jsonschema_value::types::number_is_integer(&point) {
+                return Schema::new(SchemaKind::Number(leaf));
+            }
+            return if leaf.get().multiple_of.divide(&point)
+                && !leaf.get().not_multiple_of.bars(&point)
+            {
                 Schema::new(SchemaKind::Const(CanonicalJson::from_value(
                     &Value::Number(point),
                 )))
@@ -2336,6 +2490,11 @@ pub(crate) fn number_leaf(leaf: NumberLeaf, ctx: &CanonicalizationContext) -> Sc
             };
         }
     }
+    // Paired with the `expect` in `integer_within`, whose leaf always comes from a node built here.
+    debug_assert!(
+        leaf.get().excludes_integers || integer_bounds_within(leaf.get()).is_some(),
+        "a number leaf admitting integers holds ends the integer bounds can spell"
+    );
     Schema::new(SchemaKind::Number(leaf))
 }
 
@@ -2730,12 +2889,15 @@ fn array_leaf_admits(leaf: &ArrayLeaf, items: &[Value], ctx: &CanonicalizationCo
     if leaf.unique && has_duplicate_elements(items) {
         return Verdict::Rejects;
     }
-    contains_verdict(&leaf.contains, items, ctx).and(Verdict::all(items.iter().enumerate().map(
-        |(index, element)| match element_schema(leaf, index) {
-            Some(schema) => admits_value(schema, element, ctx),
-            None => Verdict::Admits,
-        },
-    )))
+    contains_verdict(&leaf.contains, items, UncheckableFacet::Undecided, ctx).and(Verdict::all(
+        items
+            .iter()
+            .enumerate()
+            .map(|(index, element)| match element_schema(leaf, index) {
+                Some(schema) => admits_value(schema, element, UncheckableFacet::Undecided, ctx),
+                None => Verdict::Admits,
+            }),
+    ))
 }
 
 /// How the `contains` demands read `elements`. An undecided element leaves the matching count an
@@ -2744,6 +2906,7 @@ fn array_leaf_admits(leaf: &ArrayLeaf, items: &[Value], ctx: &CanonicalizationCo
 fn contains_verdict(
     facets: &[ContainsFacet],
     elements: &[Value],
+    uncheckable: UncheckableFacet,
     ctx: &CanonicalizationContext,
 ) -> Verdict {
     let mut verdict = Verdict::Admits;
@@ -2751,7 +2914,7 @@ fn contains_verdict(
         let mut definite: u64 = 0;
         let mut possible: u64 = 0;
         for element in elements {
-            match admits_value(&facet.schema, element, ctx) {
+            match admits_value(&facet.schema, element, uncheckable, ctx) {
                 Verdict::Admits => {
                     definite += 1;
                     possible += 1;
@@ -2808,19 +2971,21 @@ fn restrict_array_member(
     if leaf.unique && has_duplicate_elements(elements) {
         return MemberRestriction::Empty;
     }
-    let contains_symbolic_reference = leaf
-        .contains
-        .iter()
-        .any(|facet| contains_reference(&facet.schema));
-    // Dropping the member narrows the schema, so only a definite `contains` rejection drops it.
-    // An uncheckable format is ignored by validation, while a symbolic reference must survive.
-    let (mut full, contains) = match contains_verdict(&leaf.contains, elements, ctx) {
-        Verdict::Rejects => return MemberRestriction::Empty,
-        Verdict::Unknown if contains_symbolic_reference => (false, leaf.contains.clone()),
-        Verdict::Admits | Verdict::Unknown => (true, Vec::new()),
-    };
+    // Counting the elements of a finite member leaves the demand undecided only across a symbolic
+    // reference, which must survive on the member. A facet no checker covers already counted, both
+    // toward the floor and toward the ceiling.
+    let (mut full, contains) =
+        match contains_verdict(&leaf.contains, elements, UncheckableFacet::Skipped, ctx) {
+            Verdict::Rejects => return MemberRestriction::Empty,
+            Verdict::Unknown => (false, leaf.contains.clone()),
+            Verdict::Admits => (true, Vec::new()),
+        };
     debug_assert!(
-        contains.is_empty() || contains_symbolic_reference,
+        contains.is_empty()
+            || leaf
+                .contains
+                .iter()
+                .any(|facet| contains_reference(&facet.schema)),
         "only reference-bearing contains facets survive an undecidable finite member"
     );
     let mut restricted = Vec::with_capacity(elements.len());
@@ -3146,11 +3311,12 @@ fn admitted_keys(leaf: &ObjectLeaf) -> Option<Vec<Arc<str>>> {
 
 /// What the leaf demands of `key`: its property schema met with every pattern schema matching it.
 fn key_schema(leaf: &ObjectLeaf, key: &str, ctx: &CanonicalizationContext) -> Schema {
-    let mut schema = leaf.properties.get(key).cloned().unwrap_or_else(|| {
-        leaf.additional
-            .clone()
-            .unwrap_or_else(|| Schema::new(SchemaKind::True))
-    });
+    let mut schema = leaf
+        .properties
+        .get(key)
+        .or_else(|| governing_shield(leaf, key, ctx))
+        .cloned()
+        .unwrap_or_else(|| Schema::new(SchemaKind::True));
     for (pattern, pattern_schema) in &leaf.pattern_properties {
         if matches_key(pattern, key, ctx) {
             schema = intersect(schema, pattern_schema.clone(), ctx);
@@ -3218,17 +3384,11 @@ fn admits_key(names: &Schema, key: &str, ctx: &CanonicalizationContext) -> Verdi
                 .iter()
                 .any(|value| matches!(value.as_value(), Value::String(text) if text == key)),
         ),
+        // A key constraint survives on an object leaf, so an undecided facet needs no reading of
+        // its own here: the leaf that keeps it hands it to the validator.
         SchemaKind::String(leaf) => {
-            let regexes: Vec<_> = leaf
-                .get()
-                .patterns
-                .iter()
-                .map(|pattern| {
-                    ctx.compile_regex(pattern)
-                        .expect("pattern validated during parsing")
-                })
-                .collect();
-            string_leaf_admits_text(leaf.get(), &regexes, key, ctx)
+            let matchers = StringMatchers::compile(leaf.get(), ctx);
+            string_leaf_admits_text(leaf.get(), &matchers, key, UncheckableFacet::Undecided, ctx)
         }
         SchemaKind::AnyOf(branches) => Verdict::any(
             branches
@@ -3262,7 +3422,12 @@ fn admits_key(names: &Schema, key: &str, ctx: &CanonicalizationContext) -> Verdi
 }
 
 /// Whether `schema` admits every value in `value`'s equality class.
-fn admits_value(schema: &Schema, value: &Value, ctx: &CanonicalizationContext) -> Verdict {
+pub(crate) fn admits_value(
+    schema: &Schema,
+    value: &Value,
+    uncheckable: UncheckableFacet,
+    ctx: &CanonicalizationContext,
+) -> Verdict {
     if contains_reference(schema) {
         return Verdict::Unknown;
     }
@@ -3273,9 +3438,11 @@ fn admits_value(schema: &Schema, value: &Value, ctx: &CanonicalizationContext) -
     if intersect(schema.clone(), member.clone(), ctx) != member {
         return Verdict::Rejects;
     }
-    // Intersection reads a format or content check no checker covers as admitting, so its "yes" is
-    // definite only when the schema carries none.
-    if has_uncheckable_string_facet(schema, ctx) {
+    // Intersection reads a facet no checker covers the way a validator without one does, so its
+    // "yes" is definite only when the schema carries none.
+    if matches!(uncheckable, UncheckableFacet::Undecided)
+        && has_uncheckable_string_facet(schema, ctx)
+    {
         return Verdict::Unknown;
     }
     Verdict::Admits
@@ -3356,13 +3523,14 @@ pub(crate) fn contains_reference(schema: &Schema) -> bool {
     }
 }
 
-/// Whether `schema` asserts a format, media type, or encoding this draft has no checker for.
+/// Whether `schema` demands or bars a format, media type, or encoding this draft has no checker for.
 fn has_uncheckable_string_facet(schema: &Schema, ctx: &CanonicalizationContext) -> bool {
     match schema.kind() {
         SchemaKind::String(leaf) => {
             leaf.get()
                 .formats
                 .iter()
+                .chain(leaf.get().excluded_formats.iter())
                 .any(|format| crate::keywords::format::is_valid(ctx.draft(), format, "").is_none())
                 || leaf
                     .get()
@@ -3390,6 +3558,7 @@ fn has_uncheckable_string_facet(schema: &Schema, ctx: &CanonicalizationContext) 
             .iter()
             .chain(leaf.get().properties.values())
             .chain(leaf.get().pattern_properties.values())
+            .chain(leaf.get().additional.iter())
             .any(|nested| has_uncheckable_string_facet(nested, ctx)),
         SchemaKind::Array(leaf) => leaf
             .get()
@@ -3427,6 +3596,11 @@ fn intersect_object_leaves(
     second: ObjectLeaf,
     ctx: &CanonicalizationContext,
 ) -> ObjectLeaf {
+    let properties = intersect_property_entries(&first, &second, ctx);
+    let pattern_properties = intersect_pattern_entries(&first, &second, ctx);
+    if !spells_shielded_meet(&first, &second, &properties, ctx) {
+        ctx.record_unspellable_meet();
+    }
     let mut required = first.required;
     required.extend(second.required);
     required.sort();
@@ -3435,45 +3609,10 @@ fn intersect_object_leaves(
         (Some(left), Some(right)) => Some(intersect(left, right, ctx)),
         (names, None) | (None, names) => names,
     };
-    // A key named on one side only still answers to the other side's `additionalProperties`
-    // schema, so the merged entry meets it; a key named on both is shielded on both.
-    let first_shield = first.additional;
-    let second_shield = second.additional;
-    let mut properties = first.properties;
-    let first_named: Vec<Arc<str>> = properties.keys().cloned().collect();
-    let mut second_named: Vec<Arc<str>> = Vec::with_capacity(second.properties.len());
-    for (key, schema) in second.properties {
-        second_named.push(Arc::clone(&key));
-        let entry = match (properties.remove(&key), &first_shield) {
-            (Some(existing), _) => intersect(existing, schema, ctx),
-            (None, Some(shield)) => intersect(shield.clone(), schema, ctx),
-            (None, None) => schema,
-        };
-        properties.insert(key, entry);
-    }
-    if let Some(shield) = &second_shield {
-        for key in &first_named {
-            if !second_named.contains(key) {
-                let entry = properties
-                    .remove(key)
-                    .map(|entry| intersect(entry, shield.clone(), ctx));
-                if let Some(entry) = entry {
-                    properties.insert(Arc::clone(key), entry);
-                }
-            }
-        }
-    }
-    let additional = match (first_shield, second_shield) {
+    let additional = match (first.additional, second.additional) {
         (Some(left), Some(right)) => Some(intersect(left, right, ctx)),
         (shield, None) | (None, shield) => shield,
     };
-    let mut pattern_properties = first.pattern_properties;
-    for (pattern, schema) in second.pattern_properties {
-        match pattern_properties.remove(&pattern) {
-            Some(existing) => pattern_properties.insert(pattern, intersect(existing, schema, ctx)),
-            None => pattern_properties.insert(pattern, schema),
-        };
-    }
     ObjectLeaf {
         sizes: first.sizes.intersect(second.sizes),
         required,
@@ -3482,6 +3621,140 @@ fn intersect_object_leaves(
         pattern_properties,
         additional,
     }
+}
+
+/// What one leaf's `additionalProperties` demands of `key`, which is nothing unless that leaf
+/// leaves the key to the shield - naming it or matching it with a pattern takes it away.
+fn governing_shield<'leaf>(
+    leaf: &'leaf ObjectLeaf,
+    key: &str,
+    ctx: &CanonicalizationContext,
+) -> Option<&'leaf Schema> {
+    let shield = leaf.additional.as_ref()?;
+    if leaf.properties.contains_key(key) {
+        return None;
+    }
+    (!leaf
+        .pattern_properties
+        .keys()
+        .any(|pattern| matches_key(pattern, key, ctx)))
+    .then_some(shield)
+}
+
+/// The entry for every key either leaf names, meeting what both sides demand of it: the stored
+/// entry where the side names the key, and the side's shield where it leaves the key to one.
+fn intersect_property_entries(
+    first: &ObjectLeaf,
+    second: &ObjectLeaf,
+    ctx: &CanonicalizationContext,
+) -> BTreeMap<Arc<str>, Schema> {
+    let mut keys: Vec<&Arc<str>> = first
+        .properties
+        .keys()
+        .chain(second.properties.keys())
+        .collect();
+    keys.sort();
+    keys.dedup();
+    let mut entries = BTreeMap::new();
+    for key in keys {
+        let mut entry = Schema::new(SchemaKind::True);
+        for applicable in [
+            first.properties.get(key),
+            governing_shield(first, key, ctx),
+            second.properties.get(key),
+            governing_shield(second, key, ctx),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            entry = intersect(entry, applicable.clone(), ctx);
+        }
+        entries.insert(Arc::clone(key), entry);
+    }
+    entries
+}
+
+/// The pattern entries of both leaves, met where they share a pattern. A side carrying no pattern
+/// of its own sends every key the other side's patterns match to its shield, so that shield meets
+/// each of those entries.
+fn intersect_pattern_entries(
+    first: &ObjectLeaf,
+    second: &ObjectLeaf,
+    ctx: &CanonicalizationContext,
+) -> BTreeMap<Arc<str>, Schema> {
+    let mut entries = first.pattern_properties.clone();
+    for (pattern, schema) in &second.pattern_properties {
+        let entry = match entries.remove(pattern) {
+            Some(existing) => intersect(existing, schema.clone(), ctx),
+            None => schema.clone(),
+        };
+        entries.insert(Arc::clone(pattern), entry);
+    }
+    let shield = match (
+        first.pattern_properties.is_empty(),
+        second.pattern_properties.is_empty(),
+    ) {
+        (true, false) => first.additional.as_ref(),
+        (false, true) => second.additional.as_ref(),
+        (true, true) | (false, false) => None,
+    };
+    if let Some(shield) = shield {
+        for entry in entries.values_mut() {
+            *entry = intersect(entry.clone(), shield.clone(), ctx);
+        }
+    }
+    entries
+}
+
+/// Whether the merged entries say exactly what both leaves demand of every key.
+///
+/// Two pattern maps beside a shield would need to know which keys the patterns share, since a key
+/// only one map matches answers to the other map's shield and a key both match answers to neither.
+/// A key the shield's own side names is outside that shield, so an entry the shield already
+/// admits keeps the pattern it was met into faithful and anything narrower does not.
+fn spells_shielded_meet(
+    first: &ObjectLeaf,
+    second: &ObjectLeaf,
+    properties: &BTreeMap<Arc<str>, Schema>,
+    ctx: &CanonicalizationContext,
+) -> bool {
+    if !first.pattern_properties.is_empty() && !second.pattern_properties.is_empty() {
+        // Maps naming the same patterns match the same keys, so no key reaches one map's shield
+        // without reaching the other's, and the entries carry both sides for every key either
+        // matches. Shields on neither side leave nothing to place in the first place.
+        let same_keys = first
+            .pattern_properties
+            .keys()
+            .eq(second.pattern_properties.keys());
+        return same_keys || (first.additional.is_none() && second.additional.is_none());
+    }
+    shield_spares_named_keys(first, second, properties, ctx)
+        && shield_spares_named_keys(second, first, properties, ctx)
+}
+
+/// Whether `shielded`'s shield, met into every pattern entry `patterned` carries, leaves the keys
+/// `shielded` names as they were.
+fn shield_spares_named_keys(
+    shielded: &ObjectLeaf,
+    patterned: &ObjectLeaf,
+    properties: &BTreeMap<Arc<str>, Schema>,
+    ctx: &CanonicalizationContext,
+) -> bool {
+    let Some(shield) = &shielded.additional else {
+        return true;
+    };
+    if patterned.pattern_properties.is_empty() {
+        return true;
+    }
+    shielded.properties.keys().all(|key| {
+        !patterned
+            .pattern_properties
+            .keys()
+            .any(|pattern| matches_key(pattern, key, ctx))
+            || properties
+                .get(key)
+                .is_some_and(|entry| oracle::covers(entry, shield, ctx) == Verdict::Admits)
+    })
 }
 
 /// Restrict `member` to the objects the leaf admits. `Partial` arises only under Draft 4, where a
@@ -3577,9 +3850,12 @@ fn object_leaf_admits(
         return Verdict::Rejects;
     }
     let values = Verdict::all(map.iter().map(|(key, value)| {
-        let named = match (leaf.properties.get(key.as_str()), &leaf.additional) {
-            (Some(schema), _) => admits_value(schema, value, ctx),
-            (None, Some(shield)) => admits_value(shield, value, ctx),
+        let named = match (
+            leaf.properties.get(key.as_str()),
+            governing_shield(leaf, key, ctx),
+        ) {
+            (Some(schema), _) => admits_value(schema, value, UncheckableFacet::Undecided, ctx),
+            (None, Some(shield)) => admits_value(shield, value, UncheckableFacet::Undecided, ctx),
             (None, None) => Verdict::Admits,
         };
         if named == Verdict::Rejects {
@@ -3588,7 +3864,7 @@ fn object_leaf_admits(
         named.and(Verdict::all(leaf.pattern_properties.iter().map(
             |(pattern, schema)| {
                 if matches_key(pattern, key, ctx) {
-                    admits_value(schema, value, ctx)
+                    admits_value(schema, value, UncheckableFacet::Undecided, ctx)
                 } else {
                     Verdict::Admits
                 }
@@ -3603,9 +3879,16 @@ fn intersect_number_leaves(first: NumberLeaf, second: NumberLeaf) -> NumberLeaf 
     NumberLeaf {
         minimum: tightest(first.minimum, second.minimum, Side::Lower),
         maximum: tightest(first.maximum, second.maximum, Side::Upper),
-        // Meeting both sets of divisors is meeting their union.
+        // Meeting both sets of divisors is meeting their union, and likewise the exclusions.
         multiple_of: first.multiple_of.intersect(second.multiple_of),
+        not_multiple_of: first.not_multiple_of.intersect(second.not_multiple_of),
+        excludes_integers: first.excludes_integers || second.excludes_integers,
     }
+}
+
+/// The divisor every whole-valued number is a multiple of.
+fn whole_divisor() -> BoundRational {
+    BoundRational::new(&serde_json::Number::from(1)).expect("one is a representable divisor")
 }
 
 /// Pull each end onto the progression, so an interval and its divisor have one spelling. Only a
@@ -3624,6 +3907,8 @@ fn snap_to_progression(leaf: NumberLeaf) -> NumberLeaf {
         minimum: snap(leaf.minimum, Round::Up),
         maximum: snap(leaf.maximum, Round::Down),
         multiple_of: leaf.multiple_of,
+        not_multiple_of: leaf.not_multiple_of,
+        excludes_integers: leaf.excludes_integers,
     }
 }
 
@@ -3644,12 +3929,16 @@ fn tightest(
 
 /// The integers a number interval admits. Endpoints are whole here, so an excluded one steps by one.
 fn integer_within(leaf: &NumberLeaf, ctx: &CanonicalizationContext) -> Schema {
+    if leaf.excludes_integers {
+        return Schema::new(SchemaKind::False);
+    }
     let bounds = integer_bounds_within(leaf)
-        .expect("interval bounds hold representable integers, checked during parsing");
+        .expect("a number leaf admitting integers holds ends the integer bounds can spell");
     integer_leaf(
         IntegerLeaf {
             bounds,
             multiple_of: leaf.multiple_of.clone(),
+            not_multiple_of: leaf.not_multiple_of.clone(),
         },
         ctx,
     )
@@ -3684,6 +3973,30 @@ pub(crate) fn integer_bounds_within(leaf: &NumberLeaf) -> Option<IntegerBounds> 
     Some(IntegerBounds { minimum, maximum })
 }
 
+/// Whether the interval admits every integer the window does. Dropping the window narrows the union,
+/// so a divisor the exact arithmetic cannot compare leaves the two apart.
+fn number_leaf_covers_integer_leaf(interval: &NumberLeaf, window: &IntegerLeaf) -> bool {
+    // An interval barring the draft's integers holds none of them, whatever the window spans.
+    if interval.excludes_integers {
+        return false;
+    }
+    // Ends past the representable range leave no integer bounds to compare against.
+    let Some(reach) = integer_bounds_within(interval) else {
+        return false;
+    };
+    reach.covers(&window.bounds)
+        // The divisors every integer already meets leave no work; the window's own must imply the
+        // rest.
+        && interval
+            .multiple_of
+            .clone()
+            .over_integers()
+            .divide_all(&window.multiple_of)
+        && interval
+            .not_multiple_of
+            .bars_no_more_than(&window.not_multiple_of)
+}
+
 /// Whether `member` is a number the interval admits.
 fn number_leaf_admits(leaf: &NumberLeaf, member: &CanonicalJson) -> bool {
     let Value::Number(number) = member.as_value() else {
@@ -3697,6 +4010,49 @@ fn number_leaf_admits(leaf: &NumberLeaf, member: &CanonicalJson) -> bool {
             .as_ref()
             .is_none_or(|max| max.admits(number, Side::Upper))
         && leaf.multiple_of.divide(number)
+        && !leaf.not_multiple_of.bars(number)
+        && !(leaf.excludes_integers && jsonschema_value::types::number_is_integer(number))
+}
+
+/// Restrict `member` to the numbers the leaf admits. `Partial` arises under Draft 4, where a
+/// whole member barred as an integer keeps its float tokens and only the leaf shape carries them.
+fn restrict_number_member(
+    leaf: &NumberLeaf,
+    member: &CanonicalJson,
+    ctx: &CanonicalizationContext,
+) -> MemberRestriction {
+    if number_leaf_admits(leaf, member) {
+        return MemberRestriction::Full;
+    }
+    let Value::Number(number) = member.as_value() else {
+        return MemberRestriction::Empty;
+    };
+    if !(leaf.excludes_integers && jsonschema_value::types::number_is_integer(number)) {
+        return MemberRestriction::Empty;
+    }
+    // The member's whole point, narrowed by every facet of the leaf — a bound the point misses
+    // empties the window rather than being replaced by it.
+    let point = BoundNumber::new(number, true);
+    let window = intersect_number_leaves(
+        NumberLeaf {
+            minimum: Some(point.clone()),
+            maximum: Some(point),
+            multiple_of: Divisors::default(),
+            not_multiple_of: ExcludedDivisors::default(),
+            excludes_integers: false,
+        },
+        leaf.clone(),
+    );
+    debug_assert!(
+        matches!(ctx.draft(), Draft::Draft4),
+        "the integer exclusion survives normalization only under Draft 4"
+    );
+    let restricted = number_leaf(window, ctx);
+    if matches!(restricted.kind(), SchemaKind::False) {
+        MemberRestriction::Empty
+    } else {
+        MemberRestriction::Partial(restricted)
+    }
 }
 
 /// An `Integer` node, collapsed to `False` when its interval is empty and to the value itself when the
@@ -3708,7 +4064,10 @@ pub(crate) fn integer_leaf(leaf: IntegerLeaf, ctx: &CanonicalizationContext) -> 
     };
     // A leaf no facet survives on admits every integer, which the bare type set already spells;
     // keeping the leaf shape would give one value set two IR forms.
-    if leaf.bounds.minimum.is_none() && leaf.bounds.maximum.is_none() && leaf.multiple_of.is_empty()
+    if leaf.bounds.minimum.is_none()
+        && leaf.bounds.maximum.is_none()
+        && leaf.multiple_of.is_empty()
+        && leaf.not_multiple_of.is_empty()
     {
         return type_set_schema(JsonTypeSet::from(JsonType::Integer));
     }
@@ -3719,7 +4078,7 @@ pub(crate) fn integer_leaf(leaf: IntegerLeaf, ctx: &CanonicalizationContext) -> 
         if min == max {
             let point = min.to_number();
             // Only a divisor snapping could not pull onto the progression is left to check here.
-            if !leaf.get().multiple_of.divide(&point) {
+            if !leaf.get().multiple_of.divide(&point) || leaf.get().not_multiple_of.bars(&point) {
                 return Schema::new(SchemaKind::False);
             }
             let value = Schema::new(SchemaKind::Const(CanonicalJson::from_value(
@@ -3763,6 +4122,7 @@ fn snap_to_multiples(leaf: IntegerLeaf) -> Option<IntegerLeaf> {
     Some(IntegerLeaf {
         bounds: IntegerBounds { minimum, maximum },
         multiple_of: leaf.multiple_of,
+        not_multiple_of: leaf.not_multiple_of,
     })
 }
 
@@ -3771,6 +4131,9 @@ fn integer_leaf_admits(leaf: &IntegerLeaf, member: &CanonicalJson) -> bool {
     let Value::Number(number) = member.as_value() else {
         return false;
     };
+    if leaf.not_multiple_of.bars(number) {
+        return false;
+    }
     match BoundInteger::from_number(number) {
         Some(value) => leaf.bounds.contains(&value) && leaf.multiple_of.divide(number),
         // A value past the representable range still gets a divisor verdict from the validator's
@@ -3807,6 +4170,10 @@ fn intersect_string_leaves(first: StringLeaf, second: StringLeaf) -> StringLeaf 
     patterns.extend(second.patterns);
     patterns.sort();
     patterns.dedup();
+    let mut excluded_patterns = first.excluded_patterns;
+    excluded_patterns.extend(second.excluded_patterns);
+    excluded_patterns.sort();
+    excluded_patterns.dedup();
     let mut formats = first.formats;
     formats.extend(second.formats);
     formats.sort();
@@ -3830,6 +4197,7 @@ fn intersect_string_leaves(first: StringLeaf, second: StringLeaf) -> StringLeaf 
     StringLeaf {
         lengths: first.lengths.intersect(second.lengths),
         patterns,
+        excluded_patterns,
         formats,
         excluded_formats,
         content_media_types,
@@ -3866,64 +4234,108 @@ fn formats_conflict(leaf: &StringLeaf, ctx: &CanonicalizationContext) -> bool {
     window.is_empty()
 }
 
-/// Whether the string `member` falls within the leaf's length window and matches every pattern.
+/// Whether the leaf both demands and bars one pattern, which no string can satisfy. Syntactic, so
+/// `^a` against `^a.*` is not caught - see [`StringLeaf::excluded_patterns`].
+/// e.g.  allOf [
+///         {"type": "string", "pattern": "^a"},
+///         {"not": {"pattern": "^a"}}
+///       ]  =>  false
+fn patterns_conflict(leaf: &StringLeaf) -> bool {
+    leaf.excluded_patterns
+        .iter()
+        .any(|pattern| leaf.patterns.contains(pattern))
+}
+
+/// A leaf's compiled patterns, built once so a scan over many members compiles nothing per member.
+struct StringMatchers {
+    required: Vec<Arc<CompiledMatcher>>,
+    barred: Vec<Arc<CompiledMatcher>>,
+}
+
+impl StringMatchers {
+    fn compile(leaf: &StringLeaf, ctx: &CanonicalizationContext) -> Self {
+        let compile_all = |patterns: &[Arc<str>]| {
+            patterns
+                .iter()
+                .map(|pattern| {
+                    ctx.compile_regex(pattern)
+                        .expect("pattern validated during parsing")
+                })
+                .collect()
+        };
+        Self {
+            required: compile_all(&leaf.patterns),
+            barred: compile_all(&leaf.excluded_patterns),
+        }
+    }
+}
+
+/// Whether the string `member` falls within the leaf's length window and matches every required
+/// pattern and no barred one.
 fn string_leaf_admits(
     leaf: &StringLeaf,
-    regexes: &[Arc<CompiledMatcher>],
+    matchers: &StringMatchers,
     member: &CanonicalJson,
+    uncheckable: UncheckableFacet,
     ctx: &CanonicalizationContext,
 ) -> Verdict {
     let Value::String(text) = member.as_value() else {
         return Verdict::Rejects;
     };
-    string_leaf_admits_text(leaf, regexes, text, ctx)
+    string_leaf_admits_text(leaf, matchers, text, uncheckable, ctx)
 }
 
-/// Whether `text` falls within the leaf's length window and matches every pattern, format, media
-/// type, and encoding.
+/// Whether `text` falls within the leaf's length window, matches every required pattern and no
+/// barred one, and meets every format, media type, and encoding.
 fn string_leaf_admits_text(
     leaf: &StringLeaf,
-    regexes: &[Arc<CompiledMatcher>],
+    matchers: &StringMatchers,
     text: &str,
+    uncheckable: UncheckableFacet,
     ctx: &CanonicalizationContext,
 ) -> Verdict {
     let length = BoundCardinality::from(bytecount::num_chars(text.as_bytes()) as u64);
     if !leaf.lengths.contains(&length)
-        || !regexes.iter().all(|regex| regex.is_match(text))
+        || !matchers.required.iter().all(|regex| regex.is_match(text))
+        || matchers.barred.iter().any(|regex| regex.is_match(text))
         || leaf.excluded.iter().any(|value| value.as_ref() == text)
     {
         return Verdict::Rejects;
     }
+    // A checker that is not there admits every string it was asked about and so meets a demand and
+    // breaks a bar, which is why the two resolve to opposite verdicts.
+    let demanded = |checked: Option<bool>| match (checked, uncheckable) {
+        (Some(admitted), _) => Verdict::from_bool(admitted),
+        (None, UncheckableFacet::Skipped) => Verdict::Admits,
+        (None, UncheckableFacet::Undecided) => Verdict::Unknown,
+    };
+    let barred = |checked: Option<bool>| match (checked, uncheckable) {
+        (Some(admitted), _) => Verdict::from_bool(!admitted),
+        (None, UncheckableFacet::Skipped) => Verdict::Rejects,
+        (None, UncheckableFacet::Undecided) => Verdict::Unknown,
+    };
     Verdict::all(
         leaf.formats
             .iter()
-            .map(
-                |format| match crate::keywords::format::is_valid(ctx.draft(), format, text) {
-                    Some(admitted) => Verdict::from_bool(admitted),
-                    None => Verdict::Unknown,
-                },
+            .map(|format| demanded(crate::keywords::format::is_valid(ctx.draft(), format, text)))
+            .chain(
+                leaf.excluded_formats.iter().map(|format| {
+                    barred(crate::keywords::format::is_valid(ctx.draft(), format, text))
+                }),
             )
-            .chain(leaf.excluded_formats.iter().map(
-                |format| match crate::keywords::format::is_valid(ctx.draft(), format, text) {
-                    Some(admitted) => Verdict::from_bool(!admitted),
-                    None => Verdict::Unknown,
-                },
-            ))
             .chain(leaf.content_media_types.iter().map(|media_type| {
-                match crate::content_media_type::DEFAULT_CONTENT_MEDIA_TYPE_CHECKS
-                    .get(media_type.as_ref())
-                {
-                    Some(check) => Verdict::from_bool(check(text)),
-                    None => Verdict::Unknown,
-                }
+                demanded(
+                    crate::content_media_type::DEFAULT_CONTENT_MEDIA_TYPE_CHECKS
+                        .get(media_type.as_ref())
+                        .map(|check| check(text)),
+                )
             }))
             .chain(leaf.content_encodings.iter().map(|encoding| {
-                match crate::content_encoding::DEFAULT_CONTENT_ENCODING_CHECKS_AND_CONVERTERS
-                    .get(encoding.as_ref())
-                {
-                    Some((check, _)) => Verdict::from_bool(check(text)),
-                    None => Verdict::Unknown,
-                }
+                demanded(
+                    crate::content_encoding::DEFAULT_CONTENT_ENCODING_CHECKS_AND_CONVERTERS
+                        .get(encoding.as_ref())
+                        .map(|(check, _)| check(text)),
+                )
             })),
     )
 }

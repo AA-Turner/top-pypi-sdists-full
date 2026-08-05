@@ -39,7 +39,8 @@ class TestBatchDeleteDocumentsRequest(unittest.TestCase):
                 document_ids = [
                     ''
                     ],
-                filters = { }
+                filters = { },
+                reason = ''
             )
         else:
             return BatchDeleteDocumentsRequest(

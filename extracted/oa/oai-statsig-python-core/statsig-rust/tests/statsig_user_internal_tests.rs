@@ -1,12 +1,11 @@
 use statsig_rust::{
-    dyn_value,
+    StatsigUser, dyn_value,
     evaluation::dynamic_string::DynamicString,
     user::{
+        StatsigUserInternal,
         fast_statsig_user::{FastStatsigUser, FastUserData, FastUserUnitIDMap},
         user_value::{UserValue, UserValueMap, UserValueRef},
-        StatsigUserInternal,
     },
-    StatsigUser,
 };
 
 #[test]

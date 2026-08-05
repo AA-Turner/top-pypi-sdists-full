@@ -356,6 +356,7 @@ async def get_graph(
     store: BaseStore,
     access_context: AccessContext,
     run_id: str | None = None,
+    context: Any | None = None,
 ) -> AsyncIterator[Pregel]:
     """Return the runnable."""
     from langgraph_api.utils import config as lg_config  # noqa: PLC0415
@@ -387,7 +388,13 @@ async def get_graph(
         )
         var_child_runnable_config.set(config)
 
-        value = invoke_factory(value, graph_id, config, server_runtime)
+        # Only the factory runtime carries context; the parent stays context-less.
+        factory_runtime = (
+            build_server_runtime(access_context, store, context)
+            if USE_RUNTIME_CONTEXT_API and context is not None
+            else server_runtime
+        )
+        value = invoke_factory(value, graph_id, config, factory_runtime)
     try:
         async with _generate_graph(
             value, graph_id, run_id=run_id, access_context=access_context

@@ -1,6 +1,6 @@
 [package]
 name = "json-tools-rs"
-version = "0.9.24"
+version = "0.9.26"
 edition = "2021"
 rust-version = "1.85"
 description = "A high-performance Rust library for advanced JSON manipulation with SIMD-accelerated parsing, Rayon parallelism, and Python bindings with DataFrame/Series support"
@@ -119,26 +119,25 @@ chrono = { version = "0.4.44", default-features = false, features = ["std", "clo
 mimalloc = { version = "0.1.48", default-features = false, optional = true }  # High-performance allocator (~14-28% measured, see src/lib.rs)
 rayon = "1.12.0"  # Persistent work-stealing thread pool: avoids per-call OS thread spawn cost of std::thread::scope
 # O(1) lookup + insertion order, for unflatten's object tree (no per-node sort needed).
-# Pinned <2.12 since the 2026-07-30 MSRV bump to 1.85 (for pyo3-arrow, see below) --
-# this pin predates that bump, when indexmap 2.12.0's own rust-version (1.82) and
-# 2.14.0's edition2024 requirement (~1.85) were both above the then-MSRV of 1.80.
-# Left in place conservatively rather than lifted as an incidental side effect of an
-# unrelated change; revisit in a dedicated dependency-bump pass. 2.11.x's MSRV is 1.63.
+# Was pinned <2.12 before the 2026-07-30 MSRV bump to 1.85 (for pyo3-arrow, see
+# below): 2.12.0's rust-version (1.82) and 2.14.0's edition2024 requirement
+# (~1.85) were both above the then-MSRV of 1.80. Lifted to <2.15 on 2026-08-05
+# in a dedicated dependency-bump pass now that MSRV is already 1.85 -- confirmed
+# 2.14.0 builds clean on both stable and `+1.85.0 check --locked --all-features`.
 # serde feature: lets python.rs deserialize a JSON object directly into an
 # IndexMap<String, &RawValue> (order-preserving, source-text order) for the
 # issue #31 splice-row perf fix -- adds no new crate/version, indexmap is already
-# pulled in transitively at the same 2.11.x via serde_json's preserve_order feature.
-indexmap = { version = ">=2.11, <2.12", features = ["serde"] }
+# pulled in transitively at the same version via serde_json's preserve_order feature.
+indexmap = { version = ">=2.11, <2.15", features = ["serde"] }
 
 [target.'cfg(target_pointer_width = "64")'.dependencies]
 # sonic-rs is fastest but only works on 64-bit architectures.
-# Pinned to exactly 0.5.7 since before the 2026-07-30 MSRV bump to 1.85 (for
+# Was pinned to exactly 0.5.7 before the 2026-07-30 MSRV bump to 1.85 (for
 # pyo3-arrow, see below): 0.5.8 used exposed_provenance/strict_provenance, which
-# needed a newer rustc than the then-MSRV of 1.80 (confirmed via a real MSRV CI
-# failure) despite being a semver-patch bump upstream. Left pinned conservatively
-# rather than lifted as an incidental side effect of an unrelated change; revisit
-# in a dedicated dependency-bump pass.
-sonic-rs = "=0.5.7"
+# needed a newer rustc than the then-MSRV of 1.80. Lifted 2026-08-05 in a
+# dedicated dependency-bump pass now that MSRV is already 1.85 -- confirmed
+# 0.5.8 builds clean on both stable and `+1.85.0 check --locked --all-features`.
+sonic-rs = "=0.5.8"
 
 [target.'cfg(target_pointer_width = "32")'.dependencies]
 # simd-json fallback for 32-bit architectures

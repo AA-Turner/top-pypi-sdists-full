@@ -88,8 +88,10 @@ class RecursiveDescentParser:
         Valid characters: letters, digits, underscores, parentheses.
         """
         result = []
-        while self._peek() is not None:
+        while True:
             char = self._peek()
+            if char is None:
+                break
             # Valid namespace characters: alphanumeric, underscore, parentheses
             if char.isalnum() or char in "_()":
                 result.append(self._consume())
@@ -225,7 +227,7 @@ class DelphiReSymProvider(AbstractLabelProvider):
     def __init__(self, config):
         self._config = config
         self._func_symbols = {}
-        self._binary = None
+        self._binary = b""
         self._base_addr = 0
         self._bitness = 32
         self._code_start = 0

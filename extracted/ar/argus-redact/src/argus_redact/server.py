@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any
 from argus_redact import __version__, redact, restore
 from argus_redact.exceptions import SecurityWarning
 from argus_redact.pure.restore import RestoreGuardError
+from argus_redact.pure.wire import common_report_fields, risk_payload
 
 try:
     from starlette.requests import Request
@@ -123,12 +124,8 @@ async def handle_redact(request: Request) -> JSONResponse:
                 "key": result.key,
                 "entities": list(result.entities),
                 "stats": result.stats,
-                "risk": {
-                    "score": result.risk.score,
-                    "level": result.risk.level,
-                    "reasons": list(result.risk.reasons),
-                    "pipl_articles": list(result.risk.pipl_articles),
-                },
+                "risk": risk_payload(result.risk),
+                **common_report_fields(result),
             }
         )
 

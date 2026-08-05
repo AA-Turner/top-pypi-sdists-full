@@ -21,17 +21,19 @@ ALL_FORMATS = {'wheel', 'sdist'}
 def unpacked_tarball(path):
     tf = tarfile.open(str(path))
     with TemporaryDirectory() as tmpdir:
-        tf.extractall(tmpdir)
+        # Py >=3.12: restrict advanced tar features which sdists shouldn't use
+        kw = {'filter': 'data'} if hasattr(tarfile, 'data_filter') else {}
+        tf.extractall(tmpdir, **kw)
         files = os.listdir(tmpdir)
         assert len(files) == 1, files
         yield os.path.join(tmpdir, files[0])
 
-def main(ini_file: Path, formats=None, gen_setup_py=True, use_vcs=True):
+def main(ini_file: Path, formats=None, use_vcs=True):
     """Build wheel and sdist"""
     if not formats:
         formats = ALL_FORMATS
     elif not formats.issubset(ALL_FORMATS):
-        raise ValueError("Unknown package formats: {}".format(formats - ALL_FORMATS))
+        raise ValueError(f"Unknown package formats: {formats - ALL_FORMATS}")
 
     sdist_info = wheel_info = None
     dist_dir = ini_file.parent / 'dist'
@@ -43,7 +45,7 @@ def main(ini_file: Path, formats=None, gen_setup_py=True, use_vcs=True):
 
         if 'sdist' in formats:
             sb = SdistBuilder.from_ini_path(ini_file, use_vcs=use_vcs)
-            sdist_file = sb.build(dist_dir, gen_setup_py=gen_setup_py)
+            sdist_file = sb.build(dist_dir)
             sdist_info = SimpleNamespace(builder=sb, file=sdist_file)
             # When we're building both, build the wheel from the unpacked sdist.
             # This helps ensure that the sdist contains all the necessary files.
@@ -55,6 +57,6 @@ def main(ini_file: Path, formats=None, gen_setup_py=True, use_vcs=True):
         elif 'wheel' in formats:
             wheel_info = make_wheel_in(ini_file, dist_dir)
     except ConfigError as e:
-        sys.exit('Config error: {}'.format(e))
+        sys.exit(f'Config error: {e}')
 
     return SimpleNamespace(wheel=wheel_info, sdist=sdist_info)

@@ -1,11 +1,22 @@
 import os.path
-
-from openpyxl import load_workbook
+import re
 
 from fit_tool import SDK_VERSION
-from fit_tool.base_type import FieldType, BaseType
-from fit_tool.field import Field, ArrayType
+from fit_tool.base_type import BaseType, FieldType
+from fit_tool.field import ArrayType, Field
 from fit_tool.utils.logging import logger
+
+
+def _load_workbook(filename):
+    """Load a profile spreadsheet; requires the optional [gen] extra."""
+    try:
+        from openpyxl import load_workbook
+    except ImportError as exc:
+        raise ImportError(
+            "Reading Garmin Profile spreadsheets requires the optional gen dependencies. "
+            "Install with: pip install 'fit-tool[gen]'  or  uv sync --extra gen --group dev"
+        ) from exc
+    return load_workbook(filename=filename, read_only=True, data_only=True)
 
 
 class Message:
@@ -33,10 +44,35 @@ class Message:
 def parse_array_field(value):
     if value is None:
         return None, None
+    if isinstance(value, str):
+        value = value.strip()
+
+    if value == '':
+        return None, None
     if value == '[N]':
         return ArrayType.VARIABLE, None
 
-    return ArrayType.FIXED, int(value[1:-1])
+    if isinstance(value, str):
+        match = re.fullmatch(r'\[(\d+)\]', value)
+        if match:
+            return ArrayType.FIXED, int(match.group(1))
+
+    raise ValueError(f'Invalid array field value: {value!r}')
+
+
+def parse_profile_number(value, default):
+    """Parse numeric cells stored as either spreadsheet numbers or strings."""
+    if value is None or (isinstance(value, str) and value.strip() == ''):
+        return default
+    if isinstance(value, (int, float)):
+        return value
+    if isinstance(value, str):
+        value = value.strip()
+        try:
+            return int(value)
+        except ValueError:
+            return float(value)
+    raise ValueError(f'Invalid numeric profile value: {value!r}')
 
 
 class Profile:
@@ -58,7 +94,7 @@ class Profile:
         # Next check if it is derived type
         type_ = self.types_by_name.get(name)
         if not type_:
-            raise Exception('Type: {} not found in profile.'.format(name))
+            raise KeyError(f'Type: {name} not found in profile.')
         return type_
 
     def add_message(self, message):
@@ -107,7 +143,6 @@ class Profile:
 
     @classmethod
     def get_default_profile(cls):
-
         xlsx_filename = os.path.join(os.path.dirname(__file__), f'Profile_{SDK_VERSION}.xlsx')
         print(f'Loading profile from {xlsx_filename}...')
         profile = Profile.load(xlsx_filename)
@@ -117,7 +152,13 @@ class Profile:
     @classmethod
     def load(cls, filename):
         profile = cls()
-        wb = load_workbook(filename=filename, read_only=True, data_only=True)
+        wb = _load_workbook(filename)
+
+        def is_blank(value):
+            return value is None or (isinstance(value, str) and value.strip() == '')
+
+        def normalize_blank(value):
+            return None if is_blank(value) else value
 
         #
         # Parse the Types worksheet
@@ -177,18 +218,24 @@ class Profile:
                 current_message = Message(message_id, message_name)
                 profile.add_message(current_message)
             else:
-                field_id = row[1].value
-                field_name = row[2].value
-                field_type_name = row[3].value
-                array_type, array_fixed_length = parse_array_field(row[4].value)
+                field_id = normalize_blank(row[1].value)
+                field_name = normalize_blank(row[2].value)
+                field_type_name = normalize_blank(row[3].value)
+                try:
+                    array_type, array_fixed_length = parse_array_field(row[4].value)
+                except ValueError as exc:
+                    raise ValueError(
+                        'Invalid array declaration in Messages sheet '
+                        f'row={index + 1} field={field_name!r} value={row[4].value!r}'
+                    ) from exc
                 # components = row[5].value
-                scale = row[6].value if row[6].value is not None else 1
-
-                # Components are not supported yet
-                if isinstance(scale, str):
+                try:
+                    scale = parse_profile_number(row[6].value, 1)
+                except ValueError:
+                    # Multiple component scales are not supported yet.
                     scale = 1
 
-                offset = row[7].value if row[7].value is not None else 0
+                offset = parse_profile_number(row[7].value, 0)
                 units = row[8].value
                 if units:
                     units = units.replace('\n', '')
@@ -239,7 +286,7 @@ class Profile:
                     ref_field_values.append('speed_lap')
 
                 # comment = row[13].value
-                if field_id is not None or field_name is not None:
+                if not (is_blank(field_id) and is_blank(field_name)):
 
                     # First check if it is a base type
                     base_type_ = BaseType.from_name(field_type_name)
@@ -273,7 +320,7 @@ class Profile:
                     # todo: hack for now, should add to class
                     field_or_subfield.type_ = type_
 
-                    is_field = field_id is not None
+                    is_field = not is_blank(field_id)
 
                     if is_field:
                         field = field_or_subfield
@@ -296,10 +343,27 @@ class Profile:
                     if subfield.ref_field_map:
                         resolved_map = {}
                         for key, values in subfield.ref_field_map.items():
-                            field = message.get_field_by_name(key)
+                            ref_field = message.get_field_by_name(key)
+                            if ref_field is None:
+                                raise ValueError(
+                                    f'Unknown reference field {key!r} in message {message.name!r} '
+                                    f'for subfield {subfield.name!r}'
+                                )
+                            if not ref_field.type_name:
+                                raise ValueError(
+                                    f'Missing type_name for reference field {key!r} in message {message.name!r} '
+                                    f'for subfield {subfield.name!r}'
+                                )
+
+                            ref_type = profile.get_type_by_name(ref_field.type_name)
                             resolved_values = []
                             for item in values:
-                                resolved_value = profile.get_type_by_name(field.type_name).get_value_by_name(item)
+                                resolved_value = ref_type.get_value_by_name(item)
+                                if resolved_value is None:
+                                    raise ValueError(
+                                        f'Unknown reference value {item!r} for type {ref_field.type_name!r} '
+                                        f'in message {message.name!r}, subfield {subfield.name!r}'
+                                    )
                                 resolved_values.append(resolved_value)
                             resolved_map[key] = resolved_values
 

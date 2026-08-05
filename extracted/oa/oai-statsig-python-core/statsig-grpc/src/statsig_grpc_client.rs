@@ -4,8 +4,8 @@ use crate::statsig_forward_proxy::{ConfigSpecRequest, ConfigSpecResponse};
 use crate::statsig_grpc_err::StatsigGrpcErr;
 use parking_lot::Mutex;
 use std::time::Duration;
-use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 use tonic::Streaming;
+use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 
 pub struct StatsigGrpcClient {
     sdk_key: String,

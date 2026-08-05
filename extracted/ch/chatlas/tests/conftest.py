@@ -9,9 +9,11 @@ from chatlas import (
     ContentToolRequest,
     ContentToolResult,
     UserTurn,
+    content_document_file,
     content_image_file,
     content_image_url,
     content_pdf_file,
+    content_pdf_url,
 )
 from chatlas._content import ContentCitation, ContentText
 from pydantic import BaseModel
@@ -27,6 +29,8 @@ ChatFun = Callable[..., Chat]
 
 _DUMMY_CREDENTIALS = {
     "ANTHROPIC_API_KEY": "dummy-anthropic-key",
+    "AWS_ACCESS_KEY_ID": "dummy-aws-access-key-id",
+    "AWS_SECRET_ACCESS_KEY": "dummy-aws-secret-access-key",
     "AZURE_OPENAI_API_KEY": "dummy-azure-key",
     "CLOUDFLARE_API_KEY": "dummy-cloudflare-key",
     "CLOUDFLARE_ACCOUNT_ID": "dummy-cloudflare-id",
@@ -43,10 +47,56 @@ _DUMMY_CREDENTIALS = {
 }
 
 
+_AWS_DUMMY_KEYS = {"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"}
+
+
+def _has_ambient_aws_credentials() -> bool:
+    """
+    Whether AWS credentials are already resolvable through botocore's normal
+    chain (env vars, `~/.aws/credentials`, SSO, container/instance role).
+
+    Every other entry in `_DUMMY_CREDENTIALS` is safe to inject purely by
+    checking `os.environ`, because that single env var *is* how a real
+    credential would be supplied. AWS is different: real credentials just as
+    often come from a profile or an instance role that never touches
+    AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, and botocore's env-var provider
+    always wins over those regardless of profile -- so an unconditional
+    fallback would silently shadow real credentials with fake ones. Checking
+    the whole chain instead (not just os.environ) avoids that. When no
+    earlier provider resolves, the chain walk ends by probing the
+    IMDS/ECS instance-metadata service, a real (but bounded, ~1s) network
+    call -- that cost is the unavoidable price of honoring instance roles,
+    so don't "optimize" this into an env-var-only check; that would
+    reintroduce the credential-shadowing bug above.
+    """
+    try:
+        from botocore.session import Session
+
+        credentials = Session().get_credentials()
+        if credentials is None:
+            return False
+        # Resolvable is not the same as usable: an expired SSO token or a
+        # broken assume-role profile resolves here but fails to freeze.
+        # ChatBedrock() resolves eagerly at construction, so treating
+        # unusable ambient credentials as present would fail the offline
+        # suite instead of falling back to dummies.
+        credentials.get_frozen_credentials()
+        return True
+    except Exception:
+        # Covers "botocore isn't installed" (it's the `bedrock` extra, not
+        # part of `test`), "no credentials resolvable", and "credentials
+        # resolvable but unusable" -- either way, fall back to the dummy
+        # values below.
+        return False
+
+
 # Pytest initialization hook to fallback to dummy credentials
 # (this is needed since some SDKs will fail before preparing the request if no key is set)
 def pytest_configure(config):
+    skip_aws_dummies = _has_ambient_aws_credentials()
     for key, value in _DUMMY_CREDENTIALS.items():
+        if key in _AWS_DUMMY_KEYS and skip_aws_dummies:
+            continue
         if key not in os.environ:
             os.environ[key] = value
 
@@ -369,6 +419,52 @@ def assert_pdf_local(chat_fun: ChatFun):
         "Two word answer only.",
     )
     assert "red delicious" in str(response).lower()
+
+
+# The questions below can only be answered by reading the attachment, so a
+# provider that silently drops the document (or receives bytes it can't parse)
+# fails rather than bluffing from the prompt text.
+
+
+def assert_document_local(chat_fun: ChatFun):
+    """A text document (CSV) sent inline as `ContentDocument` bytes."""
+    chat = chat_fun()
+    sales = Path(__file__).parent / "quarterly_sales.csv"
+    response = chat.chat(
+        "Which region in the attached CSV had the highest q3 value?",
+        "Reply with the region name only.",
+        content_document_file(sales),
+    )
+    assert "midwest" in str(response).lower()
+
+
+def assert_document_local_docx(chat_fun: ChatFun):
+    """A binary .docx, which only the OpenAI providers claim to accept."""
+    chat = chat_fun()
+    memo = Path(__file__).parent / "offsite_memo.docx"
+    response = chat.chat(
+        "In which city will the offsite described in this document be held?",
+        "Reply with the city name only.",
+        content_document_file(memo),
+    )
+    assert "reykjavik" in str(response).lower()
+
+
+def assert_pdf_remote(chat_fun: ChatFun):
+    """A URL-only `ContentPDF`, whose bytes this process may never touch.
+
+    Anthropic and the Responses API are handed the URL and fetch it themselves;
+    the others download it while building the request. Either way the model has
+    to end up with the document.
+    """
+    chat = chat_fun()
+    response = chat.chat(
+        "What's the title of this document?",
+        content_pdf_url(
+            "https://raw.githubusercontent.com/posit-dev/chatlas/main/tests/apples.pdf"
+        ),
+    )
+    assert "apples are tasty" in str(response).lower()
 
 
 def assert_list_models(chat_fun: ChatFun):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pysae-ai-tools
-Version: 0.1.1689
+Version: 0.1.1695
 Summary: Shared Python tools for Pysae Claude Code skills
 Project-URL: repository, https://gitlab.com/pysae/tools/ai-tools
 Requires-Python: >=3.11

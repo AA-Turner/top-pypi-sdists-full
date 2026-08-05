@@ -7,6 +7,7 @@ import lief
 from smda.common.labelprovider.ElfSymbolProvider import ElfSymbolProvider
 from smda.common.labelprovider.MachoSymbolProvider import MachoSymbolProvider
 from smda.common.labelprovider.PeSymbolProvider import PeSymbolProvider
+from smda.utility.lief_helper import safe_lief_parse
 from smda.utility.MachoFileLoader import MachoFileLoader
 
 LOGGER = logging.getLogger(__name__)
@@ -108,7 +109,7 @@ class BinaryInfo:
             if MachoFileLoader.isCompatible(binary_data):
                 self._lief_binary = MachoFileLoader.parseBinary(binary_data)
             else:
-                self._lief_binary = lief.parse(binary_data)
+                self._lief_binary = safe_lief_parse(binary_data)
         return self._lief_binary
 
     def getOep(self):
@@ -123,9 +124,12 @@ class BinaryInfo:
                     entrypoint -= self.base_addr
                 self.oep = entrypoint
             elif lief_type == "MACH_O":
-                macho_binary = self._symbol_provider._get_macho_binary(lief_result)
+                symbol_provider = self._symbol_provider
+                if symbol_provider is None:
+                    return self.oep
+                macho_binary = symbol_provider._get_macho_binary(lief_result)
                 if macho_binary and hasattr(macho_binary, "entrypoint"):
-                    adjustment = self._symbol_provider._get_address_adjustment(macho_binary)
+                    adjustment = symbol_provider._get_address_adjustment(macho_binary)
                     self.oep = (macho_binary.entrypoint + adjustment) - self.base_addr
         return self.oep
 
@@ -133,18 +137,22 @@ class BinaryInfo:
         if self.exported_functions is None:
             lief_result = self.getLiefBinary()
             lief_type = self._getLiefType()
-            if lief_type == "PE":
-                self.exported_functions = self._symbol_provider.parseExports(lief_result, self.base_addr)
+            symbol_provider = self._symbol_provider
+            if symbol_provider is None:
+                return self.exported_functions
+            if lief_type == "PE" and isinstance(symbol_provider, PeSymbolProvider):
+                self.exported_functions = symbol_provider.parseExports(lief_result, self.base_addr)
             elif lief_type in ("ELF", "MACH_O"):
-                self.exported_functions = self._symbol_provider.parseExports(lief_result)
+                self.exported_functions = symbol_provider.parseExports(lief_result)
         return self.exported_functions
 
     def getExportedSymbols(self):
         if self.exported_symbols is None:
             lief_result = self.getLiefBinary()
             lief_type = self._getLiefType()
-            if lief_type == "ELF":
-                self.exported_symbols = self._symbol_provider.parseExportedSymbols(lief_result)
+            symbol_provider = self._symbol_provider
+            if lief_type == "ELF" and isinstance(symbol_provider, ElfSymbolProvider):
+                self.exported_symbols = symbol_provider.parseExportedSymbols(lief_result)
             else:
                 # PE and Mach-O providers currently expose function exports only;
                 # retain that established contract while ELF additionally records
@@ -156,23 +164,27 @@ class BinaryInfo:
         if self.imported_functions is None:
             lief_result = self.getLiefBinary()
             lief_type = self._getLiefType()
-            if lief_type == "PE":
-                self.imported_functions = self._symbol_provider.parseImports(lief_result, self.base_addr)
+            symbol_provider = self._symbol_provider
+            if symbol_provider is None:
+                return self.imported_functions
+            if lief_type == "PE" and isinstance(symbol_provider, PeSymbolProvider):
+                self.imported_functions = symbol_provider.parseImports(lief_result, self.base_addr)
             elif lief_type in ("ELF", "MACH_O"):
-                self.imported_functions = self._symbol_provider.parseImports(lief_result)
+                self.imported_functions = symbol_provider.parseImports(lief_result)
         return self.imported_functions
 
     def getSymbols(self):
         if self.symbols is None:
             lief_result = self.getLiefBinary()
             lief_type = self._getLiefType()
-            if lief_type == "PE":
-                self.symbols = self._symbol_provider.collectSymbols(lief_result, self.base_addr)
-            elif lief_type == "ELF":
-                self.symbols = self._symbol_provider.collectSymbols(lief_result)
-            elif lief_type == "MACH_O":
-                symbols = self._symbol_provider.collectSymbols(lief_result)
-                self.symbols = self._symbol_provider._filter_symbols_to_code(symbols, self)
+            symbol_provider = self._symbol_provider
+            if lief_type == "PE" and isinstance(symbol_provider, PeSymbolProvider):
+                self.symbols = symbol_provider.collectSymbols(lief_result, self.base_addr)
+            elif lief_type == "ELF" and isinstance(symbol_provider, ElfSymbolProvider):
+                self.symbols = symbol_provider.collectSymbols(lief_result)
+            elif lief_type == "MACH_O" and isinstance(symbol_provider, MachoSymbolProvider):
+                symbols = symbol_provider.collectSymbols(lief_result)
+                self.symbols = symbol_provider._filter_symbols_to_code(symbols, self)
         return self.symbols
 
     def getSections(self):
@@ -189,8 +201,11 @@ class BinaryInfo:
             return
 
         lief_type = self._getLiefType()
+        symbol_provider = self._symbol_provider
+        if symbol_provider is None:
+            return
         if lief_type == "MACH_O":
-            parsed_binary = self._symbol_provider._get_macho_binary(parsed_binary)
+            parsed_binary = symbol_provider._get_macho_binary(parsed_binary)
 
         if (
             not parsed_binary
@@ -213,7 +228,7 @@ class BinaryInfo:
                 section_size = section.size
                 yield section.name, section_start, section_start + section_size
         elif lief_type == "MACH_O":
-            adjustment = self._symbol_provider._get_address_adjustment(parsed_binary)
+            adjustment = symbol_provider._get_address_adjustment(parsed_binary)
             for section in parsed_binary.sections:
                 section_start = section.virtual_address + adjustment
                 section_size = section.size

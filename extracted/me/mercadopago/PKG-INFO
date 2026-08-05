@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mercadopago
-Version: 3.3.1
+Version: 3.4.0
 Summary: Mercadopago SDK module for Payments integration
 Author-email: Mercado Pago <mp_sdk@mercadopago.com>
 License: MIT License

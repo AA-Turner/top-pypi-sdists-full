@@ -32,13 +32,19 @@ class SmdaInstruction:
             self.operands = ins_list[3]
 
     def getDataRefs(self):
-        if getattr(self, "_data_refs", None) is not None:
-            yield from self._data_refs
+        data_refs_cached = getattr(self, "_data_refs", None)
+        if data_refs_cached is not None:
+            yield from data_refs_cached
             return
 
         data_refs = []
         emitted = set()
-        smda_report = self.smda_function.smda_report
+        smda_function = self.smda_function
+        if smda_function is None:
+            return
+        smda_report = smda_function.smda_report
+        if smda_report is None:
+            return
         if smda_report.data_refs_from is not None and self.offset in smda_report.data_refs_from:
             for value in smda_report.data_refs_from[self.offset]:
                 if value not in emitted:
@@ -52,15 +58,18 @@ class SmdaInstruction:
             detailed = self.getDetailed()
             if len(detailed.operands) > 0:
                 for i in detailed.operands:
-                    value = None
                     if i.type == X86_OP_IMM:
                         value = i.imm
-                    if i.type == X86_OP_MEM:
+                    elif i.type == X86_OP_MEM:
                         value = i.mem.disp
                         if detailed.reg_name(i.mem.base) == "rip":
                             # add RIP value
                             value += detailed.address + detailed.size
-                    if value is not None and value not in emitted and smda_report.isAddrWithinMemoryImage(value):
+                    else:
+                        # register/other operand kinds carry no address to dereference;
+                        # a 0 placeholder would be a valid in-image address on a base-0 dump
+                        continue
+                    if value not in emitted and smda_report.isAddrWithinMemoryImage(value):
                         emitted.add(value)
                         data_refs.append(value)
         elif (
@@ -97,13 +106,23 @@ class SmdaInstruction:
         self._data_refs = data_refs
         yield from self._data_refs
 
+    def __getstate__(self):
+        # the cached capstone CsInsn holds ctypes pointers and cannot be pickled; the class-level
+        # default makes attribute lookup fall through to None after unpickling, so getDetailed()
+        # simply re-creates it on demand
+        state = self.__dict__.copy()
+        state.pop("detailed", None)
+        return state
+
     def getDetailed(self):
+        if self.smda_function is None or self.smda_function.smda_report is None:
+            raise ValueError("SmdaFunction or SmdaReport not set on instruction")
         arch = self.smda_function.smda_report.architecture
         if arch is not None and arch not in {"intel", "aarch64"}:
             raise NotImplementedError(f"getDetailed() is only available for Intel and AArch64, not '{arch}'")
         if self.detailed is None:
             capstone = self.smda_function.smda_report.getCapstone()
-            with_details = list(capstone.disasm(bytes.fromhex(self.bytes), self.offset))
+            with_details = list(capstone.disasm(bytes.fromhex(self.bytes or ""), self.offset))
             if not with_details:
                 raise ValueError(f"Capstone could not disassemble stored bytes '{self.bytes}' at 0x{self.offset:x}")
             if len(with_details) == 1:
@@ -183,4 +202,5 @@ class SmdaInstruction:
         return self.offset
 
     def __str__(self):
-        return f"0x{self.offset:08x}: ({self.bytes:>14s}) - {self.mnemonic} {self.operands}"
+        offset = f"0x{self.offset:08x}" if self.offset is not None else "0x????????"
+        return f"{offset}: ({self.bytes or '':>14s}) - {self.mnemonic} {self.operands}"

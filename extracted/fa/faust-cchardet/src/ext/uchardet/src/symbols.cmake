@@ -6,7 +6,12 @@ set(
 	uchardet_data_end
 	uchardet_reset
 	uchardet_get_charset
-	uchardet_get_confidence
+    uchardet_get_n_candidates
+    uchardet_get_encoding
+    uchardet_get_confidence
+    uchardet_get_language
+    uchardet_set_default_weight
+    uchardet_weigh_language
 )
 
 set (LINK_FLAGS "")

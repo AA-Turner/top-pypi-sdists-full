@@ -32,6 +32,29 @@ from qdrant_client.local.local_collection import (
 META_INFO_FILENAME = "meta.json"
 
 
+def _parse_search_params(search_params: types.SearchParams | None) -> types.SearchParams | None:
+    """Coerce a plain dict, which the public API accepts in place of any REST model."""
+    if isinstance(search_params, dict):
+        return rest_models.SearchParams(**search_params)
+    return search_params
+
+
+def _has_ignored_search_params(search_params: types.SearchParams | None) -> bool:
+    """`idf` is the only `SearchParams` field local mode acts on: it scopes the IDF corpus, which
+    affects scores rather than the index traversal. Everything else describes index behaviour that
+    an exact brute-force search has no use for.
+    """
+    if search_params is None:
+        return False
+    return bool(
+        search_params.hnsw_ef
+        or search_params.quantization
+        or search_params.acorn
+        or search_params.exact
+        or search_params.indexed_only
+    )
+
+
 class QdrantLocal(QdrantBase):
     """
     Everything Qdrant server can do, but locally.
@@ -182,34 +205,6 @@ class QdrantLocal(QdrantBase):
             return self.collections[self.aliases[collection_name]]
         raise ValueError(f"Collection {collection_name} not found")
 
-    def search(
-        self,
-        collection_name: str,
-        query_vector: types.NumpyArray
-        | Sequence[float]
-        | tuple[str, list[float]]
-        | types.NamedVector
-        | types.NamedSparseVector,
-        query_filter: types.Filter | None = None,
-        search_params: types.SearchParams | None = None,
-        limit: int = 10,
-        offset: int | None = None,
-        with_payload: bool | Sequence[str] | types.PayloadSelector = True,
-        with_vectors: bool | Sequence[str] = False,
-        score_threshold: float | None = None,
-        **kwargs: Any,
-    ) -> list[types.ScoredPoint]:
-        collection = self._get_collection(collection_name)
-        return collection.search(
-            query_vector=query_vector,
-            query_filter=query_filter,
-            limit=limit,
-            offset=offset,
-            with_payload=with_payload,
-            with_vectors=with_vectors,
-            score_threshold=score_threshold,
-        )
-
     def search_matrix_offsets(
         self,
         collection_name: str,
@@ -233,6 +228,8 @@ class QdrantLocal(QdrantBase):
         using: str | None = None,
         **kwargs: Any,
     ) -> types.SearchMatrixPairsResponse:
+        if limit < 1:
+            raise ValueError(f"limit value {limit} is invalid. Must be 1 or larger.")
         collection = self._get_collection(collection_name)
         return collection.search_matrix_pairs(
             query_filter=query_filter, limit=limit, sample=sample, using=using
@@ -404,7 +401,19 @@ class QdrantLocal(QdrantBase):
         lookup_from: types.LookupLocation | None = None,
         **kwargs: Any,
     ) -> types.QueryResponse:
+        if limit < 1:
+            raise ValueError(f"limit value {limit} is invalid. Must be 1 or larger.")
+
         collection = self._get_collection(collection_name)
+
+        search_params = _parse_search_params(search_params)
+        if _has_ignored_search_params(search_params):
+            show_warning_once(
+                message="Local mode performs exact (brute-force) search, so `search_params` has"
+                " no effect, with the exception of `idf`.",
+                idx="local_query_points_search_params_ignored",
+                stacklevel=5,
+            )
 
         if query is not None:
             query, mentioned_ids = self._resolve_query_input(
@@ -424,6 +433,7 @@ class QdrantLocal(QdrantBase):
             offset=offset or 0,
             with_payload=with_payload,
             with_vectors=with_vectors,
+            search_params=search_params,
         )
 
     def query_batch_points(
@@ -438,7 +448,8 @@ class QdrantLocal(QdrantBase):
                 query=request.query,
                 prefetch=request.prefetch,
                 query_filter=request.filter,
-                limit=request.limit or 10,
+                search_params=request.params,
+                limit=request.limit if request.limit is not None else 10,
                 offset=request.offset,
                 with_payload=request.with_payload,
                 with_vectors=request.with_vector,
@@ -476,7 +487,20 @@ class QdrantLocal(QdrantBase):
         lookup_from: types.LookupLocation | None = None,
         **kwargs: Any,
     ) -> types.GroupsResult:
+        if limit < 1:
+            raise ValueError(f"limit value {limit} is invalid. Must be 1 or larger.")
+
         collection = self._get_collection(collection_name)
+
+        search_params = _parse_search_params(search_params)
+        if _has_ignored_search_params(search_params):
+            show_warning_once(
+                message="Local mode performs exact (brute-force) search, so `search_params` has"
+                " no effect, with the exception of `idf`.",
+                idx="local_query_points_search_params_ignored",
+                stacklevel=5,
+            )
+
         if query is not None:
             query, mentioned_ids = self._resolve_query_input(
                 collection_name, query, using, lookup_from
@@ -515,6 +539,8 @@ class QdrantLocal(QdrantBase):
         with_vectors: bool | Sequence[str] = False,
         **kwargs: Any,
     ) -> tuple[list[types.Record], types.PointId | None]:
+        if limit < 1:
+            raise ValueError(f"limit value {limit} is invalid. Must be 1 or larger.")
         collection = self._get_collection(collection_name)
         return collection.scroll(
             scroll_filter=scroll_filter,
@@ -544,6 +570,8 @@ class QdrantLocal(QdrantBase):
         exact: bool = False,
         **kwargs: Any,
     ) -> types.FacetResponse:
+        if limit < 1:
+            raise ValueError(f"limit value {limit} is invalid. Must be 1 or larger.")
         collection = self._get_collection(collection_name)
         return collection.facet(key=key, facet_filter=facet_filter, limit=limit)
 
@@ -783,6 +811,9 @@ class QdrantLocal(QdrantBase):
         vectors_config: types.VectorParams | Mapping[str, types.VectorParams] | None = None,
         sparse_vectors_config: Mapping[str, types.SparseVectorParams] | None = None,
         metadata: types.Payload | None = None,
+        # accepted for signature parity with the remote client and ignored: memory placement
+        # is meaningless in local mode
+        payload: types.PayloadStorageParams | None = None,
         **kwargs: Any,
     ) -> bool:
         if self.closed:
@@ -814,11 +845,16 @@ class QdrantLocal(QdrantBase):
         vectors_config: types.VectorParams | Mapping[str, types.VectorParams] | None = None,
         sparse_vectors_config: Mapping[str, types.SparseVectorParams] | None = None,
         metadata: types.Payload | None = None,
+        payload: types.PayloadStorageParams | None = None,
         **kwargs: Any,
     ) -> bool:
         self.delete_collection(collection_name)
         return self.create_collection(
-            collection_name, vectors_config, sparse_vectors_config, metadata=metadata
+            collection_name,
+            vectors_config,
+            sparse_vectors_config,
+            metadata=metadata,
+            payload=payload,
         )
 
     def upload_points(

@@ -65,6 +65,7 @@ from mixpeek.api.organization_billing_api import OrganizationBillingApi
 from mixpeek.api.organization_connections_api import OrganizationConnectionsApi
 from mixpeek.api.organization_infrastructure_api import OrganizationInfrastructureApi
 from mixpeek.api.organization_secrets_api import OrganizationSecretsApi
+from mixpeek.api.organization_targets_api import OrganizationTargetsApi
 from mixpeek.api.organization_usage_api import OrganizationUsageApi
 from mixpeek.api.organization_users_api import OrganizationUsersApi
 from mixpeek.api.organizations_api import OrganizationsApi

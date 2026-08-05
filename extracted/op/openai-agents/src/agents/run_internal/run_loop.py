@@ -28,6 +28,7 @@ from .._tool_identity import (
     build_function_tool_lookup_map,
     get_function_tool_lookup_key_for_call,
     get_tool_trace_name_for_tool,
+    resolve_tool_name_collisions,
 )
 from ..agent import Agent
 from ..agent_output import AgentOutputSchemaBase
@@ -96,6 +97,7 @@ from ..tracing.model_tracing import get_model_tracing_impl
 from ..tracing.span_data import AgentSpanData, TaskSpanData
 from ..usage import Usage, _response_usage_to_usage
 from ..util import _coro, _error_tracing
+from ..util._asyncio_tasks import gather_with_cancel
 from .agent_bindings import AgentBindings, bind_public_agent
 from .agent_runner_helpers import (
     apply_resumed_conversation_settings,
@@ -106,6 +108,7 @@ from .agent_runner_helpers import (
 )
 from .approvals import approvals_from_step
 from .error_handlers import (
+    attach_generic_agent_error,
     build_run_error_data,
     create_message_output_item,
     format_final_output_text,
@@ -202,6 +205,7 @@ from .turn_resolution import (
     execute_handoffs,
     execute_tools_and_side_effects,
     get_single_step_result_from_response,
+    is_handoff_tool_call,
     process_model_response,
     resolve_interrupted_turn,
     run_final_output_hooks,
@@ -284,13 +288,6 @@ def _agent_diagnostic_extra(agent: Agent[Any]) -> dict[str, object]:
     return {"agent_name": agent.name}
 
 
-def _should_attach_generic_agent_error(exc: Exception) -> bool:
-    return not isinstance(
-        exc,
-        ModelBehaviorError | InputGuardrailTripwireTriggered | OutputGuardrailTripwireTriggered,
-    )
-
-
 async def _should_persist_stream_items(
     *,
     session: Session | None,
@@ -323,6 +320,28 @@ def _complete_stream_interruption(
     streamed_result._last_processed_response = processed_response
     streamed_result.is_complete = True
     streamed_result._event_queue.put_nowait(QueueCompleteSentinel())
+
+
+async def _wait_for_streamed_turn_events_and_stop_if_cancelled(
+    streamed_result: RunResultStreaming,
+) -> bool:
+    """Let consumers process the completed turn before starting another one."""
+    await streamed_result._wait_for_turn_event_consumption()
+    if streamed_result._cancel_mode != "after_turn":
+        return False
+
+    streamed_result.is_complete = True
+    streamed_result._event_queue.put_nowait(QueueCompleteSentinel())
+    return True
+
+
+def _publish_streamed_result_agent(
+    streamed_result: RunResultStreaming,
+    agent: Agent[Any],
+) -> None:
+    """Publish an agent transition before cancellation can complete the streamed run."""
+    streamed_result.current_agent = agent
+    streamed_result._current_agent_output_schema = get_output_schema(agent)
 
 
 async def _save_resumed_stream_items(
@@ -394,24 +413,89 @@ async def _run_output_guardrails_for_stream(
     context_wrapper: RunContextWrapper[TContext],
     streamed_result: RunResultStreaming,
 ) -> list[Any]:
+    # Recorded as each guardrail completes so a tripwire still publishes the results that
+    # already finished, mirroring the non-streamed path.
+    completed_results: list[Any] = []
     streamed_result._output_guardrails_task = asyncio.create_task(
         run_output_guardrails(
             agent.output_guardrails + (run_config.output_guardrails or []),
             agent,
             output,
             context_wrapper,
+            completed_results,
         )
     )
 
     try:
         return cast(list[Any], await streamed_result._output_guardrails_task)
     except OutputGuardrailTripwireTriggered:
+        streamed_result.output_guardrail_results = (
+            streamed_result.output_guardrail_results + completed_results
+        )
         raise
     except asyncio.CancelledError:
         raise
     except Exception as exc:
         log_model_action_error(logger, "Unexpected error in output guardrails", exc)
         raise
+
+
+_SIDE_EFFECT_ITEM_TYPES = frozenset({"tool_call_item", "tool_call_output_item"})
+
+
+def _reasoning_indexes_tied_to_retained_items(
+    items: list[RunItem],
+    retained_indexes: set[int],
+) -> set[int]:
+    """Indexes of the reasoning items whose tied item is being retained.
+
+    Applies the same association rule as
+    ``agents.run_internal.items._drop_reasoning_items_preceding_dropped_calls``: a reasoning item
+    is tied to the next *non-reasoning* model-emitted item. Keeping a group whose following item is
+    dropped would leave a dangling reasoning item, which the Responses API rejects on the next
+    request (``reasoning was provided without its required following item``); dropping a group
+    whose following item is retained would strip the context that call needs to be replayed.
+
+    A trailing reasoning group - one with no following non-reasoning item at all - is not tied to
+    anything retained, so it is dropped. Note this is stricter than the reference, which keeps such
+    a group because the item it belongs to may still arrive later in a longer history; here the
+    turn is complete, so there is nothing left to tie it to.
+    """
+    tied: set[int] = set()
+    for index in range(len(items) - 1, -1, -1):
+        if items[index].type != "reasoning_item":
+            continue
+        for next_index in range(index + 1, len(items)):
+            if items[next_index].type == "reasoning_item":
+                continue
+            if next_index in retained_indexes:
+                tied.add(index)
+            break
+    return tied
+
+
+def _retained_items_for_blocked_output(items: list[RunItem]) -> list[RunItem]:
+    """Pick out the items of a final turn to keep when its output is not deliverable.
+
+    A tool that already ran has to stay in the session, together with the context needed to replay
+    its call. Everything else - the assistant message the guardrail rejected above all - is dropped,
+    including the reasoning that belongs to the rejected message rather than to a retained call.
+
+    ``_SIDE_EFFECT_ITEM_TYPES`` is enumerated rather than derived, so an item type added later is
+    *discarded* here by default and has to be classified deliberately. A record of a side effect
+    that goes unclassified is a bug, so the safer default is the one that surfaces as a missing item
+    rather than as a rejected message quietly reaching the session.
+    """
+    retained_indexes = {
+        index for index, item in enumerate(items) if item.type in _SIDE_EFFECT_ITEM_TYPES
+    }
+    if not retained_indexes:
+        return []
+    # Reasoning items are not side effects themselves, but a reasoning model requires the reasoning
+    # item tied to a function call to accompany it in the next request.
+    retained_indexes |= _reasoning_indexes_tied_to_retained_items(items, retained_indexes)
+    # Indexed rather than filtered by type so the retained items keep the model's own order.
+    return [item for index, item in enumerate(items) if index in retained_indexes]
 
 
 async def _finalize_streamed_final_output(
@@ -425,21 +509,60 @@ async def _finalize_streamed_final_output(
     items: list[RunItem],
     response_id: str | None,
     store_setting: bool | None,
+    persist_before_output_guardrails: bool,
 ) -> None:
-    output_guardrail_results = await _run_output_guardrails_for_stream(
-        agent=agent,
-        run_config=run_config,
-        output=output,
-        context_wrapper=context_wrapper,
-        streamed_result=streamed_result,
-    )
+    if persist_before_output_guardrails:
+        # A resumed approval has already committed the tool side effect, so keep its call/output
+        # pair even when an agent output guardrail blocks delivery of the final result.
+        await save_items(items, response_id, store_setting)
+
+    try:
+        output_guardrail_results = await _run_output_guardrails_for_stream(
+            agent=agent,
+            run_config=run_config,
+            output=output,
+            context_wrapper=context_wrapper,
+            streamed_result=streamed_result,
+        )
+    except Exception:
+        # The blocked output itself is not persisted, but a tool that already ran is: the next run
+        # has to see that side effect rather than re-issue it. This turn reaches here with tool
+        # items when `tool_use_behavior="stop_on_first_tool"` (or `stop_at_tool_names`, or a custom
+        # callable) turned a tool result straight into the final output.
+        if not persist_before_output_guardrails:
+            retained_items = _retained_items_for_blocked_output(items)
+            if retained_items:
+                await save_items(retained_items, response_id, store_setting)
+        raise
+
     streamed_result.output_guardrail_results = output_guardrail_results
     streamed_result.final_output = output
     streamed_result.is_complete = True
 
-    await save_items(items, response_id, store_setting)
+    if not persist_before_output_guardrails:
+        # Saved as one ordered batch so the session mirrors the model response. Doing it in two
+        # halves would both reorder the turn and, because the first save advances the turn's
+        # persisted-item count, make the second one a no-op.
+        await save_items(items, response_id, store_setting)
 
     streamed_result._event_queue.put_nowait(QueueCompleteSentinel())
+
+
+def _accumulate_tool_guardrail_results(
+    streamed_result: RunResultStreaming,
+    turn_result: SingleStepResult,
+) -> None:
+    """Carry a turn's tool guardrail results onto the streamed result.
+
+    The non-streaming loop extends its run-wide lists from every turn result, so the streaming
+    loop has to do the same for `RunResultStreaming` to report the guardrails that ran.
+    """
+    streamed_result.tool_input_guardrail_results = (
+        streamed_result.tool_input_guardrail_results + turn_result.tool_input_guardrail_results
+    )
+    streamed_result.tool_output_guardrail_results = (
+        streamed_result.tool_output_guardrail_results + turn_result.tool_output_guardrail_results
+    )
 
 
 async def _finalize_streamed_interruption(
@@ -478,6 +601,7 @@ async def start_streaming(
     session: Session | None,
     run_state: RunState[TContext] | None = None,
     *,
+    trace_workflow_name: str,
     is_resumed_state: bool = False,
     sandbox_runtime: SandboxRuntime[TContext] | None = None,
 ):
@@ -500,10 +624,9 @@ async def start_streaming(
             auto_previous_response_id=auto_previous_response_id,
         )
 
-    current_trace = streamed_result.trace or get_current_trace()
     use_task_and_turn_spans = include_task_and_turn_spans(run_config.tracing)
     current_task_span: Span[TaskSpanData] | None = (
-        task_span(name=current_trace.name) if current_trace and use_task_and_turn_spans else None
+        task_span(name=trace_workflow_name) if use_task_and_turn_spans else None
     )
     if current_task_span:
         current_task_span.start(mark_as_current=True)
@@ -851,6 +974,12 @@ async def start_streaming(
                         run_config.model_settings
                     ).store
 
+                    # The non-streaming resume path extends its run-wide lists before finalizing
+                    # but skips a resumed turn that loops back to the model, so a guardrail that
+                    # re-runs for the same tool call on resume is not counted twice.
+                    if not isinstance(turn_result.next_step, NextStepRunAgain):
+                        _accumulate_tool_guardrail_results(streamed_result, turn_result)
+
                     if isinstance(turn_result.next_step, NextStepInterruption):
                         await _finalize_streamed_interruption(
                             streamed_result=streamed_result,
@@ -872,6 +1001,7 @@ async def start_streaming(
                         current_agent = turn_result.next_step.new_agent
                         if run_state is not None:
                             run_state._current_agent = current_agent
+                        _publish_streamed_result_agent(streamed_result, current_agent)
                         if current_span:
                             current_span.finish(reset_current=True)
                         current_span = None
@@ -880,6 +1010,10 @@ async def start_streaming(
                             AgentUpdatedStreamEvent(new_agent=current_agent)
                         )
                         run_state._current_step = NextStepRunAgain()  # type: ignore[assignment]
+                        if await _wait_for_streamed_turn_events_and_stop_if_cancelled(
+                            streamed_result
+                        ):
+                            break
                         continue
 
                     if isinstance(turn_result.next_step, NextStepFinalOutput):
@@ -893,6 +1027,7 @@ async def start_streaming(
                             items=list(turn_session_items),
                             response_id=turn_result.model_response.response_id,
                             store_setting=store_setting,
+                            persist_before_output_guardrails=True,
                         )
                         break
 
@@ -903,6 +1038,10 @@ async def start_streaming(
                             store_setting,
                         )
                         run_state._current_step = NextStepRunAgain()  # type: ignore[assignment]
+                        if await _wait_for_streamed_turn_events_and_stop_if_cancelled(
+                            streamed_result
+                        ):
+                            break
                         continue
 
                     run_state._current_step = None
@@ -921,9 +1060,6 @@ async def start_streaming(
             )
 
             if current_span is None:
-                handoff_names = [
-                    h.agent_name for h in await get_handoffs(execution_agent, context_wrapper)
-                ]
                 if output_schema := get_output_schema(execution_agent):
                     output_type_name = output_schema.name()
                 else:
@@ -931,16 +1067,11 @@ async def start_streaming(
 
                 current_span = agent_span(
                     name=current_agent.name,
-                    handoffs=handoff_names,
+                    handoffs=[],
+                    tools=[],
                     output_type=output_type_name,
                 )
                 current_span.start(mark_as_current=True)
-                tool_names = [
-                    tool_name
-                    for tool in all_tools
-                    if (tool_name := get_tool_trace_name_for_tool(tool)) is not None
-                ]
-                current_span.span_data.tools = tool_names
 
             current_turn += 1
             streamed_result.current_turn = current_turn
@@ -1107,6 +1238,7 @@ async def start_streaming(
                         reasoning_item_id_policy=resolved_reasoning_item_id_policy,
                         prompt_cache_key_resolver=prompt_cache_key_resolver,
                         error_handlers=error_handlers,
+                        agent_span=current_span,
                     )
                 finally:
                     if current_turn_span:
@@ -1133,6 +1265,7 @@ async def start_streaming(
                 streamed_result.raw_responses = streamed_result.raw_responses + [
                     turn_result.model_response
                 ]
+                _accumulate_tool_guardrail_results(streamed_result, turn_result)
                 input_before_turn_rewrite = streamed_result.input
                 streamed_result.input = turn_result.original_input
                 if isinstance(turn_result.next_step, NextStepHandoff):
@@ -1181,6 +1314,7 @@ async def start_streaming(
                     current_agent = turn_result.next_step.new_agent
                     if run_state is not None:
                         run_state._current_agent = current_agent
+                    _publish_streamed_result_agent(streamed_result, current_agent)
                     current_span.finish(reset_current=True)
                     current_span = None
                     should_run_agent_start_hooks = True
@@ -1190,9 +1324,7 @@ async def start_streaming(
                     if streamed_result._state is not None:
                         streamed_result._state._current_step = NextStepRunAgain()
 
-                    if streamed_result._cancel_mode == "after_turn":  # type: ignore[comparison-overlap]
-                        streamed_result.is_complete = True
-                        streamed_result._event_queue.put_nowait(QueueCompleteSentinel())
+                    if await _wait_for_streamed_turn_events_and_stop_if_cancelled(streamed_result):
                         break
                 elif isinstance(turn_result.next_step, NextStepFinalOutput):
                     await _finalize_streamed_final_output(
@@ -1205,6 +1337,7 @@ async def start_streaming(
                         items=turn_session_items,
                         response_id=turn_result.model_response.response_id,
                         store_setting=store_setting,
+                        persist_before_output_guardrails=False,
                     )
                     break
                 elif isinstance(turn_result.next_step, NextStepInterruption):
@@ -1242,26 +1375,14 @@ async def start_streaming(
                         store_setting,
                     )
 
-                    if streamed_result._cancel_mode == "after_turn":  # type: ignore[comparison-overlap]
-                        streamed_result.is_complete = True
-                        streamed_result._event_queue.put_nowait(QueueCompleteSentinel())
+                    if await _wait_for_streamed_turn_events_and_stop_if_cancelled(streamed_result):
                         break
             except Exception as e:
-                if current_span and _should_attach_generic_agent_error(e):
-                    _error_tracing.attach_error_to_span(
-                        current_span,
-                        SpanError(
-                            message="Error in agent run",
-                            data={
-                                "error": _error_tracing.get_trace_error(
-                                    trace_include_sensitive_data=(
-                                        run_config.trace_include_sensitive_data
-                                    ),
-                                    error_message=str(e),
-                                )
-                            },
-                        ),
-                    )
+                attach_generic_agent_error(
+                    current_span,
+                    e,
+                    trace_include_sensitive_data=run_config.trace_include_sensitive_data,
+                )
                 raise
     except AgentsException as exc:
         streamed_result.is_complete = True
@@ -1274,22 +1395,16 @@ async def start_streaming(
             context_wrapper=context_wrapper,
             input_guardrail_results=streamed_result.input_guardrail_results,
             output_guardrail_results=streamed_result.output_guardrail_results,
+            tool_input_guardrail_results=streamed_result.tool_input_guardrail_results,
+            tool_output_guardrail_results=streamed_result.tool_output_guardrail_results,
         )
         raise
     except Exception as e:
-        if current_span and _should_attach_generic_agent_error(e):
-            _error_tracing.attach_error_to_span(
-                current_span,
-                SpanError(
-                    message="Error in agent run",
-                    data={
-                        "error": _error_tracing.get_trace_error(
-                            trace_include_sensitive_data=run_config.trace_include_sensitive_data,
-                            error_message=str(e),
-                        )
-                    },
-                ),
-            )
+        attach_generic_agent_error(
+            current_span,
+            e,
+            trace_include_sensitive_data=run_config.trace_include_sensitive_data,
+        )
         streamed_result.is_complete = True
         streamed_result._event_queue.put_nowait(QueueCompleteSentinel())
         raise
@@ -1354,6 +1469,7 @@ async def run_single_turn_streamed(
     reasoning_item_id_policy: ReasoningItemIdPolicy | None = None,
     prompt_cache_key_resolver: PromptCacheKeyResolver | None = None,
     error_handlers: RunErrorHandlers[TContext] | None = None,
+    agent_span: Span[AgentSpanData] | None = None,
 ) -> SingleStepResult:
     """Run a single streamed turn and emit events as results arrive."""
     public_agent = bindings.public_agent
@@ -1379,21 +1495,6 @@ async def run_single_turn_streamed(
     emitted_tool_call_ids: set[str] = set()
     emitted_reasoning_item_ids: set[str] = set()
     emitted_tool_search_fingerprints: set[str] = set()
-    # Precompute the lookup map used for streaming descriptions. Function tools use the same
-    # collision-free lookup keys as runtime dispatch, including deferred top-level aliases.
-    tool_map: dict[NamedToolLookupKey, Any] = cast(
-        dict[NamedToolLookupKey, Any],
-        build_function_tool_lookup_map(
-            [tool for tool in all_tools if isinstance(tool, FunctionTool)]
-        ),
-    )
-    for tool in all_tools:
-        tool_name = getattr(tool, "name", None)
-        if not isinstance(tool_name, str) or not tool_name:
-            continue
-        if isinstance(tool, FunctionTool):
-            continue
-        tool_map[tool_name] = tool
 
     def _tool_search_fingerprint(raw_item: Any) -> str:
         if isinstance(raw_item, Mapping):
@@ -1420,7 +1521,7 @@ async def run_single_turn_streamed(
             _approvals=context_wrapper._approvals,
             turn_input=turn_input,
         )
-        await asyncio.gather(
+        await gather_with_cancel(
             hooks.on_agent_start(agent_hook_context, public_agent),
             (
                 public_agent.hooks.on_start(agent_hook_context, public_agent)
@@ -1434,12 +1535,41 @@ async def run_single_turn_streamed(
     streamed_result.current_agent = public_agent
     streamed_result._current_agent_output_schema = get_output_schema(public_agent)
 
-    system_prompt, prompt_config = await asyncio.gather(
+    system_prompt, prompt_config = await gather_with_cancel(
         execution_agent.get_system_prompt(context_wrapper),
         execution_agent.get_prompt(context_wrapper),
     )
 
     handoffs = await get_handoffs(execution_agent, context_wrapper)
+    all_tools, handoffs = resolve_tool_name_collisions(
+        all_tools,
+        handoffs,
+        collision_policy=run_config.tool_name_collision_policy,
+    )
+    if agent_span is not None:
+        agent_span.span_data.handoffs = [handoff.agent_name for handoff in handoffs]
+        agent_span.span_data.tools = [
+            tool_name
+            for tool in all_tools
+            if (tool_name := get_tool_trace_name_for_tool(tool)) is not None
+        ]
+
+    # Precompute the lookup map used for streaming descriptions. Function tools use the same
+    # collision-free lookup keys as runtime dispatch, including deferred top-level aliases.
+    tool_map: dict[NamedToolLookupKey, Any] = cast(
+        dict[NamedToolLookupKey, Any],
+        build_function_tool_lookup_map(
+            [tool for tool in all_tools if isinstance(tool, FunctionTool)]
+        ),
+    )
+    for tool in all_tools:
+        tool_name = getattr(tool, "name", None)
+        if not isinstance(tool_name, str) or not tool_name:
+            continue
+        if isinstance(tool, FunctionTool):
+            continue
+        tool_map[tool_name] = tool
+    handoff_tool_names = {handoff.tool_name for handoff in handoffs}
     model = get_model(execution_agent, run_config)
     tool_use_tracker.record_model(model)
     model_settings = get_model_settings(execution_agent, run_config)
@@ -1489,7 +1619,7 @@ async def run_single_turn_streamed(
         # explicitly rewind this state before replaying a failed request.
         server_conversation_tracker.mark_input_as_sent(filtered.input)
 
-    await asyncio.gather(
+    await gather_with_cancel(
         hooks.on_llm_start(context_wrapper, public_agent, filtered.instructions, filtered.input),
         (
             public_agent.hooks.on_llm_start(
@@ -1654,7 +1784,11 @@ async def run_single_turn_streamed(
             elif isinstance(output_item, McpListTools):
                 hosted_mcp_tool_metadata.update(collect_mcp_list_tools_metadata([output_item]))
 
-            elif isinstance(output_item, TOOL_CALL_TYPES):
+            elif isinstance(output_item, TOOL_CALL_TYPES) and not is_handoff_tool_call(
+                output_item, handoff_tool_names
+            ):
+                # Handoff calls are streamed as `handoff_requested` once the turn is processed,
+                # so emitting them here too would duplicate the item under a second event name.
                 output_call_id: str | None = getattr(
                     output_item, "call_id", getattr(output_item, "id", None)
                 )
@@ -1722,7 +1856,7 @@ async def run_single_turn_streamed(
 
     if final_response is not None:
         context_wrapper.usage.add(final_response.usage)
-        await asyncio.gather(
+        await gather_with_cancel(
             (
                 public_agent.hooks.on_llm_end(context_wrapper, public_agent, final_response)
                 if public_agent.hooks
@@ -1818,6 +1952,7 @@ async def run_single_turn(
     reasoning_item_id_policy: ReasoningItemIdPolicy | None = None,
     prompt_cache_key_resolver: PromptCacheKeyResolver | None = None,
     error_handlers: RunErrorHandlers[TContext] | None = None,
+    agent_span: Span[AgentSpanData] | None = None,
 ) -> SingleStepResult:
     """Run a single non-streaming turn of the agent loop."""
     public_agent = bindings.public_agent
@@ -1835,7 +1970,7 @@ async def run_single_turn(
             _approvals=context_wrapper._approvals,
             turn_input=turn_input,
         )
-        await asyncio.gather(
+        await gather_with_cancel(
             hooks.on_agent_start(agent_hook_context, public_agent),
             (
                 public_agent.hooks.on_start(agent_hook_context, public_agent)
@@ -1844,13 +1979,26 @@ async def run_single_turn(
             ),
         )
 
-    system_prompt, prompt_config = await asyncio.gather(
+    system_prompt, prompt_config = await gather_with_cancel(
         execution_agent.get_system_prompt(context_wrapper),
         execution_agent.get_prompt(context_wrapper),
     )
 
-    output_schema = get_output_schema(execution_agent)
     handoffs = await get_handoffs(execution_agent, context_wrapper)
+    all_tools, handoffs = resolve_tool_name_collisions(
+        all_tools,
+        handoffs,
+        collision_policy=run_config.tool_name_collision_policy,
+    )
+    if agent_span is not None:
+        agent_span.span_data.handoffs = [handoff.agent_name for handoff in handoffs]
+        agent_span.span_data.tools = [
+            tool_name
+            for tool in all_tools
+            if (tool_name := get_tool_trace_name_for_tool(tool)) is not None
+        ]
+
+    output_schema = get_output_schema(execution_agent)
     if server_conversation_tracker is not None:
         input = server_conversation_tracker.prepare_input(original_input, generated_items)
     else:
@@ -1929,7 +2077,7 @@ async def get_new_response(
     if server_conversation_tracker is not None:
         server_conversation_tracker.mark_input_as_sent(filtered.input)
 
-    await asyncio.gather(
+    await gather_with_cancel(
         hooks.on_llm_start(context_wrapper, public_agent, filtered.instructions, filtered.input),
         (
             public_agent.hooks.on_llm_start(
@@ -2009,7 +2157,7 @@ async def get_new_response(
 
     context_wrapper.usage.add(new_response.usage)
 
-    await asyncio.gather(
+    await gather_with_cancel(
         (
             public_agent.hooks.on_llm_end(context_wrapper, public_agent, new_response)
             if public_agent.hooks

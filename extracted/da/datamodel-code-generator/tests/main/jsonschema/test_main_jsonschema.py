@@ -11,8 +11,11 @@ import sys
 import tempfile
 import warnings
 from collections import defaultdict
+from collections.abc import Callable as ABCCallable
 from collections.abc import Sequence
-from pathlib import Path
+from dataclasses import Field as DataclassField
+from pathlib import Path, PurePath
+from typing import get_args, get_type_hints
 
 import black
 import pytest
@@ -2206,6 +2209,48 @@ def test_main_require_referenced_field(tmp_path: Path) -> None:
         assert_func=assert_file_content,
         input_file_type="jsonschema",
         extra_args=["--output-datetime-class", "AwareDatetime", "--output-model-type", "pydantic_v2.BaseModel"],
+    )
+
+
+def test_main_require_referenced_field_import_override(tmp_path: Path) -> None:
+    """Preserve aliases when overriding referenced model imports."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "require_referenced_field/",
+        output_path=tmp_path,
+        output_to_expected=[
+            ("referenced.py", "require_referenced_field/referenced.py"),
+            ("required.py", "require_referenced_field_import_override/required.py"),
+        ],
+        assert_func=assert_file_content,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-datetime-class",
+            "datetime",
+            "--import-overrides",
+            '{"Model": "my_project.models"}',
+        ],
+    )
+
+
+def test_main_import_overrides_conflicting_aliases(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Report conflicting overridden aliases without a traceback."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "import_override_conflicting_aliases/",
+        output_path=tmp_path / "output",
+        input_file_type="jsonschema",
+        extra_args=[
+            "--use-exact-imports",
+            "--import-overrides",
+            '{"Model": "my_project.models"}',
+        ],
+        expected_exit=Exit.ERROR,
+        capsys=capsys,
+        expected_stderr="Import override for 'Model' produces conflicting names: 'Model_1' and 'Model_2'\n",
+        output_should_not_exist=True,
+        skip_code_validation=True,
     )
 
 
@@ -8475,6 +8520,103 @@ def test_main_typed_dict_mixed_closed_no_duplicate_imports(output_file: Path) ->
     )
 
 
+@pytest.mark.parametrize(
+    ("target_python_version", "expected_file"),
+    [
+        ("3.10", "use_total_false_for_typed_dict_py310.py"),
+        ("3.11", "use_total_false_for_typed_dict_py311.py"),
+    ],
+)
+@pytest.mark.cli_doc(
+    options=["--use-total-false-for-typed-dict"],
+    option_description="""Generate TypedDict declarations with `total=False`.
+
+Optional fields are left unwrapped, while required fields are marked with
+`Required[...]`. This can substantially reduce generated code when most fields
+are optional.""",
+    input_schema="jsonschema/use_total_false_for_typed_dict.json",
+    cli_args=[
+        "--output-model-type",
+        "typing.TypedDict",
+        "--use-total-false-for-typed-dict",
+        "--use-frozen-field",
+    ],
+    version_outputs={
+        "3.10": "main/jsonschema/use_total_false_for_typed_dict_py310.py",
+        "3.11": "main/jsonschema/use_total_false_for_typed_dict_py311.py",
+    },
+)
+def test_main_use_total_false_for_typed_dict(
+    target_python_version: str,
+    expected_file: str,
+    output_file: Path,
+) -> None:
+    """Generate total=False TypedDicts for class, functional, and PEP 728 syntax."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "use_total_false_for_typed_dict.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=[
+            "--output-model-type",
+            "typing.TypedDict",
+            "--use-total-false-for-typed-dict",
+            "--use-frozen-field",
+            "--formatters",
+            "builtin",
+            "--target-python-version",
+            target_python_version,
+        ],
+    )
+
+
+def test_main_use_total_false_for_typed_dict_ignores_other_outputs(output_file: Path) -> None:
+    """Leave non-TypedDict output unchanged when the option is supplied."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "person.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="general.py",
+        extra_args=["--use-total-false-for-typed-dict"],
+    )
+
+
+@pytest.mark.parametrize(
+    ("target_python_version", "total_false_args", "expected_file"),
+    [
+        ("3.11", [], "use_total_false_for_typed_dict_reuse_legacy.py"),
+        ("3.10", ["--use-total-false-for-typed-dict"], "use_total_false_for_typed_dict_reuse_py310.py"),
+        ("3.11", ["--use-total-false-for-typed-dict"], "use_total_false_for_typed_dict_reuse_py311.py"),
+    ],
+)
+def test_main_use_total_false_for_typed_dict_reuse_model(
+    target_python_version: str,
+    total_false_args: list[str],
+    expected_file: str,
+    output_file: Path,
+) -> None:
+    """Preserve total=False on empty TypedDict subclasses without changing legacy output."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "reuse_model_inline_definitions.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=[
+            "--output-model-type",
+            "typing.TypedDict",
+            "--reuse-model",
+            "--formatters",
+            "builtin",
+            "--target-python-version",
+            target_python_version,
+            *total_false_args,
+        ],
+    )
+
+
 @pytest.mark.cli_doc(
     options=["--no-use-closed-typed-dict"],
     option_description="""Disable PEP 728 TypedDict closed/extra_items generation.
@@ -9930,6 +10072,137 @@ def test_main_jsonschema_type_alias_py312(output_file: Path) -> None:
             "--output-model-type",
             "pydantic_v2.BaseModel",
         ],
+    )
+
+
+@pytest.mark.cli_doc(
+    options=["--use-type-alias-type"],
+    option_description="""Use runtime TypeAliasType objects for aliases before Python 3.12 (experimental).
+
+The `--use-type-alias-type` flag implies `--use-type-alias` and forces
+`TypeAliasType` for every output model type on Python 3.10-3.11. Python 3.12+
+continues to use native `type` statements.""",
+    input_schema="jsonschema/type_alias.json",
+    cli_args=[
+        "--output-model-type",
+        "typing.TypedDict",
+        "--use-type-alias-type",
+        "--target-python-version",
+        "3.10",
+    ],
+    version_outputs={
+        "3.10": "jsonschema/type_alias_type_typeddict.py",
+        "3.12": "jsonschema/type_alias_type_typeddict_py312.py",
+    },
+    primary=True,
+)
+@pytest.mark.parametrize(
+    ("output_model", "expected_file"),
+    [
+        ("typing.TypedDict", "type_alias_type_typeddict.py"),
+        ("dataclasses.dataclass", "type_alias_type_dataclass.py"),
+        ("msgspec.Struct", "type_alias_type_msgspec.py"),
+    ],
+)
+def test_main_jsonschema_type_alias_type_non_pydantic(
+    output_file: Path,
+    output_model: str,
+    expected_file: str,
+) -> None:
+    """Force TypeAliasType for Python 3.10 non-Pydantic output."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "type_alias.json",
+        output_path=output_file,
+        input_file_type=None,
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=[
+            "--use-type-alias-type",
+            "--target-python-version",
+            "3.10",
+            "--output-model-type",
+            output_model,
+        ],
+    )
+
+
+@pytest.mark.skipif(
+    int(black.__version__.split(".")[0]) < 23,
+    reason="Installed black doesn't support the new 'type' statement",
+)
+def test_main_jsonschema_type_alias_type_typeddict_py312(output_file: Path) -> None:
+    """Keep native type statements for Python 3.12 TypedDict output."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "type_alias.json",
+        output_path=output_file,
+        input_file_type=None,
+        assert_func=assert_file_content,
+        expected_file="type_alias_type_typeddict_py312.py",
+        extra_args=[
+            "--use-type-alias-type",
+            "--target-python-version",
+            "3.12",
+            "--output-model-type",
+            "typing.TypedDict",
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    ("input_name", "expected_file"),
+    [
+        ("type_alias_forward_ref.json", "type_alias_type_forward_ref.py"),
+        ("type_alias_cycle.json", "type_alias_type_cycle.py"),
+    ],
+)
+def test_main_jsonschema_type_alias_type_executes_forward_references(
+    output_file: Path,
+    input_name: str,
+    expected_file: str,
+) -> None:
+    """Generate executable runtime aliases for forward and cyclic references."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / input_name,
+        output_path=output_file,
+        input_file_type=None,
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=[
+            "--use-type-alias-type",
+            "--target-python-version",
+            "3.10",
+            "--output-model-type",
+            "typing.TypedDict",
+            "--keep-model-order",
+            "--disable-future-imports",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+    )
+
+
+def test_main_jsonschema_type_alias_type_recursive_exports(output_dir: Path) -> None:
+    """Export runtime aliases without leaking their helper into package exports."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "type_alias_type_module",
+        output_path=output_dir,
+        input_file_type="jsonschema",
+        expected_directory=EXPECTED_JSON_SCHEMA_PATH / "type_alias_type_module",
+        extra_args=[
+            "--use-type-alias-type",
+            "--target-python-version",
+            "3.10",
+            "--output-model-type",
+            "typing.TypedDict",
+            "--all-exports-scope",
+            "recursive",
+            "--disable-future-imports",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+        importable_module_name="generated_type_alias_type_module",
+        importable_module_file="__init__.py",
+        importable_module_attribute="Names",
     )
 
 
@@ -13508,6 +13781,310 @@ def test_x_python_type_qualified_spans(output_file: Path) -> None:
         input_file_type=None,
         assert_func=assert_file_content,
         extra_args=["--output-model-type", "typing.TypedDict"],
+    )
+
+
+def test_x_python_type_structured_binding(output_file: Path) -> None:
+    """Bind nested qualified and static-registry names through semantic IR."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "x_python_type_structured_binding.json",
+        output_path=output_file,
+        input_file_type=None,
+        assert_func=assert_file_content,
+        extra_args=["--output-model-type", "typing.TypedDict"],
+    )
+
+
+@pytest.mark.parametrize(
+    ("output_model_type", "expected_file", "disable_future_imports"),
+    [
+        pytest.param(
+            DataModelType.PydanticV2BaseModel,
+            "x_python_type_binding_collisions_pydantic_v2.py",
+            False,
+            id="pydantic-v2",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2BaseModel,
+            "x_python_type_binding_collisions_pydantic_v2_no_future.py",
+            True,
+            id="pydantic-v2-no-future",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "x_python_type_binding_collisions_pydantic_v2_dataclass.py",
+            False,
+            id="pydantic-v2-dataclass",
+        ),
+        pytest.param(
+            DataModelType.DataclassesDataclass,
+            "x_python_type_binding_collisions_dataclass.py",
+            False,
+            id="dataclass",
+        ),
+        pytest.param(
+            DataModelType.TypingTypedDict,
+            "x_python_type_binding_collisions_typed_dict.py",
+            False,
+            id="typed-dict",
+        ),
+        pytest.param(
+            DataModelType.MsgspecStruct,
+            "x_python_type_binding_collisions_msgspec.py",
+            False,
+            id="msgspec",
+        ),
+    ],
+)
+@pytest.mark.allow_direct_assert
+def test_x_python_type_binding_collisions(
+    output_file: Path,
+    output_model_type: DataModelType,
+    expected_file: str,
+    *,
+    disable_future_imports: bool,
+) -> None:
+    """Alias semantic leaves and imports together for every output family."""
+    extra_args = ["--output-model-type", output_model_type.value, "--disable-timestamp"]
+    if disable_future_imports:
+        extra_args.append("--disable-future-imports")
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "x_python_type_binding_collisions.json",
+        output_path=output_file,
+        input_file_type=None,
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=extra_args,
+        force_exec_validation=True,
+    )
+    with _generated_model(output_file, f"x_python_type_collision_{output_model_type.name}", "CollisionModel") as model:
+        hints = get_type_hints(model)
+        path_types = get_args(hints["paths"])
+        assert path_types[:2] == (PurePath, PurePath)
+        assert path_types[2].__name__ == "PurePathModel"
+        assert hints["external"] is ABCCallable
+        assert hints["PurePath"] is PurePath
+
+
+@pytest.mark.allow_direct_assert
+def test_x_python_type_backend_import_collision(output_file: Path) -> None:
+    """Keep backend imports stable and alias only the bound annotation identity."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "x_python_type_backend_import_collision.json",
+        output_path=output_file,
+        input_file_type=None,
+        assert_func=assert_file_content,
+        expected_file="x_python_type_backend_import_collision.py",
+        extra_args=[
+            "--output-model-type",
+            DataModelType.PydanticV2BaseModel.value,
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+    )
+    with _generated_model(output_file, "x_python_type_backend_import_collision", "BackendCollisionModel") as model:
+        value_type = next(
+            item for item in get_args(get_type_hints(model, include_extras=True)["value"]) if item is not type(None)
+        )
+        assert get_args(value_type)[1] is DataclassField
+
+
+@pytest.mark.allow_direct_assert
+def test_x_python_type_existing_alias_propagates_to_all_consumers(output_file: Path) -> None:
+    """Use one established alias in ordinary and structured type consumers."""
+    from datetime import datetime
+
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "x_python_type_existing_alias.json",
+        output_path=output_file,
+        input_file_type=None,
+        assert_func=assert_file_content,
+        expected_file="x_python_type_existing_alias.py",
+        extra_args=[
+            "--output-model-type",
+            DataModelType.PydanticV2BaseModel.value,
+            "--additional-imports",
+            "datetime.datetime",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+    )
+    with _generated_model(output_file, "x_python_type_existing_alias", "ExistingAliasModel") as model:
+        hints = get_type_hints(model)
+        assert hints["datetime"] is datetime
+        assert hints["typed"] is datetime
+
+
+@pytest.mark.allow_direct_assert
+def test_ordinary_alias_keeps_global_additional_import(output_file: Path) -> None:
+    """Do not apply structured import filtering to the ordinary generation path."""
+    from datetime import datetime
+
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "ordinary_existing_alias.json",
+        output_path=output_file,
+        input_file_type=None,
+        assert_func=assert_file_content,
+        expected_file="ordinary_existing_alias.py",
+        extra_args=[
+            "--output-model-type",
+            DataModelType.PydanticV2BaseModel.value,
+            "--additional-imports",
+            "datetime.datetime",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+    )
+    with _generated_model(output_file, "ordinary_existing_alias", "OrdinaryExistingAliasModel") as model:
+        assert get_type_hints(model)["datetime"] is datetime
+
+
+def test_x_python_type_late_import_collision(output_dir: Path) -> None:
+    """Re-run identity resolution after module imports are materialized."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "x_python_type_late_import_collision.json",
+        output_path=output_dir,
+        input_file_type=None,
+        expected_directory=EXPECTED_JSON_SCHEMA_PATH / "x_python_type_late_import_collision",
+        extra_args=[
+            "--output-model-type",
+            DataModelType.PydanticV2BaseModel.value,
+            "--module-split-mode",
+            "single",
+            "--disable-timestamp",
+        ],
+        runtime_validation_module="late_import_collision",
+        runtime_validation_model_name="LateImportCollision",
+        runtime_validation_data={"local": {"name": "value"}, "timestamp": "2026-08-04T12:00:00"},
+    )
+
+
+def test_x_python_type_target_newer_symbols(output_file: Path) -> None:
+    """Resolve target-newer symbols without importing modules from the host runtime."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "x_python_type_target_newer_symbols.json",
+        output_path=output_file,
+        input_file_type=None,
+        assert_func=assert_file_content,
+        expected_file="x_python_type_target_newer_symbols.py",
+        extra_args=[
+            "--output-model-type",
+            DataModelType.TypingTypedDict.value,
+            "--target-python-version",
+            "3.14",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=sys.version_info[:2] >= (3, 14),
+    )
+
+
+@pytest.mark.parametrize(
+    ("fixture_name", "expected_error"),
+    [
+        (
+            "x_python_type_target_unavailable.json",
+            "enum.StrEnum is unavailable for target Python 3.10",
+        ),
+        (
+            "x_python_type_enum_helper_unavailable.json",
+            "enum.property is unavailable for target Python 3.10",
+        ),
+        (
+            "x_python_type_builtin_unavailable.json",
+            "builtins.ExceptionGroup is unavailable for target Python 3.10",
+        ),
+    ],
+)
+def test_x_python_type_rejects_symbol_unavailable_for_target(
+    output_file: Path,
+    capsys: pytest.CaptureFixture[str],
+    fixture_name: str,
+    expected_error: str,
+) -> None:
+    """Reject a known stdlib type introduced after the configured target."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / fixture_name,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        expected_exit=Exit.ERROR,
+        output_should_not_exist=True,
+        capsys=capsys,
+        expected_stderr_contains=expected_error,
+        extra_args=["--target-python-version", "3.10"],
+    )
+
+
+def test_x_python_type_builtin_and_enum_helpers_for_target_311(output_file: Path) -> None:
+    """Keep bare builtins distinct from target-gated enum helper classes."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "x_python_type_builtin_target.json",
+        output_path=output_file,
+        input_file_type=None,
+        assert_func=assert_file_content,
+        expected_file="x_python_type_builtin_target.py",
+        extra_args=[
+            "--output-model-type",
+            DataModelType.TypingTypedDict.value,
+            "--target-python-version",
+            "3.11",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=sys.version_info[:2] >= (3, 11),
+    )
+
+
+def test_x_python_type_explicit_defs_override_target_unavailable_symbol(output_file: Path) -> None:
+    """Prefer an explicit schema import when a same-named stdlib type is target-newer."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "x_python_type_target_unavailable_defs_override.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="x_python_type_target_unavailable_defs_override.py",
+        extra_args=[
+            "--output-model-type",
+            DataModelType.TypingTypedDict.value,
+            "--target-python-version",
+            "3.10",
+            "--disable-timestamp",
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    ("target_python_version", "expected_file"),
+    [
+        pytest.param("3.10", "x_python_type_target_backports_310.py", id="python-3.10"),
+        pytest.param("3.12", "x_python_type_target_backports_312.py", id="python-3.12"),
+        pytest.param("3.14", "x_python_type_target_backports_314.py", id="python-3.14"),
+    ],
+)
+def test_x_python_type_target_backports(
+    output_file: Path,
+    target_python_version: str,
+    expected_file: str,
+) -> None:
+    """Select stdlib or backport imports solely from the configured target."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "x_python_type_target_backports.json",
+        output_path=output_file,
+        input_file_type=None,
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=[
+            "--output-model-type",
+            DataModelType.TypingTypedDict.value,
+            "--target-python-version",
+            target_python_version,
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=tuple(map(int, target_python_version.split("."))) <= sys.version_info[:2],
     )
 
 

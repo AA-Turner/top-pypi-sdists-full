@@ -12,6 +12,7 @@ app = LazyGroup(
         "run-local": "pysae_ai_tools.ci.run_local.__main__:app",
         "artifacts": "pysae_ai_tools.ci.artifacts:app",
         "test-report": "pysae_ai_tools.ci.test_report:main",
+        "verify-deploy-contract": "pysae_ai_tools.ci.verify_deploy_contract.cli:main",
         "release": "pysae_ai_tools.ci.release.group:app",
     },
 )

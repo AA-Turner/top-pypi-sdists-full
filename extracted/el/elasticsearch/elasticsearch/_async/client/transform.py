@@ -44,7 +44,7 @@ class TransformClient(NamespacedClient):
           <p>Delete a transform.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-transform-delete-transform>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-transform-delete-transform>`_
 
         :param transform_id: Identifier for the transform.
         :param delete_dest_index: If this value is true, the destination index is deleted
@@ -101,7 +101,7 @@ class TransformClient(NamespacedClient):
           <p>Get per-node information about transform usage.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-transform-get-node-stats>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-transform-get-node-stats>`_
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_transform/_node_stats"
@@ -147,7 +147,7 @@ class TransformClient(NamespacedClient):
           <p>Get configuration information for transforms.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-transform-get-transform>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-transform-get-transform>`_
 
         :param transform_id: Identifier for the transform. It can be a transform identifier
             or a wildcard expression. You can get information for all transforms by using
@@ -205,6 +205,7 @@ class TransformClient(NamespacedClient):
         *,
         transform_id: t.Union[str, t.Sequence[str]],
         allow_no_match: t.Optional[bool] = None,
+        basic: t.Optional[bool] = None,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         from_: t.Optional[int] = None,
@@ -220,7 +221,7 @@ class TransformClient(NamespacedClient):
           <p>Get usage information for transforms.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-transform-get-transform-stats>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-transform-get-transform-stats>`_
 
         :param transform_id: Identifier for the transform. It can be a transform identifier
             or a wildcard expression. You can get information for all transforms by using
@@ -230,6 +231,11 @@ class TransformClient(NamespacedClient):
             string or no identifiers and there are no matches. 3. Contains wildcard expressions
             and there are only partial matches. If this parameter is false, the request
             returns a 404 status code when there are no matches or only partial matches.
+        :param basic: If true, the response includes `id`, `state`, `node`, `stats`,
+            `health`, and basic `checkpointing` information (the last and next checkpoint
+            numbers, and the next checkpoint's `position` and `progress`). Skips statistics
+            that require heavy computations to calculate: `operations_behind`, `changes_last_detected_at`,
+            `last_search_time`, and the checkpoint timestamps.
         :param from_: Skips the specified number of transforms.
         :param size: Specifies the maximum number of transforms to obtain.
         :param timeout: Controls the time to wait for the stats
@@ -241,6 +247,8 @@ class TransformClient(NamespacedClient):
         __query: t.Dict[str, t.Any] = {}
         if allow_no_match is not None:
             __query["allow_no_match"] = allow_no_match
+        if basic is not None:
+            __query["basic"] = basic
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -308,7 +316,7 @@ class TransformClient(NamespacedClient):
           types of the source index and the transform aggregations.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-transform-preview-transform>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-transform-preview-transform>`_
 
         :param transform_id: Identifier for the transform to preview. If you specify
             this path parameter, you cannot provide transform configuration details in
@@ -443,7 +451,7 @@ class TransformClient(NamespacedClient):
           give users any privileges on <code>.data-frame-internal*</code> indices.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-transform-put-transform>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-transform-put-transform>`_
 
         :param transform_id: Identifier for the transform. This identifier can contain
             lowercase alphanumeric characters (a-z and 0-9), hyphens, and underscores.
@@ -549,7 +557,7 @@ class TransformClient(NamespacedClient):
           If the destination index was created by the transform, it is deleted.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-transform-reset-transform>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-transform-reset-transform>`_
 
         :param transform_id: Identifier for the transform. This identifier can contain
             lowercase alphanumeric characters (a-z and 0-9), hyphens, and underscores.
@@ -592,6 +600,7 @@ class TransformClient(NamespacedClient):
         self,
         *,
         transform_id: str,
+        defer: t.Optional[bool] = None,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
@@ -609,9 +618,12 @@ class TransformClient(NamespacedClient):
           is called again in the meantime.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-transform-schedule-now-transform>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-transform-schedule-now-transform>`_
 
         :param transform_id: Identifier for the transform.
+        :param defer: When true, defers the scheduling by the transform's configured
+            sync delay instead of triggering immediately. The transform will process
+            new data after the delay elapses rather than right away.
         :param timeout: Controls the time to wait for the scheduling to take place
         """
         if transform_id in SKIP_IN_PATH:
@@ -619,6 +631,8 @@ class TransformClient(NamespacedClient):
         __path_parts: t.Dict[str, str] = {"transform_id": _quote(transform_id)}
         __path = f'/_transform/{__path_parts["transform_id"]}/_schedule_now'
         __query: t.Dict[str, t.Any] = {}
+        if defer is not None:
+            __query["defer"] = defer
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -668,7 +682,7 @@ class TransformClient(NamespacedClient):
           transform info API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-transform-set-upgrade-mode>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-transform-set-upgrade-mode>`_
 
         :param enabled: When `true`, it enables `upgrade_mode` which temporarily halts
             all transform tasks and prohibits new transform tasks from starting.
@@ -732,7 +746,7 @@ class TransformClient(NamespacedClient):
           destination indices, the transform fails when it attempts unauthorized operations.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-transform-start-transform>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-transform-start-transform>`_
 
         :param transform_id: Identifier for the transform.
         :param from_: Restricts the set of transformed entities to those changed after
@@ -790,7 +804,7 @@ class TransformClient(NamespacedClient):
           <p>Stops one or more transforms.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-transform-stop-transform>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-transform-stop-transform>`_
 
         :param transform_id: Identifier for the transform. To stop multiple transforms,
             use a comma-separated list or a wildcard expression. To stop all transforms,
@@ -892,7 +906,7 @@ class TransformClient(NamespacedClient):
           time of update and runs with those privileges.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-transform-update-transform>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-transform-update-transform>`_
 
         :param transform_id: Identifier for the transform.
         :param defer_validation: When true, deferrable validations are not run. This
@@ -987,7 +1001,7 @@ class TransformClient(NamespacedClient):
           You may want to perform a recent cluster backup prior to the upgrade.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-transform-upgrade-transforms>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-transform-upgrade-transforms>`_
 
         :param dry_run: When true, the request checks for updates but does not run them.
         :param timeout: Period to wait for a response. If no response is received before

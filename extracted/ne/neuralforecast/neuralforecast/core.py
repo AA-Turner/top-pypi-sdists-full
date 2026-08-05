@@ -86,6 +86,80 @@ from .losses.pytorch import HuberIQLoss, IQLoss, sCRPS
 warnings.filterwarnings("ignore", category=pl.utilities.warnings.PossibleUserWarning)
 
 
+def _fsspec_entry_path(entry: Union[str, Dict[str, Any]]) -> str:
+    """Normalize an ``fs.ls`` entry to a path string.
+
+    Some filesystems (notably Databricks DBFS via fsspec) return detail dicts
+    from ``ls`` even when callers expect plain path strings.
+    """
+    if isinstance(entry, dict):
+        name = entry.get("name")
+        if name is None:
+            raise ValueError(f"Cannot determine path from fsspec ls entry: {entry}")
+        return name
+    return entry
+
+
+def _fsspec_listdir(fs, path: str) -> List[str]:
+    """List paths from fsspec, always returning path strings."""
+    try:
+        entries = fs.ls(path, detail=False)
+    except TypeError:
+        # Implementations that do not accept ``detail``
+        entries = fs.ls(path)
+    return [_fsspec_entry_path(entry) for entry in entries]
+
+
+def _dbfs_path_for_pandas(path: str) -> str:
+    """Prefer the Databricks ``/dbfs`` FUSE mount when available.
+
+    Spark commonly writes with ``dbfs:/...`` URIs while pandas on the driver
+    reads more reliably from ``/dbfs/...`` when that mount exists.
+    """
+    import os
+
+    if not path.startswith("dbfs:"):
+        return path
+
+    rest = path.split(":", 1)[1]
+    while rest.startswith("//"):
+        rest = rest[1:]
+    if not rest.startswith("/"):
+        rest = f"/{rest}"
+    fuse_path = rest if rest.startswith("/dbfs/") else f"/dbfs{rest}"
+    if os.path.isdir("/dbfs"):
+        return fuse_path
+    return path
+
+
+def _as_distributed_file_uri(protocol: str, path: str) -> str:
+    """Build a readable URI/path for a distributed parquet partition."""
+    if path.startswith("/dbfs/") or path.startswith("dbfs:") or "://" in path:
+        return _dbfs_path_for_pandas(path)
+    if protocol == "dbfs":
+        dbfs_path = path if path.startswith("/") else f"/{path}"
+        return _dbfs_path_for_pandas(f"dbfs:{dbfs_path}")
+    return f"{protocol}://{path}"
+
+
+def _list_distributed_parquet_files(fs, partitions_path: str) -> List[str]:
+    """List parquet partition files for distributed training.
+
+    Handles fsspec backends that return detail dicts from ``ls`` and normalizes
+    Databricks DBFS paths for pandas reads.
+    """
+    protocol = fs.protocol
+    if isinstance(protocol, tuple):
+        protocol = protocol[0]
+
+    files = []
+    for file in _fsspec_listdir(fs, partitions_path):
+        if not file.endswith("parquet"):
+            continue
+        files.append(_as_distributed_file_uri(protocol, file))
+    return files
+
+
 def _insample_times(
     times: np.ndarray,
     uids: Series,
@@ -340,7 +414,17 @@ class NeuralForecast:
         self.categorical_vocab_ = {}
         for col, max_card in self._get_categorical_exog().items():
             frame = static_df if (static_df is not None and col in static_df.columns) else df
-            if isinstance(frame, pl_DataFrame):
+            if isinstance(frame, SparkDataFrame):
+                from pyspark.sql import functions as spark_F
+
+                rows = (
+                    frame.select(col)
+                    .where(spark_F.col(col).isNotNull())
+                    .distinct()
+                    .collect()
+                )
+                uniques = [r[0] for r in rows]
+            elif isinstance(frame, pl_DataFrame):
                 uniques = frame.get_column(col).drop_nulls().unique().to_list()
             else:
                 uniques = frame[col].dropna().unique().tolist()
@@ -359,6 +443,22 @@ class NeuralForecast:
             return df
         cols = [c for c in self.categorical_vocab_ if c in df.columns]
         if not cols:
+            return df
+        if isinstance(df, SparkDataFrame):
+            from pyspark.sql import functions as spark_F
+
+            for col in cols:
+                vocab = self.categorical_vocab_[col]
+                mapping = spark_F.create_map(
+                    [spark_F.lit(x) for kv in vocab.items() for x in kv]
+                )
+                # Unseen / null categories map to 0 (the reserved OOV index).
+                df = df.withColumn(
+                    col,
+                    spark_F.coalesce(
+                        mapping[spark_F.col(col)], spark_F.lit(0)
+                    ).cast("long"),
+                )
             return df
         if isinstance(df, pl_DataFrame):
             import polars as pl
@@ -506,6 +606,14 @@ class NeuralForecast:
                 "Static scaling isn't supported in distributed. "
                 "Please open an issue if this would be valuable to you."
             )
+        # Categorical features are encoded to integer indices on the driver so
+        # the parquet partitions (read directly by the training workers) hold
+        # embeddable ints rather than raw strings.
+        if self._has_categorical():
+            self._build_categorical_vocab(df, static_df)
+            df = self._encode_categoricals(df)
+            if static_df is not None:
+                static_df = self._encode_categoricals(static_df)
         temporal_cols = [c for c in df.columns if c not in (id_col, time_col)]
         if static_df is not None:
             static_cols = [c for c in static_df.columns if c != id_col]
@@ -520,14 +628,7 @@ class NeuralForecast:
         df = df.repartitionByRange(num_partitions, id_col)
         df.write.parquet(path=distributed_config.partitions_path, mode="overwrite")
         fs, _, _ = fsspec.get_fs_token_paths(distributed_config.partitions_path)
-        protocol = fs.protocol
-        if isinstance(protocol, tuple):
-            protocol = protocol[0]
-        files = [
-            f"{protocol}://{file}"
-            for file in fs.ls(distributed_config.partitions_path)
-            if file.endswith("parquet")
-        ]
+        files = _list_distributed_parquet_files(fs, distributed_config.partitions_path)
         return _FilesDataset(
             files=files,
             temporal_cols=temporal_cols,
@@ -641,17 +742,18 @@ class NeuralForecast:
         self._cs_df: Optional[DataFrame] = None
         self.prediction_intervals: Optional[PredictionIntervals] = None
 
-        # Categorical exogenous features require an in-memory (pandas/polars)
-        # frame. `df=None` reuses the stored dataset and its existing vocabulary,
-        # so only distributed/file-based inputs are rejected here.
+        # Categorical exogenous features are supported for pandas/polars and
+        # spark DataFrames. `df=None` reuses the stored dataset and its existing
+        # vocabulary. Only the list-of-files input (read directly into tensors,
+        # so there is no encoding hook) is rejected here.
         if (
             self._has_categorical()
             and df is not None
-            and not isinstance(df, (pd.DataFrame, pl_DataFrame))
+            and not isinstance(df, (pd.DataFrame, pl_DataFrame, SparkDataFrame))
         ):
             raise NotImplementedError(
-                "Categorical exogenous features are only supported with pandas or "
-                "polars DataFrames."
+                "Categorical exogenous features are only supported with pandas, "
+                "polars or spark DataFrames (not a list of parquet files)."
             )
 
         # Process and save new dataset (in self)
@@ -698,6 +800,8 @@ class NeuralForecast:
                 raise ValueError(
                     "`static_df` must be a spark dataframe when `df` is a spark dataframe."
                 )
+            # Rebuild the categorical vocabulary from this training panel.
+            self.categorical_vocab_ = {}
             self.dataset = self._prepare_fit_distributed(
                 df=df,
                 static_df=static_df,
@@ -960,6 +1064,7 @@ class NeuralForecast:
             nf.time_col = time_col
             nf.target_col = target_col
             nf.scalers_ = {}
+            nf.static_scalers_ = {}
             nf._fitted = True
             if futr_exog_cols:
                 # if we have futr_exog we'll have extra rows with the future values
@@ -983,11 +1088,15 @@ class NeuralForecast:
 
         # df
         if isinstance(df, SparkDataFrame):
+            # A user-provided frame holds raw categories; encode it driver-side
+            # so it matches the integer-encoded parquet history.
+            df = self._encode_categoricals(df)
             repartition = True
         else:
             if engine is None:
                 raise ValueError("engine is required for distributed inference")
             df = engine.read.parquet(*self.dataset.files)
+            # parquet history is already encoded at fit time
             # we save the datataset with partitioning
             repartition = False
 
@@ -1007,6 +1116,7 @@ class NeuralForecast:
                 raise ValueError(
                     f"The following static columns are missing from the static_df: {missing_static}"
                 )
+            static_df = self._encode_categoricals(static_df)
             # join is supposed to preserve the partitioning
             df = df.join(static_df, on=[self.id_col], how="left")
 
@@ -1020,6 +1130,7 @@ class NeuralForecast:
                 )
             if self.target_col in futr_df.columns:
                 raise ValueError("`futr_df` must not contain the target column.")
+            futr_df = self._encode_categoricals(futr_df)
             # df has the statics, historic exog and target at this point, futr_df doesnt
             df = df.unionByName(futr_df, allowMissingColumns=True)
             # union doesn't guarantee preserving the partitioning
@@ -1295,6 +1406,7 @@ class NeuralForecast:
             nf.time_col = time_col
             nf.target_col = target_col
             nf.scalers_ = {}
+            nf.static_scalers_ = {}
             nf._fitted = True
             if futr_exog_cols:
                 futr_rows = df[target_col].isnull()
@@ -1326,11 +1438,15 @@ class NeuralForecast:
 
         # df
         if isinstance(df, SparkDataFrame):
+            # A user-provided frame holds raw categories; encode it driver-side
+            # so it matches the integer-encoded parquet history.
+            df = self._encode_categoricals(df)
             repartition = True
         else:
             if engine is None:
                 raise ValueError("engine is required for distributed simulation")
             df = engine.read.parquet(*self.dataset.files)
+            # parquet history is already encoded at fit time
             repartition = False
 
         # static
@@ -1349,6 +1465,7 @@ class NeuralForecast:
                 raise ValueError(
                     f"The following static columns are missing from the static_df: {missing_static}"
                 )
+            static_df = self._encode_categoricals(static_df)
             df = df.join(static_df, on=[self.id_col], how="left")
 
         # exog
@@ -1361,6 +1478,7 @@ class NeuralForecast:
                 )
             if self.target_col in futr_df.columns:
                 raise ValueError("`futr_df` must not contain the target column.")
+            futr_df = self._encode_categoricals(futr_df)
             df = df.unionByName(futr_df, allowMissingColumns=True)
             repartition = True
 
@@ -1368,9 +1486,20 @@ class NeuralForecast:
             df = df.repartitionByRange(df.rdd.getNumPartitions(), self.id_col)
 
         # simulate
+        # simulate() emits one sample-path column per model (named by repr(model),
+        # deduplicated), not the quantile-expanded names from _get_model_names().
+        base_model_names: List[str] = []
+        count_names = {"model": 0}
+        for model in self.models:
+            name = repr(model)
+            count_names[name] = count_names.get(name, -1) + 1
+            if count_names[name] > 0:
+                name += str(count_names[name])
+            base_model_names.append(name)
+
         base_schema = fa.get_schema(df).extract([self.id_col, self.time_col])
         models_schema = {"sample_id": "int"}
-        models_schema.update({model: "float" for model in self._get_model_names()})
+        models_schema.update({name: "float" for name in base_model_names})
         return fa.transform(
             df=df,
             using=_simulate,
@@ -1483,7 +1612,11 @@ class NeuralForecast:
             quantiles (list of float, optional): Quantile grid for marginals.
                 Defaults to ``[0.01, 0.02, ..., 0.99]``.
             seed (int, optional): Random seed for reproducibility.
-            method (str): Simulation method. Default: ``"gaussian_copula"``.
+            method (str): Simulation method, one of ``"gaussian_copula"``
+                (parametric AR(1) dependence) or ``"schaake_shuffle"``
+                (nonparametric dependence from historical templates, which
+                requires at least ``h`` non-NaN historical values per series).
+                Default: ``"gaussian_copula"``.
             verbose (bool): Print progress information.
             engine (spark session): Distributed engine for simulation. Only used
                 if df is a spark dataframe or if fit was called on a spark
@@ -1497,10 +1630,6 @@ class NeuralForecast:
         """
         if not self._fitted:
             raise Exception("You must fit the model before simulating.")
-        if self._has_categorical():
-            raise NotImplementedError(
-                "simulate() does not yet support models with categorical exogenous features."
-            )
         if not isinstance(n_paths, int) or n_paths < 1:
             raise ValueError(
                 f"`n_paths` must be a positive integer, got {n_paths!r}."
@@ -1557,26 +1686,48 @@ class NeuralForecast:
                     f"Models require future exogenous features: {needed_futr_exog}. "
                     "Please provide them through the `futr_df` argument."
                 )
-            fcsts_df = ufp.make_future_dataframe(
-                uids=uids,
-                last_times=last_dates,
-                freq=self.freq,
-                h=h,
-                id_col=self.id_col,
-                time_col=self.time_col,
-            )
-            futr_df = ufp.join(futr_df, fcsts_df, on=[self.id_col, self.time_col])
-        else:
-            fcsts_df = ufp.make_future_dataframe(
-                uids=uids,
-                last_times=last_dates,
-                freq=self.freq,
-                h=h,
-                id_col=self.id_col,
-                time_col=self.time_col,
-            )
-            futr_df = fcsts_df
+            missing = needed_futr_exog - set(futr_df.columns)
+            if missing:
+                raise ValueError(
+                    f"The following features are missing from `futr_df`: {missing}"
+                )
 
+        fcsts_df = ufp.make_future_dataframe(
+            uids=uids,
+            last_times=last_dates,
+            freq=self.freq,
+            h=h,
+            id_col=self.id_col,
+            time_col=self.time_col,
+        )
+
+        # Update and define new forecasting dataset (mirrors predict()'s validation)
+        if futr_df is None:
+            futr_df = fcsts_df
+        else:
+            futr_orig_rows = futr_df.shape[0]
+            futr_df = ufp.join(futr_df, fcsts_df, on=[self.id_col, self.time_col])
+            if futr_df.shape[0] < fcsts_df.shape[0]:
+                if df is None:
+                    expected_cmd = "make_future_dataframe()"
+                    missing_cmd = "get_missing_future(futr_df)"
+                else:
+                    expected_cmd = "make_future_dataframe(df)"
+                    missing_cmd = "get_missing_future(futr_df, df)"
+                raise ValueError(
+                    "There are missing combinations of ids and times in `futr_df`.\n"
+                    f"You can run the `{expected_cmd}` method to get the expected combinations or "
+                    f"the `{missing_cmd}` method to get the missing combinations."
+                )
+            if futr_orig_rows > futr_df.shape[0]:
+                dropped_rows = futr_orig_rows - futr_df.shape[0]
+                warnings.warn(f"Dropped {dropped_rows:,} unused rows from `futr_df`.")
+            if any(ufp.is_none(futr_df[col]).any() for col in needed_futr_exog):
+                raise ValueError("Found null values in `futr_df`")
+
+        # Encode categoricals with the vocabulary fitted on the training data
+        # (the df-provided path already encodes via _prepare_fit).
+        futr_df = self._encode_categoricals(futr_df)
         futr_dataset = dataset.align(
             futr_df,
             id_col=self.id_col,
@@ -1710,6 +1861,7 @@ class NeuralForecast:
             outputs (list of int, optional): List of outputs to explain for models with multiple outputs. Defaults to [0] (first output).
             series (list of int, optional): List of series indices to explain. If None, all series are explained. Defaults to None.
             explainer (str): Name of the explainer to use. Options are 'IntegratedGradients', 'ShapleyValueSampling', 'InputXGradient'. Defaults to 'IntegratedGradients'.
+                For categorical features, attributions are aggregated back to one value per feature by summing over the learned embedding dimensions. Note that 'ShapleyValueSampling' perturbs individual embedding dimensions, so its categorical attributions are approximate.
             df (pandas, polars or spark DataFrame, optional): DataFrame with columns [`unique_id`, `ds`, `y`] and exogenous variables.
             If a DataFrame is passed, it is used to generate forecasts.
             static_df (pandas, polars or spark DataFrame, optional): DataFrame with columns [`unique_id`] and static exogenous.
@@ -1727,11 +1879,6 @@ class NeuralForecast:
             explanations (dict): Dictionary of explanations for the predictions.
         """
         warnings.warn("This function is beta and subject to change.")
-
-        if self._has_categorical():
-            raise NotImplementedError(
-                "explain() does not yet support models with categorical exogenous features."
-            )
 
         if h is None:
             h_explain = self.h  # Default to model's training horizon
@@ -2437,7 +2584,9 @@ class NeuralForecast:
                         self.dataset.indptr[i] : self.dataset.indptr[i + 1]
                     ],
                     temporal_cols=self.dataset.temporal_cols,
-                    static=self.dataset.static,
+                    static=None
+                    if self.dataset.static is None
+                    else self.dataset.static[i : i + 1],
                     static_cols=self.dataset.static_cols,
                     indptr=np.array([0, series_length]),
                     y_idx=self.dataset.y_idx,
@@ -2460,7 +2609,9 @@ class NeuralForecast:
                         self.dataset.indptr[i] : self.dataset.indptr[i + 1]
                     ],
                     temporal_cols=self.dataset.temporal_cols,
-                    static=self.dataset.static,
+                    static=None
+                    if self.dataset.static is None
+                    else self.dataset.static[i : i + 1],
                     static_cols=self.dataset.static_cols,
                     indptr=np.array([0, series_length]),
                     y_idx=self.dataset.y_idx,
@@ -2574,7 +2725,7 @@ class NeuralForecast:
             fs.makedirs(path)
         else:
             # Check if directory is empty to protect overwriting files
-            files = fs.ls(path)
+            files = _fsspec_listdir(fs, path)
 
             # Checking if the list is empty or not
             if files:
@@ -2675,7 +2826,9 @@ class NeuralForecast:
             path = path[:-1]
 
         fs, _, _ = fsspec.get_fs_token_paths(path)
-        files = [f.split("/")[-1] for f in fs.ls(path) if fs.isfile(f)]
+        files = [
+            f.split("/")[-1] for f in _fsspec_listdir(fs, path) if fs.isfile(f)
+        ]
 
         # Load models
         models_ckpt = [f for f in files if f.endswith(".ckpt")]

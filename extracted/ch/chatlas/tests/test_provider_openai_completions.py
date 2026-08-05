@@ -1,7 +1,12 @@
+import base64
+
 import httpx
 import pytest
 from chatlas import ChatOpenAICompletions
 from chatlas._content import (
+    ContentDocument,
+    ContentImageInline,
+    ContentPDF,
     ContentText,
     ContentThinking,
     ContentThinkingDelta,
@@ -21,6 +26,7 @@ from .conftest import (
     assert_images_remote,
     assert_list_models,
     assert_pdf_local,
+    assert_pdf_remote,
     assert_tools_async,
     assert_tools_parallel,
     assert_tools_sequential,
@@ -49,6 +55,7 @@ def test_normalize_finish_reason_handles_none():
 @pytest.mark.vcr
 def test_openai_simple_request():
     chat = ChatOpenAICompletions(
+        model="gpt-5.4",
         system_prompt="Be as terse as possible; no punctuation",
     )
     chat.chat("What is 1 + 1?")
@@ -65,6 +72,7 @@ def test_openai_simple_request():
 @pytest.mark.asyncio
 async def test_openai_simple_streaming_request():
     chat = ChatOpenAICompletions(
+        model="gpt-5.4",
         system_prompt="Be as terse as possible; no punctuation",
     )
     res = []
@@ -78,39 +86,54 @@ async def test_openai_simple_streaming_request():
 
 @pytest.mark.vcr
 def test_openai_respects_turns_interface():
-    assert_turns_system(ChatOpenAICompletions)
-    assert_turns_existing(ChatOpenAICompletions)
+    def chat_fun(**kwargs):
+        return ChatOpenAICompletions(model="gpt-5.4", **kwargs)
+
+    assert_turns_system(chat_fun)
+    assert_turns_existing(chat_fun)
 
 
 @pytest.mark.vcr
 def test_openai_tool_variations():
-    assert_tools_simple(ChatOpenAICompletions)
-    assert_tools_simple_stream_content(ChatOpenAICompletions)
-    assert_tools_parallel(ChatOpenAICompletions)
-    assert_tools_sequential(ChatOpenAICompletions, total_calls=6)
+    def chat_fun(**kwargs):
+        return ChatOpenAICompletions(model="gpt-5.4", **kwargs)
+
+    assert_tools_simple(chat_fun)
+    assert_tools_simple_stream_content(chat_fun)
+    assert_tools_parallel(chat_fun)
+    assert_tools_sequential(chat_fun, total_calls=6)
 
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
 async def test_openai_tool_variations_async():
-    await assert_tools_async(ChatOpenAICompletions)
+    def chat_fun(**kwargs):
+        return ChatOpenAICompletions(model="gpt-5.4", **kwargs)
+
+    await assert_tools_async(chat_fun)
 
 
 @pytest.mark.vcr
 def test_data_extraction():
-    assert_data_extraction(ChatOpenAICompletions)
+    def chat_fun(**kwargs):
+        return ChatOpenAICompletions(model="gpt-5.4", **kwargs)
+
+    assert_data_extraction(chat_fun)
 
 
 @pytest.mark.vcr
 def test_openai_images():
-    assert_images_inline(ChatOpenAICompletions)
-    assert_images_remote(ChatOpenAICompletions)
+    def chat_fun(**kwargs):
+        return ChatOpenAICompletions(model="gpt-5.4", **kwargs)
+
+    assert_images_inline(chat_fun)
+    assert_images_remote(chat_fun)
 
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
 async def test_openai_logprobs():
-    chat = ChatOpenAICompletions()
+    chat = ChatOpenAICompletions(model="gpt-5.4")
     chat.set_model_params(log_probs=True)
 
     pieces = []
@@ -128,7 +151,22 @@ async def test_openai_logprobs():
 
 @pytest.mark.vcr
 def test_openai_pdf():
-    assert_pdf_local(ChatOpenAICompletions)
+    def chat_fun(**kwargs):
+        return ChatOpenAICompletions(model="gpt-5.4", **kwargs)
+
+    assert_pdf_local(chat_fun)
+
+
+# No document counterpart here: OpenAI's own endpoint 400s on any non-PDF
+# `file_data`, and the compatible backends that may accept one aren't
+# recordable. `test_completions_document_passes_mime_type_through` covers the
+# serialization instead.
+@pytest.mark.vcr
+def test_openai_completions_pdf_url():
+    def chat_fun(**kwargs):
+        return ChatOpenAICompletions(model="gpt-5.4", **kwargs)
+
+    assert_pdf_remote(chat_fun)
 
 
 def test_openai_custom_http_client():
@@ -325,6 +363,52 @@ def test_completions_uploaded_wrong_provider_raises():
         [ContentUploaded(id="x", mime_type="application/pdf", provider="anthropic")]
     )
     with pytest.raises(ValueError, match="uploaded to provider 'anthropic'"):
+        provider._turns_as_inputs([turn])
+
+
+def test_completions_pdf_downloads_bytes_when_only_url_set(monkeypatch):
+    raw = b"%PDF-1.4"
+    monkeypatch.setattr("chatlas._content_file.download_bytes", lambda url: raw)
+
+    provider = OpenAICompletionsProvider(model="gpt-4o")
+    turn = UserTurn([ContentPDF(filename="a.pdf", url="https://example.com/a.pdf")])
+    msgs = provider._turns_as_inputs([turn])
+    part = msgs[-1]["content"][0]
+    assert part["file"]["file_data"] == (
+        f"data:application/pdf;base64,{base64.b64encode(raw).decode('utf-8')}"
+    )
+
+
+@pytest.mark.parametrize(
+    "mime_type",
+    [
+        "text/plain",
+        "text/csv",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ],
+)
+def test_completions_document_passes_mime_type_through(mime_type):
+    """The document's own MIME type goes out untouched.
+
+    OpenAI's endpoint only accepts `application/pdf` here and 400s on the rest,
+    but this provider backs a dozen OpenAI-compatible services with differing
+    file support, so the decision belongs to whichever backend is configured.
+    """
+    provider = OpenAICompletionsProvider(model="gpt-4o")
+    turn = UserTurn([ContentDocument(data=b"x", filename="a.dat", mime_type=mime_type)])
+    msgs = provider._turns_as_inputs([turn])
+    part = msgs[-1]["content"][0]
+    assert part["type"] == "file"
+    assert part["file"]["filename"] == "a.dat"
+    assert part["file"]["file_data"] == (
+        f"data:{mime_type};base64,{base64.b64encode(b'x').decode('utf-8')}"
+    )
+
+
+def test_completions_rejects_heic_images():
+    provider = OpenAICompletionsProvider(model="gpt-4o")
+    turn = UserTurn([ContentImageInline(image_content_type="image/heic", data="abcd")])
+    with pytest.raises(ValueError, match="image/heic"):
         provider._turns_as_inputs([turn])
 
 

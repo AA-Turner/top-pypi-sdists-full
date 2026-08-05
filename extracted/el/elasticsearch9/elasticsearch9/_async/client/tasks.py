@@ -58,9 +58,12 @@ class TasksClient(NamespacedClient):
           The cancelled flag in the response indicates that the cancellation command has been processed and the task will stop as soon as possible.</p>
           <p>To troubleshoot why a cancelled task does not complete promptly, use the get task information API with the <code>?detailed</code> parameter to identify the other tasks the system is running.
           You can also use the node hot threads API to obtain detailed information about the work the system is doing instead of completing the cancelled task.</p>
+          <p>For relocatable tasks, this API transparently follows the task across graceful shutdown relocations,
+          so callers can keep using the original task ID. The returned task reports its <code>original_task_id</code> and <code>original_start_time_in_millis</code>
+          if it is continuing work from an earlier task.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/group/endpoint-tasks>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/group/endpoint-tasks>`_
 
         :param task_id: The task identifier.
         :param actions: A comma-separated list or wildcard expression of actions that
@@ -113,6 +116,7 @@ class TasksClient(NamespacedClient):
         task_id: str,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        follow_relocations: t.Optional[bool] = None,
         human: t.Optional[bool] = None,
         pretty: t.Optional[bool] = None,
         timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
@@ -126,11 +130,15 @@ class TasksClient(NamespacedClient):
           <p>WARNING: The task management API is new and should still be considered a beta feature.
           The API may change in ways that are not backwards compatible.</p>
           <p>If the task identifier is not found, a 404 response code indicates that there are no resources that match the request.</p>
+          <p>For relocatable tasks, this API transparently follows the task across graceful shutdown relocations,
+          so callers can keep using the original task ID. The returned task reports its <code>original_task_id</code> and <code>original_start_time_in_millis</code>
+          if it is continuing work from an earlier task.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/group/endpoint-tasks>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/group/endpoint-tasks>`_
 
         :param task_id: The task identifier.
+        :param follow_relocations: Internal use only
         :param timeout: The period to wait for a response. If no response is received
             before the timeout expires, the request fails and returns an error.
         :param wait_for_completion: If `true`, the request blocks until the task has
@@ -145,6 +153,8 @@ class TasksClient(NamespacedClient):
             __query["error_trace"] = error_trace
         if filter_path is not None:
             __query["filter_path"] = filter_path
+        if follow_relocations is not None:
+            __query["follow_relocations"] = follow_relocations
         if human is not None:
             __query["human"] = human
         if pretty is not None:
@@ -189,6 +199,9 @@ class TasksClient(NamespacedClient):
           <p>Get information about the tasks currently running on one or more nodes in the cluster.</p>
           <p>WARNING: The task management API is new and should still be considered a beta feature.
           The API may change in ways that are not backwards compatible.</p>
+          <p>For relocatable tasks, this API transparently follows the task across graceful shutdown relocations,
+          so callers can keep using the original task ID. The returned task reports its <code>original_task_id</code> and <code>original_start_time_in_millis</code>
+          if it is continuing work from an earlier task.</p>
           <p><strong>Identifying running tasks</strong></p>
           <p>The <code>X-Opaque-Id header</code>, when provided on the HTTP request header, is going to be returned as a header in the response as well as in the headers field for in the task information.
           This enables you to track certain calls or associate certain tasks with the client that started them.
@@ -238,7 +251,7 @@ class TasksClient(NamespacedClient):
           The <code>X-Opaque-Id</code> in the children <code>headers</code> is the child task of the task that was initiated by the REST request.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/group/endpoint-tasks>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/group/endpoint-tasks>`_
 
         :param actions: A comma-separated list or wildcard expression of actions used
             to limit the request. For example, you can use `cluser:*` to retrieve all

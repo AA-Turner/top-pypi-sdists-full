@@ -31,6 +31,47 @@ except ImportError:
         IEEE = 3
 
 
+def mask_to_kv_lengths(mask: torch.Tensor) -> torch.Tensor:
+    r"""
+    Convert a right-padded triangle-attention mask to per-row key/value lengths.
+
+    Args:
+        mask (torch.Tensor): Boolean-like mask of shape (B, N, 1, 1, K). For B=1,
+            can also be (N, 1, 1, K). The last dimension must be prefix-shaped:
+            all True entries first, followed by all False entries.
+
+    Returns:
+        torch.Tensor: int32 tensor of shape (B, N, 1, 1, 1) containing each row's
+        effective key/value length. Zero-length rows are allowed.
+
+    Raises:
+        ValueError: If the mask shape is not supported or the mask is not prefix-shaped.
+
+    Note:
+        This helper validates the prefix contract. For torch.compile-heavy code, compute
+        lengths before the compiled region and pass them to :func:`triangle_attention`
+        with ``kv_lengths=...``.
+    """
+    mask_bool = mask.to(dtype=torch.bool)
+    while len(mask_bool.shape) < 5:
+        mask_bool = mask_bool.unsqueeze(0)
+    if mask_bool.ndim != 5 or mask_bool.shape[2:4] != (1, 1):
+        raise ValueError(
+            "mask_to_kv_lengths: mask must have shape (B, N, 1, 1, K) "
+            f"after adding leading singleton dimensions, got {tuple(mask_bool.shape)}"
+        )
+    lengths = mask_bool.to(dtype=torch.int32).sum(dim=-1, keepdim=True).to(torch.int32)
+    prefix = (
+        torch.arange(mask_bool.shape[-1], device=mask_bool.device).view(
+            1, 1, 1, 1, mask_bool.shape[-1]
+        )
+        < lengths
+    )
+    if not bool(torch.all(mask_bool == prefix).item()):
+        raise ValueError("mask_to_kv_lengths: mask must be right-padded/prefix-shaped")
+    return lengths.detach().contiguous()
+
+
 def triangle_attention(
     q: torch.Tensor,
     k: torch.Tensor,
@@ -39,6 +80,8 @@ def triangle_attention(
     mask: Optional[torch.Tensor] = None,
     scale: Optional[float] = None,
     return_aux: bool = False,
+    *,
+    kv_lengths: Optional[torch.Tensor] = None,
 ) -> torch.Tensor | Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     r"""
     Triangle Attention
@@ -60,10 +103,19 @@ def triangle_attention(
             capability 10.0 or 10.3), will be cast to match q/k/v dtype (bf16/fp16) for best
             performance.
         mask (torch.Tensor, optional): Mask tensor of shape (B, N, 1, 1, K). For B=1, can also be (N, 1, 1, K).
-            Will be cast to bool internally.
+            Will be cast to bool internally. Dense masks accept any pattern and route to the
+            correct fallback path. For right-padded masks, pass ``kv_lengths`` instead to use
+            the Blackwell sm100f length fast path.
         scale (float, optional): Float scale for q (s in the equation). If None, value 1/sqrt(d) is used.
         return_aux (bool): If True, two auxiliary tensors are returned along with the result.
             Defaults to False.
+        kv_lengths (torch.Tensor, optional): int32 tensor of shape (B, N, 1, 1, 1)
+            containing each row's effective K length. This represents a right-padded /
+            prefix mask: positions ``j < kv_lengths[b, n]`` are valid and later positions
+            are masked. Pass either ``mask`` or ``kv_lengths``, not both. On supported
+            Blackwell cu13 builds, ``kv_lengths`` selects the sm100f length fast path.
+            Each length must be in ``[0, K]``; values greater than ``K`` are clamped
+            to ``K`` (the row then attends the full key sequence).
 
     Note:
         - B: batch size
@@ -82,12 +134,12 @@ def triangle_attention(
         (1) Context is saved for backward pass. You don't need to save it manually.
         (2) Kernel precision (fp32, bf16, fp16) is based on input dtypes. For tf32, set it from torch global scope
         (3) Triangle attention kernel supports: all hidden_dim<=32 and divisible by 4 for tf32/fp32, and for all hidden_dim<=128 and divisible by 8 for bf16/fp16 (standard kernels). On Blackwell GPUs (compute capability 10.0 or 10.3), the sm100f kernel supports hidden_dim<=256 for forward passes and hidden_dim<=128 for backward passes. In the rare instance that the kernel does not support an input config, fallback to torch is enabled instead of erroring out.
-        (4) Blackwell-optimized kernels (for compute capabilities 10.0 and 10.3) provide superior performance especially for long sequences and higher head dimensions. These kernels require the sequence length N to be a multiple of 8 for the forward pass; pad the sequence if necessary. The kernel provides optimal performance for a "padding mask" consisting in (all True, followed by all False) in the last dimension. Currently, this feature is supported only for cu13 builds.
+        (4) Blackwell-optimized kernels (for compute capabilities 10.0 and 10.3) provide superior performance especially for long sequences and higher head dimensions. These kernels require the key/value sequence length K to be a multiple of 8 for the forward pass; pad the sequence if necessary. Use ``kv_lengths`` for right-padded sequence masks to select the sm100f length fast path. A dense ``mask`` without ``kv_lengths`` remains correct for arbitrary or holey patterns, but it routes to the fallback path.
 
     Example:
         >>> import torch
         >>> import math
-        >>> from cuequivariance_torch import triangle_attention
+        >>> from cuequivariance_torch import mask_to_kv_lengths, triangle_attention
         >>> if torch.cuda.is_available():  # doctest: +SKIP
         ...     device = torch.device("cuda")
         ...     # Set up dimensions
@@ -101,14 +153,25 @@ def triangle_attention(
         ...                     device=device, dtype=torch.float16, requires_grad=True)
         ...     bias = torch.randn(batch_size, 1, num_heads, seq_len, seq_len,
         ...                        device=device, dtype=torch.float32, requires_grad=True)
-        ...     # Create optional mask
-        ...     mask = torch.rand(batch_size, seq_len, 1, 1, seq_len,
-        ...                       device=device) < 0.5
+        ...     # Right-padded sequence mask: valid tokens first, padding last.
+        ...     seq_lengths = torch.tensor([96], device=device, dtype=torch.int32)
+        ...     positions = torch.arange(seq_len, device=device)
+        ...     row_valid = positions.view(1, seq_len) < seq_lengths.view(batch_size, 1)
+        ...     col_valid = positions.view(1, seq_len) < seq_lengths.view(batch_size, 1)
+        ...     mask = row_valid.view(batch_size, seq_len, 1, 1, 1) & col_valid.view(
+        ...         batch_size, 1, 1, 1, seq_len)
+        ...     kv_lengths = mask_to_kv_lengths(mask)
         ...     # Calculate scale
         ...     scale = 1 / math.sqrt(hidden_dim)
-        ...     # Forward pass
+        ...     # Forward pass using the Blackwell sm100f length fast path when available.
         ...     output, lse, max_val = triangle_attention(
-        ...         q=q, k=k, v=v, bias=bias, mask=mask, scale=scale, return_aux=True)
+        ...         q=q, k=k, v=v, bias=bias, scale=scale, return_aux=True,
+        ...         kv_lengths=kv_lengths)
+        ...     # Arbitrary dense masks are still correct; they use the fallback path.
+        ...     arbitrary_mask = torch.rand(batch_size, seq_len, 1, 1, seq_len,
+        ...                                 device=device) < 0.5
+        ...     fallback_output = triangle_attention(
+        ...         q=q, k=k, v=v, bias=bias, mask=arbitrary_mask, scale=scale)
         ...     print(output.shape)  # torch.Size([1, 128, 2, 128, 32])
         ...     # Create gradient tensor and perform backward pass
         ...     grad_out = torch.randn_like(output)
@@ -125,6 +188,13 @@ def triangle_attention(
         torch.Size([1, 1, 2, 128, 128])
     """
 
+    if mask is not None and kv_lengths is not None:
+        raise ValueError(
+            "triangle_attention: pass either `mask` or `kv_lengths`, not both. "
+            "`kv_lengths` selects the SM100f length fast path; a dense `mask` uses "
+            "the fallback path."
+        )
+
     try:
         from cuequivariance_ops_torch import triangle_attention as f
     except Exception:
@@ -132,7 +202,7 @@ def triangle_attention(
             "Error importing triangle_attention from cuequivariance_ops_torch."
         )
     else:
-        return f(q, k, v, bias, mask, scale, return_aux)
+        return f(q, k, v, bias, mask, scale, return_aux, kv_lengths=kv_lengths)
 
 
 def triangle_multiplicative_update(
@@ -263,189 +333,149 @@ def triangle_multiplicative_update(
 
 
 def attention_pair_bias(
-    s: torch.Tensor,
-    q: torch.Tensor,
-    k: torch.Tensor,
-    v: torch.Tensor,
-    z: torch.Tensor,
-    mask: torch.Tensor,
+    single_repr: torch.Tensor,
+    pair_repr: torch.Tensor,
+    mask: Optional[torch.Tensor],
     num_heads: int,
-    w_proj_z: Optional[torch.Tensor],
+    w_ln_a: torch.Tensor,
+    b_ln_a: Optional[torch.Tensor],
+    w_proj_q: torch.Tensor,
+    b_proj_q: Optional[torch.Tensor],
+    w_proj_k: torch.Tensor,
+    w_proj_v: torch.Tensor,
     w_proj_g: torch.Tensor,
     w_proj_o: torch.Tensor,
+    w_proj_z: Optional[torch.Tensor] = None,
+    b_proj_o: Optional[torch.Tensor] = None,
+    b_proj_z: Optional[torch.Tensor] = None,
     w_ln_z: Optional[torch.Tensor] = None,
     b_ln_z: Optional[torch.Tensor] = None,
-    b_proj_z: Optional[torch.Tensor] = None,
-    b_proj_g: Optional[torch.Tensor] = None,
-    b_proj_o: Optional[torch.Tensor] = None,
     inf: float = 1e6,
     eps: float = 1e-5,
     attn_scale: Optional[float] = None,
-    return_z_proj: bool = True,
+    return_z_proj: bool = False,
     is_cached_z_proj: bool = False,
+    *,
+    b_proj_k: Optional[torch.Tensor] = None,
+    b_proj_v: Optional[torch.Tensor] = None,
+    w_ln_q: Optional[torch.Tensor] = None,
+    b_ln_q: Optional[torch.Tensor] = None,
+    w_ln_k: Optional[torch.Tensor] = None,
+    b_ln_k: Optional[torch.Tensor] = None,
+    b_proj_g: Optional[torch.Tensor] = None,
 ):
-    """Compute attention with pairwise bias for diffusion models.
+    """Compute attention with a pairwise bias.
 
-    This function implements attention with pairwise bias, which is commonly used
-    in diffusion models. The function automatically chooses between optimized
-    Triton kernels (for long sequences) and PyTorch fallback (for short sequences)
-    based on sequence length.
+    Takes the single representation ``single_repr`` and computes LayerNorm, the
+    Q/K/V and gating projections, the pair-bias term
+    ``Linear(LayerNorm(pair_repr))``, biased and masked softmax attention,
+    the output gate ``sigmoid(Linear(LayerNorm(single_repr)))``, and the output
+    projection.
+    The backend selects a supported, profitable optimized route for the current
+    inputs and otherwise uses the native PyTorch implementation (see Notes). Q, K,
+    V and the gate are all projected from the same normalized ``single_repr``
+    (there is no separate ``s`` input).
+
+    Dimensions: ``B`` batch, ``M`` multiplicity (single-rep replicas), ``N`` sequence
+    length, ``D`` single-rep feature dim, ``H`` heads, ``DH`` head dim (so the
+    attention inner dim is ``H * DH``), ``z_dim`` pair feature dim.
 
     Args:
-        s: Input sequence tensor of shape (B * M, S, D) where B is batch size,
-            M is multiplicity (diffusion steps), S is sequence length, and D is
-            feature dimension.
-        q: Query tensor of shape (B * M, H, U, DH) where H is number of heads,
-            U is query sequence length, and DH is head dimension.
-        k: Key tensor of shape (B * M, H, V, DH) where V is key sequence length.
-        v: Value tensor of shape (B * M, H, V, DH).
-        z: Pairwise tensor of shape (B, U, V, z_dim) containing pairwise interactions,
-            where z_dim can be arbitrary. This is the main input for the pairwise bias computation. If return_z_proj is True, z should be of shape (B, H, U, V).
-        mask: Attention mask of shape (B, V) or (B * M, V) indicating which positions
-            should be masked (0 = masked, 1 = unmasked).
+        single_repr: Single/token representation of shape (B * M, N, D). LayerNorm
+            and the Q/K/V/gate projections are applied to this tensor inside the op
+            (the gate is computed from the normalized representation).
+        pair_repr: Pairwise tensor of shape (B, N, N, z_dim). When
+            ``is_cached_z_proj`` is True, ``pair_repr`` is instead the
+            already-projected bias of shape (B, H, N, N).
+        mask: Attention mask of shape (B, N) or (B * M, N) (0 = masked, 1 = valid).
+            If None, all positions are treated as valid.
         num_heads: Number of attention heads.
-        w_proj_z: Weight matrix for z projection of shape (H, z_dim).
-        w_proj_g: Weight matrix for gating projection of shape (D, D).
-        w_proj_o: Weight matrix for output projection of shape (D, D).
-        w_ln_z: Weight for layer normalization of z tensor of shape (z_dim,).
-        b_ln_z: Bias for layer normalization of z tensor of shape (z_dim,).
-        b_proj_z: Bias for z projection of shape (H,). Defaults to None.
-        b_proj_g: Bias for gating projection of shape (D,). Defaults to None.
-        b_proj_o: Bias for output projection of shape (D,). Defaults to None.
+        w_ln_a: Weight for the LayerNorm of ``single_repr`` of shape (D,).
+        b_ln_a: Bias for the LayerNorm of ``single_repr`` of shape (D,). May be None.
+        w_proj_q: Weight for the query projection of shape (H * DH, D).
+        b_proj_q: Bias for the query projection of shape (H * DH,). May be None.
+        w_proj_k: Weight for the key projection of shape (H * DH, D).
+        w_proj_v: Weight for the value projection of shape (H * DH, D).
+        w_proj_g: Weight for the gating projection of shape (H * DH, D).
+        w_proj_o: Weight for the output projection of shape (D, H * DH).
+        w_proj_z: Weight for the pair projection of shape (H, z_dim). May be None
+            when ``is_cached_z_proj`` is True because ``pair_repr`` is already
+            projected. Defaults to None.
+        b_proj_o: Bias for the output projection of shape (D,). Defaults to None.
+        b_proj_z: Bias for the pair projection of shape (H,). Defaults to None.
+        w_ln_z: Weight for the LayerNorm of ``pair_repr`` of shape (z_dim,). May be None.
+        b_ln_z: Bias for the LayerNorm of ``pair_repr`` of shape (z_dim,). May be None.
         inf: Large value used for masking invalid attention positions. Defaults to 1e6.
         eps: Epsilon value for layer normalization. Defaults to 1e-5.
-        attn_scale: Scaling factor for attention scores. If None, uses 1/sqrt(head_dim).
-            Defaults to None.
-        return_z_proj: Whether to return the projected z tensor as the second output. Defaults to True.
-        is_cached_z_proj: Whether the z tensor is already projected and cached.
-            If True, z should be of shape (B, H, U, V). Defaults to False.
+        attn_scale: Scaling factor for attention scores. If None, uses
+            1/sqrt(head_dim). Defaults to None.
+        return_z_proj: Whether to return the projected pair tensor as the second
+            output. Defaults to False.
+        is_cached_z_proj: Whether ``pair_repr`` is already projected and cached. If
+            True, ``pair_repr`` should be of shape (B, H, N, N). Defaults to False.
+        b_proj_k: Optional key-projection bias of shape (H * DH,). Defaults to None.
+        b_proj_v: Optional value-projection bias of shape (H * DH,). Defaults to None.
+        w_ln_q: Optional weight for projected-query LayerNorm of shape (H * DH,).
+            The norm is applied over H * DH before splitting heads. Defaults to None.
+        b_ln_q: Optional bias for projected-query LayerNorm of shape (H * DH,).
+            Weight and bias are independently optional. Defaults to None.
+        w_ln_k: Optional weight for projected-key LayerNorm of shape (H * DH,).
+            The norm is applied over H * DH before splitting heads. Defaults to None.
+        b_ln_k: Optional bias for projected-key LayerNorm of shape (H * DH,).
+            Weight and bias are independently optional. Defaults to None.
+        b_proj_g: Optional gating-projection bias of shape (H * DH,). Defaults to None.
 
     Returns:
-        - **output** (:class:`torch.Tensor`): Attention output of shape (B * M, S, D)
-          with pairwise bias applied.
-        - **proj_z** (:class:`torch.Tensor` | None): Projected z tensor of shape (B, H, U, V)
-          containing the pairwise bias tensor with mask applied, or ``None`` when
-          ``return_z_proj=False``.
+        - output (torch.Tensor): Attention output of shape (B * M, N, D) with the
+          pairwise bias applied.
+        - z_proj (torch.Tensor | None): Projected pair tensor of shape (B, H, N, N)
+          reusable via ``is_cached_z_proj``, or ``None`` when ``return_z_proj`` is
+          False.
 
     Notes:
-        - For short sequences (≤ CUEQ_ATTENTION_PAIR_BIAS_FALLBACK_THRESHOLD),
-          uses PyTorch fallback implementation.
-        - For long sequences, uses optimized Triton kernels with automatic
-          backend selection (CUDNN, Flash Attention, Efficient Attention).
-        - Multiplicity (M) is computed automatically from tensor shapes to allow
-          processing multiple diffusion timesteps in a single forward pass.
-        - The proj_z output is experimental to prevent breakage when caching
-          of pair bias tensor is enabled in the next release.
-        - Tested for bf16, fp16, fp32 and tf32. torch.set_float32_matmul_precision maybe used to toggle between fp32/tf32.
-        - Currently, the kernel provides superior performance only when DH (head dimension) is a multiple of 32.
-          For non-multiples of 32, we also recommend using graph compilation techniques like torch.compile, in addition.
-
-    Examples:
-        Basic usage without caching:
-
-        >>> import torch
-        >>> from cuequivariance_torch import attention_pair_bias
-        >>> if torch.cuda.is_available():  # doctest: +SKIP
-        ...     device = torch.device("cuda")
-        ...     batch_size, seq_len, num_heads, heads_dim, hidden_dim = 1, 32, 2, 32, 64
-        ...     query_len, key_len, z_dim = 32, 32, 16
-        ...     # Create input tensors on GPU
-        ...     s = torch.randn(batch_size, seq_len, hidden_dim,
-        ...                     device=device, dtype=torch.bfloat16)
-        ...     q = torch.randn(batch_size, num_heads, query_len, heads_dim,
-        ...                     device=device, dtype=torch.bfloat16)
-        ...     k = torch.randn(batch_size, num_heads, key_len, heads_dim,
-        ...                     device=device, dtype=torch.bfloat16)
-        ...     v = torch.randn(batch_size, num_heads, key_len, heads_dim,
-        ...                     device=device, dtype=torch.bfloat16)
-        ...     z = torch.randn(batch_size, query_len, key_len, z_dim,
-        ...                     device=device, dtype=torch.bfloat16)
-        ...     mask = torch.rand(batch_size, key_len,
-        ...                       device=device) < 0.5
-        ...     w_proj_z = torch.randn(num_heads, z_dim,
-        ...                     device=device, dtype=torch.bfloat16)
-        ...     w_proj_g = torch.randn(hidden_dim, hidden_dim,
-        ...                     device=device, dtype=torch.bfloat16)
-        ...     w_proj_o = torch.randn(hidden_dim, hidden_dim,
-        ...                     device=device, dtype=torch.bfloat16)
-        ...     w_ln_z = torch.randn(z_dim,
-        ...                     device=device, dtype=torch.bfloat16)
-        ...     b_ln_z = torch.randn(z_dim,
-        ...                     device=device, dtype=torch.bfloat16)
-        ...     # Perform operation
-        ...     output, _ = attention_pair_bias(
-        ...         s=s,
-        ...         q=q,
-        ...         k=k,
-        ...         v=v,
-        ...         z=z,
-        ...         mask=mask,
-        ...         num_heads=num_heads,
-        ...         w_proj_z=w_proj_z,
-        ...         w_proj_g=w_proj_g,
-        ...         w_proj_o=w_proj_o,
-        ...         w_ln_z=w_ln_z,
-        ...         b_ln_z=b_ln_z,
-        ...         return_z_proj=False,
-        ...     )
-        ...     print(output.shape)  # torch.Size([1, 32, 64])
-        torch.Size([1, 32, 64])
-
-        Example with caching (recommended for inference when z doesn't change):
-
-        >>> # Check cache and determine if z is already projected
-        >>> if model_cache is not None and "proj_z" in model_cache:  # doctest: +SKIP
-        ...     z = model_cache["proj_z"]
-        ...     is_cached_z = True
-        ... else:
-        ...     is_cached_z = False
-        >>>
-        >>> # Call attention_pair_bias
-        >>> o, proj_z = attention_pair_bias(  # doctest: +SKIP
-        ...     s=s, q=q, k=k, v=v, z=z, mask=mask,
-        ...     num_heads=num_heads,
-        ...     w_proj_z=w_proj_z if not is_cached_z else None,
-        ...     w_proj_g=w_proj_g,
-        ...     w_proj_o=w_proj_o,
-        ...     w_ln_z=w_ln_z if not is_cached_z else None,
-        ...     b_ln_z=b_ln_z if not is_cached_z else None,
-        ...     return_z_proj=True,
-        ...     is_cached_z_proj=is_cached_z,
-        ... )
-        >>>
-        >>> # Cache proj_z for next call
-        >>> if model_cache is not None and "proj_z" not in model_cache:  # doctest: +SKIP
-        ...     model_cache["proj_z"] = proj_z
+        - The backend chooses among its supported optimized routes according to the
+          device, dtype, shape, gradient mode, and projection options. It uses the
+          native PyTorch implementation whenever no optimized route is supported
+          and profitable. The exact routing policy is an implementation detail.
+        - Multiplicity (M) is inferred from the shapes so multiple single-rep
+          replicas can share one pair representation in a single forward pass.
     """
 
     try:
-        from cuequivariance_ops_torch.attention_pair_bias_torch import (
-            attention_pair_bias as f,
-        )
+        from cuequivariance_ops_torch import attention_pair_bias as f
     except Exception:
         raise ImportError(
             "Error importing attention_pair_bias from cuequivariance_ops_torch."
         )
     else:
         return f(
-            s,
-            q,
-            k,
-            v,
-            z,
+            single_repr,
+            pair_repr,
             mask,
             num_heads,
-            w_proj_z=w_proj_z,
-            w_proj_g=w_proj_g,
-            w_proj_o=w_proj_o,
+            w_ln_a,
+            b_ln_a,
+            w_proj_q,
+            b_proj_q,
+            w_proj_k,
+            w_proj_v,
+            w_proj_g,
+            w_proj_o,
+            w_proj_z,
+            b_proj_o=b_proj_o,
+            b_proj_z=b_proj_z,
             w_ln_z=w_ln_z,
             b_ln_z=b_ln_z,
-            b_proj_z=b_proj_z,
-            b_proj_g=b_proj_g,
-            b_proj_o=b_proj_o,
             inf=inf,
             eps=eps,
             attn_scale=attn_scale,
             return_z_proj=return_z_proj,
             is_cached_z_proj=is_cached_z_proj,
+            b_proj_k=b_proj_k,
+            b_proj_v=b_proj_v,
+            w_ln_q=w_ln_q,
+            b_ln_q=b_ln_q,
+            w_ln_k=w_ln_k,
+            b_ln_k=b_ln_k,
+            b_proj_g=b_proj_g,
         )

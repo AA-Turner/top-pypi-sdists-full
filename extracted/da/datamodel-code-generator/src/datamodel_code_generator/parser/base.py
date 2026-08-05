@@ -630,6 +630,74 @@ def iter_models_field_data_types(
                 yield model, field, data_type
 
 
+_PythonTypeImportKey: TypeAlias = tuple[str | None, str]
+
+
+def _ordinary_field_shadow_aliases(
+    models: list[DataModel],
+    all_model_field_names: set[str],
+) -> tuple[dict[_PythonTypeImportKey, Import], bool]:
+    """Run the original narrow scan and report whether structured work exists."""
+    aliases: dict[_PythonTypeImportKey, Import] = {}
+    has_python_type = False
+    for _, _model_field, data_type in iter_models_field_data_types(models):
+        if data_type.python_type:
+            has_python_type = True
+        if data_type.import_ and data_type.type in all_model_field_names:
+            key = (data_type.import_.from_, data_type.import_.import_)
+            aliases.setdefault(
+                key,
+                Import(
+                    from_=data_type.import_.from_,
+                    import_=data_type.import_.import_,
+                    alias=f"{data_type.type}_aliased",
+                    reference_path=data_type.import_.reference_path,
+                ),
+            )
+    return aliases, has_python_type
+
+
+def _apply_python_type_import_aliases(
+    models: list[DataModel],
+    aliased_imports: dict[_PythonTypeImportKey, Import],
+    *,
+    can_retain_cache: bool,
+) -> None:
+    """Rewrite every identity-carrying consumer of the selected imports."""
+    alias_bound_python_type = render_python_type_expr = None
+    for model, _model_field, data_type in iter_models_field_data_types(models):
+        if (
+            data_type.import_
+            and (aliased_import := aliased_imports.get((data_type.import_.from_, data_type.import_.import_)))
+            is not None
+        ):
+            data_type.type = aliased_import.alias
+            data_type.import_ = aliased_import
+            _clear_model_imports_cache_if_retained(model, can_retain_cache=can_retain_cache)
+        if data_type.python_type:
+            if alias_bound_python_type is None:
+                # Structured annotation support is opt-in. Keep both the IR and
+                # its renderer out of the ordinary generation import fast path.
+                from datamodel_code_generator._python_type_annotation import (  # noqa: PLC0415
+                    render_python_type_expr,
+                )
+                from datamodel_code_generator._python_type_binding import (  # noqa: PLC0415
+                    alias_bound_python_type,
+                )
+
+            bound_type = alias_bound_python_type(data_type.python_type, aliased_imports)
+            if bound_type is not data_type.python_type:
+                data_type.python_type = bound_type
+                data_type.type = render_python_type_expr(bound_type.expression)
+                _clear_model_imports_cache_if_retained(model, can_retain_cache=can_retain_cache)
+
+    for model in models:
+        if _alias_base_class_imports(model, aliased_imports):
+            _clear_model_imports_cache_if_retained(model, can_retain_cache=can_retain_cache)
+    if not can_retain_cache:
+        _clear_model_imports_cache(models)
+
+
 def _unwrap_type_alias(data_type: DataType) -> DataType:
     """Follow type alias references to the underlying data type."""
     current = data_type
@@ -1014,6 +1082,7 @@ def is_ancestor_package_reference(current_module: str, reference: str) -> bool:
         - current="v0.mammal.canine", ref="v0.Animal" -> True (grandparent)
         - current="v0.animal", ref="v0.animal.Dog" -> False (same or child)
         - current="pets", ref="Animal" -> True (root package is immediate parent)
+        - current="v0.mammal.canine", ref="Animal" -> True (root package is an ancestor)
     """
     current_path = current_module.split(".") if current_module else []
     *reference_path, _ = reference.split(".")
@@ -1026,13 +1095,10 @@ def is_ancestor_package_reference(current_module: str, reference: str) -> bool:
     if current_path[:-1] == reference_path:
         return True
 
-    # Case 2: Deeper ancestor package (reference_path must be non-empty proper prefix)
+    # Case 2: Deeper ancestor package (reference_path must be a proper prefix)
     # e.g., current="v0.mammal.canine", ref="v0.Animal" -> ["v0"] is prefix of ["v0","mammal","canine"]
-    return (
-        len(reference_path) > 0
-        and len(reference_path) < len(current_path)
-        and current_path[: len(reference_path)] == reference_path
-    )
+    # An empty reference_path is the root package, which is an ancestor of every nested module.
+    return len(reference_path) < len(current_path) and current_path[: len(reference_path)] == reference_path
 
 
 def exact_import(from_: str, import_: str, short_name: str) -> tuple[str, str]:
@@ -1043,6 +1109,19 @@ def exact_import(from_: str, import_: str, short_name: str) -> tuple[str, str]:
         # when our imported module has the same parent
         return f"{from_}{import_}", short_name
     return f"{from_}.{import_}", short_name
+
+
+def _resolve_exact_import(
+    current_module: str,
+    target_full_name: str,
+    from_: str,
+    import_: str,
+    short_name: str,
+) -> tuple[str, str]:
+    """Keep package imports intact while resolving exact module imports."""
+    if is_ancestor_package_reference(current_module, target_full_name):
+        return from_, import_
+    return exact_import(from_, import_, short_name)
 
 
 def get_module_directory(module: tuple[str, ...]) -> tuple[str, ...]:
@@ -1652,12 +1731,19 @@ def _register_data_type_import(
             pass
 
     model_path_to_module_name = model_path_to_module_name or {}
+    current_module_name = _get_model_module_name(model, model_path_to_module_name)
     from_, import_ = full_path = relative(
-        _get_model_module_name(model, model_path_to_module_name),
-        _get_data_type_target_full_name(data_type, reference, model_path_to_module_name),
+        current_module_name,
+        target_full_name := _get_data_type_target_full_name(data_type, reference, model_path_to_module_name),
     )
     if imports.use_exact:
-        from_, import_ = full_path = exact_import(from_, import_, reference.short_name)
+        from_, import_ = full_path = _resolve_exact_import(
+            current_module_name,
+            target_full_name,
+            from_,
+            import_,
+            reference.short_name,
+        )
     if not (from_ and import_):
         return
 
@@ -1702,6 +1788,16 @@ def _format_body_safe(body: str, code_formatter: CodeFormatter) -> str:
             stacklevel=1,
         )
         return body
+
+
+def _remap_imports(imports: Imports, overrides: Mapping[str, str]) -> None:
+    """Convert import override conflicts to a user-facing generator error."""
+    if not imports.counter:
+        return
+    try:
+        imports.remap_modules(overrides)
+    except ValueError as e:
+        raise Error(str(e)) from e
 
 
 class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
@@ -1815,6 +1911,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             config = self._create_default_config(options)  # ty: ignore[invalid-argument-type]
 
         self.config = config
+        self._has_bound_python_types = False
 
         self.keyword_only = config.keyword_only
         self.target_pydantic_version = config.target_pydantic_version
@@ -1920,6 +2017,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.use_operation_id_as_name: bool = config.use_operation_id_as_name
         self.use_unique_items_as_set: bool = config.use_unique_items_as_set
         self.use_tuple_for_fixed_items: bool = config.use_tuple_for_fixed_items
+        self.use_total_false_for_typed_dict: bool = config.use_total_false_for_typed_dict
         self.use_closed_typed_dict: bool = config.use_closed_typed_dict
         self.allof_merge_mode: AllOfMergeMode = config.allof_merge_mode
         self.allof_class_hierarchy: AllOfClassHierarchy = config.allof_class_hierarchy
@@ -1945,6 +2043,12 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.validators = config.validators
         self.generate_schema_validators: bool = config.generate_schema_validators
         self._set_typed_extra_annotation_mode(use_deferred_annotations=True)
+
+        if self.use_total_false_for_typed_dict and self.data_model_type.SUPPORTS_TYPED_DICT_TOTAL_FALSE:
+            typed_dict_data = self.extra_template_data[ALL_MODEL]
+            typed_dict_data["use_total_false_for_typed_dict"] = True
+            if not self.target_python_version.has_typed_dict_non_required:
+                typed_dict_data["use_total_false_typeddict_backport"] = True
 
         if self.validators:
             for model_name, model_config in self.validators.items():
@@ -2080,6 +2184,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.formatters: list[Formatter] | None = config.formatters
         self.builtin_format_line_length: int | None = config.builtin_format_line_length
         self.defer_formatting: bool = config.defer_formatting
+        self._import_overrides: dict[str, str] | None = config.import_overrides or None
         self.type_mappings: dict[tuple[str, str], str] = Parser._parse_type_mappings(config.type_mappings)
         self.type_overrides: dict[str, str] = config.type_overrides or {}
         self._type_override_imports: dict[str, Import] = {
@@ -2518,14 +2623,23 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
 
                 if isinstance(data_type, BaseClassDataType):
                     left, right = relative(current_module_name, target_full_name)
-                    is_ancestor = is_ancestor_package_reference(current_module_name, target_full_name)
-                    from_ = left if is_ancestor else (f"{left}{right}" if left.endswith(".") else f"{left}.{right}")
+                    from_ = (
+                        left
+                        if is_ancestor_package_reference(current_module_name, target_full_name)
+                        else (f"{left}{right}" if left.endswith(".") else f"{left}.{right}")
+                    )
                     import_ = reference.short_name
                     full_path = from_, import_
                 else:
                     from_, import_ = full_path = relative(current_module_name, target_full_name)
                     if imports.use_exact:
-                        from_, import_ = full_path = exact_import(from_, import_, reference.short_name)
+                        from_, import_ = full_path = _resolve_exact_import(
+                            current_module_name,
+                            target_full_name,
+                            from_,
+                            import_,
+                            reference.short_name,
+                        )
                     import_ = import_.replace("-", "_")
                     current_module_path = tuple(current_module_name.split(".")) if current_module_name else ()
                     if (  # pragma: no cover
@@ -2572,6 +2686,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                 model.clear_imports_cache()
                 after_import = model.imports
                 if before_import != after_import:
+                    imports.remove(before_import)
                     imports.append(after_import)
 
     @classmethod
@@ -3830,42 +3945,39 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                 ).name,
             )
 
-    def __alias_shadowed_imports(  # noqa: PLR6301
+    def __alias_shadowed_imports(
         self,
         models: list[DataModel],
         all_model_field_names: set[str],
         *,
         can_retain_cache: bool,
+        module_imports: Imports | None = None,
     ) -> None:
-        aliased_imports: dict[tuple[str | None, str], Import] = {}
-        for _, _model_field, data_type in iter_models_field_data_types(models):
-            if data_type and data_type.import_ and data_type.type in all_model_field_names:
-                key = (data_type.import_.from_, data_type.import_.import_)
-                if key not in aliased_imports:
-                    aliased_imports[key] = Import(
-                        from_=data_type.import_.from_,
-                        import_=data_type.import_.import_,
-                        alias=data_type.type + "_aliased",
-                        reference_path=data_type.import_.reference_path,
-                    )
+        ordinary_aliases, has_python_type = _ordinary_field_shadow_aliases(models, all_model_field_names)
+        if not has_python_type:
+            if ordinary_aliases:
+                _apply_python_type_import_aliases(models, ordinary_aliases, can_retain_cache=can_retain_cache)
+            return
+        self._has_bound_python_types = True
+        # Keep structured annotation machinery lazy: ordinary schemas must not
+        # pay its import, allocation, or module-scan cost.
+        from datamodel_code_generator.parser._python_type_imports import (  # noqa: PLC0415
+            resolve_python_type_import_aliases,
+        )
 
+        data_types = (data_type for _, _, data_type in iter_models_field_data_types(models))
+        aliased_imports = resolve_python_type_import_aliases(
+            data_types,
+            models,
+            all_model_field_names,
+            (self.imports,) if module_imports is None else (self.imports, module_imports),
+        )
         if not aliased_imports:
             return
-
-        for model, _model_field, data_type in iter_models_field_data_types(models):
-            if data_type and data_type.import_:
-                key = (data_type.import_.from_, data_type.import_.import_)
-                if key in aliased_imports:
-                    aliased_import = aliased_imports[key]
-                    data_type.type = aliased_import.alias
-                    data_type.import_ = aliased_import
-                    _clear_model_imports_cache_if_retained(model, can_retain_cache=can_retain_cache)
-
-        for model in models:
-            if _alias_base_class_imports(model, aliased_imports):
-                _clear_model_imports_cache_if_retained(model, can_retain_cache=can_retain_cache)
-        if not can_retain_cache:
-            _clear_model_imports_cache(models)
+        _apply_python_type_import_aliases(models, aliased_imports, can_retain_cache=can_retain_cache)
+        if module_imports is not None:
+            for aliased_import in aliased_imports.values():
+                module_imports.apply_alias(aliased_import)
 
     def __apply_generic_base_class(  # noqa: PLR0912, PLR0914, PLR0915
         self,
@@ -4094,7 +4206,21 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             names.add(name.split(".")[0])
 
         def collect_data_type_names(data_type: DataType) -> None:
-            add(data_type.alias or data_type.type)
+            if data_type.alias:
+                add(data_type.alias)
+            elif data_type.python_type:
+                from datamodel_code_generator._python_type_annotation import (  # noqa: PLC0415
+                    iter_python_type_expr_names,
+                    iter_python_type_expr_qualified_names,
+                )
+
+                expression = data_type.python_type.expression
+                for name in iter_python_type_expr_names(expression):
+                    add(name)
+                for qualified_name in iter_python_type_expr_qualified_names(expression):
+                    add(qualified_name)
+            else:
+                add(data_type.type)
             if data_type.reference:
                 add(data_type.reference.short_name)
 
@@ -4675,6 +4801,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         source_data = (
             getattr(self, "raw_obj", None),
             sorted(getattr(self, "remote_object_cache", {}).items()),
+            sorted((getattr(self, "_python_type_expressions", None) or {}).items()),
         )
         # Parsed YAML may contain mixed or non-JSON scalar mapping keys. Pickle preserves
         # their types and streams directly into the digest; unsupported extension objects
@@ -4926,6 +5053,22 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
 
         return ModuleContext(module, module_, models, is_init, imports, scoped_model_resolver)
 
+    def _finalize_bound_python_type_imports(self, contexts: list[ModuleContext]) -> None:
+        """Resolve aliases introduced after generic base classes are applied."""
+        if not self._has_bound_python_types:
+            return
+        for ctx in contexts:
+            all_module_fields = {field.name for model in ctx.models for field in model.fields if field.name is not None}
+            self.__alias_shadowed_imports(
+                ctx.models,
+                all_module_fields,
+                can_retain_cache=_can_retain_model_imports_cache(
+                    ctx.models,
+                    configured_types_are_builtin=self._configured_generation_types_are_builtin,
+                ),
+                module_imports=ctx.imports,
+            )
+
     def _finalize_modules(
         self,
         contexts: list[ModuleContext],
@@ -4937,6 +5080,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         all_models = [model for ctx in contexts for model in ctx.models]
         self.__mark_set_item_models_hashable(all_models)
         self.__apply_generic_base_class(contexts)
+        self._finalize_bound_python_type_imports(contexts)
         model_imports = {model: model.imports for ctx in contexts for model in ctx.models}
 
         for ctx in contexts:
@@ -4974,6 +5118,15 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                     configured_types_are_builtin=self._configured_generation_types_are_builtin,
                 ),
             )
+
+        match self._import_overrides:
+            case None:
+                return
+            case overrides:
+                _remap_imports(self.imports, overrides)
+                for ctx in contexts:
+                    _remap_imports(ctx.imports, overrides)
+        return
 
     def _set_nested_model_default_factory_metadata(
         self,

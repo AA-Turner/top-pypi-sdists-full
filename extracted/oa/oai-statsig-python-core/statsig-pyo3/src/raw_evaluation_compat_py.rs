@@ -1,19 +1,18 @@
 use std::collections::HashMap;
 
 use pyo3::{
-    pyclass,
-    types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods},
-    Bound, Py, PyAny, PyResult, Python,
+    Bound, Py, PyAny, PyResult, Python, pyclass,
+    types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyString},
 };
 use pyo3_stub_gen::derive::gen_stub_pyclass;
 use rkyv::{collections::swiss_table::ArchivedHashMap, string::ArchivedString, vec::ArchivedVec};
 use statsig_rust::{
+    DynamicReturnable, EvaluationDetails,
     evaluation::rkyv_value::{ArchivedRkyvNumber, ArchivedRkyvValue, RkyvNumber, RkyvValue},
     interned_string::InternedString,
     statsig_types_raw::{
         DynamicConfigRaw, ExperimentRaw, FeatureGateRaw, LayerRaw, PartialLayerRaw, SuffixedRuleId,
     },
-    DynamicReturnable, EvaluationDetails, SecondaryExposure,
 };
 
 const VALUE_CACHE_KEY_FIELD: &str = "__statsig_dynamic_returnable_cache_key";
@@ -28,13 +27,21 @@ pub struct LayerParamExposureDataPy {
 pub(crate) fn raw_gate_to_py_dict(py: Python, raw: &FeatureGateRaw) -> PyResult<Py<PyDict>> {
     let dict = PyDict::new(py);
 
-    dict.set_item("name", raw.name)?;
-    dict.set_item("value", raw.value)?;
+    dict.set_item(pyo3::intern!(py, "name"), raw.name)?;
+    dict.set_item(pyo3::intern!(py, "value"), raw.value)?;
 
-    py_dict_insert_rule_id(&dict, &raw.rule_id)?;
-
-    dict.set_item("idType", opt_interned_str(&raw.id_type))?;
-    dict.set_item("details", evaluation_details_to_py_dict(py, raw.details)?)?;
+    dict.set_item(
+        pyo3::intern!(py, "ruleID"),
+        py_intern_rule_id(py, &raw.rule_id),
+    )?;
+    dict.set_item(
+        pyo3::intern!(py, "idType"),
+        py_intern_id_type(py, opt_interned_str(&raw.id_type)),
+    )?;
+    dict.set_item(
+        pyo3::intern!(py, "details"),
+        evaluation_details_to_py_dict(py, raw.details)?,
+    )?;
 
     Ok(dict.unbind())
 }
@@ -47,16 +54,24 @@ pub(crate) fn raw_dynamic_config_to_py_dict(
 ) -> PyResult<Py<PyDict>> {
     let dict = PyDict::new(py);
 
-    dict.set_item("name", raw.name)?;
+    dict.set_item(pyo3::intern!(py, "name"), raw.name)?;
 
     if let Some(value) = raw.value {
         insert_dynamic_returnable(py, &dict, value, cache_keys, pending_cache)?;
     }
 
-    py_dict_insert_rule_id(&dict, &raw.rule_id)?;
-
-    dict.set_item("idType", opt_interned_str(&raw.id_type))?;
-    dict.set_item("details", evaluation_details_to_py_dict(py, raw.details)?)?;
+    dict.set_item(
+        pyo3::intern!(py, "ruleID"),
+        py_intern_rule_id(py, &raw.rule_id),
+    )?;
+    dict.set_item(
+        pyo3::intern!(py, "idType"),
+        py_intern_id_type(py, opt_interned_str(&raw.id_type)),
+    )?;
+    dict.set_item(
+        pyo3::intern!(py, "details"),
+        evaluation_details_to_py_dict(py, raw.details)?,
+    )?;
 
     Ok(dict.unbind())
 }
@@ -70,15 +85,15 @@ fn insert_dynamic_returnable(
 ) -> PyResult<()> {
     let cache_key = value.get_hash();
     if has_cached_dynamic_returnable(cache_keys, cache_key)? {
-        dict.set_item(VALUE_CACHE_KEY_FIELD, cache_key)?;
-        dict.set_item(VALUE_CACHE_HIT_FIELD, true)?;
+        dict.set_item(pyo3::intern!(py, VALUE_CACHE_KEY_FIELD), cache_key)?;
+        dict.set_item(pyo3::intern!(py, VALUE_CACHE_HIT_FIELD), true)?;
         return Ok(());
     }
 
     if let Some(cached) = get_pending_dynamic_returnable(pending_cache, cache_key)? {
-        dict.set_item("value", cached)?;
-        dict.set_item(VALUE_CACHE_KEY_FIELD, cache_key)?;
-        dict.set_item(VALUE_CACHE_HIT_FIELD, true)?;
+        dict.set_item(pyo3::intern!(py, "value"), cached)?;
+        dict.set_item(pyo3::intern!(py, VALUE_CACHE_KEY_FIELD), cache_key)?;
+        dict.set_item(pyo3::intern!(py, VALUE_CACHE_HIT_FIELD), true)?;
         return Ok(());
     }
 
@@ -90,10 +105,10 @@ fn insert_dynamic_returnable(
         return Ok(());
     };
 
-    dict.set_item("value", &converted)?;
+    dict.set_item(pyo3::intern!(py, "value"), &converted)?;
     if cache_keys.is_some() {
-        dict.set_item(VALUE_CACHE_KEY_FIELD, cache_key)?;
-        dict.set_item(VALUE_CACHE_HIT_FIELD, false)?;
+        dict.set_item(pyo3::intern!(py, VALUE_CACHE_KEY_FIELD), cache_key)?;
+        dict.set_item(pyo3::intern!(py, VALUE_CACHE_HIT_FIELD), false)?;
         if let Some(pending_cache) = pending_cache {
             pending_cache.set_item(cache_key, converted)?;
         }
@@ -133,25 +148,32 @@ pub(crate) fn raw_experiment_to_py_dict(
 ) -> PyResult<Py<PyDict>> {
     let dict = PyDict::new(py);
 
-    dict.set_item("name", raw.name)?;
+    dict.set_item(pyo3::intern!(py, "name"), raw.name)?;
 
     if let Some(value) = raw.value {
         insert_dynamic_returnable(py, &dict, value, cache_keys, pending_cache)?;
     }
 
-    py_dict_insert_rule_id(&dict, &raw.rule_id)?;
-
-    dict.set_item("idType", opt_interned_str(&raw.id_type))?;
-    dict.set_item("details", evaluation_details_to_py_dict(py, raw.details)?)?;
-    dict.set_item("groupName", opt_interned_str(&raw.group_name))?;
-    dict.set_item("isExperimentActive", raw.is_experiment_active)?;
-
-    if let Some(secondary_exposures) = raw.secondary_exposures {
-        dict.set_item(
-            "secondaryExposures",
-            secondary_exposures_to_py_list(py, secondary_exposures)?,
-        )?;
-    }
+    dict.set_item(
+        pyo3::intern!(py, "ruleID"),
+        py_intern_rule_id(py, &raw.rule_id),
+    )?;
+    dict.set_item(
+        pyo3::intern!(py, "idType"),
+        py_intern_id_type(py, opt_interned_str(&raw.id_type)),
+    )?;
+    dict.set_item(
+        pyo3::intern!(py, "details"),
+        evaluation_details_to_py_dict(py, raw.details)?,
+    )?;
+    dict.set_item(
+        pyo3::intern!(py, "groupName"),
+        opt_interned_str(&raw.group_name),
+    )?;
+    dict.set_item(
+        pyo3::intern!(py, "isExperimentActive"),
+        raw.is_experiment_active,
+    )?;
 
     Ok(dict.unbind())
 }
@@ -164,33 +186,40 @@ pub(crate) fn raw_layer_to_py_dict(
 ) -> PyResult<Py<PyDict>> {
     let dict = PyDict::new(py);
 
-    dict.set_item("name", raw.name)?;
+    dict.set_item(pyo3::intern!(py, "name"), raw.name)?;
 
     if let Some(value) = raw.value {
         insert_dynamic_returnable(py, &dict, value, cache_keys, pending_cache)?;
     }
 
-    py_dict_insert_rule_id(&dict, &raw.rule_id)?;
-
-    dict.set_item("idType", opt_interned_str(&raw.id_type))?;
-    dict.set_item("details", evaluation_details_to_py_dict(py, raw.details)?)?;
-    dict.set_item("groupName", opt_interned_str(&raw.group_name))?;
-    dict.set_item("isExperimentActive", raw.is_experiment_active)?;
     dict.set_item(
-        "allocatedExperimentName",
+        pyo3::intern!(py, "ruleID"),
+        py_intern_rule_id(py, &raw.rule_id),
+    )?;
+    dict.set_item(
+        pyo3::intern!(py, "idType"),
+        py_intern_id_type(py, opt_interned_str(&raw.id_type)),
+    )?;
+    dict.set_item(
+        pyo3::intern!(py, "details"),
+        evaluation_details_to_py_dict(py, raw.details)?,
+    )?;
+    dict.set_item(
+        pyo3::intern!(py, "groupName"),
+        opt_interned_str(&raw.group_name),
+    )?;
+    dict.set_item(
+        pyo3::intern!(py, "isExperimentActive"),
+        raw.is_experiment_active,
+    )?;
+    dict.set_item(
+        pyo3::intern!(py, "allocatedExperimentName"),
         opt_interned_str(&raw.allocated_experiment_name),
     )?;
 
-    if let Some(secondary_exposures) = raw.secondary_exposures {
-        dict.set_item(
-            "secondaryExposures",
-            secondary_exposures_to_py_list(py, secondary_exposures)?,
-        )?;
-    }
-
     // Exposure state includes the evaluated user and must remain per-call.
     dict.set_item(
-        "__exposure",
+        pyo3::intern!(py, "__exposure"),
         Py::new(
             py,
             LayerParamExposureDataPy {
@@ -204,40 +233,61 @@ pub(crate) fn raw_layer_to_py_dict(
 
 fn evaluation_details_to_py_dict(py: Python, details: &EvaluationDetails) -> PyResult<Py<PyDict>> {
     let raw = PyDict::new(py);
-    raw.set_item("reason", &details.reason)?;
-    raw.set_item("lcut", details.lcut)?;
-    raw.set_item("received_at", details.received_at)?;
-    raw.set_item("version", details.version)?;
+    raw.set_item(
+        pyo3::intern!(py, "reason"),
+        py_intern_reason(py, &details.reason),
+    )?;
+    raw.set_item(pyo3::intern!(py, "lcut"), details.lcut)?;
+    raw.set_item(pyo3::intern!(py, "received_at"), details.received_at)?;
+    raw.set_item(pyo3::intern!(py, "version"), details.version)?;
 
     Ok(raw.unbind())
-}
-
-fn secondary_exposures_to_py_list(
-    py: Python,
-    secondary_exposures: &Vec<SecondaryExposure>,
-) -> PyResult<Py<PyList>> {
-    let py_list = PyList::empty(py);
-    for secondary_exposure in secondary_exposures {
-        let dict = PyDict::new(py);
-        dict.set_item("gate", secondary_exposure.gate.as_str())?;
-        dict.set_item("gateValue", secondary_exposure.gate_value.as_str())?;
-        dict.set_item("ruleID", secondary_exposure.rule_id.as_str())?;
-        py_list.append(dict.unbind())?;
-    }
-    Ok(py_list.unbind())
 }
 
 fn opt_interned_str<'a>(value: &'a Option<&'a InternedString>) -> Option<&'a str> {
     value.as_ref().map(|value| value.as_str())
 }
 
-fn py_dict_insert_rule_id(py_dict: &Bound<PyDict>, rule_id: &SuffixedRuleId) -> PyResult<()> {
+fn py_intern_rule_id<'py>(py: Python<'py>, rule_id: &SuffixedRuleId) -> Bound<'py, PyString> {
     if let Some(rule_id) = rule_id.try_as_unprefixed_str() {
-        py_dict.set_item("ruleID", rule_id)?;
+        py_intern_rule_id_value(py, rule_id)
     } else {
-        py_dict.set_item("ruleID", rule_id.unperformant_to_string())?;
+        PyString::new(py, &rule_id.unperformant_to_string())
     }
-    Ok(())
+}
+
+fn py_intern_id_type<'py>(py: Python<'py>, value: Option<&str>) -> Option<Bound<'py, PyString>> {
+    value.map(|value| match value {
+        "userID" => pyo3::intern!(py, "userID").clone(),
+        "stableID" => pyo3::intern!(py, "stableID").clone(),
+        "ads_segment_id" => pyo3::intern!(py, "ads_segment_id").clone(),
+        "workspace_id" => pyo3::intern!(py, "workspace_id").clone(),
+        value => PyString::new(py, value),
+    })
+}
+
+fn py_intern_reason<'py>(py: Python<'py>, value: &str) -> Bound<'py, PyString> {
+    match value {
+        "Network:Recognized" => pyo3::intern!(py, "Network:Recognized").clone(),
+        "Network:Unrecognized" => pyo3::intern!(py, "Network:Unrecognized").clone(),
+        "Network:Unsupported" => pyo3::intern!(py, "Network:Unsupported").clone(),
+        "Bootstrap:Recognized" => pyo3::intern!(py, "Bootstrap:Recognized").clone(),
+        "Adapter(DataStore):Recognized" => {
+            pyo3::intern!(py, "Adapter(DataStore):Recognized").clone()
+        }
+        "LocalOverride:Recognized" => pyo3::intern!(py, "LocalOverride:Recognized").clone(),
+        "Uninitialized" => pyo3::intern!(py, "Uninitialized").clone(),
+        "NoValues" => pyo3::intern!(py, "NoValues").clone(),
+        _ => PyString::new(py, value),
+    }
+}
+
+fn py_intern_rule_id_value<'py>(py: Python<'py>, value: &str) -> Bound<'py, PyString> {
+    if value == "default" {
+        pyo3::intern!(py, "default").clone()
+    } else {
+        PyString::new(py, value)
+    }
 }
 
 // ------------------------------------------------------------------------------- [ Rkyv(Archived) to Pyo3 ]

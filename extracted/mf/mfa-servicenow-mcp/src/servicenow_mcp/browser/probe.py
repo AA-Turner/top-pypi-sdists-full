@@ -19,6 +19,9 @@ keeps a runaway error loop (the same error 40,000 times) from ever becoming a
 payload we have to receive, parse, and pay for.
 """
 
+import json
+from typing import Any
+
 # Ring buffer size. 400 events comfortably covers a form submit plus its
 # fallout while staying a few hundred KB at worst.
 MAX_EVENTS = 400
@@ -52,6 +55,13 @@ PROBE_SCRIPT = """
   // navigation, somebody actively browsing would look untouched on every new
   // document, which is exactly backwards.
   let lastHuman = 0;
+  // WHOSE seq numbers these are. `seq` counts from 1 in every tab, while the
+  // caller's high-water mark used to be one number per WINDOW — so a mark of
+  // 120 taken in one tab, applied to a second tab sitting at 40, filtered away
+  // every event it had and reported a clean page nobody had read. Lives in
+  // sessionStorage, which is per tab and survives navigation, exactly like the
+  // buffer whose numbering it identifies.
+  let tabId = '';
 
   try {
     const saved = sessionStorage.getItem(KEY);
@@ -59,15 +69,23 @@ PROBE_SCRIPT = """
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed.events)) { events = parsed.events; seq = parsed.seq || 0; }
       lastHuman = parsed.lastHuman || 0;
+      tabId = parsed.tabId || '';
     }
   } catch (e) { /* storage blocked or corrupt — start fresh */ }
+
+  if (!tabId) {
+    tabId = 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
 
   const mirror = (force) => {
     const now = Date.now();
     if (!force && now - lastMirror < MIRROR_MS) return;
     lastMirror = now;
-    try { sessionStorage.setItem(KEY, JSON.stringify({ events, seq, lastHuman })); } catch (e) {}
+    try {
+      sessionStorage.setItem(KEY, JSON.stringify({ events, seq, lastHuman, tabId }));
+    } catch (e) {}
   };
+  mirror(true);
 
   // Cheap, stable string hash (FNV-1a). Only used to decide "same payload?",
   // never for anything security-bearing.
@@ -250,7 +268,12 @@ PROBE_SCRIPT = """
   };
 
   window[G] = {
-    version: 3,
+    // Bumped when the SHAPE of a call changes, so a caller can tell what the
+    // probe in front of it understands. A window open across an upgrade keeps
+    // its old probe until the page reloads (the script returns early when the
+    // global exists), so "the code shipped" never means "the page has it".
+    // 4: drain() takes a {tabId: seq} map instead of a bare number.
+    version: 4,
     dirty: dirtyFields,
     // Everything the reaper needs to decide "is this window in use?", in one
     // evaluate. `now` is the PAGE's clock so the caller subtracts two readings
@@ -259,17 +282,26 @@ PROBE_SCRIPT = """
       now: Date.now(),
       lastHuman: lastHuman,
       seq: seq,
+      tabId: tabId,
       dirty: dirtyFields().fields.length
     }),
-    // Harvest everything newer than `afterSeq`. The caller keeps the high-water
-    // mark, so a repeat call costs only what actually changed.
-    drain: (afterSeq) => ({
-      seq: seq,
-      url: location.href,
-      title: document.title,
-      dropped: Math.max(0, seq - events.length - (afterSeq || 0)),
-      events: events.filter((ev) => ev.seq > (afterSeq || 0))
-    }),
+    // Harvest everything newer than this TAB's high-water mark. `marks` is the
+    // caller's whole map of tabId -> seq, and the tab picks its own entry: the
+    // caller cannot know which tab it is about to reach until it has reached
+    // it, and applying another tab's number here is precisely the bug this
+    // replaces. An unknown tab starts from 0 — everything it buffered, which
+    // over-fetches rather than reporting a page it never read as clean.
+    drain: (marks) => {
+      const after = (marks && typeof marks === 'object' && marks[tabId]) || 0;
+      return {
+        seq: seq,
+        tabId: tabId,
+        url: location.href,
+        title: document.title,
+        dropped: Math.max(0, seq - events.length - after),
+        events: events.filter((ev) => ev.seq > after)
+      };
+    },
     reset: () => { events = []; seq = 0; mirror(true); }
   };
 })();
@@ -294,11 +326,36 @@ def dirty_script() -> str:
     )
 
 
-def drain_script(after_seq: int) -> str:
-    """Expression that returns every buffered event newer than ``after_seq``."""
+def drain_script(marks: Any) -> str:
+    """Expression returning this tab's events newer than ITS high-water mark.
+
+    ``marks`` is the whole ``{tabId: seq}`` map and the tab picks its own entry,
+    because which tab this lands on is not knowable until it lands.
+
+    **The probe in the page decides which shape it gets.** A window that was
+    open across the upgrade still runs the OLD probe — the script returns early
+    when its global exists, so nothing changes until that document reloads —
+    and the old ``drain`` treats its argument as a number. Handed a map it
+    computed ``seq - events.length - {object}`` = NaN, which came back to Python
+    as a float NaN and took the whole call down with it. Measured on a live
+    window minutes after shipping v1.24.5: every ``inspect`` on that window
+    failed until the page was reloaded, which is worse than the bug being fixed.
+
+    So the version is asked at call time and an older probe is handed ``0``: it
+    re-sends its whole buffer, which over-fetches rather than misreports. An
+    explicit int from the caller is passed through for the same reason.
+    """
+    if isinstance(marks, int):
+        payload = str(int(marks))
+        # An explicit mark is a number in either dialect, so an old probe gets
+        # the real one rather than being reset to the start of its buffer.
+        legacy = payload
+    else:
+        payload = json.dumps({str(k): int(v) for k, v in dict(marks or {}).items()})
+        legacy = "0"
     return (
-        f"(() => {{ const p = window['{PROBE_GLOBAL}'];"
-        f" return p ? p.drain({int(after_seq)}) : null; }})()"
+        f"(() => {{ const p = window['{PROBE_GLOBAL}']; if (!p) return null;"
+        f" return p.drain((p.version || 0) >= 4 ? {payload} : {legacy}); }})()"
     )
 
 

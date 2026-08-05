@@ -51,7 +51,7 @@ mod tests {
     use crate::evaluation::comparisons::compare_time;
     use crate::specs_response::spec_types::ConditionOperator;
     use crate::user::user_value::UserValue;
-    use crate::{dyn_value, test_only_make_eval_value, DynamicValue};
+    use crate::{DynamicValue, dyn_value, test_only_make_eval_value};
     use chrono::Utc;
 
     fn create_str_value(s: &str) -> DynamicValue {

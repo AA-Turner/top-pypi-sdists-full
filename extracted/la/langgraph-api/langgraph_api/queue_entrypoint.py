@@ -19,7 +19,6 @@ from contextlib import suppress
 
 import structlog
 
-from langgraph_api.api.meta import meta_pool_stats
 from langgraph_api.utils.errors import GraphLoadError, HealthServerStartupError
 from langgraph_api.utils.network import format_hostport, normalize_host
 from langgraph_runtime import lifespan
@@ -72,7 +71,7 @@ async def health_and_metrics_server():
     from starlette.routing import Mount, Route  # noqa: PLC0415
 
     from langgraph_api import config as lc_config  # noqa: PLC0415
-    from langgraph_api.api.meta import METRICS_FORMATS  # noqa: PLC0415
+    from langgraph_api.api.meta import METRICS_FORMATS, meta_pool_stats  # noqa: PLC0415
 
     port = int(os.getenv("PORT", "8080"))
     # Not in public docs: LANGGRAPH_SERVER_HOST is internal
@@ -298,9 +297,14 @@ async def main(entrypoint_name: str = "python-queue"):
 
 
 if __name__ == "__main__":
+    # Set before any langgraph_api.api import. That package's __init__ pulls in
+    # auth.middleware, which builds the auth backend at import time. Custom JS
+    # auth then imports js.remote and freezes REMOTE_PORT from this flag; if we
+    # set it too late the colocated queue worker binds 5555 instead of 5565.
     from langgraph_api import config
 
     config.IS_QUEUE_ENTRYPOINT = True
+
     with open(pathlib.Path(__file__).parent.parent / "logging.json") as file:
         loaded_config = json.load(file)
         logging.config.dictConfig(loaded_config)

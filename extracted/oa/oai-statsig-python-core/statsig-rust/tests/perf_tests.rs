@@ -128,7 +128,7 @@ async fn test_all_gate_checks() {
         .collect();
 
     // Sort the vector by the f64 duration in the tuple
-    times_vec.sort_by(|a, b| b.1 .1.partial_cmp(&a.1 .1).unwrap());
+    times_vec.sort_by(|a, b| b.1.1.partial_cmp(&a.1.1).unwrap());
 
     let sorted_values: Vec<(String, (bool, f64))> = times_vec;
     println!("Duration {sorted_values:?}");

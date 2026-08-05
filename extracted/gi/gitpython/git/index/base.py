@@ -34,6 +34,8 @@ from git.util import (
     LockedFD,
     join_path_native,
     file_contents_ro,
+    _is_path_rooted,
+    _to_relative_path,
     to_native_path_linux,
     unbare_repo,
     to_bin_sha,
@@ -58,6 +60,7 @@ from typing import (
     Any,
     BinaryIO,
     Callable,
+    cast,
     Dict,
     Generator,
     IO,
@@ -131,6 +134,7 @@ class IndexFile(LazyMixin, git_diff.Diffable, Serializable):
     """
 
     unsafe_git_checkout_index_options = ["--prefix"]
+    unsafe_git_read_tree_options = ["--index-output"]
 
     __slots__ = ("repo", "version", "entries", "_extension_data", "_file_path")
 
@@ -256,7 +260,12 @@ class IndexFile(LazyMixin, git_diff.Diffable, Serializable):
 
     @post_clear_cache
     @default_index
-    def merge_tree(self, rhs: Treeish, base: Union[None, Treeish] = None) -> "IndexFile":
+    def merge_tree(
+        self,
+        rhs: Treeish,
+        base: Union[None, Treeish] = None,
+        allow_unsafe_options: bool = False,
+    ) -> "IndexFile":
         """Merge the given `rhs` treeish into the current index, possibly taking
         a common base treeish into account.
 
@@ -270,6 +279,9 @@ class IndexFile(LazyMixin, git_diff.Diffable, Serializable):
             Optional treeish reference pointing to the common base of `rhs` and this
             index which equals lhs.
 
+        :param allow_unsafe_options:
+            Allow options that may write to arbitrary paths.
+
         :return:
             self (containing the merge and possibly unmerged entries in case of
             conflicts)
@@ -280,6 +292,12 @@ class IndexFile(LazyMixin, git_diff.Diffable, Serializable):
             yourself, you have to commit the changed index (or make a valid tree from
             it) and retry with a three-way :meth:`index.from_tree <from_tree>` call.
         """
+        if not allow_unsafe_options:
+            Git.check_unsafe_options(
+                options=Git._option_candidates([base, rhs]),
+                unsafe_options=self.unsafe_git_read_tree_options,
+            )
+
         # -i : ignore working tree status
         # --aggressive : handle more merge cases
         # -m : do an actual merge
@@ -324,7 +342,13 @@ class IndexFile(LazyMixin, git_diff.Diffable, Serializable):
         return inst
 
     @classmethod
-    def from_tree(cls, repo: "Repo", *treeish: Treeish, **kwargs: Any) -> "IndexFile":
+    def from_tree(
+        cls,
+        repo: "Repo",
+        *treeish: Treeish,
+        allow_unsafe_options: bool = False,
+        **kwargs: Any,
+    ) -> "IndexFile":
         R"""Merge the given treeish revisions into a new index which is returned.
         The original index will remain unaltered.
 
@@ -348,6 +372,9 @@ class IndexFile(LazyMixin, git_diff.Diffable, Serializable):
         :param kwargs:
             Additional arguments passed to :manpage:`git-read-tree(1)`.
 
+        :param allow_unsafe_options:
+            Allow options that may write to arbitrary paths.
+
         :return:
             New :class:`IndexFile` instance. It will point to a temporary index location
             which does not exist anymore. If you intend to write such a merged Index,
@@ -364,6 +391,12 @@ class IndexFile(LazyMixin, git_diff.Diffable, Serializable):
         """
         if len(treeish) == 0 or len(treeish) > 3:
             raise ValueError("Please specify between 1 and 3 treeish, got %i" % len(treeish))
+
+        if not allow_unsafe_options:
+            Git.check_unsafe_options(
+                options=Git._option_candidates(treeish, kwargs),
+                unsafe_options=cls.unsafe_git_read_tree_options,
+            )
 
         arg_list: List[Union[Treeish, str]] = []
         # Ignore that the working tree and index possibly are out of date.
@@ -655,16 +688,12 @@ class IndexFile(LazyMixin, git_diff.Diffable, Serializable):
 
         :raise ValueError:
         """
-        if not osp.isabs(path):
-            return path
         if self.repo.bare:
-            raise InvalidGitRepositoryError("require non-bare repository")
-        if not osp.normpath(path).startswith(str(self.repo.working_tree_dir)):
-            raise ValueError("Absolute path %r is not in git repository at %r" % (path, self.repo.working_tree_dir))
-        result = os.path.relpath(path, self.repo.working_tree_dir)
-        if os.fspath(path).endswith(os.sep) and not result.endswith(os.sep):
-            result += os.sep
-        return result
+            drive, _tail = osp.splitdrive(os.fspath(path))
+            if drive or _is_path_rooted(path):
+                raise InvalidGitRepositoryError("paths with a drive or root require a non-bare repository")
+            return path
+        return _to_relative_path(cast(PathLike, self.repo.working_tree_dir), path)
 
     def _preprocess_add_items(
         self, items: Union[PathLike, Sequence[Union[PathLike, Blob, BaseIndexEntry, "Submodule"]]]
@@ -731,14 +760,17 @@ class IndexFile(LazyMixin, git_diff.Diffable, Serializable):
     ) -> List[BaseIndexEntry]:
         entries_added: List[BaseIndexEntry] = []
         if path_rewriter:
+            working_tree_dir = self.repo.working_tree_dir
+            if working_tree_dir is None:
+                raise InvalidGitRepositoryError("Cannot rewrite paths without a working tree")
+            working_tree_dir = str(working_tree_dir)
             for path in paths:
                 if osp.isabs(path):
                     abspath = path
-                    gitrelative_path = path[len(str(self.repo.working_tree_dir)) + 1 :]
+                    gitrelative_path = path[len(working_tree_dir) + 1 :]
                 else:
                     gitrelative_path = path
-                    if self.repo.working_tree_dir:
-                        abspath = osp.join(self.repo.working_tree_dir, gitrelative_path)
+                    abspath = osp.join(working_tree_dir, gitrelative_path)
                 # END obtain relative and absolute paths
 
                 blob = Blob(
@@ -992,6 +1024,7 @@ class IndexFile(LazyMixin, git_diff.Diffable, Serializable):
         self,
         items: Union[PathLike, Sequence[Union[PathLike, Blob, BaseIndexEntry, "Submodule"]]],
         working_tree: bool = False,
+        allow_unsafe_options: bool = False,
         **kwargs: Any,
     ) -> List[str]:
         R"""Remove the given items from the index and optionally from the working tree
@@ -1022,6 +1055,10 @@ class IndexFile(LazyMixin, git_diff.Diffable, Serializable):
             physically removing the respective file. This may fail if there are
             uncommitted changes in it.
 
+        :param allow_unsafe_options:
+            Allow unsafe options such as ``--pathspec-from-file`` to be passed to
+            :manpage:`git-rm(1)`.
+
         :param kwargs:
             Additional keyword arguments to be passed to :manpage:`git-rm(1)`, such as
             ``r`` to allow recursive removal.
@@ -1033,6 +1070,11 @@ class IndexFile(LazyMixin, git_diff.Diffable, Serializable):
             This is interesting to know in case you have provided a directory or globs.
             Paths are relative to the repository.
         """
+        if not allow_unsafe_options:
+            Git.check_unsafe_options(
+                options=Git._option_candidates([], kwargs),
+                unsafe_options=Git.unsafe_git_pathspec_from_file_options,
+            )
         args = []
         if not working_tree:
             args.append("--cached")
@@ -1414,6 +1456,7 @@ class IndexFile(LazyMixin, git_diff.Diffable, Serializable):
         working_tree: bool = False,
         paths: Union[None, Iterable[PathLike]] = None,
         head: bool = False,
+        allow_unsafe_options: bool = False,
         **kwargs: Any,
     ) -> "IndexFile":
         """Reset the index to reflect the tree at the given commit. This will not adjust
@@ -1445,6 +1488,9 @@ class IndexFile(LazyMixin, git_diff.Diffable, Serializable):
             The paths need to exist at the commit, otherwise an exception will be
             raised.
 
+        :param allow_unsafe_options:
+            Allow options that may write to arbitrary paths.
+
         :param kwargs:
             Additional keyword arguments passed to :manpage:`git-reset(1)`.
 
@@ -1461,15 +1507,15 @@ class IndexFile(LazyMixin, git_diff.Diffable, Serializable):
         """
         # What we actually want to do is to merge the tree into our existing index,
         # which is what git-read-tree does.
-        new_inst = type(self).from_tree(self.repo, commit)
+        new_inst = type(self).from_tree(self.repo, commit, allow_unsafe_options=allow_unsafe_options)
         if not paths:
             self.entries = new_inst.entries
         else:
             nie = new_inst.entries
             for path in paths:
                 path = self._to_relative_path(path)
+                key = entry_key(path, 0)
                 try:
-                    key = entry_key(path, 0)
                     self.entries[key] = nie[key]
                 except KeyError:
                     # If key is not in theirs, it mustn't be in ours.

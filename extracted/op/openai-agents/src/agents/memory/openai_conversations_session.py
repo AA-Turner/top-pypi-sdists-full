@@ -55,13 +55,14 @@ class OpenAIConversationsSession(SessionABC):
 
         Raises:
             ValueError: If the session has not been initialized yet.
-                Call any session method (get_items, add_items, etc.) first
-                to trigger lazy initialization.
+                Call a session method that accesses the remote conversation, such as
+                get_items() or add_items() with a non-empty list, to initialize it.
         """
         if self._session_id is None:
             raise ValueError(
                 "Session ID not yet available. The session is lazily initialized "
-                "on first API call. Call get_items(), add_items(), or similar first."
+                "on first API call. Call get_items(), add_items() with a non-empty list, "
+                "or a similar method first."
             )
         return self._session_id
 
@@ -71,11 +72,10 @@ class OpenAIConversationsSession(SessionABC):
         self._session_id = value
 
     async def _get_session_id(self) -> str:
-        if self._session_id is None:
-            async with self._session_id_lock:
-                if self._session_id is None:
-                    self._session_id = await start_openai_conversations_session(self._openai_client)
-        return self._session_id
+        async with self._session_id_lock:
+            if self._session_id is None:
+                self._session_id = await start_openai_conversations_session(self._openai_client)
+            return self._session_id
 
     async def _clear_session_id(self) -> None:
         self._session_id = None
@@ -108,10 +108,10 @@ class OpenAIConversationsSession(SessionABC):
         return all_items  # type: ignore
 
     async def add_items(self, items: list[TResponseInputItem]) -> None:
-        session_id = await self._get_session_id()
         if not items:
             return
 
+        session_id = await self._get_session_id()
         await self._openai_client.conversations.items.create(
             conversation_id=session_id,
             items=items,
@@ -129,8 +129,11 @@ class OpenAIConversationsSession(SessionABC):
         return items[0]
 
     async def clear_session(self) -> None:
-        session_id = await self._get_session_id()
-        await self._openai_client.conversations.delete(
-            conversation_id=session_id,
-        )
-        await self._clear_session_id()
+        async with self._session_id_lock:
+            if self._session_id is None:
+                return
+
+            await self._openai_client.conversations.delete(
+                conversation_id=self._session_id,
+            )
+            self._session_id = None

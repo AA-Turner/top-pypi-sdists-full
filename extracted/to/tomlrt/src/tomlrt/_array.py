@@ -37,9 +37,6 @@ from tomlrt._format import (
     set_comma_value_multiline,
 )
 from tomlrt._trivia import (
-    NewlineNode,
-    Trivia,
-    WhitespaceNode,
     strip_trailing_indent,
 )
 from tomlrt._typecheck import _validate_mapping
@@ -47,6 +44,7 @@ from tomlrt._values import (
     ArrayItem,
     ArrayValue,
 )
+from tomlrt._view import _View
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping, MutableMapping
@@ -57,7 +55,6 @@ if TYPE_CHECKING:
         CommaStyle,
     )
     from tomlrt._format import FormatOptions
-    from tomlrt._trivia import TriviaPiece
     from tomlrt._values import (
         Value,
     )
@@ -73,7 +70,7 @@ if TYPE_CHECKING:
 _T = TypeVar("_T")
 
 
-class Array(list[Any]):
+class Array(_View, list[Any]):
     """An inline TOML array.
 
     `Array` is a `list` subclass, so ``isinstance(arr, list)`` holds and
@@ -102,9 +99,7 @@ class Array(list[Any]):
         items_list = list(items)
         if not items_list:
             if multiline:
-                self._value.final_trivia = Trivia(
-                    [NewlineNode(text="\n"), WhitespaceNode(text=indent_str)]
-                )
+                self._value.final_trivia = f"\n{indent_str}"
             return
         from tomlrt._container import _synth_inline_array  # noqa: PLC0415
 
@@ -113,16 +108,13 @@ class Array(list[Any]):
         for v in arr:
             list.append(self, v)
         if multiline and val.items:
-            indent_pieces: list[TriviaPiece] = [
-                NewlineNode(text="\n"),
-                WhitespaceNode(text=indent_str),
-            ]
-            val.header_trivia = Trivia(list(indent_pieces))
-            val.final_trivia = Trivia([NewlineNode(text="\n")])
+            row_indent = f"\n{indent_str}"
+            val.header_trivia = row_indent
+            val.final_trivia = "\n"
             for k, it in enumerate(val.items):
-                it.leading = Trivia() if k == 0 else Trivia(list(indent_pieces))
-                it.post_comma_trivia = Trivia()
-                it.trailing = Trivia()
+                it.leading = "" if k == 0 else row_indent
+                it.post_comma_trivia = ""
+                it.trailing = ""
                 it.has_comma = True
 
     def to_list(self) -> list[Any]:
@@ -175,6 +167,16 @@ class Array(list[Any]):
             msg = f"item at {index} is {type(v).__name__}, not {label}"
             raise TypeError(msg)
         return v
+
+    @override
+    def _view_children(self) -> Iterable[object]:
+        return self
+
+    @override
+    def _reset_displaced(self) -> None:
+        # ``_value`` stays: the displaced ``ArrayValue`` is reused if
+        # this view is attached somewhere else.
+        self._layout_root = None
 
     @property
     def _attached(self) -> bool:
@@ -262,9 +264,13 @@ class Array(list[Any]):
         )
         return self
 
-    def _synth_cst(self, value: object) -> tuple[Value, object]:
+    def _synth_item(self, value: object) -> tuple[Value, object]:
+        """Synthesise one value accepted by an inline array."""
         from tomlrt._container import _synth_value  # noqa: PLC0415
 
+        if isinstance(value, AoT):
+            msg = "cannot store an array-of-tables inside an inline array"
+            raise TOMLError(msg)
         return _synth_value(
             value,
             layout_root=self._layout_root,
@@ -273,12 +279,20 @@ class Array(list[Any]):
             owner=None,
         )
 
+    def _prepare_values(self, values: list[Any]) -> list[tuple[Value, Any]]:
+        """Validate all values, then synthesise each exactly once."""
+        from tomlrt._container import _validate_input  # noqa: PLC0415
+
+        for value in values:
+            if isinstance(value, AoT):
+                msg = "cannot store an array-of-tables inside an inline array"
+                raise TOMLError(msg)
+            _validate_input(value, inline_only=True)
+        return [self._synth_item(value) for value in values]
+
     @override
     def append(self, value: Any) -> None:
-        if isinstance(value, AoT):
-            msg = "cannot store an array-of-tables inside an inline array"
-            raise TOMLError(msg)
-        cst, decoded = self._synth_cst(value)
+        cst, decoded = self._synth_item(value)
         self._append_with_style(cst, decoded, self._style())
 
     def _append_with_style(self, cst: Value, decoded: Any, style: CommaStyle) -> None:
@@ -297,21 +311,21 @@ class Array(list[Any]):
         snapshot = list(values)
         if not snapshot:
             return
-        if any(isinstance(v, AoT) for v in snapshot):
-            msg = "cannot store an array-of-tables inside an inline array"
-            raise TOMLError(msg)
+        prepared = self._prepare_values(snapshot)
         # Reuse one style for every item: re-deriving it per item is O(n)
         # for a single-line array, so doing it n times would be quadratic.
         style = self._style()
-        for v in snapshot:
-            cst, decoded = self._synth_cst(v)
+        for cst, decoded in prepared:
             self._append_with_style(cst, decoded, style)
 
     @override
     def clear(self) -> None:
+        _layout_ops.reset_displaced_views(*self)
         self._value.items.clear()
         # Drop inter-item trivia; preserve bracket leading in final_trivia.
-        strip_trailing_indent(self._value.header_trivia, self._value.final_trivia)
+        self._value.header_trivia, self._value.final_trivia = strip_trailing_indent(
+            self._value.header_trivia, self._value.final_trivia
+        )
         list.clear(self)
         self._value.reset_multiline_cache()
 
@@ -334,14 +348,28 @@ class Array(list[Any]):
     @override
     def insert(self, index: SupportsIndex, value: Any) -> None:
         i = _norm_insert_index(index, len(self))
-        if i == len(self):
-            self.append(value)
+        cst, decoded = self._synth_item(value)
+        self._insert_synthesised(i, cst, decoded)
+
+    def _insert_synthesised(self, index: int, cst: Value, decoded: Any) -> None:
+        """Insert an already-synthesised value."""
+        if index == len(self):
+            self._append_with_style(cst, decoded, self._style())
             return
-        cst, decoded = self._synth_cst(value)
         style = self._style()
         new_item = _make_item(cst, has_comma=True)
-        splice_insert(self._value, new_item, i, style, self._doc_newline)
-        list.insert(self, i, decoded)
+        splice_insert(self._value, new_item, index, style, self._doc_newline)
+        list.insert(self, index, decoded)
+
+    def _replace_synthesised(self, index: int, cst: Value, decoded: Any) -> None:
+        """Replace an item with an already-synthesised value."""
+        old = self[index]
+        # Assigning an item to itself re-uses the very view being
+        # replaced, which must stay attached; anything else is displaced.
+        if old is not decoded:
+            _layout_ops.reset_displaced_views(old)
+        self._value.items[index].value = cst
+        list.__setitem__(self, index, decoded)
 
     @override
     def reverse(self) -> None:
@@ -403,24 +431,24 @@ class Array(list[Any]):
                         f"to extended slice of size {len(indices)}"
                     )
                     raise ValueError(msg)
+                prepared = self._prepare_values(values)
                 # Extended slice positions are unchanged; replace per slot.
-                for k, v in zip(indices, values, strict=True):
-                    self[k] = v
+                for k, (cst, decoded) in zip(indices, prepared, strict=True):
+                    self._replace_synthesised(k, cst, decoded)
                 return
+            prepared = self._prepare_values(values)
             # Reuse delete/insert boundary handling for contiguous slices.
             start, stop, _ = index.indices(len(self))
             del self[start:stop]
-            for offset, v in enumerate(values):
-                self.insert(start + offset, v)
+            for offset, (cst, decoded) in enumerate(prepared):
+                self._insert_synthesised(start + offset, cst, decoded)
             return
         # int index: just replace the value CST in place.
         # Reject before synthesising or mutating any CST, matching the
         # IndexError that ``list.__setitem__`` raises for a bad index.
-        items = self._value.items
-        i = _norm_index(index, len(items), "list assignment")
-        cst, dec = self._synth_cst(value)
-        items[i].value = cst
-        list.__setitem__(self, i, dec)
+        i = _norm_index(index, len(self._value.items), "list assignment")
+        cst, dec = self._synth_item(value)
+        self._replace_synthesised(i, cst, dec)
 
     @override
     def __delitem__(self, index: SupportsIndex | slice) -> None:
@@ -431,6 +459,7 @@ class Array(list[Any]):
                 return
         else:
             removed = [_norm_index(index, len(items), "list assignment")]
+        _layout_ops.reset_displaced_views(*(self[i] for i in removed))
         list.__delitem__(self, index if isinstance(index, slice) else removed[0])
         splice_out(
             self._value,
@@ -466,7 +495,7 @@ class Array(list[Any]):
                     cst,
                     layout_root=self._layout_root,
                     parent=None,
-                    path=(),
+                    name=None,
                     owner=None,
                 )
                 self._append_with_style(cst, decoded, style)
@@ -497,15 +526,15 @@ def _norm_index(index: SupportsIndex, n: int, action: str) -> int:
 def _make_item(cst: Value, *, has_comma: bool) -> ArrayItem:
     """Build a fresh ``ArrayItem`` with empty trivia."""
     return ArrayItem(
-        leading=Trivia(),
+        leading="",
         value=cst,
-        trailing=Trivia(),
+        trailing="",
         has_comma=has_comma,
-        post_comma_trivia=Trivia(),
+        post_comma_trivia="",
     )
 
 
-class AoT(list["Table"]):
+class AoT(_View, list["Table"]):
     """An Array-of-tables, e.g. ``[[products]]`` repeated.
 
     `AoT` is a `list[Table]` subclass, so ``isinstance(aot, list)`` holds
@@ -513,6 +542,10 @@ class AoT(list["Table"]):
     """
 
     __slots__ = ("_layout_root", "_parent", "_path")
+
+    @override
+    def _view_children(self) -> Iterable[object]:
+        return self
 
     def __init__(self, entries: Iterable[Mapping[str, TomlInput]] = ()) -> None:
         """Construct a standalone array-of-tables."""
@@ -523,6 +556,18 @@ class AoT(list["Table"]):
         for entry in entries:
             e = _validate_mapping(entry, label="AoT entry")
             list.append(self, _make_unattached_entry(e))
+
+    def _unbind_from_document(self) -> None:
+        """Stop being a view onto any document.
+
+        Used when the array this view stood for has left the document
+        that named it, so that a caller still holding the view cannot
+        write through it into a document that no longer accounts for
+        what it writes.
+        """
+        self._layout_root = None
+        self._parent = None
+        self._path = ()
 
     @property
     def _attached_doc(self) -> Document:
@@ -548,7 +593,7 @@ class AoT(list["Table"]):
         append to the owning document.
         """
         if entry is not None:
-            entry = _validate_mapping(entry, label="AoT entry")
+            entry = _prepare_aot_entries((entry,))[0]
         if self._layout_root is None:
             list.append(self, _make_unattached_entry(entry))
             return self[-1]
@@ -648,7 +693,7 @@ class AoT(list["Table"]):
                 )
                 raise ValueError(msg)
             # Atomicity preflight: validate everything before mutating.
-            typed_values = [_validate_mapping(v, label="AoT entry") for v in values]
+            typed_values = _prepare_aot_entries(values)
             if self._layout_root is None:
                 list.__setitem__(
                     self, index, [_make_unattached_entry(v) for v in typed_values]
@@ -672,7 +717,7 @@ class AoT(list["Table"]):
             for i, v in zip(indices, typed_values, strict=True):
                 self._replace_entry_attached(i, v)
             return
-        entry = _validate_mapping(value, label="AoT entry")
+        entry = _prepare_aot_entries((value,))[0]
         if self._layout_root is None:
             list.__setitem__(self, index, _make_unattached_entry(entry))
             return
@@ -681,7 +726,11 @@ class AoT(list["Table"]):
     @override
     def append(self, value: Table | Mapping[str, TomlInput]) -> None:
         # Same semantics as `add(body)` but with no return value (list API).
-        entry = _validate_mapping(value, label="AoT entry")
+        entry = _prepare_aot_entries((value,))[0]
+        self._append_validated(entry)
+
+    def _append_validated(self, entry: Mapping[str, TomlInput]) -> None:
+        """Append an entry that has passed bulk-mutation preflight."""
         if self._layout_root is None:
             list.append(self, _make_unattached_entry(entry))
             return
@@ -690,14 +739,15 @@ class AoT(list["Table"]):
     @override
     def extend(self, values: Iterable[Table | Mapping[str, TomlInput]]) -> None:
         # Snapshot so ``aot.extend(aot)`` duplicates once like list does.
-        for v in list(values):
-            self.append(v)
+        entries = _prepare_aot_entries(values)
+        for entry in entries:
+            self._append_validated(entry)
 
     @override
     def insert(
         self, index: SupportsIndex, value: Table | Mapping[str, TomlInput]
     ) -> None:
-        entry = _validate_mapping(value, label="AoT entry")
+        entry = _prepare_aot_entries((value,))[0]
         if self._layout_root is None:
             list.insert(self, index, _make_unattached_entry(entry))
             return
@@ -765,6 +815,18 @@ class AoT(list["Table"]):
             for e in originals:
                 _layout_ops.clone_aot_entry(self, e)
         return self
+
+
+def _prepare_aot_entries(
+    values: Iterable[Any],
+) -> list[Mapping[str, TomlInput]]:
+    """Snapshot and validate complete AoT entries."""
+    from tomlrt._container import _validate_section_values  # noqa: PLC0415
+
+    entries = [_validate_mapping(value, label="AoT entry") for value in list(values)]
+    for entry in entries:
+        _validate_section_values(entry)
+    return entries
 
 
 def _make_unattached_entry(body: Mapping[str, TomlInput] | None) -> Table:

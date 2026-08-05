@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     ],
 )
 def test_repr(
+    *,
     import_path: Callable[[str], Any],
     pkg2dists: dict[str, list[str]],
     imports: list[str],
@@ -94,7 +95,7 @@ def test_markdown(
 ) -> None:
     user_globals = {re.split(r"[.:]", p)[-1]: import_path(p) for p in imports}
 
-    si = SessionInfo(pkg2dists | dep2dists, user_globals)  # type: ignore[operator]  # https://github.com/python/mypy/issues/21141
+    si = SessionInfo(pkg2dists | dep2dists, user_globals)
     parts = _repr.repr_markdown(si).split("\n\n")
     pkg_str: str | None
     dep_str: str | None
@@ -157,7 +158,7 @@ def test_gpu(fp: FakeProcess) -> None:
     ]
 
 
-def assert_markdown_segment(
+def assert_markdown_segment(  # noqa: PLR0917
     cols: _TableHeader,
     content: str,
     name2dists: Mapping[str, Iterable[str]],

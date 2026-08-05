@@ -21,19 +21,20 @@ import secrets
 import time
 from collections import OrderedDict
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 from argus_redact import RedactReport, __version__, redact
 from argus_redact.compose import make_anchor, prompt_anchor
 from argus_redact.glue.guarded_restore import guarded_restore
+from argus_redact.pure.wire import common_report_fields, risk_payload
 
-mcp = FastMCP("argus-redact")
+mcp = MCPServer("argus-redact")
 
 
 # Process-scoped token store with idle TTL + LRU bound (v0.6.2+).
 # Pre-fix the store was unbounded and tokens never expired — combined with
 # no per-session binding, a leaked token could be replayed indefinitely.
-# Per-session binding is a v0.7+ candidate (requires FastMCP API survey).
+# Per-session binding is a v0.7+ candidate (requires MCPServer API survey).
 #
 _TOKEN_TTL_SECONDS = 5 * 60
 _TOKEN_STORE_MAX = 100
@@ -219,7 +220,11 @@ async def assess_text(
     lang: str = "zh",
     mode: str = "fast",
 ) -> str:
-    """Assess privacy risk of text. Returns risk score, level, reasons, and PIPL articles.
+    """Assess privacy risk of text. Returns redacted text, a full risk assessment
+    (score, level, reasons, PIPL/GDPR/HIPAA fields), detection stats, a
+    residual-risk flag, security events, a coverage advisory, and which detection
+    layers ran. Deliberately withheld: entity spans (`entities[].original` is raw
+    plaintext) and a restore key (this tool mints none).
 
     Args:
         text: Input text to assess for privacy risk.
@@ -239,15 +244,13 @@ async def assess_text(
 
     return json.dumps(
         {
-            "risk": {
-                "score": report.risk.score,
-                "level": report.risk.level,
-                "reasons": list(report.risk.reasons),
-                "pipl_articles": list(report.risk.pipl_articles),
-            },
-            # redact() always sets stats["total"] — contract pinned by test_mcp.py
+            "risk": risk_payload(report.risk),
+            # redact() always sets stats["total"] — contract pinned by test_mcp.py.
+            # Kept alongside the full `stats` so the pinned key does not move.
             "entities_found": report.stats["total"],
+            "stats": report.stats,
             "redacted": report.redacted_text,
+            **common_report_fields(report),
         },
         ensure_ascii=False,
         indent=2,

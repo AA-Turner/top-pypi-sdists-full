@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use statsig_rust::log_event_payload::{LogEventPayload, LogEventRequest};
 use statsig_rust::{EventLoggingAdapter, StatsigErr, StatsigRuntime};
 use std::collections::HashMap;

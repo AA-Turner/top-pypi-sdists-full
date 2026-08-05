@@ -35,29 +35,30 @@
  *
  * ***** END LICENSE BLOCK ***** */
 #include "../uchardet.h"
-#include <cstdio>
-#include <cstring>
-#include <cstdlib>
 #include <getopt.h>
-#include <iostream>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #ifndef VERSION
 #define VERSION "Unknown"
 #endif
 #define BUFFER_SIZE 65536
 
-char buffer[BUFFER_SIZE];
+static char buffer[BUFFER_SIZE];
 
-void detect(FILE * fp)
+static void detect(uchardet_t  handle,
+                   FILE       *fp,
+                   bool        show_lang,
+                   bool        verbose)
 {
-    uchardet_t handle = uchardet_new();
-
-    while (!feof(fp))
+    while (1)
     {
         size_t len = fread(buffer, 1, BUFFER_SIZE, fp);
+        if (len == 0)
+            break;
         int retval = uchardet_handle_data(handle, buffer, len);
-        if (retval == HANDLE_DATA_RESULT_ERROR)
+        if (retval != 0)
         {
             fprintf(stderr, "Handle data error.\n");
             exit(1);
@@ -65,28 +66,57 @@ void detect(FILE * fp)
     }
     uchardet_data_end(handle);
 
-    const char * charset = uchardet_get_charset(handle);
-    float confidence = uchardet_get_confidence(handle);
-    if (*charset)
-    	printf("{ encoding=%s, confidence=%f }\n", charset, confidence);
-	else
-		printf("unknown\n");
-	
-    uchardet_delete(handle);
+    if (verbose)
+    {
+        size_t candidates = uchardet_get_n_candidates(handle);
+        size_t i;
+
+        printf("\n");
+        for (i = 0; i < candidates; i++)
+        {
+            if (uchardet_get_language(handle, i))
+                printf("\t%s / %s (%f)\n",
+                        uchardet_get_encoding(handle, i),
+                        uchardet_get_language(handle, i),
+                        uchardet_get_confidence(handle, i));
+            else
+                printf("\t%s (%f)\n",
+                        uchardet_get_encoding(handle, i),
+                        uchardet_get_confidence(handle, i));
+        }
+    }
+    else if (show_lang)
+    {
+        const char *lang = uchardet_get_language(handle, 0);
+        if (lang && *lang)
+            printf("%s\n", lang);
+        else
+            printf("unknown\n");
+    }
+    else
+    {
+        const char *charset = uchardet_get_encoding(handle, 0);
+        if (*charset)
+            printf("%s\n", charset);
+        else
+            printf("unknown\n");
+    }
+
+    uchardet_reset(handle);
 }
 
-void show_version()
+static void show_version()
 {
     printf("\n");
     printf("uchardet Command Line Tool\n");
     printf("Version %s\n", VERSION);
     printf("\n");
     printf("Authors: %s\n", "BYVoid, Jehan");
-    printf("Bug Report: %s\n", "https://bugs.freedesktop.org/enter_bug.cgi?product=uchardet");
+    printf("Bug Report: %s\n", "https://gitlab.freedesktop.org/uchardet/uchardet/-/issues");
     printf("\n");
 }
 
-void show_usage()
+static void show_usage()
 {
     show_version();
     printf("Usage:\n");
@@ -95,45 +125,138 @@ void show_usage()
     printf("Options:\n");
     printf(" -v, --version         Print version and build information.\n");
     printf(" -h, --help            Print this help.\n");
+    printf(" -l, --language        Print the detected language (as ISO 639-1 code) rather than encoding.\n");
+    printf(" -V, --verbose         Show all candidates and their confidence value.\n");
+    printf(" -w, --weight          Tweak language weights.\n");
     printf("\n");
 }
 
 int main(int argc, char ** argv)
 {
+    uchardet_t handle;
     static struct option longopts[] =
     {
         { "version", no_argument, NULL, 'v' },
         { "help", no_argument, NULL, 'h' },
+        { "language", no_argument, NULL, 'l' },
+        { "verbose", no_argument, NULL, 'V' },
+        { "weight", required_argument, NULL, 'w' },
         { 0, 0, 0, 0 },
     };
+    bool end_options        = false;
+    bool ignore_next_option = false;
+    bool verbose            = false;
+    bool show_lang          = false;
+    int  n_options          = 0;
 
     static int oc;
-    while((oc = getopt_long(argc, argv, "vh", longopts, NULL)) != -1)
+
+    handle = uchardet_new();
+    while((oc = getopt_long(argc, argv, "vhlVw:", longopts, NULL)) != -1)
     {
         switch (oc)
         {
         case 'v':
             show_version();
+            uchardet_delete(handle);
             return 0;
         case 'h':
             show_usage();
+            uchardet_delete(handle);
             return 0;
+        case 'l':
+            n_options++;
+            show_lang = true;
+            break;
+        case 'V':
+            n_options++;
+            verbose = true;
+            break;
+        case 'w':
+            n_options += 2;
+            {
+                char *lang_weight;
+                char *saveptr;
+                char *comma;
+
+                lang_weight = strtok_r (optarg, ",", &saveptr);
+                do
+                {
+                    comma = strchr (lang_weight, ':');
+                    if (! comma)
+                    {
+                        printf("-w format is lang1:weight1,lang2:weight2...\n");
+                        uchardet_delete(handle);
+                        return 1;
+                    }
+                    *comma = '\0';
+                    if (strcmp (lang_weight, "*") == 0)
+                        uchardet_set_default_weight(handle, strtof (comma + 1, NULL));
+                    else
+                        uchardet_weigh_language(handle, lang_weight, strtof (comma + 1, NULL));
+                }
+                while ((lang_weight = strtok_r (NULL, ",", &saveptr)));
+            }
+            break;
         case '?':
             printf("Please use %s --help.\n", argv[0]);
+            uchardet_delete(handle);
             return 1;
         }
     }
 
     FILE * f = stdin;
     int error_seen = 0;
-    if (argc < 2)
+    if (argc - n_options < 2 ||
+        (argc - n_options == 2 && strcmp(argv[argc - 1], "--") == 0))
     {
         // No file arg, use stdin by default
-        detect(f);
+        detect(handle, f, show_lang, verbose);
     }
     for (int i = 1; i < argc; i++)
     {
         const char *filename = argv[i];
+
+        if (ignore_next_option)
+        {
+            ignore_next_option = false;
+            continue;
+        }
+        else if (! end_options && strcmp(filename, "--") == 0)
+        {
+            end_options = true;
+            continue;
+        }
+
+        if (! end_options)
+        {
+            if (strcmp(filename, "-V") == 0        ||
+                strcmp(filename, "--verbose") == 0 ||
+                strcmp(filename, "-l") == 0        ||
+                strcmp(filename, "--language") == 0)
+            {
+                continue;
+            }
+            else if (strcmp(filename, "-w") == 0 ||
+                     strcmp(filename, "--weight") == 0)
+            {
+                ignore_next_option = true;
+                continue;
+            }
+            else if (*filename == '-' &&
+                     (*(filename + 1) == 'w' ||
+                      (*(filename + 1) == '-' && *(filename + 2) == 'w')))
+            {
+                /* Some ugly trick to recognize -wlang:weight as well as
+                 * --weight=lang:weight patterns.
+                 * Obviously assuming that we have no other long option
+                 * starting with 'w'. If we end up having one, this
+                 * should be updated.
+                 */
+                continue;
+            }
+        }
+
         f = fopen(filename, "r");
         if (f == NULL)
         {
@@ -141,12 +264,15 @@ int main(int argc, char ** argv)
             error_seen = 1;
             continue;
         }
-        if (argc > 2)
+        if (argc - n_options > 2)
         {
             printf("%s: ", filename);
         }
-        detect(f);
+        detect(handle, f, show_lang, verbose);
+        fclose(f);
     }
+
+    uchardet_delete(handle);
 
     return error_seen;
 }

@@ -160,6 +160,8 @@ class GrpcToRest:
             return cls.convert_is_null_condition(val)
         if name == "nested":
             return cls.convert_nested_condition(val)
+        if name == "slice":
+            return cls.convert_slice_condition(val)
 
         raise ValueError(f"invalid Condition model: {model}")  # pragma: no cover
 
@@ -238,7 +240,14 @@ class GrpcToRest:
             segments_count=model.segments_count,
             status=cls.convert_collection_status(model.status),
             points_count=model.points_count,
-            indexed_vectors_count=model.indexed_vectors_count or 0,
+            indexed_vectors_count=(
+                model.indexed_vectors_count if model.HasField("indexed_vectors_count") else None
+            ),
+            warnings=(
+                [cls.convert_collection_warning(warning) for warning in model.warnings]
+                if model.warnings
+                else None
+            ),
             update_queue=(
                 cls.convert_update_queue_info(model.update_queue)
                 if model.HasField("update_queue")
@@ -247,9 +256,14 @@ class GrpcToRest:
         )
 
     @classmethod
+    def convert_collection_warning(cls, model: grpc.CollectionWarning) -> rest.CollectionWarning:
+        return rest.CollectionWarning(message=model.message)
+
+    @classmethod
     def convert_update_queue_info(cls, model: grpc.UpdateQueueInfo) -> rest.UpdateQueueInfo:
         return rest.UpdateQueueInfo(
             length=model.length,
+            deferred_points=(model.deferred_points if model.HasField("deferred_points") else None),
         )
 
     @classmethod
@@ -291,6 +305,7 @@ class GrpcToRest:
                 model.max_indexing_threads if model.HasField("max_indexing_threads") else None
             ),
             on_disk=model.on_disk if model.HasField("on_disk") else None,
+            memory=cls.convert_memory(model.memory) if model.HasField("memory") else None,
             payload_m=model.payload_m if model.HasField("payload_m") else None,
             inline_storage=model.inline_storage if model.HasField("inline_storage") else None,
         )
@@ -307,6 +322,7 @@ class GrpcToRest:
                 model.max_indexing_threads if model.HasField("max_indexing_threads") else None
             ),
             on_disk=model.on_disk if model.HasField("on_disk") else None,
+            memory=cls.convert_memory(model.memory) if model.HasField("memory") else None,
             payload_m=model.payload_m if model.HasField("payload_m") else None,
             inline_storage=model.inline_storage if model.HasField("inline_storage") else None,
         )
@@ -390,6 +406,9 @@ class GrpcToRest:
             wal_capacity_mb=model.wal_capacity_mb if model.HasField("wal_capacity_mb") else None,
             wal_segments_ahead=(
                 model.wal_segments_ahead if model.HasField("wal_segments_ahead") else None
+            ),
+            wal_retain_closed=(
+                model.wal_retain_closed if model.HasField("wal_retain_closed") else None
             ),
         )
 
@@ -553,6 +572,10 @@ class GrpcToRest:
         )
 
     @classmethod
+    def convert_slice_condition(cls, model: grpc.SliceCondition) -> rest.SliceCondition:
+        return rest.SliceCondition(slice=rest.Slice(total=model.total, index=model.index))
+
+    @classmethod
     def convert_search_params(cls, model: grpc.SearchParams) -> rest.SearchParams:
         return rest.SearchParams(
             hnsw_ef=model.hnsw_ef if model.HasField("hnsw_ef") else None,
@@ -566,6 +589,7 @@ class GrpcToRest:
             acorn=cls.convert_acorn_search_params(model.acorn)
             if model.HasField("acorn")
             else None,
+            idf=cls.convert_idf_params(model.idf) if model.HasField("idf") else None,
         )
 
     @classmethod
@@ -574,6 +598,12 @@ class GrpcToRest:
             enable=model.enable if model.HasField("enable") else None,
             max_selectivity=model.max_selectivity if model.HasField("max_selectivity") else None,
         )
+
+    @classmethod
+    def convert_idf_params(cls, model: grpc.IdfParams) -> rest.IdfParams:
+        if model.HasField("corpus"):
+            return rest.IdfCorpusParams(corpus=cls.convert_filter(model.corpus))
+        return rest.IdfScope.GLOBAL
 
     @classmethod
     def convert_create_alias(cls, model: grpc.CreateAlias) -> rest.CreateAlias:
@@ -716,6 +746,8 @@ class GrpcToRest:
             return rest.MatchPhrase(phrase=val)
         if name == "text_any":
             return rest.MatchTextAny(text_any=val)
+        if name == "prefix":
+            return rest.MatchPrefix(prefix=val)
         raise ValueError(f"invalid Match model: {model}")  # pragma: no cover
 
     @classmethod
@@ -724,6 +756,9 @@ class GrpcToRest:
             wal_capacity_mb=model.wal_capacity_mb if model.HasField("wal_capacity_mb") else None,
             wal_segments_ahead=(
                 model.wal_segments_ahead if model.HasField("wal_segments_ahead") else None
+            ),
+            wal_retain_closed=(
+                model.wal_retain_closed if model.HasField("wal_retain_closed") else None
             ),
         )
 
@@ -756,6 +791,9 @@ class GrpcToRest:
                 if model.HasField("sparse_vectors_config")
                 else None
             ),
+            payload=cls.convert_payload_storage_params(model.payload)
+            if model.HasField("payload")
+            else None,
             sharding_method=(
                 cls.convert_sharding_method(model.sharding_method)
                 if model.HasField("sharding_method")
@@ -830,6 +868,16 @@ class GrpcToRest:
             quantization_config=(
                 cls.convert_quantization_config_diff(model.quantization_config)
                 if model.HasField("quantization_config")
+                else None
+            ),
+            sparse_vectors=(
+                cls.convert_sparse_vector_config(model.sparse_vectors_config)
+                if model.HasField("sparse_vectors_config")
+                else None
+            ),
+            strict_mode_config=(
+                cls.convert_strict_mode_config(model.strict_mode_config)
+                if model.HasField("strict_mode_config")
                 else None
             ),
             metadata=(cls.convert_payload(model.metadata) if model.metadata is not None else None),
@@ -950,6 +998,7 @@ class GrpcToRest:
                 else None
             ),
             size=model.size,
+            checksum=model.checksum if model.HasField("checksum") else None,
         )
 
     @classmethod
@@ -960,8 +1009,28 @@ class GrpcToRest:
             return rest.Datatype.UINT8
         elif model == grpc.Datatype.Float16:
             return rest.Datatype.FLOAT16
+        elif model == grpc.Datatype.Turbo4:
+            return rest.Datatype.TURBO4
         else:
             raise ValueError(f"invalid Datatype model: {model}")  # pragma: no cover
+
+    @classmethod
+    def convert_memory(cls, model: grpc.Memory) -> rest.Memory:
+        if model == grpc.Memory.Cold:
+            return rest.Memory.COLD
+        if model == grpc.Memory.Cached:
+            return rest.Memory.CACHED
+        if model == grpc.Memory.Pinned:
+            return rest.Memory.PINNED
+        raise ValueError(f"invalid Memory model: {model}")  # pragma: no cover
+
+    @classmethod
+    def convert_payload_storage_params(
+        cls, model: grpc.PayloadStorageParams
+    ) -> rest.PayloadStorageParams:
+        return rest.PayloadStorageParams(
+            memory=cls.convert_memory(model.memory) if model.HasField("memory") else None
+        )
 
     @classmethod
     def convert_vector_params(cls, model: grpc.VectorParams) -> rest.VectorParams:
@@ -979,6 +1048,7 @@ class GrpcToRest:
                 else None
             ),
             on_disk=model.on_disk if model.HasField("on_disk") else None,
+            memory=cls.convert_memory(model.memory) if model.HasField("memory") else None,
             datatype=cls.convert_datatype(model.datatype) if model.HasField("datatype") else None,
             multivector_config=(
                 cls.convert_multivector_config(model.multivector_config)
@@ -1557,6 +1627,7 @@ class GrpcToRest:
             if model.HasField("stopwords")
             else None,
             on_disk=model.on_disk if model.HasField("on_disk") else None,
+            memory=cls.convert_memory(model.memory) if model.HasField("memory") else None,
             stemmer=cls.convert_stemmer(model.stemmer) if model.HasField("stemmer") else None,
             ascii_folding=model.ascii_folding if model.HasField("ascii_folding") else None,
             enable_hnsw=model.enable_hnsw if model.HasField("enable_hnsw") else None,
@@ -1580,6 +1651,8 @@ class GrpcToRest:
 
         if name == "snowball":
             return cls.convert_snowball_parameters(val)
+        if name == "disabled":
+            return cls.convert_disabled_stemmer(val)
         raise ValueError(f"invalid StemmingAlgorithm model: {model}")  # pragma: no cover
 
     @classmethod
@@ -1589,15 +1662,20 @@ class GrpcToRest:
         )
 
     @classmethod
+    def convert_disabled_stemmer(cls, model: grpc.DisabledStemmer) -> rest.DisabledStemmerParams:
+        return rest.DisabledStemmerParams(type=rest.NoStemmer.NONE)
+
+    @classmethod
     def convert_integer_index_params(
         cls, model: grpc.IntegerIndexParams
     ) -> rest.IntegerIndexParams:
         return rest.IntegerIndexParams(
             type=rest.IntegerIndexType.INTEGER,
-            range=model.range,
-            lookup=model.lookup,
+            range=model.range if model.HasField("range") else None,
+            lookup=model.lookup if model.HasField("lookup") else None,
             is_principal=model.is_principal if model.HasField("is_principal") else None,
             on_disk=model.on_disk if model.HasField("on_disk") else None,
+            memory=cls.convert_memory(model.memory) if model.HasField("memory") else None,
             enable_hnsw=model.enable_hnsw if model.HasField("enable_hnsw") else None,
         )
 
@@ -1609,7 +1687,9 @@ class GrpcToRest:
             type=rest.KeywordIndexType.KEYWORD,
             is_tenant=model.is_tenant if model.HasField("is_tenant") else None,
             on_disk=model.on_disk if model.HasField("on_disk") else None,
+            memory=cls.convert_memory(model.memory) if model.HasField("memory") else None,
             enable_hnsw=model.enable_hnsw if model.HasField("enable_hnsw") else None,
+            prefix=True if model.HasField("prefix") else None,
         )
 
     @classmethod
@@ -1618,6 +1698,7 @@ class GrpcToRest:
             type=rest.FloatIndexType.FLOAT,
             is_principal=model.is_principal if model.HasField("is_principal") else None,
             on_disk=model.on_disk if model.HasField("on_disk") else None,
+            memory=cls.convert_memory(model.memory) if model.HasField("memory") else None,
             enable_hnsw=model.enable_hnsw if model.HasField("enable_hnsw") else None,
         )
 
@@ -1626,6 +1707,7 @@ class GrpcToRest:
         return rest.GeoIndexParams(
             type=rest.GeoIndexType.GEO,
             on_disk=model.on_disk if model.HasField("on_disk") else None,
+            memory=cls.convert_memory(model.memory) if model.HasField("memory") else None,
             enable_hnsw=model.enable_hnsw if model.HasField("enable_hnsw") else None,
         )
 
@@ -1634,6 +1716,7 @@ class GrpcToRest:
         return rest.BoolIndexParams(
             type=rest.BoolIndexType.BOOL,
             on_disk=model.on_disk if model.HasField("on_disk") else None,
+            memory=cls.convert_memory(model.memory) if model.HasField("memory") else None,
             enable_hnsw=model.enable_hnsw if model.HasField("enable_hnsw") else None,
         )
 
@@ -1645,6 +1728,7 @@ class GrpcToRest:
             type=rest.DatetimeIndexType.DATETIME,
             is_principal=model.is_principal if model.HasField("is_principal") else None,
             on_disk=model.on_disk if model.HasField("on_disk") else None,
+            memory=cls.convert_memory(model.memory) if model.HasField("memory") else None,
             enable_hnsw=model.enable_hnsw if model.HasField("enable_hnsw") else None,
         )
 
@@ -1654,6 +1738,7 @@ class GrpcToRest:
             type=rest.UuidIndexType.UUID,
             is_tenant=model.is_tenant if model.HasField("is_tenant") else None,
             on_disk=model.on_disk if model.HasField("on_disk") else None,
+            memory=cls.convert_memory(model.memory) if model.HasField("memory") else None,
             enable_hnsw=model.enable_hnsw if model.HasField("enable_hnsw") else None,
         )
 
@@ -1677,6 +1762,9 @@ class GrpcToRest:
                 model.read_fan_out_delay_ms if model.HasField("read_fan_out_delay_ms") else None
             ),
             on_disk_payload=model.on_disk_payload if model.HasField("on_disk_payload") else None,
+            payload=cls.convert_payload_storage_params(model.payload)
+            if model.HasField("payload")
+            else None,
         )
 
     @classmethod
@@ -1684,6 +1772,11 @@ class GrpcToRest:
         return rest.LookupLocation(
             collection=model.collection_name,
             vector=model.vector_name if model.HasField("vector_name") else None,
+            shard_key=(
+                cls.convert_shard_key_selector(model.shard_key_selector)
+                if model.HasField("shard_key_selector")
+                else None
+            ),
         )
 
     @classmethod
@@ -1728,6 +1821,7 @@ class GrpcToRest:
             type=rest.ScalarType.INT8,
             quantile=model.quantile if model.HasField("quantile") else None,
             always_ram=model.always_ram if model.HasField("always_ram") else None,
+            memory=cls.convert_memory(model.memory) if model.HasField("memory") else None,
         )
 
     @classmethod
@@ -1737,6 +1831,7 @@ class GrpcToRest:
         return rest.ProductQuantizationConfig(
             compression=cls.convert_compression_ratio(model.compression),
             always_ram=model.always_ram if model.HasField("always_ram") else None,
+            memory=cls.convert_memory(model.memory) if model.HasField("memory") else None,
         )
 
     @classmethod
@@ -1751,6 +1846,7 @@ class GrpcToRest:
             query_encoding=cls.convert_binary_quantization_query_encoding(model.query_encoding)
             if model.HasField("query_encoding")
             else None,
+            memory=cls.convert_memory(model.memory) if model.HasField("memory") else None,
         )
 
     @classmethod
@@ -1802,6 +1898,7 @@ class GrpcToRest:
         return rest.TurboQuantQuantizationConfig(
             always_ram=model.always_ram if model.HasField("always_ram") else None,
             bits=cls.convert_turbo_quant_bit_size(model.bits) if model.HasField("bits") else None,
+            memory=cls.convert_memory(model.memory) if model.HasField("memory") else None,
         )
 
     @classmethod
@@ -1937,6 +2034,7 @@ class GrpcToRest:
                 else None
             ),
             on_disk=model.on_disk if model.HasField("on_disk") else None,
+            memory=cls.convert_memory(model.memory) if model.HasField("memory") else None,
         )
 
     @classmethod
@@ -2138,6 +2236,7 @@ class GrpcToRest:
                 model.full_scan_threshold if model.HasField("full_scan_threshold") else None
             ),
             on_disk=model.on_disk if model.HasField("on_disk") else None,
+            memory=cls.convert_memory(model.memory) if model.HasField("memory") else None,
             datatype=cls.convert_datatype(model.datatype) if model.HasField("datatype") else None,
         )
 
@@ -2155,9 +2254,7 @@ class GrpcToRest:
     ) -> rest.SparseVectorParams:
         return rest.SparseVectorParams(
             index=(
-                cls.convert_sparse_index_config(model.index)
-                if model.HasField("index") is not None
-                else None
+                cls.convert_sparse_index_config(model.index) if model.HasField("index") else None
             ),
             modifier=(
                 cls.convert_modifier(model.modifier) if model.HasField("modifier") else None
@@ -2869,6 +2966,12 @@ class RestToGrpc:
             segments_count=model.segments_count,
             status=cls.convert_collection_status(model.status),
             points_count=model.points_count,
+            indexed_vectors_count=model.indexed_vectors_count,
+            warnings=(
+                [cls.convert_collection_warning(warning) for warning in model.warnings]
+                if model.warnings is not None
+                else None
+            ),
             update_queue=(
                 cls.convert_update_queue_info(model.update_queue)
                 if model.update_queue is not None
@@ -2877,9 +2980,14 @@ class RestToGrpc:
         )
 
     @classmethod
+    def convert_collection_warning(cls, model: rest.CollectionWarning) -> grpc.CollectionWarning:
+        return grpc.CollectionWarning(message=model.message)
+
+    @classmethod
     def convert_update_queue_info(cls, model: rest.UpdateQueueInfo) -> grpc.UpdateQueueInfo:
         return grpc.UpdateQueueInfo(
             length=model.length,
+            deferred_points=model.deferred_points,
         )
 
     @classmethod
@@ -3046,6 +3154,10 @@ class RestToGrpc:
         )
 
     @classmethod
+    def convert_slice_condition(cls, model: rest.SliceCondition) -> grpc.SliceCondition:
+        return grpc.SliceCondition(total=model.slice.total, index=model.slice.index)
+
+    @classmethod
     def convert_search_params(cls, model: rest.SearchParams) -> grpc.SearchParams:
         return grpc.SearchParams(
             hnsw_ef=model.hnsw_ef,
@@ -3059,6 +3171,7 @@ class RestToGrpc:
             acorn=(
                 cls.convert_acorn_search_params(model.acorn) if model.acorn is not None else None
             ),
+            idf=cls.convert_idf_params(model.idf) if model.idf is not None else None,
         )
 
     @classmethod
@@ -3067,6 +3180,14 @@ class RestToGrpc:
             enable=model.enable if model.enable is not None else None,
             max_selectivity=model.max_selectivity if model.max_selectivity is not None else None,
         )
+
+    @classmethod
+    def convert_idf_params(cls, model: rest.IdfParams) -> grpc.IdfParams:
+        if isinstance(model, rest.IdfCorpusParams):
+            return grpc.IdfParams(corpus=cls.convert_filter(model.corpus))
+        if model == rest.IdfScope.GLOBAL:
+            return grpc.IdfParams()
+        raise ValueError(f"invalid IdfParams model: {model}")  # pragma: no cover
 
     @classmethod
     def convert_create_alias(cls, model: rest.CreateAlias) -> grpc.CreateAlias:
@@ -3092,8 +3213,14 @@ class RestToGrpc:
                 else None
             ),
             version=model.version,
-            shard_key=cls.convert_shard_key(model.shard_key) if model.shard_key else None,
-            order_value=cls.convert_order_value(model.order_value) if model.order_value else None,
+            shard_key=(
+                cls.convert_shard_key(model.shard_key) if model.shard_key is not None else None
+            ),
+            order_value=(
+                cls.convert_order_value(model.order_value)
+                if model.order_value is not None
+                else None
+            ),
         )
 
     @classmethod
@@ -3132,6 +3259,7 @@ class RestToGrpc:
             m=model.m,
             max_indexing_threads=model.max_indexing_threads,
             on_disk=model.on_disk,
+            memory=cls.convert_memory(model.memory) if model.memory is not None else None,
             payload_m=model.payload_m,
             inline_storage=model.inline_storage,
         )
@@ -3177,6 +3305,7 @@ class RestToGrpc:
         return grpc.WalConfigDiff(
             wal_capacity_mb=model.wal_capacity_mb,
             wal_segments_ahead=model.wal_segments_ahead,
+            wal_retain_closed=model.wal_retain_closed,
         )
 
     @classmethod
@@ -3207,6 +3336,7 @@ class RestToGrpc:
             m=model.m,
             max_indexing_threads=model.max_indexing_threads,
             on_disk=model.on_disk,
+            memory=cls.convert_memory(model.memory) if model.memory is not None else None,
             payload_m=model.payload_m,
             inline_storage=model.inline_storage,
         )
@@ -3216,6 +3346,7 @@ class RestToGrpc:
         return grpc.WalConfigDiff(
             wal_capacity_mb=model.wal_capacity_mb,
             wal_segments_ahead=model.wal_segments_ahead,
+            wal_retain_closed=model.wal_retain_closed,
         )
 
     @classmethod
@@ -3246,6 +3377,11 @@ class RestToGrpc:
             sparse_vectors_config=(
                 cls.convert_sparse_vector_config(model.sparse_vectors)
                 if model.sparse_vectors is not None
+                else None
+            ),
+            payload=(
+                cls.convert_payload_storage_params(model.payload)
+                if model.payload is not None
                 else None
             ),
             sharding_method=(
@@ -3340,6 +3476,16 @@ class RestToGrpc:
                 if model.quantization_config is not None
                 else None
             ),
+            sparse_vectors_config=(
+                cls.convert_sparse_vector_config(model.sparse_vectors)
+                if model.sparse_vectors is not None
+                else None
+            ),
+            strict_mode_config=(
+                cls.convert_strict_mode_config(model.strict_mode_config)
+                if model.strict_mode_config is not None
+                else None
+            ),
             metadata=(cls.convert_payload(model.metadata) if model.metadata is not None else None),
         )
 
@@ -3378,6 +3524,8 @@ class RestToGrpc:
             return grpc.Match(phrase=model.phrase)
         if isinstance(model, rest.MatchTextAny):
             return grpc.Match(text_any=model.text_any)
+        if isinstance(model, rest.MatchPrefix):
+            return grpc.Match(prefix=model.prefix)
         raise ValueError(f"invalid Match model: {model}")  # pragma: no cover
 
     @classmethod
@@ -3454,6 +3602,8 @@ class RestToGrpc:
             return grpc.Condition(filter=cls.convert_filter(model))
         if isinstance(model, rest.NestedCondition):
             return grpc.Condition(nested=cls.convert_nested_condition(model))
+        if isinstance(model, rest.SliceCondition):
+            return grpc.Condition(slice=cls.convert_slice_condition(model))
 
         raise ValueError(f"invalid Condition model: {model}")  # pragma: no cover
 
@@ -3536,6 +3686,8 @@ class RestToGrpc:
     def convert_facet_value(cls, model: rest.FacetValue) -> grpc.FacetValue:
         if isinstance(model, str):
             return grpc.FacetValue(string_value=model)
+        if isinstance(model, bool):  # have to be before int, since bool is a subclass of int
+            return grpc.FacetValue(bool_value=model)
         if isinstance(model, int):
             return grpc.FacetValue(integer_value=model)
 
@@ -3558,8 +3710,14 @@ class RestToGrpc:
                 if model.vector is not None
                 else None
             ),
-            shard_key=cls.convert_shard_key(model.shard_key) if model.shard_key else None,
-            order_value=cls.convert_order_value(model.order_value) if model.order_value else None,
+            shard_key=(
+                cls.convert_shard_key(model.shard_key) if model.shard_key is not None else None
+            ),
+            order_value=(
+                cls.convert_order_value(model.order_value)
+                if model.order_value is not None
+                else None
+            ),
         )
 
     @classmethod
@@ -3580,6 +3738,7 @@ class RestToGrpc:
             name=model.name,
             creation_time=timestamp,
             size=model.size,
+            checksum=model.checksum,
         )
 
     @classmethod
@@ -3590,8 +3749,28 @@ class RestToGrpc:
             return grpc.Datatype.Uint8
         if model == rest.Datatype.FLOAT16:
             return grpc.Datatype.Float16
+        if model == rest.Datatype.TURBO4:
+            return grpc.Datatype.Turbo4
 
         raise ValueError(f"invalid Datatype model: {model}")  # pragma: no cover
+
+    @classmethod
+    def convert_memory(cls, model: rest.Memory) -> grpc.Memory:
+        if model == rest.Memory.COLD:
+            return grpc.Memory.Cold
+        if model == rest.Memory.CACHED:
+            return grpc.Memory.Cached
+        if model == rest.Memory.PINNED:
+            return grpc.Memory.Pinned
+        raise ValueError(f"invalid Memory model: {model}")  # pragma: no cover
+
+    @classmethod
+    def convert_payload_storage_params(
+        cls, model: rest.PayloadStorageParams
+    ) -> grpc.PayloadStorageParams:
+        return grpc.PayloadStorageParams(
+            memory=cls.convert_memory(model.memory) if model.memory is not None else None
+        )
 
     @classmethod
     def convert_vector_params(cls, model: rest.VectorParams) -> grpc.VectorParams:
@@ -3609,6 +3788,7 @@ class RestToGrpc:
                 else None
             ),
             on_disk=model.on_disk,
+            memory=cls.convert_memory(model.memory) if model.memory is not None else None,
             datatype=cls.convert_datatype(model.datatype) if model.datatype is not None else None,
             multivector_config=(
                 cls.convert_multivector_config(model.multivector_config)
@@ -3742,23 +3922,6 @@ class RestToGrpc:
             return [cls.convert_vector_struct(item) for item in result]
         else:
             raise ValueError(f"invalid BatchVectorStruct model: {model}")  # pragma: no cover
-
-    @classmethod
-    def convert_named_vector_struct(
-        cls, model: rest.NamedVectorStruct
-    ) -> tuple[list[float], grpc.SparseIndices | None, str | None]:
-        if isinstance(model, list):
-            return model, None, None
-        elif isinstance(model, rest.NamedVector):
-            return model.vector, None, model.name
-        elif isinstance(model, rest.NamedSparseVector):
-            return (
-                model.vector.values,
-                grpc.SparseIndices(data=model.vector.indices),
-                model.name,
-            )
-        else:
-            raise ValueError(f"invalid NamedVectorStruct model: {model}")  # pragma: no cover
 
     @classmethod
     def convert_dense_vector(cls, model: list[float]) -> grpc.DenseVector:
@@ -4167,6 +4330,7 @@ class RestToGrpc:
             min_token_len=model.min_token_len,
             max_token_len=model.max_token_len,
             on_disk=model.on_disk,
+            memory=cls.convert_memory(model.memory) if model.memory is not None else None,
             stopwords=cls.convert_stopwords(model.stopwords)
             if model.stopwords is not None
             else None,
@@ -4193,6 +4357,8 @@ class RestToGrpc:
     def convert_stemmer(cls, model: rest.StemmingAlgorithm) -> grpc.StemmingAlgorithm:
         if isinstance(model, rest.SnowballParams):
             return grpc.StemmingAlgorithm(snowball=grpc.SnowballParams(language=model.language))
+        if isinstance(model, rest.DisabledStemmerParams):
+            return grpc.StemmingAlgorithm(disabled=grpc.DisabledStemmer())
 
         raise ValueError(f"invalid StemmingAlgorithm model: {model}")  # pragma: no cover
 
@@ -4205,6 +4371,7 @@ class RestToGrpc:
             range=model.range,
             is_principal=model.is_principal,
             on_disk=model.on_disk,
+            memory=cls.convert_memory(model.memory) if model.memory is not None else None,
             enable_hnsw=model.enable_hnsw,
         )
 
@@ -4213,35 +4380,56 @@ class RestToGrpc:
         cls, model: rest.KeywordIndexParams
     ) -> grpc.KeywordIndexParams:
         return grpc.KeywordIndexParams(
-            is_tenant=model.is_tenant, on_disk=model.on_disk, enable_hnsw=model.enable_hnsw
+            is_tenant=model.is_tenant,
+            on_disk=model.on_disk,
+            enable_hnsw=model.enable_hnsw,
+            prefix=grpc.KeywordPrefixParams() if model.prefix else None,
+            memory=cls.convert_memory(model.memory) if model.memory is not None else None,
         )
 
     @classmethod
     def convert_float_index_params(cls, model: rest.FloatIndexParams) -> grpc.FloatIndexParams:
         return grpc.FloatIndexParams(
-            is_principal=model.is_principal, on_disk=model.on_disk, enable_hnsw=model.enable_hnsw
+            is_principal=model.is_principal,
+            on_disk=model.on_disk,
+            enable_hnsw=model.enable_hnsw,
+            memory=cls.convert_memory(model.memory) if model.memory is not None else None,
         )
 
     @classmethod
     def convert_geo_index_params(cls, model: rest.GeoIndexParams) -> grpc.GeoIndexParams:
-        return grpc.GeoIndexParams(on_disk=model.on_disk, enable_hnsw=model.enable_hnsw)
+        return grpc.GeoIndexParams(
+            on_disk=model.on_disk,
+            enable_hnsw=model.enable_hnsw,
+            memory=cls.convert_memory(model.memory) if model.memory is not None else None,
+        )
 
     @classmethod
     def convert_bool_index_params(cls, model: rest.BoolIndexParams) -> grpc.BoolIndexParams:
-        return grpc.BoolIndexParams(on_disk=model.on_disk, enable_hnsw=model.enable_hnsw)
+        return grpc.BoolIndexParams(
+            on_disk=model.on_disk,
+            enable_hnsw=model.enable_hnsw,
+            memory=cls.convert_memory(model.memory) if model.memory is not None else None,
+        )
 
     @classmethod
     def convert_datetime_index_params(
         cls, model: rest.DatetimeIndexParams
     ) -> grpc.DatetimeIndexParams:
         return grpc.DatetimeIndexParams(
-            is_principal=model.is_principal, on_disk=model.on_disk, enable_hnsw=model.enable_hnsw
+            is_principal=model.is_principal,
+            on_disk=model.on_disk,
+            enable_hnsw=model.enable_hnsw,
+            memory=cls.convert_memory(model.memory) if model.memory is not None else None,
         )
 
     @classmethod
     def convert_uuid_index_params(cls, model: rest.UuidIndexParams) -> grpc.UuidIndexParams:
         return grpc.UuidIndexParams(
-            is_tenant=model.is_tenant, on_disk=model.on_disk, enable_hnsw=model.enable_hnsw
+            is_tenant=model.is_tenant,
+            on_disk=model.on_disk,
+            enable_hnsw=model.enable_hnsw,
+            memory=cls.convert_memory(model.memory) if model.memory is not None else None,
         )
 
     @classmethod
@@ -4254,6 +4442,11 @@ class RestToGrpc:
             on_disk_payload=model.on_disk_payload,
             read_fan_out_factor=model.read_fan_out_factor,
             read_fan_out_delay_ms=model.read_fan_out_delay_ms,
+            payload=(
+                cls.convert_payload_storage_params(model.payload)
+                if model.payload is not None
+                else None
+            ),
         )
 
     @classmethod
@@ -4261,6 +4454,11 @@ class RestToGrpc:
         return grpc.LookupLocation(
             collection_name=model.collection,
             vector_name=model.vector,
+            shard_key_selector=(
+                cls.convert_shard_key_selector(model.shard_key)
+                if model.shard_key is not None
+                else None
+            ),
         )
 
     @classmethod
@@ -4308,6 +4506,7 @@ class RestToGrpc:
             type=grpc.QuantizationType.Int8,
             quantile=model.quantile,
             always_ram=model.always_ram,
+            memory=cls.convert_memory(model.memory) if model.memory is not None else None,
         )
 
     @classmethod
@@ -4317,6 +4516,7 @@ class RestToGrpc:
         return grpc.ProductQuantization(
             compression=cls.convert_compression_ratio(model.compression),
             always_ram=model.always_ram,
+            memory=cls.convert_memory(model.memory) if model.memory is not None else None,
         )
 
     @classmethod
@@ -4331,6 +4531,7 @@ class RestToGrpc:
             query_encoding=cls.convert_binary_quantization_query_encoding(model.query_encoding)
             if model.query_encoding is not None
             else None,
+            memory=cls.convert_memory(model.memory) if model.memory is not None else None,
         )
 
     @classmethod
@@ -4385,6 +4586,7 @@ class RestToGrpc:
             bits=(
                 cls.convert_turbo_quant_bit_size(model.bits) if model.bits is not None else None
             ),
+            memory=cls.convert_memory(model.memory) if model.memory is not None else None,
         )
 
     @classmethod
@@ -4541,6 +4743,7 @@ class RestToGrpc:
                 else None
             ),
             on_disk=model.on_disk,
+            memory=cls.convert_memory(model.memory) if model.memory is not None else None,
         )
 
     @classmethod
@@ -4595,7 +4798,7 @@ class RestToGrpc:
         if isinstance(model, rest.UpsertOperation):
             shard_key_selector = (
                 cls.convert_shard_key_selector(model.upsert.shard_key)
-                if model.upsert.shard_key
+                if model.upsert.shard_key is not None
                 else None
             )
             update_filter = (
@@ -4619,7 +4822,7 @@ class RestToGrpc:
         elif isinstance(model, rest.DeleteOperation):
             shard_key_selector = (
                 cls.convert_shard_key_selector(model.delete.shard_key)
-                if model.delete.shard_key
+                if model.delete.shard_key is not None
                 else None
             )
             points_selector = cls.convert_points_selector(model.delete)
@@ -4640,7 +4843,7 @@ class RestToGrpc:
 
             shard_key_selector = (
                 cls.convert_shard_key_selector(model.set_payload.shard_key)
-                if model.set_payload.shard_key
+                if model.set_payload.shard_key is not None
                 else None
             )
 
@@ -4664,7 +4867,7 @@ class RestToGrpc:
 
             shard_key_selector = (
                 cls.convert_shard_key_selector(model.overwrite_payload.shard_key)
-                if model.overwrite_payload.shard_key
+                if model.overwrite_payload.shard_key is not None
                 else None
             )
 
@@ -4688,7 +4891,7 @@ class RestToGrpc:
 
             shard_key_selector = (
                 cls.convert_shard_key_selector(model.delete_payload.shard_key)
-                if model.delete_payload.shard_key
+                if model.delete_payload.shard_key is not None
                 else None
             )
 
@@ -4702,7 +4905,7 @@ class RestToGrpc:
         elif isinstance(model, rest.ClearPayloadOperation):
             shard_key_selector = (
                 cls.convert_shard_key_selector(model.clear_payload.shard_key)
-                if model.clear_payload.shard_key
+                if model.clear_payload.shard_key is not None
                 else None
             )
             points_selector = cls.convert_points_selector(model.clear_payload)
@@ -4716,7 +4919,7 @@ class RestToGrpc:
         elif isinstance(model, rest.UpdateVectorsOperation):
             shard_key_selector = (
                 cls.convert_shard_key_selector(model.update_vectors.shard_key)
-                if model.update_vectors.shard_key
+                if model.update_vectors.shard_key is not None
                 else None
             )
             update_filter = (
@@ -4745,7 +4948,7 @@ class RestToGrpc:
 
             shard_key_selector = (
                 cls.convert_shard_key_selector(model.delete_vectors.shard_key)
-                if model.delete_vectors.shard_key
+                if model.delete_vectors.shard_key is not None
                 else None
             )
 
@@ -4777,6 +4980,7 @@ class RestToGrpc:
                 model.full_scan_threshold if model.full_scan_threshold is not None else None
             ),
             on_disk=model.on_disk if model.on_disk is not None else None,
+            memory=cls.convert_memory(model.memory) if model.memory is not None else None,
             datatype=cls.convert_datatype(model.datatype) if model.datatype is not None else None,
         )
 

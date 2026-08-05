@@ -412,6 +412,13 @@ class TestParser(unittest.TestCase):
         with self.assertRaises(ParseError):
             parse_one("SELECT A[:")
 
+        # Truncated input must produce a ParseError, not an AttributeError
+        with self.assertRaises(ParseError):
+            parse_one("SELECT * FROM t MATCH_RECOGNIZE(AFTER MATCH SKIP TO FIRST", read="snowflake")
+
+        with self.assertRaises(ParseError):
+            parse_one("SELECT * FROM t MATCH_RECOGNIZE(AFTER MATCH SKIP TO LAST", read="snowflake")
+
         self.assertEqual(parse_one("as as", error_level=ErrorLevel.IGNORE).sql(), "AS as")
 
     def test_space(self):
@@ -1177,6 +1184,13 @@ class TestParser(unittest.TestCase):
             parse_one(sql, error_level=ErrorLevel.IGNORE).sql(),
             "SELECT * FROM a WHERE c = 'false'",
         )
+
+        with self.assertRaises(ParseError) as ctx:
+            parse_one(
+                "SELECT id FROM t START WITH a = 1 CONNECT BY PRIOR id = pid START WITH b = 2 CONNECT BY PRIOR id = pid"
+            )
+
+        self.assertIn("Found multiple 'START WITH' clauses. Line 1, Col: 65.", str(ctx.exception))
 
     def test_window_clause_without_from(self):
         # https://github.com/tobymao/sqlglot/issues/7438

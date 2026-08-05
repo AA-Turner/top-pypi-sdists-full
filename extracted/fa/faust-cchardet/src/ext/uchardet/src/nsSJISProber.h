@@ -56,11 +56,15 @@ public:
   {mCodingSM = new nsCodingStateMachine(&SJISSMModel);
     Reset();}
   virtual ~nsSJISProber(void){delete mCodingSM;}
-  nsProbingState HandleData(const char* aBuf, PRUint32 aLen);
-  const char* GetCharSetName() {return "SHIFT_JIS";}
+  nsProbingState HandleData(const char* aBuf, PRUint32 aLen,
+                            int** codePointBuffer,
+                            int*  codePointBufferIdx);
+  virtual int GetCandidates() { return 1; }
+  const char* GetCharSetName(int) {return "SHIFT_JIS";}
+  const char* GetLanguage(int) {return "ja";}
   nsProbingState GetState(void) {return mState;}
   void      Reset(void);
-  float     GetConfidence(void);
+  float     GetConfidence(int candidate);
   void      SetOpion() {}
 
 protected:

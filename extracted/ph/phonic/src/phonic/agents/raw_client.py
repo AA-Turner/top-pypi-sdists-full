@@ -192,6 +192,7 @@ class RawAgentsClient:
         enable_redaction: typing.Optional[bool] = OMIT,
         mcp_server_ids: typing.Optional[typing.Sequence[str]] = OMIT,
         observability_integrations: typing.Optional[typing.Sequence[typing.Literal["braintrust"]]] = OMIT,
+        external_storage_policy: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[AgentsCreateResponse]:
         """
@@ -340,6 +341,9 @@ class RawAgentsClient:
         observability_integrations : typing.Optional[typing.Sequence[typing.Literal["braintrust"]]]
             Names of observability integrations to enable for the agent. Each must be one of the supported providers.
 
+        external_storage_policy : typing.Optional[str]
+            Name of an external storage policy in the same project that conversation artifacts are delivered to. Requires zero data retention and cannot be combined with `enable_redaction`.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -422,6 +426,7 @@ class RawAgentsClient:
                 "enable_redaction": enable_redaction,
                 "mcp_server_ids": mcp_server_ids,
                 "observability_integrations": observability_integrations,
+                "external_storage_policy": external_storage_policy,
             },
             headers={
                 "content-type": "application/json",
@@ -546,6 +551,7 @@ class RawAgentsClient:
         enable_redaction: typing.Optional[bool] = OMIT,
         mcp_server_ids: typing.Optional[typing.Sequence[str]] = OMIT,
         observability_integrations: typing.Optional[typing.Sequence[typing.Literal["braintrust"]]] = OMIT,
+        external_storage_policy: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[AgentsUpsertResponse]:
         """
@@ -700,6 +706,9 @@ class RawAgentsClient:
         observability_integrations : typing.Optional[typing.Sequence[typing.Literal["braintrust"]]]
             Names of observability integrations to enable for the agent. Each must be one of the supported providers.
 
+        external_storage_policy : typing.Optional[str]
+            Name of an external storage policy in the same project that conversation artifacts are delivered to. Requires zero data retention and cannot be combined with `enable_redaction`.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -788,6 +797,7 @@ class RawAgentsClient:
                 "enable_redaction": enable_redaction,
                 "mcp_server_ids": mcp_server_ids,
                 "observability_integrations": observability_integrations,
+                "external_storage_policy": external_storage_policy,
             },
             headers={
                 "content-type": "application/json",
@@ -1044,6 +1054,7 @@ class RawAgentsClient:
         enable_redaction: typing.Optional[bool] = OMIT,
         mcp_server_ids: typing.Optional[typing.Sequence[str]] = OMIT,
         observability_integrations: typing.Optional[typing.Sequence[typing.Literal["braintrust"]]] = OMIT,
+        external_storage_policy: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[AgentsUpdateResponse]:
         """
@@ -1204,6 +1215,9 @@ class RawAgentsClient:
         observability_integrations : typing.Optional[typing.Sequence[typing.Literal["braintrust"]]]
             Names of observability integrations to enable for the agent. Each must be one of the supported providers.
 
+        external_storage_policy : typing.Optional[str]
+            Name of an external storage policy in the same project that conversation artifacts are delivered to. Set to `null` to stop delivering artifacts. Requires zero data retention and cannot be combined with `enable_redaction`.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -1295,6 +1309,7 @@ class RawAgentsClient:
                 "enable_redaction": enable_redaction,
                 "mcp_server_ids": mcp_server_ids,
                 "observability_integrations": observability_integrations,
+                "external_storage_policy": external_storage_policy,
             },
             headers={
                 "content-type": "application/json",
@@ -1873,6 +1888,7 @@ class AsyncRawAgentsClient:
         enable_redaction: typing.Optional[bool] = OMIT,
         mcp_server_ids: typing.Optional[typing.Sequence[str]] = OMIT,
         observability_integrations: typing.Optional[typing.Sequence[typing.Literal["braintrust"]]] = OMIT,
+        external_storage_policy: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[AgentsCreateResponse]:
         """
@@ -2021,6 +2037,9 @@ class AsyncRawAgentsClient:
         observability_integrations : typing.Optional[typing.Sequence[typing.Literal["braintrust"]]]
             Names of observability integrations to enable for the agent. Each must be one of the supported providers.
 
+        external_storage_policy : typing.Optional[str]
+            Name of an external storage policy in the same project that conversation artifacts are delivered to. Requires zero data retention and cannot be combined with `enable_redaction`.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -2103,6 +2122,7 @@ class AsyncRawAgentsClient:
                 "enable_redaction": enable_redaction,
                 "mcp_server_ids": mcp_server_ids,
                 "observability_integrations": observability_integrations,
+                "external_storage_policy": external_storage_policy,
             },
             headers={
                 "content-type": "application/json",
@@ -2227,6 +2247,7 @@ class AsyncRawAgentsClient:
         enable_redaction: typing.Optional[bool] = OMIT,
         mcp_server_ids: typing.Optional[typing.Sequence[str]] = OMIT,
         observability_integrations: typing.Optional[typing.Sequence[typing.Literal["braintrust"]]] = OMIT,
+        external_storage_policy: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[AgentsUpsertResponse]:
         """
@@ -2381,6 +2402,9 @@ class AsyncRawAgentsClient:
         observability_integrations : typing.Optional[typing.Sequence[typing.Literal["braintrust"]]]
             Names of observability integrations to enable for the agent. Each must be one of the supported providers.
 
+        external_storage_policy : typing.Optional[str]
+            Name of an external storage policy in the same project that conversation artifacts are delivered to. Requires zero data retention and cannot be combined with `enable_redaction`.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -2469,6 +2493,7 @@ class AsyncRawAgentsClient:
                 "enable_redaction": enable_redaction,
                 "mcp_server_ids": mcp_server_ids,
                 "observability_integrations": observability_integrations,
+                "external_storage_policy": external_storage_policy,
             },
             headers={
                 "content-type": "application/json",
@@ -2725,6 +2750,7 @@ class AsyncRawAgentsClient:
         enable_redaction: typing.Optional[bool] = OMIT,
         mcp_server_ids: typing.Optional[typing.Sequence[str]] = OMIT,
         observability_integrations: typing.Optional[typing.Sequence[typing.Literal["braintrust"]]] = OMIT,
+        external_storage_policy: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[AgentsUpdateResponse]:
         """
@@ -2885,6 +2911,9 @@ class AsyncRawAgentsClient:
         observability_integrations : typing.Optional[typing.Sequence[typing.Literal["braintrust"]]]
             Names of observability integrations to enable for the agent. Each must be one of the supported providers.
 
+        external_storage_policy : typing.Optional[str]
+            Name of an external storage policy in the same project that conversation artifacts are delivered to. Set to `null` to stop delivering artifacts. Requires zero data retention and cannot be combined with `enable_redaction`.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -2976,6 +3005,7 @@ class AsyncRawAgentsClient:
                 "enable_redaction": enable_redaction,
                 "mcp_server_ids": mcp_server_ids,
                 "observability_integrations": observability_integrations,
+                "external_storage_policy": external_storage_policy,
             },
             headers={
                 "content-type": "application/json",

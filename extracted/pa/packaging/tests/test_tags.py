@@ -167,6 +167,29 @@ class TestParseTag:
         )
         assert given == expected
 
+    def test_limit_allows_exact_number_of_tags(self) -> None:
+        expected = {tags.Tag("py2", "none", "any"), tags.Tag("py3", "none", "any")}
+        given = tags.parse_tag("py2.py3-none-any", limit=2)
+        assert given == expected
+
+    def test_limit_raises_when_exceeded(self) -> None:
+        with pytest.raises(tags.TooManyTagsError, match="would generate 2 tags"):
+            tags.parse_tag("py2.py3-none-any", limit=1)
+
+    def test_limit_counts_cartesian_product_entries(self) -> None:
+        # "py3.py3" generates two entries, even though both collapse to the
+        # same Tag in the returned frozenset.
+        with pytest.raises(tags.TooManyTagsError, match="would generate 2 tags"):
+            tags.parse_tag("py3.py3-none-any", limit=1)
+
+    def test_limit_rejects_negative_value(self) -> None:
+        with pytest.raises(ValueError, match="limit must be non-negative"):
+            tags.parse_tag("py3-none-any", limit=-1)
+
+    def test_limit_can_be_combined_with_validate_order(self) -> None:
+        with pytest.raises(ValueError, match="not in sorted order"):
+            tags.parse_tag("py3.py2-none-any", validate_order=True, limit=2)
+
     def test_unsorted_interpreter_parses_by_default(self) -> None:
         # Unsorted tags should parse fine without validate_order
         result = tags.parse_tag("py3.py2-none-any")
@@ -195,6 +218,51 @@ class TestParseTag:
         result = tags.parse_tag("py2.py3-none-any", validate_order=True)
         assert tags.Tag("py2", "none", "any") in result
         assert tags.Tag("py3", "none", "any") in result
+
+    @pytest.mark.parametrize(
+        "tag",
+        [
+            "-none-any",  # Empty interpreter
+            "py3--any",  # Empty ABI
+            "py3-none-",  # Empty platform
+            "py3.-none-any",  # Empty member of a compressed interpreter set
+            "py3-none-any.",  # Empty member of a compressed platform set
+            "--",  # All empty
+        ],
+    )
+    def test_empty_component_raises(self, tag: str) -> None:
+        with pytest.raises(tags.InvalidTag, match="empty component"):
+            tags.parse_tag(tag)
+
+    @pytest.mark.parametrize(
+        "tag",
+        [
+            "2-none-any",
+            "2.7.6-none-any",
+            "py3.2-none-any",
+            "py+3-none-any",
+        ],
+    )
+    def test_invalid_interpreter_raises(self, tag: str) -> None:
+        with pytest.raises(tags.InvalidTag, match="invalid interpreter"):
+            tags.parse_tag(tag)
+
+    @pytest.mark.parametrize("interpreter", ["sillywalk", "graalpy311", "_custom"])
+    def test_identifier_interpreter_is_valid(self, interpreter: str) -> None:
+        assert tags.parse_tag(f"{interpreter}-none-any") == {
+            tags.Tag(interpreter, "none", "any")
+        }
+
+    @pytest.mark.parametrize(
+        "tag",
+        [
+            "py3-none",
+            "py3-none-any-extra",
+        ],
+    )
+    def test_invalid_component_count_raises(self, tag: str) -> None:
+        with pytest.raises(tags.InvalidTag, match="exactly three components"):
+            tags.parse_tag(tag)
 
 
 class TestInterpreterName:
@@ -276,16 +344,16 @@ class TestMacOSPlatforms:
             (
                 (10, 15),
                 "x86_64",
-                ["x86_64", "intel", "fat64", "fat32", "universal2", "universal"],
+                ["x86_64", "intel", "fat64", "fat3", "universal2", "universal"],
             ),
             (
                 (10, 4),
                 "x86_64",
-                ["x86_64", "intel", "fat64", "fat32", "universal2", "universal"],
+                ["x86_64", "intel", "fat64", "fat3", "universal2", "universal"],
             ),
             ((10, 3), "x86_64", []),
-            ((10, 15), "i386", ["i386", "intel", "fat32", "fat", "universal"]),
-            ((10, 4), "i386", ["i386", "intel", "fat32", "fat", "universal"]),
+            ((10, 15), "i386", ["i386", "intel", "fat3", "fat", "universal"]),
+            ((10, 4), "i386", ["i386", "intel", "fat3", "fat", "universal"]),
             ((10, 3), "intel", ["intel", "universal"]),
             ((10, 5), "intel", ["intel", "universal"]),
             ((10, 15), "intel", ["intel", "universal"]),
@@ -296,13 +364,13 @@ class TestMacOSPlatforms:
             ((10, 3), "ppc64", []),
             ((10, 15), "ppc", []),
             ((10, 7), "ppc", []),
-            ((10, 6), "ppc", ["ppc", "fat32", "fat", "universal"]),
-            ((10, 0), "ppc", ["ppc", "fat32", "fat", "universal"]),
+            ((10, 6), "ppc", ["ppc", "fat3", "fat", "universal"]),
+            ((10, 0), "ppc", ["ppc", "fat3", "fat", "universal"]),
             ((11, 0), "riscv", ["riscv"]),
             (
                 (11, 0),
                 "x86_64",
-                ["x86_64", "intel", "fat64", "fat32", "universal2", "universal"],
+                ["x86_64", "intel", "fat64", "fat3", "universal2", "universal"],
             ),
             ((11, 0), "arm64", ["arm64", "universal2"]),
             ((11, 1), "arm64", ["arm64", "universal2"]),
@@ -377,13 +445,13 @@ class TestMacOSPlatforms:
             "macosx_10_5_x86_64",
             "macosx_10_5_intel",
             "macosx_10_5_fat64",
-            "macosx_10_5_fat32",
+            "macosx_10_5_fat3",
             "macosx_10_5_universal2",
             "macosx_10_5_universal",
             "macosx_10_4_x86_64",
             "macosx_10_4_intel",
             "macosx_10_4_fat64",
-            "macosx_10_4_fat32",
+            "macosx_10_4_fat3",
             "macosx_10_4_universal2",
             "macosx_10_4_universal",
         ]
@@ -425,6 +493,19 @@ class TestMacOSPlatforms:
         if major >= 12:
             assert "macosx_12_0_arm64" in platforms
             assert "macosx_12_0_universal2" in platforms
+
+    def test_no_mac_ver_when_both_args_given(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # When both version and arch are explicitly provided, platform.mac_ver()
+        # must not be called — it reads from the system and is irrelevant for
+        # cross-targeting use cases.
+        mac_ver_stub = pretend.call_recorder(
+            pretend.raiser(AssertionError("platform.mac_ver() must not be called"))
+        )
+        monkeypatch.setattr(platform, "mac_ver", mac_ver_stub)
+        list(tags.mac_platforms(version=(11, 0), arch="x86_64"))
+        assert mac_ver_stub.calls == []
 
 
 class TestIOSPlatforms:
@@ -572,10 +653,22 @@ class TestAndroidPlatforms:
         ]
 
 
+@pytest.fixture
+def _disable_musl_detection(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The manylinux platform tests assert exact tag lists and do not expect
+    # musllinux_* entries. On a musl host (e.g. Alpine), ``_get_musl_version()``
+    # returns a real version and those tags leak into ``_linux_platforms()`` /
+    # ``sys_tags()``, breaking the assertions. Neutralize musl detection by
+    # default; tests that exercise musllinux re-patch ``_get_musl_version``.
+    monkeypatch.setattr(tags._musllinux, "_get_musl_version", lambda _: None)  # type: ignore[attr-defined]
+
+
+@pytest.mark.usefixtures("_disable_musl_detection")
 class TestManylinuxPlatform:
     def teardown_method(self) -> None:
-        # Clear the version cache
+        # Clear the version and module caches
         tags._manylinux._get_glibc_version.cache_clear()  # type: ignore[attr-defined]
+        tags._manylinux._get_manylinux_module.cache_clear()  # type: ignore[attr-defined]
 
     def test_get_config_var_does_not_log(self, monkeypatch: pytest.MonkeyPatch) -> None:
         debug = pretend.call_recorder(lambda *a: None)
@@ -613,9 +706,7 @@ class TestManylinuxPlatform:
         monkeypatch.setattr(sysconfig, "get_platform", lambda: arch)
         monkeypatch.setattr(os, "confstr", lambda _: "glibc 2.20", raising=False)
         monkeypatch.setattr(tags._manylinux, "_is_compatible", lambda *args: False)  # type: ignore[attr-defined]
-        linux_platform = list(tags._linux_platforms(is_32bit=is_32bit))[
-            -len(expected) :
-        ]
+        linux_platform = list(tags._linux_platforms(is_32bit=is_32bit))[: len(expected)]
         assert linux_platform == expected
 
     def test_linux_platforms_manylinux_unsupported(
@@ -638,9 +729,9 @@ class TestManylinuxPlatform:
         monkeypatch.setattr(os, "confstr", lambda _: "glibc 2.20", raising=False)
         platforms = list(tags._linux_platforms(is_32bit=False))
         assert platforms == [
+            "linux_x86_64",
             "manylinux_2_5_x86_64",
             "manylinux1_x86_64",
-            "linux_x86_64",
         ]
 
     def test_linux_platforms_manylinux2010(
@@ -651,6 +742,7 @@ class TestManylinuxPlatform:
         monkeypatch.setattr(os, "confstr", lambda _: "glibc 2.12", raising=False)
         platforms = list(tags._linux_platforms(is_32bit=False))
         expected = [
+            "linux_x86_64",
             "manylinux_2_12_x86_64",
             "manylinux2010_x86_64",
             "manylinux_2_11_x86_64",
@@ -661,7 +753,6 @@ class TestManylinuxPlatform:
             "manylinux_2_6_x86_64",
             "manylinux_2_5_x86_64",
             "manylinux1_x86_64",
-            "linux_x86_64",
         ]
         assert platforms == expected
 
@@ -674,6 +765,7 @@ class TestManylinuxPlatform:
         platforms = list(tags._linux_platforms(is_32bit=False))
         arch = platform.machine()
         expected = [
+            "linux_" + arch,
             "manylinux_2_17_" + arch,
             "manylinux2014_" + arch,
             "manylinux_2_16_" + arch,
@@ -690,7 +782,6 @@ class TestManylinuxPlatform:
             "manylinux_2_6_" + arch,
             "manylinux_2_5_" + arch,
             "manylinux1_" + arch,
-            "linux_" + arch,
         ]
         assert platforms == expected
 
@@ -719,10 +810,9 @@ class TestManylinuxPlatform:
         )
         platforms = list(tags._linux_platforms(is_32bit=True))
         archs = {"armv8l": ["armv8l", "armv7l"]}.get(cross_arch, [cross_arch])
-        expected = []
+        expected = [f"linux_{arch}" for arch in archs]
         for arch in archs:
             expected.extend([f"manylinux_2_17_{arch}", f"manylinux2014_{arch}"])
-        expected.extend(f"linux_{arch}" for arch in archs)
         assert platforms == expected
 
     def test_linux_platforms_manylinux2014_i386_abi(
@@ -741,6 +831,7 @@ class TestManylinuxPlatform:
         )
         platforms = list(tags._linux_platforms(is_32bit=True))
         expected = [
+            "linux_i686",
             "manylinux_2_17_i686",
             "manylinux2014_i686",
             "manylinux_2_16_i686",
@@ -757,7 +848,6 @@ class TestManylinuxPlatform:
             "manylinux_2_6_i686",
             "manylinux_2_5_i686",
             "manylinux1_i686",
-            "linux_i686",
         ]
         assert platforms == expected
 
@@ -779,9 +869,14 @@ class TestManylinuxPlatform:
         )
         platforms = list(tags._linux_platforms(is_32bit=False))
         expected = (
-            ["manylinux_3_2_aarch64", "manylinux_3_1_aarch64", "manylinux_3_0_aarch64"]
+            [
+                "linux_aarch64",
+                "manylinux_3_2_aarch64",
+                "manylinux_3_1_aarch64",
+                "manylinux_3_0_aarch64",
+            ]
             + [f"manylinux_2_{i}_aarch64" for i in range(50, 16, -1)]
-            + ["manylinux2014_aarch64", "linux_aarch64"]
+            + ["manylinux2014_aarch64"]
         )
         assert platforms == expected
 
@@ -818,13 +913,12 @@ class TestManylinuxPlatform:
         platforms = list(tags._linux_platforms(is_32bit=cross32))
         target_arch = cross32_arch if cross32 else native_arch
         archs = {"armv8l": ["armv8l", "armv7l"]}.get(target_arch, [target_arch])
-        expected: list[str] = []
+        expected = [f"linux_{arch}" for arch in archs]
         for arch in archs:
             expected.extend(
                 f"musllinux_{musl_version[0]}_{minor}_{arch}"
                 for minor in range(musl_version[1], -1, -1)
             )
-        expected.extend(f"linux_{arch}" for arch in archs)
         assert platforms == expected
 
         assert recorder.calls == [pretend.call(fake_executable)]
@@ -1114,6 +1208,13 @@ class TestCPythonTags:
             tags.Tag("cp32", "abi3t", "platform"),
         ]
 
+        result = list(tags.cpython_tags((3, 15), ["cp315t", "abi3t"], ["platform"]))
+        assert result == [
+            tags.Tag("cp315", "cp315t", "platform"),
+            tags.Tag("cp315", "abi3t", "platform"),
+            tags.Tag("cp315", "none", "platform"),
+        ] + [tags.Tag(f"cp3{minor}", "abi3t", "platform") for minor in range(14, 1, -1)]
+
         result = list(tags.cpython_tags((3, 16), ["cp316t"], ["platform"]))
         assert result == [
             tags.Tag("cp316", "cp316t", "platform"),
@@ -1299,9 +1400,23 @@ class TestGenericTags:
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
         assert tags._generic_abi() == []
 
-    @pytest.mark.parametrize("ext_suffix", ["invalid", None])
+    @pytest.mark.parametrize("ext_suffix", ["invalid", "", None])
     def test__generic_abi_error(
         self, ext_suffix: str | None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        config = {"EXT_SUFFIX": ext_suffix}
+        monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
+        with pytest.raises(SystemError) as e:
+            tags._generic_abi()
+        assert "EXT_SUFFIX" in str(e.value)
+
+    # ".cpython.so" has no version component at all (would raise IndexError);
+    # ".cpython-.so" has a dash but an empty version (would build an invalid
+    # "cp" ABI). Both are malformed cpython soabis that should surface the same
+    # actionable SystemError as the other malformed EXT_SUFFIX cases.
+    @pytest.mark.parametrize("ext_suffix", [".cpython.so", ".cpython-.so"])
+    def test__generic_abi_cpython_missing_version(
+        self, ext_suffix: str, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         config = {"EXT_SUFFIX": ext_suffix}
         monkeypatch.setattr(sysconfig, "get_config_var", config.__getitem__)
@@ -1392,6 +1507,41 @@ class TestGenericTags:
         monkeypatch.setattr(tags, "platform_tags", lambda: ["plat"])
         result = list(tags.generic_tags(interpreter="sillywalk", abis=["none"]))
         assert result == [tags.Tag("sillywalk", "none", "plat")]
+
+
+class TestPurePythonTags:
+    def test_python_version(self) -> None:
+        result = list(tags.pure_python_tags((3, 3)))
+        assert result == [
+            tags.Tag("py33", "none", "any"),
+            tags.Tag("py3", "none", "any"),
+            tags.Tag("py32", "none", "any"),
+            tags.Tag("py31", "none", "any"),
+            tags.Tag("py30", "none", "any"),
+        ]
+
+    def test_major_only_python_version(self) -> None:
+        assert list(tags.pure_python_tags((3,))) == [tags.Tag("py3", "none", "any")]
+
+    def test_empty_python_version(self) -> None:
+        with pytest.raises(ValueError, match="must contain at least one item"):
+            list(tags.pure_python_tags(()))
+
+    def test_default_python_version(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(sys, "version_info", (3, 1))
+        assert list(tags.pure_python_tags()) == [
+            tags.Tag("py31", "none", "any"),
+            tags.Tag("py3", "none", "any"),
+            tags.Tag("py30", "none", "any"),
+        ]
+
+    def test_does_not_query_platforms(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            tags,
+            "platform_tags",
+            lambda: pytest.fail("pure_python_tags() queried the running platform"),
+        )
+        assert list(tags.pure_python_tags((3,))) == [tags.Tag("py3", "none", "any")]
 
 
 class TestCompatibleTags:
@@ -1545,10 +1695,12 @@ class TestCompatibleTags:
         ]
 
 
+@pytest.mark.usefixtures("_disable_musl_detection")
 class TestSysTags:
     def teardown_method(self) -> None:
         # Clear the version cache
         tags._glibc_version = []  # type: ignore[attr-defined]
+        tags._manylinux._get_manylinux_module.cache_clear()  # type: ignore[attr-defined]
 
     @pytest.mark.parametrize(
         ("name", "expected"),
@@ -1637,6 +1789,27 @@ class TestSysTags:
         )
         assert result[-1] == expected
 
+    def test_warn_forwarded_to_generic_tags(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # On non-CPython interpreters ``generic_tags()`` is the primary tag
+        # source, so ``sys_tags(warn=...)`` must forward the flag to it.
+        class MockGenericTags:
+            def __init__(self) -> None:
+                self.warn: bool | None = None
+
+            def __call__(
+                self, *, warn: bool = False
+            ) -> collections.abc.Iterator[tags.Tag]:
+                self.warn = warn
+                return iter(())
+
+        mock_generic_tags = MockGenericTags()
+        monkeypatch.setattr(tags, "interpreter_name", lambda: "generic")
+        monkeypatch.setattr(tags, "generic_tags", mock_generic_tags)
+        list(tags.sys_tags(warn=True))
+        assert mock_generic_tags.warn
+
     @pytest.mark.usefixtures("manylinux_module")
     def test_linux_platforms_manylinux2014_armv6l(
         self, monkeypatch: pytest.MonkeyPatch
@@ -1656,12 +1829,12 @@ class TestSysTags:
             manylinux_module, "manylinux2014_compatible", False, raising=False
         )
         expected = [
+            "linux_ppc64",
             "manylinux_2_20_ppc64",
             "manylinux_2_19_ppc64",
             "manylinux_2_18_ppc64",
             # "manylinux2014_ppc64",  # this one is skipped
             # "manylinux_2_17_ppc64", # this one is also skipped
-            "linux_ppc64",
         ]
         platforms = list(tags._linux_platforms())
         assert platforms == expected
@@ -1719,8 +1892,9 @@ class TestSysTags:
             raising=False,
         )
         platforms = list(tags._linux_platforms(is_32bit=False))
-        expected = [f"manylinux_2_22_{machine}"] if tf else []
-        expected.append(f"linux_{machine}")
+        expected = [f"linux_{machine}"]
+        if tf:
+            expected.append(f"manylinux_2_22_{machine}")
         assert platforms == expected
 
     def test_linux_use_manylinux_compatible_none(
@@ -1745,13 +1919,13 @@ class TestSysTags:
         )
         platforms = list(tags._linux_platforms(is_32bit=False))
         expected = [
+            "linux_x86_64",
             "manylinux_2_30_x86_64",
             "manylinux_2_29_x86_64",
             "manylinux_2_28_x86_64",
             "manylinux_2_27_x86_64",
             "manylinux_2_26_x86_64",
             "manylinux_2_25_x86_64",
-            "linux_x86_64",
         ]
         assert platforms == expected
 

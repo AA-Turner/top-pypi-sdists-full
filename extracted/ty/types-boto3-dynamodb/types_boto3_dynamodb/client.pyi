@@ -120,6 +120,8 @@ from .type_defs import (
     RestoreTableToPointInTimeOutputTypeDef,
     ScanInputTypeDef,
     ScanOutputTypeDef,
+    SearchVectorsInputTypeDef,
+    SearchVectorsOutputTypeDef,
     TagResourceInputTypeDef,
     TransactGetItemsInputTypeDef,
     TransactGetItemsOutputTypeDef,
@@ -666,6 +668,18 @@ class DynamoDBClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/client/scan.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dynamodb/client/#scan)
+        """
+
+    def search_vectors(
+        self, **kwargs: Unpack[SearchVectorsInputTypeDef]
+    ) -> SearchVectorsOutputTypeDef:
+        """
+        Performs a vector similarity search on a vector index associated with an Amazon
+        DynamoDB table, and returns the most similar items sorted by similarity score
+        based on the distance function configured for the index.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/client/search_vectors.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dynamodb/client/#search_vectors)
         """
 
     def tag_resource(

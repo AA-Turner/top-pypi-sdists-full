@@ -804,6 +804,7 @@ from mixpeek.models.reminder_preferences_response import ReminderPreferencesResp
 from mixpeek.models.render_strategy import RenderStrategy
 from mixpeek.models.representative_document import RepresentativeDocument
 from mixpeek.models.resource_allocation import ResourceAllocation
+from mixpeek.models.resource_dimension import ResourceDimension
 from mixpeek.models.resource_error_count import ResourceErrorCount
 from mixpeek.models.resource_filter import ResourceFilter
 from mixpeek.models.resource_progress import ResourceProgress
@@ -811,6 +812,7 @@ from mixpeek.models.resource_result import ResourceResult
 from mixpeek.models.resource_result_status import ResourceResultStatus
 from mixpeek.models.resource_scope_input import ResourceScopeInput
 from mixpeek.models.resource_scope_output import ResourceScopeOutput
+from mixpeek.models.resource_target import ResourceTarget
 from mixpeek.models.resource_type_input import ResourceTypeInput
 from mixpeek.models.response_rerun_analytics_run_v1_taxonomies_taxonomy_id_analytics_runs_run_id_rerun_post import ResponseRerunAnalyticsRunV1TaxonomiesTaxonomyIdAnalyticsRunsRunIdRerunPost
 from mixpeek.models.response_shape import ResponseShape
@@ -855,6 +857,8 @@ from mixpeek.models.s3_metadata_source import S3MetadataSource
 from mixpeek.models.s3_role_credentials import S3RoleCredentials
 from mixpeek.models.s3_tag_source import S3TagSource
 from mixpeek.models.seo_config import SEOConfig
+from mixpeek.models.slo_surface import SLOSurface
+from mixpeek.models.slo_target import SLOTarget
 from mixpeek.models.sample_query import SampleQuery
 from mixpeek.models.scaffold_manifest_response import ScaffoldManifestResponse
 from mixpeek.models.scaffold_sample_collection import ScaffoldSampleCollection
@@ -1091,6 +1095,7 @@ from mixpeek.models.sync_update_request import SyncUpdateRequest
 from mixpeek.models.system_condition import SystemCondition
 from mixpeek.models.system_condition_type import SystemConditionType
 from mixpeek.models.tsne_params import TSNEParams
+from mixpeek.models.target_spec import TargetSpec
 from mixpeek.models.task_progress import TaskProgress
 from mixpeek.models.task_response import TaskResponse
 from mixpeek.models.task_response_inputs_inner import TaskResponseInputsInner

@@ -1,17 +1,18 @@
 use super::event_queue::queued_event::{EnqueueOperation, QueuedExposure};
 use crate::{
+    DynamicValue,
     evaluation::evaluation_types::{BaseEvaluation, ExtraExposureInfo},
     global_configs::GlobalConfigs,
     log_d, log_e,
     user::user_data::UserData,
-    write_lock_or_noop, write_lock_or_return, DynamicValue,
+    write_lock_or_noop, write_lock_or_return,
 };
 use ahash::AHashSet;
 use chrono::Utc;
 use parking_lot::RwLock;
 use std::sync::{
-    atomic::{AtomicU64, Ordering},
     Arc,
+    atomic::{AtomicU64, Ordering},
 };
 
 const TAG: &str = "ExposureSampling";

@@ -1,20 +1,21 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
+import time
 import warnings
 from functools import lru_cache
+from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Final
 from urllib.parse import parse_qs, urlparse
 
-import httpx
-import requests
-from requests.exceptions import (
-    ConnectionError as RequestsConnectionError,  # pyright: ignore[reportMissingModuleSource]
-)
+import requests  # pyright: ignore[reportMissingModuleSource]
 from requests.models import Response  # pyright: ignore[reportMissingModuleSource]
 
 from mailgun import routes
+from mailgun._httpx_compat import httpx
+from mailgun.config import RetryPolicy
 from mailgun.handlers.error_handler import ApiError, MailgunTimeoutError
 from mailgun.logger import get_logger
 from mailgun.security import SecurityGuard
@@ -23,9 +24,7 @@ from mailgun.security import SecurityGuard
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping
 
-    from httpx import Response as HttpxResponse
-
-    from mailgun.types import TimeoutType
+    from mailgun.types import APIResponseType, AsyncAPIResponseType, TimeoutType
 
 
 logger = get_logger(__name__)
@@ -45,7 +44,12 @@ def build_path_from_keys(keys: Iterable[str]) -> str:
     if not keys:
         return ""
     keys_seq = keys if isinstance(keys, (list, tuple)) else list(keys)
-    return "".join(f"/{SecurityGuard.sanitize_path_segment(k)}" for k in keys_seq if k)
+    # Safely evaluate truthiness to prevent dropping `0` integer IDs
+    return "".join(
+        f"/{SecurityGuard.sanitize_path_segment(str(k))}"
+        for k in keys_seq
+        if k is not None and str(k).strip()
+    )
 
 
 @lru_cache(maxsize=32)
@@ -60,104 +64,104 @@ def _load_handler(endpoint_key: str) -> Callable[..., str]:  # noqa: PLR0911, PL
     """
     # Group 1: Domains Handler (Most common aliases grouped for speed)
     if endpoint_key in {"domains", "dkim_authority", "dkim_selector", "web_prefix"}:
-        from mailgun.handlers.domains_handler import handle_domains  # noqa: PLC0415
+        from mailgun.handlers.domains_handler import handle_domains
 
         return handle_domains
     if endpoint_key == "domainlist":
-        from mailgun.handlers.domains_handler import handle_domainlist  # noqa: PLC0415
+        from mailgun.handlers.domains_handler import handle_domainlist
 
         return handle_domainlist
     if endpoint_key == "dkim":
-        from mailgun.handlers.domains_handler import handle_dkimkeys  # noqa: PLC0415
+        from mailgun.handlers.domains_handler import handle_dkimkeys
 
         return handle_dkimkeys
     if endpoint_key == "sending_queues":
-        from mailgun.handlers.domains_handler import handle_sending_queues  # noqa: PLC0415
+        from mailgun.handlers.domains_handler import handle_sending_queues
 
         return handle_sending_queues
     if endpoint_key == "mailboxes":
-        from mailgun.handlers.domains_handler import handle_mailboxes_credentials  # noqa: PLC0415
+        from mailgun.handlers.domains_handler import handle_mailboxes_credentials
 
         return handle_mailboxes_credentials
     if endpoint_key == "webhooks":
-        from mailgun.handlers.domains_handler import handle_webhooks  # noqa: PLC0415
+        from mailgun.handlers.domains_handler import handle_webhooks
 
         return handle_webhooks
 
     # Group 2: Suppressions
     if endpoint_key == "bounces":
-        from mailgun.handlers.suppressions_handler import handle_bounces  # noqa: PLC0415
+        from mailgun.handlers.suppressions_handler import handle_bounces
 
         return handle_bounces
     if endpoint_key == "unsubscribes":
-        from mailgun.handlers.suppressions_handler import handle_unsubscribes  # noqa: PLC0415
+        from mailgun.handlers.suppressions_handler import handle_unsubscribes
 
         return handle_unsubscribes
     if endpoint_key == "whitelists":
-        from mailgun.handlers.suppressions_handler import handle_whitelists  # noqa: PLC0415
+        from mailgun.handlers.suppressions_handler import handle_whitelists
 
         return handle_whitelists
     if endpoint_key == "complaints":
-        from mailgun.handlers.suppressions_handler import handle_complaints  # noqa: PLC0415
+        from mailgun.handlers.suppressions_handler import handle_complaints
 
         return handle_complaints
 
     # Group 3: Specific Services
     if endpoint_key == "resendmessage":
-        from mailgun.handlers.messages_handler import handle_resend_message  # noqa: PLC0415
+        from mailgun.handlers.messages_handler import handle_resend_message
 
         return handle_resend_message
     if endpoint_key == "ips":
-        from mailgun.handlers.ips_handler import handle_ips  # noqa: PLC0415
+        from mailgun.handlers.ips_handler import handle_ips
 
         return handle_ips
     if endpoint_key == "ip_pools":
-        from mailgun.handlers.ip_pools_handler import handle_ippools  # noqa: PLC0415
+        from mailgun.handlers.ip_pools_handler import handle_ippools
 
         return handle_ippools
     if endpoint_key == "tags":
-        from mailgun.handlers.tags_handler import handle_tags  # noqa: PLC0415
+        from mailgun.handlers.tags_handler import handle_tags
 
         return handle_tags
     if endpoint_key == "routes":
-        from mailgun.handlers.routes_handler import handle_routes  # noqa: PLC0415
+        from mailgun.handlers.routes_handler import handle_routes
 
         return handle_routes
     if endpoint_key == "lists":
-        from mailgun.handlers.mailinglists_handler import handle_lists  # noqa: PLC0415
+        from mailgun.handlers.mailinglists_handler import handle_lists
 
         return handle_lists
     if endpoint_key == "templates":
-        from mailgun.handlers.templates_handler import handle_templates  # noqa: PLC0415
+        from mailgun.handlers.templates_handler import handle_templates
 
         return handle_templates
     if endpoint_key == "addressvalidate":
-        from mailgun.handlers import email_validation_handler as evh  # noqa: PLC0415
+        from mailgun.handlers import email_validation_handler as evh
 
         return evh.handle_address_validate
     if endpoint_key == "inbox":
-        from mailgun.handlers.inbox_placement_handler import handle_inbox  # noqa: PLC0415
+        from mailgun.handlers.inbox_placement_handler import handle_inbox
 
         return handle_inbox
     if endpoint_key == "analytics":
-        from mailgun.handlers.metrics_handler import handle_metrics  # noqa: PLC0415
+        from mailgun.handlers.metrics_handler import handle_metrics
 
         return handle_metrics
     if endpoint_key == "bounce-classification":
-        from mailgun.handlers import bounce_classification_handler as bch  # noqa: PLC0415
+        from mailgun.handlers import bounce_classification_handler as bch
 
         return bch.handle_bounce_classification
     if endpoint_key == "users":
-        from mailgun.handlers.users_handler import handle_users  # noqa: PLC0415
+        from mailgun.handlers.users_handler import handle_users
 
         return handle_users
     if endpoint_key == "keys":
-        from mailgun.handlers.keys_handler import handle_keys  # noqa: PLC0415
+        from mailgun.handlers.keys_handler import handle_keys
 
         return handle_keys
 
     # Group 4: Fallback for "messages", "messages.mime", "events", and unknown routes
-    from mailgun.handlers.default_handler import handle_default  # noqa: PLC0415
+    from mailgun.handlers.default_handler import handle_default
 
     return handle_default
 
@@ -165,7 +169,7 @@ def _load_handler(endpoint_key: str) -> Callable[..., str]:  # noqa: PLR0911, PL
 class BaseEndpoint:
     """Base class for endpoints. Contains methods common for Endpoint and AsyncEndpoint."""
 
-    __slots__ = ("_auth", "_timeout", "_url", "dry_run", "headers")
+    __slots__ = ("_auth", "_timeout", "_url", "dry_run", "headers", "retry_policy")
 
     def __init__(
         self,
@@ -190,6 +194,7 @@ class BaseEndpoint:
         self._auth = auth
         self._timeout = timeout
         self.dry_run = dry_run
+        self.retry_policy = None
 
     @staticmethod
     def _warn_if_deprecated(method: str, target_url: str) -> None:
@@ -210,6 +215,75 @@ class BaseEndpoint:
                 warnings.warn(warning_message, DeprecationWarning, stacklevel=3)
                 logger.warning(warning_message)
                 break
+
+    @staticmethod
+    def _reset_stream_pointers(files: Any) -> None:
+        """Ensure the idempotency of file generators and buffers during retries."""
+        if not isinstance(files, list):
+            return
+        for _, file_tuple in files:
+            if isinstance(file_tuple, tuple) and len(file_tuple) >= 2:  # noqa: PLR2004
+                file_obj = file_tuple[1]
+                # If it's our ChunkedStreamer, close current FD, so __iter__ open it again
+                if hasattr(file_obj, "close") and hasattr(file_obj, "chunk_size"):
+                    file_obj.close()
+                # If it's BytesIO or an opened file
+                elif hasattr(file_obj, "seek"):
+                    file_obj.seek(0)
+
+    @staticmethod
+    def _prepare_payload(
+        data: Any | None, files: Any | None, headers: dict[str, str]
+    ) -> tuple[Any | None, dict[str, str]]:
+        """Prepares headers and minifies JSON payloads or handles multipart files safely.
+
+        Args:
+            data: Payload data (form data or JSON).
+            files: Files to upload.
+            headers: Request headers.
+
+        Returns:
+            A tuple containing the prepared data and working headers.
+        """
+        working_headers = dict(headers)
+        if files and working_headers:
+            working_headers = {
+                k: v for k, v in working_headers.items() if k.lower() != "content-type"
+            }
+
+        is_json_request = any(
+            k.lower() == "content-type" and "application/json" in str(v).lower()
+            for k, v in working_headers.items()
+        )
+
+        if is_json_request and data is not None and not isinstance(data, (str, bytes)):
+            data = json.dumps(data, separators=(",", ":"))
+
+        return data, working_headers
+
+    @staticmethod
+    def _handle_api_error(e: Exception, method: str, target_url: str) -> None:
+        """Encapsulates low-level transport exceptions into custom SDK errors.
+
+        Args:
+            e: The caught exception.
+            method: The HTTP method.
+            target_url: The target URL.
+
+        Raises:
+            MailgunTimeoutError: If the request times out.
+            ApiError: If network routing fails or the API request fails.
+        """
+        if isinstance(e, (requests.Timeout, httpx.TimeoutException)):
+            msg = f"Request timed out for {method.upper()} {target_url}"
+            raise MailgunTimeoutError(msg) from e
+        if isinstance(e, ApiError):
+            raise e
+        if isinstance(e, (requests.ConnectionError, httpx.ConnectError, httpx.NetworkError)):
+            msg = f"Network routing failed for {method.upper()} {target_url}: {e}"
+            raise ApiError(msg) from e
+        msg = f"API request failed for {method.upper()} {target_url}: {e}"
+        raise ApiError(msg) from e
 
     def __repr__(self) -> str:
         """DX: Show the actual resolved target route instead of memory address.
@@ -266,7 +340,9 @@ class BaseEndpoint:
         if custom_headers and isinstance(custom_headers, dict):
             req_headers.update(custom_headers)
 
-        return req_headers
+        # CWE-400 / Crash Prevention: Enforce string keys and values to
+        # prevent HTTP protocol serialization crashes in requests/httpx.
+        return {str(k): str(v) for k, v in req_headers.items()}
 
     def _prepare_request(
         self,
@@ -294,11 +370,14 @@ class BaseEndpoint:
         safe_kwargs = SecurityGuard.filter_safe_kwargs(kwargs)
         safe_headers = SecurityGuard.sanitize_headers(headers) or {}
         target_domain = SecurityGuard.sanitize_domain(domain)
+        target_domain_normalized = SecurityGuard.normalize_domain(target_domain)
 
         actual_timeout = timeout if timeout is not None else self._timeout
         safe_timeout = SecurityGuard.sanitize_timeout(actual_timeout)
 
-        target_url = self.build_url(url, domain=target_domain, method=safe_method, **kwargs)
+        target_url = self.build_url(
+            url, domain=target_domain_normalized, method=safe_method, **kwargs
+        )
         self._warn_if_deprecated(safe_method, target_url)
 
         # PEP 578 and protection against Log Forging (CWE-117)
@@ -335,7 +414,7 @@ class Endpoint(BaseEndpoint):
         super().__init__(url, headers, auth, timeout=timeout, dry_run=dry_run)
         self._session = session or requests.Session()
 
-    def api_call(
+    def api_call(  # noqa: PLR0914, PLR0915
         self,
         auth: tuple[str, str] | None,
         method: str,
@@ -347,7 +426,7 @@ class Endpoint(BaseEndpoint):
         files: Any | None = None,
         domain: str | None = None,
         **kwargs: Any,
-    ) -> Response | Any:
+    ) -> APIResponseType:  # noqa: PLR0914, PLR0915 - Core request loop contains complex retry/sandbox logic
         """Execute the HTTP request to the Mailgun API.
 
         Args:
@@ -364,10 +443,6 @@ class Endpoint(BaseEndpoint):
 
         Returns:
             The HTTP response object from the server.
-
-        Raises:
-            MailgunTimeoutError: If the request times out.
-            ApiError: If the server returns a 4xx or 5xx status code or a network error occurs.
         """
         safe_method, target_url, safe_url_for_log, safe_timeout, safe_headers, safe_kwargs = (
             self._prepare_request(method, url, domain, timeout, headers, kwargs)
@@ -375,79 +450,130 @@ class Endpoint(BaseEndpoint):
 
         SecurityGuard.validate_no_control_characters(target_url, context="Endpoint URL")
 
-        # Zero-Leak Sandbox Mode Interception
+        # Prepare payload & headers via BaseEndpoint helper
+        data, safe_headers = self._prepare_payload(data, files, safe_headers)
+
+        # --- DRY RUN INTERCEPTOR (SYNC) ---
         if self.dry_run:
             logger.info(
-                "DRY RUN: Intercepting %s request to %s", safe_method.upper(), safe_url_for_log
+                "DRY RUN: Intercepting sync %s request to %s",
+                safe_method.upper(),
+                safe_url_for_log,
             )
             mock_resp = Response()
-            mock_resp.status_code = 200
+            mock_resp.status_code = HTTPStatus.OK
+            mock_resp._content = b'{"message": "Dry run successful - request intercepted", "id": "<dry-run-mock-id>"}'  # ruff: ignore[private-member-access]
             mock_resp.encoding = "utf-8"
-            mock_resp._content = b'{"message": "Dry run successful - request intercepted", "id": "<dry-run-mock-id>"}'  # noqa: SLF001
+            mock_resp.url = target_url
             return mock_resp
 
-        # Case-insensitive validation for Content-Type to conform with RFC 7230
-        is_json_request = any(
-            k.lower() == "content-type" and "application/json" in str(v).lower()
-            for k, v in safe_headers.items()
-        )
-
-        if is_json_request and data is not None and not isinstance(data, (str, bytes)):
-            data = json.dumps(data, separators=(",", ":"))
-
         req_method = getattr(self._session, safe_method.lower())
+        policy = getattr(self, "retry_policy", None) or RetryPolicy()
+        max_attempts = policy.max_retries + 1
 
         sys.audit("mailgun.api.request", safe_method.upper(), safe_url_for_log)
         logger.debug("Sending Request: %s %s", safe_method.upper(), safe_url_for_log)
 
-        try:
-            response = req_method(
-                target_url,
-                data=data,
-                params=filters,
-                headers=safe_headers,
-                auth=auth,
-                timeout=safe_timeout,
-                files=files,
-                verify=True,
-                stream=False,
-                allow_redirects=False,
-                **safe_kwargs,
-            )
+        response = None
 
-            status_code = getattr(response, "status_code", 200)
-            is_error = isinstance(status_code, int) and status_code >= _HTTP_ERROR_THRESHOLD
-            if is_error:
-                logger.error(
-                    "API Error %s | %s %s", status_code, safe_method.upper(), safe_url_for_log
-                )
-            else:
-                logger.debug(
-                    "API Success %s | %s %s",
-                    getattr(response, "status_code", 200),
-                    safe_method.upper(),
+        for attempt in range(max_attempts):
+            try:
+                response = req_method(
                     target_url,
+                    data=data,
+                    params=filters,
+                    headers=safe_headers,
+                    auth=auth,
+                    timeout=safe_timeout,
+                    files=files,
+                    verify=True,
+                    stream=False,
+                    allow_redirects=False,
+                    **safe_kwargs,
                 )
 
-        except requests.exceptions.Timeout as e:
-            logger.exception("Timeout Error: %s %s", safe_method.upper(), safe_url_for_log)
-            raise MailgunTimeoutError("Request timed out") from e
-        except RequestsConnectionError as e:
-            logger.critical("Connection Failed (DNS/Network): %s | URL: %s", e, safe_url_for_log)
-            msg = f"Network routing failed: {e}"
-            raise ApiError(msg) from e
-        except requests.RequestException as e:
-            logger.critical("Request Exception: %s | URL: %s", e, safe_url_for_log)
-            raise ApiError(e) from e
-        else:
-            return response
+                status_code = getattr(response, "status_code", 200)
+                is_transient_error = status_code in {429, 500, 502, 503, 504}
+
+                if is_transient_error and attempt < max_attempts - 1:
+                    delay = policy.calculate_delay(attempt)
+                    if status_code == HTTPStatus.TOO_MANY_REQUESTS and policy.respect_retry_after:
+                        retry_after = response.headers.get("Retry-After")
+                        if retry_after and retry_after.isdigit():
+                            delay = min(float(retry_after), policy.max_delay)
+
+                    logger.warning(
+                        "API Transient Error %s | Retrying in %.2fs (Attempt %d/%d) | URL: %s",
+                        status_code,
+                        delay,
+                        attempt + 1,
+                        policy.max_retries,
+                        safe_url_for_log,
+                    )
+                    self._reset_stream_pointers(files)
+                    time.sleep(delay)
+                    continue
+
+                is_error = isinstance(status_code, int) and status_code >= _HTTP_ERROR_THRESHOLD
+                if is_error:
+                    logger.error(
+                        "API Error %s | %s %s", status_code, safe_method.upper(), safe_url_for_log
+                    )
+                else:
+                    logger.debug(
+                        "API Success %s | %s %s", status_code, safe_method.upper(), safe_url_for_log
+                    )
+                break
+
+            except requests.RequestException as e:
+                if attempt < max_attempts - 1:
+                    delay = policy.calculate_delay(attempt)
+
+                    logger.warning(
+                        "Network Error: %s | Retrying in %.2fs | URL: %s",
+                        e,
+                        delay,
+                        safe_url_for_log,
+                    )
+
+                    self._reset_stream_pointers(files)
+
+                    time.sleep(delay)
+
+                    continue
+
+                if isinstance(e, requests.Timeout):
+                    logger.exception(
+                        "Request timed out for %s %s",
+                        safe_method.upper(),
+                        safe_url_for_log,
+                    )
+
+                elif isinstance(e, requests.ConnectionError):
+                    logger.critical(
+                        "Network routing failed for %s %s: %s",
+                        safe_method.upper(),
+                        safe_url_for_log,
+                        e,
+                    )
+
+                else:
+                    logger.exception(
+                        "API request failed for %s %s",
+                        safe_method.upper(),
+                        safe_url_for_log,
+                    )
+
+                self._handle_api_error(e, safe_method, target_url)
+
+        return response
 
     def get(
         self,
         filters: Mapping[str, str | Any] | None = None,
         domain: str | None = None,
         **kwargs: Any,
-    ) -> Response:
+    ) -> APIResponseType:
         """Send a GET request to retrieve resources.
 
         Args:
@@ -477,7 +603,7 @@ class Endpoint(BaseEndpoint):
         headers: Any = None,
         files: Any | None = None,
         **kwargs: Any,
-    ) -> Response:
+    ) -> APIResponseType:
         """Send a POST request to create a new resource or execute an action.
 
         Args:
@@ -508,8 +634,12 @@ class Endpoint(BaseEndpoint):
         )
 
     def put(
-        self, data: Any | None = None, filters: Mapping[str, str | Any] | None = None, **kwargs: Any
-    ) -> Response:
+        self,
+        data: Any | None = None,
+        filters: Mapping[str, str | Any] | None = None,
+        domain: str | None = None,
+        **kwargs: Any,
+    ) -> APIResponseType:
         """Send a PUT request to update or replace a resource.
 
         Args:
@@ -525,6 +655,7 @@ class Endpoint(BaseEndpoint):
             self._auth,
             "put",
             self._url,
+            domain=domain,
             headers=merged_headers,
             data=data,
             filters=filters,
@@ -532,8 +663,12 @@ class Endpoint(BaseEndpoint):
         )
 
     def patch(
-        self, data: Any | None = None, filters: Mapping[str, str | Any] | None = None, **kwargs: Any
-    ) -> Response:
+        self,
+        data: Any | None = None,
+        filters: Mapping[str, str | Any] | None = None,
+        domain: str | None = None,
+        **kwargs: Any,
+    ) -> APIResponseType:
         """Send a PATCH request to partially update a resource.
 
         Args:
@@ -549,6 +684,7 @@ class Endpoint(BaseEndpoint):
             self._auth,
             "patch",
             self._url,
+            domain=domain,
             data=data,
             headers=merged_headers,
             filters=filters,
@@ -556,8 +692,12 @@ class Endpoint(BaseEndpoint):
         )
 
     def update(
-        self, data: Any | None, filters: Mapping[str, str | Any] | None = None, **kwargs: Any
-    ) -> Response:
+        self,
+        data: Any | None,
+        filters: Mapping[str, str | Any] | None = None,
+        domain: str | None = None,
+        **kwargs: Any,
+    ) -> APIResponseType:
         """Send a PUT request specifically structured for updating resources with dynamic headers.
 
         Args:
@@ -573,13 +713,14 @@ class Endpoint(BaseEndpoint):
             self._auth,
             "put",
             self._url,
+            domain=domain,
             headers=merged_headers,
             data=data,
             filters=filters,
             **kwargs,
         )
 
-    def delete(self, domain: str | None = None, **kwargs: Any) -> Response:
+    def delete(self, domain: str | None = None, **kwargs: Any) -> APIResponseType:
         """Send a DELETE request to remove a resource.
 
         Args:
@@ -633,7 +774,34 @@ class Endpoint(BaseEndpoint):
             # Mailgun returns a full URL. Parse it to extract just the new pagination parameters
             # (like 'page' or 'url') so the next self.get() call works correctly.
             query_params = parse_qs(urlparse(next_url).query)
-            current_filters.update({k: v[0] for k, v in query_params.items()})
+            for k, v in query_params.items():
+                if not v:
+                    continue
+
+                # Default flatten logic for unknown or string parameters
+                parsed_str_val = v[0] if len(v) == 1 else v
+
+                # Prevent Query Parameter Type Drift
+                if k in current_filters:
+                    original_val = current_filters[k]
+
+                    # Dynamically cast to the developer's original type
+                    if isinstance(original_val, bool):
+                        current_filters[k] = str(v[0]).lower() in {"true", "1", "yes"}
+                    elif isinstance(original_val, int):
+                        current_filters[k] = int(v[0])
+                    elif isinstance(original_val, float):
+                        current_filters[k] = float(v[0])
+                    elif isinstance(original_val, list):
+                        current_filters[k] = v  # Always keep as list
+                    elif isinstance(original_val, tuple):
+                        current_filters[k] = tuple(v)  # Always keep as tuple
+                    elif isinstance(original_val, set):
+                        current_filters[k] = set(v)  # Always keep as set
+                    else:
+                        current_filters[k] = parsed_str_val
+                else:
+                    current_filters[k] = parsed_str_val
 
 
 # ==============================================================================
@@ -669,7 +837,7 @@ class AsyncEndpoint(BaseEndpoint):
         super().__init__(url, headers, auth, timeout=timeout, dry_run=dry_run)
         self._client = client or httpx.AsyncClient()
 
-    async def api_call(
+    async def api_call(  # noqa: PLR0912, PLR0914, PLR0915
         self,
         auth: tuple[str, str] | None,
         method: str,
@@ -677,11 +845,11 @@ class AsyncEndpoint(BaseEndpoint):
         headers: dict[str, str],
         data: Any | None = None,
         filters: Mapping[str, str | Any] | None = None,
-        timeout: TimeoutType = None,
+        timeout: TimeoutType = None,  # ruff: ignore[async-function-with-timeout]
         files: Any | None = None,
         domain: str | None = None,
         **kwargs: Any,
-    ) -> HttpxResponse:
+    ) -> AsyncAPIResponseType:  # noqa: PLR0912, PLR0914, PLR0915
         """Execute the asynchronous HTTP request to the Mailgun API.
 
         Args:
@@ -698,10 +866,6 @@ class AsyncEndpoint(BaseEndpoint):
 
         Returns:
             The HTTP response object from the server.
-
-        Raises:
-            MailgunTimeoutError: If the request times out.
-            ApiError: If the server returns a 4xx or 5xx status code or a network error occurs.
         """
         safe_method, target_url, safe_url_for_log, safe_timeout, safe_headers, safe_kwargs = (
             self._prepare_request(method, url, domain, timeout, headers, kwargs)
@@ -709,39 +873,29 @@ class AsyncEndpoint(BaseEndpoint):
 
         SecurityGuard.validate_no_control_characters(target_url, context="Endpoint URL")
 
-        # Zero-Leak Sandbox Mode Interception
+        data, safe_headers = self._prepare_payload(data, files, safe_headers)
+
+        # --- DRY RUN INTERCEPTOR (ASYNC) ---
         if self.dry_run:
             logger.info(
                 "DRY RUN: Intercepting async %s request to %s",
                 safe_method.upper(),
                 safe_url_for_log,
             )
+            mock_request = httpx.Request(safe_method.upper(), target_url)
             return httpx.Response(
-                status_code=200,
-                json={
-                    "message": "Dry run successful - request intercepted",
-                    "id": "<dry-run-mock-id>",
-                },
-                request=httpx.Request(method=safe_method.upper(), url=target_url),
+                HTTPStatus.OK,
+                request=mock_request,
+                content=b'{"message": "Dry run successful - request intercepted", "id": "<dry-run-mock-id>"}',
             )
 
-        if isinstance(safe_timeout, tuple):
+        if isinstance(safe_timeout, tuple) and len(safe_timeout) == 2:  # noqa: PLR2004
             safe_timeout = httpx.Timeout(safe_timeout[1], connect=safe_timeout[0])
-
-        # Case-insensitive validation for Content-Type to conform with RFC 7230
-        is_json_request = any(
-            k.lower() == "content-type" and "application/json" in str(v).lower()
-            for k, v in safe_headers.items()
-        )
-
-        if is_json_request and data is not None and not isinstance(data, (str, bytes)):
-            data = json.dumps(data, separators=(",", ":"))
 
         request_kwargs: dict[str, Any] = {
             "method": safe_method.upper(),
             "url": target_url,
             "params": filters,
-            "files": files,
             "headers": safe_headers,
             "auth": auth,
             "timeout": safe_timeout,
@@ -751,53 +905,119 @@ class AsyncEndpoint(BaseEndpoint):
         # Safe kwargs passthrough (e.g., allow_redirects)
         request_kwargs.update(safe_kwargs)
 
-        if isinstance(data, (str, bytes)):
-            request_kwargs["content"] = data
-        else:
-            request_kwargs["data"] = data
+        if data is not None:
+            if isinstance(data, (str, bytes)):
+                request_kwargs["content"] = data
+            else:
+                request_kwargs["data"] = data
 
-        # PEP 578 and protection against Log Forging (CWE-117)
+        if files is not None:
+            request_kwargs["files"] = files
+
+        policy = getattr(self, "retry_policy", None) or RetryPolicy()
+        max_attempts = policy.max_retries + 1
+
         sys.audit("mailgun.api.request", safe_method.upper(), safe_url_for_log)
         logger.debug("Sending Async Request: %s %s", safe_method.upper(), safe_url_for_log)
 
-        try:
-            response = await self._client.request(**request_kwargs)
+        response = None
 
-            status_code = getattr(response, "status_code", 200)
-            is_error = isinstance(status_code, int) and status_code >= _HTTP_ERROR_THRESHOLD
-            if is_error:
-                logger.error(
-                    "API Error %s | %s %s", status_code, safe_method.upper(), safe_url_for_log
-                )
-            else:
-                logger.debug(
-                    "API Success %s | %s %s",
-                    getattr(response, "status_code", 200),
-                    safe_method.upper(),
-                    target_url,
-                )
+        for attempt in range(max_attempts):
+            try:
+                response = await self._client.request(**request_kwargs)
 
-        except httpx.TimeoutException as e:
-            logger.exception("Timeout Error: %s %s", safe_method.upper(), safe_url_for_log)
-            raise MailgunTimeoutError("Request timed out") from e
-        except httpx.ConnectError as e:
-            logger.critical(
-                "Async Connection Failed (DNS/Network): %s | URL: %s", e, safe_url_for_log
-            )
-            msg = f"Network routing failed: {e}"
-            raise ApiError(msg) from e
-        except httpx.RequestError as e:
-            logger.critical("Request Exception: %s | URL: %s", e, safe_url_for_log)
-            raise ApiError(e) from e
-        else:
-            return response
+                status_code = getattr(response, "status_code", 200)
+                is_transient_error = status_code in {429, 500, 502, 503, 504}
+
+                if is_transient_error and attempt < max_attempts - 1:
+                    delay = policy.calculate_delay(attempt)
+
+                    if status_code == HTTPStatus.TOO_MANY_REQUESTS and policy.respect_retry_after:
+                        retry_after = response.headers.get("Retry-After")
+                        if retry_after and retry_after.isdigit():
+                            delay = min(float(retry_after), policy.max_delay)
+
+                    logger.warning(
+                        "API Async Transient Error %s | Retrying in %.2fs (Attempt %d/%d) | URL: %s",
+                        status_code,
+                        delay,
+                        attempt + 1,
+                        policy.max_retries,
+                        safe_url_for_log,
+                    )
+                    self._reset_stream_pointers(files)
+                    await asyncio.sleep(delay)
+                    continue
+
+                is_error = isinstance(status_code, int) and status_code >= _HTTP_ERROR_THRESHOLD
+                if is_error:
+                    logger.error(
+                        "API Async Error %s | %s %s",
+                        status_code,
+                        safe_method.upper(),
+                        safe_url_for_log,
+                    )
+                else:
+                    logger.debug(
+                        "API Async Success %s | %s %s",
+                        status_code,
+                        safe_method.upper(),
+                        safe_url_for_log,
+                    )
+
+                break
+
+            except httpx.RequestError as e:
+                if attempt < max_attempts - 1:
+                    delay = policy.calculate_delay(attempt)
+
+                    logger.warning(
+                        "Async Network Error: %s | Retrying in %.2fs (Attempt %d/%d) | URL: %s",
+                        e,
+                        delay,
+                        attempt + 1,
+                        policy.max_retries,
+                        safe_url_for_log,
+                    )
+
+                    self._reset_stream_pointers(files)
+
+                    await asyncio.sleep(delay)
+
+                    continue
+
+                if isinstance(e, httpx.TimeoutException):
+                    logger.exception(
+                        "Request timed out for %s %s",
+                        safe_method.upper(),
+                        safe_url_for_log,
+                    )
+
+                elif isinstance(e, (httpx.ConnectError, httpx.NetworkError)):
+                    logger.critical(
+                        "Network routing failed for %s %s: %s",
+                        safe_method.upper(),
+                        safe_url_for_log,
+                        e,
+                    )
+
+                else:
+                    logger.exception(
+                        "API request failed for %s %s",
+                        safe_method.upper(),
+                        safe_url_for_log,
+                    )
+
+                self._handle_api_error(e, safe_method, target_url)
+
+        return response
 
     async def get(
         self,
         filters: Mapping[str, str | Any] | None = None,
         domain: str | None = None,
         **kwargs: Any,
-    ) -> HttpxResponse:
+    ) -> AsyncAPIResponseType:
         """Send an asynchronous GET request to retrieve resources.
 
         Args:
@@ -827,7 +1047,7 @@ class AsyncEndpoint(BaseEndpoint):
         headers: Any = None,
         files: Any | None = None,
         **kwargs: Any,
-    ) -> HttpxResponse:
+    ) -> AsyncAPIResponseType:
         """Send an asynchronous POST request to create a new resource or execute an action.
 
         Args:
@@ -858,8 +1078,12 @@ class AsyncEndpoint(BaseEndpoint):
         )
 
     async def put(
-        self, data: Any | None = None, filters: Mapping[str, str | Any] | None = None, **kwargs: Any
-    ) -> HttpxResponse:
+        self,
+        data: Any | None = None,
+        filters: Mapping[str, str | Any] | None = None,
+        domain: str | None = None,
+        **kwargs: Any,
+    ) -> AsyncAPIResponseType:
         """Send an asynchronous PUT request to update or replace a resource.
 
         Args:
@@ -875,6 +1099,7 @@ class AsyncEndpoint(BaseEndpoint):
             self._auth,
             "put",
             self._url,
+            domain=domain,
             headers=merged_headers,
             data=data,
             filters=filters,
@@ -882,8 +1107,12 @@ class AsyncEndpoint(BaseEndpoint):
         )
 
     async def patch(
-        self, data: Any | None = None, filters: Mapping[str, str | Any] | None = None, **kwargs: Any
-    ) -> HttpxResponse:
+        self,
+        data: Any | None = None,
+        filters: Mapping[str, str | Any] | None = None,
+        domain: str | None = None,
+        **kwargs: Any,
+    ) -> AsyncAPIResponseType:
         """Send an asynchronous PATCH request to partially update a resource.
 
         Args:
@@ -899,6 +1128,7 @@ class AsyncEndpoint(BaseEndpoint):
             self._auth,
             "patch",
             self._url,
+            domain=domain,
             headers=merged_headers,
             data=data,
             filters=filters,
@@ -906,8 +1136,12 @@ class AsyncEndpoint(BaseEndpoint):
         )
 
     async def update(
-        self, data: Any | None, filters: Mapping[str, str | Any] | None = None, **kwargs: Any
-    ) -> HttpxResponse:
+        self,
+        data: Any | None,
+        filters: Mapping[str, str | Any] | None = None,
+        domain: str | None = None,
+        **kwargs: Any,
+    ) -> AsyncAPIResponseType:
         """Send an asynchronous PUT request specifically structured for updating resources with dynamic headers.
 
         Args:
@@ -924,13 +1158,14 @@ class AsyncEndpoint(BaseEndpoint):
             self._auth,
             "put",
             self._url,
+            domain=domain,
             headers=merged_headers,
             data=data,
             filters=filters,
             **kwargs,
         )
 
-    async def delete(self, domain: str | None = None, **kwargs: Any) -> httpx.Response:
+    async def delete(self, domain: str | None = None, **kwargs: Any) -> AsyncAPIResponseType:
         """Send an asynchronous DELETE request to remove a resource.
 
         Args:
@@ -974,4 +1209,23 @@ class AsyncEndpoint(BaseEndpoint):
                 break
 
             query_params = parse_qs(urlparse(next_url).query)
-            current_filters.update({k: v[0] for k, v in query_params.items()})
+            for k, v in query_params.items():
+                if not v:
+                    continue
+                parsed_str_val = v[0] if len(v) == 1 else v
+
+                # Prevent Query Parameter Type Drift
+                if k in current_filters:
+                    original_val = current_filters[k]
+
+                    # Dynamically cast to the developer's original type
+                    if isinstance(original_val, bool):
+                        current_filters[k] = str(v[0]).lower() in {"true", "1", "yes"}
+                    elif isinstance(original_val, int):
+                        current_filters[k] = int(v[0])
+                    elif isinstance(original_val, float):
+                        current_filters[k] = float(v[0])
+                    else:
+                        current_filters[k] = parsed_str_val
+                else:
+                    current_filters[k] = parsed_str_val

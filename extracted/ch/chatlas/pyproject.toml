@@ -13,7 +13,10 @@ dependencies = [
   "orjson",
   "rich",
   "openai",
-  "opentelemetry-api>=1.0"
+  "opentelemetry-api>=1.0",
+  # `_typing_extensions.py` backfills from here on older interpreters; 3.13+ has
+  # everything in `typing`. The floor is the release that added `TypeIs`.
+  "typing-extensions>=4.10; python_version < '3.13'",
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -54,12 +57,16 @@ test = [
     # vcrpy's aiohttp stub breaks on aiohttp 3.14+ (it references the removed
     # `aiohttp.streams.AsyncStreamReaderMixin`). Cap until vcrpy supports it.
     "aiohttp<3.14",
+    "boto3-stubs[bedrock-runtime]",
 ]
 dev = [
     "ruff>=0.6.5",
     "python-dotenv",
     "matplotlib",
     "Pillow",
+    # Optional for users, but required here so the HEIC/HEIF resize path is
+    # actually exercised rather than only its missing-dependency error.
+    "pillow-heif",
     "shiny",
     "htmltools>=0.7.0;python_version>='3.10'",
     "shinychat>=0.6.0",
@@ -100,6 +107,9 @@ eval = [
 ]
 # Provider extras ----
 anthropic = ["anthropic>=0.109.1"]
+# botocore is a direct import (region/credential resolution); the `bedrock`
+# extra of anthropic adds the boto3 session its mantle SigV4 signer needs.
+bedrock = ["botocore", "anthropic[bedrock]>=0.109.1", "openai>=2.50.0"]
 bedrock-anthropic = ["anthropic[bedrock]>=0.109.1"]
 databricks = ["databricks-sdk"]
 # Intentionally empty since these providers used to require 

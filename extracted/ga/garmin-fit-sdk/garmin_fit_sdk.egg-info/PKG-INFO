@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: garmin-fit-sdk
-Version: 21.208.0
+Version: 21.212.0
 Summary: Garmin FIT Python SDK
 Author: Garmin International, Inc.
 Project-URL: Homepage, https://github.com/garmin/fit-python-sdk
@@ -16,8 +16,10 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Operating System :: OS Independent
+Classifier: Typing :: Typed
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
+Requires-Dist: typing_extensions>=3.7.4; python_version < "3.8"
 Provides-Extra: dev
 Requires-Dist: pytest~=7.0.1; extra == "dev"
 Requires-Dist: pytest-cov~=3.0.0; extra == "dev"

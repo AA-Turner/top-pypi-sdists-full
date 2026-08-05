@@ -13,7 +13,8 @@
 # limitations under the License.
 
 
-from .device import Device
+from .device import Device, _SIGNALS_EXTENDED
+from joulescope.parameter import Parameter
 from joulescope.parameters_v1 import PARAMETERS_DICT, name_to_value
 
 
@@ -31,6 +32,50 @@ _SAMPLING_FREQUENCIES = [
     1_000, 2_000, 5_000, 10_000, 20_000, 50_000,
     100_000, 200_000, 500_000, 1_000_000,
 ]
+
+
+def _frequency_name(f):
+    if f >= 1_000_000:
+        return f'{f // 1_000_000} MHz'
+    elif f >= 1_000:
+        return f'{f // 1_000} kHz'
+    return f'{f} Hz'
+
+
+def sampling_frequency_parameter(frequencies, default):
+    """Construct the device-specific sampling_frequency parameter.
+
+    :param frequencies: The supported output frequencies in Hz, ascending.
+    :param default: The default frequency in Hz.
+    :return: The :class:`joulescope.parameter.Parameter` instance.
+    """
+    options = []
+    for f in sorted(frequencies, reverse=True):
+        aliases = [f]
+        if f == default:
+            aliases += ['auto', None, 'default']
+        options.append((_frequency_name(f), f, aliases))
+    return Parameter(
+        name='sampling_frequency',
+        brief='The rate that the device produces samples.',
+        path='setting',
+        default=_frequency_name(default),
+        options=options,
+        units='Hz',
+        flags=['skip_update'])
+
+
+_V_RANGE_PARAMETER = Parameter(
+    name='v_range',
+    brief='Select the voltage measurement range (gain)',
+    detail='The JS110 5V range values are accepted for backwards '
+           'compatibility and select the 15 V range.',
+    path='setting',
+    default='15V',
+    options=[
+        ('15V', '15 V', ['15 V', 'low', 0, '5V', '5 V', 'high', 1]),
+        ('2V', '2 V', ['2 V', 2]),
+    ])
 
 
 def _signal_bool(value):
@@ -68,7 +113,13 @@ class DeviceJs220(Device):
         self._input_sampling_frequency = 2000000
         self._output_sampling_frequency = 1000000
         self._parameters['sampling_frequency'] = self._output_sampling_frequency
-        self._stream_topics = ['s/i/', 's/v/', 's/p/', 's/i/range/', 's/gpi/0/', 's/gpi/1/']
+        self._signals_map.update(_SIGNALS_EXTENDED)  # gpi2, gpi3, trigger_in
+        # advertise only the frequencies that parameter_set accepts: the
+        # shared validation table has no entries below 10 Hz
+        frequencies = [f for f in _SAMPLING_FREQUENCIES if f >= 10]
+        self._parameters_override['sampling_frequency'] = \
+            sampling_frequency_parameter(frequencies, 1_000_000)
+        self._parameters_override['v_range'] = _V_RANGE_PARAMETER
 
     def parameter_set(self, name, value):
         value_orig = value
@@ -80,12 +131,16 @@ class DeviceJs220(Device):
             if name == 'v_range' and value in ['2V', '2 V', '2', 2]:
                 value = '2 V'
             else:
+                if name == 'v_range' and isinstance(value, str):
+                    value = value.replace(' ', '')  # '5 V' -> '5V'
                 value = name_to_value(name, value)
         except KeyError:
             if p.validator is None:
                 raise KeyError(f'value {value} not allowed for parameter {name}')
             else:
                 value = p.validator(value)
+        if name == 'signals':
+            self._on_signals(value)  # validate for this device model
         self._parameters[name] = value
         if not self.is_open:
             self._parameter_set_queue.append((name, value_orig))
@@ -93,6 +148,17 @@ class DeviceJs220(Device):
         k = self._param_map.get(name)
         if k is not None:
             k(value)
+
+    def _on_signals(self, value):
+        super()._on_signals(value)
+        selected = value.split(',')
+        if self.model == 'js220' and 'r' in selected and len(selected) > 7:
+            # HIL-characterized JS220 limitation (2026-07-31): with 8 or
+            # more streams enabled, the current_range stream delivers no
+            # data, which stalls read().  The JS320 has no such limit.
+            raise ValueError(
+                'JS220 supports at most 7 concurrent signals when '
+                'current_range (r) is selected')
 
     def _on_i_range(self, value):
         if value == 0x80:
@@ -108,10 +174,14 @@ class DeviceJs220(Device):
         if value == 'auto':
             self.publish('s/v/range/mode', 'auto')
         else:
-            # JS110 current ranges are 5 and 15 V, cannot map to 2 V
-            if value in ['2V', '2 V']:
+            if value in ['2V', '2 V', 2]:
                 value = '2 V'
-            elif value in ['15V', '15 V', 0]:
+            elif value in ['15V', '15 V', 'low', 0]:
+                value = '15 V'
+            elif value in ['5V', '5 V', 'high', 1]:
+                # The JS110 5V range has no JS220/JS320 equivalent.
+                # Use 15 V for backwards compatibility: it accepts any
+                # 5V-range signal, unlike 2 V.
                 value = '15 V'
             self.publish('s/v/range/select', value)
             self.publish('s/v/range/mode', 'manual')
@@ -155,8 +225,8 @@ class DeviceJs220(Device):
         elif config == 'ignore':
             pass  # do nothing
         elif config == 'off':
-            for topic in self._stream_topics:
-                self.publish(topic + 'ctrl', 0)
+            for info in self._signals_map.values():
+                self.publish(info['topic'] + 'ctrl', 0)
         else:
             self._log.warning('Unsupported config %s', config)
 

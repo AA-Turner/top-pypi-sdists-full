@@ -114,7 +114,7 @@ def _on_migrate_sde_relationships(apps, schema_editor) -> None:
     # Bulk delete in chunks of DB_CHUNK_SIZE
     deleted_count = 0
     for chunk_ids in _chunks(to_delete_ids, DB_CHUNK_SIZE):
-        fat_model.objects.using(db_alias).filter(id__in=chunk_ids).delete()
+        fat_model.objects.using(db_alias).filter(pk__in=chunk_ids).delete()
         deleted_count += len(chunk_ids)
 
     print(f"Bulk update completed. Updated: {updated_count}, Deleted: {deleted_count}")

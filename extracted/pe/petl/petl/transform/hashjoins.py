@@ -47,13 +47,13 @@ class HashJoinView(Table):
         self.right = stack(right, missing=missing)
         self.lkey = lkey
         self.rkey = rkey
-        self.cache = cache
+        self._cache = cache
         self.rlookup = None
         self.lprefix = lprefix
         self.rprefix = rprefix
         
     def __iter__(self):
-        if not self.cache or self.rlookup is None:
+        if not self._cache or self.rlookup is None:
             self.rlookup = lookup(self.right, self.rkey)
         return iterhashjoin(self.left, self.right, self.lkey, self.rkey,
                             self.rlookup, self.lprefix, self.rprefix)
@@ -146,13 +146,13 @@ class HashLeftJoinView(Table):
         self.lkey = lkey
         self.rkey = rkey
         self.missing = missing
-        self.cache = cache
+        self._cache = cache
         self.rlookup = None
         self.lprefix = lprefix
         self.rprefix = rprefix
 
     def __iter__(self):
-        if not self.cache or self.rlookup is None:
+        if not self._cache or self.rlookup is None:
             self.rlookup = lookup(self.right, self.rkey)
         return iterhashleftjoin(self.left, self.right, self.lkey, self.rkey,
                                 self.missing, self.rlookup, self.lprefix,
@@ -252,13 +252,13 @@ class HashRightJoinView(Table):
         self.lkey = lkey
         self.rkey = rkey
         self.missing = missing
-        self.cache = cache
+        self._cache = cache
         self.llookup = None
         self.lprefix = lprefix
         self.rprefix = rprefix
 
     def __iter__(self):
-        if not self.cache or self.llookup is None:
+        if not self._cache or self.llookup is None:
             self.llookup = lookup(self.left, self.lkey)
         return iterhashrightjoin(self.left, self.right, self.lkey, self.rkey,
                                  self.missing, self.llookup, self.lprefix,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-tenants
-Version: 3.12.0
+Version: 3.13.0
 Summary: Tenant support for Django using PostgreSQL schemas.
 Author-email: Thomas Turner <tom@twt.me.uk>
 License-Expression: MIT

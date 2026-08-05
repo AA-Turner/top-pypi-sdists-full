@@ -2,8 +2,8 @@ mod utils;
 
 use serial_test::serial;
 use statsig_rust::{
-    output_logger::LogLevel, ObservabilityClient, OpsStatsEventObserver, Statsig, StatsigOptions,
-    StatsigUser,
+    ObservabilityClient, OpsStatsEventObserver, Statsig, StatsigOptions, StatsigUser,
+    output_logger::LogLevel,
 };
 use std::{
     fs,
@@ -454,10 +454,55 @@ async fn test_config_propagation_dist_recorded() {
         calls: Mutex::new(Vec::new()),
     });
 
-    let (_, statsig) = setup(&obs_client).await;
+    let (mock_scrapi, statsig) = setup(&obs_client).await;
 
     statsig.initialize().await.unwrap();
-    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    let has_propagation_metric = || {
+        obs_client.calls.lock().unwrap().iter().any(|call| {
+            matches!(
+                call,
+                RecordedCall::Dist(metric_name, _, _)
+                    if metric_name == "statsig.sdk.config_propagation_diff"
+            )
+        })
+    };
+
+    // The default fixture intentionally omits a checksum. Re-applying the same
+    // checksumless response must not report an old LCUT as new propagation.
+    tokio::time::sleep(Duration::from_millis(10)).await;
+    assert!(!has_propagation_metric());
+
+    // A changed checksum at the same LCUT is a real reconciliation and should
+    // still be reported.
+    let repair_test_user = StatsigUser::with_user_id("repair-test-user");
+    assert!(!statsig.check_gate(&repair_test_user, "test_country_partial"));
+
+    let mut updated_specs: serde_json::Value =
+        serde_json::from_str(&load_contents("eval_proj_dcs.json")).unwrap();
+    let initial_lcut = updated_specs["time"].as_u64().unwrap();
+    updated_specs["checksum"] = serde_json::json!("equal-lcut-repair-checksum");
+    updated_specs["feature_gates"]["test_country_partial"]["enabled"] = serde_json::json!(true);
+    updated_specs["feature_gates"]["test_country_partial"]["defaultValue"] =
+        serde_json::json!(true);
+
+    mock_scrapi.clear_stubs().await;
+    mock_scrapi
+        .stub(EndpointStub {
+            method: Method::GET,
+            response: StubData::String(updated_specs.to_string()),
+            ..EndpointStub::with_endpoint(Endpoint::DownloadConfigSpecs)
+        })
+        .await;
+
+    let deadline = Instant::now() + Duration::from_secs(1);
+    while Instant::now() < deadline
+        && (!statsig.check_gate(&repair_test_user, "test_country_partial")
+            || !has_propagation_metric())
+    {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert!(statsig.check_gate(&repair_test_user, "test_country_partial"));
+    assert!(has_propagation_metric());
 
     let calls = obs_client.calls.lock().unwrap();
 
@@ -483,7 +528,8 @@ async fn test_config_propagation_dist_recorded() {
     assert_eq!(tags.get("source"), Some(&"Network".to_string()));
     assert_eq!(tags.get("sdk_key"), Some(&SDK_KEY.to_string()));
     assert_eq!(tags.get("response_type"), Some(&"full".to_string()));
-    assert!(tags.contains_key("lcut"));
+    assert_eq!(tags.get("lcut"), Some(&initial_lcut.to_string()));
+    assert_eq!(tags.get("prev_lcut"), Some(&initial_lcut.to_string()));
 }
 
 #[tokio::test]
@@ -1019,4 +1065,144 @@ async fn test_config_sync_overall_latency_recorded_for_network_error() {
     assert_eq!(tags.get("deltas_used"), Some(&"false".to_string()));
     assert_eq!(tags.get("format"), Some(&"unknown".to_string()));
     assert!(error.contains("500"));
+}
+
+async fn config_sync_full_fallback_tags(
+    response_reason: Option<&str>,
+    response_source: Option<&str>,
+) -> std::collections::HashMap<String, String> {
+    let obs_client = Arc::new(MockObservabilityClient {
+        calls: Mutex::new(Vec::new()),
+    });
+
+    let mock_scrapi = MockScrapi::new().await;
+    let mut raw_dcs_str = load_contents("eval_proj_dcs.json");
+    raw_dcs_str = raw_dcs_str.replace(
+        r#""checksum":"8506699639233708000""#,
+        r#""IGNORED_CHECKSUM_VALUE":"""#,
+    );
+
+    let mut response_headers = std::collections::HashMap::new();
+    if let Some(reason) = response_reason {
+        response_headers.insert(
+            "x-statsig-delta-fallback-reason".to_string(),
+            reason.to_string(),
+        );
+    }
+    if let Some(source) = response_source {
+        response_headers.insert(
+            "x-statsig-delta-fallback-source".to_string(),
+            source.to_string(),
+        );
+    }
+
+    mock_scrapi
+        .stub(EndpointStub {
+            method: Method::GET,
+            response: StubData::String(raw_dcs_str),
+            res_headers: (!response_headers.is_empty()).then_some(response_headers),
+            ..EndpointStub::with_endpoint(Endpoint::DownloadConfigSpecs)
+        })
+        .await;
+
+    let weak_obs_client = Arc::downgrade(&obs_client) as Weak<dyn ObservabilityClient>;
+    let statsig = Statsig::new(
+        SDK_KEY,
+        Some(Arc::new(StatsigOptions {
+            observability_client: Some(weak_obs_client),
+            disable_all_logging: Some(true),
+            specs_url: Some(mock_scrapi.url_for_endpoint(Endpoint::DownloadConfigSpecs)),
+            enable_dcs_deltas: Some(true),
+            specs_sync_interval_ms: Some(5_000),
+            output_log_level: Some(LogLevel::Debug),
+            ..StatsigOptions::new()
+        })),
+    );
+
+    statsig.initialize().await.unwrap();
+
+    let deadline = Instant::now() + Duration::from_secs(1);
+    let mut found_tags = None;
+    while Instant::now() < deadline {
+        {
+            let calls = obs_client.calls.lock().unwrap();
+            for call in calls.iter() {
+                if let RecordedCall::Increment(metric_name, value, tags) = call {
+                    if metric_name == "statsig.sdk.config_sync_full_fallback.count" && *value == 1.0
+                    {
+                        found_tags = tags.clone();
+                        break;
+                    }
+                }
+            }
+        }
+        if found_tags.is_some() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+
+    assert!(
+        found_tags.is_some(),
+        "Expected config_sync_full_fallback.count metric"
+    );
+    let tags = found_tags.unwrap();
+    assert_eq!(tags.get("cursor_state"), Some(&"initial".to_string()));
+    assert_eq!(tags.get("source_api"), Some(&mock_scrapi.get_server_api()));
+    assert_eq!(
+        tags.get("sdk_type"),
+        Some(&"statsig-server-core".to_string())
+    );
+    assert!(tags.get("sdk_version").is_some_and(|v| !v.is_empty()));
+
+    statsig.shutdown().await.unwrap();
+    tags
+}
+
+#[tokio::test]
+#[serial]
+async fn test_config_sync_full_fallback_count_records_sfp_reason() {
+    let tags =
+        config_sync_full_fallback_tags(Some("before_earliest_lcut"), Some("local_compute")).await;
+
+    assert_eq!(
+        tags.get("fallback_reason"),
+        Some(&"before_earliest_lcut".to_string())
+    );
+    assert_eq!(
+        tags.get("fallback_source"),
+        Some(&"local_compute".to_string())
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn test_config_sync_full_fallback_count_records_missing_header() {
+    let tags = config_sync_full_fallback_tags(None, None).await;
+
+    assert_eq!(
+        tags.get("fallback_reason"),
+        Some(&"missing_header".to_string())
+    );
+    assert_eq!(
+        tags.get("fallback_source"),
+        Some(&"missing_header".to_string())
+    );
+}
+
+#[tokio::test]
+#[serial]
+async fn test_config_sync_full_fallback_count_records_invalid_header() {
+    let tags =
+        config_sync_full_fallback_tags(Some("raw-unbounded-reason"), Some("raw-unbounded-source"))
+            .await;
+
+    assert_eq!(
+        tags.get("fallback_reason"),
+        Some(&"invalid_header".to_string())
+    );
+    assert_eq!(
+        tags.get("fallback_source"),
+        Some(&"invalid_header".to_string())
+    );
 }

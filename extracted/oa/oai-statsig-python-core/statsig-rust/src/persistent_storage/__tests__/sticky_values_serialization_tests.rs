@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use crate::{
-    interned_string::InternedString, specs_response::explicit_params::ExplicitParameters,
-    DynamicReturnable, SecondaryExposure, StickyValues,
+    DynamicReturnable, SecondaryExposure, StickyValues, interned_string::InternedString,
+    specs_response::explicit_params::ExplicitParameters,
 };
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 #[test]
 fn test_sticky_values_deserialization_from_value() {

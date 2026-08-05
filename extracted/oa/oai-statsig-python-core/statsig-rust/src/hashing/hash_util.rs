@@ -1,4 +1,4 @@
-use serde::{de::Error, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, de::Error};
 
 use super::{djb2::djb2, memo_sha_256::MemoSha256};
 use std::fmt::Display;

@@ -44,6 +44,7 @@ class SubmitInputArgs(TypedDict, total=False):
             "gpt-5.6-sol",
             "gpt-5.6-terra",
             "gpt-5.6-luna",
+            "gpt-5.5",
             "gpt-5.4",
             "gpt-5.4-mini",
             "gpt-5.4-nano",
@@ -174,7 +175,9 @@ class SubmitInputArgs(TypedDict, total=False):
     safety_identifier: Union[str, None, openai.Omit]
     seed: Union[int, None, openai.Omit]
     service_tier: Union[
-        Literal["auto", "default", "flex", "scale", "priority"], None, openai.Omit
+        Literal["auto", "default", "flex", "scale", "priority", "fast"],
+        None,
+        openai.Omit,
     ]
     stop: Union[str, None, Sequence[str], openai.Omit]
     store: Union[bool, None, openai.Omit]

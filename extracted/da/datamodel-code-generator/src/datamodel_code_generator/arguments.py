@@ -763,6 +763,12 @@ typing_options.add_argument(
     default=None,
 )
 typing_options.add_argument(
+    "--use-total-false-for-typed-dict",
+    help="Generate TypedDict with total=False and mark required fields with Required",
+    action="store_true",
+    default=None,
+)
+typing_options.add_argument(
     "--use-closed-typed-dict",
     help="Generate TypedDict with PEP 728 closed=True/extra_items for additionalProperties constraints. "
     "Use --no-use-closed-typed-dict for type checkers that don't yet support PEP 728 (e.g., mypy).",
@@ -793,6 +799,12 @@ typing_options.add_argument(
     default=None,
 )
 typing_options.add_argument(
+    "--use-type-alias-type",
+    help="Use TypeAliasType for type aliases on Python 3.10 and 3.11 (implies --use-type-alias; experimental)",
+    action="store_true",
+    default=None,
+)
+typing_options.add_argument(
     "--use-root-model-type-alias",
     help="Use type alias format for RootModel (e.g., Foo = RootModel[Bar]) "
     "instead of class inheritance (Pydantic v2 only)",
@@ -803,6 +815,14 @@ typing_options.add_argument(
     "--disable-future-imports",
     help="Disable __future__ imports",
     action="store_true",
+    default=None,
+)
+typing_options.add_argument(
+    "--import-overrides",
+    help="Override modules for generated imports by symbol name. "
+    "Format: JSON object mapping symbols to module paths. "
+    'Example: \'{"TypedDict": "my_project.typing_compat", "NotRequired": "my_project.typing_compat"}\'.',
+    type=str,
     default=None,
 )
 typing_options.add_argument(

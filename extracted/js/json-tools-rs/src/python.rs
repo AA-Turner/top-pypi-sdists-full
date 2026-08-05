@@ -1018,6 +1018,18 @@ fn extract_arrow_string_values(
     let Ok(chunked) = col.extract::<PyChunkedArray>() else {
         return Ok(None);
     };
+    Ok(extract_arrow_string_values_from_chunked(&chunked))
+}
+
+/// Pure-Rust half of [`extract_arrow_string_values`] -- everything after the
+/// one `Bound`-touching `.extract::<PyChunkedArray>()` call. Split out so
+/// callers that already hold a `PyChunkedArray` (no need to re-fetch/re-
+/// extract the column) can call this directly, and so the work can run
+/// inside a `py.detach()` block (this function never touches `py`).
+#[cfg(feature = "python")]
+fn extract_arrow_string_values_from_chunked(
+    chunked: &PyChunkedArray,
+) -> Option<Vec<Option<CompactString>>> {
     let mut out = Vec::new();
     for chunk in chunked.chunks() {
         if let Some(arr) = chunk.as_any().downcast_ref::<StringArray>() {
@@ -1028,15 +1040,15 @@ fn extract_arrow_string_values(
             for i in 0..arr.len() {
                 out.push(arr.is_valid(i).then(|| CompactString::from(arr.value(i))));
             }
-        } else if let Some(arr) = chunk.as_any().downcast_ref::<StringViewArray>() {
+        } else {
+            // Not a string array (int/float/bool/struct/...).
+            let arr = chunk.as_any().downcast_ref::<StringViewArray>()?;
             for i in 0..arr.len() {
                 out.push(arr.is_valid(i).then(|| CompactString::from(arr.value(i))));
             }
-        } else {
-            return Ok(None); // not a string array (int/float/bool/struct/...)
         }
     }
-    Ok(Some(out))
+    Some(out)
 }
 
 /// Check whether a leaf value's text is itself a JSON object or array --
@@ -3294,25 +3306,37 @@ fn check_arrow_fastpath_eligibility(
     // string"), sampling at most `JSON_COLUMN_DETECTION_SAMPLE_SIZE` non-null
     // values per column via the same zero-copy extraction the value pipeline
     // will need anyway if this column turns out eligible.
-    let mut string_values: Vec<Option<Vec<Option<CompactString>>>> = vec![None; column_names.len()];
-    for (i, kind) in kinds.iter().enumerate() {
-        if !matches!(kind, ArrowColKind::String) {
-            continue;
+    // Pure-Rust from here: `chunked_arrays` is already fully extracted
+    // (above), so string-value extraction + the JSON-text sample check never
+    // touch a `Bound<'py, PyAny>` -- release the GIL for it. This loop is
+    // O(rows) (unlike the JSON-text sample check inside it, which is bounded
+    // by `JSON_COLUMN_DETECTION_SAMPLE_SIZE`), so it's worth detaching for.
+    let py = df.py();
+    let string_values: Option<Vec<Option<Vec<Option<CompactString>>>>> = py.detach(|| {
+        let mut string_values: Vec<Option<Vec<Option<CompactString>>>> =
+            vec![None; column_names.len()];
+        for (i, kind) in kinds.iter().enumerate() {
+            if !matches!(kind, ArrowColKind::String) {
+                continue;
+            }
+            let Some(values) = extract_arrow_string_values_from_chunked(&chunked_arrays[i]) else {
+                return None; // schema said string, extraction disagreed -- bail safely
+            };
+            let sampled_json = values
+                .iter()
+                .flatten()
+                .take(JSON_COLUMN_DETECTION_SAMPLE_SIZE)
+                .any(|v| is_json_object_or_array_text(v));
+            if sampled_json {
+                return None;
+            }
+            string_values[i] = Some(values);
         }
-        let col = dataframe_get_column(df, df_type, &column_names[i])?;
-        let Some(values) = extract_arrow_string_values(&col)? else {
-            return Ok(None); // schema said string, extraction disagreed -- bail safely
-        };
-        let sampled_json = values
-            .iter()
-            .flatten()
-            .take(JSON_COLUMN_DETECTION_SAMPLE_SIZE)
-            .any(|v| is_json_object_or_array_text(v));
-        if sampled_json {
-            return Ok(None);
-        }
-        string_values[i] = Some(values);
-    }
+        Some(string_values)
+    });
+    let Some(string_values) = string_values else {
+        return Ok(None);
+    };
 
     // Column-name planning: exclusions, then rename, preserving first-seen
     // order of each final unique name (matches `flatten.rs`'s own
@@ -3537,87 +3561,107 @@ fn execute_arrow_fastpath(
     config: &ProcessingConfig,
 ) -> PyResult<Py<PyAny>> {
     let dates_enabled = config.type_conversion.dates.enabled;
-    let mut fields: Vec<Field> = Vec::with_capacity(plan.output_columns.len());
-    let mut arrays: Vec<ArrayRef> = Vec::with_capacity(plan.output_columns.len());
 
-    for (name, col_plan) in &plan.output_columns {
-        match col_plan {
-            FastPathColumn::PassThrough { source_col } => {
-                let arr = concat_chunks(&chunked_arrays[*source_col])?;
-                fields.push(Field::new(name, arr.data_type().clone(), true));
-                arrays.push(arr);
-            }
-            FastPathColumn::PassThroughWrapped { source_col } => {
-                let arr = concat_chunks(&chunked_arrays[*source_col])?;
-                let wrapped = wrap_as_single_element_list(arr, "item");
-                fields.push(Field::new(name, wrapped.data_type().clone(), true));
-                arrays.push(wrapped);
-            }
-            FastPathColumn::StringTransform { source_col, wrap } => {
-                let values = string_values[*source_col]
-                    .as_ref()
-                    .expect("string column always has extracted values by this point");
+    // The entire per-column build (extraction, per-cell transform, and Arrow
+    // array construction) is pure Rust / arrow-rs -- it never touches a
+    // `Bound<'py, PyAny>` or takes a `py` parameter (`concat_chunks` only
+    // calls `.chunks()`/`.data_type()`; `ColumnBuilder`/`wrap_as_single_
+    // element_list` are pure arrow-rs; `transform_string_cell` is pure
+    // Rust). For a large DataFrame this can be tens of milliseconds of
+    // computation, so release the GIL for it -- otherwise every other
+    // Python thread in the process (a multi-threaded web server, a
+    // ThreadPoolExecutor) stalls for no reason, matching every other
+    // execution path in this file (see their own `py.detach()` calls).
+    // `PyChunkedArray` is `Send` (it's a `#[pyclass(frozen)]` wrapping
+    // `Vec<ArrayRef>`/`FieldRef`, both `Send + Sync` via arrow-rs; pyo3's
+    // `#[pyclass]` macro requires `Send` to compile unless marked
+    // `unsendable`, which it isn't).
+    let (fields, arrays): (Vec<Field>, Vec<ArrayRef>) = py.detach(move || {
+        let mut fields: Vec<Field> = Vec::with_capacity(plan.output_columns.len());
+        let mut arrays: Vec<ArrayRef> = Vec::with_capacity(plan.output_columns.len());
 
-                // Pass 1: transform every cell, accumulate this column's
-                // resolved kind (same bool > numeric > string priority as
-                // `build_normalise_table`), and track whether this key would
-                // ever actually appear in the old (JSON-text) path's output.
-                // A genuine source null keeps the key present (value null) --
-                // `remove_nulls`/`value_exclusions` are excluded from fast-
-                // path eligibility entirely (see eligibility check), so the
-                // only way a cell's key is *omitted* here is
-                // `remove_empty_strings` filtering a replaced value to "" (the
-                // one remaining early-return in `transform_string_cell`).
-                // If EVERY row omits the key this way, the old path never
-                // creates this column at all -- drop it here too, rather
-                // than emit an always-null column the old path never would.
-                let mut transformed: Vec<Option<CompactString>> = Vec::with_capacity(values.len());
-                let mut flags = KindFlags::default();
-                let mut any_key_present = false;
-                for cell in values {
-                    match cell {
-                        None => {
-                            any_key_present = true; // genuine null: key stays present
-                            transformed.push(None);
-                        }
-                        Some(raw) => {
-                            let out = transform_string_cell(raw, config);
-                            if let Some(text) = &out {
-                                any_key_present = true;
-                                if let Some(k) = raw_scalar_kind(text, dates_enabled) {
-                                    flags.merge(k);
-                                }
-                            }
-                            transformed.push(out);
-                        }
-                    }
-                }
-
-                if !any_key_present {
-                    continue; // this key never appears in any row -- no column at all
-                }
-
-                let scalar_kind = flags.resolve();
-
-                // Pass 2: build the typed array from the transformed text.
-                let mut builder =
-                    ColumnBuilder::new(ColumnPlan::Scalar(scalar_kind), transformed.len());
-                for cell in &transformed {
-                    builder.append_row(cell.as_deref());
-                }
-                let arr = builder.finish();
-
-                if *wrap {
-                    let wrapped = wrap_as_single_element_list(arr, "item");
-                    fields.push(Field::new(name, wrapped.data_type().clone(), true));
-                    arrays.push(wrapped);
-                } else {
+        for (name, col_plan) in &plan.output_columns {
+            match col_plan {
+                FastPathColumn::PassThrough { source_col } => {
+                    let arr = concat_chunks(&chunked_arrays[*source_col])?;
                     fields.push(Field::new(name, arr.data_type().clone(), true));
                     arrays.push(arr);
                 }
+                FastPathColumn::PassThroughWrapped { source_col } => {
+                    let arr = concat_chunks(&chunked_arrays[*source_col])?;
+                    let wrapped = wrap_as_single_element_list(arr, "item");
+                    fields.push(Field::new(name, wrapped.data_type().clone(), true));
+                    arrays.push(wrapped);
+                }
+                FastPathColumn::StringTransform { source_col, wrap } => {
+                    let values = string_values[*source_col]
+                        .as_ref()
+                        .expect("string column always has extracted values by this point");
+
+                    // Pass 1: transform every cell, accumulate this column's
+                    // resolved kind (same bool > numeric > string priority as
+                    // `build_normalise_table`), and track whether this key would
+                    // ever actually appear in the old (JSON-text) path's output.
+                    // A genuine source null keeps the key present (value null) --
+                    // `remove_nulls`/`value_exclusions` are excluded from fast-
+                    // path eligibility entirely (see eligibility check), so the
+                    // only way a cell's key is *omitted* here is
+                    // `remove_empty_strings` filtering a replaced value to "" (the
+                    // one remaining early-return in `transform_string_cell`).
+                    // If EVERY row omits the key this way, the old path never
+                    // creates this column at all -- drop it here too, rather
+                    // than emit an always-null column the old path never would.
+                    let mut transformed: Vec<Option<CompactString>> =
+                        Vec::with_capacity(values.len());
+                    let mut flags = KindFlags::default();
+                    let mut any_key_present = false;
+                    for cell in values {
+                        match cell {
+                            None => {
+                                any_key_present = true; // genuine null: key stays present
+                                transformed.push(None);
+                            }
+                            Some(raw) => {
+                                let out = transform_string_cell(raw, config);
+                                if let Some(text) = &out {
+                                    any_key_present = true;
+                                    if let Some(k) = raw_scalar_kind(text, dates_enabled) {
+                                        flags.merge(k);
+                                    }
+                                }
+                                transformed.push(out);
+                            }
+                        }
+                    }
+
+                    if !any_key_present {
+                        continue; // this key never appears in any row -- no column at all
+                    }
+
+                    let scalar_kind = flags.resolve();
+
+                    // Pass 2: build the typed array from the transformed text.
+                    let mut builder =
+                        ColumnBuilder::new(ColumnPlan::Scalar(scalar_kind), transformed.len());
+                    for cell in &transformed {
+                        builder.append_row(cell.as_deref());
+                    }
+                    let arr = builder.finish();
+
+                    if *wrap {
+                        let wrapped = wrap_as_single_element_list(arr, "item");
+                        fields.push(Field::new(name, wrapped.data_type().clone(), true));
+                        arrays.push(wrapped);
+                    } else {
+                        fields.push(Field::new(name, arr.data_type().clone(), true));
+                        arrays.push(arr);
+                    }
+                }
             }
         }
-    }
+
+        Ok::<_, PyErr>((fields, arrays))
+    })?;
 
     let schema = Arc::new(Schema::new(fields));
     let batch = RecordBatch::try_new(schema.clone(), arrays).map_err(|e| {
@@ -3909,6 +3953,50 @@ fn pandas_plan_for_column(
     }
 }
 
+/// One pandas `StringTransform` cell's Pass-1 outcome. A cell can become
+/// "empty" for two *different* reasons that the old (slow, JSON-text) path
+/// reconstructs differently, and this distinguishes them rather than
+/// collapsing both to a bare `None`: a genuine source null keeps the row's
+/// dict key present with value `null`, which `pd.DataFrame(list_of_dicts)`
+/// keeps as a real Python `None`; `remove_empty_strings` filtering a
+/// replaced value to `""` instead makes the old path *omit the key from
+/// that row's dict entirely*, and pandas fills a key missing from only some
+/// rows with `NaN` (a `float`), not `None` -- confirmed directly against the
+/// slow path (forced via a disqualifying column) rather than assumed.
+#[cfg(feature = "python")]
+enum PandasStringCell {
+    Value(CompactString),
+    Null,
+    Omitted,
+}
+
+/// Pure-Rust Pass 1 for one pandas `StringTransform` column (see
+/// [`execute_pandas_fastpath`]'s own doc comment for why this is split out).
+#[cfg(feature = "python")]
+fn transform_pandas_string_column(
+    values: &[Option<String>],
+    config: &ProcessingConfig,
+) -> (Vec<PandasStringCell>, bool) {
+    let mut transformed = Vec::with_capacity(values.len());
+    let mut any_key_present = false;
+    for cell in values {
+        match cell {
+            None => {
+                any_key_present = true; // genuine null: key stays present
+                transformed.push(PandasStringCell::Null);
+            }
+            Some(raw) => match transform_string_cell(raw, config) {
+                None => transformed.push(PandasStringCell::Omitted),
+                Some(text) => {
+                    any_key_present = true;
+                    transformed.push(PandasStringCell::Value(text));
+                }
+            },
+        }
+    }
+    (transformed, any_key_present)
+}
+
 /// Execute an already-eligible pandas fast-path plan. `columns`/
 /// `string_values` are indexed by *source* column position, already
 /// extracted by `check_pandas_fastpath_eligibility` -- never re-extracted
@@ -3921,9 +4009,32 @@ fn execute_pandas_fastpath(
     string_values: Vec<Option<Vec<Option<String>>>>,
     config: &ProcessingConfig,
 ) -> PyResult<Py<PyAny>> {
+    // Pass 0: transform every StringTransform column's cells in one GIL
+    // release -- pure Rust (`transform_string_cell`), never touches a
+    // `Bound<PyAny>`. One `py.detach()` call for the whole function (not one
+    // per column) avoids repeated release/reacquire round trips.
+    // `PassThrough`/`PassThroughWrapped` inherently touch `Bound<'_, PyAny>`
+    // (confirmed `Bound<'py, T>: !Send` -- it wraps a `Python<'py>` token,
+    // which carries pyo3's explicit stable-Rust `!Send` marker) and so stay
+    // GIL-held in the loop below, unchanged from before this split.
+    let precomputed: Vec<Option<(Vec<PandasStringCell>, bool)>> = py.detach(|| {
+        plan.output_columns
+            .iter()
+            .map(|(_, col_plan)| match col_plan {
+                PandasFastPathColumn::StringTransform { source_col, .. } => {
+                    let values = string_values[*source_col]
+                        .as_ref()
+                        .expect("string column always has extracted values by this point");
+                    Some(transform_pandas_string_column(values, config))
+                }
+                _ => None,
+            })
+            .collect()
+    });
+
     let out_dict = PyDict::new(py);
 
-    for (name, col_plan) in &plan.output_columns {
+    for ((name, col_plan), precomputed) in plan.output_columns.iter().zip(&precomputed) {
         match col_plan {
             PandasFastPathColumn::PassThrough { source_col } => {
                 // Reuse the exact same Series object -- no extraction, no
@@ -3941,44 +4052,33 @@ fn execute_pandas_fastpath(
                 }
                 out_dict.set_item(name, wrapped)?;
             }
-            PandasFastPathColumn::StringTransform { source_col, wrap } => {
-                let values = string_values[*source_col]
-                    .as_ref()
-                    .expect("string column always has extracted values by this point");
-
-                // Same "does this key ever actually appear" tracking as the
+            PandasFastPathColumn::StringTransform { wrap, .. } => {
+                // Same "does this key ever actually appear" semantics as the
                 // Arrow path (see its own doc comment for the full
-                // reasoning): a genuine source null keeps the key present
-                // (value None); `remove_empty_strings` filtering a replaced
-                // value to "" is the only way a cell's key is omitted here
-                // (`remove_nulls`/`value_exclusions` are excluded from
-                // eligibility entirely). If no row ever has the key, the old
-                // path never creates this column -- drop it here too.
-                let mut out_values: Vec<Py<PyAny>> = Vec::with_capacity(values.len());
-                let mut any_key_present = false;
-                for cell in values {
-                    let converted = match cell {
-                        None => {
-                            any_key_present = true;
-                            py.None()
-                        }
-                        Some(raw) => match transform_string_cell(raw, config) {
-                            None => py.None(),
-                            Some(text) => {
-                                any_key_present = true;
-                                json_fragment_to_pyobject(py, &text)?
-                            }
-                        },
-                    };
-                    out_values.push(converted);
-                }
+                // reasoning) -- fully resolved by Pass 0 above.
+                let (transformed, any_key_present) = precomputed
+                    .as_ref()
+                    .expect("StringTransform column always has a precomputed Pass-0 result");
 
-                if !any_key_present {
+                if !*any_key_present {
                     continue;
                 }
 
                 let out_list = PyList::empty(py);
-                for converted in out_values {
+                for cell in transformed {
+                    let converted = match cell {
+                        // Genuine source null: old path keeps the key
+                        // present with a real `None`.
+                        PandasStringCell::Null => py.None(),
+                        // `remove_empty_strings` filtered this cell: old
+                        // path omits the key from that row's dict entirely,
+                        // and pandas fills a key missing from only some
+                        // rows with `NaN` (a float), not `None`.
+                        PandasStringCell::Omitted => {
+                            f64::NAN.into_pyobject(py)?.into_any().unbind()
+                        }
+                        PandasStringCell::Value(text) => json_fragment_to_pyobject(py, text)?,
+                    };
                     if *wrap {
                         let one = PyList::new(py, [converted])?;
                         out_list.append(one)?;
@@ -3986,7 +4086,20 @@ fn execute_pandas_fastpath(
                         out_list.append(converted)?;
                     }
                 }
-                out_dict.set_item(name, out_list)?;
+                // Build an explicit dtype=object Series rather than handing
+                // pandas a raw list: `pd.DataFrame(dict_of_lists)`'s own type
+                // inference for a column mixing None/NaN/str was observed to
+                // differ across pandas/numpy versions (a column with both a
+                // genuine None and a float NaN got its None silently
+                // coerced to NaN on some CI legs, not reproducible locally).
+                // `dtype=object` is pandas' documented no-inference
+                // construction path -- every element stays the exact Python
+                // object it already is, no coercion possible.
+                let pandas = cached_import(py, &PANDAS_MODULE, "pandas")?;
+                let dtype_kwargs = PyDict::new(py);
+                dtype_kwargs.set_item("dtype", "object")?;
+                let series = pandas.call_method("Series", (out_list,), Some(&dtype_kwargs))?;
+                out_dict.set_item(name, series)?;
             }
         }
     }

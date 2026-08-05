@@ -10,16 +10,18 @@ Defaults are all "off": no screenshot, no styles, only events newer than the
 caller's high-water mark. Everything this module returns had to be asked for.
 """
 
+import io
 import logging
 import os
 import time
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from . import scroll_shot
 from ._offload import require_playwright, run_off_loop
 from .badge import badge_activity_script, badge_init_script, hide_badge_script, show_badge_script
 from .evaluate import run_in_page
 from .probe import PROBE_SCRIPT, dirty_script, drain_script, presence_script
-from .session import EFFECTIVE_USER_SCRIPT
+from .session import read_effective_user
 from .window import WindowState
 
 logger = logging.getLogger(__name__)
@@ -27,6 +29,11 @@ logger = logging.getLogger(__name__)
 # Watching is a human-paced activity ("I'll click through the form"), but an
 # unbounded wait would pin an MCP request open indefinitely.
 MAX_WATCH_SECONDS = 300.0
+
+# When a new tab pushes the window past this, the oldest EMPTY tabs are closed.
+# Generous: a real debugging session legitimately keeps a form, a list, a portal
+# page and the record they are about side by side. See _trim_tabs.
+MAX_TABS = 8
 
 # Curated instead of exhaustive. getComputedStyle exposes 300+ properties; the
 # handful that explain "why is this element in the wrong place" is small, and
@@ -59,6 +66,51 @@ LAYOUT_PROPERTIES: Tuple[str, ...] = (
     "visibility",
     "opacity",
     "transform",
+)
+
+
+def _write_image(raw: bytes, destination: str) -> str:
+    """Write a screenshot, as lossless WebP when Pillow is here. Returns the path.
+
+    Measured on a real ServiceNow screenshot (1502x779): the PNG Playwright
+    hands over is 64KB, the same pixels as lossless WebP are 26KB — 59% fewer
+    bytes at a maximum per-channel difference of ZERO. Nothing is resampled and
+    nothing is quantised, so text stays exactly as sharp as it was.
+
+    The alternatives were measured too, and both lose: re-saving the PNG with
+    optimize=True came out BIGGER (66KB), and JPEG q85 was bigger still (69KB)
+    while visibly chewing the anti-aliased text — a UI screenshot is close to
+    the worst possible JPEG input.
+
+    Without Pillow the bytes are written as they came, PNG and all, because a
+    smaller file is not worth a screenshot that does not exist.
+    """
+    try:
+        from PIL import Image  # type: ignore[import-not-found]
+    except ImportError:
+        with open(destination, "wb") as handle:
+            handle.write(raw)
+        return destination
+
+    target = os.path.splitext(destination)[0] + ".webp"
+    try:
+        with Image.open(io.BytesIO(raw)) as image:
+            image.load()
+            image.save(target, "WEBP", lossless=True, method=6)
+        return target
+    except Exception as exc:  # noqa: BLE001 - an unwritten screenshot is the worse outcome
+        logger.info("Could not re-encode the screenshot, keeping it as PNG: %s", exc)
+        with open(destination, "wb") as handle:
+            handle.write(raw)
+        return destination
+
+
+# Said whenever 'full' could not be full. A shorter image that looks complete
+# is the failure this whole path exists to stop.
+_WHY_ONE_SCREEN = (
+    "this page does not scroll in its top document, and the frame that scrolls "
+    "could not be captured (install the 'browser' extra for stitching) — this is "
+    "one screen, not the whole page"
 )
 
 
@@ -259,44 +311,78 @@ def _computed_styles(page: Any, selectors: Sequence[str]) -> Dict[str, Any]:
 
 def _screenshot(
     page: Any, *, mode: str, selector: Optional[str], destination: str
-) -> Optional[str]:
-    """Capture to disk and return the path. The badge is hidden for the shot.
+) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+    """Capture to disk and return (path, note).
 
     Element mode exists because a full-page screenshot of a ServiceNow portal
     rarely shows what broke — the interesting box is 200px tall somewhere in
     the middle.
+
+    ``full`` used to hand ``full_page=True`` to Playwright and be done. That
+    grows the TOP document, which is right on a portal page and a no-op on Next
+    Experience, where the shell never scrolls and the classic UI scrolls inside
+    a frame — so ``full`` returned one viewport and called itself full. The
+    scroller is checked now, and when it is a frame the shot is stitched from
+    real scrolling (scroll_shot). Nothing on the page is changed either way.
+
+    **The badge is hidden only for a scrolling capture.** It is ``position:
+    fixed``, so it rides every screen and would come out stamped down the
+    stitched image once per tile. A single shot keeps it: this is a screenshot
+    OF the debug window, and which window — which instance, which account, and
+    whether that account is currently impersonating — is exactly what the badge
+    answers. Cropping it out of the picture threw that away every time.
     """
     if mode == "none":
-        return None
+        return None, None
 
     os.makedirs(os.path.dirname(destination), exist_ok=True)
+
+    if mode == "element":
+        if not selector:
+            raise ValueError("screenshot='element' needs a selector.")
+        return _write_image(page.locator(selector).first.screenshot(), destination), None
+
+    if mode == "full" and not scroll_shot.page_scrolls(page):
+        hidden = _hide_badge(page)
+        try:
+            stitched = scroll_shot.capture(page, destination=destination)
+        finally:
+            if hidden:
+                _show_badge(page)
+        if stitched:
+            return stitched.pop("path", destination), stitched
+        # Nothing better was possible here (no inner scroller, no Pillow, a
+        # frame that would not answer). The ordinary shot is taken, and it is
+        # NOT described as a full-page capture.
+        return (
+            _write_image(page.screenshot(full_page=False), destination),
+            {"only_viewport": _WHY_ONE_SCREEN},
+        )
+
+    return _write_image(page.screenshot(full_page=(mode == "full")), destination), None
+
+
+def _hide_badge(page: Any) -> bool:
     try:
         page.evaluate(hide_badge_script())
+        return True
     except Exception:  # noqa: BLE001 - badge may not be injected yet
-        pass
+        return False
 
+
+def _show_badge(page: Any) -> None:
     try:
-        if mode == "element":
-            if not selector:
-                raise ValueError("screenshot='element' needs a selector.")
-            page.locator(selector).first.screenshot(path=destination)
-        else:
-            page.screenshot(path=destination, full_page=(mode == "full"))
-        return destination
-    finally:
-        try:
-            page.evaluate(show_badge_script())
-        except Exception:  # noqa: BLE001
-            pass
+        page.evaluate(show_badge_script())
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _effective_user(page: Any) -> Optional[Dict[str, Any]]:
-    try:
-        result = page.evaluate(EFFECTIVE_USER_SCRIPT)
-    except Exception as exc:  # noqa: BLE001
-        logger.debug("Effective-user read failed: %s", exc)
-        return None
-    return dict(result) if isinstance(result, dict) else None
+    # Frame-aware: the Next Experience shell names nobody, and reporting that as
+    # "could not read a signed-in user — the window may still need a login" sent
+    # people to look for a login problem on a signed-in window. See
+    # session.read_effective_user.
+    return read_effective_user(page)
 
 
 def capture(
@@ -304,7 +390,7 @@ def capture(
     *,
     profile: str,
     account: str = "",
-    after_seq: int = 0,
+    marks: Any = 0,
     watch_seconds: float = 0.0,
     screenshot: str = "none",
     selector: Optional[str] = None,
@@ -344,7 +430,7 @@ def capture(
                     # window during which the user drives.
                     time.sleep(wait_s)
 
-                drained = page.evaluate(drain_script(after_seq)) or {}
+                drained = page.evaluate(drain_script(marks)) or {}
                 # Evaluated AFTER the drain so a question about the page's
                 # state is answered from the same moment the events describe,
                 # and before the screenshot so the picture matches the answer.
@@ -353,7 +439,7 @@ def capture(
                     if evaluate_expression
                     else None
                 )
-                shot = _screenshot(
+                shot, shot_note = _screenshot(
                     page,
                     mode=screenshot,
                     selector=selector,
@@ -364,10 +450,12 @@ def capture(
                     "url": str(page.url),
                     "title": str(drained.get("title") or page.title()),
                     "seq": int(drained.get("seq") or 0),
+                    "tab_id": str(drained.get("tabId") or ""),
                     "dropped": int(drained.get("dropped") or 0),
                     "events": list(drained.get("events") or []),
                     "styles": _computed_styles(page, style_selectors),
                     "screenshot": shot,
+                    "screenshot_note": shot_note,
                     "effective_user": _effective_user(page),
                     "watched_seconds": wait_s,
                 }
@@ -420,6 +508,68 @@ def arm(state: WindowState, *, profile: str, account: str = "") -> Dict[str, Any
                 browser.close()
 
     return run_off_loop(_work, timeout_s=60.0)
+
+
+def _trim_tabs(context: Any, *, keep: Any) -> Dict[str, Any]:
+    """Close the oldest tabs holding nothing, once the window has too many.
+
+    Tabs accumulate and nothing used to remove them: ``navigate`` opens one on
+    request and one more whenever it steps aside from a page whose dirty fields
+    are only a guess (a portal landing page reports eight nobody typed in), and
+    the reaper retires idle WINDOWS, not tabs. A long session ends up with a
+    window nobody can find anything in.
+
+    Destructive, so it is deliberately timid:
+
+    - a tab with ANY unsaved input is never closed, guessed or observed. The
+      "a guess only steps aside" rule elsewhere is about opening a tab, which
+      costs nothing; this closes one, and the same evidence is not good enough
+      for that.
+    - oldest first (``context.pages`` is creation order), never the tab just
+      opened.
+    - when nothing qualifies, nothing is closed and the count is REPORTED. A
+      cap that silently gives up looks identical to a cap that worked.
+    """
+    try:
+        pages = [page for page in context.pages if not str(page.url).startswith("devtools://")]
+    except Exception as exc:  # noqa: BLE001 - housekeeping must not fail a navigation
+        logger.debug("Could not list tabs to trim: %s", exc)
+        return {}
+    excess = len(pages) - MAX_TABS
+    if excess <= 0:
+        return {}
+
+    closed: List[str] = []
+    for page in pages:
+        if len(closed) >= excess:
+            break
+        if page is keep:
+            continue
+        try:
+            dirty, _basis = _dirty_fields(page)
+            if dirty:
+                continue
+            was = str(page.url)
+            page.close()
+            closed.append(was)
+        except Exception as exc:  # noqa: BLE001 - a tab that will not close is not fatal
+            logger.debug("Could not close a tab while trimming: %s", exc)
+
+    if closed:
+        return {
+            "closed_tabs": closed,
+            "closed_tabs_note": (
+                f"{len(closed)} empty tab(s) closed — the window was over {MAX_TABS}. "
+                "Anything holding input was left alone."
+            ),
+        }
+    return {
+        "tabs_note": (
+            f"{len(pages)} tabs open, over the {MAX_TABS} this trims at, and none could "
+            "be closed — they all hold input. Close some by hand if the window is "
+            "getting hard to work in."
+        )
+    }
 
 
 def navigate(
@@ -505,6 +655,7 @@ def navigate(
                         "previous_url": (str(existing.url) if existing else None),
                         "tabs": len(context.pages),
                         **stepped_aside,
+                        **_trim_tabs(context, keep=page),
                     }
 
                 page = existing

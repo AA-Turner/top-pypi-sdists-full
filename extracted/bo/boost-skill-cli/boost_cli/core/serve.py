@@ -17,7 +17,6 @@ import sys
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Optional, Tuple
 
 from .. import __version__
 from ..errors import BoostError
@@ -27,7 +26,7 @@ from . import output as out
 SKILL_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
-def _validated_skill_name(name: str) -> Optional[str]:
+def _validated_skill_name(name: str) -> str | None:
     """Return canonical trusted skill name, else None."""
     if not isinstance(name, str):
         return None
@@ -45,25 +44,33 @@ _PAGE_CSS = ("body{background:#111;color:#ddd;font-family:ui-monospace,SFMono-Re
 
 
 def serve_page() -> str:
-    """The HTML index: a table of installed skills with JSON-endpoint links."""
-    installed = lockfile.installed()
+    """The HTML index: every installed item (skills, rules, workflows) with
+    JSON-endpoint links. Only skills get a ``/skill/<name>`` link — rules and
+    workflows have no raw-content endpoint, so their names stay plain text."""
+    everything = lockfile.all_installed()
     entries = catalog.all_entries()
     taps = registry.list_taps()
-    rows = "".join(
-        '<tr><td><a href="/skill/%s">%s</a></td><td>%s</td><td>%s</td></tr>'
-        % (urllib.parse.quote(n), html.escape(n),
-           html.escape(str(e.get("version", "?"))),
-           html.escape(str(e.get("tap", "?"))))
-        for n, e in sorted(installed.items()))
+    total = sum(len(section) for section in everything.values())
+    cells = []
+    for kind, section in everything.items():
+        for n, e in sorted(section.items()):
+            name_cell = ('<a href="/skill/%s">%s</a>'
+                         % (urllib.parse.quote(n), html.escape(n))
+                         if kind == "skill" else html.escape(n))
+            cells.append("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
+                         % (name_cell, kind,
+                            html.escape(str(e.get("version", "?"))),
+                            html.escape(str(e.get("tap", "?")))))
+    rows = "".join(cells)
     return ("<!doctype html><html><head><meta charset='utf-8'>"
             "<title>boost — skill catalog</title><style>%s</style></head><body>"
             "<h1>⚡ boost <span class='dim'>v%s</span></h1>"
             "<p class='dim'>%d installed · %d available across %d taps</p>"
-            "<table><tr><th>skill</th><th>version</th><th>tap</th></tr>%s</table>"
+            "<table><tr><th>name</th><th>kind</th><th>version</th><th>tap</th></tr>%s</table>"
             "<p><a href='/installed.json'>installed.json</a> · "
             "<a href='/catalog.json'>catalog.json</a></p></body></html>"
-            % (_PAGE_CSS, __version__, len(installed), len(entries), len(taps),
-               rows or "<tr><td colspan='3' class='dim'>nothing installed</td></tr>"))
+            % (_PAGE_CSS, __version__, total, len(entries), len(taps),
+               rows or "<tr><td colspan='4' class='dim'>nothing installed</td></tr>"))
 
 
 def _is_within(base, target) -> bool:
@@ -91,7 +98,7 @@ def _safe_join_within(base, rel):
     return candidate
 
 
-def skill_text(name: str) -> Optional[str]:
+def skill_text(name: str) -> str | None:
     """SKILL.md text for an installed skill, else from a tap. None if unknown."""
     trusted_name = _validated_skill_name(name)
     if trusted_name is None:
@@ -120,7 +127,7 @@ def _json_body(obj) -> bytes:
     return json.dumps(obj, indent=2).encode()
 
 
-def route(path: str) -> Tuple[int, str, bytes]:
+def route(path: str) -> tuple[int, str, bytes]:
     """Map a GET path to ``(status, content_type, body)``. Pure — no socket.
 
     Mirrors the historical dispatch exactly: ``/`` and ``/index.html`` serve the

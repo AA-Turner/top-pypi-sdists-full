@@ -22,7 +22,7 @@
 
 # ----------------------------------------------------------------------------
 
-__version__ = '4.5.70'
+__version__ = '4.5.71'
 
 # ----------------------------------------------------------------------------
 
@@ -102,7 +102,6 @@ from ccxt.bitfinex import bitfinex                                    # noqa: F4
 from ccxt.bitflyer import bitflyer                                    # noqa: F401
 from ccxt.bitget import bitget                                        # noqa: F401
 from ccxt.bithumb import bithumb                                      # noqa: F401
-from ccxt.bitmart import bitmart                                      # noqa: F401
 from ccxt.bitmex import bitmex                                        # noqa: F401
 from ccxt.bitopro import bitopro                                      # noqa: F401
 from ccxt.bitrue import bitrue                                        # noqa: F401
@@ -157,7 +156,6 @@ from ccxt.indodax import indodax                                      # noqa: F4
 from ccxt.kraken import kraken                                        # noqa: F401
 from ccxt.krakenfutures import krakenfutures                          # noqa: F401
 from ccxt.kucoin import kucoin                                        # noqa: F401
-from ccxt.kucoineu import kucoineu                                    # noqa: F401
 from ccxt.kucoinfutures import kucoinfutures                          # noqa: F401
 from ccxt.latoken import latoken                                      # noqa: F401
 from ccxt.lbank import lbank                                          # noqa: F401
@@ -209,7 +207,6 @@ exchanges = [
     'bitflyer',
     'bitget',
     'bithumb',
-    'bitmart',
     'bitmex',
     'bitopro',
     'bitrue',
@@ -264,7 +261,6 @@ exchanges = [
     'kraken',
     'krakenfutures',
     'kucoin',
-    'kucoineu',
     'kucoinfutures',
     'latoken',
     'lbank',

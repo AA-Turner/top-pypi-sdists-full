@@ -1,6 +1,6 @@
 use crate::{
-    user::user_value::{UserValue, UserValueMap},
     DynamicValue,
+    user::user_value::{UserValue, UserValueMap},
 };
 
 #[test]

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "Logbook"
-version = "1.9.2"
+version = "1.10.0"
 license = "BSD-3-Clause"
 authors = [
     { name = "Armin Ronacher", email = "armin.ronacher@active-4.com" },
@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Free Threading :: 2 - Beta",
     "Topic :: System :: Logging",
 ]
@@ -50,7 +51,8 @@ nteventlog = [
     "pywin32>=303; sys_platform == 'win32' and python_version=='3.11'",
     "pywin32>=306; sys_platform == 'win32' and python_version=='3.12'",
     "pywin32>=307; sys_platform == 'win32' and python_version=='3.13'",
-    "pywin32>=311; sys_platform == 'win32' and python_version>='3.14'",
+    "pywin32>=311; sys_platform == 'win32' and python_version=='3.14'",
+    "pywin32>=312; sys_platform == 'win32' and python_version>='3.15'",
 ]
 redis = ["redis>=4.6.0"]
 sqlalchemy = ["sqlalchemy>=1.4"]
@@ -68,14 +70,14 @@ dev = [
     { include-group = "coverage" },
     { include-group = "nox" },
     { include-group = "test" },
-    "ruff==0.13.1",
+    "ruff==0.16.1",
 ]
 docs = [
     "furo>=2025.7.19",
     "sphinx>=7.4.7",
 ]
 gevent = [
-    "gevent>=25.5.1",
+    "gevent>=26.5.0",
 ]
 nox = [
     "nox>=2025.5.1",
@@ -130,12 +132,20 @@ ignore = [
 extend-immutable-calls = ["logbook._fallback.FrozenSequence"]
 
 [tool.cibuildwheel.macos]
-archs = ["x86_64", "universal2", "arm64"]
+archs = ["x86_64", "arm64"]
 
-[tool.cibuildwheel.macos.environment]
-MACOSX_DEPLOYMENT_TARGET = "10.12"
+[[tool.cibuildwheel.overrides]]
+select = "cp3{9,10,11}-macosx_x86_64"
+environment.MACOSX_DEPLOYMENT_TARGET = "10.12"
+
+[tool.cibuildwheel.linux]
+manylinux-x86_64-image = "manylinux2014"
 
 [tool.uv]
+# https://github.com/kislyuk/argcomplete/issues/559 is released.
+constraint-dependencies = [
+    "argcomplete!=3.7.1; python_version < '3.10'",
+]
 cache-keys = [
     { file = "pyproject.toml" },
     { file = "setup.py" },

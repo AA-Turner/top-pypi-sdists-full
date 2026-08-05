@@ -229,7 +229,7 @@ class SortView(Table):
         else:
             self.buffersize = buffersize
         self.tempdir = tempdir
-        self.cache = cache
+        self._cache = cache
         self._hdrcache = None
         self._memcache = None
         self._filecache = None
@@ -246,9 +246,9 @@ class SortView(Table):
         source = self.source
         key = self.key
         reverse = self.reverse
-        if self.cache and self._memcache is not None:
+        if self._cache and self._memcache is not None:
             return self._iterfrommemcache()
-        elif self.cache and self._filecache is not None:
+        elif self._cache and self._filecache is not None:
             return self._iterfromfilecache()
         else:
             return self._iternocache(source, key, reverse)
@@ -312,7 +312,7 @@ class SortView(Table):
         if self.buffersize is None or len(rows) < self.buffersize:
             # yes, table fits within sort buffer
 
-            if self.cache:
+            if self._cache:
                 debug('caching mem')
                 self._hdrcache = hdr
                 self._memcache = rows
@@ -348,7 +348,7 @@ class SortView(Table):
                 rows = list(itertools.islice(it, 0, self.buffersize))
                 rows.sort(key=getkey, reverse=reverse)
 
-            if self.cache:
+            if self._cache:
                 debug('caching files')
                 self._hdrcache = hdr
                 self._filecache = chunkfiles

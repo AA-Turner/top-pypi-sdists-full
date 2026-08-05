@@ -1,10 +1,25 @@
+import sys
+
 import numpy as np
 import pandas as pd
 import pytest
 import torch
 
 from neuralforecast import NeuralForecast
-from neuralforecast.models import MLP, NHITS, VanillaTransformer, LSTM, MLPMultivariate
+from neuralforecast.models import (
+    MLP,
+    NHITS,
+    VanillaTransformer,
+    LSTM,
+    GRU,
+    RNN,
+    DeepAR,
+    MLPMultivariate,
+    TSMixerx,
+    XLinear,
+    TimeXer,
+)
+from neuralforecast.losses.pytorch import DistributionLoss
 from neuralforecast.auto import AutoMLP
 
 CITIES = ["paris", "london", "tokyo", "berlin"]
@@ -353,29 +368,174 @@ def test_no_categoricals_is_inert():
 # ---------------------------------------------------------------------------
 
 
-def test_recurrent_model_rejects_categoricals():
-    with pytest.raises(Exception, match="categorical"):
-        LSTM(
-            h=6,
-            input_size=12,
-            max_steps=2,
-            hist_exog_list=["city"],
-            cat_exog_list=["city"],
-            categorical_cardinalities={"city": 4},
-        )
+@pytest.mark.parametrize("cls", [LSTM, GRU, RNN])
+def test_recurrent_categoricals_run(cls):
+    # Recursive path (recurrent=True): hist + futr categoricals embedded per step.
+    df = _panel(cols=("city", "dow"))
+    model = _model(
+        cls,
+        recurrent=True,
+        hist_exog_list=["city"],
+        futr_exog_list=["dow"],
+        cat_exog_list=["city", "dow"],
+        categorical_cardinalities={"city": 4, "dow": 7},
+        cat_emb_dim=5,
+    )
+    nf = NeuralForecast(models=[model], freq=1)
+    nf.fit(df)
+    assert nf.models[0].hist_exog_size == 5
+    assert nf.models[0].futr_exog_size == 5
+    preds = nf.predict(futr_df=_futr_df())
+    assert preds.shape[0] == 4 * 6
+    assert np.isfinite(preds[cls.__name__].to_numpy()).all()
 
 
-def test_multivariate_model_rejects_categoricals():
-    with pytest.raises(Exception, match="categorical"):
-        MLPMultivariate(
-            h=6,
-            input_size=12,
-            n_series=4,
-            max_steps=2,
-            hist_exog_list=["city"],
-            cat_exog_list=["city"],
-            categorical_cardinalities={"city": 4},
-        )
+def test_deepar_categoricals_run():
+    # DeepAR is always recurrent and uses a distribution loss; futr + static cats.
+    df = _panel(cols=("dow",))
+    static_df = pd.DataFrame(
+        {"unique_id": [f"s{u}" for u in range(4)], "cluster": ["A", "B", "A", "C"]}
+    )
+    model = _model(
+        DeepAR,
+        futr_exog_list=["dow"],
+        stat_exog_list=["cluster"],
+        cat_exog_list=["dow", "cluster"],
+        categorical_cardinalities={"dow": 7, "cluster": 3},
+        cat_emb_dim=5,
+        loss=DistributionLoss(distribution="Normal", level=[80]),
+    )
+    nf = NeuralForecast(models=[model], freq=1)
+    nf.fit(df, static_df=static_df)
+    assert nf.models[0].futr_exog_size == 5
+    assert nf.models[0].stat_exog_size == 5
+    preds = nf.predict(futr_df=_futr_df())
+    assert preds.shape[0] == 4 * 6
+    assert np.isfinite(preds["DeepAR"].to_numpy()).all()
+
+
+def test_recurrent_embeddings_differ_from_numeric_baseline():
+    # Confirms the embedding is wired into the recursive forward.
+    df = _panel(cols=("city",))
+    emb = _model(
+        LSTM,
+        recurrent=True,
+        hist_exog_list=["city"],
+        cat_exog_list=["city"],
+        categorical_cardinalities={"city": 4},
+    )
+    nf_emb = NeuralForecast(models=[emb], freq=1)
+    nf_emb.fit(df)
+    p_emb = nf_emb.predict()["LSTM"].to_numpy()
+
+    df_num = df.copy()
+    df_num["city"] = df_num["city"].map({c: i for i, c in enumerate(CITIES)})
+    num = _model(LSTM, recurrent=True, hist_exog_list=["city"])
+    nf_num = NeuralForecast(models=[num], freq=1)
+    nf_num.fit(df_num)
+    p_num = nf_num.predict()["LSTM"].to_numpy()
+
+    assert not np.allclose(p_emb, p_num)
+
+
+@pytest.mark.parametrize("cls", [MLPMultivariate, TSMixerx, XLinear])
+def test_multivariate_categoricals_run(cls):
+    # hist + futr + static categoricals embedded on the feature axis.
+    df = _panel(cols=("city", "dow"))
+    static_df = pd.DataFrame(
+        {"unique_id": [f"s{u}" for u in range(4)], "cluster": ["A", "B", "A", "C"]}
+    )
+    model = _model(
+        cls,
+        n_series=4,
+        hist_exog_list=["city"],
+        futr_exog_list=["dow"],
+        stat_exog_list=["cluster"],
+        cat_exog_list=["city", "dow", "cluster"],
+        categorical_cardinalities={"city": 4, "dow": 7, "cluster": 3},
+        cat_emb_dim=5,
+    )
+    nf = NeuralForecast(models=[model], freq=1)
+    nf.fit(df, static_df=static_df)
+    # No continuous features remain, so each size == embedding dim.
+    assert nf.models[0].hist_exog_size == 5
+    assert nf.models[0].futr_exog_size == 5
+    assert nf.models[0].stat_exog_size == 5
+    preds = nf.predict(futr_df=_futr_df())
+    assert preds.shape[0] == 4 * 6
+    assert np.isfinite(preds[cls.__name__].to_numpy()).all()
+
+
+def test_timexer_categoricals_run():
+    # TimeXer has EXOGENOUS_FUTR = False, so only hist + static categoricals.
+    # It reshapes hist_exog into per-variate tokens ([B, L, X * N]), so each
+    # embedding dimension becomes its own variate: the least trivial consumer
+    # of the expanded feature axis.
+    df = _panel(cols=("city",))
+    static_df = pd.DataFrame(
+        {"unique_id": [f"s{u}" for u in range(4)], "cluster": ["A", "B", "A", "C"]}
+    )
+    model = _model(
+        TimeXer,
+        n_series=4,
+        patch_len=6,  # must divide input_size (12); default 16 is too large here
+        hist_exog_list=["city"],
+        stat_exog_list=["cluster"],
+        cat_exog_list=["city", "cluster"],
+        categorical_cardinalities={"city": 4, "cluster": 3},
+        cat_emb_dim=5,
+    )
+    nf = NeuralForecast(models=[model], freq=1)
+    nf.fit(df, static_df=static_df)
+    assert nf.models[0].hist_exog_size == 5
+    assert nf.models[0].stat_exog_size == 5
+    preds = nf.predict()
+    assert preds.shape[0] == 4 * 6
+    assert np.isfinite(preds["TimeXer"].to_numpy()).all()
+
+
+def test_multivariate_mixed_continuous_and_categorical():
+    # Continuous features are kept and concatenated ahead of the embeddings.
+    df = _panel(cols=("city",))
+    df["temp"] = np.arange(len(df), dtype=float) % 10  # continuous hist
+    model = _model(
+        MLPMultivariate,
+        n_series=4,
+        hist_exog_list=["temp", "city"],
+        cat_exog_list=["city"],
+        categorical_cardinalities={"city": 4},
+        cat_emb_dim=5,
+    )
+    nf = NeuralForecast(models=[model], freq=1)
+    nf.fit(df)
+    assert nf.models[0].hist_exog_size == 1 + 5  # 1 continuous + 5-dim embedding
+    preds = nf.predict()
+    assert np.isfinite(preds["MLPMultivariate"].to_numpy()).all()
+
+
+def test_multivariate_embeddings_differ_from_numeric_baseline():
+    # Confirms the embedding is actually wired into the multivariate forward.
+    df = _panel(cols=("city",))
+    emb = _model(
+        MLPMultivariate,
+        n_series=4,
+        hist_exog_list=["city"],
+        cat_exog_list=["city"],
+        categorical_cardinalities={"city": 4},
+    )
+    nf_emb = NeuralForecast(models=[emb], freq=1)
+    nf_emb.fit(df)
+    p_emb = nf_emb.predict()["MLPMultivariate"].to_numpy()
+
+    # Baseline: same column passed as a plain numeric (label-encoded) feature.
+    df_num = df.copy()
+    df_num["city"] = df_num["city"].map({c: i for i, c in enumerate(CITIES)})
+    num = _model(MLPMultivariate, n_series=4, hist_exog_list=["city"])
+    nf_num = NeuralForecast(models=[num], freq=1)
+    nf_num.fit(df_num)
+    p_num = nf_num.predict()["MLPMultivariate"].to_numpy()
+
+    assert not np.allclose(p_emb, p_num)
 
 
 def test_categorical_must_be_subset_of_exog_list():
@@ -453,29 +613,257 @@ def test_auto_model_with_categoricals_runs():
     assert np.isfinite(preds["AutoMLP"].to_numpy()).all()
 
 
-def test_explain_guard():
-    df = _panel(cols=("city",))
+@pytest.mark.parametrize(
+    "explainer",
+    ["IntegratedGradients", "InputXGradient", "ShapleyValueSampling"],
+)
+def test_explain_categoricals_aggregate_to_feature(explainer):
+    # Attributions over the embedded axis are summed back to one value per
+    # original feature, so the feature axis matches `hist_exog_list` /
+    # `futr_exog_list` (1 each here) rather than the embedding dim (5).
+    pytest.importorskip("captum")
+    df = _panel(cols=("city", "dow"))
     model = _model(
         MLP,
+        hist_exog_list=["city"],
+        futr_exog_list=["dow"],
+        cat_exog_list=["city", "dow"],
+        categorical_cardinalities={"city": 4, "dow": 7},
+        cat_emb_dim=5,
+    )
+    nf = NeuralForecast(models=[model], freq=1)
+    nf.fit(df)
+    _, explanations = nf.explain(futr_df=_futr_df(), explainer=explainer)
+    hist = explanations["MLP"]["hist_exog"]  # [b, h, series, out, n_features, temporal]
+    futr = explanations["MLP"]["futr_exog"]
+    assert hist.shape[-2] == 1  # 'city' collapsed from emb_dim 5 -> 1 feature
+    assert futr.shape[-2] == 1  # 'dow'  collapsed from emb_dim 5 -> 1 feature
+    assert np.isfinite(hist.numpy()).all()
+    assert np.isfinite(futr.numpy()).all()
+
+
+def test_explain_mixed_continuous_and_categorical():
+    # Continuous feature keeps its own attribution; the categorical one collapses,
+    # so a hist stream of [temp, city] yields 2 feature attributions (not 1 + 5).
+    pytest.importorskip("captum")
+    df = _panel(cols=("city",))
+    df["temp"] = np.arange(len(df), dtype=float) % 10
+    model = _model(
+        MLP,
+        hist_exog_list=["temp", "city"],
+        cat_exog_list=["city"],
+        categorical_cardinalities={"city": 4},
+        cat_emb_dim=5,
+    )
+    nf = NeuralForecast(models=[model], freq=1)
+    nf.fit(df)
+    assert nf.models[0].hist_exog_size == 1 + 5  # embedded size
+    _, explanations = nf.explain()
+    hist = explanations["MLP"]["hist_exog"]
+    assert hist.shape[-2] == 2  # temp + city
+    assert np.isfinite(hist.numpy()).all()
+
+
+def test_explain_static_categorical():
+    pytest.importorskip("captum")
+    df = _panel(cols=())
+    static_df = pd.DataFrame(
+        {"unique_id": [f"s{u}" for u in range(4)], "cluster": ["A", "B", "A", "C"]}
+    )
+    model = _model(
+        MLP,
+        stat_exog_list=["cluster"],
+        cat_exog_list=["cluster"],
+        categorical_cardinalities={"cluster": 3},
+        cat_emb_dim=5,
+    )
+    nf = NeuralForecast(models=[model], freq=1)
+    nf.fit(df, static_df=static_df)
+    _, explanations = nf.explain()
+    stat = explanations["MLP"]["stat_exog"]  # [..., n_static_features]
+    assert stat.shape[-1] == 1  # 'cluster' collapsed from emb_dim 5 -> 1 feature
+    assert np.isfinite(stat.numpy()).all()
+
+
+def test_simulate_distribution_loss_with_futr_categorical():
+    # futr categorical: futr_df must be encoded with the fitted vocab before
+    # alignment, otherwise the raw string values crash the copula sampling.
+    df = _panel(cols=("dow",))
+    model = _model(
+        NHITS,
+        futr_exog_list=["dow"],
+        cat_exog_list=["dow"],
+        categorical_cardinalities={"dow": 7},
+        loss=DistributionLoss(distribution="Normal"),
+    )
+    nf = NeuralForecast(models=[model], freq=1)
+    nf.fit(df)
+    sims = nf.simulate(n_paths=5, futr_df=_futr_df())
+    assert sims.shape[0] == 4 * 6 * 5  # n_series * h * n_paths
+    assert np.isfinite(sims["NHITS"].to_numpy()).all()
+
+    # simulate() validates futr_df like predict(): a required (categorical)
+    # column missing from futr_df raises before alignment.
+    bad_futr = _futr_df().drop(columns=["dow"])
+    with pytest.raises(ValueError, match="missing from `futr_df`"):
+        nf.simulate(n_paths=5, futr_df=bad_futr)
+
+
+def test_simulate_point_loss_conformal_with_hist_categorical():
+    # Point-loss models simulate through the conformal path (_simulate_conformal),
+    # which reuses the conformity scores + vocabulary built during fit().
+    from neuralforecast.utils import PredictionIntervals
+
+    df = _panel(cols=("city",))
+    model = _model(
+        NHITS,
         hist_exog_list=["city"],
         cat_exog_list=["city"],
         categorical_cardinalities={"city": 4},
     )
     nf = NeuralForecast(models=[model], freq=1)
-    nf.fit(df)
-    with pytest.raises(NotImplementedError, match="categorical"):
-        nf.explain()
+    nf.fit(df, prediction_intervals=PredictionIntervals(n_windows=2))
+    sims = nf.simulate(n_paths=5)
+    assert sims.shape[0] == 4 * 6 * 5
+    assert np.isfinite(sims["NHITS"].to_numpy()).all()
 
 
-def test_simulate_guard():
-    df = _panel(cols=("city",))
+def test_simulate_static_categorical():
+    # Static categoricals are embedded and the stored (encoded) dataset is reused.
+    df = _panel(cols=())
+    static_df = pd.DataFrame(
+        {"unique_id": [f"s{u}" for u in range(4)], "cluster": ["A", "B", "A", "C"]}
+    )
+    model = _model(
+        NHITS,
+        stat_exog_list=["cluster"],
+        cat_exog_list=["cluster"],
+        categorical_cardinalities={"cluster": 3},
+        loss=DistributionLoss(distribution="Normal"),
+    )
+    nf = NeuralForecast(models=[model], freq=1)
+    nf.fit(df, static_df=static_df)
+    sims = nf.simulate(n_paths=5)
+    assert sims.shape[0] == 4 * 6 * 5
+    assert np.isfinite(sims["NHITS"].to_numpy()).all()
+
+
+def test_simulate_with_provided_df():
+    df = _panel(cols=("city", "dow"))
+    static_df = pd.DataFrame(
+        {"unique_id": [f"s{u}" for u in range(4)], "cluster": ["A", "B", "A", "C"]}
+    )
+    model = _model(
+        NHITS,
+        hist_exog_list=["city"],
+        futr_exog_list=["dow"],
+        stat_exog_list=["cluster"],
+        cat_exog_list=["city", "dow", "cluster"],
+        categorical_cardinalities={"city": 4, "dow": 7, "cluster": 3},
+        loss=DistributionLoss(distribution="Normal"),
+    )
+    nf = NeuralForecast(models=[model], freq=1)
+    nf.fit(df, static_df=static_df)
+
+    futr = _futr_df()
+    sims_df = nf.simulate(
+        df=df, static_df=static_df, futr_df=futr, n_paths=5, seed=0
+    )
+    sims_stored = nf.simulate(futr_df=futr, n_paths=5, seed=0)
+
+    assert sims_df.shape[0] == 4 * 6 * 5
+    assert np.isfinite(sims_df["NHITS"].to_numpy()).all()
+    np.testing.assert_allclose(
+        sims_df["NHITS"].to_numpy(),
+        sims_stored["NHITS"].to_numpy(),
+        rtol=1e-5,
+        atol=1e-5,
+    )
+
+
+@pytest.fixture(scope="module")
+def spark_session():
+    if sys.platform == "win32":
+        # Spark needs a Hadoop/winutils setup on Windows (HADOOP_HOME); the
+        # distributed suite is not run there.
+        pytest.skip("Distributed (Spark) tests are not run on Windows.")
+    pytest.importorskip("pyspark")
+    pytest.importorskip("fugue")
+    from pyspark.sql import SparkSession
+
+    try:
+        spark = (
+            SparkSession.builder.master("local[1]")
+            .config("spark.sql.shuffle.partitions", "1")
+            .getOrCreate()
+        )
+    except Exception as e:  # e.g. no Java runtime available
+        pytest.skip(f"Could not start a local SparkSession: {e}")
+    yield spark
+    spark.stop()
+
+
+def test_distributed_fit_predict_with_categoricals(spark_session, tmp_path):
+    # Distributed (Spark) fit builds the vocabulary from the Spark frame and
+    # encodes it driver-side before writing parquet; predict encodes the futr /
+    # static frames driver-side before the union / join. Workers never encode.
+    from neuralforecast import DistributedConfig
+
+    spark = spark_session
+    pdf = _panel(cols=("city", "dow"))  # 'city' hist-cat, 'dow' futr-cat
+    static_pdf = pd.DataFrame(
+        {"unique_id": [f"s{u}" for u in range(4)], "cluster": ["A", "B", "A", "C"]}
+    )
+    spark_df = spark.createDataFrame(pdf)
+    spark_static = spark.createDataFrame(static_pdf)
+
     model = _model(
         MLP,
         hist_exog_list=["city"],
-        cat_exog_list=["city"],
-        categorical_cardinalities={"city": 4},
+        futr_exog_list=["dow"],
+        stat_exog_list=["cluster"],
+        cat_exog_list=["city", "dow", "cluster"],
+        categorical_cardinalities={"city": 4, "dow": 7, "cluster": 3},
     )
     nf = NeuralForecast(models=[model], freq=1)
-    nf.fit(df)
-    with pytest.raises(NotImplementedError, match="categorical"):
-        nf.simulate()
+    dist_cfg = DistributedConfig(
+        partitions_path=str(tmp_path / "partitions"), num_nodes=1, devices=1
+    )
+    nf.fit(spark_df, static_df=spark_static, distributed_config=dist_cfg)
+
+    # Vocabulary was built distributedly from the Spark frames.
+    assert set(nf.categorical_vocab_) == {"city", "dow", "cluster"}
+    assert nf.categorical_vocab_["cluster"] == {"A": 1, "B": 2, "C": 3}
+
+    spark_futr = spark.createDataFrame(_futr_df())
+    preds = nf.predict(futr_df=spark_futr, engine=spark).toPandas()
+    assert preds.shape[0] == 4 * 6
+    assert np.isfinite(preds["MLP"].to_numpy()).all()
+
+
+def test_distributed_simulate_with_categoricals(spark_session, tmp_path):
+    # Distributed simulation works with categoricals too (a distribution-loss
+    # model, since point-loss conformal simulation needs prediction intervals,
+    # which distributed training does not support for any model).
+    from neuralforecast import DistributedConfig
+
+    spark = spark_session
+    pdf = _panel(cols=("dow",))  # 'dow' futr-cat
+    spark_df = spark.createDataFrame(pdf)
+
+    model = _model(
+        NHITS,
+        futr_exog_list=["dow"],
+        cat_exog_list=["dow"],
+        categorical_cardinalities={"dow": 7},
+        loss=DistributionLoss(distribution="Normal"),
+    )
+    nf = NeuralForecast(models=[model], freq=1)
+    dist_cfg = DistributedConfig(
+        partitions_path=str(tmp_path / "sim_partitions"), num_nodes=1, devices=1
+    )
+    nf.fit(spark_df, distributed_config=dist_cfg)
+
+    spark_futr = spark.createDataFrame(_futr_df())
+    sims = nf.simulate(futr_df=spark_futr, engine=spark, n_paths=5).toPandas()
+    assert np.isfinite(sims["NHITS"].to_numpy()).all()

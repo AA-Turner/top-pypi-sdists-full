@@ -71,11 +71,17 @@ class MockObservabilityClient(ObservabilityClient):
 def statsig_setup(httpserver: HTTPServer):
     dcs_content = get_test_data_resource("eval_proj_dcs.json")
     json_data = json.loads(dcs_content)
-    json_data["time"] = json_data["time"]
     del json_data["checksum"]
-    httpserver.expect_request(
+
+    repaired_json_data = json_data.copy()
+    repaired_json_data["checksum"] = "equal-lcut-repair-checksum"
+
+    httpserver.expect_ordered_request(
         "/v2/download_config_specs/secret-key.json"
     ).respond_with_json(json_data)
+    httpserver.expect_request(
+        "/v2/download_config_specs/secret-key.json"
+    ).respond_with_json(repaired_json_data)
 
     httpserver.expect_request("/v1/log_event").respond_with_json({"success": True})
 
@@ -85,7 +91,7 @@ def statsig_setup(httpserver: HTTPServer):
     options.specs_url = httpserver.url_for("/v2/download_config_specs")
     options.log_event_url = httpserver.url_for("/v1/log_event")
     options.observability_client = observability_client
-    options.specs_sync_interval_ms = 1
+    options.specs_sync_interval_ms = 1000
     options.output_log_level = "error"
     statsig = Statsig("secret-key", options)
 

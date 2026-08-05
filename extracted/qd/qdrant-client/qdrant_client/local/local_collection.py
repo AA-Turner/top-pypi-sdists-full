@@ -5,6 +5,7 @@ from collections import OrderedDict, defaultdict
 from typing import (
     Any,
     Callable,
+    Mapping,
     Sequence,
     get_args,
 )
@@ -186,20 +187,65 @@ class LocalCollection:
         for idx in vector.indices:
             self.sparse_vectors_idf[vector_name][idx] -= 1
 
+    @staticmethod
+    def _idf_corpus_of(search_params: types.SearchParams | None) -> types.Filter | None:
+        """Corpus filter scoping IDF statistics, if `search_params` asks for a narrowed scope.
+
+        `IdfScope.GLOBAL` (and no `idf` at all) means collection-wide statistics, which is
+        represented by `None`.
+        """
+        if search_params is None:
+            return None
+        if isinstance(search_params.idf, models.IdfCorpusParams):
+            return search_params.idf.corpus
+        return None
+
     @classmethod
     def _compute_idf(cls, df: int, n: int) -> float:
         # ((n - df + 0.5) / (df + 0.5) + 1.).ln()
         return math.log((n - df + 0.5) / (df + 0.5) + 1)
 
-    def _rescore_idf(self, vector: SparseVector, vector_name: str) -> SparseVector:
-        num_docs = self.count(count_filter=None).count
-        new_values = []
+    def _corpus_document_frequencies(
+        self, vector_name: str, indices: Sequence[int], mask: np.ndarray
+    ) -> dict[int, int]:
+        """Document frequency of each of `indices` among the points selected by `mask`."""
+        wanted = {int(idx) for idx in indices}
+        frequencies = dict.fromkeys(wanted, 0)
+
+        vectors = self.sparse_vectors[vector_name]
+        for internal_id in np.nonzero(mask)[0]:
+            if internal_id >= len(vectors):
+                continue
+            for idx in vectors[internal_id].indices:
+                if idx in wanted:
+                    frequencies[idx] += 1
+
+        return frequencies
+
+    def _rescore_idf(
+        self,
+        vector: SparseVector,
+        vector_name: str,
+        idf_corpus: types.Filter | None = None,
+    ) -> SparseVector:
         idf_store = self.sparse_vectors_idf.get(vector_name)
         if idf_store is None:
             return vector
 
+        # IDF statistics only take into account points which actually have this sparse vector,
+        # points missing it are not part of the corpus. `idf_corpus` narrows it down further.
+        mask = self._payload_and_non_deleted_mask(idf_corpus, vector_name=vector_name)
+        num_docs = int(np.count_nonzero(mask))
+
+        document_frequencies: Mapping[int, int] = (
+            idf_store
+            if idf_corpus is None
+            else self._corpus_document_frequencies(vector_name, vector.indices, mask)
+        )
+
+        new_values = []
         for idx, value in zip(vector.indices, vector.values):
-            document_frequency = idf_store.get(idx, 0)
+            document_frequency = document_frequencies.get(idx, 0)
             idf = self._compute_idf(document_frequency, num_docs)
             new_values.append(value * idf)
 
@@ -291,8 +337,6 @@ class LocalCollection:
             | tuple[str, list[float]]
             | list[list[float]]
             | tuple[str, list[list[float]]]
-            | types.NamedVector
-            | types.NamedSparseVector
             | DenseQueryVector
             | tuple[str, DenseQueryVector]
             | tuple[str, SparseQueryVector]
@@ -313,12 +357,6 @@ class LocalCollection:
         elif isinstance(query_vector, np.ndarray):
             name = DEFAULT_VECTOR_NAME
             vector = query_vector
-        elif isinstance(query_vector, types.NamedVector):
-            name = query_vector.name
-            vector = np.array(query_vector.vector)
-        elif isinstance(query_vector, types.NamedSparseVector):
-            name = query_vector.name
-            vector = query_vector.vector
         elif isinstance(query_vector, list):
             name = DEFAULT_VECTOR_NAME
             vector = np.array(query_vector)
@@ -539,8 +577,6 @@ class LocalCollection:
             | tuple[str, list[float]]
             | list[list[float]]
             | tuple[str, list[list[float]]]
-            | types.NamedVector
-            | types.NamedSparseVector
             | DenseQueryVector
             | tuple[str, DenseQueryVector]
             | SparseQueryVector
@@ -555,6 +591,7 @@ class LocalCollection:
         with_payload: bool | Sequence[str] | types.PayloadSelector = True,
         with_vectors: bool | Sequence[str] = False,
         score_threshold: float | None = None,
+        idf_corpus: types.Filter | None = None,
     ) -> list[models.ScoredPoint]:
         name, query_vector = self._resolve_query_vector_name(query_vector)
         result: list[models.ScoredPoint] = []
@@ -602,7 +639,9 @@ class LocalCollection:
                 )
         elif isinstance(query_vector, SparseRecoQuery):
             if rescore_idf:
-                query_vector = query_vector.transform_sparse(lambda x: self._rescore_idf(x, name))
+                query_vector = query_vector.transform_sparse(
+                    lambda x: self._rescore_idf(x, name, idf_corpus)
+                )
             if query_vector.strategy == models.RecommendStrategy.BEST_SCORE:
                 scores = calculate_sparse_recommend_best_scores(query_vector, vectors)
             elif query_vector.strategy == models.RecommendStrategy.SUM_SCORES:
@@ -626,7 +665,9 @@ class LocalCollection:
             scores = calculate_discovery_scores(query_vector, vectors, distance)
         elif isinstance(query_vector, SparseDiscoveryQuery):
             if rescore_idf:
-                query_vector = query_vector.transform_sparse(lambda x: self._rescore_idf(x, name))
+                query_vector = query_vector.transform_sparse(
+                    lambda x: self._rescore_idf(x, name, idf_corpus)
+                )
             scores = calculate_sparse_discovery_scores(query_vector, vectors)
         elif isinstance(query_vector, MultiDiscoveryQuery):
             scores = calculate_multi_discovery_scores(query_vector, vectors, distance)
@@ -634,14 +675,16 @@ class LocalCollection:
             scores = calculate_context_scores(query_vector, vectors, distance)
         elif isinstance(query_vector, SparseContextQuery):
             if rescore_idf:
-                query_vector = query_vector.transform_sparse(lambda x: self._rescore_idf(x, name))
+                query_vector = query_vector.transform_sparse(
+                    lambda x: self._rescore_idf(x, name, idf_corpus)
+                )
             scores = calculate_sparse_context_scores(query_vector, vectors)
         elif isinstance(query_vector, MultiContextQuery):
             scores = calculate_multi_context_scores(query_vector, vectors, distance)
         elif isinstance(query_vector, SparseVector):
             validate_sparse_vector(query_vector)
             if rescore_idf:
-                query_vector = self._rescore_idf(query_vector, name)
+                query_vector = self._rescore_idf(query_vector, name, idf_corpus)
             # sparse vector query must be sorted by indices for dot product to work with persisted vectors
             query_vector = sort_sparse_vector(query_vector)
             scores = calculate_distance_sparse(query_vector, vectors)
@@ -715,6 +758,7 @@ class LocalCollection:
         with_vectors: bool | Sequence[str] = False,
         score_threshold: float | None = None,
         using: str | None = None,
+        search_params: types.SearchParams | None = None,
         **kwargs: Any,
     ) -> types.QueryResponse:
         """
@@ -745,6 +789,7 @@ class LocalCollection:
                 with_payload=with_payload,
                 with_vectors=with_vectors,
                 score_threshold=score_threshold,
+                idf_corpus=self._idf_corpus_of(search_params),
             )
         else:
             # It is a base query
@@ -757,6 +802,7 @@ class LocalCollection:
                 with_payload=with_payload,
                 with_vectors=with_vectors,
                 score_threshold=score_threshold,
+                idf_corpus=self._idf_corpus_of(search_params),
             )
 
         return types.QueryResponse(points=scored_points)
@@ -785,6 +831,7 @@ class LocalCollection:
                 with_payload=False,
                 with_vectors=False,
                 score_threshold=prefetch.score_threshold,
+                idf_corpus=self._idf_corpus_of(prefetch.params),
             )
         else:
             # Base case: fetch from collection
@@ -797,6 +844,7 @@ class LocalCollection:
                 with_payload=False,
                 with_vectors=False,
                 score_threshold=prefetch.score_threshold,
+                idf_corpus=self._idf_corpus_of(prefetch.params),
             )
 
     def _merge_sources(
@@ -810,6 +858,7 @@ class LocalCollection:
         score_threshold: float | None = None,
         with_payload: bool | Sequence[str] | types.PayloadSelector = True,
         with_vectors: bool | Sequence[str] = False,
+        idf_corpus: types.Filter | None = None,
     ) -> list[types.ScoredPoint]:
         if isinstance(query, (models.FusionQuery, models.RrfQuery)):
             # Fuse results
@@ -885,6 +934,7 @@ class LocalCollection:
                     with_payload=with_payload,
                     with_vectors=with_vectors,
                     score_threshold=score_threshold,
+                    idf_corpus=idf_corpus,
                 )
 
     def _query_collection(
@@ -897,6 +947,7 @@ class LocalCollection:
         with_payload: bool | Sequence[str] | types.PayloadSelector = False,
         with_vectors: bool | Sequence[str] = False,
         score_threshold: float | None = None,
+        idf_corpus: types.Filter | None = None,
     ) -> list[types.ScoredPoint]:
         """
         Performs the query on the collection, assuming it didn't have any prefetches.
@@ -926,6 +977,7 @@ class LocalCollection:
                     with_payload=with_payload,
                     with_vectors=with_vectors,
                     score_threshold=score_threshold,
+                    idf_corpus=idf_corpus,
                 )
 
             return self.search(
@@ -936,6 +988,7 @@ class LocalCollection:
                 with_payload=with_payload,
                 with_vectors=with_vectors,
                 score_threshold=score_threshold,
+                idf_corpus=idf_corpus,
             )
         elif isinstance(query, models.RecommendQuery):
             return self.recommend(
@@ -949,6 +1002,7 @@ class LocalCollection:
                 with_payload=with_payload,
                 with_vectors=with_vectors,
                 score_threshold=score_threshold,
+                idf_corpus=idf_corpus,
             )
         elif isinstance(query, models.DiscoverQuery):
             return self.discover(
@@ -961,6 +1015,7 @@ class LocalCollection:
                 with_payload=with_payload,
                 with_vectors=with_vectors,
                 score_threshold=score_threshold,
+                idf_corpus=idf_corpus,
             )
         elif isinstance(query, models.ContextQuery):
             return self.discover(
@@ -972,6 +1027,7 @@ class LocalCollection:
                 with_payload=with_payload,
                 with_vectors=with_vectors,
                 score_threshold=score_threshold,
+                idf_corpus=idf_corpus,
             )
         elif isinstance(query, models.OrderByQuery):
             records, _ = self.scroll(
@@ -1008,6 +1064,7 @@ class LocalCollection:
                 with_payload=with_payload,
                 with_vectors=with_vectors,
                 score_threshold=score_threshold,
+                idf_corpus=idf_corpus,
             )
         else:
             # most likely a VectorInput, delegate to search
@@ -1019,6 +1076,7 @@ class LocalCollection:
                 with_payload=with_payload,
                 with_vectors=with_vectors,
                 score_threshold=score_threshold,
+                idf_corpus=idf_corpus,
             )
 
     def query_groups(
@@ -1117,8 +1175,6 @@ class LocalCollection:
         | tuple[
             str, models.Vector | RecoQuery | SparseRecoQuery | MultiRecoQuery | types.NumpyArray
         ]
-        | types.NamedVector
-        | types.NamedSparseVector
         | RecoQuery
         | SparseRecoQuery
         | MultiRecoQuery
@@ -1508,6 +1564,7 @@ class LocalCollection:
         lookup_from_collection: "LocalCollection | None" = None,
         lookup_from_vector_name: str | None = None,
         strategy: types.RecommendStrategy | None = None,
+        idf_corpus: types.Filter | None = None,
     ) -> list[models.ScoredPoint]:
         query_vector, edited_query_filter = self._construct_recommend_query(
             positive,
@@ -1528,6 +1585,7 @@ class LocalCollection:
             with_payload=with_payload,
             with_vectors=with_vectors,
             score_threshold=score_threshold,
+            idf_corpus=idf_corpus,
         )
 
     def recommend_groups(
@@ -1639,20 +1697,19 @@ class LocalCollection:
         sample: int = 10,
         using: str | None = None,
     ) -> tuple[list[ExtendedPointId], list[list[ScoredPoint]]]:
-        samples: list[ScoredPoint] = []
         search_in_vector_name = using if using is not None else DEFAULT_VECTOR_NAME
-        # Sample random points from the whole collection to filter out the ones without vectors
-        # TODO: use search_filter once with have an HasVector like condition
-        candidates = self._sample_randomly(
-            len(self.ids), query_filter, False, search_in_vector_name
-        )
-        for candidate in candidates:
-            # check if enough samples are collected
-            if len(samples) == sample:
-                break
-            # check if the candidate has a vector
-            if candidate.vector is not None:
-                samples.append(candidate)
+        has_vector = models.HasVectorCondition(has_vector=search_in_vector_name)
+        if query_filter is None:
+            search_filter = models.Filter(must=[has_vector])
+        else:
+            search_filter = deepcopy(query_filter)
+            if search_filter.must is None:
+                search_filter.must = [has_vector]
+            elif isinstance(search_filter.must, list):
+                search_filter.must.append(has_vector)
+            else:
+                search_filter.must = [search_filter.must, has_vector]
+        samples = self._sample_randomly(sample, search_filter, False, search_in_vector_name)
 
         # can't build a matrix with less than 2 results
         if len(samples) < 2:
@@ -1835,6 +1892,7 @@ class LocalCollection:
         lookup_from_collection: "LocalCollection | None" = None,
         lookup_from_vector_name: str | None = None,
         score_threshold: float | None = None,
+        idf_corpus: types.Filter | None = None,
     ) -> list[models.ScoredPoint]:
         (
             target_vector,
@@ -1884,6 +1942,7 @@ class LocalCollection:
             with_payload=with_payload,
             with_vectors=with_vectors,
             score_threshold=score_threshold,
+            idf_corpus=idf_corpus,
         )
 
     @classmethod
@@ -2092,6 +2151,7 @@ class LocalCollection:
         with_payload: bool | Sequence[str] | types.PayloadSelector = True,
         with_vectors: bool | Sequence[str] = False,
         score_threshold: float | None = None,
+        idf_corpus: types.Filter | None = None,
     ) -> list[models.ScoredPoint]:
         search_limit = mmr.candidates_limit if mmr.candidates_limit is not None else limit
         using = using or DEFAULT_VECTOR_NAME
@@ -2103,6 +2163,7 @@ class LocalCollection:
             with_payload=with_payload,
             with_vectors=with_vectors,
             score_threshold=score_threshold,
+            idf_corpus=idf_corpus,
         )
 
         diversity = mmr.diversity if mmr.diversity is not None else 0.5
@@ -2285,6 +2346,7 @@ class LocalCollection:
         with_payload: bool | Sequence[str] | types.PayloadSelector = True,
         with_vectors: bool | Sequence[str] = False,
         score_threshold: float | None = None,
+        idf_corpus: types.Filter | None = None,
     ) -> list[models.ScoredPoint]:
         vector_name = using if using is not None else DEFAULT_VECTOR_NAME
 
@@ -2324,6 +2386,7 @@ class LocalCollection:
                 with_payload=with_payload,
                 with_vectors=with_vectors,
                 score_threshold=score_threshold,
+                idf_corpus=idf_corpus,
             )
         else:
             raise ValueError(f"Unsupported feedback strategy: {strategy}")
@@ -2646,7 +2709,7 @@ class LocalCollection:
                 if not check_filter(
                     update_filter, self.payload[idx], self.ids_inv[idx], has_vector
                 ):
-                    return None
+                    continue
             self._update_named_vectors(idx, fixed_vectors)
             self._persist_by_id(point_id)
 
@@ -2737,12 +2800,16 @@ class LocalCollection:
         key: str | None = None,
     ) -> None:
         ids = self._selector_to_ids(selector)
-        jsonable_payload = deepcopy(to_jsonable_python(payload))
+        base_payload = to_jsonable_python(payload)
 
         keys: list[JsonPathItem] | None = parse_json_path(key) if key is not None else None
 
         for point_id in ids:
             idx = self.ids[point_id]
+            # Deep-copy per point: a shared object graph here would let a later,
+            # differently-scoped set_payload(key=...) call mutate other points'
+            # payloads in place via set_value_by_key's dict.update().
+            jsonable_payload = deepcopy(base_payload)
             if keys is None:
                 self.payload[idx] = {**self.payload[idx], **jsonable_payload}
             else:

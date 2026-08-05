@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import builtins
 import inspect
+import itertools
 import math
 import weakref
 from abc import abstractmethod
@@ -116,7 +117,12 @@ ufunc_map_1param = {
     np.floor: "floor",
     np.ceil: "ceil",
     np.trunc: "trunc",
+    np.sign: "sign",
     np.signbit: "signbit",
+    np.square: "square",
+    np.negative: "negative",
+    np.positive: "positive",
+    np.reciprocal: "reciprocal",
     np.round: "round",
 }
 
@@ -236,6 +242,13 @@ def is_inside_new_expr() -> bool:
     # Get the current call stack
     stack = inspect.stack()
     return builtins.any(frame_info.function in {"_new_expr", "open_lazyarray"} for frame_info in stack)
+
+
+def _is_scalar_bool(k):
+    """True for Python/numpy scalar bools and 0-d bool arrays (numpy's scalar-bool indexing)."""
+    return isinstance(k, (bool, np.bool_)) or (
+        isinstance(k, np.ndarray) and k.ndim == 0 and k.dtype == np.bool_
+    )
 
 
 def make_key_hashable(key):
@@ -3354,7 +3367,9 @@ class Operand:
         return blosc2.LazyExpr(new_op=(self, "+", value))
 
     def __radd__(self, value: int | float | blosc2.Array, /) -> blosc2.LazyExpr:
-        return self.__add__(value)
+        # Order matters: `+` on strings is concatenation, not commutative.
+        _check_allowed_dtypes(value)
+        return blosc2.LazyExpr(new_op=(value, "+", self))
 
     def __iadd__(self, value: int | float | blosc2.Array, /) -> blosc2.LazyExpr:
         return self.__add__(value)
@@ -4497,6 +4512,29 @@ class NDArray(blosc2_ext.NDArray, Operand):
         # 1-D: axis=None (flat); ndim>1: axis=0 (row selection)
         return self._take_numpy(key_arr, axis=None if self.ndim == 1 else 0)
 
+    def _scalar_bool_key_to_newaxis(self, key):
+        """Rewrite a tuple key's scalar bools to numpy's single-newaxis semantics.
+
+        Scalar bools act as one np.newaxis-like dimension of length 1 (all True)
+        or 0 (any False), placed at the first bool's position.  Returns
+        ``(key, None)`` unchanged when there are no scalar bools, ``(new_key,
+        None)`` to continue processing, or ``(None, empty_shape)`` when any bool
+        is False and the result is an empty array of that shape.
+        """
+        if not builtins.any(_is_scalar_bool(k) for k in key):
+            return key, None
+        first = next(i for i, k in enumerate(key) if _is_scalar_bool(k))
+        new_key = key[:first] + (None,) + tuple(k for k in key[first + 1 :] if not _is_scalar_bool(k))
+        if builtins.all(k for k in key if _is_scalar_bool(k)):  # all True -> plain newaxis
+            return new_key, None
+        # any False -> the newaxis dim is empty; shape from the all-True form
+        key_idx = ndindex.ndindex(new_key).expand(self.shape)
+        shape = list(key_idx.newshape(self.shape))
+        raw = key_idx.raw
+        pos = builtins.sum(not isinstance(k, int) for k in raw[: raw.index(None)])
+        shape[pos] = 0
+        return None, tuple(shape)
+
     def _getitem_bool_mask(self, key):
         """Handle boolean array key with optional sparse-gather fast path.
 
@@ -4517,7 +4555,7 @@ class NDArray(blosc2_ext.NDArray, Operand):
         expr = blosc2.LazyExpr._new_expr("key", {"key": key}, guess=False).where(self)
         return expr[:]
 
-    def __getitem__(
+    def __getitem__(  # noqa: C901
         self,
         key: None
         | int
@@ -4587,6 +4625,17 @@ class NDArray(blosc2_ext.NDArray, Operand):
 
         key = key[()] if isinstance(key, NDArray) else key  # key not iterable
         key = tuple(k[()] if isinstance(k, NDArray) else k for k in key) if isinstance(key, tuple) else key
+
+        # Scalar bools inside a tuple act like a single np.newaxis dimension of
+        # length 1 (all True) or 0 (any False), placed at the first bool's
+        # position (numpy semantics); rewrite to the equivalent None form so the
+        # regular machinery handles them.  Bare scalar bools are handled below in
+        # the fancy branch.  (numpy rejects scalar-bool tuples in __setitem__, so
+        # this stays getitem-only.)
+        if isinstance(key, tuple):
+            key, empty_shape = self._scalar_bool_key_to_newaxis(key)
+            if empty_shape is not None:
+                return np.empty(empty_shape, dtype=self.dtype)
 
         # Check boolean array key early to avoid expensive process_key / nonzero
         result = self._getitem_bool_mask(key)
@@ -5726,7 +5775,62 @@ def _check_dtype(dtype):
     return dtype
 
 
-def empty(shape: int | tuple | list, dtype: np.dtype | str | None = np.float64, **kwargs: Any) -> NDArray:
+def _is_string_dtype(dtype) -> bool:
+    """True for NumPy's variable-length ``StringDType``; see ``_utf8_array``."""
+    from blosc2._utf8_array import is_string_dtype
+
+    return is_string_dtype(dtype)
+
+
+def _asarray_string_dispatch(array, copy, kwargs):
+    """Route variable-length text out of :func:`asarray`'s NDArray path.
+
+    Returns ``(result, array)``.  *result* is a :class:`UTF8Array` when the
+    **target** dtype is NumPy's ``StringDType``, and ``None`` otherwise -- in
+    which case *array* comes back ready for the fixed-width path, so
+    ``asarray(utf8_source, dtype="<U8")`` still yields a plain NDArray.
+    """
+    from blosc2._utf8_array import UTF8Array, asarray_utf8, is_string_dtype
+
+    requested = kwargs.get("dtype")
+    if is_string_dtype(requested if requested is not None else array.dtype):
+        storage_kwargs = {k: v for k, v in kwargs.items() if k != "dtype"}
+        return asarray_utf8(array, copy=copy, **storage_kwargs), array
+    if isinstance(array, UTF8Array):
+        return None, array.astype(requested)
+    return None, array
+
+
+def _utf8_filled(shape, fill: str, **kwargs):
+    """Build a :class:`UTF8Array` of *fill* repeated, for ``dtype=StringDType()``.
+
+    Shared by empty/zeros/ones/full: NumPy fills those with ``''``, ``''``,
+    ``'1'`` and ``str(fill_value)`` respectively, and blosc2 matches.  A
+    variable-length dtype cannot back an NDArray -- see
+    :func:`blosc2._utf8_array.asarray_utf8` for why -- so these return the
+    variable-length container instead.
+    """
+    from blosc2._utf8_array import to_utf8
+
+    if kwargs:
+        raise TypeError(
+            f"blosc2 does not accept {sorted(kwargs)!r} for variable-length text; "
+            "use blosc2.utf8_array(values, spec) to control its storage."
+        )
+    shape = _check_shape(shape)
+    if len(shape) != 1:
+        raise ValueError(
+            f"Variable-length text is 1-D only, got shape {shape}. Use a fixed-width "
+            "'<U' dtype for an N-D NDArray."
+        )
+    # repeat() rather than a list: the fill is one interned string, so a list
+    # would be shape[0] pointers to it before the packer sees any of them.
+    return to_utf8(itertools.repeat(fill, shape[0]))
+
+
+def empty(
+    shape: int | tuple | list, dtype: np.dtype | str | None = np.float64, **kwargs: Any
+) -> NDArray | blosc2.UTF8Array:
     """Create an empty array.
 
     Parameters
@@ -5780,6 +5884,8 @@ def empty(shape: int | tuple | list, dtype: np.dtype | str | None = np.float64, 
     >>> array.dtype
     dtype('int32')
     """
+    if _is_string_dtype(dtype):
+        return _utf8_filled(shape, "", **kwargs)
     dtype = _check_dtype(dtype)
     shape = _check_shape(shape)
     kwargs = _check_ndarray_kwargs(**kwargs)
@@ -5857,7 +5963,9 @@ def nans(shape: int | tuple | list, dtype: np.dtype | str = np.float64, **kwargs
     return blosc2_ext.nans(shape, chunks, blocks, dtype, **kwargs)
 
 
-def zeros(shape: int | tuple | list, dtype: np.dtype | str = np.float64, **kwargs: Any) -> NDArray:
+def zeros(
+    shape: int | tuple | list, dtype: np.dtype | str = np.float64, **kwargs: Any
+) -> NDArray | blosc2.UTF8Array:
     """Create an array with zero as the default value
     for uninitialized portions of the array.
 
@@ -5888,6 +5996,8 @@ def zeros(shape: int | tuple | list, dtype: np.dtype | str = np.float64, **kwarg
     >>> array.dtype
     dtype('float64')
     """
+    if _is_string_dtype(dtype):
+        return _utf8_filled(shape, "", **kwargs)
     dtype = _check_dtype(dtype)
     shape = _check_shape(shape)
     kwargs = _check_ndarray_kwargs(**kwargs)
@@ -5902,7 +6012,7 @@ def full(
     fill_value: bytes | int | float | bool,
     dtype: np.dtype | str = None,
     **kwargs: Any,
-) -> NDArray:
+) -> NDArray | blosc2.UTF8Array:
     """Create an array, with :paramref:`fill_value` being used as the default value
     for uninitialized portions of the array.
 
@@ -5942,6 +6052,8 @@ def full(
     >>> array.dtype
     dtype('bool')
     """
+    if _is_string_dtype(dtype):
+        return _utf8_filled(shape, str(fill_value), **kwargs)
     if isinstance(fill_value, bytes):
         dtype = np.dtype(f"S{len(fill_value)}")
     if dtype is None:
@@ -5957,7 +6069,9 @@ def full(
     return blosc2_ext.full(shape, chunks, blocks, fill_value, dtype, **kwargs)
 
 
-def ones(shape: int | tuple | list, dtype: np.dtype | str = None, **kwargs: Any) -> NDArray:
+def ones(
+    shape: int | tuple | list, dtype: np.dtype | str = None, **kwargs: Any
+) -> NDArray | blosc2.UTF8Array:
     """Create an array with one as values.
 
     The parameters and keyword arguments are the same as for the
@@ -6664,7 +6778,9 @@ def _ndarray_asarray_requires_copy(
     return builtins.any(key in user_kwargs for key in copy_keys)
 
 
-def asarray(array: Sequence | blosc2.Array, copy: bool | None = None, **kwargs: Any) -> NDArray:
+def asarray(
+    array: Sequence | blosc2.Array, copy: bool | None = None, **kwargs: Any
+) -> NDArray | blosc2.UTF8Array:
     """Convert the `array` to an `NDArray`.
 
     Parameters
@@ -6684,9 +6800,11 @@ def asarray(array: Sequence | blosc2.Array, copy: bool | None = None, **kwargs: 
 
     Returns
     -------
-    out: :ref:`NDArray`
+    out: :ref:`NDArray` or :class:`UTF8Array`
         A new :ref:`NDArray` made of :paramref:`array`, or the original
-        array when a copy is not required.
+        array when a copy is not required.  When the target dtype is NumPy's
+        variable-length ``StringDType``, a :class:`UTF8Array` is returned
+        instead -- see the Notes.
 
     Notes
     -----
@@ -6694,6 +6812,16 @@ def asarray(array: Sequence | blosc2.Array, copy: bool | None = None, **kwargs: 
     without the need to create a contiguous NumPy array internally.  This can
     be used for ingesting e.g. disk or network based arrays very effectively
     and without consuming lots of memory.
+
+    ``StringDType`` cannot back an NDArray: it keeps each row's payload outside
+    the array buffer (a 100-character string still reports ``nbytes == 16``)
+    and offers no buffer protocol, so compressing that buffer would persist
+    pointers.  Such input is therefore stored as a :class:`UTF8Array`, which
+    holds the same text as offsets + UTF-8 bytes -- the layout Arrow uses for
+    ``large_string``.  The dispatch is on the *target* dtype, so
+    ``asarray(utf8_source, dtype="<U8")`` still gives a fixed-width NDArray.
+    :func:`blosc2.zeros`, :func:`blosc2.empty`, :func:`blosc2.ones` and
+    :func:`blosc2.full` dispatch the same way, matching NumPy's fill values.
 
     Examples
     --------
@@ -6711,6 +6839,9 @@ def asarray(array: Sequence | blosc2.Array, copy: bool | None = None, **kwargs: 
         raise ValueError("Only unsafe casting is supported at the moment.")
     if not hasattr(array, "shape"):
         array = np.asarray(array)  # defaults if dtype=None
+    utf8_out, array = _asarray_string_dispatch(array, copy, kwargs)
+    if utf8_out is not None:
+        return utf8_out
     dtype_ = blosc2.proxy.convert_dtype(array.dtype)
     dtype = blosc2.proxy.convert_dtype(kwargs.pop("dtype", dtype_))  # check if dtype provided
     kwargs = _check_ndarray_kwargs(**kwargs)

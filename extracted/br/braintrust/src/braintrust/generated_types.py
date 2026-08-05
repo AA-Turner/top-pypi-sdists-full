@@ -1,4 +1,4 @@
-"""Auto-generated file (content hash 265d32c75b7526f2) -- do not modify"""
+"""Auto-generated file (content hash b5293fdfa9d04ebc) -- do not modify"""
 
 from ._generated_types import (
     Acl,
@@ -66,6 +66,7 @@ from ._generated_types import (
     Organization,
     OrgAutomation,
     Permission,
+    PreprocessorSavedFunctionId,
     Project,
     ProjectAutomation,
     ProjectLogsEvent,
@@ -118,6 +119,7 @@ from ._generated_types import (
     ViewData,
     ViewDataSearch,
     ViewOptions,
+    WindowedAutomationConfig,
 )
 
 
@@ -187,6 +189,7 @@ __all__ = [
     "OrgAutomation",
     "Organization",
     "Permission",
+    "PreprocessorSavedFunctionId",
     "Project",
     "ProjectAutomation",
     "ProjectLogsEvent",
@@ -239,4 +242,5 @@ __all__ = [
     "ViewData",
     "ViewDataSearch",
     "ViewOptions",
+    "WindowedAutomationConfig",
 ]

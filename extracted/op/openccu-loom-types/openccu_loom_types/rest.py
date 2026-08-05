@@ -3007,7 +3007,209 @@ class AlarmArmAccepted(BaseModel):
     )
 
 
+class Severity(StrEnum):
+    ok = "ok"
+    info = "info"
+    warning = "warning"
+    alarm = "alarm"
+    critical = "critical"
+
+
 class Class4(StrEnum):
+    smoke = "smoke"
+    water = "water"
+    gas = "gas"
+    co = "co"
+    tamper = "tamper"
+    battery = "battery"
+    technical = "technical"
+    intrusion = "intrusion"
+    panic = "panic"
+
+
+class SecuritySourceView(BaseModel):
+    ref: str
+    central: str
+    interface_id: str
+    channel_address: str
+    device_address: str
+    parameter: str
+    name: str | None = None
+    class_: str = Field(..., alias="class")
+    reason: str | None = None
+    active: bool
+    relevant: bool = Field(
+        ...,
+        description="Whether the source contributes to an aggregate. A classifiable source on a device with no alarm role is indexed but not aggregated; that gate keeps the fault plane from standing permanently on across a whole fleet.\n",
+    )
+    zone_id: str | None = None
+    overridden: bool | None = Field(
+        None,
+        description="An operator decision, not the classifier, produced this verdict.",
+    )
+    since: AwareDatetime | None = None
+
+
+class SecuritySourceOverride(BaseModel):
+    class_: Class4 | None = Field(
+        None, alias="class", description="Empty keeps the classifier verdict."
+    )
+    included: bool | None = Field(
+        None,
+        description="false removes the source from every aggregate. Omitting the field leaves inclusion unchanged — a request that only names a class reclassifies and never excludes.\n",
+    )
+    note: str | None = None
+
+
+class Reason(StrEnum):
+    unreachable = "unreachable"
+    blocked = "blocked"
+    device_error = "device_error"
+    central_lost = "central_lost"
+    duty_cycle = "duty_cycle"
+    low_battery = "low_battery"
+    tamper = "tamper"
+
+
+class Verb(StrEnum):
+    triggered = "triggered"
+    pre_alarm = "pre_alarm"
+    cleared = "cleared"
+    silenced = "silenced"
+    failed_to_arm = "failed_to_arm"
+    raised = "raised"
+    test = "test"
+
+
+class SensorType(StrEnum):
+    door = "door"
+    window = "window"
+    motion = "motion"
+    tamper = "tamper"
+    hazard = "hazard"
+    panic = "panic"
+
+
+class SecurityClass(StrEnum):
+    smoke = "smoke"
+    water = "water"
+    gas = "gas"
+    co = "co"
+    tamper = "tamper"
+    battery = "battery"
+    technical = "technical"
+    intrusion = "intrusion"
+    panic = "panic"
+
+
+class AlarmSensorCandidate(BaseModel):
+    central: str
+    interface_id: str
+    device_address: str
+    device_name: str | None = None
+    model: str | None = None
+    channel_address: str
+    channel_no: int
+    channel_name: str | None = None
+    channel_type: str | None = None
+    parameter: str
+    rooms: list[str] | None = None
+    functions: list[str] | None = None
+    sensor_type: SensorType | None = Field(
+        None, description="The suggested alarm role."
+    )
+    security_class: SecurityClass | None = None
+    value_list: list[str] | None = Field(
+        None,
+        description="The parameter's enumeration vocabulary; absent for a boolean.",
+    )
+    value_labels: list[str] | None = Field(
+        None, description="Localized renderings of value_list, in the same order."
+    )
+    active_values: list[str] | None = Field(
+        None,
+        description="Recommended active-value selection. Present only where the default rule would be wrong.\n",
+    )
+    recommended: bool | None = Field(
+        None, description="Prefer this data point when a device offers several."
+    )
+    deprioritised: bool | None = Field(
+        None, description="Workable, but a better sibling exists; see reason."
+    )
+    reason: str | None = None
+    enrolled: bool | None = None
+    zone_id: str | None = None
+
+
+class AlarmSource(BaseModel):
+    ref: str = Field(
+        ...,
+        description="Stable routing key `<central>|<interface_id>|<channel_address>|<parameter>`. Deduplication key; two centrals with identical channel addresses never collide.\n",
+    )
+    central: str | None = None
+    interface_id: str | None = None
+    channel_address: str | None = None
+    device_address: str | None = Field(
+        None, description="channel_address without the channel suffix."
+    )
+    parameter: str | None = None
+    sensor_id: str | None = Field(
+        None, description="Enrolled alarm-sensor row; empty for non-enrolled sources."
+    )
+    name: str | None = None
+    sensor_type: str | None = Field(
+        None, description="Alarm role (motion, opening, hazard, panic, ...)."
+    )
+    class_: Class4 | None = Field(
+        None, alias="class", description="Security & Safety hazard/fault class."
+    )
+    cause: str | None = Field(
+        None, description="Incident cause token the contribution arrived under."
+    )
+    at: AwareDatetime
+
+
+class Mode4(StrEnum):
+    disarmed = "disarmed"
+    perimeter = "perimeter"
+    full = "full"
+    night = "night"
+    vacation = "vacation"
+    custom = "custom"
+
+
+class CloseReason(StrEnum):
+    disarm = "disarm"
+    post_trigger = "post_trigger"
+    incident_lost = "incident_lost"
+
+
+class AlarmIncident(BaseModel):
+    id: int
+    zone_id: str
+    mode: Mode4
+    cause: str | None = Field(
+        None, description="Machine-readable cause token that opened the incident."
+    )
+    cause_sensor_id: str | None = None
+    cause_sensor_name: str | None = None
+    sources: list[AlarmSource] | None = Field(
+        None, description="Every contributing data point, oldest first."
+    )
+    started_at: AwareDatetime
+    closed_at: AwareDatetime | None = Field(
+        None, description="Absent while the incident is still running."
+    )
+    close_reason: CloseReason | None = None
+    silenced: bool
+    silenced_at: AwareDatetime | None = None
+    silenced_by: str | None = None
+    retrigger_cycles: int
+    acoustic_seconds: int
+    open: bool
+
+
+class Class7(StrEnum):
     arm = "arm"
     disarm = "disarm"
     trigger = "trigger"
@@ -3022,7 +3224,7 @@ class AlarmJournalEntry(BaseModel):
     id: int
     when: AwareDatetime
     zone_id: str
-    class_: Class4 = Field(
+    class_: Class7 = Field(
         ...,
         alias="class",
         description="Journal bucket used by the `class` query filter.",
@@ -3294,8 +3496,92 @@ class Area(BaseModel):
     )
 
 
+class SecurityClassState(BaseModel):
+    class_: Class4 = Field(..., alias="class")
+    active: bool
+    sources: list[AlarmSource] | None = None
+    known: int = Field(
+        ..., description="Sources of this class the index knows, active or not."
+    )
+    centrals: list[str] | None = None
+    since: AwareDatetime | None = None
+
+
+class SecurityZoneState(BaseModel):
+    id: str
+    slug: str = Field(
+        ...,
+        description="Stable, human-readable zone identifier. Frozen at creation — renaming a zone does not change it, so consumer entity ids survive.\n",
+    )
+    name: str
+    state: str
+    mode: str
+    sources: list[AlarmSource] | None = None
+    by_class: dict[str, list[str]] | None = Field(
+        None,
+        description='Active source names grouped per class — the "per zone and per type" axis in one object rather than a zone-by-class matrix of entities.\n',
+    )
+    incident_id: int | None = None
+    since: AwareDatetime | None = None
+
+
+class SecurityFault(BaseModel):
+    id: str
+    class_: str = Field(..., alias="class")
+    reason: Reason
+    severity: str
+    source: AlarmSource
+    since: AwareDatetime
+    acknowledged_at: AwareDatetime | None = None
+    acknowledged_by: str | None = None
+
+
+class SecurityNotification(BaseModel):
+    class_: str = Field(..., alias="class")
+    severity: str
+    verb: Verb
+    subject: str = Field(
+        ...,
+        description="One line, at most 120 characters, suitable as a notification title.",
+    )
+    message: str = Field(
+        ..., description="A full sentence naming cause, place and time."
+    )
+    i18n_key: str = Field(
+        ...,
+        description="Catalogue key of the message, so a consumer can re-render in its own locale instead of translating prose.\n",
+    )
+    args: dict[str, str] | None = None
+    sources: list[AlarmSource] | None = None
+    zone_id: str | None = None
+    zone_slug: str | None = None
+    zone_name: str | None = None
+    mode: str | None = None
+    incident_id: int | None = None
+    link: str | None = None
+    at: AwareDatetime
+
+
 class GroupCentralEntry(BaseModel):
     central: str = Field(
         ..., description="Daemon-local central name the groups belong to."
     )
     groups: list[GroupEntry]
+
+
+class SecuritySnapshot(BaseModel):
+    severity: Severity = Field(..., description="The folded overall state.")
+    classes: list[SecurityClassState] = Field(
+        ...,
+        description="One entry per class the installation has sources for, in escalation order. A class without sources is absent, not inactive.\n",
+    )
+    zones: list[SecurityZoneState] | None = Field(
+        None, description="Empty when the alarm engine is disabled."
+    )
+    faults: list[SecurityFault] | None = None
+    engine_healthy: bool = Field(
+        ...,
+        description="The alarm engine's verdict about itself, distinct from a transport outage.\n",
+    )
+    last_alarm: SecurityNotification | None = None
+    last_fault: SecurityNotification | None = None

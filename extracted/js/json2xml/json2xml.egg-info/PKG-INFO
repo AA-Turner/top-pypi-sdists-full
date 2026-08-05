@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: json2xml
-Version: 6.5.0
+Version: 6.5.1
 Summary: Simple Python Library to convert JSON to XML
 Author-email: Vinit Kumar <mail@vinitkumar.me>
 License: Apache Software License 2.0
@@ -32,7 +32,7 @@ Requires-Dist: setuptools; extra == "dev"
 Requires-Dist: pygments>=2.20.0; extra == "dev"
 Requires-Dist: xmltodict>=0.12.0; extra == "dev"
 Provides-Extra: fast
-Requires-Dist: json2xml-rs>=0.4.2; extra == "fast"
+Requires-Dist: json2xml-rs>=0.4.3; extra == "fast"
 Dynamic: license-file
 
 .. image:: ./json2xml-hero.png
@@ -275,6 +275,21 @@ You can use the json2xml library in the following ways:
     # Convert a JSON file to XML
     data = readfromjson("examples/licht.json")
     print(json2xml.Json2xml(data).to_xml())
+
+URL reads accept only credential-free HTTP(S), reject redirects and non-public
+destinations by default, pin public connections to their validated DNS address,
+and stop after 10 MiB of encoded or decoded content. Gzip and deflate responses
+honor ``Content-Length`` and are decoded incrementally; other content encodings
+are rejected. Trusted library callers can opt into a private endpoint with the
+boolean ``True`` or choose a smaller limit:
+
+.. code-block:: python
+
+    data = readfromurl(
+        "http://127.0.0.1:8000/data.json",
+        allow_private_networks=True,
+        max_response_bytes=1024 * 1024,
+    )
 
 
 Custom Wrappers and Indentation

@@ -4,8 +4,8 @@ use ahash::AHashSet;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 
 use crate::{
-    evaluation::evaluator_value::{EvaluatorValueType, MemoizedEvaluatorValue},
     StatsigErr,
+    evaluation::evaluator_value::{EvaluatorValueType, MemoizedEvaluatorValue},
 };
 
 #[derive(Archive, RkyvDeserialize, RkyvSerialize)]

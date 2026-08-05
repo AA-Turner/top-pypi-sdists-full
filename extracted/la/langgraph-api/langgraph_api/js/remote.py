@@ -97,7 +97,9 @@ if (port := int(os.getenv("PORT", "8080"))) and port in (GRAPH_PORT, REMOTE_PORT
 
 _client = httpx.AsyncClient(
     base_url=f"http://localhost:{GRAPH_PORT}",
-    timeout=httpx.Timeout(15.0),  # 3 x HEARTBEAT_MS
+    # Temporarily allow longer idle periods between sidecar response chunks.
+    # Connect, write, and pool timeouts remain 3 x HEARTBEAT_MS.
+    timeout=httpx.Timeout(15.0, read=30.0),
     limits=httpx.Limits(),
     transport=httpx.AsyncHTTPTransport(verify=SSL),
 )

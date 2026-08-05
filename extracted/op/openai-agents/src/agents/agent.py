@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import dataclasses
 import inspect
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeAlias, cast
 
@@ -11,6 +13,7 @@ from openai.types.responses.response_prompt_param import ResponsePromptParam
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from typing_extensions import NotRequired, TypedDict
 
+from . import _debug
 from ._tool_identity import get_function_tool_approval_keys
 from .agent_output import AgentOutputSchemaBase
 from .agent_tool_input import (
@@ -91,6 +94,11 @@ ToolsToFinalOutputFunction: TypeAlias = Callable[
 """A function that takes a run context and a list of tool results, and returns a
 `ToolsToFinalOutputResult`.
 """
+
+
+_mcp_handoff_snapshot: contextvars.ContextVar[
+    tuple[object, tuple[Handoff[Any, Any], ...]] | None
+] = contextvars.ContextVar("mcp_handoff_snapshot", default=None)
 
 
 def _validate_codex_tool_name_collisions(tools: list[Tool]) -> None:
@@ -205,6 +213,11 @@ class AgentBase(Generic[TContext]):
     ) -> set[str]:
         reserved_tool_names = {tool.name for tool in self.tools if isinstance(tool, FunctionTool)}
 
+        snapshot = _mcp_handoff_snapshot.get()
+        if snapshot is not None and snapshot[0] is self:
+            reserved_tool_names.update(handoff.tool_name for handoff in snapshot[1])
+            return reserved_tool_names
+
         async def _check_handoff_enabled(handoff_obj: Handoff[Any, Any]) -> bool:
             attr = handoff_obj.is_enabled
             if isinstance(attr, bool):
@@ -221,6 +234,18 @@ class AgentBase(Generic[TContext]):
             elif isinstance(handoff_item, AgentBase):
                 reserved_tool_names.add(Handoff.default_tool_name(handoff_item))
         return reserved_tool_names
+
+    @contextmanager
+    def _use_mcp_handoff_snapshot(
+        self,
+        enabled_handoffs: Sequence[Handoff[Any, Any]],
+    ) -> Iterator[None]:
+        """Keep MCP reserved-name generation on one enabled-handoff snapshot."""
+        token = _mcp_handoff_snapshot.set((self, tuple(enabled_handoffs)))
+        try:
+            yield
+        finally:
+            _mcp_handoff_snapshot.reset(token)
 
     async def get_mcp_tools(self, run_context: RunContextWrapper[TContext]) -> list[Tool]:
         """Fetches the available tools from the MCP servers."""
@@ -657,10 +682,17 @@ class Agent(AgentBase, Generic[TContext]):
             )
             _log_function_tool_invocation(tool_name=tool_name, input_json=input_json)
 
+            base_message = f"Invalid JSON input for tool {tool_name}"
+            validation_failed = False
             try:
                 parsed_params = params_adapter.validate_python(json_data)
             except ValidationError as exc:
-                raise ModelBehaviorError(f"Invalid JSON input for tool {tool_name}: {exc}") from exc
+                if not _debug.DONT_LOG_TOOL_DATA:
+                    raise ModelBehaviorError(f"{base_message}: {exc}") from exc
+                validation_failed = True
+
+            if validation_failed:
+                raise ModelBehaviorError(base_message)
 
             params_data = _normalize_tool_input(parsed_params, tool_name)
             resolved_input = await resolve_agent_tool_input(
@@ -939,7 +971,7 @@ class Agent(AgentBase, Generic[TContext]):
                         scope_id=tool_state_scope_id,
                     )
 
-            if custom_output_extractor:
+            if custom_output_extractor is not None:
                 return await custom_output_extractor(run_result)
 
             if run_result.final_output is not None and (
@@ -985,6 +1017,8 @@ class Agent(AgentBase, Generic[TContext]):
             ),
         )
         run_agent_tool._is_agent_tool = True
+        if not tool_name:
+            run_agent_tool._agent_tool_default_identity = (self.name, tool_name_resolved)
         run_agent_tool._agent_instance = self
 
         return run_agent_tool

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: caio
-Version: 0.11.1
+Version: 0.12.2
 Summary: Asynchronous file IO for Linux MacOS or Windows.
 Author-email: Dmitry Orlov <me@mosquito.su>
 License-Expression: Apache-2.0
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: COPYING
@@ -28,6 +29,7 @@ Requires-Dist: aiomisc-pytest; extra == "develop"
 Requires-Dist: coveralls; extra == "develop"
 Requires-Dist: pytest; extra == "develop"
 Requires-Dist: pytest-cov; extra == "develop"
+Requires-Dist: pytest-rerunfailures; extra == "develop"
 Requires-Dist: setuptools; extra == "develop"
 Dynamic: license-file
 

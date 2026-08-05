@@ -1,8 +1,8 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: port-ocean
-Version: 0.47.4
+Version: 0.47.6
 Summary: Port Ocean is a CLI tool for managing your Port projects.
-Home-page: https://app.getport.io
+License-File: LICENSE.md
 Keywords: ocean,port-ocean,port
 Author: Daniel Sinai
 Author-email: daniel@getport.io
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
@@ -59,6 +60,7 @@ Requires-Dist: urllib3 (>=2.7.0,<3.0.0)
 Requires-Dist: uvicorn (>=0.34.3,<0.35.0)
 Requires-Dist: virtualenv (>=20.36.1,<21.0.0)
 Requires-Dist: werkzeug (>=3.1.6,<4.0.0)
+Project-URL: Homepage, https://app.getport.io
 Project-URL: Repository, https://github.com/port-labs/Port-Ocean
 Description-Content-Type: text/markdown
 

@@ -35,11 +35,11 @@ def _validate_namespace(namespace: tuple[str, ...]) -> Response | None:
 async def handle_event(
     action: str,
     value: Any,
-) -> None:
+) -> Auth.types.FilterType | None:
     ctx = get_auth_ctx()
     if not ctx:
-        return
-    await _handle_event(
+        return None
+    return await _handle_event(
         Auth.types.AuthContext(
             user=ctx.user,
             permissions=ctx.permissions,
@@ -143,7 +143,13 @@ async def search_items(request: ApiRequest):
         "query": query,
         "refresh_ttl": payload.get("refresh_ttl"),
     }
-    await handle_event("search", handler_payload)
+    auth_filter = await handle_event("search", handler_payload)
+    if auth_filter:
+        existing = handler_payload.get("filter")
+        if existing:
+            handler_payload["filter"] = {"$and": [existing, auth_filter]}
+        else:
+            handler_payload["filter"] = auth_filter
     items = await (await get_store()).asearch(
         handler_payload["namespace"],
         filter=handler_payload["filter"],

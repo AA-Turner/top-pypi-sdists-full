@@ -1,4 +1,4 @@
-use pyo3::{prelude::*, pyclass, pymethods, FromPyObject};
+use pyo3::{FromPyObject, prelude::*, pyclass, pymethods};
 use pyo3_stub_gen::derive::*;
 use statsig_rust::output_logger::OutputLogProvider;
 

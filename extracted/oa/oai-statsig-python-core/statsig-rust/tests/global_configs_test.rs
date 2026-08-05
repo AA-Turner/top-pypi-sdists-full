@@ -1,6 +1,6 @@
 use statsig_rust::{
-    global_configs::GlobalConfigs, networking::ResponseData, sdk_event_emitter::SdkEventEmitter,
-    SpecStore, SpecsSource, SpecsUpdate, StatsigRuntime,
+    SpecStore, SpecsSource, SpecsUpdate, StatsigRuntime, global_configs::GlobalConfigs,
+    networking::ResponseData, sdk_event_emitter::SdkEventEmitter,
 };
 use std::fs;
 

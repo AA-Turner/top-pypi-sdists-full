@@ -1,15 +1,18 @@
 use super::IdListMetadata;
 use crate::id_lists_adapter::{IdListUpdate, IdListsAdapter, IdListsUpdateListener};
-use crate::networking::{NetworkClient, NetworkError, RequestArgs, Response, ResponseData};
+use crate::networking::{
+    DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX, NetworkClient, NetworkError, RequestArgs, Response,
+    ResponseData, default_cdn_id_lists_manifest_url, is_default_cdn_id_lists_manifest_url,
+    is_default_cdn_url, normalize_default_cdn_id_lists_manifest_url, replace_url_base,
+};
 use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
-use crate::observability::ops_stats::{OpsStatsForInstance, OPS_STATS};
+use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
 use crate::observability::sdk_errors_observer::ErrorBoundaryEvent;
 use crate::sdk_diagnostics::diagnostics::ContextType;
 use crate::sdk_diagnostics::marker::{ActionType, KeyType, Marker, StepType};
 use crate::statsig_metadata::StatsigMetadata;
-use crate::utils::split_host_and_path;
 use crate::{
-    log_d, log_e, log_error_to_statsig_and_console, StatsigErr, StatsigOptions, StatsigRuntime,
+    StatsigErr, StatsigOptions, StatsigRuntime, log_d, log_e, log_error_to_statsig_and_console,
 };
 use async_trait::async_trait;
 use chrono::Utc;
@@ -20,8 +23,6 @@ use std::time::Duration;
 use tokio::sync::Notify;
 use tokio::time::sleep;
 
-const STATSIG_CDN_URL: &str = "https://statsigcdn.openai.com";
-const DEFAULT_CDN_ID_LISTS_MANIFEST_URL: &str = "https://statsigcdn.openai.com/v1/get_id_lists";
 const DEFAULT_ID_LIST_SYNC_INTERVAL_MS: u32 = 60_000;
 
 type IdListsResponse = HashMap<String, IdListMetadata>;
@@ -46,16 +47,14 @@ pub struct StatsigHttpIdListsAdapter {
 impl StatsigHttpIdListsAdapter {
     #[must_use]
     pub fn new(sdk_key: &str, options: &StatsigOptions) -> Self {
-        let id_lists_manifest_url = match &options.id_lists_url {
-            Some(url) => url.clone(),
-            None => make_default_cdn_url(sdk_key),
-        };
+        let id_lists_manifest_url =
+            normalize_default_cdn_id_lists_manifest_url(sdk_key, options.id_lists_url.as_deref());
 
         let mut fallback_url = None;
         if options.fallback_to_statsig_api == Some(true)
-            && !id_lists_manifest_url.contains(DEFAULT_CDN_ID_LISTS_MANIFEST_URL)
+            && !id_lists_manifest_url.contains(DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX)
         {
-            fallback_url = Some(make_default_cdn_url(sdk_key));
+            fallback_url = Some(default_cdn_id_lists_manifest_url(sdk_key));
         }
 
         let sync_interval_duration = Duration::from_millis(u64::from(
@@ -136,7 +135,7 @@ impl StatsigHttpIdListsAdapter {
         id_list_file_id: Option<String>,
     ) -> Result<String, StatsigErr> {
         let list_url = self.get_override_id_list_download_url(list_url);
-        let (headers, query_params) = if list_url.starts_with(STATSIG_CDN_URL) {
+        let (headers, query_params) = if is_default_cdn_url(&list_url) {
             (
                 None,
                 Some(HashMap::from([("range".into(), format!("{start_index}-"))])),
@@ -212,12 +211,7 @@ impl StatsigHttpIdListsAdapter {
             return list_url.to_string();
         };
 
-        let (_, path) = split_host_and_path(list_url);
-        if path.is_empty() {
-            return override_api.to_string();
-        }
-
-        format!("{override_api}/{path}")
+        replace_url_base(override_api, list_url)
     }
 
     async fn handle_fallback_request(
@@ -282,8 +276,7 @@ impl StatsigHttpIdListsAdapter {
     }
 
     fn is_cdn_url(&self) -> bool {
-        self.id_lists_manifest_url
-            .starts_with(DEFAULT_CDN_ID_LISTS_MANIFEST_URL)
+        is_default_cdn_id_lists_manifest_url(&self.id_lists_manifest_url)
     }
 
     fn parse_response(
@@ -333,7 +326,7 @@ impl StatsigHttpIdListsAdapter {
             None => {
                 return Err(StatsigErr::LockFailure(
                     "Failed to acquire read lock on listener".to_string(),
-                ))
+                ));
             }
         };
 
@@ -618,10 +611,6 @@ impl IdListsAdapter for StatsigHttpIdListsAdapter {
     fn get_type_name(&self) -> String {
         TAG.to_string()
     }
-}
-
-fn make_default_cdn_url(sdk_key: &str) -> String {
-    format!("{DEFAULT_CDN_ID_LISTS_MANIFEST_URL}/{sdk_key}.json")
 }
 
 #[cfg(test)]
@@ -949,6 +938,86 @@ mod tests {
         assert_eq!(
             actual,
             "https://download-proxy.example/v1/download_id_list_file/3wHgh0FhoQH0p"
+        );
+    }
+
+    #[test]
+    fn test_normalizes_default_cdn_manifest_url_prefix() {
+        for id_lists_url in [
+            DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX,
+            "https://statsigcdn.openai.com/v1/get_id_lists/",
+            "https://statsigcdn.openai.com:443/v1/get_id_lists",
+            "https://statsigcdn.openai.com:443/v1/get_id_lists/",
+        ] {
+            let options = StatsigOptions {
+                id_lists_url: Some(id_lists_url.to_string()),
+                ..StatsigOptions::default()
+            };
+
+            let adapter = StatsigHttpIdListsAdapter::new("secret-key", &options);
+
+            assert_eq!(
+                adapter.id_lists_manifest_url,
+                default_cdn_id_lists_manifest_url("secret-key"),
+                "failed to normalize {id_lists_url}"
+            );
+            assert!(adapter.is_cdn_url());
+        }
+    }
+
+    #[test]
+    fn test_preserves_custom_id_lists_manifest_urls() {
+        for id_lists_url in [
+            "https://statsigcdn.openai.com/v1/get_id_lists/secret-existing.json",
+            "https://statsigcdn.openai.com/v1/get_id_lists?token=example",
+            "https://statsigcdn.openai.com:8443/v1/get_id_lists",
+            "https://statsigcdn.openai.com:443@proxy.example/v1/get_id_lists",
+            "https://api.oaistatsig.com/v1/get_id_lists",
+            "https://proxy.example/v1/get_id_lists",
+        ] {
+            let options = StatsigOptions {
+                id_lists_url: Some(id_lists_url.to_string()),
+                ..StatsigOptions::default()
+            };
+
+            let adapter = StatsigHttpIdListsAdapter::new("secret-key", &options);
+
+            assert_eq!(
+                adapter.id_lists_manifest_url, id_lists_url,
+                "unexpectedly rewrote {id_lists_url}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_preserves_custom_proxy_id_lists_fallback_behavior() {
+        let id_lists_url = "https://proxy.example/v1/get_id_lists?upstream=https://statsigcdn.openai.com/v1/get_id_lists";
+        let options = StatsigOptions {
+            id_lists_url: Some(id_lists_url.to_string()),
+            fallback_to_statsig_api: Some(true),
+            ..StatsigOptions::default()
+        };
+
+        let adapter = StatsigHttpIdListsAdapter::new("secret-key", &options);
+
+        assert_eq!(adapter.id_lists_manifest_url, id_lists_url);
+        assert!(!adapter.is_cdn_url());
+        assert!(adapter.fallback_url.is_none());
+    }
+
+    #[test]
+    fn test_custom_id_lists_manifest_can_fall_back_to_default_cdn() {
+        let options = StatsigOptions {
+            id_lists_url: Some("https://proxy.example/v1/get_id_lists".to_string()),
+            fallback_to_statsig_api: Some(true),
+            ..StatsigOptions::default()
+        };
+
+        let adapter = StatsigHttpIdListsAdapter::new("secret-key", &options);
+
+        assert_eq!(
+            adapter.fallback_url.as_deref(),
+            Some(default_cdn_id_lists_manifest_url("secret-key").as_str())
         );
     }
 

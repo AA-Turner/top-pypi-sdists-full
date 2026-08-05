@@ -22,6 +22,7 @@ ROUND_TRIP_CORPUS: list[str] = [
     "# just a comment\n",
     "key = 1\n",
     "key = 1",  # no trailing newline
+    "key = 1  ",  # no trailing newline, trailing whitespace runs to EOF
     'name = "Tom"\n',
     "title = 'literal'\n",
     "pi = 3.14\n",
@@ -311,6 +312,13 @@ def test_datetime_values() -> None:
         "a = 2024-01-01T00:00:00+\u0660\u0661:00\n",  # offset hour
         "a = 2024-01-01T00:00:00+01:\u0660\u0660\n",  # offset minute
         "a = 2024-01-01 \u0660\u0660:00:00\n",  # space-separator look-ahead
+        # Truncated input: whitespace scans run all the way to EOF
+        # with no token following, rather than stopping on a
+        # non-whitespace character.
+        "a =   ",  # post-'=' whitespace, then EOF instead of a value
+        "a = [1,   ",  # in-array whitespace, then EOF instead of ']'
+        "a  ",  # key trailing whitespace, then EOF instead of '='
+        "a.  ",  # dotted-key separator whitespace, then EOF instead of a key
     ],
 )
 def test_parse_errors(src: str) -> None:
@@ -351,6 +359,15 @@ def test_inline_table_dotted_key_conflict_reports_inline_position() -> None:
     assert exc_info.value.line == 1
     # The conflicting "x.y" key starts at column 14 (1-based).
     assert exc_info.value.col == 14
+
+
+def test_parse_error_position_counts_crlf_as_one_line() -> None:
+    # Both halves of a CRLF belong to the line they terminate, so the
+    # error on the second physical line must report line 2, not line 3.
+    with pytest.raises(tomlrt.TOMLParseError) as exc_info:
+        tomlrt.loads("a = 1\r\nb = @\r\n")
+    err = exc_info.value
+    assert (err.line, err.col, err.offset) == (2, 5, 11)
 
 
 def test_parse_error_is_value_error() -> None:

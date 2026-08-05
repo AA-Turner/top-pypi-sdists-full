@@ -245,7 +245,7 @@ class AvroView(Table):
     def __init__(self, source, limit, skips, **avro_args):
         self.source = source
         self.limit = limit
-        self.skip = skips
+        self._skip = skips
         self.avro_args = avro_args
         self.avro_schema = None
 
@@ -281,7 +281,7 @@ class AvroView(Table):
         count = 0
         maximum = self.limit if self.limit is not None else sys.maxsize
         for i, record in enumerate(avro_reader):
-            if i < self.skip:
+            if i < self._skip:
                 continue
             if count >= maximum:
                 break

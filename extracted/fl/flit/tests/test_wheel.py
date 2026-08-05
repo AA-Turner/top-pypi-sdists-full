@@ -1,4 +1,6 @@
 import configparser
+import csv
+import io
 import os
 import stat
 from pathlib import Path
@@ -10,7 +12,7 @@ import pytest
 from testpath import assert_isfile, assert_isdir, assert_not_path_exists
 
 from flit.wheel import WheelBuilder, make_wheel_in
-from flit.config import EntryPointsConflict
+from flit.config import ConfigError
 
 samples_dir = Path(__file__).parent / 'samples'
 
@@ -157,7 +159,7 @@ def test_entry_points(copy_sample):
 
 def test_entry_points_conflict(copy_sample):
     td = copy_sample('entrypoints_conflict')
-    with pytest.raises(EntryPointsConflict):
+    with pytest.raises(ConfigError):
         make_wheel_in(td / 'pyproject.toml', td)
 
 def test_wheel_builder():
@@ -170,6 +172,17 @@ def test_wheel_builder():
 
         assert zipfile.is_zipfile(str(target))
         assert wb.wheel_filename == 'package1-0.1-py2.py3-none-any.whl'
+
+def test_stub_wheel_builder():
+    # Slightly lower level interface
+    with tempfile.TemporaryDirectory() as td:
+        target = Path(td, 'sample.whl')
+        with target.open('wb') as f:
+            wb = WheelBuilder.from_ini_path(samples_dir / 'sample-stubs' / 'pyproject.toml', f)
+            wb.build()
+
+        assert zipfile.is_zipfile(str(target))
+        assert wb.wheel_filename == 'wcwidth_stubs-0.2.13.1-py3-none-any.whl'
 
 @skipIf(os.name == 'nt', 'Windows does not preserve necessary permissions')
 def test_permissions_normed(copy_sample):
@@ -224,3 +237,18 @@ def test_wheel_module_local_version(copy_sample):
     with unpack(whl_file) as unpacked:
         assert_isfile(Path(unpacked, 'modulewithlocalversion.py'))
         assert_isdir(Path(unpacked, 'modulewithlocalversion-0.1.dev0+test.dist-info'))
+
+def test_record_csv_escaping(copy_sample):
+    td = copy_sample('package1')
+
+    (td / 'package1/a,b,c.bin').write_bytes(b'')
+
+    info = make_wheel_in(td / 'pyproject.toml', td)
+
+    with zipfile.ZipFile(info.file) as zf:
+        with zf.open('package1-0.1.dist-info/RECORD') as record_file:
+            with io.TextIOWrapper(record_file, newline='') as record_text_file:
+                reader = csv.reader(record_text_file)
+                row = next(r for r in reader if r[0] == 'package1/a,b,c.bin')
+                assert row[1] == 'sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU'
+                assert row[2] == '0'

@@ -1,15 +1,15 @@
+use crate::StatsigErr;
 use crate::statsig_global::StatsigGlobal;
 use crate::statsig_options::{
-    RuntimeThreadStartCallback, DEFAULT_SDK_RUNTIME_THREAD_COUNT, SDK_RUNTIME_THREAD_COUNT_ENV_VAR,
+    DEFAULT_SDK_RUNTIME_THREAD_COUNT, RuntimeThreadStartCallback, SDK_RUNTIME_THREAD_COUNT_ENV_VAR,
 };
-use crate::StatsigErr;
 use crate::{log_d, log_e};
 use futures::future::join_all;
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::future::Future;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 use tokio::runtime::{Builder, Handle, Runtime};
 use tokio::sync::Notify;

@@ -71,6 +71,7 @@ from .type_defs import (
     UpdateItemInputTableUpdateItemTypeDef,
     UpdateItemOutputTableTypeDef,
     UpdateTableInputTableUpdateTypeDef,
+    VectorIndexDescriptionTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -173,6 +174,7 @@ class Table(ServiceResource):
     on_demand_throughput: OnDemandThroughputTypeDef
     warm_throughput: TableWarmThroughputDescriptionTypeDef
     multi_region_consistency: MultiRegionConsistencyType
+    vector_indexes: list[VectorIndexDescriptionTypeDef]
     meta: DynamoDBResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:

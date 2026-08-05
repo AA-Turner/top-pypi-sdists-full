@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io::Write;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{mpsc, Arc};
+use std::sync::{Arc, mpsc};
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -11,21 +11,21 @@ use prost::Message;
 use serial_test::serial;
 
 use crate::{
+    ClientInitResponseOptions, FeatureGateEvaluationOptions, GCIRResponseFormat, SpecStore,
+    SpecsSource, SpecsUpdate, SpecsUpdateListener, Statsig, StatsigErr, StatsigOptions,
+    StatsigRuntime, StatsigUser,
     data_store_interface::{DataStoreResponse, DataStoreTrait, RequestPath},
     id_lists_adapter::{IdListMetadata, IdListUpdate, IdListsUpdateListener},
     networking::ResponseData,
     observability::{
         observability_client_adapter::MetricType,
-        ops_stats::{OpsStatsEvent, OPS_STATS},
+        ops_stats::{OPS_STATS, OpsStatsEvent},
     },
     output_logger::{
-        initialize_output_logger, shutdown_output_logger, LogLevel, OutputLogProvider,
+        LogLevel, OutputLogProvider, initialize_output_logger, shutdown_output_logger,
     },
     sdk_event_emitter::{SdkEvent, SdkEventEmitter},
     specs_response::{spec_types::SpecsResponseFull, statsig_config_specs as pb},
-    ClientInitResponseOptions, FeatureGateEvaluationOptions, GCIRResponseFormat, SpecStore,
-    SpecsSource, SpecsUpdate, SpecsUpdateListener, Statsig, StatsigErr, StatsigOptions,
-    StatsigRuntime, StatsigUser,
 };
 
 struct TestDataStore {
@@ -241,6 +241,7 @@ fn protobuf_delta(
         response_format: values.response_format.clone().unwrap_or_default(),
         checksum: checksum.to_string(),
         rest: serde_json::to_vec(&common_fields_json(values)).unwrap(),
+        may_have_remote_config_metadata: None,
     };
     let mut checksums = empty_field_checksums();
     if corrupt_checksums {
@@ -1316,10 +1317,12 @@ fn test_nonempty_delta_applies_after_cursor_only_baseline() {
         &cursor_baseline.snapshot,
         &after_deletion.snapshot
     ));
-    assert!(!after_deletion
-        .snapshot
-        .dynamic_configs
-        .keys()
-        .any(|name| name.as_str() == deleted_name));
+    assert!(
+        !after_deletion
+            .snapshot
+            .dynamic_configs
+            .keys()
+            .any(|name| name.as_str() == deleted_name)
+    );
     assert_eq!(after_deletion.lcut(), cursor_baseline.lcut() + 1);
 }

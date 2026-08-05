@@ -1,12 +1,24 @@
 from anthropic import Anthropic, AsyncAnthropic, transform_schema
 import enum
 import llm
+from llm.models import _partition_tools
+from llm.parts import (
+    AttachmentPart,
+    Message,
+    ReasoningPart,
+    StreamEvent,
+    TextPart,
+    ToolCallPart,
+    ToolResultPart,
+)
 import json
-from typing import Optional, List
+from typing import Any, Dict, Optional, List
+from urllib.parse import urlsplit
 from pydantic import Field, field_validator, model_validator
 
 DEFAULT_THINKING_TOKENS = 1024
 DEFAULT_TEMPERATURE = 1.0
+MCP_BETA = "mcp-client-2025-11-20"
 
 
 class ThinkingEffort(str, enum.Enum):
@@ -179,6 +191,8 @@ def register_models(register):
             "claude-sonnet-4-5",
             supports_pdf=True,
             supports_thinking=True,
+            supports_web_search=True,
+            supports_code_execution=True,
             use_structured_outputs=True,
             default_max_tokens=64000,
         ),
@@ -186,6 +200,8 @@ def register_models(register):
             "claude-sonnet-4-5",
             supports_pdf=True,
             supports_thinking=True,
+            supports_web_search=True,
+            supports_code_execution=True,
             use_structured_outputs=True,
             default_max_tokens=64000,
         ),
@@ -197,12 +213,16 @@ def register_models(register):
             "claude-haiku-4-5-20251001",
             supports_pdf=True,
             supports_thinking=True,
+            supports_web_search=True,
+            supports_code_execution=True,
             default_max_tokens=64000,
         ),
         AsyncClaudeMessages(
             "claude-haiku-4-5-20251001",
             supports_pdf=True,
             supports_thinking=True,
+            supports_web_search=True,
+            supports_code_execution=True,
             default_max_tokens=64000,
         ),
         aliases=("claude-haiku-4.5",),
@@ -215,6 +235,7 @@ def register_models(register):
             supports_thinking=True,
             supports_thinking_effort=True,
             supports_web_search=True,
+            supports_code_execution=True,
             default_max_tokens=64000,
         ),
         AsyncClaudeMessages(
@@ -223,6 +244,7 @@ def register_models(register):
             supports_thinking=True,
             supports_thinking_effort=True,
             supports_web_search=True,
+            supports_code_execution=True,
             default_max_tokens=64000,
         ),
         aliases=("claude-opus-4.5",),
@@ -236,6 +258,7 @@ def register_models(register):
             supports_thinking_effort=True,
             supports_adaptive_thinking=True,
             supports_web_search=True,
+            supports_code_execution=True,
             use_structured_outputs=True,
             default_max_tokens=128000,
         ),
@@ -246,6 +269,7 @@ def register_models(register):
             supports_thinking_effort=True,
             supports_adaptive_thinking=True,
             supports_web_search=True,
+            supports_code_execution=True,
             use_structured_outputs=True,
             default_max_tokens=128000,
         ),
@@ -260,6 +284,7 @@ def register_models(register):
             supports_thinking_effort=True,
             supports_adaptive_thinking=True,
             supports_web_search=True,
+            supports_code_execution=True,
             use_structured_outputs=True,
             default_max_tokens=128000,
         ),
@@ -270,6 +295,7 @@ def register_models(register):
             supports_thinking_effort=True,
             supports_adaptive_thinking=True,
             supports_web_search=True,
+            supports_code_execution=True,
             use_structured_outputs=True,
             default_max_tokens=128000,
         ),
@@ -284,6 +310,7 @@ def register_models(register):
             supports_thinking_effort=True,
             supports_adaptive_thinking=True,
             supports_web_search=True,
+            supports_code_execution=True,
             use_structured_outputs=True,
             default_max_tokens=128000,
         ),
@@ -294,6 +321,7 @@ def register_models(register):
             supports_thinking_effort=True,
             supports_adaptive_thinking=True,
             supports_web_search=True,
+            supports_code_execution=True,
             use_structured_outputs=True,
             default_max_tokens=128000,
         ),
@@ -308,6 +336,7 @@ def register_models(register):
             supports_thinking_effort=True,
             supports_adaptive_thinking=True,
             supports_web_search=True,
+            supports_code_execution=True,
             use_structured_outputs=True,
             default_max_tokens=128000,
         ),
@@ -318,10 +347,97 @@ def register_models(register):
             supports_thinking_effort=True,
             supports_adaptive_thinking=True,
             supports_web_search=True,
+            supports_code_execution=True,
             use_structured_outputs=True,
             default_max_tokens=128000,
         ),
         aliases=("claude-opus-4.8",),
+    )
+    # claude-fable-5
+    register(
+        ClaudeMessages(
+            "claude-fable-5",
+            supports_pdf=True,
+            thinks_by_default=True,
+            always_thinks=True,
+            supports_thinking=True,
+            supports_thinking_effort=True,
+            supports_adaptive_thinking=True,
+            supports_web_search=True,
+            supports_code_execution=True,
+            use_structured_outputs=True,
+            default_max_tokens=128000,
+        ),
+        AsyncClaudeMessages(
+            "claude-fable-5",
+            supports_pdf=True,
+            thinks_by_default=True,
+            always_thinks=True,
+            supports_thinking=True,
+            supports_thinking_effort=True,
+            supports_adaptive_thinking=True,
+            supports_web_search=True,
+            supports_code_execution=True,
+            use_structured_outputs=True,
+            default_max_tokens=128000,
+        ),
+        aliases=("claude-fable-5",),
+    )
+    # claude-sonnet-5
+    register(
+        ClaudeMessages(
+            "claude-sonnet-5",
+            supports_pdf=True,
+            thinks_by_default=True,
+            supports_thinking=True,
+            supports_thinking_effort=True,
+            supports_adaptive_thinking=True,
+            supports_web_search=True,
+            supports_code_execution=True,
+            use_structured_outputs=True,
+            default_max_tokens=128000,
+        ),
+        AsyncClaudeMessages(
+            "claude-sonnet-5",
+            supports_pdf=True,
+            thinks_by_default=True,
+            supports_thinking=True,
+            supports_thinking_effort=True,
+            supports_adaptive_thinking=True,
+            supports_web_search=True,
+            supports_code_execution=True,
+            use_structured_outputs=True,
+            default_max_tokens=128000,
+        ),
+        aliases=("claude-sonnet-5",),
+    )
+    # claude-opus-5
+    register(
+        ClaudeMessages(
+            "claude-opus-5",
+            supports_pdf=True,
+            thinks_by_default=True,
+            supports_thinking=True,
+            supports_thinking_effort=True,
+            supports_adaptive_thinking=True,
+            supports_web_search=True,
+            supports_code_execution=True,
+            use_structured_outputs=True,
+            default_max_tokens=128000,
+        ),
+        AsyncClaudeMessages(
+            "claude-opus-5",
+            supports_pdf=True,
+            thinks_by_default=True,
+            supports_thinking=True,
+            supports_thinking_effort=True,
+            supports_adaptive_thinking=True,
+            supports_web_search=True,
+            supports_code_execution=True,
+            use_structured_outputs=True,
+            default_max_tokens=128000,
+        ),
+        aliases=("claude-opus-5",),
     )
 
 
@@ -378,31 +494,6 @@ class ClaudeOptions(llm.Options):
         default=None,
     )
 
-    web_search: Optional[bool] = Field(
-        description="Enable web search capabilities",
-        default=None,
-    )
-
-    web_search_max_uses: Optional[int] = Field(
-        description="Maximum number of web searches to perform per request",
-        default=None,
-    )
-
-    web_search_allowed_domains: Optional[List[str]] = Field(
-        description="List of domains to restrict web searches to",
-        default=None,
-    )
-
-    web_search_blocked_domains: Optional[List[str]] = Field(
-        description="List of domains to exclude from web searches",
-        default=None,
-    )
-
-    web_search_location: Optional[dict] = Field(
-        description="User location for localizing search results (dict with city, region, country, timezone)",
-        default=None,
-    )
-
     @field_validator("stop_sequences")
     def validate_stop_sequences(cls, stop_sequences):
         error_msg = "stop_sequences must be a list of strings or a single string"
@@ -444,75 +535,254 @@ class ClaudeOptions(llm.Options):
             raise ValueError("top_k must be a positive integer")
         return top_k
 
-    @field_validator("web_search_max_uses")
-    @classmethod
-    def validate_web_search_max_uses(cls, max_uses):
-        if max_uses is not None and max_uses <= 0:
-            raise ValueError("web_search_max_uses must be a positive integer")
-        return max_uses
-
-    @field_validator("web_search_allowed_domains", "web_search_blocked_domains")
-    @classmethod
-    def validate_web_search_domains(cls, domains):
-        if domains is not None:
-            if not isinstance(domains, list):
-                raise ValueError("web_search domains must be a list of strings")
-            if not all(isinstance(domain, str) for domain in domains):
-                raise ValueError("web_search domains must be a list of strings")
-        return domains
-
-    @field_validator("web_search_location")
-    @classmethod
-    def validate_web_search_location(cls, location):
-        if location is not None:
-            if not isinstance(location, dict):
-                raise ValueError("web_search_location must be a dictionary")
-            required_fields = {"city", "region", "country", "timezone"}
-            if not all(field in location for field in required_fields):
-                raise ValueError(f"web_search_location must contain: {required_fields}")
-        return location
-
     @model_validator(mode="after")
     def validate_temperature_top_p(self):
         if self.temperature != 1.0 and self.top_p is not None:
             raise ValueError("Only one of temperature and top_p can be set")
         return self
 
-    @model_validator(mode="after")
-    def validate_web_search_domains_conflict(self):
-        if (
-            self.web_search_allowed_domains is not None
-            and self.web_search_blocked_domains is not None
-        ):
-            raise ValueError(
-                "Cannot use both web_search_allowed_domains and web_search_blocked_domains"
-            )
-        return self
-
 
 class ClaudeOptionsWithThinking(ClaudeOptions):
     thinking: bool | None = Field(
-        description="Enable thinking mode",
-        default=None,
-    )
-    thinking_budget: int | None = Field(
-        description="Number of tokens to budget for thinking", default=None
-    )
-    thinking_display: bool | None = Field(
-        description="Request summarized thinking output (available in --json logs)",
-        default=None,
-    )
-    thinking_adaptive: bool | None = Field(
-        description='Force adaptive thinking mode (sends thinking={"type": "adaptive"})',
+        description=(
+            "Enable thinking mode. Claude 5 models think by default - "
+            "set to false to disable thinking on models that allow it"
+        ),
         default=None,
     )
 
 
 class ClaudeOptionsWithThinkingEffort(ClaudeOptionsWithThinking):
     thinking_effort: ThinkingEffort | None = Field(
-        description="Level of thinking effort to apply: low, medium, or high",
+        description="Level of thinking effort to apply: low, medium, high, xhigh or max",
         default=None,
     )
+
+
+def _validate_max_uses(max_uses):
+    if max_uses is not None and (
+        isinstance(max_uses, bool) or not isinstance(max_uses, int) or max_uses < 1
+    ):
+        raise ValueError("max_uses must be a positive integer")
+
+
+def _validate_domain_filters(allowed_domains, blocked_domains):
+    if allowed_domains is not None and blocked_domains is not None:
+        raise ValueError("Cannot specify both allowed_domains and blocked_domains")
+    for name, domains in (
+        ("allowed_domains", allowed_domains),
+        ("blocked_domains", blocked_domains),
+    ):
+        if domains is None:
+            continue
+        if not isinstance(domains, list) or not all(
+            isinstance(domain, str) and domain for domain in domains
+        ):
+            raise ValueError(f"{name} must be a list of non-empty strings")
+
+
+class WebSearch(llm.ServerSideTool):
+    """Search the web using Anthropic's server-side web search tool.
+
+    On Claude 4.6 and later models this uses ``web_search_20260318`` with
+    dynamic content filtering; older models use ``web_search_20250305``.
+    """
+
+    name = "web_search"
+
+    def __init__(
+        self,
+        max_uses: Optional[int] = None,
+        allowed_domains: Optional[List[str]] = None,
+        blocked_domains: Optional[List[str]] = None,
+        user_location: Optional[dict] = None,
+    ):
+        super().__init__()
+        _validate_max_uses(max_uses)
+        _validate_domain_filters(allowed_domains, blocked_domains)
+        if user_location is not None:
+            if not isinstance(user_location, dict):
+                raise ValueError("user_location must be a dictionary")
+            allowed_keys = {"type", "city", "region", "country", "timezone"}
+            invalid_keys = set(user_location.keys()) - allowed_keys
+            if invalid_keys:
+                raise ValueError(
+                    f"user_location contains invalid keys: {invalid_keys}. "
+                    f"Allowed keys: {allowed_keys}"
+                )
+            user_location = dict(user_location)
+            user_location.setdefault("type", "approximate")
+            if user_location["type"] != "approximate":
+                raise ValueError("user_location type must be approximate")
+        self.max_uses = max_uses
+        self.allowed_domains = allowed_domains
+        self.blocked_domains = blocked_domains
+        self.user_location = user_location
+
+    def tool_spec(self, model):
+        modern = getattr(model, "supports_adaptive_thinking", False)
+        spec = {
+            "type": "web_search_20260318" if modern else "web_search_20250305",
+            "name": "web_search",
+        }
+        if self.max_uses is not None:
+            spec["max_uses"] = self.max_uses
+        if self.allowed_domains is not None:
+            spec["allowed_domains"] = list(self.allowed_domains)
+        if self.blocked_domains is not None:
+            spec["blocked_domains"] = list(self.blocked_domains)
+        if self.user_location is not None:
+            spec["user_location"] = dict(self.user_location)
+        return spec
+
+
+class WebFetch(llm.ServerSideTool):
+    """Fetch the full contents of a URL using Anthropic's server-side web
+    fetch tool.
+
+    Claude can only fetch URLs that already appear in the conversation -
+    provided by the user or returned by a previous web search or fetch.
+    On Claude 4.6 and later models this uses ``web_fetch_20260318`` with
+    dynamic content filtering; older models use ``web_fetch_20250910``.
+    """
+
+    name = "web_fetch"
+
+    def __init__(
+        self,
+        max_uses: Optional[int] = None,
+        allowed_domains: Optional[List[str]] = None,
+        blocked_domains: Optional[List[str]] = None,
+        citations: bool = False,
+        max_content_tokens: Optional[int] = None,
+        use_cache: Optional[bool] = None,
+    ):
+        super().__init__()
+        _validate_max_uses(max_uses)
+        _validate_domain_filters(allowed_domains, blocked_domains)
+        if not isinstance(citations, bool):
+            raise ValueError("citations must be a boolean")
+        if max_content_tokens is not None and (
+            isinstance(max_content_tokens, bool)
+            or not isinstance(max_content_tokens, int)
+            or max_content_tokens < 1
+        ):
+            raise ValueError("max_content_tokens must be a positive integer")
+        if use_cache is not None and not isinstance(use_cache, bool):
+            raise ValueError("use_cache must be a boolean")
+        self.max_uses = max_uses
+        self.allowed_domains = allowed_domains
+        self.blocked_domains = blocked_domains
+        self.citations = citations
+        self.max_content_tokens = max_content_tokens
+        self.use_cache = use_cache
+
+    def tool_spec(self, model):
+        modern = getattr(model, "supports_adaptive_thinking", False)
+        if self.use_cache is not None and not modern:
+            raise ValueError(
+                f"use_cache is not supported by model {model.model_id} - "
+                "it requires a Claude 4.6 or later model"
+            )
+        spec = {
+            "type": "web_fetch_20260318" if modern else "web_fetch_20250910",
+            "name": "web_fetch",
+        }
+        if self.max_uses is not None:
+            spec["max_uses"] = self.max_uses
+        if self.allowed_domains is not None:
+            spec["allowed_domains"] = list(self.allowed_domains)
+        if self.blocked_domains is not None:
+            spec["blocked_domains"] = list(self.blocked_domains)
+        if self.citations:
+            spec["citations"] = {"enabled": True}
+        if self.max_content_tokens is not None:
+            spec["max_content_tokens"] = self.max_content_tokens
+        if self.use_cache is not None:
+            spec["use_cache"] = self.use_cache
+        return spec
+
+
+class AnthropicMCP(llm.ServerSideTool):
+    """Call tools on a remote MCP server using Anthropic's MCP connector.
+
+    Anthropic connects to the MCP server from their own infrastructure -
+    the server must be reachable over HTTPS. Uses the ``mcp-client-2025-11-20``
+    beta. Only MCP tool calls are supported (not resources or prompts).
+    """
+
+    name = "mcp"
+
+    def __init__(
+        self,
+        url: str,
+        name: Optional[str] = None,
+        authorization_token: Optional[str] = None,
+        allowed_tools: Optional[List[str]] = None,
+    ):
+        super().__init__()
+        if not isinstance(url, str) or not url:
+            raise ValueError("url must be a non-empty string")
+        if not url.startswith("https://"):
+            raise ValueError("url must start with https://")
+        if name is not None and (not isinstance(name, str) or not name):
+            raise ValueError("name must be a non-empty string")
+        if authorization_token is not None and not isinstance(authorization_token, str):
+            raise ValueError("authorization_token must be a string")
+        if allowed_tools is not None:
+            if not isinstance(allowed_tools, list) or not all(
+                isinstance(tool_name, str) and tool_name for tool_name in allowed_tools
+            ):
+                raise ValueError("allowed_tools must be a list of non-empty strings")
+        self.url = url
+        self.server_name = name or urlsplit(url).hostname
+        self.authorization_token = authorization_token
+        self.allowed_tools = allowed_tools
+
+    def tool_spec(self, model):
+        spec = {"type": "mcp_toolset", "mcp_server_name": self.server_name}
+        if self.allowed_tools is not None:
+            spec["default_config"] = {"enabled": False}
+            spec["configs"] = {
+                tool_name: {"enabled": True} for tool_name in self.allowed_tools
+            }
+        return spec
+
+    def prepare_request(self, model, kwargs):
+        server = {"type": "url", "url": self.url, "name": self.server_name}
+        if self.authorization_token is not None:
+            server["authorization_token"] = self.authorization_token
+        servers = kwargs.setdefault("mcp_servers", [])
+        if not any(existing.get("name") == self.server_name for existing in servers):
+            servers.append(server)
+        betas = kwargs.setdefault("betas", [])
+        if MCP_BETA not in betas:
+            betas.append(MCP_BETA)
+
+
+class CodeExecution(llm.ServerSideTool):
+    """Run Python and bash code in Anthropic's sandboxed server-side
+    execution container.
+
+    Pass an existing container ID as ``container`` to reuse the files and
+    state from a previous response - the container ID is available in the
+    logged response JSON.
+    """
+
+    name = "code_execution"
+
+    def __init__(self, container: Optional[str] = None):
+        super().__init__()
+        if container is not None and not isinstance(container, str):
+            raise ValueError("container must be a string container ID")
+        self.container = container
+
+    def tool_spec(self, model):
+        return {"type": "code_execution_20260521", "name": "code_execution"}
+
+    def prepare_request(self, model, kwargs):
+        if self.container is not None:
+            kwargs["container"] = self.container
 
 
 def source_for_attachment(attachment):
@@ -541,6 +811,9 @@ class _Shared:
     supports_schema = True
     supports_tools = True
     supports_web_search = False
+    supports_code_execution = False
+    thinks_by_default = False
+    always_thinks = False
     default_max_tokens = 4096
 
     class Options(ClaudeOptions): ...
@@ -555,6 +828,9 @@ class _Shared:
         supports_thinking_effort=False,
         supports_adaptive_thinking=False,
         supports_web_search=False,
+        supports_code_execution=False,
+        thinks_by_default=False,
+        always_thinks=False,
         use_structured_outputs=False,
         default_max_tokens=None,
         base_url=None,
@@ -586,11 +862,72 @@ class _Shared:
         if default_max_tokens is not None:
             self.default_max_tokens = default_max_tokens
         self.supports_web_search = supports_web_search
+        self.supports_code_execution = supports_code_execution
+        self.thinks_by_default = thinks_by_default
+        self.always_thinks = always_thinks
+
+    @property
+    def supported_server_side_tools(self):
+        tools = []
+        if self.supports_web_search:
+            tools += [WebSearch, WebFetch, AnthropicMCP]
+        if self.supports_code_execution:
+            tools.append(CodeExecution)
+        return tuple(tools)
 
     def prefill_text(self, prompt):
         if prompt.options.prefill and not prompt.options.hide_prefill:
             return prompt.options.prefill
         return ""
+
+    def _server_tool_result_event(self, block_type, block) -> StreamEvent:
+        """Build a tool_result StreamEvent from a server tool result block.
+
+        web_search_tool_result content is a list of result blocks;
+        web_fetch_tool_result content is a single result object.
+        """
+        content = getattr(block, "content", None)
+        if isinstance(content, list):
+            result_text = (
+                json.dumps(
+                    [b if isinstance(b, dict) else b.model_dump() for b in content]
+                )
+                if content
+                else ""
+            )
+        elif content is None:
+            result_text = ""
+        else:
+            result_text = json.dumps(
+                content if isinstance(content, dict) else content.model_dump()
+            )
+        return StreamEvent(
+            type="tool_result",
+            chunk=result_text,
+            tool_call_id=getattr(block, "tool_use_id", None),
+            server_executed=True,
+            tool_name=block_type.removesuffix("_tool_result"),
+        )
+
+    def _apply_container(self, message_dict, container):
+        """Store the code execution container on the response JSON.
+
+        Streaming needs this patched in from the message_delta event -
+        the SDK's get_final_message() accumulator drops it - and in both
+        modes the datetime expires_at must become a JSON-safe string.
+        """
+        if container is None:
+            container = message_dict.get("container")
+        if container is None:
+            return
+        if hasattr(container, "model_dump"):
+            container = container.model_dump(mode="json")
+        else:
+            container = {
+                key: value.isoformat() if hasattr(value, "isoformat") else value
+                for key, value in container.items()
+            }
+        message_dict["container"] = container
 
     def _model_dump_suppress_warnings(self, message):
         """
@@ -607,150 +944,211 @@ class _Shared:
             warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
             return message.model_dump()
 
+    # --- messages= support -------------------------------------------------
+    #
+    # This plugin consumes prompt.messages (the canonical list[Message]
+    # that llm synthesizes from legacy inputs when messages= wasn't
+    # explicitly passed). Each Message + its Parts is translated into
+    # Anthropic content blocks; adjacent user-side messages (role="user"
+    # or role="tool") are merged because Anthropic requires alternating
+    # user/assistant turns.
+
+    def _part_to_block(self, part) -> Optional[Dict[str, Any]]:
+        """Translate one llm Part into an Anthropic content block."""
+        pm = getattr(part, "provider_metadata", None) or {}
+        anthropic_pm = pm.get("anthropic", {}) if isinstance(pm, dict) else {}
+        if isinstance(part, TextPart):
+            block: Dict[str, Any] = {"type": "text", "text": part.text}
+            return block
+        if isinstance(part, ReasoningPart):
+            block = {"type": "thinking", "thinking": part.text}
+            # Anthropic signed-thinking requires the signature echoed back.
+            sig = (
+                anthropic_pm.get("signature")
+                if isinstance(anthropic_pm, dict)
+                else None
+            )
+            if sig:
+                block["signature"] = sig
+            return block
+        if isinstance(part, ToolCallPart):
+            mcp_server_name = (
+                anthropic_pm.get("mcp_server_name")
+                if isinstance(anthropic_pm, dict)
+                else None
+            )
+            if part.server_executed and (
+                mcp_server_name or (part.tool_call_id or "").startswith("mcptoolu")
+            ):
+                # MCP connector calls replay as mcp_tool_use blocks; the
+                # API requires the server_name field to be echoed back.
+                block = {
+                    "type": "mcp_tool_use",
+                    "id": part.tool_call_id,
+                    "name": part.name,
+                    "input": part.arguments,
+                }
+                if mcp_server_name:
+                    block["server_name"] = mcp_server_name
+                return block
+            return {
+                "type": "server_tool_use" if part.server_executed else "tool_use",
+                "id": part.tool_call_id,
+                "name": part.name,
+                "input": part.arguments,
+            }
+        if isinstance(part, ToolResultPart):
+            if part.server_executed:
+                # Reconstruct the provider result block that arrived in the
+                # assistant turn (e.g. web_fetch_tool_result) - the API
+                # rejects plain tool_result blocks in assistant messages.
+                try:
+                    content = json.loads(part.output) if part.output else None
+                except ValueError:
+                    content = part.output
+                block = {
+                    "type": part.name + "_tool_result",
+                    "tool_use_id": part.tool_call_id,
+                }
+                if content is not None:
+                    block["content"] = content
+                return block
+            return {
+                "type": "tool_result",
+                "tool_use_id": part.tool_call_id,
+                "content": part.output,
+            }
+        if isinstance(part, AttachmentPart) and part.attachment is not None:
+            attachment = part.attachment
+            attachment_type = (
+                "document"
+                if attachment.resolve_type() == "application/pdf"
+                else "image"
+            )
+            return {
+                "type": attachment_type,
+                "source": source_for_attachment(attachment),
+            }
+        return None
+
+    def _message_to_blocks(self, message: Message) -> List[Dict[str, Any]]:
+        blocks: List[Dict[str, Any]] = []
+        for part in message.parts:
+            block = self._part_to_block(part)
+            if block is not None:
+                blocks.append(block)
+        if message.role == "assistant":
+            filtered_blocks: List[Dict[str, Any]] = []
+            seen_tool_use = False
+            for block in blocks:
+                block_type = block.get("type")
+                if seen_tool_use and block_type == "text" and block.get("text") == " ":
+                    # The sync streaming path yields a display-only space
+                    # after tool calls so chained text does not run together.
+                    # Anthropic rejects assistant history that places text
+                    # after tool_use instead of immediately before tool_result.
+                    continue
+                filtered_blocks.append(block)
+                if block_type == "tool_use":
+                    seen_tool_use = True
+            blocks = filtered_blocks
+        return blocks
+
+    def _append_message(self, out: List[Dict[str, Any]], message: Message) -> None:
+        """Append an Anthropic-shaped message, merging with the previous one
+        if both would be user-side turns (tool_result + text in the same
+        user message is the required shape for tool follow-ups)."""
+        if message.role == "system":
+            return  # system lives on the top-level kwargs["system"] field
+        blocks = self._message_to_blocks(message)
+        if not blocks:
+            return
+        # Anthropic: tool messages from llm become user messages with
+        # tool_result blocks; assistant stays assistant.
+        anthropic_role = "assistant" if message.role == "assistant" else "user"
+        if out and out[-1]["role"] == anthropic_role and anthropic_role == "user":
+            out[-1]["content"].extend(blocks)
+        else:
+            out.append({"role": anthropic_role, "content": blocks})
+
+    def _append_prev_response_output(
+        self, out: List[Dict[str, Any]], prev_response
+    ) -> None:
+        """Add the assistant turn from a previous Response. Mirrors the
+        flat text+tool_calls pattern used by the OpenAI plugin."""
+        assistant_content: List[Dict[str, Any]] = []
+        text_content = prev_response.text_or_raise()
+        if text_content:
+            assistant_content.append({"type": "text", "text": text_content})
+        for tool_call in prev_response.tool_calls_or_raise():
+            assistant_content.append(
+                {
+                    "type": "tool_use",
+                    "id": tool_call.tool_call_id,
+                    "name": tool_call.name,
+                    "input": tool_call.arguments,
+                }
+            )
+        if assistant_content:
+            out.append({"role": "assistant", "content": assistant_content})
+
     def build_messages(self, prompt, conversation) -> list[dict]:
-        messages = []
+        messages: List[Dict[str, Any]] = []
 
-        # Process existing conversation history
-        if conversation:
-            for response in conversation.responses:
-                # Build user message
-                user_content = []
+        # Current turn — iterate prompt.messages (auto-synthesized from
+        # legacy inputs if messages= was not explicitly passed). In llm
+        # 0.32+ conversation and chain paths pre-bake the full input chain
+        # here, so also walking conversation.responses would duplicate
+        # prior turns and break tool-result ordering.
+        for message in prompt.messages:
+            self._append_message(messages, message)
 
-                # Handle attachments in user message
-                if response.attachments:
-                    for attachment in response.attachments:
-                        attachment_type = (
-                            "document"
-                            if attachment.resolve_type() == "application/pdf"
-                            else "image"
-                        )
-                        user_content.append(
-                            {
-                                "type": attachment_type,
-                                "source": source_for_attachment(attachment),
-                            }
-                        )
-
-                # Add text content if it exists
-                if response.prompt.prompt:
-                    user_content.append(
-                        {"type": "text", "text": response.prompt.prompt}
-                    )
-
-                # Handle tool results if present (add to the same user message)
-                if response.prompt.tool_results:
-                    for tool_result in response.prompt.tool_results:
-                        user_content.append(
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": tool_result.tool_call_id,
-                                "content": tool_result.output,
-                            }
-                        )
-
-                # Only add the message if we have content
-                if user_content:
-                    messages.append({"role": "user", "content": user_content})
-
-                # Build assistant message
-                assistant_content = []
-                text_content = response.text_or_raise()
-
-                # Add text content if it exists
-                if text_content:
-                    assistant_content.append({"type": "text", "text": text_content})
-
-                # Add tool calls if they exist
-                tool_calls = response.tool_calls_or_raise()
-                for tool_call in tool_calls:
-                    assistant_content.append(
-                        {
-                            "type": "tool_use",
-                            "id": tool_call.tool_call_id,
-                            "name": tool_call.name,
-                            "input": tool_call.arguments,
-                        }
-                    )
-
-                # Add assistant message if we have content
-                if assistant_content:
-                    messages.append({"role": "assistant", "content": assistant_content})
-
-        # Handle current prompt's tool results and user content together
-        user_content = []
-
-        # Add attachments
-        if prompt.attachments:
-            for attachment in prompt.attachments:
-                attachment_type = (
-                    "document"
-                    if attachment.resolve_type() == "application/pdf"
-                    else "image"
-                )
-                user_content.append(
-                    {
-                        "type": attachment_type,
-                        "source": source_for_attachment(attachment),
-                    }
-                )
-
-            # Add cache control if needed
-            if prompt.options.cache and user_content:
-                user_content[-1]["cache_control"] = {"type": "ephemeral"}
-
-        # Add current prompt's tool results
-        if prompt.tool_results:
-            for tool_result in prompt.tool_results:
-                user_content.append(
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": tool_result.tool_call_id,
-                        "content": tool_result.output,
-                    }
-                )
-
-        # Add text content if it exists
-        if prompt.prompt:
-            user_content.append({"type": "text", "text": prompt.prompt})
-
-        # Add the user message if we have content
-        if user_content:
-            messages.append({"role": "user", "content": user_content})
-
-        # Handle cache control for messages without attachments
-        elif prompt.options.cache and messages:
+        # Cache control: apply to the last content block of the final
+        # user-side turn, matching the pre-upgrade behavior.
+        if prompt.options.cache and messages:
             last_message = messages[-1]
-            if isinstance(last_message.get("content"), list):
+            if (
+                isinstance(last_message.get("content"), list)
+                and last_message["content"]
+            ):
                 last_message["content"][-1]["cache_control"] = {"type": "ephemeral"}
-            else:
-                # This should not happen with our new structure, but keeping as a fallback
-                last_message["cache_control"] = {"type": "ephemeral"}
 
-        # Add prefill if specified
+        # Prefill — append an assistant turn the model will continue from.
         if prompt.options.prefill:
             if self.supports_adaptive_thinking:
                 raise ValueError(
                     f"Prefilling assistant messages is not supported by {self.claude_model_id}. "
                     f"Use structured outputs or system prompt instructions instead."
                 )
-            prefill_content = [{"type": "text", "text": prompt.options.prefill}]
-            messages.append({"role": "assistant", "content": prefill_content})
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": prompt.options.prefill}],
+                }
+            )
 
         return messages
+
+    def _extract_system(self, prompt) -> Optional[str]:
+        """Pull the system prompt from prompt.messages or prompt.system.
+
+        ``prompt.system`` already composes ``_system`` + ``system_fragments``;
+        if messages= was passed explicitly and it contains a system-role
+        message, fall back to reading that.
+        """
+        if prompt.system:
+            return prompt.system
+        for message in prompt.messages:
+            if message.role == "system":
+                texts = [p.text for p in message.parts if isinstance(p, TextPart)]
+                if texts:
+                    return "\n\n".join(texts)
+        return None
 
     def build_kwargs(self, prompt, conversation):
         if prompt.schema and prompt.tools:
             raise ValueError(
                 "llm-anthropic does not yet support using both schema and tools in the same prompt"
-            )
-
-        # Validate web search support
-        if prompt.options.web_search and not self.supports_web_search:
-            raise ValueError(
-                f"Web search is not supported by model {self.model_id}. "
-                f"Supported models include: claude-3.5-sonnet-latest, claude-3.5-haiku-latest, "
-                f"claude-3.7-sonnet-latest, claude-4-opus, claude-4-sonnet, claude-opus-4.1, "
-                f"claude-opus-4.6, claude-sonnet-4.6"
             )
 
         kwargs = {
@@ -772,8 +1170,9 @@ class _Shared:
         if prompt.options.top_k:
             kwargs["top_k"] = prompt.options.top_k
 
-        if prompt.system:
-            kwargs["system"] = prompt.system
+        system = self._extract_system(prompt)
+        if system:
+            kwargs["system"] = system
 
         if prompt.options.stop_sequences:
             kwargs["stop_sequences"] = prompt.options.stop_sequences
@@ -782,50 +1181,41 @@ class _Shared:
             self.supports_thinking_effort and prompt.options.thinking_effort
         )
 
-        # Determine if thinking should be activated
-        thinking_requested = False
+        # Thinking: Claude 5 models think by default (adaptive mode);
+        # older models only think when it is explicitly requested.
         if self.supports_thinking:
-            thinking_requested = (
-                prompt.options.thinking
-                or prompt.options.thinking_budget
-                or prompt.options.thinking_display
-                or prompt.options.thinking_adaptive
-                or thinking_effort_enabled
-            )
-
-        if self.supports_thinking and thinking_requested:
-            prompt.options.thinking = True
-            if prompt.options.thinking_adaptive or thinking_effort_enabled:
+            hide_reasoning = getattr(prompt, "hide_reasoning", False)
+            if prompt.options.thinking is False:
+                if self.always_thinks:
+                    raise ValueError(
+                        f"Thinking cannot be disabled for model {self.model_id}"
+                    )
+                kwargs["thinking"] = {"type": "disabled"}
+            elif prompt.options.thinking or thinking_effort_enabled:
+                if self.supports_adaptive_thinking or thinking_effort_enabled:
+                    kwargs["thinking"] = {"type": "adaptive"}
+                else:
+                    # Pre-4.6 models: enabled with default budget
+                    kwargs["thinking"] = {
+                        "type": "enabled",
+                        "budget_tokens": DEFAULT_THINKING_TOKENS,
+                    }
+            elif self.thinks_by_default and hide_reasoning:
+                # No thinking option set, but the model will think anyway -
+                # send the param explicitly so display can be omitted below
                 kwargs["thinking"] = {"type": "adaptive"}
-            elif prompt.options.thinking_budget:
-                # Explicit budget = manual mode (deprecated on 4.6 but still works)
-                kwargs["thinking"] = {
-                    "type": "enabled",
-                    "budget_tokens": prompt.options.thinking_budget,
-                }
-            elif self.supports_adaptive_thinking:
-                # 4.6 models default to adaptive thinking
-                kwargs["thinking"] = {"type": "adaptive"}
-            else:
-                # Pre-4.6 models: enabled with default budget
-                budget_tokens = DEFAULT_THINKING_TOKENS
-                kwargs["thinking"] = {
-                    "type": "enabled",
-                    "budget_tokens": budget_tokens,
-                }
 
-            if prompt.options.thinking_display:
-                kwargs["thinking"]["display"] = "summarized"
+            if (
+                hide_reasoning
+                and "thinking" in kwargs
+                and kwargs["thinking"]["type"] != "disabled"
+            ):
+                # -R / hide_reasoning=True asks the API to leave the
+                # thinking trace out of the response entirely
+                kwargs["thinking"]["display"] = "omitted"
 
         # Handle effort in output_config
         if thinking_effort_enabled:
-            if prompt.options.thinking_effort == ThinkingEffort.MAX:
-                if not (
-                    self.supports_adaptive_thinking and "opus" in self.claude_model_id
-                ):
-                    raise ValueError(
-                        "thinking_effort='max' is only supported by claude-opus-4-6"
-                    )
             kwargs.setdefault("output_config", {})[
                 "effort"
             ] = prompt.options.thinking_effort.value
@@ -833,12 +1223,6 @@ class _Shared:
         max_tokens = self.default_max_tokens
         if prompt.options.max_tokens is not None:
             max_tokens = prompt.options.max_tokens
-        if (
-            self.supports_thinking
-            and prompt.options.thinking_budget is not None
-            and prompt.options.thinking_budget > max_tokens
-        ):
-            max_tokens = prompt.options.thinking_budget + 1
         kwargs["max_tokens"] = max_tokens
 
         # Determine which beta headers to use
@@ -877,34 +1261,6 @@ class _Shared:
 
         tools = []
 
-        # Add web search tool if enabled
-        if prompt.options.web_search:
-            web_search_tool = {
-                "type": "web_search_20250305",
-                "name": "web_search",
-            }
-
-            # Add optional web search parameters
-            if prompt.options.web_search_max_uses:
-                web_search_tool["max_uses"] = prompt.options.web_search_max_uses
-
-            if prompt.options.web_search_allowed_domains:
-                web_search_tool["allowed_domains"] = (
-                    prompt.options.web_search_allowed_domains
-                )
-
-            if prompt.options.web_search_blocked_domains:
-                web_search_tool["blocked_domains"] = (
-                    prompt.options.web_search_blocked_domains
-                )
-
-            if prompt.options.web_search_location:
-                location = prompt.options.web_search_location.copy()
-                location["type"] = "approximate"  # Required by API
-                web_search_tool["user_location"] = location
-
-            tools.append(web_search_tool)
-
         if prompt.schema and not use_structured_outputs:
             # Fall back to tools workaround for models that don't support structured outputs
             tools.append(
@@ -915,7 +1271,10 @@ class _Shared:
             )
             kwargs["tool_choice"] = {"type": "tool", "name": "output_structured_data"}
 
+        server_side_tools = []
         if prompt.tools:
+            function_tools, server_side_tools = _partition_tools(self, prompt.tools)
+            tools.extend(tool.tool_spec(self) for tool in server_side_tools)
             tools.extend(
                 [
                     {
@@ -923,12 +1282,15 @@ class _Shared:
                         "description": tool.description or "",
                         "input_schema": tool.input_schema,
                     }
-                    for tool in prompt.tools
+                    for tool in function_tools
                 ]
             )
 
         if tools:
             kwargs["tools"] = tools
+
+        for tool in server_side_tools:
+            tool.prepare_request(self, kwargs)
 
         return kwargs
 
@@ -971,33 +1333,142 @@ class ClaudeMessages(_Shared, llm.KeyModel):
             messages_client = client.messages
 
         if stream:
-            with messages_client.stream(**kwargs) as stream:
+            with messages_client.stream(**kwargs) as stream_obj:
+                current_block_id = None
+                current_block_name = None
+                is_server_tool = False
+                container = None
+
                 if prefill_text:
-                    yield prefill_text
-                for chunk in stream:
-                    if hasattr(chunk, "delta"):
+                    yield StreamEvent(type="text", chunk=prefill_text)
+
+                for chunk in stream_obj:
+                    if chunk.type == "content_block_start":
+                        block = chunk.content_block
+                        block_type = getattr(block, "type", None)
+                        current_block_id = getattr(block, "id", None)
+                        current_block_name = getattr(block, "name", None)
+                        is_server_tool = block_type in (
+                            "server_tool_use",
+                            "mcp_tool_use",
+                        ) or (block_type or "").endswith("_tool_result")
+
+                        if block_type in (
+                            "tool_use",
+                            "server_tool_use",
+                            "mcp_tool_use",
+                        ):
+                            yield StreamEvent(
+                                type="tool_call_name",
+                                chunk=current_block_name or "",
+                                tool_call_id=current_block_id,
+                                server_executed=(block_type != "tool_use"),
+                                provider_metadata=(
+                                    {
+                                        "anthropic": {
+                                            "mcp_server_name": getattr(
+                                                block, "server_name", None
+                                            )
+                                        }
+                                    }
+                                    if block_type == "mcp_tool_use"
+                                    else None
+                                ),
+                            )
+                        elif block_type and block_type.endswith("_tool_result"):
+                            # Content is available inline on content_block_start
+                            yield self._server_tool_result_event(block_type, block)
+
+                    elif chunk.type == "content_block_delta":
                         delta = chunk.delta
-                        if hasattr(delta, "text"):
-                            yield delta.text
-                        elif hasattr(delta, "partial_json") and prompt.schema:
-                            yield delta.partial_json
+                        delta_type = getattr(delta, "type", None)
+
+                        if delta_type == "thinking_delta":
+                            yield StreamEvent(type="reasoning", chunk=delta.thinking)
+                        elif delta_type == "signature_delta":
+                            yield StreamEvent(
+                                type="reasoning",
+                                chunk="",
+                                provider_metadata={
+                                    "anthropic": {"signature": delta.signature}
+                                },
+                            )
+                        elif delta_type == "text_delta":
+                            yield StreamEvent(type="text", chunk=delta.text)
+                        elif delta_type == "input_json_delta":
+                            yield StreamEvent(
+                                type="tool_call_args",
+                                chunk=delta.partial_json,
+                                tool_call_id=current_block_id,
+                                server_executed=is_server_tool,
+                            )
+
+                    elif chunk.type == "message_delta":
+                        chunk_container = getattr(chunk, "container", None) or getattr(
+                            getattr(chunk, "delta", None), "container", None
+                        )
+                        if chunk_container is not None:
+                            container = chunk_container
+
                 # This records usage and other data:
                 last_message = self._model_dump_suppress_warnings(
-                    stream.get_final_message()
+                    stream_obj.get_final_message()
                 )
+                self._apply_container(last_message, container)
                 response.response_json = last_message
+
                 if self.add_tool_usage(response, last_message):
                     # Avoid "can have dragons.Now that I " bug
-                    yield " "
+                    yield StreamEvent(type="text", chunk=" ")
         else:
             completion = messages_client.create(**kwargs)
-            text = "".join(
-                [item.text for item in completion.content if hasattr(item, "text")]
-            )
-            yield prefill_text + text
+            for item in completion.content:
+                item_type = getattr(item, "type", None)
+                if item_type == "thinking":
+                    signature = getattr(item, "signature", None)
+                    yield StreamEvent(
+                        type="reasoning",
+                        chunk=item.thinking,
+                        provider_metadata=(
+                            {"anthropic": {"signature": signature}}
+                            if signature
+                            else None
+                        ),
+                    )
+                elif item_type == "text":
+                    text = (prefill_text + item.text) if prefill_text else item.text
+                    prefill_text = ""  # Only prepend once
+                    yield StreamEvent(type="text", chunk=text)
+                elif item_type in ("tool_use", "server_tool_use", "mcp_tool_use"):
+                    server_executed = item_type != "tool_use"
+                    yield StreamEvent(
+                        type="tool_call_name",
+                        chunk=item.name,
+                        tool_call_id=item.id,
+                        server_executed=server_executed,
+                        provider_metadata=(
+                            {
+                                "anthropic": {
+                                    "mcp_server_name": getattr(
+                                        item, "server_name", None
+                                    )
+                                }
+                            }
+                            if item_type == "mcp_tool_use"
+                            else None
+                        ),
+                    )
+                    yield StreamEvent(
+                        type="tool_call_args",
+                        chunk=json.dumps(item.input),
+                        tool_call_id=item.id,
+                        server_executed=server_executed,
+                    )
+                elif item_type and item_type.endswith("_tool_result"):
+                    yield self._server_tool_result_event(item_type, item)
             response.response_json = completion.model_dump()
-            if self.add_tool_usage(response, response.response_json):
-                yield " "
+            self._apply_container(response.response_json, None)
+            self.add_tool_usage(response, response.response_json)
         self.set_usage(response)
 
 
@@ -1013,27 +1484,134 @@ class AsyncClaudeMessages(_Shared, llm.AsyncKeyModel):
 
         if stream:
             async with messages_client.stream(**kwargs) as stream_obj:
+                current_block_id = None
+                current_block_name = None
+                is_server_tool = False
+                container = None
+
                 if prefill_text:
-                    yield prefill_text
+                    yield StreamEvent(type="text", chunk=prefill_text)
+
                 async for chunk in stream_obj:
-                    if hasattr(chunk, "delta"):
+                    if chunk.type == "content_block_start":
+                        block = chunk.content_block
+                        block_type = getattr(block, "type", None)
+                        current_block_id = getattr(block, "id", None)
+                        current_block_name = getattr(block, "name", None)
+                        is_server_tool = block_type in (
+                            "server_tool_use",
+                            "mcp_tool_use",
+                        ) or (block_type or "").endswith("_tool_result")
+
+                        if block_type in (
+                            "tool_use",
+                            "server_tool_use",
+                            "mcp_tool_use",
+                        ):
+                            yield StreamEvent(
+                                type="tool_call_name",
+                                chunk=current_block_name or "",
+                                tool_call_id=current_block_id,
+                                server_executed=(block_type != "tool_use"),
+                                provider_metadata=(
+                                    {
+                                        "anthropic": {
+                                            "mcp_server_name": getattr(
+                                                block, "server_name", None
+                                            )
+                                        }
+                                    }
+                                    if block_type == "mcp_tool_use"
+                                    else None
+                                ),
+                            )
+                        elif block_type and block_type.endswith("_tool_result"):
+                            yield self._server_tool_result_event(block_type, block)
+
+                    elif chunk.type == "content_block_delta":
                         delta = chunk.delta
-                        if hasattr(delta, "text"):
-                            yield delta.text
-                        elif hasattr(delta, "partial_json") and prompt.schema:
-                            yield delta.partial_json
+                        delta_type = getattr(delta, "type", None)
+
+                        if delta_type == "thinking_delta":
+                            yield StreamEvent(type="reasoning", chunk=delta.thinking)
+                        elif delta_type == "signature_delta":
+                            yield StreamEvent(
+                                type="reasoning",
+                                chunk="",
+                                provider_metadata={
+                                    "anthropic": {"signature": delta.signature}
+                                },
+                            )
+                        elif delta_type == "text_delta":
+                            yield StreamEvent(type="text", chunk=delta.text)
+                        elif delta_type == "input_json_delta":
+                            yield StreamEvent(
+                                type="tool_call_args",
+                                chunk=delta.partial_json,
+                                tool_call_id=current_block_id,
+                                server_executed=is_server_tool,
+                            )
+
+                    elif chunk.type == "message_delta":
+                        chunk_container = getattr(chunk, "container", None) or getattr(
+                            getattr(chunk, "delta", None), "container", None
+                        )
+                        if chunk_container is not None:
+                            container = chunk_container
+
             response.response_json = self._model_dump_suppress_warnings(
                 await stream_obj.get_final_message()
             )
-            # TODO: Test this:
+            self._apply_container(response.response_json, container)
+
             self.add_tool_usage(response, response.response_json)
         else:
             completion = await messages_client.create(**kwargs)
-            text = "".join(
-                [item.text for item in completion.content if hasattr(item, "text")]
-            )
-            yield prefill_text + text
+            for item in completion.content:
+                item_type = getattr(item, "type", None)
+                if item_type == "thinking":
+                    signature = getattr(item, "signature", None)
+                    yield StreamEvent(
+                        type="reasoning",
+                        chunk=item.thinking,
+                        provider_metadata=(
+                            {"anthropic": {"signature": signature}}
+                            if signature
+                            else None
+                        ),
+                    )
+                elif item_type == "text":
+                    text = (prefill_text + item.text) if prefill_text else item.text
+                    prefill_text = ""
+                    yield StreamEvent(type="text", chunk=text)
+                elif item_type in ("tool_use", "server_tool_use", "mcp_tool_use"):
+                    server_executed = item_type != "tool_use"
+                    yield StreamEvent(
+                        type="tool_call_name",
+                        chunk=item.name,
+                        tool_call_id=item.id,
+                        server_executed=server_executed,
+                        provider_metadata=(
+                            {
+                                "anthropic": {
+                                    "mcp_server_name": getattr(
+                                        item, "server_name", None
+                                    )
+                                }
+                            }
+                            if item_type == "mcp_tool_use"
+                            else None
+                        ),
+                    )
+                    yield StreamEvent(
+                        type="tool_call_args",
+                        chunk=json.dumps(item.input),
+                        tool_call_id=item.id,
+                        server_executed=server_executed,
+                    )
+                elif item_type and item_type.endswith("_tool_result"):
+                    yield self._server_tool_result_event(item_type, item)
             response.response_json = completion.model_dump()
-            # TODO: Test this:
+            self._apply_container(response.response_json, None)
             self.add_tool_usage(response, response.response_json)
         self.set_usage(response)

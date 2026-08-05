@@ -1,34 +1,31 @@
 import json
+import shlex
 from subprocess import check_output
-from typing import Union
+from typing import List, Optional
 
 from dmiparser import DmiParser
 
 __all__ = ["DmiDecoder"]
 
 
-class DmiDecoder(object):
+class DmiDecoder:
     """This is a simple dmiparser wrapper"""
 
-    def __init__(self, arguments: Union[str, None] = None, command: str = "dmidecode", **kwargs) -> None:
+    def __init__(self, arguments: Optional[str] = None, command: str = "dmidecode", **kwargs) -> None:
         """
         @param arguments: command's extra arguments like "-t 4"
         @param command: an executable dmidecode command
         @param kwargs: these will pass to dmiparser
         """
-        self._command = command
+        argv: List[str] = shlex.split(command)
 
         if arguments:
-            self._command = "{} {}".format(self._command, arguments)
+            argv.extend(shlex.split(arguments))
 
-        try:
-            text = check_output(self._command, shell=True, encoding="utf8")
-            parser = DmiParser(text, **kwargs)
-            self._text = str(parser)
-            self._data = json.loads(self._text)
-        except Exception:
-            # XXX do something here
-            raise
+        text = check_output(argv, shell=False, encoding="utf8")
+        parser = DmiParser(text, **kwargs)
+        self._text = str(parser)
+        self._data = json.loads(self._text)
 
     @property
     def text(self) -> str:
@@ -60,7 +57,7 @@ class DmiDecoder(object):
         @return: section information values
         """
         if len(keys) == 0:
-            raise AttributeError("{}.{} does not accept empty keys".format(self.__class__, self.get.__name__))
+            raise TypeError("get() requires at least one key, got 0")
 
         data = self._data
         values = []
@@ -81,12 +78,15 @@ class DmiDecoder(object):
                     d_ = None
                     break
 
-            if d_:
-                values.extend(d_)
+            if d_ is not None:
+                if isinstance(d_, list):
+                    values.extend(d_)
+                else:
+                    values.append(d_)
 
         return values
 
-    def getProp(self, prop: str, id: str = None, name: str = None) -> list:
+    def getProp(self, prop: str, id: str = "", name: str = "") -> list:
         """get values for a section property
 
         @param prop: property name

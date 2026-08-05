@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    fs::{create_dir_all, File, OpenOptions},
+    fs::{File, OpenOptions, create_dir_all},
     io::{self, BufWriter, Write},
     path::Path,
     sync::Arc,
@@ -9,11 +9,12 @@ use std::{
 use ahash::AHashSet;
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
-use rkyv::ser::{allocator::Arena, writer::IoWriter, Positional};
+use rkyv::ser::{Positional, allocator::Arena, writer::IoWriter};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
 use crate::{
+    StatsigErr,
     evaluation::dynamic_string::DynamicString,
     interned_string::InternedString,
     interned_values::{
@@ -26,11 +27,10 @@ use crate::{
         spec_types::{Condition, SpecsResponseFull},
         specs_hash_map::SpecsHashMap,
     },
-    StatsigErr,
 };
 
 use super::{
-    mmap_manifest::write_mmap_manifest, take_mutable_data, MutableData, IMMORTAL_DATA, TAG,
+    IMMORTAL_DATA, MutableData, TAG, mmap_manifest::write_mmap_manifest, take_mutable_data,
 };
 #[cfg(test)]
 use super::{try_parse_as_json, try_parse_as_proto};
@@ -69,7 +69,7 @@ pub(super) fn write_mmap_artifacts(
     Ok(MmapWriteOutcome::Published(cursor))
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 fn write_mmap_v2_specs(
     specs_responses: Vec<SpecsResponseFull>,
     path: &Path,
@@ -251,7 +251,6 @@ impl<W: Write> Write for ErrorRecordingWriter<W> {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn mutable_to_mmap_data_v2(
     specs_responses: Vec<SpecsResponseFull>,
 ) -> Result<MmapDataV2, StatsigErr> {

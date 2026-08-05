@@ -94,6 +94,7 @@ from airbyte_ops_mcp.prod_db_access.queries import (
 )
 from airbyte_ops_mcp.regression_tests.cdk_secrets import get_first_config_from_secrets
 from airbyte_ops_mcp.regression_tests.ci_output import (
+    ComparisonOutcome,
     command_result_succeeded,
     evaluate_comparison_outcome,
     generate_regression_report,
@@ -129,17 +130,32 @@ from airbyte_ops_mcp.regression_tests.http_metrics import (
 )
 from airbyte_ops_mcp.regression_tests.models import (
     Command,
+    ComparableOutputs,
     ConnectorUnderTest,
     ExecutionInputs,
     TargetOrControl,
+    duplicate_stream_names,
+    get_primary_keys_per_stream,
+    split_records_per_stream,
+)
+from airbyte_ops_mcp.regression_tests.regression import (
+    ComparisonResult,
+    RecordComparisonSummary,
+    compare_catalog_schemas,
+    compare_specs,
+    run_record_comparisons_from_files,
 )
 from airbyte_ops_mcp.regression_tests.report import (
     HTML_REPORT_FILENAME,
+    CheckResult,
     DiffBlock,
+    DiffLine,
     build_comparison_report_model,
+    build_diff_block,
     build_json_block,
     build_single_version_report_model,
     consolidate_reports,
+    failed_checks,
     render_inline_summary,
     write_html_report,
 )
@@ -901,15 +917,15 @@ def _run_connector_command(
     state_path: Path | None = None,
     proxy_url: str | None = None,
     enable_debug_logs: bool = False,
-) -> dict:
-    """Run a connector command and return results as a dict.
+) -> tuple[dict, ComparableOutputs]:
+    """Run a connector command and return its results and its declared objects.
 
-    The returned dict is a flattened view of `ExecutionResult`: counts, exit
-    status and artifact paths, which is all the reports need today. The rich
-    `ExecutionResult` (messages, discovered catalog, spec, states) is dropped
-    after `save_artifacts`. When a comparison needs those -- a schema, spec or
-    state diff -- return the `ExecutionResult` alongside this dict and feed it to
-    the report builders, rather than growing a dict that several consumers read.
+    The dict is a flattened view of `ExecutionResult`: counts, exit status and
+    artifact paths, which is all the reports need. What a comparison needs
+    instead -- the spec, the discovered catalog -- travels beside it as
+    `ComparableOutputs` rather than growing a dict that several consumers read.
+    The `ExecutionResult` itself is still dropped here: it holds every parsed
+    message, and a comparison keeps both sides alive at once.
 
     Args:
         connector_image: Full connector image name with tag.
@@ -923,7 +939,7 @@ def _run_connector_command(
         enable_debug_logs: If `True`, pass `LOG_LEVEL=DEBUG` to the connector container.
 
     Returns:
-        Dictionary with execution results.
+        The flattened results, and the objects the connector declared.
     """
     connector = ConnectorUnderTest.from_image_name(connector_image, target_or_control)
 
@@ -980,7 +996,7 @@ def _run_connector_command(
             result_dict["connection_status"] = None
             result_dict["connection_status_message"] = ""
 
-    return result_dict
+    return result_dict, ComparableOutputs.from_execution_result(result)
 
 
 def _annotate_run_verdict(command: str, result: dict[str, Any]) -> dict[str, Any]:
@@ -1000,6 +1016,299 @@ def _annotate_run_verdict(command: str, result: dict[str, Any]) -> dict[str, Any
         "success": command_result_succeeded(command, result),
         "exited_cleanly": result["success"],
     }
+
+
+# The checks the declared-output comparisons contribute, named for the row a
+# reviewer reads in the report and in the step summary.
+_SPEC_CHECK = "Spec compatibility"
+_CATALOG_SCHEMA_CHECK = "Catalog schema"
+
+# How many individual changes a check's one-line summary names before it says
+# how many more there are. The full list is in the report and in the run's JSON
+# payload, and the comparators order their findings worst-first, so the ones
+# named here are the ones worth naming.
+_MAX_LISTED_CHANGES = 3
+
+# How many changes the JSON payload lists per comparison. Same reason as
+# `_MAX_DIFF_PAYLOAD_CHARS`: the payload is written to `GITHUB_OUTPUT`, and a
+# reordered `oneOf` on a wide spec produces hundreds of sentences.
+_MAX_PAYLOAD_CHANGES = 100
+
+# How many per-stream entries it lists. A wide source has thousands of streams,
+# and one line each is enough to exceed the same output budget without a single
+# diff being attached.
+_MAX_PAYLOAD_STREAMS = 100
+
+# How much of a comparison's detail the run's JSON payload carries. That payload
+# is written to `GITHUB_OUTPUT`, which is size-limited, and a wide connector's
+# catalog diff has no natural bound -- so the payload keeps as many stream diffs
+# as fit and says how many it dropped. The catalogs themselves are saved
+# artifacts, which is where an unbounded diff belongs.
+_MAX_DIFF_PAYLOAD_CHARS = 50_000
+
+
+def _compare_declared_outputs(
+    *,
+    command: str,
+    outcome: ComparisonOutcome,
+    control_outputs: ComparableOutputs,
+    target_outputs: ComparableOutputs,
+) -> tuple[tuple[CheckResult, ...], tuple[DiffBlock, ...], dict[str, Any]]:
+    """Compare what the two versions declared, for the commands that declare it.
+
+    This is the content check for `spec` and `discover`: without it their
+    verdict is the exit code, and a connector that drops a config field or
+    changes a stream's schema exits 0 all the way to a release. `check` reports
+    its own status and `read` is compared on its records, so neither has a
+    declared object to diff here.
+
+    Only runs when both commands succeeded. A failed run has nothing to compare,
+    and reporting "no spec to compare" beside the command failure that caused it
+    would state the same problem twice, in weaker terms the second time.
+
+    A comparator that raises is left to propagate. Both comparators normalise
+    what they are given, so the only ways here are a programming error in a
+    future caller or a schema nested past the recursion limit -- and the
+    workflow already has the right vocabulary for both: a step that dies is an
+    `internal_failure`, reported as infrastructure rather than as a regression,
+    with the connector's artifacts uploaded either way. Catching it here would
+    only let a tooling bug read as "the new version broke its spec".
+
+    Args:
+        command: The Airbyte command that was run.
+        outcome: The already-evaluated command outcome.
+        control_outputs: What the control version declared.
+        target_outputs: What the target version declared.
+
+    Returns:
+        The checks to fold into the verdict, the diff blocks that show what they
+        found, and the comparison detail for the run's JSON payload -- all empty
+        when there was nothing to compare.
+    """
+    if not outcome.success:
+        return (), (), {}
+
+    if command == "spec":
+        return _spec_comparison(control_outputs.spec, target_outputs.spec)
+
+    if command == "discover":
+        return _catalog_comparison(control_outputs.catalog, target_outputs.catalog)
+
+    return (), (), {}
+
+
+def _spec_comparison(
+    control_spec: Any, target_spec: Any
+) -> tuple[tuple[CheckResult, ...], tuple[DiffBlock, ...], dict[str, Any]]:
+    """Run the spec comparison and shape it for every surface."""
+    result = compare_specs(control_spec, target_spec)
+
+    check = CheckResult(
+        name=_SPEC_CHECK,
+        passed=result.passed,
+        summary=_change_summary(
+            result.message,
+            # A passing spec check still says what was added: an additive change
+            # is the thing a reviewer most wants to see confirmed.
+            result.errors if result.errors else result.warnings,
+        ),
+        details=tuple(result.errors),
+    )
+    # The incompatible changes are the check's `details`, which the report renders
+    # under the check row and the step summary lists -- a block would repeat them.
+    # The compatible ones have nowhere else to go, and a reviewer asking "what
+    # else moved?" is asking about exactly those.
+    blocks = tuple(
+        block
+        for block in (
+            _change_block("Spec — compatible changes", result.warnings, "add"),
+        )
+        if block is not None
+    )
+
+    return (check,), blocks, {"spec": _spec_detail(result)}
+
+
+def _catalog_comparison(
+    control_catalog: Any, target_catalog: Any
+) -> tuple[tuple[CheckResult, ...], tuple[DiffBlock, ...], dict[str, Any]]:
+    """Run the discovered-catalog comparison and shape it for every surface."""
+    result = compare_catalog_schemas(control_catalog, target_catalog)
+
+    check = CheckResult(
+        name=_CATALOG_SCHEMA_CHECK,
+        passed=result.passed,
+        # A catalog that only grew -- new streams, new fields, nothing removed
+        # or retyped -- is reported and does not gate the release. Connectors
+        # add streams constantly, and a check that goes red on every one of them
+        # is a check people learn to click past.
+        severity="diagnostic" if result.additive_only else "strict",
+        summary=_change_summary(result.message, result.errors),
+        details=tuple(result.errors),
+    )
+
+    # The findings themselves are the check's `details`, which the report renders
+    # under the check row: a stream that is missing or new has no schema diff, so
+    # that list is the only place it appears.
+    blocks: list[DiffBlock] = []
+
+    # One block per changed stream, in catalog order -- only a *changed*
+    # stream has a diff, so there is no severity left to sort by here -- and
+    # within the same budget the payload uses: a report that inlines every schema
+    # of a 200-stream source is not a report anyone reads. What the budget drops
+    # is named rather than skipped.
+    budget = _MAX_DIFF_PAYLOAD_CHARS
+    dropped: list[str] = []
+    for name in result.failed_streams:
+        stream = result.stream_results[name]
+        if not stream.schema_diff:
+            continue
+
+        payload = json.dumps(stream.schema_diff, indent=2, sort_keys=True)
+        if len(payload) > budget:
+            dropped.append(name)
+            continue
+
+        budget -= len(payload)
+        blocks.append(build_json_block(f"Schema diff — {name}", payload))
+
+    if dropped:
+        blocks.append(
+            build_diff_block(
+                "Schema diffs omitted for size",
+                [
+                    DiffLine(
+                        kind="meta",
+                        text=(
+                            "These streams changed, and their diffs were too large "
+                            "for this report. Both discovered catalogs are in the "
+                            "artifact, under airbyte_messages/catalog.jsonl."
+                        ),
+                    ),
+                    *(DiffLine(kind="del", text=name) for name in dropped),
+                ],
+                language="text",
+            )
+        )
+
+    return (check,), tuple(blocks), {"catalog_schema": _catalog_schema_detail(result)}
+
+
+def _change_block(title: str, changes: list[str], kind: str) -> DiffBlock | None:
+    """One diff block listing a comparison's findings, or `None` if there are none."""
+    if not changes:
+        return None
+
+    return build_diff_block(
+        title,
+        [DiffLine(kind=kind, text=change) for change in changes],
+        language="text",
+    )
+
+
+def _change_summary(message: str, changes: list[str]) -> str:
+    """One line: what the comparison concluded, and the first few reasons."""
+    if not changes:
+        return message
+
+    listed = "; ".join(changes[:_MAX_LISTED_CHANGES])
+    remaining = len(changes) - _MAX_LISTED_CHANGES
+    if remaining > 0:
+        listed = f"{listed}; and {remaining} more"
+
+    return f"{message}: {listed}"
+
+
+def _bounded_changes(changes: list[str]) -> list[str]:
+    """A change list the JSON payload can carry, saying what it left out."""
+    if len(changes) <= _MAX_PAYLOAD_CHANGES:
+        return changes
+
+    dropped = len(changes) - _MAX_PAYLOAD_CHANGES
+
+    return [
+        *changes[:_MAX_PAYLOAD_CHANGES],
+        f"... and {dropped} more, in the report and the console output",
+    ]
+
+
+def _spec_detail(result: ComparisonResult) -> dict[str, Any]:
+    """The spec comparison, for the run's JSON payload."""
+    return {
+        "passed": result.passed,
+        "message": result.message,
+        "breaking_changes": _bounded_changes(result.errors),
+        "compatible_changes": _bounded_changes(result.warnings),
+    }
+
+
+def _catalog_schema_detail(result: ComparisonResult) -> dict[str, Any]:
+    """The catalog comparison, for the run's JSON payload.
+
+    Every stream that changed is named with its verdict -- so the payload says
+    what moved, not just that something did -- while the diffs themselves are
+    kept only while they fit in `_MAX_DIFF_PAYLOAD_CHARS`, and the number of
+    entries is capped in turn: a thousand-stream source would otherwise put a
+    thousand of them into `GITHUB_OUTPUT`. Both bounds say what they dropped,
+    on the console and in the payload: a bound nobody mentions reads as "there
+    was nothing more to see".
+    """
+    streams: dict[str, Any] = {}
+    omitted: list[str] = []
+    budget = _MAX_DIFF_PAYLOAD_CHARS
+
+    # Non-passing first, so the cap falls on the streams with nothing to say.
+    ordered = sorted(result.stream_results.items(), key=lambda item: item[1].passed)
+    kept, dropped_entries = (
+        ordered[:_MAX_PAYLOAD_STREAMS],
+        ordered[_MAX_PAYLOAD_STREAMS:],
+    )
+
+    for name, stream in kept:
+        entry: dict[str, Any] = {"passed": stream.passed, "message": stream.message}
+        streams[name] = entry
+
+        if not stream.schema_diff:
+            continue
+
+        rendered = len(json.dumps(stream.schema_diff, separators=(",", ":")))
+        if rendered > budget:
+            omitted.append(name)
+            entry["diff_omitted"] = "Too large for this payload; diff the catalogs"
+            continue
+
+        budget -= rendered
+        entry["diff"] = stream.schema_diff
+
+    if omitted:
+        print_warning(
+            f"Comparison detail for {len(omitted)} streams was too large for the "
+            f"run's JSON output ({', '.join(omitted)}); their diffs are omitted "
+            "there. Both discovered catalogs are in the saved artifacts."
+        )
+
+    if dropped_entries:
+        print_warning(
+            f"The run's JSON output lists {_MAX_PAYLOAD_STREAMS} of "
+            f"{len(ordered)} streams, changed ones first. The report and the "
+            "saved catalogs carry them all."
+        )
+
+    detail: dict[str, Any] = {
+        "passed": result.passed,
+        # Why a `passed: false` did not fail the run: everything found was an
+        # addition, which is reported as a warning rather than a regression.
+        "additive_only": result.additive_only,
+        "message": result.message,
+        "changed_streams": _bounded_changes(result.failed_streams),
+        "streams": streams,
+    }
+    if omitted:
+        detail["streams_with_omitted_diffs"] = omitted
+    if dropped_entries:
+        detail["streams_omitted"] = len(dropped_entries)
+
+    return detail
 
 
 def _build_connector_image_from_source(
@@ -1109,7 +1418,7 @@ def _run_with_optional_http_metrics(
     catalog_path: Path | None,
     state_path: Path | None,
     enable_debug_logs: bool = False,
-) -> dict:
+) -> tuple[dict, ComparableOutputs]:
     """Run a connector command with optional HTTP metrics capture.
 
     When enable_http_metrics is True, starts mitmproxy to capture HTTP traffic.
@@ -1127,7 +1436,8 @@ def _run_with_optional_http_metrics(
         enable_debug_logs: If `True`, pass `LOG_LEVEL=DEBUG` to the connector container.
 
     Returns:
-        Dictionary with execution results, optionally including http_metrics.
+        What `_run_connector_command` returns, with `http_metrics` added to the
+        results dict when they were captured.
     """
     if not enable_http_metrics:
         return _run_connector_command(
@@ -1156,7 +1466,7 @@ def _run_with_optional_http_metrics(
             )
 
         print_success(f"Started mitmproxy on {session.proxy_url}")
-        result = _run_connector_command(
+        result, comparable = _run_connector_command(
             connector_image=connector_image,
             command=command,
             output_dir=output_dir,
@@ -1183,7 +1493,98 @@ def _run_with_optional_http_metrics(
             f"Captured {http_metrics.flow_count} HTTP flows "
             f"({http_metrics.duplicate_flow_count} duplicates)"
         )
-        return result
+        return result, comparable
+
+
+def _compare_read_records(
+    target_result: dict,
+    control_result: dict,
+    catalog_file: Path | None,
+) -> tuple[RecordComparisonSummary | None, str | None]:
+    """Run record-level comparisons between control and target read outputs.
+
+    Uses primary keys from the configured catalog (source-defined primary
+    keys come from the discovered catalog) to compare record counts, PK
+    presence, PK integrity, and field values. Streams without a primary key
+    fall back to a directional record count comparison.
+
+    Each run's stdout is first split into per-stream record files (a single
+    streaming pass), and the comparison then loads one stream at a time, so
+    memory stays bounded by the largest stream instead of the full output
+    of both runs. The per-stream files land next to each run's stdout and
+    double as debugging artifacts. Within one stream, both sides are
+    materialized as parsed messages plus dict copies plus PK indexes --
+    measured at roughly 13 bytes resident per byte of record JSON, so a
+    single stream of ~500 MB of records is the practical ceiling on a
+    standard 7 GB runner. Start here when debugging an OOM.
+
+    Returns:
+        `(summary, skip_reason)`. The summary is None when the comparison
+        cannot run at all -- then `skip_reason` says why, so the caller can
+        surface a diagnostic check instead of letting the run read as a pass
+        that compared records. An unexpected error during the comparison
+        itself returns a FAILED summary instead of raising: by this point
+        both (expensive, live-API) runs have completed, and a comparison bug
+        must fail the verdict, not destroy the run's outputs and reports.
+    """
+    if catalog_file is None or not catalog_file.exists():
+        reason = "no configured catalog available"
+        print_warning(f"Skipping record-level comparison: {reason}")
+        return None, reason
+
+    try:
+        configured_catalog = ConfiguredAirbyteCatalog.model_validate_json(
+            catalog_file.read_text()
+        )
+    except Exception as exc:
+        reason = f"configured catalog could not be parsed ({exc})"
+        print_warning(f"Skipping record-level comparison: {reason}")
+        return None, reason
+
+    try:
+        primary_keys = get_primary_keys_per_stream(configured_catalog)
+        # A stream name that repeats across namespaces merges two streams in
+        # this name-keyed pipeline; those names degraded to count-only above,
+        # and the reader must hear why from the summary, not just stdout.
+        collision_warnings = [
+            f"Stream name {name!r} appears in more than one namespace; the "
+            "record comparison keys streams by name, so its records are "
+            "compared by count only"
+            for name in duplicate_stream_names(configured_catalog)
+        ]
+        control_record_files = split_records_per_stream(
+            Path(control_result["stdout_file"])
+        )
+        target_record_files = split_records_per_stream(
+            Path(target_result["stdout_file"])
+        )
+
+        summary = run_record_comparisons_from_files(
+            control_record_files=control_record_files,
+            target_record_files=target_record_files,
+            primary_keys_per_stream=primary_keys,
+        )
+        summary.warnings[:0] = collision_warnings
+    except Exception as exc:
+        summary = RecordComparisonSummary(
+            passed=False,
+            errored=True,
+            count_comparison=ComparisonResult(
+                passed=False, message="Record comparison errored"
+            ),
+            errors=[f"Record comparison errored: {exc!r}"],
+        )
+
+    if summary.passed:
+        print_success("Record comparison passed (counts, PKs, field values)")
+    else:
+        print_error("Record comparison failed:")
+        for error in summary.errors[:20]:
+            print_error(f"  - {error}")
+    for warning in summary.warnings[:20]:
+        print_warning(warning)
+
+    return summary, None
 
 
 @connector_app.command(name="regression-test")
@@ -1193,6 +1594,17 @@ def regression_test(
         Parameter(
             help="If True, skip comparison and run single-version tests only. "
             "If False (default), run comparison tests (target vs control)."
+        ),
+    ] = False,
+    skip_record_comparison: Annotated[
+        bool,
+        Parameter(
+            help="If True, skip the record-level comparison for read commands "
+            "(counts, PK presence, PK integrity, field values) and gate the "
+            "verdict on command outcomes only. Escape hatch for sources whose "
+            "data legitimately changes between the two live runs (rolling "
+            "windows, feeds that age out records) until HTTP request caching "
+            "makes strict comparison reliable."
         ),
     ] = False,
     test_image: Annotated[
@@ -1656,8 +2068,10 @@ def regression_test(
 
     # Execute the appropriate mode
     if skip_compare:
-        # Single-version mode: run only the connector image
-        result = _run_connector_command(
+        # Single-version mode: run only the connector image. There is no control
+        # to compare its spec or catalog against, so the declared objects go
+        # unread here.
+        result, _ = _run_connector_command(
             connector_image=resolved_test_image,
             command=cmd,
             output_dir=output_path,
@@ -1729,23 +2143,20 @@ def regression_test(
                 f"Single-version regression test failed for {resolved_test_image}"
             )
     else:
-        # Comparison mode: run both target and control images
+        # Comparison mode: run both control and target images. The control
+        # version runs FIRST on purpose: the record comparison is
+        # directional (extra records in the target are allowed, missing
+        # ones fail), so data created upstream between the two live runs
+        # must land in the target output — where it is tolerated — rather
+        # than in the control output, where it would read as records
+        # missing from the target and fail the comparison. Accepted side
+        # effect (applies to every command, not just read): a hanging or
+        # timing-out control run means the target never runs, so such a
+        # run says nothing about the version under test.
         target_output = output_path / "target"
         control_output = output_path / "control"
 
-        target_result = _run_with_optional_http_metrics(
-            connector_image=resolved_test_image,
-            command=cmd,
-            output_dir=target_output,
-            target_or_control=TargetOrControl.TARGET,
-            enable_http_metrics=enable_http_metrics,
-            config_path=config_file,
-            catalog_path=catalog_file,
-            state_path=state_file,
-            enable_debug_logs=enable_debug_logs,
-        )
-
-        control_result = _run_with_optional_http_metrics(
+        control_result, control_outputs = _run_with_optional_http_metrics(
             connector_image=resolved_control_image,  # type: ignore[arg-type]
             command=cmd,
             output_dir=control_output,
@@ -1757,7 +2168,90 @@ def regression_test(
             enable_debug_logs=enable_debug_logs,
         )
 
+        target_result, target_outputs = _run_with_optional_http_metrics(
+            connector_image=resolved_test_image,
+            command=cmd,
+            output_dir=target_output,
+            target_or_control=TargetOrControl.TARGET,
+            enable_http_metrics=enable_http_metrics,
+            config_path=config_file,
+            catalog_path=catalog_file,
+            state_path=state_file,
+            enable_debug_logs=enable_debug_logs,
+        )
+
         outcome = evaluate_comparison_outcome(command, target_result, control_result)
+
+        # Record-level comparison for READ commands (counts, PK presence,
+        # PK integrity, field values). Only meaningful when both runs
+        # succeeded; a comparison failure is a regression and fails the
+        # verdict even though both containers exited cleanly. `outcome`
+        # itself stays the pure exit-status/connectionStatus layer — the
+        # folded verdict lives in `success`/`regression_detected` below.
+        record_comparison: RecordComparisonSummary | None = None
+        # A skipped comparison must be visible on the report surfaces, not
+        # only on stdout: without this row the run reads as a pass that
+        # compared records. Diagnostic, because the skip is not a regression.
+        record_comparison_skipped: CheckResult | None = None
+        if (
+            cmd in (Command.READ, Command.READ_WITH_STATE)
+            and outcome.both_succeeded
+            and not skip_record_comparison
+        ):
+            record_comparison, skip_reason = _compare_read_records(
+                target_result=target_result,
+                control_result=control_result,
+                catalog_file=catalog_file,
+            )
+            if record_comparison is None and skip_reason is not None:
+                record_comparison_skipped = CheckResult(
+                    name="Record comparison",
+                    passed=False,
+                    severity="diagnostic",
+                    summary=f"Skipped — {skip_reason}; records were not compared",
+                )
+        elif skip_record_comparison and cmd in (Command.READ, Command.READ_WITH_STATE):
+            print_warning(
+                "Record-level comparison skipped (--skip-record-comparison); "
+                "the verdict gates on command outcomes only."
+            )
+            record_comparison_skipped = CheckResult(
+                name="Record comparison",
+                passed=False,
+                severity="diagnostic",
+                summary="Skipped (--skip-record-comparison); records were not compared",
+            )
+        record_comparison_failed = (
+            record_comparison is not None and not record_comparison.passed
+        )
+        # An errored comparison fails the run (fail closed) but as
+        # INCONCLUSIVE, like both_failed: a comparator crash must not tell a
+        # connector developer their change caused a regression.
+        comparison_errored = record_comparison is not None and record_comparison.errored
+
+        # Spec/catalog-schema comparison of what the two versions declared
+        # about themselves; a failed check here is a regression as much as
+        # a dropped record.
+        (
+            comparison_checks,
+            comparison_diff_blocks,
+            comparison_detail,
+        ) = _compare_declared_outputs(
+            command=command,
+            outcome=outcome,
+            control_outputs=control_outputs,
+            target_outputs=target_outputs,
+        )
+        failed_comparisons = failed_checks(comparison_checks)
+
+        success = (
+            outcome.success and not record_comparison_failed and not failed_comparisons
+        )
+        regression_detected = (
+            outcome.regression_detected
+            or (record_comparison_failed and not comparison_errored)
+            or bool(failed_comparisons)
+        )
 
         # Annotate copies of each side, never the originals: `generate_regression_report`
         # below reads `result["success"]` as the exit status, so handing it a dict whose
@@ -1766,24 +2260,28 @@ def regression_test(
             "target": _annotate_run_verdict(command, target_result),
             "control": _annotate_run_verdict(command, control_result),
             "both_succeeded": outcome.both_succeeded,
-            "regression_detected": outcome.regression_detected,
+            "regression_detected": regression_detected,
             # The authoritative verdict, so consumers of this payload (stdout and
             # the `regression_report` output) never have to re-derive it from
             # `regression_detected` -- which is false for an inconclusive run.
-            "success": outcome.success,
+            "success": success,
             "both_failed": outcome.both_failed,
         }
+        if record_comparison is not None:
+            combined_result["record_comparison"] = record_comparison.to_dict()
+        if comparison_detail:
+            combined_result["comparison"] = comparison_detail
 
         print_json(combined_result)
 
         gh_outputs: dict[str, object] = {
-            "success": outcome.success,
+            "success": success,
             "target_image": resolved_test_image,
             "control_image": resolved_control_image,
             "command": command,
             "target_exit_code": target_result["exit_code"],
             "control_exit_code": control_result["exit_code"],
-            "regression_detected": outcome.regression_detected,
+            "regression_detected": regression_detected,
             "both_failed": outcome.both_failed,
         }
 
@@ -1794,6 +2292,9 @@ def regression_test(
             gh_outputs["control_connection_status"] = control_result.get(
                 "connection_status"
             )
+
+        if record_comparison is not None:
+            gh_outputs["record_comparison_passed"] = record_comparison.passed
 
         write_github_outputs(gh_outputs)
 
@@ -1806,6 +2307,18 @@ def regression_test(
             target_result=target_result,
             control_result=control_result,
             output_dir=output_path,
+            record_comparison=(
+                record_comparison.to_dict() if record_comparison is not None else None
+            ),
+            # Without these the markdown report would announce "no regression"
+            # over the same run the HTML report and the CLI call a failure --
+            # and, for a warning, would show no finding at all where the other
+            # two surfaces show one.
+            comparison_findings=[
+                (check.status, f"{check.name}: {check.summary}")
+                for check in comparison_checks
+                if check.status in {"fail", "warn"}
+            ],
         )
         print_success(f"Generated regression report: {report_path}")
 
@@ -1820,6 +2333,12 @@ def regression_test(
             target_result=target_result,
             control_result=control_result,
             outcome=outcome,
+            record_comparison=record_comparison,
+            extra_checks=(
+                *comparison_checks,
+                *([record_comparison_skipped] if record_comparison_skipped else []),
+            ),
+            extra_diff_blocks=comparison_diff_blocks,
             configured_streams=_configured_stream_names(cmd, catalog_file),
             connection_objects=_collect_connection_objects(
                 catalog_file, state_file, target_output / "airbyte_messages"
@@ -1831,11 +2350,34 @@ def regression_test(
         # Write the concise summary to GITHUB_STEP_SUMMARY (if env var exists)
         write_github_summary(render_inline_summary(report_model))
 
-        if outcome.check_improvement:
+        if failed_comparisons:
+            # Only reachable when both commands ran cleanly -- a comparison is
+            # skipped otherwise -- so this says what the exit codes could not.
+            print_error(
+                f"Regression detected between {resolved_test_image} and "
+                f"{resolved_control_image}: "
+                + "; ".join(
+                    f"{check.name.lower()} — {check.summary}"
+                    for check in failed_comparisons
+                )
+            )
+        elif outcome.check_improvement:
             print_success(
                 f"Regression test passed for {resolved_test_image} vs "
                 f"{resolved_control_image}: target connectionStatus SUCCEEDED "
                 "while control FAILED (improvement)."
+            )
+        elif outcome.both_succeeded and comparison_errored:
+            print_error(
+                f"Record comparison errored for {resolved_test_image} vs "
+                f"{resolved_control_image}. Test failed/inconclusive; this "
+                "is a tooling failure, not evidence of a regression."
+            )
+        elif outcome.both_succeeded and record_comparison_failed:
+            print_error(
+                f"Regression detected between {resolved_test_image} and "
+                f"{resolved_control_image}: both versions ran, but the "
+                "record comparison failed."
             )
         elif outcome.both_succeeded:
             print_success(

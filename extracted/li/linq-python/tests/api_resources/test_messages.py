@@ -27,14 +27,7 @@ class TestMessages:
     @parametrize
     def test_method_create(self, client: LinqAPIV3) -> None:
         message = client.messages.create(
-            message={
-                "parts": [
-                    {
-                        "type": "text",
-                        "value": "Hi! Thanks for reaching out — how can we help?",
-                    }
-                ]
-            },
+            message={},
             to=["+14155559876"],
         )
         assert_matches_type(MessageCreateResponse, message, path=["response"])
@@ -44,10 +37,22 @@ class TestMessages:
     def test_method_create_with_all_params(self, client: LinqAPIV3) -> None:
         message = client.messages.create(
             message={
+                "action": {
+                    "action": "attach_card",
+                    "experience": "agentcard",
+                    "params": {"foo": "bar"},
+                },
+                "effect": {
+                    "name": "confetti",
+                    "type": "screen",
+                },
+                "idempotency_key": "msg-abc123xyz",
                 "parts": [
                     {
                         "type": "text",
                         "value": "Hi! Thanks for reaching out — how can we help?",
+                        "mention": "+14155551234",
+                        "mention_range": [4, 9],
                         "text_decorations": [
                             {
                                 "range": [0, 5],
@@ -62,11 +67,6 @@ class TestMessages:
                         ],
                     }
                 ],
-                "effect": {
-                    "name": "confetti",
-                    "type": "screen",
-                },
-                "idempotency_key": "msg-abc123xyz",
                 "preferred_service": "iMessage",
                 "reply_to": {
                     "message_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -75,6 +75,8 @@ class TestMessages:
             },
             to=["+14155559876"],
             continuation_message={"text": "Hi, it's Acme Support reaching you from a new number."},
+            exclude_from=["+12052535597"],
+            override_optout=False,
             idempotency_key="send-abc123xyz",
         )
         assert_matches_type(MessageCreateResponse, message, path=["response"])
@@ -83,14 +85,7 @@ class TestMessages:
     @parametrize
     def test_raw_response_create(self, client: LinqAPIV3) -> None:
         response = client.messages.with_raw_response.create(
-            message={
-                "parts": [
-                    {
-                        "type": "text",
-                        "value": "Hi! Thanks for reaching out — how can we help?",
-                    }
-                ]
-            },
+            message={},
             to=["+14155559876"],
         )
 
@@ -103,14 +98,7 @@ class TestMessages:
     @parametrize
     def test_streaming_response_create(self, client: LinqAPIV3) -> None:
         with client.messages.with_streaming_response.create(
-            message={
-                "parts": [
-                    {
-                        "type": "text",
-                        "value": "Hi! Thanks for reaching out — how can we help?",
-                    }
-                ]
-            },
+            message={},
             to=["+14155559876"],
         ) as response:
             assert not response.is_closed
@@ -452,14 +440,7 @@ class TestAsyncMessages:
     @parametrize
     async def test_method_create(self, async_client: AsyncLinqAPIV3) -> None:
         message = await async_client.messages.create(
-            message={
-                "parts": [
-                    {
-                        "type": "text",
-                        "value": "Hi! Thanks for reaching out — how can we help?",
-                    }
-                ]
-            },
+            message={},
             to=["+14155559876"],
         )
         assert_matches_type(MessageCreateResponse, message, path=["response"])
@@ -469,10 +450,22 @@ class TestAsyncMessages:
     async def test_method_create_with_all_params(self, async_client: AsyncLinqAPIV3) -> None:
         message = await async_client.messages.create(
             message={
+                "action": {
+                    "action": "attach_card",
+                    "experience": "agentcard",
+                    "params": {"foo": "bar"},
+                },
+                "effect": {
+                    "name": "confetti",
+                    "type": "screen",
+                },
+                "idempotency_key": "msg-abc123xyz",
                 "parts": [
                     {
                         "type": "text",
                         "value": "Hi! Thanks for reaching out — how can we help?",
+                        "mention": "+14155551234",
+                        "mention_range": [4, 9],
                         "text_decorations": [
                             {
                                 "range": [0, 5],
@@ -487,11 +480,6 @@ class TestAsyncMessages:
                         ],
                     }
                 ],
-                "effect": {
-                    "name": "confetti",
-                    "type": "screen",
-                },
-                "idempotency_key": "msg-abc123xyz",
                 "preferred_service": "iMessage",
                 "reply_to": {
                     "message_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -500,6 +488,8 @@ class TestAsyncMessages:
             },
             to=["+14155559876"],
             continuation_message={"text": "Hi, it's Acme Support reaching you from a new number."},
+            exclude_from=["+12052535597"],
+            override_optout=False,
             idempotency_key="send-abc123xyz",
         )
         assert_matches_type(MessageCreateResponse, message, path=["response"])
@@ -508,14 +498,7 @@ class TestAsyncMessages:
     @parametrize
     async def test_raw_response_create(self, async_client: AsyncLinqAPIV3) -> None:
         response = await async_client.messages.with_raw_response.create(
-            message={
-                "parts": [
-                    {
-                        "type": "text",
-                        "value": "Hi! Thanks for reaching out — how can we help?",
-                    }
-                ]
-            },
+            message={},
             to=["+14155559876"],
         )
 
@@ -528,14 +511,7 @@ class TestAsyncMessages:
     @parametrize
     async def test_streaming_response_create(self, async_client: AsyncLinqAPIV3) -> None:
         async with async_client.messages.with_streaming_response.create(
-            message={
-                "parts": [
-                    {
-                        "type": "text",
-                        "value": "Hi! Thanks for reaching out — how can we help?",
-                    }
-                ]
-            },
+            message={},
             to=["+14155559876"],
         ) as response:
             assert not response.is_closed

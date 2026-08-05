@@ -2,15 +2,15 @@ mod utils;
 
 use async_trait::async_trait;
 use statsig_rust::{
+    SpecsSource, Statsig, StatsigErr, StatsigOptions,
     data_store_interface::{
         DataStoreBytesResponse, DataStoreGetBytesRequest, DataStoreResponse, DataStoreTrait,
         RequestPath,
     },
-    SpecsSource, Statsig, StatsigErr, StatsigOptions,
 };
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 use utils::mock_scrapi::{Endpoint, EndpointStub, Method, MockScrapi, StubData};
 
 const EVAL_PROJ_PROTO_BYTES: &[u8] = include_bytes!("data/eval_proj_dcs.pb.br");

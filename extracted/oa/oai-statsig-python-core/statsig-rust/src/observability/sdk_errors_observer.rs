@@ -6,10 +6,9 @@ use serde_json::Value;
 use tokio::sync::RwLock;
 
 use crate::{
-    log_d, log_e,
+    OpsStatsEventObserver, StatsigOptions, log_d, log_e,
     networking::{NetworkClient, RequestArgs},
     statsig_metadata::StatsigMetadata,
-    OpsStatsEventObserver, StatsigOptions,
 };
 
 use super::ops_stats::OpsStatsEvent;

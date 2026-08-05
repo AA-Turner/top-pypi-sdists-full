@@ -7,7 +7,7 @@ name = "tiered-debug"
 dynamic = ["version"]
 description = 'A Python logging helper module that allows multiple levels of debug logging'
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = { text='Apache-2.0' }
 keywords = ['debug', 'logging', 'tiered-debug']
 authors = [
@@ -16,12 +16,11 @@ authors = [
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 
 dependencies = []
@@ -41,38 +40,22 @@ Documentation = "https://tiered-debug.readthedocs.io/"
 Source = "https://github.com/untergeek/tiered-debug"
 "Release Notes" = "https://github.com/untergeek/tiered-debug/releases"
 
-[tool.hatch.build.targets.sdist]
-exclude = [
-    'dist',
-    'docs',
-    'tests',
-    'pytest.ini',
-]
-
 [tool.hatch.version]
 path = "src/tiered_debug/__init__.py"
 
-[tool.hatch.envs.test]
-dependencies = [
-    'pytest >=7.2.1',
-    'pytest-cov',
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "dist",
+    "docs",
+    "tests",
 ]
 
-# Test environment
-[[tool.hatch.envs.test.matrix]]
-python = ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
-
-[tool.hatch.envs.test.scripts]
-test = 'pytest'
-test-cov = 'pytest --cov=tiered_debug'
-cov-report = 'pytest --cov=tiered_debug --cov-report html:cov_html'
-
-[tool.hatch.envs.types]
-extra-dependencies = [
-  "mypy>=1.0.0",
+[tool.hatch.build.targets.wheel]
+packages = ["src/tiered_debug"]
+exclude = [
+    "*.pyc",
+    "__pycache__",
 ]
-[tool.hatch.envs.types.scripts]
-check = "mypy --install-types --non-interactive {args:src/tiered_debug tests}"
 
 [tool.coverage.run]
 source_pkgs = ["tiered_debug"]
@@ -93,23 +76,124 @@ exclude_lines = [
   "if TYPE_CHECKING:",
 ]
 
-[tool.black]
-target-version = ['py38']
-line-length = 88
-skip-string-normalization = false
-include = '\.pyi?$'
-
 [tool.pylint.format]
 max-line-length = "88"
 
 [tool.pytest.ini_options]
-pythonpath = ['.', 'src/tiered_debug']
+pythonpath = ['.', 'src']
 minversion = '7.2'
 addopts = '-ra -q'
 testpaths = ['tests']
 
-# Lint environment
-[tool.hatch.envs.lint.scripts]
-run-black = 'black --quiet --check --diff {args:.}'
-python = ['run-black']
-all = ['python']
+[tool.ruff]
+# Target a specific Python version (e.g., "py310", "py312")
+target-version = "py310"
+
+# Set the maximum line length (88 matches Black's default)
+line-length = 88
+
+# Directory exclusions
+exclude = [
+    ".git",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".venv",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+# Rules to enable (E/F are Ruff's defaults, I enables isort-like import sorting)
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort (import sorting)
+    "B",   # flake8-bugbear (common bugs)
+    "UP",  # pyupgrade (upgrades syntax to newer Python versions)
+    "RUF", # Ruff-specific rules
+]
+
+# Rules to explicitly ignore
+ignore = [
+    "E501", # Line too long (let the formatter handle this)
+]
+
+# Allow unused imports in __init__.py files
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.ruff.format]
+# Configure the formatter to use spaces instead of tabs
+indent-style = "space"
+
+# Use double quotes for strings (like Black)
+quote-style = "double"
+
+[tool.pylsp]
+configurationSources = ["pyproject.toml"]
+
+[tool.pylsp.plugins.jedi]
+extra_paths = ["src"]
+
+# Disable legacy default linters to avoid conflicting warnings
+[tool.pylsp.plugins.pycodestyle]
+enabled = false
+
+[tool.pylsp.plugins.pyflakes]
+enabled = false
+
+[tool.pylsp.plugins.mccabe]
+enabled = true
+
+# --- Optional Third-Party Plugin Integrations ---
+# Ensure these dependencies are installed inside the same environment as pylsp
+
+[tool.pylsp.plugins.ruff]
+enabled = true          # Replaces pycodestyle/pyflakes with modern blazing-fast linting
+formatEnabled = true    # Enables Ruff's built-in tool formatter
+
+# [tool.pylsp.plugins.pylint]
+# enabled = false         # Set to true if you prefer deep analysis over Ruff
+# args = ["--disable=C0114,C0116"]
+
+# [tool.pylsp.plugins.black]
+# enabled = false
+# line-length = 88
+
+[tool.pylsp.plugins.pylsp_mypy]
+enabled = false
+live_mode = true
+strict = false
+
+[tool.basedpyright]
+# Target runtime environment
+pythonVersion = "3.10"
+pythonPlatform = "Linux"
+
+# Paths to check or ignore
+include = ["src", "tests"]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__"
+]
+# ignore = ["src/ignore_this.py"]
+
+# Environment discovery
+venvPath = "."
+venv = ".venv"
+
+# Type Checking Intensity
+# Options: "off", "basic", "standard", "strict", or "recommended" (default)
+typeCheckingMode = "recommended"
+
+# Strict Rule Overrides (Choose: "none", "information", "warning", or "error")
+reportUnusedImport = "error"
+reportUnusedVariable = "warning"
+reportMissingTypeStubs = "none"
+
+# unique basedpyright feature adjustments
+# Options: "error", "warning", "information", or "none"
+reportAny = false
+reportExplicitAny = false
+reportImplicitStringConcatenation = false

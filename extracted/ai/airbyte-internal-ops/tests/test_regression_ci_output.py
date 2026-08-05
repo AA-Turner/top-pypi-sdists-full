@@ -260,6 +260,57 @@ def test_report_result_line(
     assert expected_fragment in report.read_text()
 
 
+def test_a_comparison_failure_overrides_the_both_succeeded_result_line(tmp_path):
+    """Two clean exits are not a pass when the comparison found a change.
+
+    The markdown report derives its own Result line, so a finding that reaches
+    the CLI verdict and the HTML report has to reach this one too -- otherwise
+    the same run is a pass in one artifact and a regression in the other.
+    """
+    report = generate_action_test_comparison_report(
+        target_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="spec",
+        target_result=_run_result(True),
+        control_result=_run_result(True),
+        output_dir=tmp_path,
+        comparison_findings=[
+            ("fail", "Spec compatibility: `properties.start_date` was removed")
+        ],
+    )
+    content = report.read_text()
+
+    assert "**REGRESSION DETECTED**" in content
+    assert "no regression" not in content
+    assert "- ❌ Spec compatibility: `properties.start_date` was removed" in content
+
+
+def test_a_comparison_warning_is_listed_without_changing_the_verdict(tmp_path):
+    """An additive catalog change does not gate, but it is not invisible either.
+
+    This file is the copy people paste around, and it was the one surface that
+    showed nothing at all where the report and the step summary showed a warning.
+    """
+    report = generate_action_test_comparison_report(
+        target_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="discover",
+        target_result=_run_result(True),
+        control_result=_run_result(True),
+        output_dir=tmp_path,
+        comparison_findings=[
+            ("warn", "Catalog schema: Discovered catalog: 1 stream new in the target")
+        ],
+    )
+    content = report.read_text()
+
+    assert "**Result:** Both versions succeeded (no regression)" in content
+    assert "**REGRESSION DETECTED**" not in content
+    assert "- ⚠️ Catalog schema: Discovered catalog: 1 stream new in the target" in (
+        content
+    )
+
+
 @pytest.mark.parametrize(
     "command,result,expected",
     [

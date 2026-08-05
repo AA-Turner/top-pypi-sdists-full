@@ -20,7 +20,15 @@ from pathlib import Path
 from typing import Any, Literal, NamedTuple, TypeVar, cast
 from urllib.parse import unquote, urlparse
 
-from tensor_grep.cli import lang_c, lang_cpp, lang_csharp, lang_go, lang_php, lang_registry
+from tensor_grep.cli import (
+    lang_c,
+    lang_cpp,
+    lang_csharp,
+    lang_go,
+    lang_java,
+    lang_php,
+    lang_registry,
+)
 from tensor_grep.cli.incompleteness import budget_remediable
 from tensor_grep.cli.lsp_external_provider import ExternalLSPProviderManager, LSPTransportError
 from tensor_grep.core.retrieval_lexical import score_term_overlap, split_terms
@@ -566,20 +574,27 @@ def _symbol_navigation_descriptor() -> str:
 
     - ``parser-backed-refs-callers``: languages whose ``LanguageSpec.references_and_calls`` is
       wired up get AST/tree-sitter-VERIFIED ``tg refs``/``tg callers``/``tg blast-radius``
-      (see the explicit per-``language_id`` dispatch branches in
-      ``build_symbol_refs_from_map`` / ``build_symbol_callers_from_map``, e.g. around the
-      ``current_spec.language_id == "go"`` branch). Verified live: this tier currently also
-      includes go, which several PR-comment summaries lump in with the "foundational-only"
-      languages below -- that undercounts it. Go's own dedicated
-      ``lang_go.go_references_and_calls`` is a full tree-sitter extractor (package-alias
-      resolution, node-type-based ref_kind), not a regex fallback, so it belongs here.
+      (resolved through ``_references_and_calls_for_path``, which reads
+      ``spec.references_and_calls`` rather than re-deriving membership by
+      ``language_id``). Verified live: this tier currently also includes go, which several
+      PR-comment summaries lump in with the "foundational-only" languages below -- that
+      undercounts it. Go's own dedicated ``lang_go.go_references_and_calls`` is a full
+      tree-sitter extractor (package-alias resolution, node-type-based ref_kind), not a
+      regex fallback, so it belongs here.
     - ``foundational-defs-imports-only``: languages with ``references_and_calls is None``
       still get parser-backed defs/imports (see ``_imports_and_symbols_for_path``'s
       fail-closed per-language branches -- NO regex fallback, an unparseable file becomes an
       honest ``resolution_gaps`` entry), but ``tg refs``/``tg callers``/``tg blast-radius``
       fall through to the generic ``_regex_references_and_calls`` text heuristic instead of an
       AST-verified match -- these languages' own registration comments in this module
-      self-label "FOUNDATIONAL-TIER" for exactly this reason.
+      self-label "FOUNDATIONAL-TIER" for exactly this reason. As of Task 10E (C++, the final
+      wave of the top-10 language-support campaign) this tier is EMPTY -- every registered
+      language carries a real ``references_and_calls`` extractor (see
+      ``test_every_registered_language_is_parser_backed_after_the_final_wave``). The segment is
+      still ALWAYS emitted (never omitted when empty, unlike an earlier version of this function)
+      so a consumer can rely on the descriptor always containing exactly one ``"+"`` and both
+      prefixes -- ``test_cpp_moves_into_the_parser_backed_tier_descriptor`` partitions on that
+      literal shape.
 
     Both groups are derived live from ``LANGUAGE_REGISTRY`` and sorted, so a newly onboarded
     language lands in the correct bucket automatically the moment its ``LanguageSpec`` is
@@ -595,9 +610,10 @@ def _symbol_navigation_descriptor() -> str:
         for language_id, spec in lang_registry.LANGUAGE_REGISTRY.items()
         if spec.references_and_calls is None
     )
-    parts = [f"parser-backed-refs-callers:{'-'.join(parser_backed)}"]
-    if foundational:
-        parts.append(f"foundational-defs-imports-only:{'-'.join(foundational)}")
+    parts = [
+        f"parser-backed-refs-callers:{'-'.join(parser_backed)}",
+        f"foundational-defs-imports-only:{'-'.join(foundational)}",
+    ]
     return "+".join(parts)
 
 
@@ -6301,9 +6317,176 @@ def _regex_symbol_sources(path: Path, symbol: str) -> list[dict[str, Any]]:
 
 
 def _python_references_and_calls_for_registry(
-    path: Path, symbol: str, repo_root: Path | str | None = None
+    path: Path,
+    symbol: str,
+    repo_root: Path | str | None = None,
+    *,
+    definition_dirs: frozenset[str] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    # definition_dirs is part of the uniform registry adapter signature (Go F25); python
+    # ignores it. repo_root likewise -- the underlying extractor is path+symbol only.
     return _python_references_and_calls(path, symbol)
+
+
+def _js_ts_references_and_calls_for_registry(
+    path: Path,
+    symbol: str,
+    repo_root: Path | str | None = None,
+    *,
+    definition_dirs: frozenset[str] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    # definition_dirs is part of the uniform registry adapter signature (Go F25); JS/TS
+    # ignores it.
+    return _js_ts_references_and_calls(path, symbol, repo_root)
+
+
+def _rust_references_and_calls_for_registry(
+    path: Path,
+    symbol: str,
+    repo_root: Path | str | None = None,
+    *,
+    definition_dirs: frozenset[str] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    # definition_dirs is part of the uniform registry adapter signature (Go F25); rust
+    # ignores it.
+    return _rust_references_and_calls(path, symbol, repo_root)
+
+
+def _go_references_and_calls_for_registry(
+    path: Path,
+    symbol: str,
+    repo_root: Path | str | None = None,
+    *,
+    definition_dirs: frozenset[str] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    # F25: forward definition_dirs so a package-qualified Go call only earns high-confidence
+    # "go-import-resolution" when the resolved package actually owns this symbol.
+    return lang_go.go_references_and_calls(path, symbol, repo_root, definition_dirs=definition_dirs)
+
+
+def _java_references_and_calls_for_registry(
+    path: Path,
+    symbol: str,
+    repo_root: Path | str | None = None,
+    *,
+    definition_dirs: frozenset[str] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    # Task 10A: in-file AST extraction only -- no cross-file import resolution yet (that's Task
+    # 11A), so repo_root/definition_dirs are part of the uniform registry adapter signature (Go
+    # F25) but unused here, same as python/js/ts/rust's own adapters above. `_java_parser()` is
+    # called HERE (not duplicated inside lang_java.py) so grammar-presence has exactly one source
+    # of truth -- see lang_java.py's module docstring for why a second factory would be unsafe.
+    return lang_java.java_references_and_calls(path, symbol, parser=_java_parser())
+
+
+def _csharp_references_and_calls_for_registry(
+    path: Path,
+    symbol: str,
+    repo_root: Path | str | None = None,
+    *,
+    definition_dirs: frozenset[str] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    # Task 10B: in-file AST extraction only -- no cross-file import resolution yet, so
+    # repo_root/definition_dirs are part of the uniform registry adapter signature (Go F25) but
+    # unused here, same as java's own adapter above. Unlike java_references_and_calls (which takes
+    # an externally-built parser to avoid a second grammar-presence source of truth --
+    # lang_java.py has no parser factory of its own), lang_csharp.py already owns its whole
+    # extraction pipeline including `_csharp_parser()` (matching lang_go.py/lang_php.py's shape),
+    # so this adapter forwards path/symbol only.
+    return lang_csharp.csharp_references_and_calls(path, symbol)
+
+
+def _php_references_and_calls_for_registry(
+    path: Path,
+    symbol: str,
+    repo_root: Path | str | None = None,
+    *,
+    definition_dirs: frozenset[str] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    # Task 10C: in-file AST extraction only -- no cross-file import resolution yet, so
+    # repo_root/definition_dirs are part of the uniform registry adapter signature (Go F25) but
+    # unused here, same as java's/csharp's own adapters above. lang_php.py already owns its whole
+    # extraction pipeline including `_php_parser()` (matching lang_go.py's/lang_csharp.py's
+    # shape -- PHP's parser factory predates Task 10C, built for php_imports_and_symbols), so this
+    # adapter forwards path/symbol only.
+    return lang_php.php_references_and_calls(path, symbol)
+
+
+def _c_references_and_calls_for_registry(
+    path: Path,
+    symbol: str,
+    repo_root: Path | str | None = None,
+    *,
+    definition_dirs: frozenset[str] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    # Task 10D: in-file AST extraction only -- no cross-file import resolution yet, so
+    # repo_root/definition_dirs are part of the uniform registry adapter signature (Go F25) but
+    # unused here, same as java's/csharp's/php's own adapters above. lang_c.py already owns its
+    # whole extraction pipeline including `_c_parser()` (matching lang_csharp.py's/lang_php.py's
+    # shape -- C's parser factory predates Task 10D, built for c_imports_and_symbols), so this
+    # adapter forwards path/symbol only.
+    return lang_c.c_references_and_calls(path, symbol)
+
+
+def _cpp_references_and_calls_for_registry(
+    path: Path,
+    symbol: str,
+    repo_root: Path | str | None = None,
+    *,
+    definition_dirs: frozenset[str] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    # Task 10E: in-file AST extraction only -- no cross-file import resolution yet, so
+    # repo_root/definition_dirs are part of the uniform registry adapter signature (Go F25) but
+    # unused here, same as csharp's/php's/c's own adapters above. lang_cpp.py already owns its
+    # whole extraction pipeline including `_cpp_parser()` (matching lang_c.py's shape -- C++'s
+    # parser factory predates Task 10E, built for cpp_imports_and_symbols), so this adapter
+    # forwards path/symbol only.
+    return lang_cpp.cpp_references_and_calls(path, symbol)
+
+
+def _references_and_calls_for_path(
+    path: Path,
+    symbol: str,
+    repo_root: Path | str | None = None,
+    *,
+    definition_dirs: frozenset[str] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Resolve references and calls for *path* through the language registry.
+
+    Looks up ``lang_registry.spec_for_path(path)`` and invokes
+    ``spec.references_and_calls`` when that field is set. Every registered extractor is
+    reached through a thin adapter with this SAME signature (``definition_dirs`` forwarded
+    for Go F25, ignored elsewhere) so this seam never branches on ``language_id``.
+
+    EXPLICIT fallback: when the path has no registered extractor (``spec is None``, or an
+    unregistered suffix), call ``_regex_references_and_calls``. As of Task 10E (C++, the final
+    wave of the top-10 language-support campaign) every REGISTERED language carries a real
+    ``references_and_calls`` extractor -- ``spec.references_and_calls is None`` can no longer
+    happen for any language in ``LANGUAGE_REGISTRY`` (see
+    ``test_every_registered_language_is_parser_backed_after_the_final_wave``), so this branch is
+    now reached only by a path whose suffix has no registered ``LanguageSpec`` at all. Java/C#/
+    PHP/C/C++ shipped in-file ``references_and_calls`` extractors (Tasks 10A/10B/10C/10D/10E);
+    their cross-file caller confirmation still uses the same text-prefilter mechanism as every
+    other language, just reached through a different seam. That fallback is deliberate and
+    documented, never an implicit empty result.
+
+    Secondary degrade paths that used to live inside the per-language_id if/elif chains
+    (provider-alias then regex for JS/TS/Rust; fail-closed empty for Go/python) stay at the
+    call sites, gated on registry fields (``provider_alias_calls``,
+    ``provenance_when_missing``) rather than ``language_id`` -- see
+    ``build_symbol_refs_from_map`` / ``build_symbol_callers_from_map``.
+    """
+    spec = lang_registry.spec_for_path(path)
+    if spec is not None and spec.references_and_calls is not None:
+        # Uniform adapter call: wrappers accept definition_dirs (see registrations below).
+        return spec.references_and_calls(
+            path,
+            symbol,
+            repo_root,
+            definition_dirs=definition_dirs,  # type: ignore[call-arg]
+        )
+    # Explicit documented fallback for references_and_calls is None / unregistered path.
+    return _regex_references_and_calls(path, symbol)
 
 
 def _python_provider_alias_calls_for_registry(
@@ -6348,7 +6531,7 @@ _JS_TS_REGISTRY_SHARED_KWARGS: dict[str, Any] = {
     "import_markers": (b"import ", b"from ", b"require("),
     "def_node_kinds": ("function_declaration", "class_declaration", "method_definition"),
     "extract_imports_and_symbols": None,
-    "references_and_calls": _js_ts_references_and_calls,
+    "references_and_calls": _js_ts_references_and_calls_for_registry,
     "provider_alias_calls": _js_ts_provider_alias_calls,
     "file_imports_symbol_from_definition": _js_ts_file_imports_symbol_from_definition,
     "import_update_target": _js_ts_import_update_target,
@@ -6385,7 +6568,7 @@ lang_registry.register_language(
         import_markers=(b"use ",),
         def_node_kinds=("function_item", "struct_item", "enum_item", "trait_item"),
         extract_imports_and_symbols=None,
-        references_and_calls=_rust_references_and_calls,
+        references_and_calls=_rust_references_and_calls_for_registry,
         provider_alias_calls=_rust_provider_alias_calls,
         file_imports_symbol_from_definition=_rust_file_imports_symbol_from_definition,
         import_update_target=_rust_import_update_target,
@@ -6417,7 +6600,7 @@ lang_registry.register_language(
             "var_spec",
         ),
         extract_imports_and_symbols=None,
-        references_and_calls=lang_go.go_references_and_calls,
+        references_and_calls=_go_references_and_calls_for_registry,
         provider_alias_calls=None,
         file_imports_symbol_from_definition=lang_go.go_file_imports_symbol_from_definition,
         import_update_target=None,
@@ -6426,16 +6609,18 @@ lang_registry.register_language(
     )
 )
 
-# PATH A Stage 2: Java joins the symbol graph as a FOUNDATIONAL-TIER language -- symbols
-# (classes/interfaces/enums/records/methods/constructors) and raw import declarations flow into
-# build_repo_map / `tg defs` / `tg source` / `tg imports` / `tg agent` via
-# _java_imports_and_symbols / _java_parser_symbol_sources / _java_imports_with_lines. The deep
-# caller-graph tier (references_and_calls, provider_alias_calls,
+# PATH A Stage 2 (Task 10A): Java's symbols (classes/interfaces/enums/records/methods/
+# constructors) and raw import declarations flow into build_repo_map / `tg defs` / `tg source` /
+# `tg imports` / `tg agent` via _java_imports_and_symbols / _java_parser_symbol_sources /
+# _java_imports_with_lines (still inline in this file -- see lang_java.py's module docstring for
+# why the move was deliberately scoped OUT of Task 10A). references_and_calls now points at
+# lang_java.java_references_and_calls (Task 10A: IN-FILE AST reference/call extraction,
+# promoting Java to the parser-backed-refs-callers tier) via the registry adapter above. The
+# remaining cross-file caller-graph fields (provider_alias_calls,
 # file_imports_symbol_from_definition, import_update_target, prime_repo_context,
-# classify_ref_kind -- cross-file method-call resolution powering `tg callers`/
-# `tg blast-radius`) is intentionally left None here, deferred to a follow-up PR (see the
-# feat/java-symbol-intelligence PR body). provenance_when_missing="grammar-missing" (NOT
-# "regex-heuristic"): Java has no regex fallback, mirroring Go's fail-closed contract.
+# classify_ref_kind -- package/source-root import resolution powering a confirmed `tg callers`/
+# `tg blast-radius`) stay None, deferred to Task 11A. provenance_when_missing="grammar-missing"
+# (NOT "regex-heuristic"): Java has no regex fallback, mirroring Go's fail-closed contract.
 lang_registry.register_language(
     lang_registry.LanguageSpec(
         language_id="java",
@@ -6454,7 +6639,7 @@ lang_registry.register_language(
             "constructor_declaration",
         ),
         extract_imports_and_symbols=_java_imports_and_symbols,
-        references_and_calls=None,
+        references_and_calls=_java_references_and_calls_for_registry,
         provider_alias_calls=None,
         file_imports_symbol_from_definition=None,
         import_update_target=None,
@@ -6464,13 +6649,22 @@ lang_registry.register_language(
 )
 
 # PATH A Stage 1 (second language expansion beyond Go): PHP's own module (lang_php.py), same
-# no-import-cycle rationale as lang_go.py. NARROWER than Go's landing -- this registration ships
-# defs + imports only; the cross-file caller-graph (references_and_calls and the other three
-# callables below) is explicitly deferred to a follow-up, so all four are None here. That is a
-# strict subset of an already-handled shape: _language_coverage_gaps_for_universe already treats
-# import_update_target=None as an honest resolution_gaps entry (see the "audit #81 #4" comment on
-# that function, and lang_go.py's own import_update_target=None precedent), so `tg callers`/
-# `tg blast-radius` stay honest about PHP instead of silently reading as a proven zero.
+# no-import-cycle rationale as lang_go.py. defs/source/imports/agent via `extract_imports_and_
+# symbols`-shaped extraction, wired at the `_imports_and_symbols_for_path` /
+# `build_symbol_source_from_map` dispatch sites below. references_and_calls now points at
+# lang_php.php_references_and_calls (Task 10C: IN-FILE AST reference/call extraction, promoting
+# PHP from the foundational tier to the parser-backed-refs-callers tier, mirroring Task 10A's Java
+# landing and Task 10B's C# landing) via the registry adapter above. The remaining cross-file
+# caller-graph fields (file_imports_symbol_from_definition / import_update_target / repo-root
+# context priming for a future PSR-4/composer.json resolver) stay None, deferred to a follow-up --
+# same shape as Java's/C#'s own gap, so `tg refs`/`tg callers`/`tg blast-radius` on a PHP symbol
+# still fall through to the honest `resolution_gaps` reverse-import disclosure (never a crash,
+# never a fabricated cross-file match) rather than the generic `_regex_references_and_calls` text
+# heuristic, which PHP never reached anyway (no regex fallback -- see below).
+# _language_coverage_gaps_for_universe already treats import_update_target=None as an honest
+# resolution_gaps entry (see the "audit #81 #4" comment on that function, and lang_go.py's own
+# import_update_target=None precedent), so `tg callers`/`tg blast-radius` stay honest about PHP's
+# remaining reverse-import gap instead of silently reading as a proven zero.
 # provenance_when_missing="grammar-missing" (NOT "regex-heuristic") for the same fail-closed
 # reason as Go: PHP has no regex-heuristic fallback.
 lang_registry.register_language(
@@ -6491,7 +6685,7 @@ lang_registry.register_language(
             "method_declaration",
         ),
         extract_imports_and_symbols=None,
-        references_and_calls=None,
+        references_and_calls=_php_references_and_calls_for_registry,
         provider_alias_calls=None,
         file_imports_symbol_from_definition=None,
         import_update_target=None,
@@ -6501,17 +6695,21 @@ lang_registry.register_language(
 )
 
 # PATH A Stage 1 (second expansion, alongside Go): C# gets its own module (lang_csharp.py) for
-# the same no-import-cycle reason as Go. FOUNDATIONAL scope only -- defs/source/imports/agent
-# via `extract_imports_and_symbols`-shaped extraction, wired at the `_imports_and_symbols_for_path`
-# / `build_symbol_source_from_map` dispatch sites below. The cross-file caller-graph
-# (references_and_calls / file_imports_symbol_from_definition / import_update_target / repo-root
-# context priming for a future .csproj/namespace resolver) is DEFERRED to a follow-up -- all four
-# stay None here, same shape as Go's own `import_update_target=None` gap, so `tg refs`/`tg
-# callers`/`tg blast-radius` on a C# symbol fall through to the generic
-# `_regex_references_and_calls` text-heuristic path instead of crashing or fabricating an
-# AST-verified match. provenance_when_missing="grammar-missing" (NOT "regex-heuristic") is what
-# makes a grammar-absent C# file a genuine `resolution_gaps` entry instead of a silent empty
-# result (C# has no regex fallback, unlike JS/TS/Rust).
+# the same no-import-cycle reason as Go. defs/source/imports/agent via
+# `extract_imports_and_symbols`-shaped extraction, wired at the `_imports_and_symbols_for_path` /
+# `build_symbol_source_from_map` dispatch sites below. references_and_calls now points at
+# lang_csharp.csharp_references_and_calls (Task 10B: IN-FILE AST reference/call extraction,
+# promoting C# from the foundational tier to the parser-backed-refs-callers tier, mirroring
+# Task 10A's Java landing) via the registry adapter above. The remaining cross-file caller-graph
+# fields (file_imports_symbol_from_definition / import_update_target / repo-root context priming
+# for a future .csproj/namespace resolver) stay None, deferred to a follow-up -- same shape as
+# Java's own Task 11A gap, so `tg refs`/`tg callers`/`tg blast-radius` on a C# symbol still fall
+# through to the honest `resolution_gaps` reverse-import disclosure (never a crash, never a
+# fabricated cross-file match) rather than the generic `_regex_references_and_calls` text
+# heuristic, which C# never reached anyway (no regex fallback -- see below).
+# provenance_when_missing="grammar-missing" (NOT "regex-heuristic") is what makes a
+# grammar-absent C# file a genuine `resolution_gaps` entry instead of a silent empty result (C#
+# has no regex fallback, unlike JS/TS/Rust).
 lang_registry.register_language(
     lang_registry.LanguageSpec(
         language_id="csharp",
@@ -6531,7 +6729,7 @@ lang_registry.register_language(
             "constructor_declaration",
         ),
         extract_imports_and_symbols=None,
-        references_and_calls=None,
+        references_and_calls=_csharp_references_and_calls_for_registry,
         provider_alias_calls=None,
         file_imports_symbol_from_definition=None,
         import_update_target=None,
@@ -6540,17 +6738,24 @@ lang_registry.register_language(
     )
 )
 
-# PATH A Stage 3: C joins the symbol graph as a FOUNDATIONAL-TIER language (top-10 language
-# campaign, Phase 1 of C/C++ -- C++ is a SEPARATE follow-up, not built here). Own module
-# (lang_c.py) for the same no-import-cycle reason as Go/PHP/C#. FOUNDATIONAL scope only --
-# defs/source/imports/agent via `extract_imports_and_symbols`-shaped extraction, wired at the
-# `_imports_and_symbols_for_path` / `build_symbol_source_from_map` dispatch sites below. The
-# cross-file caller-graph (references_and_calls / file_imports_symbol_from_definition /
-# import_update_target / repo-root context priming for a future `#include`-path resolver) is
-# DEFERRED to a follow-up -- all four stay None here, same shape as Go/PHP/C#'s own
-# `import_update_target=None` gap, so `tg refs`/`tg callers`/`tg blast-radius` on a C symbol fall
-# through to the generic `_regex_references_and_calls` text-heuristic path instead of crashing or
-# fabricating an AST-verified match. provenance_when_missing="grammar-missing" (NOT
+# PATH A Stage 3: C joins the symbol graph (top-10 language campaign, Phase 1 of C/C++ -- C++ is
+# a SEPARATE follow-up, not built here). Own module (lang_c.py) for the same no-import-cycle
+# reason as Go/PHP/C#. defs/source/imports/agent via `extract_imports_and_symbols`-shaped
+# extraction, wired at the `_imports_and_symbols_for_path` / `build_symbol_source_from_map`
+# dispatch sites below. references_and_calls now points at lang_c.c_references_and_calls (Task
+# 10D: IN-FILE AST reference/call extraction, promoting C from the foundational tier to the
+# parser-backed-refs-callers tier, mirroring Task 10A's Java landing / 10B's C# landing / 10C's
+# PHP landing) via the registry adapter above. The remaining cross-file caller-graph fields
+# (file_imports_symbol_from_definition / import_update_target / repo-root context priming for a
+# future `#include`-path resolver) stay None, deferred to a follow-up -- same shape as
+# Go/Java/C#/PHP's own gap, so `tg refs`/`tg callers`/`tg blast-radius` on a C symbol still fall
+# through to the honest `resolution_gaps` reverse-import disclosure (never a crash, never a
+# fabricated cross-file match) rather than the generic `_regex_references_and_calls` text
+# heuristic, which C never reached anyway (no regex fallback -- see below).
+# `_language_coverage_gaps_for_universe` already treats `import_update_target is None` as an
+# honest `resolution_gaps` entry (see the "audit #81 #4" comment on that function), so `tg
+# callers`/`tg blast-radius` stay honest about C's remaining reverse-import gap instead of
+# silently reading as a proven zero. provenance_when_missing="grammar-missing" (NOT
 # "regex-heuristic") is what makes a grammar-absent C file a genuine `resolution_gaps` entry
 # instead of a silent empty result (C has no regex fallback, unlike JS/TS/Rust).
 #
@@ -6577,7 +6782,7 @@ lang_registry.register_language(
             "type_definition",
         ),
         extract_imports_and_symbols=None,
-        references_and_calls=None,
+        references_and_calls=_c_references_and_calls_for_registry,
         provider_alias_calls=None,
         file_imports_symbol_from_definition=None,
         import_update_target=None,
@@ -6586,19 +6791,25 @@ lang_registry.register_language(
     )
 )
 
-# PATH A Stage 3 (Phase 2 of C/C++): C++ joins the symbol graph as a FOUNDATIONAL-TIER language,
-# closing the top-10 language-support campaign to 10/10. Own module (lang_cpp.py) for the same
-# no-import-cycle reason as C/Go/PHP/C# -- a SEPARATE LanguageSpec + grammar package
-# (tree-sitter-cpp) from C's, mirroring the shipped JS/TS "two specs, not one mode flag"
-# precedent (``_SPEC_BY_SUFFIX`` is a flat suffix->ONE-spec dict, so ".h" cannot belong to both).
-# FOUNDATIONAL scope only -- defs/source/imports/agent via `extract_imports_and_symbols`-shaped
-# extraction, wired at the `_imports_and_symbols_for_path` / `build_symbol_source_from_map`
-# dispatch sites below. The cross-file caller-graph (references_and_calls /
-# file_imports_symbol_from_definition / import_update_target / repo-root context priming for a
-# future `#include`-path resolver) is DEFERRED to a follow-up -- all four stay None here, same
-# shape as C/Go/PHP/C#'s own `import_update_target=None` gap, so `tg refs`/`tg callers`/`tg
-# blast-radius` on a C++ symbol fall through to the generic `_regex_references_and_calls`
-# text-heuristic path instead of crashing or fabricating an AST-verified match.
+# PATH A Stage 3 (Phase 2 of C/C++, Task 10E): C++ joins the symbol graph as a PARSER-BACKED
+# refs/callers language, closing the top-10 language-support campaign to 10/10 AND emptying the
+# foundational tier entirely (see `_symbol_navigation_descriptor`'s docstring / the "Task 10E RED"
+# tests in test_lang_cpp.py). Own module (lang_cpp.py) for the same no-import-cycle reason as
+# C/Go/PHP/C# -- a SEPARATE LanguageSpec + grammar package (tree-sitter-cpp) from C's, mirroring
+# the shipped JS/TS "two specs, not one mode flag" precedent (``_SPEC_BY_SUFFIX`` is a flat
+# suffix->ONE-spec dict, so ".h" cannot belong to both). references_and_calls now points at
+# lang_cpp.cpp_references_and_calls (Task 10E: IN-FILE AST reference/call extraction, mirroring
+# Task 10D's C landing plus THREE C++-only call shapes -- qualified calls (`Foo::bar()`),
+# `this->method()`, and `new Widget()` constructor references -- via the registry adapter above).
+# defs/source/imports/agent still go through `extract_imports_and_symbols`-shaped extraction,
+# wired at the `_imports_and_symbols_for_path` / `build_symbol_source_from_map` dispatch sites
+# below. The remaining cross-file caller-graph fields (file_imports_symbol_from_definition /
+# import_update_target / repo-root context priming for a future `#include`-path resolver) stay
+# None, deferred to a follow-up -- same shape as every other parser-backed language's own gap, so
+# `tg refs`/`tg callers`/`tg blast-radius` on a C++ symbol still fall through to the honest
+# `resolution_gaps` reverse-import disclosure (never a crash, never a fabricated cross-file match)
+# rather than the generic `_regex_references_and_calls` text heuristic, which C++ never reaches
+# for its OWN suffixes any more (no regex fallback either way -- see below).
 # provenance_when_missing="grammar-missing" (NOT "regex-heuristic") is what makes a
 # grammar-absent C++ file a genuine `resolution_gaps` entry instead of a silent empty result
 # (C++ has no regex fallback, unlike JS/TS/Rust).
@@ -6631,7 +6842,7 @@ lang_registry.register_language(
             "alias_declaration",
         ),
         extract_imports_and_symbols=None,
-        references_and_calls=None,
+        references_and_calls=_cpp_references_and_calls_for_registry,
         provider_alias_calls=None,
         file_imports_symbol_from_definition=None,
         import_update_target=None,
@@ -17016,92 +17227,73 @@ def build_symbol_refs_from_map(
         refs_files_scanned += 1
         current_provenance = _symbol_navigation_provenance_for_path(str(current))
         current_spec = lang_registry.spec_for_path(current)
-        if current_spec is not None and current_spec.language_id == "python":
-            current_refs, _ = _python_references_and_calls(current, symbol)
-        elif current_spec is not None and current_spec.language_id in ("javascript", "typescript"):
-            current_refs, current_calls = _js_ts_references_and_calls(current, symbol, repo_root)
-            if not current_refs and not current_calls:
-                current_calls = _js_ts_provider_alias_calls(current, symbol, repo_root)
-            if not current_refs and not current_calls:
-                current_refs, current_calls = _regex_references_and_calls(current, symbol)
-            js_ts_call_refs = [
-                {
-                    "name": str(call["name"]),
-                    "kind": "reference",
-                    "ref_kind": str(call.get("ref_kind", "call")),
-                    "file": str(call["file"]),
-                    "line": int(call["line"]),
-                    "text": str(call["text"]),
-                    "provenance": current_provenance,
-                    **(
-                        {
-                            "resolution_provenance": list(call.get("resolution_provenance", [])),
-                            "resolution_confidence": float(call.get("resolution_confidence", 0.95)),
-                        }
-                        if "resolution_provenance" in call
-                        else {}
-                    ),
-                }
-                for call in current_calls
-            ]
-            current_refs.extend(js_ts_call_refs)
-        elif current_spec is not None and current_spec.language_id == "rust":
-            current_refs, current_calls = _rust_references_and_calls(current, symbol, repo_root)
-            if not current_refs and not current_calls:
-                current_calls = _rust_provider_alias_calls(current, symbol, repo_root)
-            if not current_refs and not current_calls:
-                current_refs, current_calls = _regex_references_and_calls(current, symbol)
-            rust_call_refs = [
-                {
-                    "name": str(call["name"]),
-                    "kind": "reference",
-                    "ref_kind": str(call.get("ref_kind", "call")),
-                    "file": str(call["file"]),
-                    "line": int(call["line"]),
-                    "text": str(call["text"]),
-                    "provenance": current_provenance,
-                    **(
-                        {
-                            "resolution_provenance": list(call.get("resolution_provenance", [])),
-                            "resolution_confidence": float(call.get("resolution_confidence", 0.95)),
-                        }
-                        if "resolution_provenance" in call
-                        else {}
-                    ),
-                }
-                for call in current_calls
-            ]
-            current_refs.extend(rust_call_refs)
-        elif current_spec is not None and current_spec.language_id == "go":
-            # Fail-closed (Stage 1 trap): no regex/provider-alias fallback for Go -- a
+        # Registry-driven extractor dispatch (replaces the prior per-language_id if/elif
+        # chain). As of Task 10E (C++, the final wave) no registered language has
+        # references_and_calls is None any more -- only an UNREGISTERED suffix hits the
+        # EXPLICIT `_regex_references_and_calls` fallback inside `_references_and_calls_for_path`.
+        current_refs, current_calls = _references_and_calls_for_path(
+            current, symbol, repo_root, definition_dirs=go_definition_dirs
+        )
+        if current_spec is not None and current_spec.references_and_calls is not None:
+            # Secondary degrade for parser-backed languages that advertise regex-heuristic
+            # missing-provenance (JS/TS/Rust today): try provider-alias, then regex. Gated on
+            # registry fields -- NOT language_id -- so Go (provenance_when_missing=
+            # "grammar-missing", provider_alias_calls=None) stays fail-closed: a
             # grammar-missing file yields ([], []) here and is surfaced honestly via
             # `resolution_gaps` further down, never a silently-degraded text match.
-            current_refs, current_calls = lang_go.go_references_and_calls(
-                current, symbol, repo_root, definition_dirs=go_definition_dirs
-            )
-            go_call_refs = [
-                {
-                    "name": str(call["name"]),
-                    "kind": "reference",
-                    "ref_kind": str(call.get("ref_kind", "call")),
-                    "file": str(call["file"]),
-                    "line": int(call["line"]),
-                    "text": str(call["text"]),
-                    "provenance": current_provenance,
-                    **(
-                        {
-                            "resolution_provenance": list(call.get("resolution_provenance", [])),
-                            "resolution_confidence": float(call.get("resolution_confidence", 0.95)),
-                        }
-                        if "resolution_provenance" in call
-                        else {}
-                    ),
-                }
-                for call in current_calls
-            ]
-            current_refs.extend(go_call_refs)
+            # Python (provenance_when_missing="python-ast") likewise keeps its prior
+            # no-regex-after-extractor behavior; its provider_alias_calls are applied later
+            # via the python_files / external-provider pass, not here.
+            if (
+                not current_refs
+                and not current_calls
+                and current_spec.provider_alias_calls is not None
+                and current_spec.provenance_when_missing == "regex-heuristic"
+            ):
+                current_calls = current_spec.provider_alias_calls(current, symbol, repo_root)
+            if (
+                not current_refs
+                and not current_calls
+                and current_spec.provenance_when_missing == "regex-heuristic"
+            ):
+                current_refs, current_calls = _regex_references_and_calls(current, symbol)
+            # Merge call rows into the reference list for tree-sitter languages
+            # (JS/TS/Rust/Go). Python keeps refs-only (the prior call site discarded calls
+            # with `current_refs, _ = ...`); its provenance_when_parsed is "python-ast".
+            if current_spec.provenance_when_parsed == "tree-sitter":
+                call_refs = [
+                    {
+                        "name": str(call["name"]),
+                        "kind": "reference",
+                        "ref_kind": str(call.get("ref_kind", "call")),
+                        "file": str(call["file"]),
+                        "line": int(call["line"]),
+                        "text": str(call["text"]),
+                        "provenance": current_provenance,
+                        **(
+                            {
+                                "resolution_provenance": list(
+                                    call.get("resolution_provenance", [])
+                                ),
+                                "resolution_confidence": float(
+                                    call.get("resolution_confidence", 0.95)
+                                ),
+                            }
+                            if "resolution_provenance" in call
+                            else {}
+                        ),
+                    }
+                    for call in current_calls
+                ]
+                current_refs.extend(call_refs)
+            else:
+                # Python (and any future non-tree-sitter parser-backed language): refs only.
+                # Matches the prior `current_refs, _ = _python_references_and_calls(...)`.
+                current_calls = []
         else:
-            current_refs, _ = _regex_references_and_calls(current, symbol)
+            # Foundational / unregistered: seam already used `_regex_references_and_calls`.
+            # Prior call site discarded calls with `current_refs, _ = ...`.
+            current_calls = []
         references.extend(
             {
                 **dict(current_ref),
@@ -18029,33 +18221,36 @@ def build_symbol_callers_from_map(
             if not _should_scan_for_symbol_callers(current):
                 continue
             current_spec = lang_registry.spec_for_path(current)
+            # Track python files for the later provider-alias pass (unchanged contract:
+            # python alias calls are applied AFTER the per-file loop / external merge,
+            # not inline here -- do not move that into the seam).
             if current_spec is not None and current_spec.language_id == "python":
                 python_files.add(str(current))
-                _, current_calls = _python_references_and_calls(current, symbol)
-            elif current_spec is not None and current_spec.language_id in (
-                "javascript",
-                "typescript",
-            ):
-                _, current_calls = _js_ts_references_and_calls(current, symbol, repo_root)
-                if not current_calls:
-                    current_calls = _js_ts_provider_alias_calls(current, symbol, repo_root)
-                if not current_calls:
+            # Registry-driven extractor dispatch (replaces the prior per-language_id
+            # if/elif chain). Foundational languages (references_and_calls is None) and
+            # unregistered suffixes hit the EXPLICIT `_regex_references_and_calls`
+            # fallback inside `_references_and_calls_for_path`.
+            _, current_calls = _references_and_calls_for_path(
+                current, symbol, repo_root, definition_dirs=go_definition_dirs
+            )
+            if current_spec is not None and current_spec.references_and_calls is not None:
+                # Secondary degrade for JS/TS/Rust only: provider-alias then regex.
+                # Gated on provenance_when_missing == "regex-heuristic" so:
+                # - Go stays fail-closed (Stage 1 trap): no provider-alias/regex
+                #   fallback -- a grammar-missing file simply contributes no calls
+                #   (surfaced via `resolution_gaps` for the refs/blast-radius payloads
+                #   that compute it).
+                # - Python keeps its prior loop behavior (alias applied later via
+                #   python_files, not here), even though provider_alias_calls is set
+                #   on its LanguageSpec.
+                if (
+                    not current_calls
+                    and current_spec.provider_alias_calls is not None
+                    and current_spec.provenance_when_missing == "regex-heuristic"
+                ):
+                    current_calls = current_spec.provider_alias_calls(current, symbol, repo_root)
+                if not current_calls and current_spec.provenance_when_missing == "regex-heuristic":
                     _, current_calls = _regex_references_and_calls(current, symbol)
-            elif current_spec is not None and current_spec.language_id == "rust":
-                _, current_calls = _rust_references_and_calls(current, symbol, repo_root)
-                if not current_calls:
-                    current_calls = _rust_provider_alias_calls(current, symbol, repo_root)
-                if not current_calls:
-                    _, current_calls = _regex_references_and_calls(current, symbol)
-            elif current_spec is not None and current_spec.language_id == "go":
-                # Fail-closed (Stage 1 trap): no provider-alias/regex fallback for Go -- a
-                # grammar-missing file simply contributes no calls (surfaced via
-                # `resolution_gaps` for the refs/blast-radius payloads that compute it).
-                _, current_calls = lang_go.go_references_and_calls(
-                    current, symbol, repo_root, definition_dirs=go_definition_dirs
-                )
-            else:
-                _, current_calls = _regex_references_and_calls(current, symbol)
             for current_call in current_calls:
                 call_payload = dict(current_call)
                 call_payload["provenance"] = _symbol_navigation_provenance_for_path(

@@ -33,7 +33,7 @@ class TypedGroupView:
 
 @final
 class StringView:
-    """A string value within a length window matching every pattern and format."""
+    """A string value within a length window, matching every required facet and no barred one."""
 
     __match_args__: tuple[str, ...]
     @property
@@ -42,6 +42,8 @@ class StringView:
     def max_length(self) -> int | None: ...
     @property
     def patterns(self) -> list[str]: ...
+    @property
+    def excluded_patterns(self) -> list[str]: ...
     @property
     def formats(self) -> list[str]: ...
     @property
@@ -68,6 +70,10 @@ class NumberView:
     def exclusive_maximum(self) -> bool: ...
     @property
     def multiple_of(self) -> list[int | float | Decimal]: ...
+    @property
+    def not_multiple_of(self) -> list[int | float | Decimal]: ...
+    @property
+    def excludes_integers(self) -> bool: ...
 
 @final
 class IntegerView:
@@ -80,6 +86,8 @@ class IntegerView:
     def maximum(self) -> int | None: ...
     @property
     def multiple_of(self) -> list[int | float | Decimal]: ...
+    @property
+    def not_multiple_of(self) -> list[int | float | Decimal]: ...
 
 @final
 class ArrayView:

@@ -250,6 +250,34 @@ def test_view_number_multiple_of():
             pytest.fail(f"unexpected view: {other!r}")
 
 
+def test_view_number_not_multiple_of():
+    match canonicalize({"type": "number", "not": {"multipleOf": 0.5}}).view():
+        case canonical.NumberView(multiple_of=multiple_of, not_multiple_of=not_multiple_of):
+            assert multiple_of == []
+            assert not_multiple_of == [0.5]
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
+def test_view_integer_not_multiple_of():
+    match canonicalize({"type": "integer", "not": {"multipleOf": 3}}).view():
+        case canonical.IntegerView(multiple_of=multiple_of, not_multiple_of=not_multiple_of):
+            assert multiple_of == []
+            assert not_multiple_of == [3]
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
+def test_view_number_excludes_integers():
+    schema = {"$schema": "http://json-schema.org/draft-04/schema#", "type": "number", "not": {"type": "integer"}}
+    match canonicalize(schema).view():
+        case canonical.NumberView(excludes_integers=excludes_integers, not_multiple_of=not_multiple_of):
+            assert excludes_integers is True
+            assert not_multiple_of == []
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
 def test_view_number_interval():
     match canonicalize({"type": "number", "minimum": 2, "exclusiveMaximum": 5}).view():
         case canonical.NumberView(
@@ -547,6 +575,36 @@ def test_intersect_rejects_distinct_definition_maps():
         left.intersect(right)
 
 
+@pytest.mark.parametrize(
+    ("left", "right", "expected"),
+    [
+        ({"type": "integer"}, {"type": "integer"}, True),
+        ({"const": 1}, {"type": "integer"}, True),
+        ({"enum": [1, 2]}, {"type": "integer"}, True),
+        ({"const": "x"}, {"type": "integer"}, False),
+        ({"enum": [1, "x"]}, {"type": "integer"}, False),
+        ({"type": "string"}, {"type": "integer"}, None),
+        ({"type": "integer"}, {"type": "integer", "minimum": 5}, None),
+    ],
+)
+def test_is_subset_of(left, right, expected):
+    assert canonicalize(left).is_subset_of(canonicalize(right)) is expected
+
+
+@pytest.mark.parametrize("swap", [False, True])
+def test_is_subset_of_rejects_unmodeled_operand(swap):
+    raw = canonicalize(UNMODELED)
+    modeled = canonicalize({"type": "string"})
+    left, right = (modeled, raw) if swap else (raw, modeled)
+    with pytest.raises(canonical.UnmodeledOperand):
+        left.is_subset_of(right)
+
+
+def test_is_subset_of_rejects_draft_mismatch():
+    with pytest.raises(canonical.IncompatibleOperands):
+        canonicalize({"type": "string"}, draft=7).is_subset_of(canonicalize({"type": "string"}, draft=20))
+
+
 def test_definition():
     schema = canonicalize({"$defs": {"A": {"type": "string"}}, "$ref": "#/$defs/A"})
     uri, target = next(iter(schema.definitions().items()))
@@ -586,17 +644,50 @@ def test_negate(schema, expected):
 
 
 # The decline set is contract: a caller sizes its fallback on it.
-@pytest.mark.parametrize(
-    "schema",
-    [
-        {"type": "integer"},
-        {"type": "integer", "minimum": 0},
-        {"$schema": "http://json-schema.org/draft-04/schema#", "type": "integer", "enum": [1, 2]},
-        UNMODELED,
-    ],
-)
+@pytest.mark.parametrize("schema", [UNMODELED])
 def test_negate_declines(schema):
     assert canonicalize(schema).negate() is None
+
+
+def test_negate_draft4_integer_type():
+    schema = {"$schema": "http://json-schema.org/draft-04/schema#", "type": "integer"}
+    result = canonicalize(schema).negate()
+    assert isinstance(result, CanonicalSchema)
+    assert result.to_json_schema() == {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "anyOf": [
+            {"type": ["null", "boolean", "string", "array", "object"]},
+            {"type": "number", "not": {"type": "integer"}},
+        ],
+    }
+
+
+def test_negate_draft4_typed_group():
+    schema = {"$schema": "http://json-schema.org/draft-04/schema#", "type": "integer", "enum": [1, 2]}
+    result = canonicalize(schema).negate()
+    assert isinstance(result, CanonicalSchema)
+    assert result.to_json_schema() == {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "anyOf": [
+            {"type": ["null", "boolean", "string", "array", "object"]},
+            {"type": "integer", "maximum": 0},
+            {"type": "integer", "minimum": 3},
+            {"type": "number", "not": {"type": "integer"}},
+        ],
+    }
+
+
+def test_negate_integer_leaf():
+    result = canonicalize({"type": "integer", "minimum": 0}).negate()
+    assert isinstance(result, CanonicalSchema)
+    assert result.to_json_schema() == {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "anyOf": [
+            {"type": ["null", "boolean", "string", "array", "object"]},
+            {"type": "integer", "maximum": -1},
+            {"type": "number", "not": {"multipleOf": 1}},
+        ],
+    }
 
 
 def test_negate_keeps_a_reference_symbolic():

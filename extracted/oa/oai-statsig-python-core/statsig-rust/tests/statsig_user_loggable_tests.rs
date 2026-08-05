@@ -1,11 +1,10 @@
 use std::{collections::HashMap, sync::Arc};
 
 use assert_json_diff::assert_json_eq;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use statsig_rust::{
-    dyn_value,
-    user::{user_data::UserData, StatsigUserLoggable},
-    StatsigUser, StatsigUserDataMap,
+    StatsigUser, StatsigUserDataMap, dyn_value,
+    user::{StatsigUserLoggable, user_data::UserData},
 };
 
 fn make_loggable(

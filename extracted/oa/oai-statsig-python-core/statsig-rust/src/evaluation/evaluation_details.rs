@@ -1,5 +1,5 @@
-use crate::evaluation::evaluator_result::EvaluatorResult;
 use crate::SpecsSource;
+use crate::evaluation::evaluator_result::EvaluatorResult;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]

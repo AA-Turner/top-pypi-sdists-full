@@ -38,11 +38,43 @@ def _run_probe(script: str) -> dict[str, Any]:
     return json.loads(result.stdout)
 
 
-def _run_module_schema_fast_path_in_process(schema_options: list[str]) -> dict[str, Any]:
+def _run_module_version_fast_path(version_option: str) -> dict[str, Any]:
+    return _run_probe(
+        textwrap.dedent(
+            f"""
+            import contextlib
+            import io
+            import json
+            import runpy
+            import sys
+
+            sys.argv = ["datamodel-codegen", {version_option!r}]
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                try:
+                    runpy.run_module("datamodel_code_generator.__main__", run_name="__main__", alter_sys=True)
+                except SystemExit as exc:
+                    code = exc.code
+                else:
+                    code = None
+
+            from datamodel_code_generator._version import __version__
+
+            print(json.dumps({{
+                "code": code,
+                "imported_metadata": "importlib.metadata" in sys.modules,
+                "stdout_matches_embedded": stdout.getvalue() == "datamodel-codegen " + __version__ + "\\n",
+            }}, indent=2, sort_keys=True))
+            """
+        )
+    )
+
+
+def _run_module_fast_path_in_process(args: list[str]) -> dict[str, Any]:
     module_name = "datamodel_code_generator.__main__"
     previous_module = sys.modules.pop(module_name, MISSING)
     original_argv = sys.argv[:]
-    sys.argv = ["datamodel-codegen", *schema_options]
+    sys.argv = ["datamodel-codegen", *args]
     stdout = io.StringIO()
     try:
         with contextlib.redirect_stdout(stdout):
@@ -58,6 +90,21 @@ def _run_module_schema_fast_path_in_process(schema_options: list[str]) -> dict[s
         if isinstance(previous_module, ModuleType):  # pragma: no branch
             sys.modules[module_name] = previous_module
     return {"code": code, "stdout": stdout.getvalue()}
+
+
+def _run_module_schema_fast_path_in_process(schema_options: list[str]) -> dict[str, Any]:
+    return _run_module_fast_path_in_process(schema_options)
+
+
+def _run_module_version_fast_path_in_process(version_option: str) -> dict[str, Any]:
+    result = _run_module_fast_path_in_process([version_option])
+
+    from datamodel_code_generator import get_version
+
+    return {
+        "code": result["code"],
+        "stdout_matches_embedded": result["stdout"] == f"datamodel-codegen {get_version()}\n",
+    }
 
 
 def _run_module_schema_fast_path(schema_options: list[str]) -> dict[str, Any]:
@@ -218,6 +265,107 @@ def _run_no_formatter_generation_probe() -> dict[str, Any]:
                 ),
                 "imported_python_type_ir": "datamodel_code_generator._python_type_annotation" in sys.modules,
             }, indent=2, sort_keys=True))
+            """
+        )
+    )
+
+
+def _run_input_model_type_transport_probe() -> dict[str, Any]:
+    return _run_probe(
+        textwrap.dedent(
+            """
+            import contextlib
+            import io
+            import json
+            import sys
+
+            from datamodel_code_generator.__main__ import main
+
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                code = main([
+                    "--input-model",
+                    "tests.data.python.input_model.structured_annotations:StructuredAnnotations",
+                    "--field-include-all-keys",
+                    "--disable-timestamp",
+                ])
+            generated = stdout.getvalue()
+            print(json.dumps({
+                "code": int(code),
+                "generated": generated,
+                "imported_python_type_codec": (
+                    "datamodel_code_generator._python_type_annotation_codec" in sys.modules
+                ),
+                "leaked_private_token": "<datamodel-code-generator-python-type:" in generated,
+            }, indent=2, sort_keys=True))
+            """
+        )
+    )
+
+
+def _run_input_model_without_runtime_type_probe() -> dict[str, Any]:
+    return _run_probe(
+        textwrap.dedent(
+            """
+            import json
+            import sys
+
+            from datamodel_code_generator import InputFileType
+            from datamodel_code_generator.input_model import (
+                _load_model_schema_with_python_type_expressions,
+            )
+
+            loaded = _load_model_schema_with_python_type_expressions(
+                ["tests.data.python.input_model.pydantic_models:User"],
+                InputFileType.Auto,
+            )
+            print(json.dumps({
+                "expression_count": len(loaded.python_type_expressions),
+                "imported_secrets": "secrets" in sys.modules,
+                "imported_python_type_codec": (
+                    "datamodel_code_generator._python_type_annotation_codec" in sys.modules
+                ),
+            }, indent=2, sort_keys=True))
+            """
+        )
+    )
+
+
+def _run_external_ref_type_transport_probe(ref_path: str) -> dict[str, Any]:
+    return _run_probe(
+        textwrap.dedent(
+            f"""
+            import json
+            import sys
+
+            from datamodel_code_generator import InputFileType, generate
+            from datamodel_code_generator._input_model_transport import PythonTypeExpressionCollector
+            from datamodel_code_generator._python_type_annotation import PythonTypeName
+
+            collector = PythonTypeExpressionCollector()
+            token = collector.add(PythonTypeName("int"))
+            loaded = collector.loaded_schema({{
+                "title": "Root",
+                "type": "object",
+                "properties": {{
+                    "value": {{"type": "string", "x-python-type": token}},
+                    "external": {{"$ref": {ref_path!r}}},
+                }},
+                "required": ["value", "external"],
+            }})
+            generated = generate(
+                loaded,
+                input_file_type=InputFileType.JsonSchema,
+                disable_timestamp=True,
+                formatters=[],
+            )
+            print(json.dumps({{
+                "has_datetime_import": "from datetime import datetime" in generated,
+                "imported_python_type_codec": (
+                    "datamodel_code_generator._python_type_annotation_codec" in sys.modules
+                ),
+                "leaked_private_token": "<datamodel-code-generator-python-type:" in generated,
+            }}, indent=2, sort_keys=True))
             """
         )
     )
@@ -424,6 +572,20 @@ def test_help_fast_path_skips_json_config_and_formatter_imports() -> None:
     assert fast_path["imported_validators"] is False
 
 
+@pytest.mark.parametrize("version_option", ["--version", "-V"])
+def test_version_fast_path_uses_embedded_version(version_option: str) -> None:
+    """Read the build version without importing distribution metadata."""
+    output = {
+        "in_process": _run_module_version_fast_path_in_process(version_option),
+        "subprocess": _run_module_version_fast_path(version_option),
+    }
+
+    assert_output(
+        f"{json.dumps(output, indent=2, sort_keys=True)}\n",
+        ROOT / "tests/data/expected/main/cli_fast_paths/version_fast_path.txt",
+    )
+
+
 @pytest.mark.allow_direct_assert
 def test_argument_parser_json_option_loads_json_config_lazily() -> None:
     """JSON-backed argparse callbacks still load and validate only when invoked."""
@@ -457,6 +619,41 @@ def test_empty_formatters_skip_formatter_runtime() -> None:
     assert_output(
         f"{json.dumps(result, indent=2, sort_keys=True)}\n",
         ROOT / "tests/data/expected/main/cli_fast_paths/empty_formatters.txt",
+    )
+
+
+def test_input_model_transport_skips_codec_and_preserves_metadata() -> None:
+    """Internal type IR reaches generated metadata without loading the text codec."""
+    result = _run_input_model_type_transport_probe()
+
+    assert_output(
+        f"{json.dumps(result, indent=2, sort_keys=True)}\n",
+        ROOT / "tests/data/expected/main/cli_fast_paths/input_model_type_transport.txt",
+    )
+
+
+def test_input_model_without_runtime_type_skips_nonce_and_codec() -> None:
+    """The loader avoids nonce entropy and the text codec when no IR is collected."""
+    result = _run_input_model_without_runtime_type_probe()
+
+    assert_output(
+        f"{json.dumps(result, indent=2, sort_keys=True)}\n",
+        ROOT / "tests/data/expected/main/cli_fast_paths/input_model_without_runtime_type.txt",
+    )
+
+
+def test_external_ref_parses_only_external_raw_python_type() -> None:
+    """External refs retain IR while raw external extension text uses the codec."""
+    result = {
+        "ordinary_external": _run_external_ref_type_transport_probe("tests/data/jsonschema/person.json"),
+        "raw_python_type_external": _run_external_ref_type_transport_probe(
+            "tests/data/jsonschema/external_python_type.json"
+        ),
+    }
+
+    assert_output(
+        f"{json.dumps(result, indent=2, sort_keys=True)}\n",
+        ROOT / "tests/data/expected/main/cli_fast_paths/external_ref_type_transport.txt",
     )
 
 

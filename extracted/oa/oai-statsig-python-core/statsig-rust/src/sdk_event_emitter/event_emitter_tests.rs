@@ -1,12 +1,13 @@
 use serde_json::json;
 
 use crate::{
-    sdk_event_emitter::{SdkEvent, SdkEventEmitter, SubscriptionID},
     DynamicReturnable,
+    sdk_event_emitter::{SdkEvent, SdkEventEmitter, SubscriptionID},
 };
 use std::sync::{
+    Arc,
     atomic::{AtomicBool, AtomicUsize, Ordering},
-    mpsc, Arc,
+    mpsc,
 };
 use std::time::Duration;
 

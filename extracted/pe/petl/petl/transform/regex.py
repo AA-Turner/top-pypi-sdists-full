@@ -309,11 +309,11 @@ class SearchView(Table):
         self.pattern = pattern
         self.field = field
         self.flags = flags
-        self.complement = complement
+        self._complement = complement
 
     def __iter__(self):
         return itersearch(self.table, self.pattern, self.field, self.flags,
-                          self.complement)
+                          self._complement)
 
 
 def itersearch(table, pattern, field, flags, complement):

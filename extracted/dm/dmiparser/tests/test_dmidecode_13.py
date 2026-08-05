@@ -1,25 +1,43 @@
-import json
-from pathlib import Path
+from tests.conftest import arches_with, load
 
-from dmiparser import DmiParser
+TYPE = "13"
+NAMES = {"BIOS Language Information", "Firmware Language Information"}
+COUNT = {"sw_64": 1, "x86_64": 1}
+KEYS = {"Currently Installed Language", "Installable Languages", "Language Description Format"}
 
-RDIR = Path(Path(__file__).resolve()).parents[0]
+
+def test_section_count():
+    for arch in arches_with(TYPE):
+        assert COUNT[arch] == len(load(arch, TYPE))
 
 
-def test_dmidecode_13() -> None:
-    count = 0
+def test_section_name():
+    for arch in arches_with(TYPE):
+        assert all(d["name"] in NAMES for d in load(arch, TYPE))
 
-    with open(RDIR / "dmidecode_13.txt", "rt") as f:
-        text = f.read()
-        data = json.loads(str(DmiParser(text)))
 
-    for d in data:
-        """
-        Installable Languages: 1
-                enUS
-        """
-        if "0x000C" == d["handle"]["id"] and "BIOS Language Information" == d["name"]:
-            assert 2 == len(d["props"]["Installable Languages"]["values"])
-            count += 1
+def test_handle_type():
+    for arch in arches_with(TYPE):
+        for d in load(arch, TYPE):
+            assert TYPE == d["handle"]["type"]
+            assert {"id", "type", "bytes"} == set(d["handle"].keys())
 
-    assert 1 == count
+
+def test_props_within_keyset():
+    for arch in arches_with(TYPE):
+        for d in load(arch, TYPE):
+            assert set(d["props"].keys()) <= KEYS
+
+
+def test_installable_languages_value_and_subitems():
+    """'Installable Languages: 1' has value '1' AND sub-item(s) following."""
+    for arch in arches_with(TYPE):
+        data = load(arch, TYPE)
+        vals = data[0]["props"]["Installable Languages"]["values"]
+        assert len(vals) >= 2
+
+
+def test_currently_installed_language():
+    for arch in arches_with(TYPE):
+        data = load(arch, TYPE)
+        assert data[0]["props"]["Currently Installed Language"]["values"]

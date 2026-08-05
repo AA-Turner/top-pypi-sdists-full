@@ -1,10 +1,10 @@
 use crate::pyo_utils::py_dict_to_json_value_map;
 use crate::raw_evaluation_compat_py::{
-    raw_dynamic_config_to_py_dict, raw_experiment_to_py_dict, raw_gate_to_py_dict,
-    raw_layer_to_py_dict, LayerParamExposureDataPy,
+    LayerParamExposureDataPy, raw_dynamic_config_to_py_dict, raw_experiment_to_py_dict,
+    raw_gate_to_py_dict, raw_layer_to_py_dict,
 };
 use crate::safe_gil::SafeGil;
-use crate::statsig_options_py::{safe_convert_to_statsig_options, StatsigOptionsPy};
+use crate::statsig_options_py::{StatsigOptionsPy, safe_convert_to_statsig_options};
 use crate::statsig_persistent_storage_override_adapter_py::convert_dict_to_user_persisted_values;
 use crate::statsig_types_py::{
     BulkEvaluationOptionsPy, InitializeDetailsPy, ParameterStoreEvaluationOptionsPy,
@@ -26,13 +26,13 @@ use pyo3::{
 use pyo3_stub_gen::derive::*;
 use serde_json::Value;
 use statsig_rust::interned_string::InternedString;
-use statsig_rust::user::fast_statsig_user::FastStatsigUser;
 use statsig_rust::user::StatsigUserInternal;
+use statsig_rust::user::fast_statsig_user::FastStatsigUser;
 use statsig_rust::{
-    log_e, sdk_event_emitter::SubscriptionID, BulkEvaluationOptions, ClientInitResponseOptions,
-    DynamicConfigEvaluationOptions, ExperimentEvaluationOptions, FeatureGateEvaluationOptions,
-    HashAlgorithm, LayerEvaluationOptions, ObservabilityClient, ParameterStoreEvaluationOptions,
-    Statsig, UserPersistedValues,
+    BulkEvaluationOptions, ClientInitResponseOptions, DynamicConfigEvaluationOptions,
+    ExperimentEvaluationOptions, FeatureGateEvaluationOptions, HashAlgorithm,
+    LayerEvaluationOptions, ObservabilityClient, ParameterStoreEvaluationOptions, Statsig,
+    UserPersistedValues, log_e, sdk_event_emitter::SubscriptionID,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -288,32 +288,36 @@ impl StatsigBasePy {
         self.inner.event_emitter.unsubscribe_all();
     }
 
-    #[pyo3(signature = (user, event_name, value=None, metadata=None))]
+    #[pyo3(signature = (user, event_name, value=None, metadata=None, timestamp_ms=None))]
     pub fn log_event(
         &self,
         user: &StatsigUserPy,
         event_name: &str,
         value: Option<Bound<PyAny>>,
         metadata: Option<Bound<PyDict>>,
+        timestamp_ms: Option<u64>,
     ) -> PyResult<()> {
         let local_metadata = extract_event_metadata(metadata);
         let user_internal = StatsigUserInternal::from_fast_user(&user.inner, Some(&self.inner));
 
         if let Some(num_value) = convert_to_number(value.as_ref()) {
             self.inner
-                .log_event_with_number_and_typed_metadata_for_internal_user(
+                .log_event_with_number_and_typed_metadata_and_timestamp_for_internal_user(
                     &user_internal,
                     event_name,
                     Some(num_value),
                     local_metadata,
+                    timestamp_ms,
                 );
         } else {
-            self.inner.log_event_with_typed_metadata_for_internal_user(
-                &user_internal,
-                event_name,
-                convert_to_string(value.as_ref()),
-                local_metadata,
-            );
+            self.inner
+                .log_event_with_typed_metadata_and_timestamp_for_internal_user(
+                    &user_internal,
+                    event_name,
+                    convert_to_string(value.as_ref()),
+                    local_metadata,
+                    timestamp_ms,
+                );
         }
 
         Ok(())
@@ -500,8 +504,8 @@ impl StatsigBasePy {
         exposure_metadata: Option<Bound<PyDict>>,
     ) {
         self.inner
-            .log_layer_param_exposure_from_partial_raw_with_metadata(
-                raw.inner.clone(),
+            .log_layer_param_exposure_from_partial_raw_ref_with_metadata(
+                &raw.inner,
                 param_name,
                 extract_event_metadata(exposure_metadata),
             );

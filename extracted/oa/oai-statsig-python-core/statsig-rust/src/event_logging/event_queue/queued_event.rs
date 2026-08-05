@@ -6,13 +6,13 @@ use super::{
     queued_secondary_expo::QueuedSecondaryExposureAsPrimaryEvent,
 };
 use crate::{
+    SecondaryExposure,
     evaluation::evaluation_types::ExtraExposureInfo,
     event_logging::{
         exposure_sampling::{EvtSamplingDecision, ExposureSamplingKey},
         statsig_event_internal::StatsigEventInternal,
     },
     user::StatsigUserLoggable,
-    SecondaryExposure,
 };
 
 pub trait EnqueueOperation {

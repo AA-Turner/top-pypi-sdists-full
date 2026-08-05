@@ -3,14 +3,14 @@ use std::{borrow::Cow, time::Instant};
 use rusty_fork::rusty_fork_test;
 use serde_json::value::RawValue;
 use wiremock::{
-    matchers::{method, path},
     Mock, MockServer, ResponseTemplate,
+    matchers::{method, path},
 };
 
 use crate::{
+    StatsigOptions,
     interned_string::{InternedString, InternedStringValue},
     interned_values::InternedStore,
-    StatsigOptions,
 };
 
 const EVAL_PROJ_JSON: &[u8] = include_bytes!("../../../tests/data/eval_proj_dcs.json");

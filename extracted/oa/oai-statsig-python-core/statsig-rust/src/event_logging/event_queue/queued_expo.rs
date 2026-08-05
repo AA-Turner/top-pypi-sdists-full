@@ -4,9 +4,10 @@ use chrono::Utc;
 use serde_json::Value;
 
 use crate::{
+    EvaluationDetails, SecondaryExposure,
     evaluation::{
         evaluation_types::ExtraExposureInfo,
-        evaluator_result::{result_to_extra_exposure_info, EvaluatorResult},
+        evaluator_result::{EvaluatorResult, result_to_extra_exposure_info},
     },
     event_logging::{
         event_logger::ExposureTrigger,
@@ -14,18 +15,17 @@ use crate::{
         exposure_utils::get_statsig_metadata_with_sampling_decision,
         statsig_event::StatsigEvent,
         statsig_event_internal::{
-            StatsigEventInternal, CONFIG_EXPOSURE_EVENT_NAME, GATE_EXPOSURE_EVENT_NAME,
-            LAYER_EXPOSURE_EVENT_NAME,
+            CONFIG_EXPOSURE_EVENT_NAME, GATE_EXPOSURE_EVENT_NAME, LAYER_EXPOSURE_EVENT_NAME,
+            StatsigEventInternal,
         },
     },
     interned_string::InternedString,
     specs_response::explicit_params::ExplicitParameters,
     user::{StatsigUserInternal, StatsigUserLoggable},
-    EvaluationDetails, SecondaryExposure,
 };
 
 use super::queued_event::{
-    take_non_empty_secondary_exposures, EnqueueOperation, QueuedEvent, QueuedExposure,
+    EnqueueOperation, QueuedEvent, QueuedExposure, take_non_empty_secondary_exposures,
 };
 use crate::event_logging::statsig_event::string_metadata_to_value_metadata;
 
@@ -40,6 +40,15 @@ pub enum UserLoggableOrInternal<'a> {
 pub struct EnqueueExposureOp<'a> {
     user: UserLoggableOrInternal<'a>,
     data: ExposureData,
+}
+
+#[cfg(feature = "ffi-support")]
+pub struct BorrowedLayerParamExposureOp<'a> {
+    parameter_name: InternedString,
+    trigger: ExposureTrigger,
+    partial_raw: &'a crate::statsig_types_raw::PartialLayerRaw,
+    exposure_time: u64,
+    extra_metadata: Option<HashMap<String, Value>>,
 }
 
 pub struct ExposureData {
@@ -227,21 +236,13 @@ impl<'a> EnqueueExposureOp<'a> {
         partial_raw: crate::statsig_types_raw::PartialLayerRaw,
     ) -> Self {
         let version = partial_raw.details.version;
+        let rule_id = layer_param_rule_id(&partial_raw, &parameter_name).cloned();
         let user = UserLoggableOrInternal::Loggable(partial_raw.user);
-
-        let mut rule_id = partial_raw
-            .parameter_rule_ids
-            .as_ref()
-            .and_then(|ids| ids.get(&parameter_name));
-
-        if rule_id.is_none() {
-            rule_id = partial_raw.rule_id.as_ref();
-        }
 
         let data = ExposureData {
             event_name: LAYER_EXPOSURE_EVENT_NAME,
             spec_name: partial_raw.name,
-            rule_id: rule_id.cloned(),
+            rule_id,
             exposure_time: Utc::now().timestamp_millis() as u64,
             trigger,
             evaluation_details: partial_raw.details,
@@ -260,6 +261,78 @@ impl<'a> EnqueueExposureOp<'a> {
         };
 
         Self { user, data }
+    }
+}
+
+#[cfg(feature = "ffi-support")]
+impl<'a> BorrowedLayerParamExposureOp<'a> {
+    pub(crate) fn new(
+        parameter_name: InternedString,
+        trigger: ExposureTrigger,
+        partial_raw: &'a crate::statsig_types_raw::PartialLayerRaw,
+        extra_metadata: Option<HashMap<String, Value>>,
+    ) -> Self {
+        Self {
+            parameter_name,
+            trigger,
+            partial_raw,
+            exposure_time: Utc::now().timestamp_millis() as u64,
+            extra_metadata,
+        }
+    }
+
+    fn rule_id(&self) -> Option<&InternedString> {
+        layer_param_rule_id(self.partial_raw, &self.parameter_name)
+    }
+}
+
+#[cfg(feature = "ffi-support")]
+fn layer_param_rule_id<'a>(
+    partial_raw: &'a crate::statsig_types_raw::PartialLayerRaw,
+    parameter_name: &InternedString,
+) -> Option<&'a InternedString> {
+    partial_raw
+        .parameter_rule_ids
+        .as_ref()
+        .and_then(|ids| ids.get(parameter_name))
+        .or(partial_raw.rule_id.as_ref())
+}
+
+#[cfg(feature = "ffi-support")]
+impl EnqueueOperation for BorrowedLayerParamExposureOp<'_> {
+    fn as_exposure(&self) -> Option<&impl QueuedExposure<'_>> {
+        Some(self)
+    }
+
+    fn into_queued_event(self, sampling_decision: EvtSamplingDecision) -> QueuedEvent {
+        let mut operation = EnqueueExposureOp::layer_param_exposure_from_partial_raw(
+            self.parameter_name,
+            self.trigger,
+            self.partial_raw.clone(),
+        )
+        .with_extra_metadata(self.extra_metadata);
+        operation.data.exposure_time = self.exposure_time;
+        operation.into_queued_event(sampling_decision)
+    }
+}
+
+#[cfg(feature = "ffi-support")]
+impl<'a> QueuedExposure<'a> for BorrowedLayerParamExposureOp<'a> {
+    fn create_exposure_sampling_key(&self) -> ExposureSamplingKey {
+        ExposureSamplingKey {
+            spec_name_hash: self.partial_raw.name.hash,
+            rule_id_hash: self.rule_id().map_or(0, |id| id.hash),
+            user_values_hash: self.partial_raw.user.create_exposure_dedupe_user_hash(None),
+            additional_hash: self.parameter_name.hash,
+        }
+    }
+
+    fn get_rule_id_ref(&'a self) -> &'a str {
+        self.rule_id().map_or("", |id| id.as_str())
+    }
+
+    fn get_extra_exposure_info_ref(&'a self) -> Option<&'a ExtraExposureInfo> {
+        self.partial_raw.exposure_info.as_ref()
     }
 }
 

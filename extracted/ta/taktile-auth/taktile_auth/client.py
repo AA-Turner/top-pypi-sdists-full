@@ -73,6 +73,12 @@ class AuthClient:
         recursion_check_enabled: bool = False,
         recursion_counter: t.Optional[SharedCounter] = None,
         recursion_mode: RecursionMode = settings.RECURSION_MODE,
+        # PEP-76 scope narrowing: when set, every mint is downscoped to
+        # this org/workspace. Cache keys do NOT include the scope, so a
+        # scoped instance needs its own cache (realm) — never share one
+        # across scopes.
+        organization_id: t.Optional[str] = None,
+        workspace_id: t.Optional[str] = None,
     ) -> None:
         self.public_key_url = urljoin(url, ".well-known/jwks.json")
         self.access_token_url = urljoin(url, "api/v1/login/access-token")
@@ -81,6 +87,8 @@ class AuthClient:
         self._cache_speedup_time = cache_speedup_time
         self._cache_fallback_time = cache_fallback_time
         self._salt = salt
+        self._organization_id = organization_id
+        self._workspace_id = workspace_id
         self._recursion_gate: t.Optional[RecursionGate] = None
 
         if recursion_check_enabled and recursion_counter is None:
@@ -230,6 +238,9 @@ class AuthClient:
                     if cache_response:
                         session_state.jwt = cache_response.token
                         should_refresh = not cache_response.is_in_speedup_window
+                    else:
+                        # Another instance may have purged the entry — drop the local copy too.
+                        session_state.jwt = None
             else:
                 should_refresh = False
 
@@ -292,6 +303,10 @@ class AuthClient:
                     tapi_response,
                     AuthClient.JWTResponseForbiddenFailure,
                 ):
+                    # Purge so an outage cannot revive a revoked key. HTTPError only:
+                    # transport errors also land here and must keep the fallback.
+                    if self._cache and isinstance(tapi_response.exception, requests.exceptions.HTTPError):
+                        self._cache.delete(self._get_cache_key(str(session_state.api_key)))
                     raise InvalidAuthException(
                         "Invalid authentication credentials provided. Check again your credentials."
                     ) from tapi_response.exception
@@ -419,6 +434,8 @@ class AuthClient:
         return self.fetch_jwt(
             session_state=session_state,
             expires_seconds=int(self._cache_fallback_time.total_seconds()),
+            organization_id=self._organization_id,
+            workspace_id=self._workspace_id,
         )
 
     def _get_cache_key(self, key: str) -> str:

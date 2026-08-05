@@ -1,0 +1,2 @@
+import"./rolldown-runtime-G-74P12b.js";import{I as e,N as t,at as n}from"./vendor-vue-core-BZZQdWHo.js";import{t as r}from"./_plugin-vue_export-helper-ySD0fwe6.js";import{t as i}from"./comfy-logo-single-DybKI4YQ.js";var a={},o={class:`px-2 py-4`},s=[`alt`];function _sfc_render(r,a){return n(),e(`div`,o,[t(`img`,{src:i,alt:r.$t(`g.comfyOrgLogoAlt`),width:`32`,height:`32`},null,8,s)])}var c=r(a,[[`render`,_sfc_render]]);export{c as default};
+//# sourceMappingURL=ComfyOrgHeader-CaAN5AL8.js.map

@@ -49,11 +49,15 @@ public:
   {mCodingSM = new nsCodingStateMachine(&EUCTWSMModel);
     Reset();}
   virtual ~nsEUCTWProber(void){delete mCodingSM;}
-  nsProbingState HandleData(const char* aBuf, PRUint32 aLen);
-  const char* GetCharSetName() {return "EUC-TW";}
+  nsProbingState HandleData(const char* aBuf, PRUint32 aLen,
+                            int** codePointBuffer,
+                            int*  codePointBufferIdx);
+  virtual int GetCandidates() { return 1; }
+  const char* GetCharSetName(int) {return "EUC-TW";}
+  const char* GetLanguage(int) {return "zh";}
   nsProbingState GetState(void) {return mState;}
   void      Reset(void);
-  float     GetConfidence(void);
+  float     GetConfidence(int);
   void      SetOpion() {}
 
 protected:

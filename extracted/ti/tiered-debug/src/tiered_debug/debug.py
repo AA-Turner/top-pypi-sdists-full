@@ -1,4 +1,4 @@
-"""Sample usage of tiered debug logging with a global instance and decorator.
+"""Module for tiered debugging with a global TieredDebug instance.
 
 Provides a global `TieredDebug` instance and a `begin_end` decorator to
 log function entry and exit at specified debug levels. Designed for use
@@ -17,10 +17,14 @@ Examples:
     'Test'
 """
 
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Literal, ParamSpec, TypeVar
 
-from ._base import TieredDebug
+from tiered_debug import TieredDebug
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 DEFAULT_BEGIN = 2
 """Default debug level for BEGIN messages."""
@@ -33,12 +37,12 @@ debug = TieredDebug(level=1, stacklevel=3)
 
 
 def begin_end(
-    debug_obj: Optional[TieredDebug] = None,
+    debug_obj: TieredDebug | None = None,
     begin: Literal[1, 2, 3, 4, 5] = DEFAULT_BEGIN,
     end: Literal[1, 2, 3, 4, 5] = DEFAULT_END,
     stacklevel: int = 2,
-    extra: Optional[Dict[str, Any]] = None,
-):
+    extra: dict[str, Any] | None = None,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Decorator to log function entry and exit at specified debug levels.
 
     Logs "BEGIN CALL" at the `begin` level and "END CALL" at the `end`
@@ -50,7 +54,7 @@ def begin_end(
         begin: Debug level for BEGIN message (1-5, default 2). (int)
         end: Debug level for END message (1-5, default 3). (int)
         stacklevel: Stack level for reporting (1-9, default 2). (int)
-        extra: Extra metadata dictionary (default None). (Dict[str, Any])
+        extra: Extra metadata dictionary (default None). (dict[str, Any])
 
     Returns:
         Callable: Decorated function with logging.
@@ -67,24 +71,30 @@ def begin_end(
     """
     debug_instance = debug_obj if debug_obj is not None else debug
 
-    def decorator(func):
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             effective_stacklevel = stacklevel + 1
             debug_instance.log(
                 begin,
                 f"BEGIN CALL: {func.__name__}()",
+                exc_info=None,
+                stack_info=None,
                 stacklevel=effective_stacklevel,
                 extra=extra,
             )
-            result = func(*args, **kwargs)
-            debug_instance.log(
-                end,
-                f"END CALL: {func.__name__}()",
-                stacklevel=effective_stacklevel,
-                extra=extra,
-            )
-            return result
+            try:
+                result = func(*args, **kwargs)
+                return result
+            finally:
+                debug_instance.log(
+                    end,
+                    f"END CALL: {func.__name__}()",
+                    exc_info=None,
+                    stack_info=None,
+                    stacklevel=effective_stacklevel,
+                    extra=extra,
+                )
 
         return wrapper
 

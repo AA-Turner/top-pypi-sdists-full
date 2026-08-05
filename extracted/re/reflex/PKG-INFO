@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: reflex
-Version: 0.9.7
+Version: 0.9.8
 Summary: Web apps in pure Python.
 Project-URL: homepage, https://reflex.dev
 Project-URL: repository, https://github.com/reflex-dev/reflex
@@ -28,7 +28,7 @@ Requires-Dist: psutil<8.0,>=7.0.0; sys_platform == 'win32'
 Requires-Dist: python-multipart<1.0,>=0.0.32
 Requires-Dist: python-socketio<6.0,>=5.12.0
 Requires-Dist: redis<8.0,>=6.4
-Requires-Dist: reflex-base==0.9.7
+Requires-Dist: reflex-base==0.9.8
 Requires-Dist: reflex-components-code>=0.9.0
 Requires-Dist: reflex-components-core>=0.9.6
 Requires-Dist: reflex-components-dataeditor>=0.9.0
@@ -78,7 +78,7 @@ Description-Content-Type: text/markdown
 > Build faster with Reflex:
 >
 > - **[AI Builder](https://build.reflex.dev/)** - Generate full-stack Reflex apps in seconds.
-> - **[Agent Toolkit](https://reflex.dev/docs/ai/integrations/ai-onboarding/)** - Connect MCP and Skills to your coding assistant.
+> - **[Agent Toolkit](https://reflex.dev/docs/ai/integrations/agent-toolkit/)** - Connect MCP and Skills to your coding assistant.
 > - **[App Management](https://reflex.dev/hosting)** - Deploy and manage your Reflex apps.
 
 ---

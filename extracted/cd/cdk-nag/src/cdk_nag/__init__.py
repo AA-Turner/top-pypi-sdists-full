@@ -256,6 +256,8 @@ See [CONTRIBUTING](./CONTRIBUTING.md) for more information.
 
 This project is licensed under the Apache-2.0 License.
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -269,13 +271,29 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from ._jsii import *
 
-import aws_cdk as _aws_cdk_ceddda9d
-import constructs as _constructs_77d1e7e8
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_ceddda9d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.interface(jsii_type="cdk-nag.IApplyRule")
@@ -386,7 +404,7 @@ class _IApplyRuleProxy:
     @explanation.setter
     def explanation(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a23651ea44768b1af733a2b9cef46eced1602c3bca3849419b685c2c8fcba15)
+            type_hints = cached_type_hints(_typecheckingstub__6a23651ea44768b1af733a2b9cef46eced1602c3bca3849419b685c2c8fcba15)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "explanation", value) # pyright: ignore[reportArgumentType]
 
@@ -402,7 +420,7 @@ class _IApplyRuleProxy:
     @info.setter
     def info(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b0a9865d3a20bd3ed9f672903366f8e8197ef53dddebf5ab545d1e84de2ca16)
+            type_hints = cached_type_hints(_typecheckingstub__5b0a9865d3a20bd3ed9f672903366f8e8197ef53dddebf5ab545d1e84de2ca16)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "info", value) # pyright: ignore[reportArgumentType]
 
@@ -418,7 +436,7 @@ class _IApplyRuleProxy:
     @level.setter
     def level(self, value: "NagMessageLevel") -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fca6380ef48764f27214931f0c5bf28e44b41d002da53939e9265879e403ff9e)
+            type_hints = cached_type_hints(_typecheckingstub__fca6380ef48764f27214931f0c5bf28e44b41d002da53939e9265879e403ff9e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "level", value) # pyright: ignore[reportArgumentType]
 
@@ -434,7 +452,7 @@ class _IApplyRuleProxy:
     @node.setter
     def node(self, value: "_aws_cdk_ceddda9d.CfnResource") -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__123173a6ce5be62d3f85f1d78609032a82004c4807c1cc883736375dfa93eb62)
+            type_hints = cached_type_hints(_typecheckingstub__123173a6ce5be62d3f85f1d78609032a82004c4807c1cc883736375dfa93eb62)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "node", value) # pyright: ignore[reportArgumentType]
 
@@ -450,7 +468,7 @@ class _IApplyRuleProxy:
     @rule_suffix_override.setter
     def rule_suffix_override(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__333cce877f5798931df373ac5d819b402e92f9ac723cf0184c1db35694ca67a9)
+            type_hints = cached_type_hints(_typecheckingstub__333cce877f5798931df373ac5d819b402e92f9ac723cf0184c1db35694ca67a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ruleSuffixOverride", value) # pyright: ignore[reportArgumentType]
 
@@ -466,7 +484,7 @@ class _IApplyRuleProxy:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__735fc03a45b618e514165f2e218d73e8b7084a45ea15b931267f19e67ef9e8c0)
+            type_hints = cached_type_hints(_typecheckingstub__735fc03a45b618e514165f2e218d73e8b7084a45ea15b931267f19e67ef9e8c0)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
         return typing.cast(typing.Union["NagRuleCompliance", typing.List[builtins.str]], jsii.invoke(self, "rule", [node]))
 
@@ -566,7 +584,7 @@ class NagPack(metaclass=jsii.JSIIAbstractClass, jsii_type="cdk-nag.NagPack"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3017bec3b325642a7f017efcaa8f3e15a21609195066e1d9d84ad8398f1774dd)
+            type_hints = cached_type_hints(_typecheckingstub__3017bec3b325642a7f017efcaa8f3e15a21609195066e1d9d84ad8398f1774dd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         props = NagPackProps(
             verbose=verbose,
@@ -585,7 +603,7 @@ class NagPack(metaclass=jsii.JSIIAbstractClass, jsii_type="cdk-nag.NagPack"):
         :IApplyRule: interface with rule details.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3628e5213d5585ace3e16109c26f8af64546c343c9014c7c1f61edad43c259e)
+            type_hints = cached_type_hints(_typecheckingstub__f3628e5213d5585ace3e16109c26f8af64546c343c9014c7c1f61edad43c259e)
             check_type(argname="argument params", value=params, expected_type=type_hints["params"])
         return typing.cast(None, jsii.invoke(self, "applyRule", [params]))
 
@@ -615,7 +633,7 @@ class NagPack(metaclass=jsii.JSIIAbstractClass, jsii_type="cdk-nag.NagPack"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e2d68c6332428b542b671a5db7d792e33667aab3e08db3145e98ebce4d22528)
+            type_hints = cached_type_hints(_typecheckingstub__0e2d68c6332428b542b671a5db7d792e33667aab3e08db3145e98ebce4d22528)
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
         return typing.cast("_aws_cdk_ceddda9d.PolicyValidationPluginReport", jsii.invoke(self, "validate", [context]))
 
@@ -635,7 +653,7 @@ class NagPack(metaclass=jsii.JSIIAbstractClass, jsii_type="cdk-nag.NagPack"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec1e978998b866e1f0cf9b5507693090d004d680485682bafc3b9491680ab041)
+            type_hints = cached_type_hints(_typecheckingstub__ec1e978998b866e1f0cf9b5507693090d004d680485682bafc3b9491680ab041)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast("_aws_cdk_ceddda9d.PolicyValidationPluginReport", jsii.invoke(self, "validateScope", [scope]))
 
@@ -689,7 +707,7 @@ class NagPack(metaclass=jsii.JSIIAbstractClass, jsii_type="cdk-nag.NagPack"):
     @_pack_name.setter
     def _pack_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18633cd3423c88500a3be3035af0c083c9c2a61e7358e09d541efac11ba04ecf)
+            type_hints = cached_type_hints(_typecheckingstub__18633cd3423c88500a3be3035af0c083c9c2a61e7358e09d541efac11ba04ecf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "packName", value) # pyright: ignore[reportArgumentType]
 
@@ -704,7 +722,7 @@ class _NagPackProxy(NagPack):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f430411ab22d637c2bb7899d2fa75de3d7035a2affe70f9e393e020a84d1dd36)
+            type_hints = cached_type_hints(_typecheckingstub__f430411ab22d637c2bb7899d2fa75de3d7035a2affe70f9e393e020a84d1dd36)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
         return typing.cast(None, jsii.invoke(self, "checkResource", [node]))
 
@@ -744,7 +762,7 @@ class NagPackProps:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83a83ce3fdb1cb0ca96a59694799f0ed3b0090f7d4e437681d969d4c74e7ddab)
+            type_hints = cached_type_hints(_typecheckingstub__83a83ce3fdb1cb0ca96a59694799f0ed3b0090f7d4e437681d969d4c74e7ddab)
             check_type(argname="argument verbose", value=verbose, expected_type=type_hints["verbose"])
             check_type(argname="argument write_suppressions_to_cloud_formation", value=write_suppressions_to_cloud_formation, expected_type=type_hints["write_suppressions_to_cloud_formation"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -832,7 +850,7 @@ class NagReportLine:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c6b6029bff770690f88c877bee0f2885b7bc043157258be4815d22b42c13364)
+            type_hints = cached_type_hints(_typecheckingstub__4c6b6029bff770690f88c877bee0f2885b7bc043157258be4815d22b42c13364)
             check_type(argname="argument compliance", value=compliance, expected_type=type_hints["compliance"])
             check_type(argname="argument resource_id", value=resource_id, expected_type=type_hints["resource_id"])
             check_type(argname="argument rule_id", value=rule_id, expected_type=type_hints["rule_id"])
@@ -921,7 +939,7 @@ class NagReportSchema:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d13606a383c679c37ca15873660037b156e8491412ee339c74a414fb2061d8d)
+            type_hints = cached_type_hints(_typecheckingstub__1d13606a383c679c37ca15873660037b156e8491412ee339c74a414fb2061d8d)
             check_type(argname="argument lines", value=lines, expected_type=type_hints["lines"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "lines": lines,
@@ -1013,7 +1031,7 @@ class NagRules(metaclass=jsii.JSIIMeta, jsii_type="cdk-nag.NagRules"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8817c32270238bf0dfc84f6218e16b587420567b5bc41a280c177f7ee6cd79f)
+            type_hints = cached_type_hints(_typecheckingstub__a8817c32270238bf0dfc84f6218e16b587420567b5bc41a280c177f7ee6cd79f)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
             check_type(argname="argument parameter", value=parameter, expected_type=type_hints["parameter"])
         return typing.cast(typing.Any, jsii.sinvoke(cls, "resolveIfPrimitive", [node, parameter]))
@@ -1040,7 +1058,7 @@ class NagRules(metaclass=jsii.JSIIMeta, jsii_type="cdk-nag.NagRules"):
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2af31e0e8c775eabad30b7da777a2689dbf22e8f31976bf4840dbd2cbbbf939)
+            type_hints = cached_type_hints(_typecheckingstub__b2af31e0e8c775eabad30b7da777a2689dbf22e8f31976bf4840dbd2cbbbf939)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
             check_type(argname="argument parameter", value=parameter, expected_type=type_hints["parameter"])
         return typing.cast(typing.Any, jsii.sinvoke(cls, "resolveResourceFromInstrinsic", [node, parameter]))
@@ -1062,7 +1080,7 @@ class NagRules(metaclass=jsii.JSIIMeta, jsii_type="cdk-nag.NagRules"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31cd67cca34b4963ea5b427552d0ed8190cf2265f4659708bb7d899d8e5fc6cb)
+            type_hints = cached_type_hints(_typecheckingstub__31cd67cca34b4963ea5b427552d0ed8190cf2265f4659708bb7d899d8e5fc6cb)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
             check_type(argname="argument parameter", value=parameter, expected_type=type_hints["parameter"])
         return typing.cast(typing.Any, jsii.sinvoke(cls, "resolveResourceFromIntrinsic", [node, parameter]))
@@ -1093,7 +1111,7 @@ class PCIDSS321Checks(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0cc46ecacf7df9181e9567c7b72fb36ba1959bfc351922f773f88c7525850fd5)
+            type_hints = cached_type_hints(_typecheckingstub__0cc46ecacf7df9181e9567c7b72fb36ba1959bfc351922f773f88c7525850fd5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         props = NagPackProps(
             verbose=verbose,
@@ -1111,7 +1129,7 @@ class PCIDSS321Checks(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71a8dce28af0aa91d1a25f141fdb97110a125246cb08236c3343190a9f176e8c)
+            type_hints = cached_type_hints(_typecheckingstub__71a8dce28af0aa91d1a25f141fdb97110a125246cb08236c3343190a9f176e8c)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
         return typing.cast(None, jsii.invoke(self, "checkResource", [node]))
 
@@ -1150,7 +1168,7 @@ class ServerlessChecks(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f31b6fe87b5ee4f0b0ce0058a22fe72920f64a122756a75b670ced8ac39c82c7)
+            type_hints = cached_type_hints(_typecheckingstub__f31b6fe87b5ee4f0b0ce0058a22fe72920f64a122756a75b670ced8ac39c82c7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         props = NagPackProps(
             verbose=verbose,
@@ -1168,7 +1186,7 @@ class ServerlessChecks(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b782b306305e1d03c2a388cfcc90b66e8c5e5551fbc2060cede17ff43a8e7049)
+            type_hints = cached_type_hints(_typecheckingstub__b782b306305e1d03c2a388cfcc90b66e8c5e5551fbc2060cede17ff43a8e7049)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
         return typing.cast(None, jsii.invoke(self, "checkResource", [node]))
 
@@ -1210,7 +1228,7 @@ class WriteNagSuppressionsToCloudFormationAspect(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32b5cbcbfb40ab453835409abb88c9f37fe966b387077de2bc63ec203bdd8590)
+            type_hints = cached_type_hints(_typecheckingstub__32b5cbcbfb40ab453835409abb88c9f37fe966b387077de2bc63ec203bdd8590)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
         return typing.cast(None, jsii.invoke(self, "visit", [node]))
 
@@ -1240,7 +1258,7 @@ class AwsSolutionsChecks(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed3fdd64fd69f6c1132c8a1cba92e2661a89ce0f017c503e0bca7f221e3d1b38)
+            type_hints = cached_type_hints(_typecheckingstub__ed3fdd64fd69f6c1132c8a1cba92e2661a89ce0f017c503e0bca7f221e3d1b38)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         props = NagPackProps(
             verbose=verbose,
@@ -1258,7 +1276,7 @@ class AwsSolutionsChecks(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d147812c742450618f7becf9ad71174cbebb6b13704701c3691b5de11d29f110)
+            type_hints = cached_type_hints(_typecheckingstub__d147812c742450618f7becf9ad71174cbebb6b13704701c3691b5de11d29f110)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
         return typing.cast(None, jsii.invoke(self, "checkResource", [node]))
 
@@ -1299,7 +1317,7 @@ class HIPAASecurityChecks(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c8d54058510ca74dacc7d9eace3b0662165082781c44ddd1376dfa8493a5591)
+            type_hints = cached_type_hints(_typecheckingstub__6c8d54058510ca74dacc7d9eace3b0662165082781c44ddd1376dfa8493a5591)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         props = NagPackProps(
             verbose=verbose,
@@ -1317,7 +1335,7 @@ class HIPAASecurityChecks(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96bd49c3468e34d61bd11381266e3b72071a66df475891ab572c446cb5dd8df6)
+            type_hints = cached_type_hints(_typecheckingstub__96bd49c3468e34d61bd11381266e3b72071a66df475891ab572c446cb5dd8df6)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
         return typing.cast(None, jsii.invoke(self, "checkResource", [node]))
 
@@ -1358,7 +1376,7 @@ class NIST80053R4Checks(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62fcbcacb1da6c78228604ef0803b448884fe3a3036295b1f48263e44334e07e)
+            type_hints = cached_type_hints(_typecheckingstub__62fcbcacb1da6c78228604ef0803b448884fe3a3036295b1f48263e44334e07e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         props = NagPackProps(
             verbose=verbose,
@@ -1376,7 +1394,7 @@ class NIST80053R4Checks(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50ead95dfab8dd5759ca4e395f7da0761c36dad5d3a38e455542554fe5b1030c)
+            type_hints = cached_type_hints(_typecheckingstub__50ead95dfab8dd5759ca4e395f7da0761c36dad5d3a38e455542554fe5b1030c)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
         return typing.cast(None, jsii.invoke(self, "checkResource", [node]))
 
@@ -1417,7 +1435,7 @@ class NIST80053R5Checks(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3836ef55144e761b4b39324b693b0a70aa6270333ba84be0c748d88290d8f534)
+            type_hints = cached_type_hints(_typecheckingstub__3836ef55144e761b4b39324b693b0a70aa6270333ba84be0c748d88290d8f534)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         props = NagPackProps(
             verbose=verbose,
@@ -1435,7 +1453,7 @@ class NIST80053R5Checks(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48341372ba0221aae88ec766b1ef50ee63dca3abf31a5ccb00eb1494ea8584c0)
+            type_hints = cached_type_hints(_typecheckingstub__48341372ba0221aae88ec766b1ef50ee63dca3abf31a5ccb00eb1494ea8584c0)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
         return typing.cast(None, jsii.invoke(self, "checkResource", [node]))
 

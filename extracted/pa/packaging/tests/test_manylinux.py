@@ -21,6 +21,7 @@ import pytest
 from packaging import _manylinux
 from packaging._manylinux import (
     _get_glibc_version,
+    _get_manylinux_module,
     _glibc_version_string,
     _glibc_version_string_confstr,
     _glibc_version_string_ctypes,
@@ -35,6 +36,7 @@ from packaging._manylinux import (
 def clear_lru_cache() -> Generator[None, None, None]:
     yield
     _get_glibc_version.cache_clear()
+    _get_manylinux_module.cache_clear()
 
 
 @pytest.fixture
@@ -175,7 +177,10 @@ def test_glibc_version_string_ctypes_raise_oserror(
     assert _glibc_version_string_ctypes() is None
 
 
-@pytest.mark.skipif(platform.system() != "Linux", reason="requires Linux")
+@pytest.mark.skipif(
+    platform.system() != "Linux" or _glibc_version_string() is None,
+    reason="requires a glibc-based Linux",
+)
 def test_is_manylinux_compatible_old() -> None:
     # Assuming no one is running this test with a version of glibc released in
     # 1997.

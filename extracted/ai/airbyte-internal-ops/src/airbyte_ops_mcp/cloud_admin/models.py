@@ -36,6 +36,143 @@ class ConnectorVersionInfo(BaseModel):
         )
 
 
+class ConnectionResourceRequirementsInfo(BaseModel):
+    """Current connection-level resource requirements."""
+
+    connection_id: str = Field(description="The connection ID")
+    cpu_request: str | None = Field(
+        default=None,
+        description="Explicit CPU request, or `None` when inherited from defaults.",
+    )
+    cpu_limit: str | None = Field(
+        default=None,
+        description="Explicit CPU limit, or `None` when inherited from defaults.",
+    )
+    memory_request: str | None = Field(
+        default=None,
+        description="Explicit memory request, or `None` when inherited from defaults.",
+    )
+    memory_limit: str | None = Field(
+        default=None,
+        description="Explicit memory limit, or `None` when inherited from defaults.",
+    )
+    ephemeral_storage_request: str | None = Field(
+        default=None,
+        description="Explicit ephemeral-storage request, or `None` when inherited.",
+    )
+    ephemeral_storage_limit: str | None = Field(
+        default=None,
+        description="Explicit ephemeral-storage limit, or `None` when inherited.",
+    )
+    cpu_rung: str = Field(
+        description="CPU ladder rung, `DEFAULT`, or `OFF_LADDER`.",
+    )
+    next_cpu_rung: str | None = Field(
+        default=None,
+        description="Next higher CPU ladder rung, if one exists.",
+    )
+    memory_rung: str = Field(
+        description="Memory ladder rung, `DEFAULT`, or `OFF_LADDER`.",
+    )
+    next_memory_rung: str | None = Field(
+        default=None,
+        description="Next higher memory ladder rung, if one exists.",
+    )
+    disk_rung: str = Field(
+        description="Ephemeral-storage ladder rung, `DEFAULT`, or `OFF_LADDER`.",
+    )
+    next_disk_rung: str | None = Field(
+        default=None,
+        description="Next higher ephemeral-storage ladder rung, if one exists.",
+    )
+    was_overridden: bool = Field(
+        description="Whether any connection-level resource requirement is set"
+    )
+    is_on_defaults: bool = Field(
+        description="Whether the connection inherits resource defaults"
+    )
+
+
+class ConnectionResourceRequirementsOperationResult(BaseModel):
+    """Result of setting or clearing connection-level resource requirements."""
+
+    success: bool = Field(description="Whether the operation succeeded")
+    message: str = Field(description="Human-readable result message")
+    connection_id: str = Field(description="The connection ID")
+    previous_cpu_request: str | None = Field(
+        default=None,
+        description="CPU request before the operation.",
+    )
+    previous_cpu_limit: str | None = Field(
+        default=None,
+        description="CPU limit before the operation.",
+    )
+    previous_memory_request: str | None = Field(
+        default=None,
+        description="Memory request before the operation.",
+    )
+    previous_memory_limit: str | None = Field(
+        default=None,
+        description="Memory limit before the operation.",
+    )
+    new_cpu_request: str | None = Field(
+        default=None,
+        description="CPU request after the operation.",
+    )
+    new_cpu_limit: str | None = Field(
+        default=None,
+        description="CPU limit after the operation.",
+    )
+    new_memory_request: str | None = Field(
+        default=None,
+        description="Memory request after the operation.",
+    )
+    new_memory_limit: str | None = Field(
+        default=None,
+        description="Memory limit after the operation.",
+    )
+    previous_ephemeral_storage_request: str | None = Field(
+        default=None,
+        description="Ephemeral-storage request before the operation.",
+    )
+    previous_ephemeral_storage_limit: str | None = Field(
+        default=None,
+        description="Ephemeral-storage limit before the operation.",
+    )
+    new_ephemeral_storage_request: str | None = Field(
+        default=None,
+        description="Ephemeral-storage request after the operation.",
+    )
+    new_ephemeral_storage_limit: str | None = Field(
+        default=None,
+        description="Ephemeral-storage limit after the operation.",
+    )
+    was_overridden_before: bool | None = Field(
+        default=None,
+        description="Whether any resource override existed before the operation.",
+    )
+    is_overridden_after: bool | None = Field(
+        default=None,
+        description="Whether any resource override exists after the operation.",
+    )
+    customer_tier: str | None = Field(
+        default=None,
+        description="Customer tier of the affected connection.",
+    )
+    tier_warning: str | None = Field(
+        default=None,
+        description="Warning for sensitive customer tiers.",
+    )
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Warnings raised by the operation.",
+    )
+    reset_required: bool = Field(
+        default=True,
+        description="Whether the connection must be reset for new resources to take effect",
+    )
+
+
 class VersionOverrideOperationResult(BaseModel):
     """Result of a version override operation (set or clear).
 

@@ -17,7 +17,7 @@ import threading
 import time
 import urllib.parse
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from .. import cliparse, spin
 from ..core import (
@@ -333,7 +333,7 @@ def cmd_index(argv):
     if not shutil.which("gh"):
         raise BoostError("the GitHub CLI (gh) is required to build the index",
                         hint="brew install gh && gh auth login")
-    items: List[dict] = []
+    items: list[dict] = []
     total = 0
     pages = min((max(1, args.limit) + 99) // 100, 10)  # code search caps at 1000
     for page in range(1, pages + 1):
@@ -516,7 +516,7 @@ def cmd_recommend(argv):
         raise BoostError("no skills in any tap to recommend from",
                         hint="add registries with `boost tap --defaults`")
     stack = detect_stack(target)
-    agg: Dict[str, Dict[str, Any]] = {}
+    agg: dict[str, dict[str, Any]] = {}
     for kw in stack["keywords"]:
         for e, s in catalog.search(kw, entries):
             rec = agg.setdefault(e["name"], {"entry": e, "score": 0,
@@ -537,12 +537,12 @@ def cmd_recommend(argv):
     if stack["frameworks"]:
         line += " · frameworks: " + ", ".join(stack["frameworks"])
     out.info(out.role("%s  (%s)" % (line, _tilde(target)), "muted"))
-    shown: List[Dict[str, Any]] = ranked[:args.limit]
+    shown: list[dict[str, Any]] = ranked[:args.limit]
     if not shown:
         # Annotated rather than inlined: an unannotated literal of mixed value
         # types infers dict[str, object], which then makes every r["entry"][…]
         # read below an error about indexing `object`.
-        curated: List[Dict[str, Any]] = [
+        curated: list[dict[str, Any]] = [
             {"entry": e, "score": 0, "because": {"curated"}}
             for e in entries if e.get("curated")]
         shown = curated[:args.limit]
@@ -802,7 +802,7 @@ def _browse_tui(curses, entries):
     """Run the curses UI. Returns the list of entries picked for install
     (one or more, via multi-select), or None if the user quit without picking.
     """
-    state: Dict[str, Any] = {"picks": None}
+    state: dict[str, Any] = {"picks": None}
     categories = _tap_categories()
     desc_cache: dict = {}
     loading: set = set()
@@ -855,8 +855,11 @@ def _browse_tui(curses, entries):
                 title = " boost browse"
                 put(0, 6, title, th["title"])
                 rx = 6 + len(title) + 1
+                # strict=False: a terminal narrower than the 3-color palette
+                # yields fewer segments, and the extra attrs go unused.
                 for (start, length), attr in zip(
-                        _grad_segments(max(0, _w - 1 - rx)), th["rule"]):
+                        _grad_segments(max(0, _w - 1 - rx)), th["rule"],
+                        strict=False):
                     put(0, rx + start, "─" * length, attr)
                 # prompt line: cyan chevron, query, cursor, right-aligned count
                 put(1, 0, "❯", th["prompt"])
@@ -905,8 +908,11 @@ def _browse_tui(curses, entries):
                 if pane and matches:
                     e = matches[sel]
                     y0 = _h - pane
+                    # strict=False: same narrow-terminal truncation as the
+                    # titlebar rule above.
                     for (start, length), attr in zip(
-                            _grad_segments(_w - 1), th["rule"]):
+                            _grad_segments(_w - 1), th["rule"],
+                            strict=False):
                         put(y0, start, "─" * length, attr)
                     tags = "  ".join("#" + str(t) for t in
                                      (e.get("meta", {}).get("tags") or []))
@@ -1011,7 +1017,7 @@ def cmd_trending(argv):
                     out.truncate(e["description"], descw))
                    for e in sorted(curated, key=operator.itemgetter("name"))[:args.limit]])
         return 0
-    agg: Dict[str, Any] = {}
+    agg: dict[str, Any] = {}
     for ev in evs:  # most-recent-first, so first ts per subject is the latest
         name = ev.get("subject") or "?"
         rec = agg.setdefault(name, {"count": 0, "last": ev.get("ts", "")})
@@ -1036,7 +1042,9 @@ def cmd_stats(argv):
                    help="machine-readable output")
     args = p.parse_args(argv)
     name = args.name
-    lock = lockfile.get_skill(name)
+    # find_any: a rule's lock facts are the answer, not "no skill named X".
+    found = lockfile.find_any(name)
+    kind, lock = found if found is not None else ("skill", None)
     matches = catalog.find(name)
     cat = matches[0] if matches else None
     if not lock and not cat:
@@ -1044,6 +1052,28 @@ def cmd_stats(argv):
                         hint="try `boost search %s`" % name)
     acts = {a: len(journal.events(action=a, subject=name))
             for a in ("install", "update", "uninstall")}
+    if lock is not None and kind != "skill":
+        # Materialized kinds have no store dir or agent symlinks; the lock
+        # facts and journal activity are their whole stats surface.
+        if args.as_json:
+            print(json.dumps({"name": name, "kind": kind, "installed": True,
+                              "lock": lock, "activity": acts}))
+            return 0
+        out.heading("%s (%s)" % (name, kind))
+        out.kv("version", lock.get("version", "?"))
+        out.kv("tap", lock.get("tap", "?"))
+        out.kv("installed", util.rel_time(lock.get("installed_at", "")))
+        out.kv("updated", util.rel_time(lock.get("updated_at", "")))
+        out.kv("agents", ", ".join(sorted(
+            {m.get("agent", "?") for m in lock.get("materializations") or []}))
+            or "none")
+        out.kv("pinned", "yes" if lock.get("pinned") else "no")
+        if lock.get("quarantined"):
+            out.kv("quarantined", "yes")
+        out.kv("sha256", str(lock.get("sha256", ""))[:12])
+        out.kv("activity", "%d installs · %d updates · %d uninstalls"
+               % (acts["install"], acts["update"], acts["uninstall"]))
+        return 0
     latest = cat["version"] if cat else None
     upstream = None
     if cat:
@@ -1098,7 +1128,9 @@ def cmd_count(argv):
     p.add_argument("--json", action="store_true", dest="as_json",
                    help="machine-readable output")
     args = p.parse_args(argv)
-    installed_n = len(lockfile.installed())
+    by_kind = {kind: len(section)
+               for kind, section in lockfile.all_installed().items()}
+    installed_n = sum(by_kind.values())
     taps_n = len(registry.list_taps())
     available_n = len(catalog.all_entries())
     discovery = None
@@ -1109,11 +1141,20 @@ def cmd_count(argv):
         except (json.JSONDecodeError, OSError):
             discovery = None
     if args.as_json:
-        print(json.dumps({"installed": installed_n, "available": available_n,
+        print(json.dumps({"installed": installed_n,
+                          "skills": by_kind["skill"], "rules": by_kind["rule"],
+                          "workflows": by_kind["workflow"],
+                          "available": available_n,
                           "taps": taps_n, "discovery": discovery}))
         return 0
-    summary = ("installed %d · available %d (across %d tap%s) · discovery index %s"
-               % (installed_n, available_n, taps_n, "" if taps_n == 1 else "s",
+    # The breakdown appears exactly when it carries information: with only
+    # skills installed, "installed 2" already means two skills.
+    detail = ("" if not (by_kind["rule"] or by_kind["workflow"])
+              else " (%d skills · %d rules · %d workflows)"
+              % (by_kind["skill"], by_kind["rule"], by_kind["workflow"]))
+    summary = ("installed %d%s · available %d (across %d tap%s) · discovery index %s"
+               % (installed_n, detail, available_n, taps_n,
+                  "" if taps_n == 1 else "s",
                   discovery if discovery is not None else "not built"))
     print(out.panel(summary, title="inventory"))
     return 0

@@ -2,12 +2,12 @@
 use std::path::Path;
 use std::{
     borrow::Cow,
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     marker::PhantomData,
     path::PathBuf,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, OnceLock, Weak,
+        atomic::{AtomicBool, Ordering},
     },
     time::Instant,
 };
@@ -17,19 +17,21 @@ use fancy_regex::Regex as FancyRegex;
 use lazy_static::lazy_static;
 use parking_lot::RwLock;
 use rkyv::{
+    Archive, Place, Serialize as RkyvSerialize,
     collections::swiss_table::{ArchivedHashMap, HashMapResolver},
     hash::FxHasher64,
     rancor::{Fallible, Source},
     ser::{Allocator, Writer},
     string::ArchivedString,
     with::{ArchiveWith, DeserializeWith, SerializeWith, With},
-    Archive, Place, Serialize as RkyvSerialize,
 };
 use serde_json::value::RawValue;
+use sha2::{Digest, Sha256};
 
 pub use super::mmap_sync::{MmapSyncCursor, MmapWriteOutcome};
 
 use crate::{
+    DynamicReturnable, StatsigErr, StatsigOptions,
     evaluation::{
         dynamic_returnable::DynamicReturnableValue,
         evaluator_value::{EvaluatorValue, EvaluatorValueInner, MemoizedEvaluatorValue},
@@ -47,7 +49,6 @@ use crate::{
         specs_hash_map::{SpecPointer, SpecsHashMap},
     },
     utils::try_release_unused_heap_memory,
-    DynamicReturnable, StatsigErr, StatsigOptions,
 };
 
 use super::mmap_data_v2::ArchivedMmapEvaluatorValue;
@@ -68,9 +69,10 @@ pub(crate) use mmap_manifest::{
     write_mmap_manifest_for_test, write_mmap_v2_only_manifest_for_test,
 };
 use mmap_reader::{
+    MmapRegistryBuilder, MmapSpecKind,
     get_evaluator_value as get_archived_evaluator_value_from_mmap,
     get_returnable as get_returnable_from_mmap, get_spec as get_mmap_spec,
-    get_string as get_string_from_mmap, MmapSpecKind,
+    get_string as get_string_from_mmap,
 };
 use mmap_writer::{acquire_mmap_write_lock, write_mmap_artifacts};
 #[cfg(test)]
@@ -93,14 +95,45 @@ pub struct MmapPreloadOptions {
 }
 
 #[non_exhaustive]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MmapPreloadReport {
-    /// Format version of the artifact validated and installed by the reader.
+    /// Format version shared by the validated and installed artifacts.
     pub format_version: u32,
-    /// Number of artifacts installed. This is one for the single-key reader.
+    /// Number of artifacts installed.
     pub loaded: usize,
+    /// Optional inputs that were skipped, indexed within `optional_sdk_keys`.
+    pub skipped_optional: Vec<MmapPreloadFailure>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct MmapProjectId {
+    sdk_key_hash: [u8; 32],
+    artifact_id: u32,
+}
+
+impl MmapProjectId {
+    pub(crate) fn for_sdk_key(sdk_key: &str) -> Self {
+        Self {
+            sdk_key_hash: Sha256::digest(sdk_key.as_bytes()).into(),
+            artifact_id: hashing::djb2_number(sdk_key) as u32,
+        }
+    }
+
+    fn aliases_artifact(self, other: Self) -> bool {
+        self.artifact_id == other.artifact_id
+    }
+
+    fn artifact_id(self) -> u32 {
+        self.artifact_id
+    }
+}
+
+#[non_exhaustive]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MmapPreloadFailure {
+    pub index: usize,
+    pub error: String,
+}
 static IMMORTAL_DATA: OnceLock<ImmortalData> = OnceLock::new();
 static MMAP_EVALUATOR_OVERRIDE_EXISTS: AtomicBool = AtomicBool::new(false);
 
@@ -512,29 +545,113 @@ impl InternedStore {
         sdk_key: &str,
         options: &MmapPreloadOptions,
     ) -> Result<MmapPreloadReport, StatsigErr> {
-        let v2_path = mmap_v2_path_for_sdk_key(sdk_key);
-        let manifest_path = mmap_manifest_path_for_sdk_key(sdk_key);
-        let v2_file = open_committed_mmap_v2(
-            &manifest_path,
-            &legacy_mmap_v1_path_for_sdk_key(sdk_key),
-            &v2_path,
-        )?
-        .ok_or_else(|| {
-            StatsigErr::InvalidOperation(
-                "No committed interned mmap V2 artifact was found".to_string(),
-            )
-        })?;
-        mmap_reader::preload_v2_file(v2_file, options)?;
-        Ok(MmapPreloadReport {
-            format_version: super::mmap_data_v2::MmapDataV2::FORMAT_VERSION,
-            loaded: 1,
-        })
+        Self::preload_mmap_multi_with_options(&[sdk_key], &[], options)
     }
+
+    /// Preloads committed V2 mmap artifacts for multiple SDK keys in one atomic install.
+    ///
+    /// Required keys fail the whole operation. Optional keys that cannot be opened,
+    /// validated, or safely combined are returned in `skipped_optional`. Call this once
+    /// before creating SDK instances or forking worker processes.
+    pub fn preload_mmap_multi(
+        required_sdk_keys: &[&str],
+        optional_sdk_keys: &[&str],
+    ) -> Result<MmapPreloadReport, StatsigErr> {
+        Self::preload_mmap_multi_with_options(
+            required_sdk_keys,
+            optional_sdk_keys,
+            &MmapPreloadOptions::default(),
+        )
+    }
+
+    /// Preloads multiple committed V2 artifacts with shared reader options.
+    ///
+    /// Options apply to every required and successfully loaded optional project.
+    pub fn preload_mmap_multi_with_options(
+        required_sdk_keys: &[&str],
+        optional_sdk_keys: &[&str],
+        options: &MmapPreloadOptions,
+    ) -> Result<MmapPreloadReport, StatsigErr> {
+        if required_sdk_keys.is_empty() {
+            return Err(StatsigErr::InvalidOperation(
+                "At least one required interned mmap SDK key must be provided".to_string(),
+            ));
+        }
+        if mmap_reader::is_installed() {
+            return Err(StatsigErr::InvalidOperation(
+                "Interned mmap data is already preloaded".to_string(),
+            ));
+        }
+
+        let mut builder = MmapRegistryBuilder::new();
+        for sdk_key in required_sdk_keys {
+            let file = open_committed_mmap_for_sdk_key(sdk_key)?;
+            builder.add_file(MmapProjectId::for_sdk_key(sdk_key), file)?;
+        }
+
+        let mut report = MmapPreloadReport {
+            format_version: super::mmap_data_v2::MmapDataV2::FORMAT_VERSION,
+            loaded: required_sdk_keys.len(),
+            skipped_optional: Vec::new(),
+        };
+        for (index, sdk_key) in optional_sdk_keys.iter().enumerate() {
+            let result = open_committed_mmap_for_sdk_key(sdk_key)
+                .and_then(|file| builder.add_file(MmapProjectId::for_sdk_key(sdk_key), file));
+            match result {
+                Ok(()) => report.loaded += 1,
+                Err(error) => report.skipped_optional.push(MmapPreloadFailure {
+                    index,
+                    error: error.to_string(),
+                }),
+            }
+        }
+
+        builder.install(options)?;
+        Ok(report)
+    }
+
+    pub(crate) fn with_mmap_project<T>(id: MmapProjectId, callback: impl FnOnce() -> T) -> T {
+        mmap_reader::with_project(id, callback)
+    }
+}
+
+fn open_committed_mmap_for_sdk_key(sdk_key: &str) -> Result<std::fs::File, StatsigErr> {
+    // TODO: Bind the manifest to the full SDK-key digest and verify it here. These
+    // paths use a 32-bit hash, so colliding keys can overwrite each other's artifact.
+    let v2_path = mmap_v2_path_for_sdk_key(sdk_key);
+    let manifest_path = mmap_manifest_path_for_sdk_key(sdk_key);
+    open_committed_mmap_v2(
+        &manifest_path,
+        &legacy_mmap_v1_path_for_sdk_key(sdk_key),
+        &v2_path,
+    )?
+    .ok_or_else(|| {
+        StatsigErr::InvalidOperation("No committed interned mmap V2 artifact was found".to_string())
+    })
 }
 
 #[cfg(test)]
 pub(crate) fn preload_mmap_v2_for_test(path: &Path) -> Result<(), StatsigErr> {
     mmap_reader::preload_v2(path, &MmapPreloadOptions::default())
+}
+
+#[cfg(test)]
+pub(crate) fn preload_mmap_v2_multi_for_test(projects: &[(&str, &Path)]) -> Result<(), StatsigErr> {
+    preload_mmap_v2_multi_with_options_for_test(projects, &MmapPreloadOptions::default())
+}
+
+#[cfg(test)]
+pub(crate) fn preload_mmap_v2_multi_with_options_for_test(
+    projects: &[(&str, &Path)],
+    options: &MmapPreloadOptions,
+) -> Result<(), StatsigErr> {
+    let mut builder = MmapRegistryBuilder::new();
+    for (sdk_key, path) in projects {
+        let file =
+            std::fs::File::open(path).map_err(|error| StatsigErr::FileError(error.to_string()))?;
+        builder.add_file(MmapProjectId::for_sdk_key(sdk_key), file)?;
+    }
+    builder.install(options)
 }
 
 #[cfg(test)]

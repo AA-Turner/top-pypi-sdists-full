@@ -3,9 +3,8 @@ use std::collections::HashSet;
 use more_asserts::{assert_gt, assert_lt};
 use serde_json::json;
 use statsig_rust::{
-    dyn_value, evaluation::evaluation_types::BaseEvaluation,
+    StatsigUserDataMap, dyn_value, evaluation::evaluation_types::BaseEvaluation,
     event_logging::exposure_sampling::ExposureSamplingKey, user::user_data::UserData,
-    StatsigUserDataMap,
 };
 
 fn run_sampling_check(sampling_rate: u64, user_data: &UserData) -> bool {

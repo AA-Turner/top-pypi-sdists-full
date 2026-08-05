@@ -1,26 +1,27 @@
+use ahash::HashMap as AHashMap;
 use fancy_regex::Regex as FancyRegex;
 use serde::{
-    ser::{SerializeMap, SerializeSeq},
     Deserialize, Deserializer, Serialize, Serializer,
+    ser::{SerializeMap, SerializeSeq},
 };
 use serde_json::{
-    value::{to_raw_value, RawValue},
     Value as JsonValue, Value,
+    value::{RawValue, to_raw_value},
 };
-use std::{borrow::Cow, collections::HashMap, sync::Arc};
+use std::{borrow::Cow, sync::Arc};
 
+use crate::{DynamicValue, user::user_value::UserValueRef};
 use crate::{
     evaluation::evaluation_data::InternedStrRef,
     hashing,
     interned_string::InternedString,
     interned_values::{
-        mmap_data_v2::{ArchivedMmapEvaluatorValue, ArchivedMmapEvaluatorValueType},
         InternedStore,
+        mmap_data_v2::{ArchivedMmapEvaluatorValue, ArchivedMmapEvaluatorValueType},
     },
     log_e,
     value_parsing::try_parse_timestamp,
 };
-use crate::{user::user_value::UserValueRef, DynamicValue};
 
 use super::dynamic_string::DynamicString;
 
@@ -225,14 +226,14 @@ impl<'a> EvaluatorValueRef<'a> {
 
     pub(crate) fn array_len(self) -> Option<usize> {
         match self {
-            Self::Owned(value) => value.array_value.as_ref().map(HashMap::len),
+            Self::Owned(value) => value.array_value.as_ref().map(AHashMap::len),
             Self::Mmap(value, _) => value.array_value.as_ref().map(|value| value.len()),
         }
     }
 
     pub(crate) fn object_len(self) -> Option<usize> {
         match self {
-            Self::Owned(value) => value.object_value.as_ref().map(HashMap::len),
+            Self::Owned(value) => value.object_value.as_ref().map(AHashMap::len),
             Self::Mmap(value, _) => value.object_value.as_ref().map(|value| value.len()),
         }
     }
@@ -626,14 +627,14 @@ pub struct MemoizedEvaluatorValue {
     pub string_value: Option<DynamicString>,
     pub regex_value: Option<FancyRegex>,
     pub timestamp_value: Option<i64>,
-    pub object_value: Option<HashMap<InternedString, DynamicString>>,
+    pub object_value: Option<AHashMap<InternedString, DynamicString>>,
 
     // - Note on Array Value ------------------------------------------------------------
     // - Keyed by lowercase string so we can lookup with O(1) during evaluation.
     // - Format is `{ lower_case_str: (index, str) }` i.e: ["Apple", "Banana"] becomes { "apple": (0, "Apple"), "banana": (1, "Banana") }
     // - The index is what position in the array it is, currently this is only used to serialzie back to the original JSON.
     // ----------------------------------------------------------------------------------
-    pub array_value: Option<HashMap<InternedString, (usize, InternedString)>>,
+    pub array_value: Option<AHashMap<InternedString, (usize, InternedString)>>,
 }
 
 impl MemoizedEvaluatorValue {
@@ -723,7 +724,7 @@ impl From<JsonValue> for MemoizedEvaluatorValue {
             JsonValue::String(s) => MemoizedEvaluatorValue::from(s),
 
             JsonValue::Array(arr) => {
-                let keyed_array: HashMap<InternedString, (usize, InternedString)> = arr
+                let keyed_array: AHashMap<InternedString, (usize, InternedString)> = arr
                     .into_iter()
                     .enumerate()
                     .map(|(idx, val)| {

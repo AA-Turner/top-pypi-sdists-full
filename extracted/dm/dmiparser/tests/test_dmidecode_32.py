@@ -1,25 +1,37 @@
-import json
-from pathlib import Path
+from tests.conftest import arches_with, load
 
-from dmiparser import DmiParser
+TYPE = "32"
+NAME = "System Boot Information"
+COUNT = {"aarch64": 1, "loongarch64": 1, "sw_64": 1}
+KEYS = {"Status"}
 
-RDIR = Path(Path(__file__).resolve()).parents[0]
+
+def test_section_count():
+    for arch in arches_with(TYPE):
+        assert COUNT[arch] == len(load(arch, TYPE))
 
 
-def test_dmidecode_32() -> None:
-    count = 0
+def test_section_name():
+    for arch in arches_with(TYPE):
+        assert all(NAME == d["name"] for d in load(arch, TYPE))
 
-    with open(RDIR / "dmidecode_32.txt", "rt") as f:
-        text = f.read()
-        data = json.loads(str(DmiParser(text)))
 
-    for d in data:
-        """
-        System Boot Information
-            Status: No errors detected
-        """
-        if "0x000F" == d["handle"]["id"] and "System Boot Information" == d["name"]:
-            assert "No errors detected" == d["props"]["Status"]["values"][0]
-            count += 1
+def test_handle_type():
+    for arch in arches_with(TYPE):
+        for d in load(arch, TYPE):
+            assert TYPE == d["handle"]["type"]
+            assert {"id", "type", "bytes"} == set(d["handle"].keys())
 
-    assert 1 == count
+
+def test_props_within_keyset():
+    for arch in arches_with(TYPE):
+        for d in load(arch, TYPE):
+            assert set(d["props"].keys()) <= KEYS
+
+
+def test_property_structure_is_values_list():
+    """Property value is always wrapped in {'values': [...]} structure."""
+    for arch in arches_with(TYPE):
+        data = load(arch, TYPE)
+        assert isinstance(data[0]["props"]["Status"]["values"], list)
+        assert len(data[0]["props"]["Status"]["values"]) >= 1

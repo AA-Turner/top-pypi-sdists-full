@@ -8,6 +8,7 @@ from qdrant_client.http import models
 from qdrant_client.local import datetime_utils
 from qdrant_client.local.geo import boolean_point_in_polygon, geo_distance
 from qdrant_client.local.payload_value_extractor import value_by_key
+from qdrant_client.local.siphash import point_id_slice
 from qdrant_client.conversions import common_types as types
 
 
@@ -29,19 +30,20 @@ def get_value_counts(values: list[Any]) -> list[int]:
 
 def check_values_count(condition: models.ValuesCount, values: list[Any] | None) -> bool:
     if values is None:
-        return False
+        values = []
 
     counts = get_value_counts(values)
 
-    if condition.lt is not None and all(count >= condition.lt for count in counts):
-        return False
-    if condition.lte is not None and all(count > condition.lte for count in counts):
-        return False
-    if condition.gt is not None and all(count <= condition.gt for count in counts):
-        return False
-    if condition.gte is not None and all(count < condition.gte for count in counts):
-        return False
-    return True
+    # A single value's count must satisfy every bound at once, and the condition
+    # matches if any one value does. Checking each bound independently across all
+    # counts would let separate values satisfy separate bounds.
+    return any(
+        (condition.lt is None or count < condition.lt)
+        and (condition.lte is None or count <= condition.lte)
+        and (condition.gt is None or count > condition.gt)
+        and (condition.gte is None or count >= condition.gte)
+        for count in counts
+    )
 
 
 def check_geo_radius(condition: models.GeoRadius, values: Any) -> bool:
@@ -104,7 +106,9 @@ def check_range_interface(condition: models.RangeInterface, value: Any) -> bool:
 
 
 def check_range(condition: models.Range, value: Any) -> bool:
-    if not isinstance(value, (int, float)):
+    # bool is a subclass of int in Python, but booleans are not numeric values
+    # in Qdrant and must not be matched by a range condition.
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
         return False
     return (
         (condition.lt is None or value < condition.lt)
@@ -146,18 +150,61 @@ def check_datetime_range(condition: models.DatetimeRange, value: Any) -> bool:
     )
 
 
+def values_match(value: Any, other: Any) -> bool:
+    # Qdrant keeps bool, integer and float as distinct payload value types for exact
+    # match, but Python cross-matches them (bool is a subclass of int, and 1 == 1.0).
+    # Match condition operands are only ever bool / int / str (never float), so a float
+    # payload value can never be matched by an exact-match condition on the server.
+    if isinstance(value, bool) != isinstance(other, bool):
+        return False
+    if isinstance(value, float) != isinstance(other, float):
+        return False
+    return value == other
+
+
 def check_match(condition: models.Match, value: Any) -> bool:
     if isinstance(condition, models.MatchValue):
-        return value == condition.value
+        return values_match(value, condition.value)
     if isinstance(condition, models.MatchText):
-        return value is not None and condition.text in value
+        return isinstance(value, str) and condition.text in value
     if isinstance(condition, models.MatchTextAny):
-        return value is not None and any(word in value for word in condition.text_any.split())
+        return isinstance(value, str) and any(word in value for word in condition.text_any.split())
+    if isinstance(condition, models.MatchPhrase):
+        # Same approximation as `MatchText` above: on a field without a text index the server
+        # falls back to a substring scan, which this reproduces exactly. A phrase-enabled text
+        # index makes the server tokenize and lowercase instead, and local mode builds no
+        # indexes, so it cannot reproduce that.
+        return isinstance(value, str) and condition.phrase in value
+    if isinstance(condition, models.MatchPrefix):
+        # byte-wise and case-sensitive, like exact keyword matching. Non-string values never
+        # match, not even against an empty prefix.
+        return isinstance(value, str) and value.startswith(condition.prefix)
     if isinstance(condition, models.MatchAny):
-        return value in condition.any
+        return any(values_match(value, v) for v in condition.any)
     if isinstance(condition, models.MatchExcept):
-        return value not in condition.except_
+        return not any(values_match(value, v) for v in condition.except_)
     raise ValueError(f"Unknown match condition: {condition}")
+
+
+def nested_filter_values(payload: dict[str, Any], key: str) -> list[Any]:
+    """Array elements a nested filter is applied to, one at a time.
+
+    A nested key should point to an array of objects, and may be written with or without the
+    bracket notation: `data` and `data[]` are equivalent. A value which is not an array - a plain
+    object, a scalar - has no elements to apply the filter to, so it never matches.
+    """
+    if len(key) > 2 and key.endswith("[]"):
+        key = key[: -len("[]")]
+
+    values = value_by_key(payload, key, flat=False)
+    if values is None:
+        return []
+
+    elements: list[Any] = []
+    for value in values:
+        if isinstance(value, list):
+            elements.extend(value)
+    return elements
 
 
 def check_nested_filter(nested_filter: models.Filter, values: list[Any]) -> bool:
@@ -188,6 +235,16 @@ def check_condition(
         ids = [str(id_) if isinstance(id_, UUID) else id_ for id_ in condition.has_id]
         if point_id in ids:
             return True
+    elif isinstance(condition, models.SliceCondition):
+        total, index = condition.slice.total, condition.slice.index
+        if total < 1:
+            raise ValueError(f"Slice total must be >= 1, got {total}")
+        if not 0 <= index < total:
+            raise ValueError(f"Slice index must be in 0..{total}, got {index}")
+        if isinstance(point_id, int) and point_id < 0:
+            # sentinel id used while evaluating nested filters, it belongs to no slice
+            return False
+        return point_id_slice(point_id, total) == index
     elif isinstance(condition, models.HasVectorCondition):
         if condition.has_vector in has_vector and has_vector[condition.has_vector]:
             return True
@@ -217,10 +274,9 @@ def check_condition(
                 return False
             return any(check_geo_polygon(condition.geo_polygon, v) for v in values)
     elif isinstance(condition, models.NestedCondition):
-        values = value_by_key(payload, condition.nested.key)
-        if values is None:
-            return False
-        return check_nested_filter(condition.nested.filter, values)
+        return check_nested_filter(
+            condition.nested.filter, nested_filter_values(payload, condition.nested.key)
+        )
     elif isinstance(condition, models.Filter):
         return check_filter(condition, payload, point_id, has_vector)
     else:

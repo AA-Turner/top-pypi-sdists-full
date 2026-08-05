@@ -1,10 +1,10 @@
 use crate::{
     evaluation::{dynamic_returnable::DynamicReturnable, dynamic_string::DynamicString},
     interned_string::InternedString,
+    interned_values::InternedStore,
     interned_values::mmap_data_v2::{
         ArchivedMmapDynamicString, ArchivedMmapReturnable, ArchivedMmapRule, ArchivedMmapSpec,
     },
-    interned_values::InternedStore,
     specs_response::{
         explicit_params::ExplicitParameters,
         spec_types::{Rule, Spec},

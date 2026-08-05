@@ -12,7 +12,7 @@ from flit_core import common
 from .config import ConfigError
 from .log import enable_colourful_output
 
-__version__ = '3.12.0'
+__version__ = '4.0.2'
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def find_python_executable(python: Optional[str] = None) -> str:
     # see https://github.com/pypa/flit/pull/300 and https://bugs.python.org/issue38905
     resolved_python = shutil.which(python)
     if resolved_python is None:
-        raise PythonNotFoundError("Unable to resolve Python executable {!r}".format(python))
+        raise PythonNotFoundError(f"Unable to resolve Python executable {python!r}")
     try:
         return subprocess.check_output(
             [resolved_python, "-c", "import sys; print(sys.executable)"],
@@ -50,9 +50,8 @@ def find_python_executable(python: Optional[str] = None) -> str:
         ).strip()
     except Exception as e:
         raise PythonNotFoundError(
-            "{} occurred trying to find the absolute filepath of Python executable {!r} ({!r})".format(
-                e.__class__.__name__, python, resolved_python
-            )
+            f"{e.__class__.__name__} occurred trying to find the absolute filepath "
+            f"of Python executable {python!r} ({resolved_python!r})"
         ) from e
 
 
@@ -83,29 +82,13 @@ def add_shared_build_options(parser: argparse.ArgumentParser):
         help="Select a format to publish. Options: 'wheel', 'sdist'"
     )
 
-    setup_py_grp = parser.add_mutually_exclusive_group()
-
-    setup_py_grp.add_argument('--setup-py', action='store_true',
-        help=("Generate a setup.py file in the sdist. "
-              "The sdist will work with older tools that predate PEP 517. "
-            )
-    )
-
-    setup_py_grp.add_argument('--no-setup-py', action='store_true',
-        help=("Don't generate a setup.py file in the sdist. This is the default. "
-              "The sdist will only work with tools that support PEP 517, "
-              "but the wheel will still be usable by any compatible tool."
-             )
-    )
-
     vcs_grp = parser.add_mutually_exclusive_group()
 
     vcs_grp.add_argument('--use-vcs', action='store_true',
         help=("Choose which files to include in the sdist using git or hg. "
               "This is a convenient way to include all checked-in files, like "
               "tests and doc source files, in your sdist, but requires that git "
-              "or hg is available on the command line. This is currently the "
-              "default, but it will change in a future version. "
+              "or hg is available on the command line."
              )
     )
 
@@ -113,7 +96,7 @@ def add_shared_build_options(parser: argparse.ArgumentParser):
         help=("Select the files to include in the sdist without using git or hg. "
               "This should include all essential files to install and use your "
               "package; see the documentation for precisely what is included. "
-              "This will become the default in a future version."
+              "This is the default for Flit version 4 and above."
              )
     )
 
@@ -175,7 +158,7 @@ def main(argv=None):
                  "'python3 -m flit.tomlify' to convert it to pyproject.toml")
 
     if args.subcmd not in {'init'} and not args.ini_file.is_file():
-        sys.exit('Config file {} does not exist'.format(args.ini_file))
+        sys.exit(f'Config file {args.ini_file} does not exist')
 
     enable_colourful_output(logging.DEBUG if args.debug else logging.INFO)
 
@@ -186,19 +169,11 @@ def main(argv=None):
         print(clogo.format(version=__version__))
         sys.exit(0)
 
-    def gen_setup_py():
-        if not (args.setup_py or args.no_setup_py):
-            return False
-        return args.setup_py
-
-    def sdist_use_vcs():
-        return not args.no_use_vcs
-
     if args.subcmd == 'build':
         from .build import main
         try:
             main(args.ini_file, formats=set(args.format or []),
-                 gen_setup_py=gen_setup_py(), use_vcs=sdist_use_vcs())
+                 use_vcs=args.use_vcs)
         except(common.NoDocstringError, common.VCSError, common.NoVersionError) as e:
             sys.exit(e.args[0])
     elif args.subcmd == 'publish':
@@ -207,7 +182,7 @@ def main(argv=None):
         repository = args.repository or args.deprecated_repository
         from .upload import main
         main(args.ini_file, repository, args.pypirc, formats=set(args.format or []),
-                gen_setup_py=gen_setup_py(), use_vcs=sdist_use_vcs())
+             use_vcs=args.use_vcs)
 
     elif args.subcmd == 'install':
         from .install import Installer

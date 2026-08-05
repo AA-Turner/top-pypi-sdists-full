@@ -8,8 +8,8 @@ use crate::console_capture::console_log_line_levels::StatsigLogLineLevel;
 use parking_lot::RwLock;
 
 use crate::{
-    log_e, observability::ops_stats::OpsStatsForInstance, user::user_data::UserDataMap,
-    user::StatsigUserLoggable, DynamicValue, StatsigOptions, OPS_STATS,
+    DynamicValue, OPS_STATS, StatsigOptions, log_e, observability::ops_stats::OpsStatsForInstance,
+    user::StatsigUserLoggable, user::user_data::UserDataMap,
 };
 
 const TAG: &str = stringify!(ConsoleCaptureRegistry);

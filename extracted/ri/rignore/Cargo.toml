@@ -1,6 +1,6 @@
 [package]
 name = "rignore"
-version = "0.8.0"
+version = "0.8.1"
 edition = "2021"
 readme = "README.md"
 
@@ -11,4 +11,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 ignore = "0.4.23"
-pyo3 = "0.29.0"
+pyo3 = "0.29.1"

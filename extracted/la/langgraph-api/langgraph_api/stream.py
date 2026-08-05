@@ -187,6 +187,7 @@ async def astream_state(
             else await api_checkpointer.get_checkpointer(),
             access_context="threads.create_run",
             run_id=run_id,
+            context=context,
         )
     )
 

@@ -191,7 +191,7 @@ class FatsInTimeFilter(BaseFilter):
 
         users = defaultdict(list)
         for f in fats:
-            users[f.character.character_ownership.user.pk].append(f.id)
+            users[f.character.character_ownership.user.pk].append(f.pk)
 
         output = defaultdict(lambda: {"message": 0, "check": False})
         for u, fat_list in users.items():

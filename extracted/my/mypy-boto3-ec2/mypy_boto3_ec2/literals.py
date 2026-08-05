@@ -34,6 +34,7 @@ __all__ = (
     "AddressFamilyType",
     "AddressTransferStatusType",
     "AffinityType",
+    "AggregationStatusEnumType",
     "AllocationStateType",
     "AllocationStrategyType",
     "AllocationTypeType",
@@ -44,6 +45,8 @@ __all__ = (
     "AmdSevSnpType",
     "AnalysisStatusType",
     "ApplianceModeSupportValueType",
+    "ApplicationStatusCheckEnumType",
+    "ApplicationStatusEnumType",
     "ApplyCancellationChargesType",
     "ArchitectureTypeType",
     "ArchitectureValuesType",
@@ -51,6 +54,7 @@ __all__ = (
     "AsnStateType",
     "AssociatedNetworkTypeType",
     "AssociationStatusCodeType",
+    "AssociationTypeEnumType",
     "AttachmentLimitTypeType",
     "AttachmentStatusType",
     "AutoAcceptSharedAssociationsValueType",
@@ -401,7 +405,9 @@ __all__ = (
     "InterruptibleCapacityReservationAllocationStatusType",
     "InterruptionTypeType",
     "IpAddressTypeType",
+    "IpScopeEnumType",
     "IpSourceType",
+    "IpVersionEnumType",
     "IpamAddressHistoryResourceTypeType",
     "IpamAssociatedResourceDiscoveryStatusType",
     "IpamComplianceStatusType",
@@ -493,6 +499,7 @@ __all__ = (
     "NetworkInterfacePermissionStateCodeType",
     "NetworkInterfaceStatusType",
     "NetworkInterfaceTypeType",
+    "NetworkProtocolEnumType",
     "NitroEnclavesSupportType",
     "NitroTpmSupportType",
     "OfferingClassTypeType",
@@ -742,6 +749,7 @@ AddressAttributeNameType = Literal["domain-name"]
 AddressFamilyType = Literal["ipv4", "ipv6"]
 AddressTransferStatusType = Literal["accepted", "disabled", "pending"]
 AffinityType = Literal["default", "host"]
+AggregationStatusEnumType = Literal["excluded", "included"]
 AllocationStateType = Literal[
     "available",
     "configuring",
@@ -766,6 +774,12 @@ AmdSevSnpSpecificationType = Literal["disabled", "enabled"]
 AmdSevSnpType = Literal["disabled", "enabled"]
 AnalysisStatusType = Literal["failed", "running", "succeeded"]
 ApplianceModeSupportValueType = Literal["disable", "enable"]
+ApplicationStatusCheckEnumType = Literal[
+    "failed", "initializing", "insufficient-data", "not-applicable", "passed"
+]
+ApplicationStatusEnumType = Literal[
+    "impaired", "initializing", "insufficient-data", "not-applicable", "ok", "suppressed"
+]
 ApplyCancellationChargesType = Literal["commitment-wind-down"]
 ArchitectureTypeType = Literal["arm64", "arm64_mac", "i386", "x86_64", "x86_64_mac"]
 ArchitectureValuesType = Literal["arm64", "arm64_mac", "i386", "x86_64", "x86_64_mac"]
@@ -789,6 +803,7 @@ AssociatedNetworkTypeType = Literal["vpc"]
 AssociationStatusCodeType = Literal[
     "associated", "associating", "association-failed", "disassociated", "disassociating"
 ]
+AssociationTypeEnumType = Literal["instance-id", "tag"]
 AttachmentLimitTypeType = Literal["dedicated", "shared"]
 AttachmentStatusType = Literal["attached", "attaching", "detached", "detaching"]
 AutoAcceptSharedAssociationsValueType = Literal["disable", "enable"]
@@ -2834,7 +2849,9 @@ InterruptibleCapacityReservationAllocationStatusType = Literal[
 ]
 InterruptionTypeType = Literal["adhoc"]
 IpAddressTypeType = Literal["dualstack", "ipv4", "ipv6"]
+IpScopeEnumType = Literal["private"]
 IpSourceType = Literal["amazon", "byoip", "none"]
+IpVersionEnumType = Literal["ipv4", "ipv6"]
 IpamAddressHistoryResourceTypeType = Literal[
     "eip", "instance", "network-interface", "subnet", "vpc"
 ]
@@ -3159,6 +3176,7 @@ NetworkInterfaceTypeType = Literal[
     "trunk",
     "vpc_endpoint",
 ]
+NetworkProtocolEnumType = Literal["http", "https"]
 NitroEnclavesSupportType = Literal["supported", "unsupported"]
 NitroTpmSupportType = Literal["supported", "unsupported"]
 OfferingClassTypeType = Literal["convertible", "standard"]
@@ -3252,6 +3270,7 @@ ReservedInstanceStateType = Literal[
 ResetFpgaImageAttributeNameType = Literal["loadPermission"]
 ResetImageAttributeNameType = Literal["launchPermission"]
 ResourceTypeType = Literal[
+    "application-status-check",
     "capacity-block",
     "capacity-manager-data-export",
     "capacity-reservation",
@@ -4012,6 +4031,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

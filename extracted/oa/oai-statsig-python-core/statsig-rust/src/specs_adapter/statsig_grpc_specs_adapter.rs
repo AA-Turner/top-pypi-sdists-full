@@ -1,21 +1,21 @@
 use super::{SpecsInfo, StatsigHttpSpecsAdapter};
 use crate::networking::ResponseData;
-use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
-use crate::observability::ops_stats::{OpsStatsForInstance, OPS_STATS};
 use crate::observability::ErrorBoundaryEvent;
+use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
+use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
 use crate::{
-    log_d, log_e, log_error_to_statsig_and_console, log_w, SpecAdapterConfig, SpecsAdapter,
-    SpecsSource, SpecsUpdate, SpecsUpdateListener, StatsigErr, StatsigOptions, StatsigRuntime,
+    SpecAdapterConfig, SpecsAdapter, SpecsSource, SpecsUpdate, SpecsUpdateListener, StatsigErr,
+    StatsigOptions, StatsigRuntime, log_d, log_e, log_error_to_statsig_and_console, log_w,
 };
 use async_trait::async_trait;
 use chrono::Utc;
 use oai_statsig_grpc::statsig_grpc_client::StatsigGrpcClient;
 use parking_lot::{Mutex, RwLock};
 use std::cmp;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
-use tokio::sync::{broadcast, Notify};
+use tokio::sync::{Notify, broadcast};
 use tokio::time::{sleep, timeout};
 
 // Todo make those configurable

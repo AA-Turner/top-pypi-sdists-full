@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: allianceauth-afat
-Version: 6.1.1
+Version: 6.2.0
 Summary: Another Fleet Activity Tracking tool for Alliance Auth
 Project-URL: Changelog, https://github.com/ppfeufer/allianceauth-afat/blob/master/CHANGELOG.md
 Project-URL: Codecov, https://codecov.io/gh/ppfeufer/allianceauth-afat
@@ -849,7 +849,7 @@ Make sure you're in the virtual environment (venv) of your Alliance Auth install
 Then install the latest version:
 
 ```shell
-pip install allianceauth-afat==6.1.1
+pip install allianceauth-afat==6.2.0
 ```
 
 #### Step 2: Update Your AA Settings<a name="step-2-update-your-aa-settings"></a>
@@ -914,7 +914,7 @@ python manage.py esde_load_sde
 Add the app to your `conf/requirements.txt`:
 
 ```text
-allianceauth-afat==6.1.1
+allianceauth-afat==6.2.0
 ```
 
 #### Step 2: Update Your AA Settings<a name="step-2-update-your-aa-settings-1"></a>
@@ -989,7 +989,7 @@ To update your existing installation of AFAT, first enable your
 virtual environment (venv) of your Alliance Auth installation.
 
 ```shell
-pip install allianceauth-afat==6.1.1
+pip install allianceauth-afat==6.2.0
 
 python manage.py collectstatic
 python manage.py migrate
@@ -1005,7 +1005,7 @@ To update your existing installation of AFAT, all you need to do is to update th
 respective line in your `conf/requirements.txt` file to the latest version.
 
 ```text
-allianceauth-afat==6.1.1
+allianceauth-afat==6.2.0
 ```
 
 Now rebuild your containers:

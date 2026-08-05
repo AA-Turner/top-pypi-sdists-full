@@ -1,8 +1,8 @@
 mod utils;
 use serde_json::json;
 use statsig_rust::{
-    networking::ResponseData, output_logger, SpecsSource, SpecsUpdate, Statsig, StatsigOptions,
-    StatsigUser,
+    SpecsSource, SpecsUpdate, Statsig, StatsigOptions, StatsigUser, networking::ResponseData,
+    output_logger,
 };
 use std::{collections::HashMap, sync::Arc};
 use utils::mock_scrapi::{Endpoint, EndpointStub, Method, MockScrapi, StubData};

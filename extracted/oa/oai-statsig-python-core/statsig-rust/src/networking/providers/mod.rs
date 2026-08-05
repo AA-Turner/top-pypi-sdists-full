@@ -1,6 +1,7 @@
 pub use net_provider_global::NetworkProviderGlobal;
 
 use super::NetworkProvider;
+#[cfg(feature = "custom_network_provider")]
 use net_provider_noop::NetworkProviderNoop;
 use std::sync::{Arc, Weak};
 
@@ -8,8 +9,10 @@ use std::sync::{Arc, Weak};
 pub mod net_provider_reqwest;
 
 mod net_provider_global;
+#[cfg(feature = "custom_network_provider")]
 mod net_provider_noop;
 
+#[cfg(feature = "custom_network_provider")]
 lazy_static::lazy_static! {
     static ref NOOP_NETWORK_PROVIDER: Arc<dyn NetworkProvider> = Arc::new(NetworkProviderNoop {});
 }

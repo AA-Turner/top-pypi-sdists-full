@@ -53,8 +53,8 @@ def test_writable_dir(path):
     return _test_writable_dir_win(path)
 
 def _test_writable_dir_win(path):
-    # os.access doesn't work on Windows: http://bugs.python.org/issue2528
-    # and we can't use tempfile: http://bugs.python.org/issue22107
+    # os.access doesn't work on Windows: https://github.com/python/cpython/issues/46780
+    # and we can't use tempfile: https://github.com/python/cpython/issues/66305
     basename = 'accesstest_deleteme_fishfingers_custard_'
     alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789'
     for i in range(10):
@@ -77,7 +77,7 @@ def _test_writable_dir_win(path):
     # This should never be reached
     msg = ('Unexpected condition testing for writable directory {!r}. '
            'Please open an issue on flit to debug why this occurred.') # pragma: no cover
-    raise EnvironmentError(msg.format(path))  # pragma: no cover
+    raise OSError(msg.format(path))  # pragma: no cover
 
 class RootInstallError(Exception):
     def __str__(self):
@@ -88,7 +88,7 @@ class DependencyError(Exception):
     def __str__(self):
         return 'To install dependencies for extras, you cannot set deps=none.'
 
-class Installer(object):
+class Installer:
     def __init__(self, directory, ini_info, user=None, python=sys.executable,
                  symlink=False, deps='all', extras=(), pth=False):
         self.directory = directory
@@ -187,8 +187,7 @@ class Installer(object):
 
             if sys.platform == 'win32':
                 cmd_file = script_file.with_suffix('.cmd')
-                cmd = '@echo off\r\n"{python}" "%~dp0\\{script}" %*\r\n'.format(
-                            python=self.python, script=name)
+                cmd = f'@echo off\r\n"{self.python}" "%~dp0\\{name}" %*\r\n'
                 log.debug("Writing script wrapper to %s", cmd_file)
                 with cmd_file.open('w') as f:
                     f.write(cmd)

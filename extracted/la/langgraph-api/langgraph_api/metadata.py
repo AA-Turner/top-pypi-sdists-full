@@ -2,9 +2,9 @@ import asyncio
 import os
 import uuid
 from datetime import UTC, datetime
+from importlib import metadata as importlib_metadata
 from typing import Any
 
-import langgraph.version
 import orjson
 import structlog
 
@@ -58,6 +58,10 @@ else:
     HOST = "self-hosted"
 PLAN = "enterprise" if plus_features_enabled() else "developer"
 USER_API_URL = os.getenv("LANGGRAPH_API_URL", None)
+DEPENDENCY_VERSION_DISTRIBUTIONS = {
+    "langgraph.python.version": "langgraph",
+    "starlette.version": "starlette",
+}
 
 RUN_COUNTER = 0
 NODE_COUNTER = 0
@@ -78,6 +82,19 @@ if LANGSMITH_AUTH_ENDPOINT:
         LANGCHAIN_METADATA_ENDPOINT = (
             LANGSMITH_AUTH_ENDPOINT.rstrip("/") + "/v1/metadata/submit"
         )
+
+
+def _dependency_version_metadata() -> dict[str, str]:
+    tags = {}
+    for tag, distribution in DEPENDENCY_VERSION_DISTRIBUTIONS.items():
+        try:
+            tags[tag] = importlib_metadata.version(distribution)
+        except importlib_metadata.PackageNotFoundError:
+            logger.debug(
+                "Dependency package not found for metadata", package=distribution
+            )
+            tags[tag] = ""
+    return tags
 
 
 def _lang_usage_metadata() -> tuple[dict[str, str], dict[str, int]]:
@@ -130,8 +147,6 @@ async def metadata_loop() -> None:
             "No license key or control plane API key set, skipping metadata loop"
         )
         return
-    lg_version = langgraph.version.__version__
-
     if (
         LANGGRAPH_CLOUD_LICENSE_KEY
         and not LANGGRAPH_CLOUD_LICENSE_KEY.startswith("lcl_")
@@ -160,7 +175,7 @@ async def metadata_loop() -> None:
     base_tags = _ensure_strings(
         # Tag values must be strings.
         {
-            "langgraph.python.version": lg_version,
+            **_dependency_version_metadata(),
             "langgraph_api.version": __version__ or "",
             "langgraph.platform.revision": REVISION or "",
             "langgraph.platform.variant": VARIANT or "",

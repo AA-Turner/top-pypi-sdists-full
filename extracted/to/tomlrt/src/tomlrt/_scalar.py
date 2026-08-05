@@ -7,7 +7,7 @@ layer.
 from __future__ import annotations
 
 import math
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -19,6 +19,7 @@ if TYPE_CHECKING:
         from typing_extensions import TypeIs
 
 from tomlrt._values import (
+    _KEY_ESCAPES,
     BoolValue,
     DateTimeValue,
     FloatValue,
@@ -44,14 +45,35 @@ def coerce_scalar(
 ) -> StringValue | IntegerValue | FloatValue | BoolValue | DateTimeValue:
     """Coerce a Python scalar to a fresh `Value` with a default lexeme."""
     if isinstance(v, bool):
-        return BoolValue(lexeme="true" if v else "false", value=v)
+        return BoolValue("true" if v else "false", v)
     if isinstance(v, int):
-        return IntegerValue(lexeme=str(v), value=v)
+        return IntegerValue(str(v), v)
     if isinstance(v, float):
-        return FloatValue(lexeme=float_lexeme(v), value=v)
+        return FloatValue(float_lexeme(v), v)
     if isinstance(v, str):
-        return StringValue(lexeme=basic_string_lexeme(v), value=v)
-    return DateTimeValue(lexeme=v.isoformat(), value=v)
+        return StringValue(basic_string_lexeme(v), v)
+    validate_scalar(v)
+    return DateTimeValue(v.isoformat(), v)
+
+
+def validate_scalar(v: Scalar) -> None:
+    """Raise if a scalar cannot be represented in TOML."""
+    if isinstance(v, datetime):
+        _check_toml_offset(v)
+    elif isinstance(v, time) and v.tzinfo is not None:
+        msg = f"cannot represent {v!r} in TOML: local time cannot carry a timezone"
+        raise ValueError(msg)
+
+
+def _check_toml_offset(v: datetime) -> None:
+    """Raise if ``v.tzinfo`` isn't representable as TOML's whole-minute offset."""
+    offset = v.utcoffset()
+    if offset is not None and offset % timedelta(minutes=1):
+        msg = (
+            f"cannot represent {v!r} in TOML: timezone offset {offset} is not "
+            "a whole number of minutes"
+        )
+        raise ValueError(msg)
 
 
 def float_lexeme(v: float) -> str:
@@ -63,27 +85,15 @@ def float_lexeme(v: float) -> str:
     return repr(v)
 
 
+_STRING_ESCAPES: dict[int, str] = {
+    **_KEY_ESCAPES,
+    0x08: "\\b",
+    0x09: "\\t",
+    0x0A: "\\n",
+    0x0C: "\\f",
+    0x0D: "\\r",
+}
+
+
 def basic_string_lexeme(v: str) -> str:
-    out = ['"']
-    for ch in v:
-        c = ord(ch)
-        if ch == "\\":
-            out.append("\\\\")
-        elif ch == '"':
-            out.append('\\"')
-        elif ch == "\b":
-            out.append("\\b")
-        elif ch == "\t":
-            out.append("\\t")
-        elif ch == "\n":
-            out.append("\\n")
-        elif ch == "\f":
-            out.append("\\f")
-        elif ch == "\r":
-            out.append("\\r")
-        elif c < 0x20 or c == 0x7F:
-            out.append(f"\\u{c:04X}")
-        else:
-            out.append(ch)
-    out.append('"')
-    return "".join(out)
+    return f'"{v.translate(_STRING_ESCAPES)}"'

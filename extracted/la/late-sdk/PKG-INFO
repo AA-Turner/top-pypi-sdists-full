@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: late-sdk
-Version: 1.4.411
+Version: 1.4.418
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -845,6 +845,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 ### Twitter Engagement
 | Method | Description |
 |--------|-------------|
+| `twitter_engagement.get_tweet()` | Look up a tweet |
 | `twitter_engagement.bookmark_post()` | Bookmark a tweet |
 | `twitter_engagement.follow_user()` | Follow a user |
 | `twitter_engagement.remove_bookmark()` | Remove bookmark |

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: awscli
-Version: 1.45.63
+Version: 1.46.0
 Summary: Universal Command Line Environment for AWS.
 Home-page: http://aws.amazon.com/cli/
 Author: Amazon Web Services
@@ -23,12 +23,15 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >= 3.10
 License-File: LICENSE.txt
-Requires-Dist: botocore==1.43.63
 Requires-Dist: docutils<=0.19,>=0.18.1
-Requires-Dist: s3transfer<0.20.0,>=0.19.0
 Requires-Dist: PyYAML<6.1,>=3.10
 Requires-Dist: colorama<0.4.7,>=0.2.5
 Requires-Dist: rsa<4.8,>=3.1.2
+Requires-Dist: jmespath<2.0.0,>=0.7.1
+Requires-Dist: python-dateutil<3.0.0,>=2.1
+Requires-Dist: urllib3!=2.2.0,<3,>=1.25.4
+Provides-Extra: crt
+Requires-Dist: awscrt==0.36.0; extra == "crt"
 
 aws-cli
 =======

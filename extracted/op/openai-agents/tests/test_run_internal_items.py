@@ -1001,3 +1001,170 @@ def test_run_result_to_input_list_preserves_tool_search_items() -> None:
 def test_coerce_tool_search_output_raw_item_rejects_legacy_type() -> None:
     with pytest.raises(AgentsException, match="Unexpected tool search output item type"):
         coerce_tool_search_output_raw_item({"type": "tool_search_result", "results": []})
+
+
+def test_deduplicate_input_items_preferring_latest_keeps_original_order() -> None:
+    call = cast(
+        TResponseInputItem,
+        {"type": "function_call", "call_id": "call-1", "name": "tool", "arguments": "{}"},
+    )
+    output = cast(
+        TResponseInputItem,
+        {"type": "function_call_output", "call_id": "call-1", "output": "result"},
+    )
+    message = cast(TResponseInputItem, {"role": "assistant", "content": "ack"})
+    repeated_call = cast(
+        TResponseInputItem,
+        {"type": "function_call", "call_id": "call-1", "name": "tool", "arguments": "{}"},
+    )
+
+    deduplicated = run_items.deduplicate_input_items_preferring_latest(
+        [call, output, message, repeated_call]
+    )
+
+    # The repeated call collapses onto the first occurrence, so the call still precedes its
+    # output. Relocating it to the end would produce an item order the Responses API rejects.
+    assert [cast(dict[str, Any], item).get("type") for item in deduplicated] == [
+        "function_call",
+        "function_call_output",
+        None,
+    ]
+    assert cast(dict[str, Any], deduplicated[2])["role"] == "assistant"
+
+
+def test_deduplicate_input_items_preferring_latest_keeps_latest_output_position() -> None:
+    old_output = cast(
+        TResponseInputItem,
+        {"type": "function_call_output", "call_id": "call-1", "output": "old"},
+    )
+    message = cast(TResponseInputItem, {"role": "user", "content": "next"})
+    new_output = cast(
+        TResponseInputItem,
+        {"type": "function_call_output", "call_id": "call-1", "output": "new"},
+    )
+
+    deduplicated = run_items.deduplicate_input_items_preferring_latest(
+        [old_output, message, new_output]
+    )
+
+    assert len(deduplicated) == 2
+    assert cast(dict[str, Any], deduplicated[0])["content"] == "next"
+    assert cast(dict[str, Any], deduplicated[1])["output"] == "new"
+
+
+def test_deduplicate_input_items_preferring_latest_keeps_output_after_matching_call() -> None:
+    old_output = cast(
+        TResponseInputItem,
+        {"type": "function_call_output", "call_id": "call-1", "output": "old"},
+    )
+    call = cast(
+        TResponseInputItem,
+        {"type": "function_call", "call_id": "call-1", "name": "tool", "arguments": "{}"},
+    )
+    new_output = cast(
+        TResponseInputItem,
+        {"type": "function_call_output", "call_id": "call-1", "output": "new"},
+    )
+
+    deduplicated = run_items.deduplicate_input_items_preferring_latest(
+        [old_output, call, new_output]
+    )
+
+    assert [cast(dict[str, Any], item).get("type") for item in deduplicated] == [
+        "function_call",
+        "function_call_output",
+    ]
+    assert cast(dict[str, Any], deduplicated[1])["output"] == "new"
+
+
+def test_deduplicate_input_items_preferring_latest_keeps_reasoning_before_follower() -> None:
+    old_reasoning = cast(
+        TResponseInputItem,
+        {
+            "type": "reasoning",
+            "id": "rs-1",
+            "summary": [{"type": "summary_text", "text": "old"}],
+        },
+    )
+    call = cast(
+        TResponseInputItem,
+        {"type": "function_call", "call_id": "call-1", "name": "tool", "arguments": "{}"},
+    )
+    new_reasoning = cast(
+        TResponseInputItem,
+        {
+            "type": "reasoning",
+            "id": "rs-1",
+            "summary": [{"type": "summary_text", "text": "new"}],
+        },
+    )
+
+    deduplicated = run_items.deduplicate_input_items_preferring_latest(
+        [old_reasoning, call, new_reasoning]
+    )
+
+    assert [cast(dict[str, Any], item).get("type") for item in deduplicated] == [
+        "reasoning",
+        "function_call",
+    ]
+    assert cast(dict[str, Any], deduplicated[0])["summary"] == [
+        {"type": "summary_text", "text": "new"}
+    ]
+
+
+def test_deduplicate_input_items_preferring_latest_keeps_approval_request_before_response() -> None:
+    old_request = cast(
+        TResponseInputItem,
+        {
+            "type": "mcp_approval_request",
+            "id": "approval-1",
+            "arguments": "old",
+            "name": "lookup",
+            "server_label": "server",
+        },
+    )
+    response = cast(
+        TResponseInputItem,
+        {
+            "type": "mcp_approval_response",
+            "approval_request_id": "approval-1",
+            "approve": True,
+        },
+    )
+    new_request = cast(
+        TResponseInputItem,
+        {
+            "type": "mcp_approval_request",
+            "id": "approval-1",
+            "arguments": "new",
+            "name": "lookup",
+            "server_label": "server",
+        },
+    )
+
+    deduplicated = run_items.deduplicate_input_items_preferring_latest(
+        [old_request, response, new_request]
+    )
+
+    assert [cast(dict[str, Any], item).get("type") for item in deduplicated] == [
+        "mcp_approval_request",
+        "mcp_approval_response",
+    ]
+    assert cast(dict[str, Any], deduplicated[0])["arguments"] == "new"
+
+
+def test_deduplicate_input_items_preferring_latest_leaves_unique_items_untouched() -> None:
+    items = [
+        cast(TResponseInputItem, {"role": "user", "content": "hi"}),
+        cast(
+            TResponseInputItem,
+            {"type": "function_call", "call_id": "call-1", "name": "tool", "arguments": "{}"},
+        ),
+        cast(
+            TResponseInputItem,
+            {"type": "function_call_output", "call_id": "call-1", "output": "result"},
+        ),
+        cast(TResponseInputItem, {"role": "user", "content": "hi"}),
+    ]
+
+    assert run_items.deduplicate_input_items_preferring_latest(items) == items

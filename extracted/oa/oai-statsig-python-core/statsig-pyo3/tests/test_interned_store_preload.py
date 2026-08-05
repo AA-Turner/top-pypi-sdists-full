@@ -1,5 +1,6 @@
 import json
 import sys
+import uuid
 
 import pytest
 from pytest_httpserver import HTTPServer
@@ -59,7 +60,12 @@ def test_interned_store_mmap_preload(server_setup):
 
     fetch_complete = InternedStore.fetch_and_write_mmap(sdk_key, specs_url)
     assert fetch_complete.wait(5)
-    InternedStore.preload_mmap(sdk_key)
+    report = InternedStore.preload_mmap_multi(
+        [sdk_key], [f"missing-{uuid.uuid4()}"]
+    )
+    assert report.loaded == 1
+    assert report.skipped_optional_indexes == [0]
+
     memory = InternedStore.mmap_reader_memory_snapshot()
     assert memory is not None
     assert memory.format_version == 2

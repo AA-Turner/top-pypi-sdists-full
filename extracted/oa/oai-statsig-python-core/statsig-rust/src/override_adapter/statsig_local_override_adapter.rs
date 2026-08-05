@@ -3,7 +3,7 @@ use crate::evaluation::evaluator_result::EvaluatorResult;
 use crate::interned_string::InternedString;
 use crate::specs_response::param_store_types::{Parameter, StaticValueParameter};
 use crate::specs_response::spec_types::Spec;
-use crate::{log_d, read_lock_or_return, write_lock_or_noop, OverrideAdapter, StatsigUser};
+use crate::{OverrideAdapter, StatsigUser, log_d, read_lock_or_return, write_lock_or_noop};
 use parking_lot::RwLock;
 use serde_json::Value;
 use std::collections::HashMap;

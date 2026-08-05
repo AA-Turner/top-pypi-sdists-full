@@ -4,10 +4,9 @@ use pyo3::{
 };
 use pyo3_stub_gen::derive::*;
 use statsig_rust::{
-    interned_string::InternedString, log_d, log_e, log_w,
-    specs_response::explicit_params::ExplicitParameters, DynamicReturnable, PersistentStorage,
-    SecondaryExposure, StickyValues as StickyValuesActual,
-    UserPersistedValues as UserPersistedValuesActual,
+    DynamicReturnable, PersistentStorage, SecondaryExposure, StickyValues as StickyValuesActual,
+    UserPersistedValues as UserPersistedValuesActual, interned_string::InternedString, log_d,
+    log_e, log_w, specs_response::explicit_params::ExplicitParameters,
 };
 use std::collections::HashMap;
 

@@ -47,6 +47,7 @@ class EsqlClient(NamespacedClient):
             "params",
             "profile",
             "project_routing",
+            "settings",
             "tables",
             "time_zone",
             "wait_for_completion_timeout",
@@ -84,8 +85,11 @@ class EsqlClient(NamespacedClient):
                     t.Mapping[
                         str,
                         t.Union[
-                            t.Sequence[t.Union[None, bool, float, int, str]],
-                            t.Union[None, bool, float, int, str],
+                            t.Mapping[str, t.Any],
+                            t.Union[
+                                t.Sequence[t.Union[None, bool, float, int, str]],
+                                t.Union[None, bool, float, int, str],
+                            ],
                         ],
                     ]
                 ],
@@ -100,6 +104,7 @@ class EsqlClient(NamespacedClient):
         pretty: t.Optional[bool] = None,
         profile: t.Optional[bool] = None,
         project_routing: t.Optional[str] = None,
+        settings: t.Optional[t.Mapping[str, t.Any]] = None,
         tables: t.Optional[
             t.Mapping[str, t.Mapping[str, t.Mapping[str, t.Any]]]
         ] = None,
@@ -117,7 +122,7 @@ class EsqlClient(NamespacedClient):
           <p>The API accepts the same parameters and request body as the synchronous query API, along with additional async related properties.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-esql-async-query>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-esql-async-query>`_
 
         :param query: The ES|QL query API accepts an ES|QL query string in the query
             parameter, runs it, and returns the results.
@@ -175,6 +180,9 @@ class EsqlClient(NamespacedClient):
             metadata tags in a subset of Lucene query syntax. Allowed Lucene queries:
             the _alias tag and a single value (possibly wildcarded). Examples: _alias:my-project
             _alias:_origin _alias:*pr* Supported in serverless only.
+        :param settings: Per-query settings, the request-body equivalent of the in-query
+            `SET` command. For example, `time_zone` can be supplied here instead of as
+            a top-level field.
         :param tables: Tables to use with the LOOKUP operation. The top level key is
             the table name and the next level key is the column name.
         :param time_zone: Sets the default timezone of the query.
@@ -228,6 +236,8 @@ class EsqlClient(NamespacedClient):
                 __body["profile"] = profile
             if project_routing is not None:
                 __body["project_routing"] = project_routing
+            if settings is not None:
+                __body["settings"] = settings
             if tables is not None:
                 __body["tables"] = tables
             if time_zone is not None:
@@ -268,7 +278,7 @@ class EsqlClient(NamespacedClient):
           </ul>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-esql-async-query-delete>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-esql-async-query-delete>`_
 
         :param id: The unique identifier of the query. A query ID is provided in the
             ES|QL async query API response for a query that does not complete in the
@@ -329,7 +339,7 @@ class EsqlClient(NamespacedClient):
           If the Elasticsearch security features are enabled, only the user who first submitted the ES|QL query can retrieve the results using this API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-esql-async-query-get>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-esql-async-query-get>`_
 
         :param id: The unique identifier of the query. A query ID is provided in the
             ES|QL async query API response for a query that does not complete in the
@@ -399,7 +409,7 @@ class EsqlClient(NamespacedClient):
           If the Elasticsearch security features are enabled, only the user who first submitted the ES|QL query can stop it.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-esql-async-query-stop>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-esql-async-query-stop>`_
 
         :param id: The unique identifier of the query. A query ID is provided in the
             ES|QL async query API response for a query that does not complete in the
@@ -437,6 +447,51 @@ class EsqlClient(NamespacedClient):
 
     @_rewrite_parameters()
     @_availability_warning(Stability.EXPERIMENTAL)
+    def delete_view(
+        self,
+        *,
+        name: t.Union[str, t.Sequence[str]],
+        error_trace: t.Optional[bool] = None,
+        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        human: t.Optional[bool] = None,
+        pretty: t.Optional[bool] = None,
+    ) -> ObjectApiResponse[t.Any]:
+        """
+        .. raw:: html
+
+          <p>Delete an ES|QL view.</p>
+          <p>Deletes a stored ES|QL view.</p>
+
+
+        `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
+
+        :param name: The view name to remove.
+        """
+        if name in SKIP_IN_PATH:
+            raise ValueError("Empty value passed for parameter 'name'")
+        __path_parts: t.Dict[str, str] = {"name": _quote(name)}
+        __path = f'/_query/view/{__path_parts["name"]}'
+        __query: t.Dict[str, t.Any] = {}
+        if error_trace is not None:
+            __query["error_trace"] = error_trace
+        if filter_path is not None:
+            __query["filter_path"] = filter_path
+        if human is not None:
+            __query["human"] = human
+        if pretty is not None:
+            __query["pretty"] = pretty
+        __headers = {"accept": "application/json"}
+        return self.perform_request(  # type: ignore[return-value]
+            "DELETE",
+            __path,
+            params=__query,
+            headers=__headers,
+            endpoint_id="esql.delete_view",
+            path_parts=__path_parts,
+        )
+
+    @_rewrite_parameters()
+    @_availability_warning(Stability.EXPERIMENTAL)
     def get_query(
         self,
         *,
@@ -453,7 +508,7 @@ class EsqlClient(NamespacedClient):
           <p>Returns an object extended information about a running ES|QL query.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-esql-get-query>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-esql-get-query>`_
 
         :param id: The query ID
         """
@@ -482,6 +537,54 @@ class EsqlClient(NamespacedClient):
 
     @_rewrite_parameters()
     @_availability_warning(Stability.EXPERIMENTAL)
+    def get_view(
+        self,
+        *,
+        name: t.Optional[str] = None,
+        error_trace: t.Optional[bool] = None,
+        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        human: t.Optional[bool] = None,
+        pretty: t.Optional[bool] = None,
+    ) -> ObjectApiResponse[t.Any]:
+        """
+        .. raw:: html
+
+          <p>Get an ES|QL view.</p>
+          <p>Returns a stored ES|QL view.</p>
+
+
+        `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
+
+        :param name: The comma-separated view names to retrieve.
+        """
+        __path_parts: t.Dict[str, str]
+        if name not in SKIP_IN_PATH:
+            __path_parts = {"name": _quote(name)}
+            __path = f'/_query/view/{__path_parts["name"]}'
+        else:
+            __path_parts = {}
+            __path = "/_query/view"
+        __query: t.Dict[str, t.Any] = {}
+        if error_trace is not None:
+            __query["error_trace"] = error_trace
+        if filter_path is not None:
+            __query["filter_path"] = filter_path
+        if human is not None:
+            __query["human"] = human
+        if pretty is not None:
+            __query["pretty"] = pretty
+        __headers = {"accept": "application/json"}
+        return self.perform_request(  # type: ignore[return-value]
+            "GET",
+            __path,
+            params=__query,
+            headers=__headers,
+            endpoint_id="esql.get_view",
+            path_parts=__path_parts,
+        )
+
+    @_rewrite_parameters()
+    @_availability_warning(Stability.EXPERIMENTAL)
     def list_queries(
         self,
         *,
@@ -497,7 +600,7 @@ class EsqlClient(NamespacedClient):
           <p>Returns an object containing IDs and other information about the running ES|QL queries.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-esql-list-queries>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-esql-list-queries>`_
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_query/queries"
@@ -521,6 +624,62 @@ class EsqlClient(NamespacedClient):
         )
 
     @_rewrite_parameters(
+        body_fields=("query",),
+    )
+    @_availability_warning(Stability.EXPERIMENTAL)
+    def put_view(
+        self,
+        *,
+        name: str,
+        query: t.Optional[t.Union[str, "ESQLBase"]] = None,
+        error_trace: t.Optional[bool] = None,
+        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        human: t.Optional[bool] = None,
+        pretty: t.Optional[bool] = None,
+        body: t.Optional[t.Dict[str, t.Any]] = None,
+    ) -> ObjectApiResponse[t.Any]:
+        """
+        .. raw:: html
+
+          <p>Create or update an ES|QL view.</p>
+
+
+        `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
+
+        :param name: The view name to create or update.
+        :param query: The ES|QL query string from which to create a view.
+        """
+        if name in SKIP_IN_PATH:
+            raise ValueError("Empty value passed for parameter 'name'")
+        if query is None and body is None:
+            raise ValueError("Empty value passed for parameter 'query'")
+        __path_parts: t.Dict[str, str] = {"name": _quote(name)}
+        __path = f'/_query/view/{__path_parts["name"]}'
+        __query: t.Dict[str, t.Any] = {}
+        __body: t.Dict[str, t.Any] = body if body is not None else {}
+        if error_trace is not None:
+            __query["error_trace"] = error_trace
+        if filter_path is not None:
+            __query["filter_path"] = filter_path
+        if human is not None:
+            __query["human"] = human
+        if pretty is not None:
+            __query["pretty"] = pretty
+        if not __body:
+            if query is not None:
+                __body["query"] = str(query)
+        __headers = {"accept": "application/json", "content-type": "application/json"}
+        return self.perform_request(  # type: ignore[return-value]
+            "PUT",
+            __path,
+            params=__query,
+            headers=__headers,
+            body=__body,
+            endpoint_id="esql.put_view",
+            path_parts=__path_parts,
+        )
+
+    @_rewrite_parameters(
         body_fields=(
             "query",
             "columnar",
@@ -531,6 +690,7 @@ class EsqlClient(NamespacedClient):
             "params",
             "profile",
             "project_routing",
+            "settings",
             "tables",
             "time_zone",
         ),
@@ -565,8 +725,11 @@ class EsqlClient(NamespacedClient):
                     t.Mapping[
                         str,
                         t.Union[
-                            t.Sequence[t.Union[None, bool, float, int, str]],
-                            t.Union[None, bool, float, int, str],
+                            t.Mapping[str, t.Any],
+                            t.Union[
+                                t.Sequence[t.Union[None, bool, float, int, str]],
+                                t.Union[None, bool, float, int, str],
+                            ],
                         ],
                     ]
                 ],
@@ -581,6 +744,7 @@ class EsqlClient(NamespacedClient):
         pretty: t.Optional[bool] = None,
         profile: t.Optional[bool] = None,
         project_routing: t.Optional[str] = None,
+        settings: t.Optional[t.Mapping[str, t.Any]] = None,
         tables: t.Optional[
             t.Mapping[str, t.Mapping[str, t.Mapping[str, t.Any]]]
         ] = None,
@@ -639,6 +803,9 @@ class EsqlClient(NamespacedClient):
             metadata tags in a subset of Lucene query syntax. Allowed Lucene queries:
             the _alias tag and a single value (possibly wildcarded). Examples: _alias:my-project
             _alias:_origin _alias:*pr* Supported in serverless only.
+        :param settings: Per-query settings, the request-body equivalent of the in-query
+            `SET` command. For example, `time_zone` can be supplied here instead of as
+            a top-level field.
         :param tables: Tables to use with the LOOKUP operation. The top level key is
             the table name and the next level key is the column name.
         :param time_zone: Sets the default timezone of the query.
@@ -684,6 +851,8 @@ class EsqlClient(NamespacedClient):
                 __body["profile"] = profile
             if project_routing is not None:
                 __body["project_routing"] = project_routing
+            if settings is not None:
+                __body["settings"] = settings
             if tables is not None:
                 __body["tables"] = tables
             if time_zone is not None:

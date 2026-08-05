@@ -8,7 +8,15 @@ import pytest
 from anyio import ClosedResourceError
 from mcp import ClientSession, Tool as MCPTool
 from mcp.shared.exceptions import McpError
-from mcp.types import CallToolResult, ErrorData, GetPromptResult, ListPromptsResult, ListToolsResult
+from mcp.types import (
+    CallToolResult,
+    ErrorData,
+    GetPromptResult,
+    ListPromptsResult,
+    ListToolsResult,
+    PaginatedRequestParams,
+    Prompt,
+)
 
 from agents.exceptions import UserError
 from agents.mcp.server import MCPServerStreamableHttp, _MCPServerWithClientSession
@@ -30,7 +38,7 @@ class DummySession:
             raise RuntimeError("call_tool failure")
         return CallToolResult(content=[])
 
-    async def list_tools(self):
+    async def list_tools(self, *, params: PaginatedRequestParams | None = None):
         self.list_tools_attempts += 1
         if self.list_tools_attempts <= self.fail_list_tools:
             raise RuntimeError("list_tools failure")
@@ -73,6 +81,121 @@ async def test_list_tools_unlimited_retries():
     assert len(tools) == 1
     assert tools[0].name == "tool"
     assert session.list_tools_attempts == 4
+
+
+class PaginatedRetrySession(DummySession):
+    def __init__(self):
+        super().__init__()
+        self.cursors: list[str | None] = []
+        self.second_page_attempts = 0
+
+    async def list_tools(self, *, params: PaginatedRequestParams | None = None):
+        cursor = params.cursor if params is not None else None
+        self.cursors.append(cursor)
+        if cursor is None:
+            return ListToolsResult(
+                tools=[MCPTool(name="first_page_tool", inputSchema={})],
+                nextCursor="second-page",
+            )
+
+        self.second_page_attempts += 1
+        if self.second_page_attempts == 1:
+            raise RuntimeError("second page failure")
+        return ListToolsResult(tools=[MCPTool(name="second_page_tool", inputSchema={})])
+
+
+@pytest.mark.asyncio
+async def test_list_tools_retries_only_the_failed_page():
+    session = PaginatedRetrySession()
+    server = DummyServer(session=session, retries=1)
+
+    tools = await server.list_tools()
+
+    assert [tool.name for tool in tools] == ["first_page_tool", "second_page_tool"]
+    assert session.cursors == [None, "second-page", "second-page"]
+
+
+class SharedRetryBudgetSession(DummySession):
+    def __init__(self):
+        super().__init__()
+        self.cursors: list[str | None] = []
+
+    async def list_tools(self, *, params: PaginatedRequestParams | None = None):
+        cursor = params.cursor if params is not None else None
+        self.cursors.append(cursor)
+        if self.cursors == [None]:
+            raise RuntimeError("first page failure")
+        if cursor is None:
+            return ListToolsResult(
+                tools=[MCPTool(name="first_page_tool", inputSchema={})],
+                nextCursor="second-page",
+            )
+        raise RuntimeError("second page failure")
+
+
+@pytest.mark.asyncio
+async def test_list_tools_shares_retry_budget_across_pages():
+    session = SharedRetryBudgetSession()
+    server = DummyServer(session=session, retries=1)
+
+    with pytest.raises(UserError, match="Failed to list tools.*Request failed"):
+        await server.list_tools()
+
+    assert session.cursors == [None, None, "second-page"]
+
+
+class RepeatedCursorSession(DummySession):
+    def __init__(self):
+        super().__init__()
+        self.tool_cursors: list[str | None] = []
+        self.prompt_cursors: list[str | None] = []
+
+    async def list_tools(self, *, params: PaginatedRequestParams | None = None):
+        cursor = params.cursor if params is not None else None
+        self.tool_cursors.append(cursor)
+        if cursor is None:
+            return ListToolsResult(
+                tools=[MCPTool(name="first_page_tool", inputSchema={})],
+                nextCursor="tenant-secret-cursor",
+            )
+        return ListToolsResult(
+            tools=[MCPTool(name="second_page_tool", inputSchema={})],
+            nextCursor="tenant-secret-cursor",
+        )
+
+    async def list_prompts(
+        self, *, params: PaginatedRequestParams | None = None
+    ) -> ListPromptsResult:
+        cursor = params.cursor if params is not None else None
+        self.prompt_cursors.append(cursor)
+        if cursor is None:
+            return ListPromptsResult(
+                prompts=[Prompt(name="first_page_prompt")],
+                nextCursor="tenant-secret-cursor",
+                _meta={"page": "first"},
+            )
+        return ListPromptsResult(
+            prompts=[Prompt(name="second_page_prompt")],
+            nextCursor="tenant-secret-cursor",
+            _meta={"page": "second"},
+        )
+
+
+@pytest.mark.asyncio
+async def test_paginated_lists_reject_a_repeated_cursor_without_caching_partial_tools():
+    session = RepeatedCursorSession()
+    server = DummyServer(session=session, retries=1)
+
+    with pytest.raises(UserError, match="repeated cursor while listing tools") as tools_error:
+        await server.list_tools()
+    with pytest.raises(UserError, match="repeated cursor while listing prompts") as prompts_error:
+        await server.list_prompts()
+
+    assert server.cached_tools is None
+    assert session.tool_cursors == [None, "tenant-secret-cursor"]
+    assert session.prompt_cursors == [None, "tenant-secret-cursor"]
+    assert "tenant-secret-cursor" not in str(tools_error.value)
+    assert "tenant-secret-cursor" not in str(prompts_error.value)
 
 
 @pytest.mark.asyncio
@@ -169,7 +292,7 @@ class ConcurrentCancellationSession:
         if tool_name == "slow":
             self._slow_task = cast(asyncio.Task[CallToolResult], asyncio.current_task())
             self._slow_started.set()
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0)
             return CallToolResult(content=[])
 
         await self._slow_started.wait()
@@ -261,6 +384,7 @@ class DummyStreamableHttpServer(MCPServerStreamableHttp):
             params={"url": "https://example.test/mcp"},
             client_session_timeout_seconds=None,
             max_retry_attempts=0,
+            retry_backoff_seconds_base=0,
         )
         self.session = cast(ClientSession, shared_session)
         self._isolated_session = cast(ClientSession, isolated_session)
@@ -474,7 +598,7 @@ class OverlapTrackingSession:
         self.in_flight += 1
         self.max_in_flight = max(self.max_in_flight, self.in_flight)
         try:
-            await asyncio.sleep(0.02)
+            await asyncio.sleep(0)
             yield
         finally:
             self.in_flight -= 1
@@ -572,3 +696,57 @@ async def test_streamable_http_serializes_call_tool_with_prompt_requests(prompt_
         assert isinstance(results[1], GetPromptResult)
     assert shared_session.max_in_flight == 1
     assert isolated_session.call_tool_attempts == 0
+
+
+class FlakyRuntimeErrorSession:
+    """Fails with an error that does not qualify for an isolated-session retry."""
+
+    def __init__(self, failures: int):
+        self.failures = failures
+        self.call_tool_attempts = 0
+
+    async def call_tool(self, tool_name, arguments, meta=None):
+        self.call_tool_attempts += 1
+        if self.call_tool_attempts <= self.failures:
+            raise RuntimeError("transient failure")
+        return CallToolResult(content=[])
+
+
+@pytest.mark.asyncio
+async def test_streamable_http_backoff_grows_with_unlimited_retries(monkeypatch):
+    delays: list[float] = []
+
+    async def record_sleep(delay: float) -> None:
+        delays.append(delay)
+
+    monkeypatch.setattr(asyncio, "sleep", record_sleep)
+
+    shared_session = FlakyRuntimeErrorSession(failures=3)
+    server = DummyStreamableHttpServer(shared_session, TimeoutSession())
+    server.max_retry_attempts = -1
+    server.retry_backoff_seconds_base = 1.0
+
+    await server.call_tool("tool", None)
+
+    assert delays == [1.0, 2.0, 4.0]
+
+
+@pytest.mark.asyncio
+async def test_streamable_http_backoff_matches_generic_schedule_on_isolated_retry(monkeypatch):
+    delays: list[float] = []
+
+    async def record_sleep(delay: float) -> None:
+        delays.append(delay)
+
+    monkeypatch.setattr(asyncio, "sleep", record_sleep)
+
+    shared_session = TimeoutSession("shared timed out")
+    isolated_session = TimeoutSession("isolated timed out")
+    server = DummyStreamableHttpServer(shared_session, isolated_session)
+    server.max_retry_attempts = 6
+    server.retry_backoff_seconds_base = 1.0
+
+    with pytest.raises(httpx.TimeoutException, match="shared timed out"):
+        await server.call_tool("tool", None)
+
+    assert delays == [1.0, 2.0, 4.0]

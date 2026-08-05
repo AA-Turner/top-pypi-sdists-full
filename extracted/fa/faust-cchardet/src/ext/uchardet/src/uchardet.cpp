@@ -37,58 +37,168 @@
 #include "uchardet.h"
 #include <string.h>
 #include <stdlib.h>
+#include <map>
+#include <string>
+#include <vector>
 #include "nscore.h"
 #include "nsUniversalDetector.h"
+
+typedef struct _UChardetCandidate
+{
+    char  *encoding;
+    char  *language;
+    float  confidence;
+} UChardetCandidate;
 
 class HandleUniversalDetector : public nsUniversalDetector
 {
 protected:
-    char *m_charset;
-    float m_confidence;
+    std::vector<UChardetCandidate> candidates;
+    std::vector<UChardetCandidate> weighed_candidates;
+    std::map<std::string, float> weights;
+    float default_weight;
+
 public:
     HandleUniversalDetector()
-    : nsUniversalDetector(NS_FILTER_ALL)
-    , m_charset(0)
+    : nsUniversalDetector(NS_FILTER_ALL), default_weight(1.0)
     {
-        m_confidence = 0.0;
     }
 
     virtual ~HandleUniversalDetector()
     {
-        if (m_charset) {
-            free(m_charset);
-            m_confidence = 0.0;
-        }
+        Reset();
     }
 
-    virtual void Report(const char* charset, float confidence)
+    virtual void Report(const char *encoding,
+                        const char *language,
+                        float       confidence)
     {
-        if (m_charset)
-            free(m_charset);
-        m_charset = strdup(charset);
-        m_confidence = confidence;
+        std::vector<UChardetCandidate>::iterator it;
+        UChardetCandidate                        candidate;
+
+        for (it = candidates.begin(); it != candidates.end(); it++)
+        {
+            if (strcmp(it->encoding, encoding) == 0 &&
+                it->language && language && strcmp(it->language, language) == 0)
+            {
+                /* Already reported. Bail out or update the confidence
+                 * when needed.
+                 */
+                if (confidence > it->confidence)
+                {
+                    candidates.erase(it);
+                    break;
+                }
+                else
+                {
+                    return;
+                }
+            }
+        }
+
+        candidate = UChardetCandidate();
+        candidate.encoding   = strdup(encoding);
+        candidate.language   = language ? strdup(language) : NULL;
+        candidate.confidence = confidence;
+
+        for (it = candidates.begin(); it != candidates.end(); it++)
+        {
+            if (it->confidence < confidence)
+                break;
+        }
+        candidates.insert(it, candidate);
+
+        if (weights.size() > 0)
+            WeighCandidates();
     }
 
     virtual void Reset()
     {
+        std::vector<UChardetCandidate>::iterator it;
+
         nsUniversalDetector::Reset();
-        if (m_charset)
-            free(m_charset);
-        m_charset = strdup("");
-        m_confidence = 0.0;
+        for (it = candidates.begin(); it != candidates.end(); it++)
+        {
+            free(it->encoding);
+            if (it->language)
+                free(it->language);
+        }
+        candidates.clear();
     }
 
-    const char* GetCharset() const
+    size_t GetCandidates() const
     {
-        return m_charset? m_charset : "";
+        return candidates.size();
     }
 
-    float GetConfidence() {
-        return m_confidence;
+    const char* GetCharset(size_t i)
+    {
+        if (weights.size() > 0)
+            return (weighed_candidates.size() > i) ? weighed_candidates[i].encoding : "";
+        return (candidates.size() > i) ? candidates[i].encoding : "";
     }
 
-    PRBool HasDone() {
-        return mDone;
+    float GetConfidence(size_t i)
+    {
+        if (weights.size() > 0)
+            return (weighed_candidates.size() > i) ? weighed_candidates[i].confidence : 0.0;
+        return (candidates.size() > i) ? candidates[i].confidence : 0.0;
+    }
+
+    const char* GetLanguage(size_t i)
+    {
+        if (weights.size() > 0)
+            return (weighed_candidates.size() > i) ? weighed_candidates[i].language : NULL;
+        return (candidates.size() > i) ? candidates[i].language : NULL;
+    }
+
+    void WeighLanguage(const char *language,
+                       float       weight)
+    {
+        weights[language] = weight;
+        WeighCandidates();
+    }
+
+    void WeighDefault(float weight)
+    {
+        default_weight = weight;
+        WeighCandidates();
+    }
+
+private:
+
+    void WeighCandidates()
+    {
+        std::vector<UChardetCandidate>::iterator it;
+        std::vector<UChardetCandidate>::iterator it2;
+        UChardetCandidate                        candidate;
+
+        weighed_candidates.clear();
+        for (it = candidates.begin(); it != candidates.end(); it++)
+        {
+            std::map<std::string, float>::iterator weight_it;
+            float                                  confidence;
+
+            confidence = it->confidence * default_weight;
+            if (it->language)
+            {
+                weight_it = weights.find(it->language);
+                if (weight_it != weights.end())
+                    confidence = weight_it->second * it->confidence;
+            }
+
+            candidate = UChardetCandidate();
+            candidate.encoding   = it->encoding;
+            candidate.language   = it->language;
+            candidate.confidence = confidence;
+
+            for (it2 = weighed_candidates.begin(); it2 != weighed_candidates.end(); it2++)
+            {
+                if (it2->confidence < confidence)
+                    break;
+            }
+            weighed_candidates.insert(it2, candidate);
+        }
     }
 };
 
@@ -104,16 +214,12 @@ void uchardet_delete(uchardet_t ud)
 
 int uchardet_handle_data(uchardet_t ud, const char * data, size_t len)
 {
-    nsresult ret = reinterpret_cast<HandleUniversalDetector*>(ud)->HandleData(data, (PRUint32)len);
-    if (ret == NS_ERROR_OUT_OF_MEMORY) {
-        return HANDLE_DATA_RESULT_ERROR;
-    }
+    nsresult ret = NS_OK;
 
-    if (reinterpret_cast<HandleUniversalDetector*>(ud)->HasDone()) {
-        return HANDLE_DATA_RESULT_DETECTED;
-    }
+    if (len > 0)
+        ret = reinterpret_cast<HandleUniversalDetector*>(ud)->HandleData(data, (PRUint32)len);
 
-    return HANDLE_DATA_RESULT_NEED_MORE_DATA;
+    return (ret != NS_OK);
 }
 
 void uchardet_data_end(uchardet_t ud)
@@ -128,10 +234,41 @@ void uchardet_reset(uchardet_t ud)
 
 const char* uchardet_get_charset(uchardet_t ud)
 {
-    return reinterpret_cast<HandleUniversalDetector*>(ud)->GetCharset();
+    return reinterpret_cast<HandleUniversalDetector*>(ud)->GetCharset(0);
 }
 
-float uchardet_get_confidence(uchardet_t ud)
+size_t uchardet_get_n_candidates (uchardet_t ud)
 {
-    return reinterpret_cast<HandleUniversalDetector*>(ud)->GetConfidence();
+    return reinterpret_cast<HandleUniversalDetector*>(ud)->GetCandidates();
+}
+
+float uchardet_get_confidence (uchardet_t ud,
+                               size_t     candidate)
+{
+    return reinterpret_cast<HandleUniversalDetector*>(ud)->GetConfidence(candidate);
+}
+
+const char * uchardet_get_encoding (uchardet_t ud,
+                                    size_t     candidate)
+{
+    return reinterpret_cast<HandleUniversalDetector*>(ud)->GetCharset(candidate);
+}
+
+const char * uchardet_get_language (uchardet_t ud,
+                                    size_t     candidate)
+{
+    return reinterpret_cast<HandleUniversalDetector*>(ud)->GetLanguage(candidate);
+}
+
+void uchardet_weigh_language (uchardet_t  ud,
+                              const char *language,
+                              float       weight)
+{
+    reinterpret_cast<HandleUniversalDetector*>(ud)->WeighLanguage(language, weight);
+}
+
+void uchardet_set_default_weight (uchardet_t  ud,
+                                  float       weight)
+{
+    reinterpret_cast<HandleUniversalDetector*>(ud)->WeighDefault(weight);
 }

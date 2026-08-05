@@ -2,7 +2,7 @@ mod utils;
 
 use futures::future::join_all;
 use lazy_static::lazy_static;
-use serde_json::{from_str, json, Value};
+use serde_json::{Value, from_str, json};
 use statsig_rust::log_event_payload::{LogEventPayload, LogEventRequest};
 use statsig_rust::{EventLoggingAdapter, StatsigLocalFileEventLoggingAdapter};
 use std::fs;

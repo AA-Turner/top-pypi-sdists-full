@@ -1,5 +1,5 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::{json, Map as JsonMap, Number as JsonNumber, Value as JsonValue};
+use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue, json};
 use std::{collections::HashMap, fmt::Debug};
 
 use crate::{
@@ -14,9 +14,7 @@ const TAG: &str = "DynamicValue";
 
 #[macro_export]
 macro_rules! dyn_value {
-    ($x:expr) => {{
-        $crate::DynamicValue::from_json_value($x)
-    }};
+    ($x:expr) => {{ $crate::DynamicValue::from_json_value($x) }};
 }
 
 #[derive(Debug, Clone, Default)]

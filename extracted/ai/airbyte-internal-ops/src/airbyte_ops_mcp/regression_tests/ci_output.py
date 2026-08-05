@@ -11,6 +11,7 @@ from __future__ import annotations
 import datetime
 import json
 import os
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -198,6 +199,138 @@ def github_artifacts_url() -> str | None:
     return f"{run_url}#artifacts"
 
 
+def _pk_integrity_cell(uniqueness_info: dict[str, Any]) -> str:
+    """Render one version's PK integrity as a table cell.
+
+    Shows the duplicate PK count, plus the number of records missing their
+    declared PK values when there are any (the check fails on either).
+    """
+    duplicate_count = uniqueness_info.get("duplicate_pk_count", 0)
+    cell = f"{duplicate_count} {'✅' if uniqueness_info.get('passed', True) else '❌'}"
+    records_missing_pk = uniqueness_info.get("records_missing_pk", 0)
+    if records_missing_pk:
+        cell += f" ({records_missing_pk} missing PK)"
+    return cell
+
+
+def _render_record_comparison_section(
+    record_comparison: dict[str, Any],
+) -> list[str]:
+    """Render the record comparison results as markdown lines.
+
+    Takes a serialized RecordComparisonSummary (`to_dict()` output) and
+    produces a per-stream table covering all record-level checks plus the
+    aggregated error/warning lists.
+    """
+    checks = record_comparison.get("checks", {})
+    counts = checks.get("record_counts", {}).get("streams", {})
+    pk_presence = checks.get("pk_presence", {}).get("streams", {})
+    uniqueness_control = checks.get("pk_uniqueness_control", {}).get("streams", {})
+    uniqueness_target = checks.get("pk_uniqueness_target", {}).get("streams", {})
+    field_values = checks.get("field_values", {}).get("streams", {})
+    streams_without_pk = set(record_comparison.get("streams_without_pk", []))
+
+    passed = record_comparison.get("passed", False)
+    status = "✅ PASSED" if passed else "❌ FAILED"
+
+    lines: list[str] = [
+        "### Record Comparison",
+        "",
+        f"**Status:** {status}",
+        "",
+        (
+            "Checks: directional record counts (target ≥ control), primary key "
+            + "presence (all control PKs must appear in target), PK integrity "
+            + "(per version: no duplicate PK values, no records missing their "
+            + "declared PK values), and field-value equality on PK-matched "
+            + "records. Streams without a primary key fall back to count "
+            + "comparison only."
+        ),
+        "",
+        "| Stream | Count (C → T) | Missing PKs | Dup PKs (control) | Dup PKs (target) | Value Diffs | Result |",
+        "|--------|---------------|-------------|-------------------|------------------|-------------|--------|",
+    ]
+
+    all_streams = sorted(
+        set(counts)
+        | set(pk_presence)
+        | set(uniqueness_control)
+        | set(uniqueness_target)
+        | set(field_values)
+    )
+
+    for stream in all_streams:
+        count_info = counts.get(stream, {})
+        count_pass = count_info.get("passed", True)
+        count_cell = (
+            f"{count_info.get('control_count', 0)} → "
+            f"{count_info.get('target_count', 0)} "
+            f"{'✅' if count_pass else '❌'}"
+        )
+
+        if stream in streams_without_pk:
+            missing_cell = dup_control_cell = dup_target_cell = diff_cell = "—"
+            stream_passed = count_pass
+        else:
+            presence_info = pk_presence.get(stream, {})
+            missing = presence_info.get("missing_pk_count", 0)
+            missing_cell = (
+                f"{missing} {'✅' if presence_info.get('passed', True) else '❌'}"
+            )
+
+            dup_control = uniqueness_control.get(stream, {})
+            dup_control_cell = _pk_integrity_cell(dup_control)
+
+            dup_target = uniqueness_target.get(stream, {})
+            dup_target_cell = _pk_integrity_cell(dup_target)
+
+            field_info = field_values.get(stream, {})
+            diff_count = field_info.get("records_with_value_diff", 0)
+            diff_cell = (
+                f"{diff_count} {'✅' if field_info.get('passed', True) else '❌'}"
+            )
+
+            stream_passed = all(
+                info.get("passed", True)
+                for info in (
+                    count_info,
+                    presence_info,
+                    dup_control,
+                    dup_target,
+                    field_info,
+                )
+            )
+
+        result_cell = "✅" if stream_passed else "❌"
+        # Stream names are connector-controlled: a `|` would split the row
+        # into extra columns and a newline would end the table entirely.
+        stream_cell = " ".join(stream.split()).replace("|", "\\|")
+        lines.append(
+            f"| {stream_cell} | {count_cell} | {missing_cell} | {dup_control_cell} "
+            f"| {dup_target_cell} | {diff_cell} | {result_cell} |"
+        )
+
+    lines.append("")
+
+    errors = record_comparison.get("errors", [])
+    if errors:
+        lines.extend(["#### Comparison Errors", ""])
+        lines.extend(f"- ❌ {error}" for error in errors[:20])
+        if len(errors) > 20:
+            lines.append(f"- … and {len(errors) - 20} more (see run artifacts)")
+        lines.append("")
+
+    warnings = record_comparison.get("warnings", [])
+    if warnings:
+        lines.extend(["#### Comparison Warnings", ""])
+        lines.extend(f"- ⚠️ {warning}" for warning in warnings[:20])
+        if len(warnings) > 20:
+            lines.append(f"- … and {len(warnings) - 20} more (see run artifacts)")
+        lines.append("")
+
+    return lines
+
+
 @dataclass(frozen=True)
 class ComparisonOutcome:
     """The derived outcome of comparing target and control results.
@@ -305,6 +438,8 @@ def generate_action_test_comparison_report(
     target_result: dict[str, Any],
     control_result: dict[str, Any],
     output_dir: Path,
+    record_comparison: dict[str, Any] | None = None,
+    comparison_findings: Sequence[tuple[str, str]] = (),
 ) -> Path:
     """Generate a markdown comparison report for a single action (command).
 
@@ -320,11 +455,24 @@ def generate_action_test_comparison_report(
         target_result: Results dict from running target connector.
         control_result: Results dict from running control connector.
         output_dir: Directory to write the report to.
+        record_comparison: Optional serialized RecordComparisonSummary
+            (from `RecordComparisonSummary.to_dict()`) for read commands.
+        comparison_findings: What comparing the two versions' output found, as
+            `(status, sentence)` pairs where status is `"fail"` or `"warn"`.
+            `ComparisonOutcome` describes how the *commands* went, so without
+            these this report would announce "no regression" over a spec that
+            dropped a field. Warnings are listed without changing the verdict:
+            they do not gate a release, but a reader of this file should not
+            have to open the HTML report to learn the catalog grew.
 
     Returns:
         Path to the generated report.md file.
     """
     outcome = evaluate_comparison_outcome(command, target_result, control_result)
+
+    record_comparison_failed = (
+        record_comparison is not None and not record_comparison.get("passed", True)
+    )
 
     target_counts = target_result.get("message_counts", {})
     control_counts = control_result.get("message_counts", {})
@@ -356,10 +504,25 @@ def generate_action_test_comparison_report(
         f"control {_describe_run(command, control_result)}"
     )
 
-    if outcome.check_improvement:
+    failures = [text for status, text in comparison_findings if status == "fail"]
+
+    if failures:
+        # Only reachable when both commands ran cleanly, so this is the one
+        # verdict the exit codes could not have produced.
+        plural = "s" if len(failures) > 1 else ""
+        lines.append(
+            f"**Result:** {sides}, and the comparison found "
+            f"{len(failures)} problem{plural} — **REGRESSION DETECTED**"
+        )
+    elif outcome.check_improvement:
         lines.append(f"**Result:** {sides} — improvement, not a regression")
     elif outcome.regression_detected:
         lines.append(f"**Result:** {sides} — **REGRESSION DETECTED**")
+    elif outcome.both_succeeded and record_comparison_failed:
+        lines.append(
+            "**Result:** Both versions succeeded, but record comparison "
+            "failed (**REGRESSION DETECTED**)"
+        )
     elif outcome.both_succeeded:
         # A pass requires a clean exit on both sides (plus SUCCEEDED for `check`),
         # so this line cannot disagree with the per-version rows.
@@ -414,6 +577,19 @@ def generate_action_test_comparison_report(
                 "|---------|-----------|--------|",
                 f"| Control (`{control_version}`) | {control_result['exit_code']} | {control_emoji} |",
                 f"| Target (`{target_version}`) | {target_result['exit_code']} | {target_emoji} |",
+                "",
+            ]
+        )
+
+    if comparison_findings:
+        lines.extend(
+            [
+                "### Comparison Findings",
+                "",
+                *(
+                    f"- {'❌' if status == 'fail' else '⚠️'} {text}"
+                    for status, text in comparison_findings
+                ),
                 "",
             ]
         )
@@ -485,6 +661,9 @@ def generate_action_test_comparison_report(
                 "",
             ]
         )
+
+    if record_comparison is not None:
+        lines.extend(_render_record_comparison_section(record_comparison))
 
     # Note: Execution Details section removed as redundant with Summary table
 

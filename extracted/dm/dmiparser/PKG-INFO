@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dmiparser
-Version: 5.1
+Version: 6.0
 Summary: This parse dmidecode output to JSON text
 Home-page: https://github.com/Arondight/python-dmiparser
 Download-URL: https://github.com/Arondight/python-dmiparser/tags
@@ -13,13 +13,11 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: download-url
+Dynamic: license-file
 
 # python-dmiparser
 
@@ -78,24 +76,32 @@ def report(*args: str) -> None:
 
 if "__main__" == __name__:
     text = (
-        "# dmidecode 3.0\n"
+        "# dmidecode 3.6\n"
         "Getting SMBIOS data from sysfs.\n"
-        "SMBIOS 2.7 present.\n"
+        "SMBIOS 3.7.0 present.\n"
         "\n"
-        "Handle 0x0003, DMI type 2, 17 bytes\n"
-        "Base Board Information\n"
-        "\tManufacturer: Intel Corporation\n"
-        "\tProduct Name: S2600WT2R\n"
-        "\tVersion: H21573-372\n"
-        "\tSerial Number: BQWL81150522\n"
-        "\tAsset Tag: Base Board Asset Tag\n"
-        "\tFeatures:\n"
-        "\t\tBoard is a hosting board\n"
-        "\t\tBoard is replaceable\n"
-        "\tLocation In Chassis: Part Component\n"
-        "\tChassis Handle: 0x0000\n"
-        "\tType: Motherboard\n"
-        "\tContained Object Handles: 0\n"
+        "Handle 0x0000, DMI type 0, 26 bytes\n"
+        "Platform Firmware Information\n"
+        "\tVendor: American Megatrends International, LLC.\n"
+        "\tVersion: 3A09.QCT001\n"
+        "\tRelease Date: 11/14/2024\n"
+        "\tAddress: 0xF0000\n"
+        "\tRuntime Size: 64 KiB\n"
+        "\tROM Size: 64 MiB\n"
+        "\tCharacteristics:\n"
+        "\t\tPCI is supported\n"
+        "\t\tFirmware is upgradeable\n"
+        "\t\tFirmware shadowing is allowed\n"
+        "\t\tBoot from CD is supported\n"
+        "\t\tSelectable boot is supported\n"
+        "\t\tFirmware ROM is socketed\n"
+        "\t\tEDD is supported\n"
+        "\t\tACPI is supported\n"
+        "\t\tBIOS boot specification is supported\n"
+        "\t\tTargeted content distribution is supported\n"
+        "\t\tUEFI is supported\n"
+        "\tPlatform Firmware Revision: 5.35\n"
+        "\tEmbedded Controller Firmware Revision: 3.9\n"
         "\n"
     )
 
@@ -135,31 +141,31 @@ def report(*args: str) -> None:
 def getCpuInfo(dmidecoder) -> str:
     """Get CPU information, will return text like below.
 
-    CPU1:
+    CPU_0:
         Family: Xeon
-        Version: Intel(R) Xeon(R) CPU E5-2630 v4 @ 2.20GHz
+        Version: Intel(R) Xeon(R) 6767P
         Voltage: 1.8 V
-        Speed: 2200 MHz/4000 MHz
+        Speed: 2400 MHz/3900 MHz
         Status: Populated, Enabled
-        Core: 10/10
-        Thread: 20
-    CPU2:
+        Core: 64/64
+        Thread: 128
+    CPU_1:
         Family: Xeon
-        Version: Intel(R) Xeon(R) CPU E5-2630 v4 @ 2.20GHz
+        Version: Intel(R) Xeon(R) 6767P
         Voltage: 1.8 V
-        Speed: 2200 MHz/4000 MHz
+        Speed: 2400 MHz/3900 MHz
         Status: Populated, Enabled
-        Core: 10/10
-        Thread: 20
+        Core: 64/64
+        Thread: 128
 
-    @param: dmidecode: DmiDecode object
+    @param dmidecoder: DmiDecoder object
     @return: text of CPU information
     """
     text = ""
 
-    for id, name in dmidecoder.sections:
+    for sid, name in dmidecoder.sections:
         def getFirst(*args):
-            vals = dmidecoder.getProp(*args, id=id, name=name)
+            vals = dmidecoder.getProp(*args, id=sid, name=name)
             return vals[0] if len(vals) > 0 else None
 
         text += "{}:\n".format(getFirst("Socket Designation"))

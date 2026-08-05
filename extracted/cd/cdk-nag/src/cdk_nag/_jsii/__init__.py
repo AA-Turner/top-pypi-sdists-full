@@ -11,7 +11,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 import aws_cdk._jsii
@@ -67,7 +67,7 @@ _SUBMODULE_FQN_MAP = {
 }
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "cdk-nag", "3.0.1", __name__[0:-6], "cdk-nag@3.0.1.jsii.tgz"
+    "cdk-nag", "3.0.2", __name__[0:-6], "cdk-nag@3.0.2.jsii.tgz"
 )
 
 __all__ = [

@@ -8,7 +8,7 @@ import contextlib
 import logging
 import os
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import anyio
 import mcp.types as types
@@ -18,6 +18,7 @@ from pydantic import AnyUrl, ValidationError
 
 from servicenow_mcp.auth.auth_manager import AuthManager
 from servicenow_mcp.resources.skill_resources import build_tool_to_skills_map, load_skills
+from servicenow_mcp.tools.sync_tools import set_instance_resolver
 from servicenow_mcp.utils import json_fast
 from servicenow_mcp.utils.chromium import check_chromium_install_hint
 from servicenow_mcp.utils.config import (
@@ -104,6 +105,9 @@ TOOL_PACKAGE_CONFIG_PATH = os.getenv("TOOL_PACKAGE_CONFIG_PATH", "config/tool_pa
 # truth shared with the guard pipeline. It was duplicated here once and the
 # copies drifted (get_action_source); see tests/test_write_classification.py.
 from servicenow_mcp.policies.write_guards import (  # noqa: E402
+    _PUBLISH_CLASS_TOOLS,
+    CONFIRM_PUBLISH_FIELD,
+    CONFIRM_PUBLISH_VALUE,
     MANAGE_READ_ACTIONS,
     MUTATING_TOOL_NAMES,
     MUTATING_TOOL_PREFIXES,
@@ -577,6 +581,11 @@ class ServiceNowMCP:
         )
         self.instance_contexts: Dict[str, Dict[str, Any]] = self._build_instance_contexts()
         self.active_instance_meta = self._active_instance_meta()
+        # The push path holds only the write target, so a promotion had no way to
+        # ask its ORIGIN whether the copy being shipped is still current. Hand the
+        # sync guards a read-only lookup for the other configured instances; they
+        # report "not checked" when it is absent rather than assuming freshness.
+        set_instance_resolver(self._instance_read_context)
 
         self.package_definitions: Dict[str, List[str]] = {}
         # Per-package per-tool action allowlists. Populated when YAML uses the
@@ -650,6 +659,18 @@ class ServiceNowMCP:
         self.mcp_server.read_resource()(self._read_resource_impl)
         self.mcp_server.list_resource_templates()(self._list_resource_templates_impl)
         logger.info("Registered list_tools, call_tool, and resource handlers.")
+
+    def _instance_read_context(self, alias: str) -> Optional[Tuple[Any, Any]]:
+        """(config, auth_manager) for a configured alias, or None if unusable.
+
+        Read-only helper for the sync guards. Returns None — never a partially
+        built pair — for an unknown alias or one that failed to initialize, so
+        the caller reports "could not check" instead of silently proceeding.
+        """
+        ctx = self.instance_contexts.get(alias)
+        if not ctx or "config_error" in ctx:
+            return None
+        return ctx["config"], ctx["auth_manager"]
 
     def _build_instance_contexts(self) -> Dict[str, Dict[str, Any]]:
         """Build named instance contexts for read-only comparison helpers.
@@ -1028,7 +1049,7 @@ class ServiceNowMCP:
         return ServiceNowMCP._is_blocked_mutating_tool(tool_name)
 
     @staticmethod
-    def _inject_confirmation_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
+    def _inject_confirmation_schema(schema: Dict[str, Any], tool_name: str = "") -> Dict[str, Any]:
         # Shallow copy top-level and only the mutable sub-keys we modify,
         # avoiding an expensive copy.deepcopy of the entire Pydantic schema.
         schema_with_confirm = {**schema}
@@ -1041,28 +1062,66 @@ class ServiceNowMCP:
             "type": "string",
             "enum": [CONFIRM_VALUE],
         }
-        schema_with_confirm["properties"] = properties
         required = list(schema.get("required", []))
         if CONFIRM_FIELD not in required:
             required.append(CONFIRM_FIELD)
+
+        # G7 demands a SECOND approval on publish-class tools, and no params model
+        # declares it — so the schema never mentioned it and the caller could not
+        # know it existed. Every push, publish and commit therefore cost one
+        # guaranteed rejected call to discover a field the server already knew the
+        # name of. A guard is allowed to stop you; it is not allowed to hide the
+        # way through.
+        publish_condition = _PUBLISH_CLASS_TOOLS.get(tool_name, "__not_publish__")
+        if publish_condition != "__not_publish__":
+            properties[CONFIRM_PUBLISH_FIELD] = {
+                "type": "string",
+                "enum": [CONFIRM_PUBLISH_VALUE],
+            }
+            # None means the tool is publish-class on every call, so the field is
+            # simply required. A condition dict/list means only some actions
+            # publish (manage_changeset get, manage_flow_designer list), and
+            # marking it required would block the reads that share the tool.
+            if publish_condition is None and CONFIRM_PUBLISH_FIELD not in required:
+                required.append(CONFIRM_PUBLISH_FIELD)
+
+        schema_with_confirm["properties"] = properties
         schema_with_confirm["required"] = required
         return schema_with_confirm
 
-    def _inject_instance_schema(self, schema: Dict[str, Any]) -> Dict[str, Any]:
-        """Advertise the optional read-only `instance` arg on read tools.
+    def _inject_instance_schema(
+        self, schema: Dict[str, Any], *, writable: bool = False
+    ) -> Dict[str, Any]:
+        """Advertise the optional `instance` arg, and on write tools its approval.
 
-        Only called in multi-instance mode for non-write tools. Lets the LLM
-        target a named non-active instance for a single read without switching
-        the server's active instance. The enum is the configured alias list.
+        Only called in multi-instance mode. Lets the LLM target a named non-active
+        instance for a single call without switching the server's active instance.
+        The enum is the configured alias list.
+
+        ``writable`` adds ``confirm_instance``, which the call handler already
+        requires for a cross-instance write. It used to be advertised on read
+        tools ONLY, on the reasoning that writes "only ever run against the active
+        instance" — but that is not what the handler does. It routes a single
+        write to a named target given ``confirm_instance == instance``, guards and
+        echo scoped to that target, active restored afterwards.
+
+        So the capability was real and invisible, and the tool definitions said
+        the opposite. A session concluded from them that MCP writes cannot leave
+        the active instance and that changing it needs a config edit and a
+        restart, then hand-built a deployment XML instead — the one path this
+        repo documents as never safe to hand-assemble. Hiding a capability does
+        not make callers do without it; it makes them route around it.
         """
         aliases = sorted(self.instance_contexts)
         schema_with_instance = {**schema}
         properties = {**schema.get("properties", {})}
-        # No per-tool description — it would repeat on every read tool, every
-        # request. The field name + alias enum are self-explanatory, and the
-        # one-time multi-instance `instructions` block carries the steer
-        # (default-to-active, no fan-out). Keeps the per-request schema lean.
+        # No per-tool description — it would repeat on every tool, every request.
+        # The field name + alias enum are self-explanatory, and the one-time
+        # multi-instance `instructions` block carries the steer (default-to-
+        # active, no fan-out). Keeps the per-request schema lean.
         properties[INSTANCE_FIELD] = {"type": "string", "enum": aliases}
+        if writable:
+            properties[CONFIRM_INSTANCE_FIELD] = {"type": "string", "enum": aliases}
         schema_with_instance["properties"] = properties
         return schema_with_instance
 
@@ -1196,13 +1255,16 @@ class ServiceNowMCP:
                     if allowed is not None:
                         fields_by_action = getattr(params_model, "_FIELDS_BY_ACTION", None)
                         schema = _narrow_action_schema(schema, allowed, fields_by_action)
-                    if self._tool_requires_confirmation(tool_name):
-                        schema = self._inject_confirmation_schema(schema)
-                    elif self.instance_contexts:
-                        # Multi-instance: let read tools target a named instance.
-                        # Write tools (confirmation-requiring) are excluded — they
-                        # only ever run against the active instance.
-                        schema = self._inject_instance_schema(schema)
+                    is_write = self._tool_requires_confirmation(tool_name)
+                    if is_write:
+                        schema = self._inject_confirmation_schema(schema, tool_name)
+                    if self.instance_contexts:
+                        # Multi-instance: any tool may target a named instance.
+                        # Writes additionally get `confirm_instance`, which the
+                        # call handler already demands to route one write to a
+                        # non-active target. Advertising it on reads only is what
+                        # made cross-instance deploys look impossible.
+                        schema = self._inject_instance_schema(schema, writable=is_write)
                     tool_list.append(
                         types.Tool(
                             name=tool_name,

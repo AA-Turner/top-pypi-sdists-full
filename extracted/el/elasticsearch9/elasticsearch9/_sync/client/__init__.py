@@ -47,6 +47,7 @@ from .ccr import CcrClient
 from .cluster import ClusterClient
 from .connector import ConnectorClient
 from .dangling_indices import DanglingIndicesClient
+from .encryption import EncryptionClient
 from .enrich import EnrichClient
 from .eql import EqlClient
 from .esql import EsqlClient
@@ -379,6 +380,7 @@ class Elasticsearch(BaseClient):
         self.xpack = XPackClient(self)
         self.ccr = CcrClient(self)
         self.dangling_indices = DanglingIndicesClient(self)
+        self.encryption = EncryptionClient(self)
         self.enrich = EnrichClient(self)
         self.eql = EqlClient(self)
         self.esql = EsqlClient(self)
@@ -588,6 +590,7 @@ class Elasticsearch(BaseClient):
         ] = None,
         require_alias: t.Optional[bool] = None,
         require_data_stream: t.Optional[bool] = None,
+        route_slice: t.Optional[str] = None,
         routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         source: t.Optional[t.Union[bool, t.Union[str, t.Sequence[str]]]] = None,
         source_excludes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
@@ -686,7 +689,7 @@ class Elasticsearch(BaseClient):
           Refer to the linked documentation for step-by-step instructions using the index settings API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-bulk>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-bulk>`_
 
         :param operations:
         :param index: The name of the data stream, index, or index alias to perform bulk
@@ -707,8 +710,13 @@ class Elasticsearch(BaseClient):
         :param require_alias: If `true`, the request's actions must target an index alias.
         :param require_data_stream: If `true`, the request's actions must target a data
             stream (existing or to be created).
+        :param route_slice: The slice identifier used to route the operation to a specific
+            slice. Use the special value `_all` to target all slices without restricting
+            to a routing value. Required when `index.slice.enabled` is `true` for the
+            target index; not allowed when `index.slice.enabled` is `false`.
         :param routing: A custom value that is used to route operations to a specific
-            shard.
+            shard. Not allowed when `index.slice.enabled` is `true` for the target index;
+            use `_slice` instead.
         :param source: Indicates whether to return the `_source` field (`true` or `false`)
             or contains a list of fields to return.
         :param source_excludes: A comma-separated list of source fields to exclude from
@@ -764,6 +772,8 @@ class Elasticsearch(BaseClient):
             __query["require_alias"] = require_alias
         if require_data_stream is not None:
             __query["require_data_stream"] = require_data_stream
+        if route_slice is not None:
+            __query["_slice"] = route_slice
         if routing is not None:
             __query["routing"] = routing
         if source is not None:
@@ -791,6 +801,80 @@ class Elasticsearch(BaseClient):
             path_parts=__path_parts,
         )
 
+    @_rewrite_parameters()
+    def cancel_reindex(
+        self,
+        *,
+        task_id: str,
+        error_trace: t.Optional[bool] = None,
+        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        human: t.Optional[bool] = None,
+        pretty: t.Optional[bool] = None,
+        wait_for_completion: t.Optional[bool] = None,
+    ) -> ObjectApiResponse[t.Any]:
+        """
+        .. raw:: html
+
+          <p>Cancel an ongoing reindex task.</p>
+          <p>If <code>wait_for_completion</code> is <code>true</code> (the default), the response contains the final task state after cancellation.
+          If <code>wait_for_completion</code> is <code>false</code>, the response contains only <code>acknowledged: true</code>.</p>
+          <p>This API follows reindex tasks across node-shutdown relocations, so callers can
+          keep using the original task ID throughout the lifetime of the operation.
+          Returned task IDs and timings reflect the original task, not its relocated successor.
+          Relocated task IDs are also supported. They are followed transparently and return the task ID and timings of the original task.</p>
+          <p>When the task ID cannot be cancelled (unknown ID, non-reindex task, sliced child, finished task, or node left with no stored result), the API returns the following response with a 404 status code:</p>
+          <pre><code>{
+            &quot;error&quot;: {
+              &quot;type&quot;: &quot;resource_not_found_exception&quot;,
+              &quot;reason&quot;: &quot;reindex task [r1A2WoRbTwKZ516z6NEs5A:36619] either not found or completed&quot;
+            },
+            &quot;status&quot;: 404
+          }
+          </code></pre>
+          <p>During a brief handoff window of a node-shutdown relocation, you may receive the response below with a 503 status code.
+          Retry with the same task ID; the retry follows the relocated task transparently.</p>
+          <pre><code>{
+            &quot;error&quot;: {
+              &quot;type&quot;: &quot;status_exception&quot;,
+              &quot;reason&quot;: &quot;cannot cancel task [36619] because it is being relocated&quot;
+            },
+            &quot;status&quot;: 503
+          }
+          </code></pre>
+
+
+        `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
+
+        :param task_id: The ID of the reindex task to cancel.
+        :param wait_for_completion: If `true` (the default), the request blocks until
+            the cancellation is complete and returns the final task state. If `false`,
+            the request returns immediately with `acknowledged: true`.
+        """
+        if task_id in SKIP_IN_PATH:
+            raise ValueError("Empty value passed for parameter 'task_id'")
+        __path_parts: t.Dict[str, str] = {"task_id": _quote(task_id)}
+        __path = f'/_reindex/{__path_parts["task_id"]}/_cancel'
+        __query: t.Dict[str, t.Any] = {}
+        if error_trace is not None:
+            __query["error_trace"] = error_trace
+        if filter_path is not None:
+            __query["filter_path"] = filter_path
+        if human is not None:
+            __query["human"] = human
+        if pretty is not None:
+            __query["pretty"] = pretty
+        if wait_for_completion is not None:
+            __query["wait_for_completion"] = wait_for_completion
+        __headers = {"accept": "application/json"}
+        return self.perform_request(  # type: ignore[return-value]
+            "POST",
+            __path,
+            params=__query,
+            headers=__headers,
+            endpoint_id="cancel_reindex",
+            path_parts=__path_parts,
+        )
+
     @_rewrite_parameters(
         body_fields=("scroll_id",),
     )
@@ -811,7 +895,7 @@ class Elasticsearch(BaseClient):
           <p>Clear the search context and results for a scrolling search.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-clear-scroll>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-clear-scroll>`_
 
         :param scroll_id: The scroll IDs to clear. To clear all scroll IDs, use `_all`.
         """
@@ -866,7 +950,7 @@ class Elasticsearch(BaseClient):
           However, keeping points in time has a cost; close them as soon as they are no longer required for search requests.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-open-point-in-time>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-open-point-in-time>`_
 
         :param id: The ID of the point-in-time.
         """
@@ -930,7 +1014,9 @@ class Elasticsearch(BaseClient):
         project_routing: t.Optional[str] = None,
         q: t.Optional[str] = None,
         query: t.Optional[t.Mapping[str, t.Any]] = None,
+        route_slice: t.Optional[str] = None,
         routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        stats: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         terminate_after: t.Optional[int] = None,
         body: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> ObjectApiResponse[t.Any]:
@@ -947,7 +1033,7 @@ class Elasticsearch(BaseClient):
           This means that replicas increase the scalability of the count.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-count>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-count>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases to
             search. It supports wildcards (`*`). To search all data streams and indices,
@@ -993,7 +1079,14 @@ class Elasticsearch(BaseClient):
             with a request body.
         :param query: Defines the search query using Query DSL. A request body query
             cannot be used with the `q` query string parameter.
+        :param route_slice: The slice identifier used to route the operation to a specific
+            slice. Use the special value `_all` to target all slices without restricting
+            to a routing value. Required when `index.slice.enabled` is `true` for the
+            target index; not allowed when `index.slice.enabled` is `false`.
         :param routing: A custom value used to route operations to a specific shard.
+            Not allowed when `index.slice.enabled` is `true` for the target index; use
+            `_slice` instead.
+        :param stats: Specific `tag` of the request for logging and statistical purposes.
         :param terminate_after: The maximum number of documents to collect for each shard.
             If a query reaches this limit, Elasticsearch terminates the query early.
             Elasticsearch collects documents before sorting. IMPORTANT: Use with caution.
@@ -1043,8 +1136,12 @@ class Elasticsearch(BaseClient):
             __query["pretty"] = pretty
         if q is not None:
             __query["q"] = q
+        if route_slice is not None:
+            __query["_slice"] = route_slice
         if routing is not None:
             __query["routing"] = routing
+        if stats is not None:
+            __query["stats"] = stats
         if terminate_after is not None:
             __query["terminate_after"] = terminate_after
         if not __body:
@@ -1153,7 +1250,7 @@ class Elasticsearch(BaseClient):
           The <code>_shards</code> section of the API response reveals the number of shard copies on which replication succeeded and failed.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-create>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-create>`_
 
         :param index: The name of the data stream or index to target. If the target doesn't
             exist and matches the name or wildcard (`*`) pattern of an index template
@@ -1265,6 +1362,7 @@ class Elasticsearch(BaseClient):
         refresh: t.Optional[
             t.Union[bool, str, t.Literal["false", "true", "wait_for"]]
         ] = None,
+        route_slice: t.Optional[str] = None,
         routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         version: t.Optional[int] = None,
@@ -1304,7 +1402,7 @@ class Elasticsearch(BaseClient):
           It then gets redirected into the primary shard within that ID group and replicated (if needed) to shard replicas within that ID group.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-delete>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-delete>`_
 
         :param index: The name of the target index.
         :param id: A unique identifier for the document.
@@ -1315,7 +1413,13 @@ class Elasticsearch(BaseClient):
         :param refresh: If `true`, Elasticsearch refreshes the affected shards to make
             this operation visible to search. If `wait_for`, it waits for a refresh to
             make this operation visible to search. If `false`, it does nothing with refreshes.
+        :param route_slice: The slice identifier used to route the operation to a specific
+            slice. Use the special value `_all` to target all slices without restricting
+            to a routing value. Required when `index.slice.enabled` is `true` for the
+            target index; not allowed when `index.slice.enabled` is `false`.
         :param routing: A custom value used to route operations to a specific shard.
+            Not allowed when `index.slice.enabled` is `true` for the target index; use
+            `_slice` instead.
         :param timeout: The period to wait for active shards. This parameter is useful
             for situations where the primary shard assigned to perform the delete operation
             might not be available when the delete operation runs. Some reasons for this
@@ -1352,6 +1456,8 @@ class Elasticsearch(BaseClient):
             __query["pretty"] = pretty
         if refresh is not None:
             __query["refresh"] = refresh
+        if route_slice is not None:
+            __query["_slice"] = route_slice
         if routing is not None:
             __query["routing"] = routing
         if timeout is not None:
@@ -1408,6 +1514,7 @@ class Elasticsearch(BaseClient):
         refresh: t.Optional[bool] = None,
         request_cache: t.Optional[bool] = None,
         requests_per_second: t.Optional[float] = None,
+        route_slice: t.Optional[str] = None,
         routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         scroll: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         scroll_size: t.Optional[int] = None,
@@ -1498,7 +1605,7 @@ class Elasticsearch(BaseClient):
           The get task status API will continue to list the delete by query task until this task checks that it has been cancelled and terminates itself.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-delete-by-query>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-delete-by-query>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases to
             search. It supports wildcards (`*`). To search all data streams or indices,
@@ -1545,9 +1652,17 @@ class Elasticsearch(BaseClient):
             `wait_for`.
         :param request_cache: If `true`, the request cache is used for this request.
             Defaults to the index-level setting.
-        :param requests_per_second: The throttle for this request in sub-requests per
-            second.
+        :param requests_per_second: The maximum number of documents to delete per second,
+            across the entire delete-by-query operation (including slices). It can be
+            either `-1` to turn off throttling or any decimal number like `1.7` or `12`
+            to throttle to that level.
+        :param route_slice: The slice identifier used to route the operation to a specific
+            slice. Use the special value `_all` to target all slices without restricting
+            to a routing value. Required when `index.slice.enabled` is `true` for the
+            target index; not allowed when `index.slice.enabled` is `false`.
         :param routing: A custom value used to route operations to a specific shard.
+            Not allowed when `index.slice.enabled` is `true` for the target index; use
+            `_slice` instead.
         :param scroll: The period to retain the search context for scrolling.
         :param scroll_size: The size of the scroll request that powers the operation.
         :param search_timeout: The explicit timeout for each search request. It defaults
@@ -1635,6 +1750,8 @@ class Elasticsearch(BaseClient):
             __query["request_cache"] = request_cache
         if requests_per_second is not None:
             __query["requests_per_second"] = requests_per_second
+        if route_slice is not None:
+            __query["_slice"] = route_slice
         if routing is not None:
             __query["routing"] = routing
         if scroll is not None:
@@ -1698,11 +1815,13 @@ class Elasticsearch(BaseClient):
           Rethrottling that speeds up the query takes effect immediately but rethrotting that slows down the query takes effect after completing the current batch to prevent scroll timeouts.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-delete-by-query-rethrottle>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-delete-by-query-rethrottle>`_
 
         :param task_id: The ID for the task.
-        :param requests_per_second: The throttle for this request in sub-requests per
-            second. To disable throttling, set it to `-1`.
+        :param requests_per_second: The maximum number of documents to delete per second,
+            across the entire delete-by-query operation (including slices). It can be
+            either `-1` to turn off throttling or any decimal number like `1.7` or `12`
+            to throttle to that level.
         """
         if task_id in SKIP_IN_PATH:
             raise ValueError("Empty value passed for parameter 'task_id'")
@@ -1750,7 +1869,7 @@ class Elasticsearch(BaseClient):
           <p>Deletes a stored script or search template.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-delete-script>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-delete-script>`_
 
         :param id: The identifier for the stored script or search template.
         :param master_timeout: The period to wait for a connection to the master node.
@@ -1834,7 +1953,7 @@ class Elasticsearch(BaseClient):
           Elasticsearch cleans up deleted documents in the background as you continue to index more data.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-get>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-get>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases. It
             supports wildcards (`*`).
@@ -1957,7 +2076,7 @@ class Elasticsearch(BaseClient):
           <p>A document's source is not available if it is disabled in the mapping.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-get>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-get>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases. It
             supports wildcards (`*`).
@@ -2048,6 +2167,7 @@ class Elasticsearch(BaseClient):
         pretty: t.Optional[bool] = None,
         q: t.Optional[str] = None,
         query: t.Optional[t.Mapping[str, t.Any]] = None,
+        route_slice: t.Optional[str] = None,
         routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         source: t.Optional[t.Union[bool, t.Union[str, t.Sequence[str]]]] = None,
         source_excludes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
@@ -2063,7 +2183,7 @@ class Elasticsearch(BaseClient):
           It computes a score explanation for a query and a specific document.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-explain>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-explain>`_
 
         :param index: Index names that are used to limit the request. Only a single index
             name can be provided to this parameter.
@@ -2085,7 +2205,13 @@ class Elasticsearch(BaseClient):
             is random by default.
         :param q: The query in the Lucene query string syntax.
         :param query: Defines the search definition using the Query DSL.
+        :param route_slice: The slice identifier used to route the operation to a specific
+            slice. Use the special value `_all` to target all slices without restricting
+            to a routing value. Required when `index.slice.enabled` is `true` for the
+            target index; not allowed when `index.slice.enabled` is `false`.
         :param routing: A custom value used to route operations to a specific shard.
+            Not allowed when `index.slice.enabled` is `true` for the target index; use
+            `_slice` instead.
         :param source: `True` or `false` to return the `_source` field or not or a list
             of fields to return.
         :param source_excludes: A comma-separated list of source fields to exclude from
@@ -2130,6 +2256,8 @@ class Elasticsearch(BaseClient):
             __query["pretty"] = pretty
         if q is not None:
             __query["q"] = q
+        if route_slice is not None:
+            __query["_slice"] = route_slice
         if routing is not None:
             __query["routing"] = routing
         if source is not None:
@@ -2197,7 +2325,7 @@ class Elasticsearch(BaseClient):
           For example, a runtime field with a type of keyword is returned the same as any other field that belongs to the <code>keyword</code> family.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-field-caps>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-field-caps>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases used
             to limit the request. Supports wildcards (*). To target all data streams
@@ -2316,6 +2444,7 @@ class Elasticsearch(BaseClient):
         pretty: t.Optional[bool] = None,
         realtime: t.Optional[bool] = None,
         refresh: t.Optional[bool] = None,
+        route_slice: t.Optional[str] = None,
         routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         source: t.Optional[t.Union[bool, t.Union[str, t.Sequence[str]]]] = None,
         source_exclude_vectors: t.Optional[bool] = None,
@@ -2368,7 +2497,7 @@ class Elasticsearch(BaseClient):
           Elasticsearch cleans up deleted documents in the background as you continue to index more data.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-get>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-get>`_
 
         :param index: The name of the index that contains the document.
         :param id: A unique document identifier.
@@ -2389,7 +2518,13 @@ class Elasticsearch(BaseClient):
             the document. Setting it to `true` should be done after careful thought and
             verification that this does not cause a heavy load on the system (and slow
             down indexing).
+        :param route_slice: The slice identifier used to route the operation to a specific
+            slice. Use the special value `_all` to target all slices without restricting
+            to a routing value. Required when `index.slice.enabled` is `true` for the
+            target index; not allowed when `index.slice.enabled` is `false`.
         :param routing: A custom value used to route operations to a specific shard.
+            Not allowed when `index.slice.enabled` is `true` for the target index; use
+            `_slice` instead.
         :param source: Indicates whether to return the `_source` field (`true` or `false`)
             or lists the fields to return.
         :param source_exclude_vectors: Whether vectors should be excluded from _source
@@ -2434,6 +2569,8 @@ class Elasticsearch(BaseClient):
             __query["realtime"] = realtime
         if refresh is not None:
             __query["refresh"] = refresh
+        if route_slice is not None:
+            __query["_slice"] = route_slice
         if routing is not None:
             __query["routing"] = routing
         if source is not None:
@@ -2461,6 +2598,73 @@ class Elasticsearch(BaseClient):
         )
 
     @_rewrite_parameters()
+    def get_reindex(
+        self,
+        *,
+        task_id: str,
+        error_trace: t.Optional[bool] = None,
+        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        human: t.Optional[bool] = None,
+        pretty: t.Optional[bool] = None,
+        timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
+        wait_for_completion: t.Optional[bool] = None,
+    ) -> ObjectApiResponse[t.Any]:
+        """
+        .. raw:: html
+
+          <p>Get the status and progress of a specific reindex task.</p>
+          <p>This API follows reindex tasks across node-shutdown relocations, so callers can
+          keep using the original task ID throughout the lifetime of the operation.
+          Returned task IDs and timings reflect the original task, not its relocated successor.
+          Relocated task IDs are also supported. They are followed transparently and return the task ID and timings of the original task.</p>
+          <p>When the task ID cannot be resolved, the API returns the response below with a 404 status code.
+          This response is used whether the ID is unknown, refers to a non-reindex task, refers to a sliced child subtask, or refers to a task whose node left the cluster with no stored result (e.g. a non-graceful shutdown).</p>
+          <pre><code>{
+            &quot;error&quot;: {
+              &quot;type&quot;: &quot;resource_not_found_exception&quot;,
+              &quot;reason&quot;: &quot;Reindex operation [r1A2WoRbTwKZ516z6NEs5A:36619] not found&quot;
+            },
+            &quot;status&quot;: 404
+          }
+          </code></pre>
+
+
+        `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
+
+        :param task_id: The ID of the reindex task to retrieve.
+        :param timeout: The period to wait for the reindex task to complete when `wait_for_completion`
+            is `true`.
+        :param wait_for_completion: If `true`, the request blocks until the reindex task
+            completes, then returns the result.
+        """
+        if task_id in SKIP_IN_PATH:
+            raise ValueError("Empty value passed for parameter 'task_id'")
+        __path_parts: t.Dict[str, str] = {"task_id": _quote(task_id)}
+        __path = f'/_reindex/{__path_parts["task_id"]}'
+        __query: t.Dict[str, t.Any] = {}
+        if error_trace is not None:
+            __query["error_trace"] = error_trace
+        if filter_path is not None:
+            __query["filter_path"] = filter_path
+        if human is not None:
+            __query["human"] = human
+        if pretty is not None:
+            __query["pretty"] = pretty
+        if timeout is not None:
+            __query["timeout"] = timeout
+        if wait_for_completion is not None:
+            __query["wait_for_completion"] = wait_for_completion
+        __headers = {"accept": "application/json"}
+        return self.perform_request(  # type: ignore[return-value]
+            "GET",
+            __path,
+            params=__query,
+            headers=__headers,
+            endpoint_id="get_reindex",
+            path_parts=__path_parts,
+        )
+
+    @_rewrite_parameters()
     def get_script(
         self,
         *,
@@ -2478,7 +2682,7 @@ class Elasticsearch(BaseClient):
           <p>Retrieves a stored script or search template.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-get-script>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-get-script>`_
 
         :param id: The identifier for the stored script or search template.
         :param master_timeout: The period to wait for the master node. If the master
@@ -2527,7 +2731,7 @@ class Elasticsearch(BaseClient):
           <p>Get a list of supported script contexts and their methods.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-get-script-context>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-get-script-context>`_
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_script_context"
@@ -2566,7 +2770,7 @@ class Elasticsearch(BaseClient):
           <p>Get a list of available script types, languages, and contexts.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-get-script-languages>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-get-script-languages>`_
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/_script_language"
@@ -2630,7 +2834,7 @@ class Elasticsearch(BaseClient):
           </code></pre>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-get>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-get>`_
 
         :param index: The name of the index that contains the document.
         :param id: A unique document identifier.
@@ -2726,7 +2930,7 @@ class Elasticsearch(BaseClient):
           When setting up automated polling of the API for health status, set verbose to false to disable the more expensive analysis logic.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-health-report>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-health-report>`_
 
         :param feature: A feature of the cluster, as returned by the top-level health
             report API.
@@ -2790,6 +2994,7 @@ class Elasticsearch(BaseClient):
         ] = None,
         require_alias: t.Optional[bool] = None,
         require_data_stream: t.Optional[bool] = None,
+        route_slice: t.Optional[str] = None,
         routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         version: t.Optional[int] = None,
@@ -2890,7 +3095,7 @@ class Elasticsearch(BaseClient):
           Even the simple case of updating the Elasticsearch index using data from a database is simplified if external versioning is used, as only the latest version will be used if the index operations arrive out of order.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-create>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-create>`_
 
         :param index: The name of the data stream or index to target. If the target doesn't
             exist and matches the name or wildcard (`*`) pattern of an index template
@@ -2925,8 +3130,13 @@ class Elasticsearch(BaseClient):
         :param require_alias: If `true`, the destination must be an index alias.
         :param require_data_stream: If `true`, the request's actions must target a data
             stream (existing or to be created).
+        :param route_slice: The slice identifier used to route the operation to a specific
+            slice. Use the special value `_all` to target all slices without restricting
+            to a routing value. Required when `index.slice.enabled` is `true` for the
+            target index; not allowed when `index.slice.enabled` is `false`.
         :param routing: A custom value that is used to route operations to a specific
-            shard.
+            shard. Not allowed when `index.slice.enabled` is `true` for the target index;
+            use `_slice` instead.
         :param timeout: The period the request waits for the following operations: automatic
             index creation, dynamic mapping updates, waiting for active shards. This
             parameter is useful for situations where the primary shard assigned to perform
@@ -2988,6 +3198,8 @@ class Elasticsearch(BaseClient):
             __query["require_alias"] = require_alias
         if require_data_stream is not None:
             __query["require_data_stream"] = require_data_stream
+        if route_slice is not None:
+            __query["_slice"] = route_slice
         if routing is not None:
             __query["routing"] = routing
         if timeout is not None:
@@ -3024,10 +3236,10 @@ class Elasticsearch(BaseClient):
 
           <p>Get cluster info.</p>
           <p>Get basic build, version, and cluster information.
-          ::: In Serverless, this API is retained for backward compatibility only. Some response fields, such as the version number, should be ignored.</p>
+          ::: In Serverless, <code>version.number</code> always reports the next target Elasticsearch release version at the time of the request. Serverless does not track to a traditional release versioning model; it is continuously updated. The version number is provided to maintain compatibility with existing clients, but it is not meaningful for assessing feature availability. Clients should detect a Serverless environment by checking for <code>build_flavor: serverless</code>.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/group/endpoint-info>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/group/endpoint-info>`_
         """
         __path_parts: t.Dict[str, str] = {}
         __path = "/"
@@ -3047,6 +3259,52 @@ class Elasticsearch(BaseClient):
             params=__query,
             headers=__headers,
             endpoint_id="info",
+            path_parts=__path_parts,
+        )
+
+    @_rewrite_parameters()
+    def list_reindex(
+        self,
+        *,
+        detailed: t.Optional[bool] = None,
+        error_trace: t.Optional[bool] = None,
+        filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+        human: t.Optional[bool] = None,
+        pretty: t.Optional[bool] = None,
+    ) -> ObjectApiResponse[t.Any]:
+        """
+        .. raw:: html
+
+          <p>Get information about all currently running reindex tasks.</p>
+          <p>Reindex tasks that are mid-relocation between nodes are reported once,
+          under their original task ID, so callers do not see duplicates across the relocation chain.</p>
+          <p>If the API returns a HTTP status of <code>200 OK</code>, but <code>node_failures</code> or <code>task_failures</code> are non-empty in the body, the listing is not a complete authoritative listing and may be missing tasks.</p>
+
+
+        `<https://www.elastic.co/docs/api/doc/elasticsearch#TODO>`_
+
+        :param detailed: If `true`, include detailed task status information in the response.
+        """
+        __path_parts: t.Dict[str, str] = {}
+        __path = "/_reindex"
+        __query: t.Dict[str, t.Any] = {}
+        if detailed is not None:
+            __query["detailed"] = detailed
+        if error_trace is not None:
+            __query["error_trace"] = error_trace
+        if filter_path is not None:
+            __query["filter_path"] = filter_path
+        if human is not None:
+            __query["human"] = human
+        if pretty is not None:
+            __query["pretty"] = pretty
+        __headers = {"accept": "application/json"}
+        return self.perform_request(  # type: ignore[return-value]
+            "GET",
+            __path,
+            params=__query,
+            headers=__headers,
+            endpoint_id="list_reindex",
             path_parts=__path_parts,
         )
 
@@ -3072,6 +3330,7 @@ class Elasticsearch(BaseClient):
         pretty: t.Optional[bool] = None,
         realtime: t.Optional[bool] = None,
         refresh: t.Optional[bool] = None,
+        route_slice: t.Optional[str] = None,
         routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         source: t.Optional[t.Union[bool, t.Union[str, t.Sequence[str]]]] = None,
         source_excludes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
@@ -3096,7 +3355,7 @@ class Elasticsearch(BaseClient):
           You can include the <code>stored_fields</code> query parameter in the request URI to specify the defaults to use when there are no per-document instructions.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-mget>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-mget>`_
 
         :param index: Name of the index to retrieve documents from when `ids` are specified,
             or when a document in the `docs` array does not specify an index.
@@ -3113,7 +3372,13 @@ class Elasticsearch(BaseClient):
         :param realtime: If `true`, the request is real-time as opposed to near-real-time.
         :param refresh: If `true`, the request refreshes relevant shards before retrieving
             documents.
-        :param routing: Custom value used to route operations to a specific shard.
+        :param route_slice: The slice identifier used to route the operation to a specific
+            slice. Use the special value `_all` to target all slices without restricting
+            to a routing value. Required when `index.slice.enabled` is `true` for the
+            target index; not allowed when `index.slice.enabled` is `false`.
+        :param routing: Custom value used to route operations to a specific shard. Not
+            allowed when `index.slice.enabled` is `true` for the target index; use `_slice`
+            instead.
         :param source: True or false to return the `_source` field or not, or a list
             of fields to return.
         :param source_excludes: A comma-separated list of source fields to exclude from
@@ -3152,6 +3417,8 @@ class Elasticsearch(BaseClient):
             __query["realtime"] = realtime
         if refresh is not None:
             __query["refresh"] = refresh
+        if route_slice is not None:
+            __query["_slice"] = route_slice
         if routing is not None:
             __query["routing"] = routing
         if source is not None:
@@ -3209,6 +3476,7 @@ class Elasticsearch(BaseClient):
         pretty: t.Optional[bool] = None,
         project_routing: t.Optional[str] = None,
         rest_total_hits_as_int: t.Optional[bool] = None,
+        route_slice: t.Optional[str] = None,
         routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         search_type: t.Optional[
             t.Union[str, t.Literal["dfs_query_then_fetch", "query_then_fetch"]]
@@ -3232,7 +3500,7 @@ class Elasticsearch(BaseClient):
           When sending requests to this endpoint the <code>Content-Type</code> header should be set to <code>application/x-ndjson</code>.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-msearch>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-msearch>`_
 
         :param searches:
         :param index: Comma-separated list of data streams, indices, and index aliases
@@ -3278,8 +3546,16 @@ class Elasticsearch(BaseClient):
             _alias:_origin _alias:*pr* Supported in serverless only.
         :param rest_total_hits_as_int: If true, hits.total are returned as an integer
             in the response. Defaults to false, which returns an object.
+        :param route_slice: The slice identifier for routing the search to a specific
+            slice. When provided at the top level, all sub-searches are routed to shards
+            matching the given slice value. Use the special value `_all` to query all
+            slices without restricting to a routing value. Required when `index.slice.enabled`
+            is `true` for the target index; not allowed when `index.slice.enabled` is
+            `false`. Individual sub-search headers can also specify `_slice` to override
+            the top-level setting.
         :param routing: Custom routing value used to route search operations to a specific
-            shard.
+            shard. Not allowed when `index.slice.enabled` is `true` for the target index;
+            use `_slice` instead.
         :param search_type: Indicates whether global term and document frequencies should
             be used when scoring returned documents.
         :param typed_keys: Specifies whether aggregation and suggester names should be
@@ -3329,6 +3605,8 @@ class Elasticsearch(BaseClient):
             __query["project_routing"] = project_routing
         if rest_total_hits_as_int is not None:
             __query["rest_total_hits_as_int"] = rest_total_hits_as_int
+        if route_slice is not None:
+            __query["_slice"] = route_slice
         if routing is not None:
             __query["routing"] = routing
         if search_type is not None:
@@ -3389,7 +3667,7 @@ class Elasticsearch(BaseClient):
           </code></pre>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-msearch-template>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-msearch-template>`_
 
         :param search_templates:
         :param index: A comma-separated list of data streams, indices, and aliases to
@@ -3478,6 +3756,7 @@ class Elasticsearch(BaseClient):
         preference: t.Optional[str] = None,
         pretty: t.Optional[bool] = None,
         realtime: t.Optional[bool] = None,
+        route_slice: t.Optional[str] = None,
         routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         term_statistics: t.Optional[bool] = None,
         version: t.Optional[int] = None,
@@ -3500,7 +3779,7 @@ class Elasticsearch(BaseClient):
           The mapping used is determined by the specified <code>_index</code>.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-mtermvectors>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-mtermvectors>`_
 
         :param index: The name of the index that contains the documents.
         :param docs: An array of existing or artificial documents.
@@ -3517,7 +3796,13 @@ class Elasticsearch(BaseClient):
         :param preference: The node or shard the operation should be performed on. It
             is random by default.
         :param realtime: If true, the request is real-time as opposed to near-real-time.
+        :param route_slice: The slice identifier used to route the operation to a specific
+            slice. Use the special value `_all` to target all slices without restricting
+            to a routing value. Required when `index.slice.enabled` is `true` for the
+            target index; not allowed when `index.slice.enabled` is `false`.
         :param routing: A custom value used to route operations to a specific shard.
+            Not allowed when `index.slice.enabled` is `true` for the target index; use
+            `_slice` instead.
         :param term_statistics: If true, the response includes term frequency and document
             frequency.
         :param version: If `true`, returns the document version as part of a hit.
@@ -3554,6 +3839,8 @@ class Elasticsearch(BaseClient):
             __query["pretty"] = pretty
         if realtime is not None:
             __query["realtime"] = realtime
+        if route_slice is not None:
+            __query["_slice"] = route_slice
         if routing is not None:
             __query["routing"] = routing
         if term_statistics is not None:
@@ -3640,7 +3927,7 @@ class Elasticsearch(BaseClient):
           You can check how many point-in-times (that is, search contexts) are open with the nodes stats API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-open-point-in-time>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-open-point-in-time>`_
 
         :param index: A comma-separated list of index names to open point in time; use
             `_all` or empty string to perform the operation on all indices
@@ -3744,7 +4031,7 @@ class Elasticsearch(BaseClient):
           <p>Creates or updates a stored script or search template.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-put-script>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-put-script>`_
 
         :param id: The identifier for the stored script or search template. It must be
             unique within the cluster.
@@ -3836,7 +4123,7 @@ class Elasticsearch(BaseClient):
           <p>Evaluate the quality of ranked search results over a set of typical search queries.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-rank-eval>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-rank-eval>`_
 
         :param requests: A set of typical search requests, together with their provided
             ratings.
@@ -3950,7 +4237,7 @@ class Elasticsearch(BaseClient):
           <li>If reindexing from a remote cluster, the <code>source.remote.user</code> must have the <code>monitor</code> cluster privilege and the <code>read</code> index privilege for the source data stream, index, or alias.</li>
           </ul>
           <p>If reindexing from a remote cluster into a cluster using Elastic Stack, you must explicitly allow the remote host using the <code>reindex.remote.whitelist</code> node setting on the destination cluster.
-          If reindexing from a remote cluster into an Elastic Cloud Serverless project, only remote hosts from Elastic Cloud Hosted are allowed.
+          If reindexing from a remote cluster into an Elastic Cloud Serverless project, only remote hosts from <a href="https://cloud.elastic.co/registration?page=docs&amp;placement=docs-body">Elastic Cloud Hosted and Elastic Cloud Serverless</a> are allowed.
           Automatic data stream creation requires a matching index template with data stream enabled.</p>
           <p>The <code>dest</code> element can be configured like the index API to control optimistic concurrency control.
           Omitting <code>version_type</code> or setting it to <code>internal</code> causes Elasticsearch to blindly dump documents into the destination, overwriting any that happen to have the same ID.</p>
@@ -3975,7 +4262,7 @@ class Elasticsearch(BaseClient):
           <p>Refer to the linked documentation for examples of how to reindex documents.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-reindex>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-reindex>`_
 
         :param dest: The destination you are copying to.
         :param source: The source you are copying from.
@@ -3990,13 +4277,19 @@ class Elasticsearch(BaseClient):
             in the source query.
         :param refresh: If `true`, the request refreshes affected shards to make this
             operation visible to search.
-        :param requests_per_second: The throttle for this request in sub-requests per
-            second. By default, there is no throttle.
+        :param requests_per_second: The maximum number of documents to index per second,
+            across the entire reindex operation (including slices). It can be either
+            `-1` to turn off throttling or any decimal number like `1.7` or `12` to throttle
+            to that level.
         :param require_alias: If `true`, the destination must be an index alias.
         :param script: The script to run to update the document source or metadata when
             reindexing.
         :param scroll: The period of time that a consistent view of the index should
-            be maintained for scrolled search.
+            be maintained for scrolled search. In serverless, and stack versions >= v9.5.0,
+            we use PIT rather than scroll for pagination. We only use scroll for reindexing
+            from remote clusters that are older than v7.10.0. Therefore, this parameter
+            is ignored unless you are reindexing from a remote cluster that is older
+            than v7.10.0.
         :param slices: The number of slices this task should be divided into. It defaults
             to one slice, which means the task isn't sliced into subtasks. Reindex supports
             sliced scroll to parallelize the reindexing process. This parallelization
@@ -4016,7 +4309,11 @@ class Elasticsearch(BaseClient):
             up to the total number of shards in the index (`number_of_replicas+1`). The
             default value is one, which means it waits for each primary shard to be active.
         :param wait_for_completion: If `true`, the request blocks until the operation
-            is complete.
+            is complete. If your requested reindex operation is complex or time-consuming,
+            it might timeout due to transport-layer limitations. While the reindex will
+            continue to be processed by the cluster, your client will not receive updates
+            on status automatically after timeout. Set this option `true` if you anticipate
+            a long-running reindex.
         """
         if dest is None and body is None:
             raise ValueError("Empty value passed for parameter 'dest'")
@@ -4090,22 +4387,34 @@ class Elasticsearch(BaseClient):
         .. raw:: html
 
           <p>Throttle a reindex operation.</p>
-          <p>Change the number of requests per second for a particular reindex operation.
-          For example:</p>
+          <p>Change the maximum number of documents to index per second for a particular reindex operation.
+          For example, to unthrottle to unlimited documents per second:</p>
           <pre><code>POST _reindex/r1A2WoRbTwKZ516z6NEs5A:36619/_rethrottle?requests_per_second=-1
           </code></pre>
           <p>Rethrottling that speeds up the query takes effect immediately.
-          Rethrottling that slows down the query will take effect after completing the current batch.
+          Rethrottling that slows down the query will take effect after completing the current batch of documents.
           This behavior prevents scroll timeouts.</p>
+          <p>This API follows reindex tasks across node-shutdown relocations, so callers can keep using
+          the original task ID throughout the lifetime of the operation.
+          The relocated task ID is also accepted and is followed transparently.
+          In either case, returned task IDs and timings reflect the original task, not its relocated successor.</p>
+          <p>The rethrottle may not have been applied to any tasks if either <code>node_failures</code> or <code>task_failures</code> are non-empty, or if the response contains
+          no successfully rethrottled tasks — that is, no entries under <code>nodes</code> (returned with the default
+          <code>group_by=nodes</code> in stack) or under <code>tasks</code> (returned in serverless, or in stack with
+          <code>group_by=none</code> or <code>group_by=parents</code>).</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-reindex>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-reindex>`_
 
-        :param task_id: The task identifier, which can be found by using the tasks API.
-        :param requests_per_second: The throttle for this request in sub-requests per
-            second. It can be either `-1` to turn off throttling or any decimal number
-            like `1.7` or `12` to throttle to that level.
-        :param group_by:
+        :param task_id: The task identifier, returned when creating a reindex task, or
+            by listing tasks via `GET /_reindex` or `GET /_tasks`. In stack, can be either
+            the original task ID or the task ID of the relocated task.
+        :param requests_per_second: The maximum number of documents to index per second,
+            across the entire reindex operation (including slices). It can be either
+            `-1` to turn off throttling or any decimal number like `1.7` or `12` to throttle
+            to that level.
+        :param group_by: The way to group the tasks in the response. We recommend setting
+            this to `none`, which provides the cleanest response format.
         """
         if task_id in SKIP_IN_PATH:
             raise ValueError("Empty value passed for parameter 'task_id'")
@@ -4160,7 +4469,7 @@ class Elasticsearch(BaseClient):
           <p>Render a search template as a search request body.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-render-search-template>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-render-search-template>`_
 
         :param id: The ID of the search template to render. If no `source` is specified,
             this or the `id` request body parameter is required.
@@ -4319,7 +4628,7 @@ class Elasticsearch(BaseClient):
           <p>IMPORTANT: Results from a scrolling search reflect the state of the index at the time of the initial search request. Subsequent indexing or document changes only affect later search and scroll requests.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-scroll>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-scroll>`_
 
         :param scroll_id: The scroll ID of the search.
         :param rest_total_hits_as_int: If true, the API response’s hit.total property
@@ -4467,6 +4776,7 @@ class Elasticsearch(BaseClient):
         ] = None,
         rest_total_hits_as_int: t.Optional[bool] = None,
         retriever: t.Optional[t.Mapping[str, t.Any]] = None,
+        route_slice: t.Optional[str] = None,
         routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         runtime_mappings: t.Optional[t.Mapping[str, t.Mapping[str, t.Any]]] = None,
         script_fields: t.Optional[t.Mapping[str, t.Mapping[str, t.Any]]] = None,
@@ -4525,7 +4835,7 @@ class Elasticsearch(BaseClient):
           This situation can occur because, by default, the splitting criterion is based on Lucene document IDs, which are not stable across changes to the index.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-search>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases to
             search. It supports wildcards (`*`). To search all data streams and indices,
@@ -4663,8 +4973,13 @@ class Elasticsearch(BaseClient):
         :param retriever: A retriever is a specification to describe top documents returned
             from a search. A retriever replaces other elements of the search API that
             also return top documents such as `query` and `knn`.
+        :param route_slice: The slice identifier used to route the operation to a specific
+            slice. Use the special value `_all` to target all slices without restricting
+            to a routing value. Required when `index.slice.enabled` is `true` for the
+            target index; not allowed when `index.slice.enabled` is `false`.
         :param routing: A custom value that is used to route operations to a specific
-            shard.
+            shard. Not allowed when `index.slice.enabled` is `true` for the target index;
+            use `_slice` instead.
         :param runtime_mappings: One or more runtime fields in the search request. These
             fields take precedence over mapped fields with the same name.
         :param script_fields: Retrieve a script evaluation (based on different fields)
@@ -4807,6 +5122,8 @@ class Elasticsearch(BaseClient):
             __query["request_cache"] = request_cache
         if rest_total_hits_as_int is not None:
             __query["rest_total_hits_as_int"] = rest_total_hits_as_int
+        if route_slice is not None:
+            __query["_slice"] = route_slice
         if routing is not None:
             __query["routing"] = routing
         if scroll is not None:
@@ -5241,7 +5558,7 @@ class Elasticsearch(BaseClient):
           <p>Learn how to use the vector tile search API with practical examples in the <a href="https://www.elastic.co/docs/reference/elasticsearch/rest-apis/vector-tile-search">Vector tile search examples</a> guide.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-search-mvt>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search-mvt>`_
 
         :param index: A list of indices, data streams, or aliases to search. It supports
             wildcards (`*`). To search all data streams and indices, omit this parameter
@@ -5418,6 +5735,7 @@ class Elasticsearch(BaseClient):
         master_timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         preference: t.Optional[str] = None,
         pretty: t.Optional[bool] = None,
+        route_slice: t.Optional[str] = None,
         routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
@@ -5430,7 +5748,7 @@ class Elasticsearch(BaseClient):
           <p>If the Elasticsearch security features are enabled, you must have the <code>view_index_metadata</code> or <code>manage</code> index privilege for the target data stream, index, or alias.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-search-shards>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search-shards>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases to
             search. It supports wildcards (`*`). To search all data streams and indices,
@@ -5457,7 +5775,14 @@ class Elasticsearch(BaseClient):
             request should never timeout.
         :param preference: The node or shard the operation should be performed on. It
             is random by default.
+        :param route_slice: The slice identifier for routing the search to a specific
+            slice. When provided, the request is limited to shards that match the given
+            slice value. Use the special value `_all` to query all slices without restricting
+            to a routing value. Required when `index.slice.enabled` is `true` for the
+            target index; not allowed when `index.slice.enabled` is `false`.
         :param routing: A custom value used to route operations to a specific shard.
+            Not allowed when `index.slice.enabled` is `true` for the target index; use
+            `_slice` instead.
         """
         __path_parts: t.Dict[str, str]
         if index not in SKIP_IN_PATH:
@@ -5487,6 +5812,8 @@ class Elasticsearch(BaseClient):
             __query["preference"] = preference
         if pretty is not None:
             __query["pretty"] = pretty
+        if route_slice is not None:
+            __query["_slice"] = route_slice
         if routing is not None:
             __query["routing"] = routing
         __headers = {"accept": "application/json"}
@@ -5545,7 +5872,7 @@ class Elasticsearch(BaseClient):
           <p>Run a search with a search template.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-search-template>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search-template>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases to
             search. It supports wildcards (`*`).
@@ -5661,6 +5988,7 @@ class Elasticsearch(BaseClient):
             "field",
             "case_insensitive",
             "index_filter",
+            "project_routing",
             "search_after",
             "size",
             "string",
@@ -5678,6 +6006,7 @@ class Elasticsearch(BaseClient):
         human: t.Optional[bool] = None,
         index_filter: t.Optional[t.Mapping[str, t.Any]] = None,
         pretty: t.Optional[bool] = None,
+        project_routing: t.Optional[str] = None,
         search_after: t.Optional[str] = None,
         size: t.Optional[int] = None,
         string: t.Optional[str] = None,
@@ -5696,7 +6025,7 @@ class Elasticsearch(BaseClient):
           </blockquote>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation-terms-enum>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-terms-enum>`_
 
         :param index: A comma-separated list of data streams, indices, and index aliases
             to search. Wildcard (`*`) expressions are supported. To search all data streams
@@ -5707,6 +6036,10 @@ class Elasticsearch(BaseClient):
             index terms without case sensitivity.
         :param index_filter: Filter an index shard if the provided query rewrites to
             `match_none`.
+        :param project_routing: Specifies a subset of projects to target for the search
+            using project metadata tags in a subset of Lucene query syntax. Allowed Lucene
+            queries: the _alias tag and a single value (possibly wildcarded). Examples:
+            _alias:my-project _alias:_origin _alias:*pr* Supported in serverless only.
         :param search_after: The string after which terms in the index should be returned.
             It allows for a form of pagination if the last result from one request is
             passed as the `search_after` parameter for a subsequent request.
@@ -5742,6 +6075,8 @@ class Elasticsearch(BaseClient):
                 __body["case_insensitive"] = case_insensitive
             if index_filter is not None:
                 __body["index_filter"] = index_filter
+            if project_routing is not None:
+                __body["project_routing"] = project_routing
             if search_after is not None:
                 __body["search_after"] = search_after
             if size is not None:
@@ -5796,6 +6131,7 @@ class Elasticsearch(BaseClient):
         preference: t.Optional[str] = None,
         pretty: t.Optional[bool] = None,
         realtime: t.Optional[bool] = None,
+        route_slice: t.Optional[str] = None,
         routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         term_statistics: t.Optional[bool] = None,
         version: t.Optional[int] = None,
@@ -5842,7 +6178,7 @@ class Elasticsearch(BaseClient):
           Refer to the linked documentation for detailed examples of how to use this API.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-termvectors>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-termvectors>`_
 
         :param index: The name of the index that contains the document.
         :param id: A unique identifier for the document.
@@ -5869,6 +6205,10 @@ class Elasticsearch(BaseClient):
         :param preference: The node or shard the operation should be performed on. It
             is random by default.
         :param realtime: If true, the request is real-time as opposed to near-real-time.
+        :param route_slice: The slice identifier used to route the operation to a specific
+            slice. Use the special value `_all` to target all slices without restricting
+            to a routing value. Required when `index.slice.enabled` is `true` for the
+            target index; not allowed when `index.slice.enabled` is `false`.
         :param routing: A custom value that is used to route operations to a specific
             shard.
         :param term_statistics: If `true`, the response includes: * The total term frequency
@@ -5903,6 +6243,8 @@ class Elasticsearch(BaseClient):
             __query["pretty"] = pretty
         if realtime is not None:
             __query["realtime"] = realtime
+        if route_slice is not None:
+            __query["_slice"] = route_slice
         if not __body:
             if doc is not None:
                 __body["doc"] = doc
@@ -5978,6 +6320,7 @@ class Elasticsearch(BaseClient):
         ] = None,
         require_alias: t.Optional[bool] = None,
         retry_on_conflict: t.Optional[int] = None,
+        route_slice: t.Optional[str] = None,
         routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         script: t.Optional[t.Mapping[str, t.Any]] = None,
         scripted_upsert: t.Optional[bool] = None,
@@ -6012,7 +6355,7 @@ class Elasticsearch(BaseClient):
           For usage examples such as partial updates, upserts, and scripted updates, see the External documentation.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-update>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-update>`_
 
         :param index: The name of the target index. By default, the index is created
             automatically if it doesn't exist.
@@ -6036,7 +6379,13 @@ class Elasticsearch(BaseClient):
         :param require_alias: If `true`, the destination must be an index alias.
         :param retry_on_conflict: The number of times the operation should be retried
             when a conflict occurs.
+        :param route_slice: The slice identifier used to route the operation to a specific
+            slice. Use the special value `_all` to target all slices without restricting
+            to a routing value. Required when `index.slice.enabled` is `true` for the
+            target index; not allowed when `index.slice.enabled` is `false`.
         :param routing: A custom value used to route operations to a specific shard.
+            Not allowed when `index.slice.enabled` is `true` for the target index; use
+            `_slice` instead.
         :param script: The script to run to update the document.
         :param scripted_upsert: If `true`, run the script whether or not the document
             exists.
@@ -6085,6 +6434,8 @@ class Elasticsearch(BaseClient):
             __query["require_alias"] = require_alias
         if retry_on_conflict is not None:
             __query["retry_on_conflict"] = retry_on_conflict
+        if route_slice is not None:
+            __query["_slice"] = route_slice
         if routing is not None:
             __query["routing"] = routing
         if source_excludes is not None:
@@ -6158,6 +6509,7 @@ class Elasticsearch(BaseClient):
         refresh: t.Optional[bool] = None,
         request_cache: t.Optional[bool] = None,
         requests_per_second: t.Optional[float] = None,
+        route_slice: t.Optional[str] = None,
         routing: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         script: t.Optional[t.Mapping[str, t.Any]] = None,
         scroll: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
@@ -6258,7 +6610,7 @@ class Elasticsearch(BaseClient):
           Refer to the linked documentation for examples of how to update documents using the <code>_update_by_query</code> API:</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-update-by-query>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-update-by-query>`_
 
         :param index: A comma-separated list of data streams, indices, and aliases to
             search. It supports wildcards (`*`). To search all data streams or indices,
@@ -6309,9 +6661,17 @@ class Elasticsearch(BaseClient):
             received the request to be refreshed.
         :param request_cache: If `true`, the request cache is used for this request.
             It defaults to the index-level setting.
-        :param requests_per_second: The throttle for this request in sub-requests per
-            second.
+        :param requests_per_second: The maximum number of documents to update per second,
+            across the entire update_by_query operation (including slices). It can be
+            either `-1` to turn off throttling or any decimal number like `1.7` or `12`
+            to throttle to that level.
+        :param route_slice: The slice identifier used to route the operation to a specific
+            slice. Use the special value `_all` to target all slices without restricting
+            to a routing value. Required when `index.slice.enabled` is `true` for the
+            target index; not allowed when `index.slice.enabled` is `false`.
         :param routing: A custom value used to route operations to a specific shard.
+            Not allowed when `index.slice.enabled` is `true` for the target index; use
+            `_slice` instead.
         :param script: The script to run to update the document source or metadata when
             updating.
         :param scroll: The period to retain the search context for scrolling.
@@ -6407,6 +6767,8 @@ class Elasticsearch(BaseClient):
             __query["request_cache"] = request_cache
         if requests_per_second is not None:
             __query["requests_per_second"] = requests_per_second
+        if route_slice is not None:
+            __query["_slice"] = route_slice
         if routing is not None:
             __query["routing"] = routing
         if scroll is not None:
@@ -6478,11 +6840,13 @@ class Elasticsearch(BaseClient):
           Rethrottling that speeds up the query takes effect immediately but rethrotting that slows down the query takes effect after completing the current batch to prevent scroll timeouts.</p>
 
 
-        `<https://www.elastic.co/docs/api/doc/elasticsearch/v9/operation/operation-update-by-query-rethrottle>`_
+        `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-update-by-query-rethrottle>`_
 
         :param task_id: The ID for the task.
-        :param requests_per_second: The throttle for this request in sub-requests per
-            second. To turn off throttling, set it to `-1`.
+        :param requests_per_second: The maximum number of documents to update per second,
+            across the entire update_by_query operation (including slices). It can be
+            either `-1` to turn off throttling or any decimal number like `1.7` or `12`
+            to throttle to that level.
         """
         if task_id in SKIP_IN_PATH:
             raise ValueError("Empty value passed for parameter 'task_id'")

@@ -1,4 +1,4 @@
-use statsig_rust::{dyn_value, StatsigUser, StatsigUserDataMap};
+use statsig_rust::{StatsigUser, StatsigUserDataMap, dyn_value};
 use std::collections::HashMap;
 
 #[test]

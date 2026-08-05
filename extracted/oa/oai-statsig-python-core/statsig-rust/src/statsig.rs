@@ -1,10 +1,10 @@
 use crate::console_capture::console_capture_handler::ConsoleCaptureHandler;
 use crate::console_capture::console_capture_instances::{
-    ConsoleCaptureInstance, CONSOLE_CAPTURE_REGISTRY,
+    CONSOLE_CAPTURE_REGISTRY, ConsoleCaptureInstance,
 };
 use crate::console_capture::console_log_line_levels::StatsigLogLineLevel;
-use crate::data_store_interface::{get_data_store_key, RequestPath};
-use crate::evaluation::cmab_evaluator::{get_cmab_ranked_list, CMABRankedGroup};
+use crate::data_store_interface::{RequestPath, get_data_store_key};
+use crate::evaluation::cmab_evaluator::{CMABRankedGroup, get_cmab_ranked_list};
 use crate::evaluation::country_lookup::CountryLookup;
 use crate::evaluation::dynamic_value::DynamicValue;
 use crate::evaluation::evaluation_data::{RuleRef, SpecView};
@@ -13,8 +13,8 @@ use crate::evaluation::evaluation_types::GateEvaluation;
 use crate::evaluation::evaluator::{Evaluator, Recognition, SpecType};
 use crate::evaluation::evaluator_context::{EvaluatorContext, IdListResolution};
 use crate::evaluation::evaluator_result::{
-    result_to_dynamic_config_eval, result_to_experiment_eval, result_to_gate_eval,
-    result_to_layer_eval, EvaluatorResult,
+    EvaluatorResult, result_to_dynamic_config_eval, result_to_experiment_eval, result_to_gate_eval,
+    result_to_layer_eval,
 };
 use crate::evaluation::user_agent_parsing::{ParsedUserAgentValue, UserAgentParser};
 #[cfg(feature = "ffi-support")]
@@ -22,6 +22,8 @@ use crate::event_logging::delayed_exposure_store::DelayedExposureStore;
 use crate::event_logging::event_logger::{EventLogger, ExposureTrigger};
 use crate::event_logging::event_queue::queued_config_expo::EnqueueConfigExpoOp;
 use crate::event_logging::event_queue::queued_experiment_expo::EnqueueExperimentExpoOp;
+#[cfg(feature = "ffi-support")]
+use crate::event_logging::event_queue::queued_expo::BorrowedLayerParamExposureOp;
 use crate::event_logging::event_queue::queued_expo::EnqueueExposureOp;
 use crate::event_logging::event_queue::queued_gate_expo::EnqueueGateExpoOp;
 use crate::event_logging::event_queue::queued_layer_param_expo::EnqueueLayerParamExpoOp;
@@ -39,7 +41,7 @@ use crate::interned_string::InternedString;
 use crate::observability::console_capture_observer::ConsoleCaptureObserver;
 use crate::observability::diagnostics_observer::DiagnosticsObserver;
 use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
-use crate::observability::ops_stats::{OpsStatsForInstance, OPS_STATS};
+use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
 use crate::observability::sdk_errors_observer::{ErrorBoundaryEvent, SDKErrorsObserver};
 use crate::output_logger::{initialize_output_logger, shutdown_output_logger};
 use crate::persistent_storage::persistent_values_manager::PersistentValuesManager;
@@ -68,10 +70,10 @@ use crate::statsig_types_raw::{DynamicConfigRaw, ExperimentRaw, FeatureGateRaw, 
 use crate::user::StatsigUserInternal;
 use crate::utils::get_loggable_sdk_key;
 use crate::{
-    dyn_value, log_d, log_e, log_w, ClientInitResponseOptions, GCIRResponseFormat, IdListsAdapter,
-    InitializeDetails, ObservabilityClient, OpsStatsEventObserver, OverrideAdapter, SpecsAdapter,
-    SpecsInfo, SpecsSource, SpecsUpdateListener, StatsigHttpIdListsAdapter,
-    StatsigLocalOverrideAdapter, StatsigUser,
+    ClientInitResponseOptions, GCIRResponseFormat, IdListsAdapter, InitializeDetails,
+    ObservabilityClient, OpsStatsEventObserver, OverrideAdapter, SpecsAdapter, SpecsInfo,
+    SpecsSource, SpecsUpdateListener, StatsigHttpIdListsAdapter, StatsigLocalOverrideAdapter,
+    StatsigUser, dyn_value, log_d, log_e, log_w,
 };
 use crate::{
     log_error_to_statsig_and_console,
@@ -82,10 +84,10 @@ use crate::{
 };
 use chrono::Utc;
 use parking_lot::Mutex;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
-use serde_json::json;
+use serde::de::DeserializeOwned;
 use serde_json::Value;
+use serde_json::json;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -681,12 +683,31 @@ impl Statsig {
         value: Option<String>,
         metadata: Option<HashMap<String, Value>>,
     ) {
+        self.log_event_with_typed_metadata_and_timestamp_for_internal_user(
+            user_internal,
+            event_name,
+            value,
+            metadata,
+            None,
+        );
+    }
+
+    #[doc(hidden)]
+    pub fn log_event_with_typed_metadata_and_timestamp_for_internal_user(
+        &self,
+        user_internal: &StatsigUserInternal<'_, '_>,
+        event_name: &str,
+        value: Option<String>,
+        metadata: Option<HashMap<String, Value>>,
+        timestamp_override: Option<u64>,
+    ) {
         self.event_logger.enqueue(EnqueuePassthroughOp {
-            event: StatsigEventInternal::new_custom_event_with_typed_metadata(
+            event: StatsigEventInternal::new_custom_event_with_typed_metadata_and_timestamp(
                 user_internal.to_loggable(),
                 event_name.to_string(),
                 value.map(|v| json!(v)),
                 metadata,
+                timestamp_override,
             ),
         });
     }
@@ -715,12 +736,31 @@ impl Statsig {
         value: Option<f64>,
         metadata: Option<HashMap<String, Value>>,
     ) {
+        self.log_event_with_number_and_typed_metadata_and_timestamp_for_internal_user(
+            user_internal,
+            event_name,
+            value,
+            metadata,
+            None,
+        );
+    }
+
+    #[doc(hidden)]
+    pub fn log_event_with_number_and_typed_metadata_and_timestamp_for_internal_user(
+        &self,
+        user_internal: &StatsigUserInternal<'_, '_>,
+        event_name: &str,
+        value: Option<f64>,
+        metadata: Option<HashMap<String, Value>>,
+        timestamp_override: Option<u64>,
+    ) {
         self.event_logger.enqueue(EnqueuePassthroughOp {
-            event: StatsigEventInternal::new_custom_event_with_typed_metadata(
+            event: StatsigEventInternal::new_custom_event_with_typed_metadata_and_timestamp(
                 user_internal.to_loggable(),
                 event_name.to_string(),
                 value.map(|v| json!(v)),
                 metadata,
+                timestamp_override,
             ),
         });
     }
@@ -2695,6 +2735,26 @@ impl Statsig {
             .with_extra_metadata(exposure_metadata),
         );
     }
+
+    pub fn log_layer_param_exposure_from_partial_raw_ref_with_metadata(
+        &self,
+        partial_raw: &crate::statsig_types_raw::PartialLayerRaw,
+        param_name: String,
+        exposure_metadata: Option<HashMap<String, Value>>,
+    ) {
+        if partial_raw.disable_exposure {
+            self.event_logger
+                .increment_non_exposure_checks(&partial_raw.name);
+            return;
+        }
+
+        self.event_logger.enqueue(BorrowedLayerParamExposureOp::new(
+            InternedString::from_string(param_name),
+            ExposureTrigger::Auto,
+            partial_raw,
+            exposure_metadata,
+        ));
+    }
 }
 
 #[cfg(feature = "ffi-support")]
@@ -3522,12 +3582,12 @@ mod tests {
 
     use super::*;
     use crate::{
+        SpecsUpdate,
         interned_values::{
-            interned_store::{preload_mmap_v2_for_test, write_mmap_v2_for_test},
             InternedStore,
+            interned_store::{preload_mmap_v2_multi_for_test, write_mmap_v2_for_test},
         },
         networking::ResponseData,
-        SpecsUpdate,
     };
 
     const EVAL_PROJ_JSON: &[u8] = include_bytes!("../tests/data/eval_proj_dcs.json");
@@ -3539,7 +3599,7 @@ mod tests {
             let directory = tempfile::tempdir().unwrap();
             let path = directory.path().join("interned-store-v2-group-lookup.mmap");
             write_mmap_v2_for_test(EVAL_PROJ_JSON, &path).unwrap();
-            preload_mmap_v2_for_test(&path).unwrap();
+            preload_mmap_v2_multi_for_test(&[("secret-key", &path)]).unwrap();
             assert!(InternedStore::has_preloaded_mmap_v2());
 
             let statsig = Statsig::new("secret-key", None);

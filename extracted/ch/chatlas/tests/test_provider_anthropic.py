@@ -22,8 +22,17 @@ from chatlas import (
     tool_web_fetch,
     tool_web_search,
 )
-from chatlas._content import ContentUploaded
-from chatlas._provider_anthropic import _ANTHROPIC_FINISH_REASON_MAP, AnthropicProvider
+from chatlas._content import (
+    ContentDocument,
+    ContentImageInline,
+    ContentPDF,
+    ContentUploaded,
+)
+from chatlas._provider_anthropic import (
+    _ANTHROPIC_FINISH_REASON_MAP,
+    AnthropicProvider,
+    serving_model,
+)
 from chatlas._provider_anthropic import (
     normalize_finish_reason as anthropic_normalize_finish_reason,
 )
@@ -38,10 +47,12 @@ from pydantic import BaseModel, Field
 
 from .conftest import (
     assert_data_extraction,
+    assert_document_local,
     assert_images_inline,
     assert_images_remote,
     assert_list_models,
     assert_pdf_local,
+    assert_pdf_remote,
     assert_tool_web_fetch,
     assert_tool_web_search,
     assert_tools_async,
@@ -371,6 +382,16 @@ def test_anthropic_pdfs():
     assert_pdf_local(chat_func)
 
 
+@pytest.mark.vcr
+def test_anthropic_pdf_url():
+    assert_pdf_remote(chat_func)
+
+
+@pytest.mark.vcr
+def test_anthropic_document():
+    assert_document_local(chat_func)
+
+
 def test_anthropic_uploaded_document_block():
     c = ContentUploaded(id="file_1", mime_type="application/pdf", provider="anthropic")
     block = AnthropicProvider._as_content_block(c)
@@ -430,6 +451,72 @@ def test_anthropic_token_count_args_keeps_beta_header():
         data_model=None,
     )
     assert args["extra_headers"]["anthropic-beta"] == "files-api-2025-04-14"
+
+
+def test_anthropic_pdf_with_url_uses_url_source_without_downloading():
+    c = ContentPDF(filename="a.pdf", url="https://example.com/a.pdf")
+    block = AnthropicProvider._as_content_block(c)
+    assert block["type"] == "document"
+    assert block["source"] == {"type": "url", "url": "https://example.com/a.pdf"}
+
+
+def test_anthropic_pdf_with_data_uses_base64_source():
+    c = ContentPDF(data=b"%PDF-1.4", filename="a.pdf")
+    block = AnthropicProvider._as_content_block(c)
+    assert block["source"]["type"] == "base64"
+    assert block["source"]["media_type"] == "application/pdf"
+
+
+def test_anthropic_document_coerces_text_mime_type_to_plain_text():
+    c = ContentDocument(data=b"a,b\n1,2\n", filename="data.csv", mime_type="text/csv")
+    block = AnthropicProvider._as_content_block(c)
+    assert block["type"] == "document"
+    assert block["source"] == {
+        "type": "text",
+        "media_type": "text/plain",
+        "data": "a,b\n1,2\n",
+    }
+    # The only surviving hint of what the document actually is.
+    assert block["title"] == "data.csv"
+
+
+def test_anthropic_document_rejects_binary_office_types():
+    c = ContentDocument(
+        data=b"PK\x03\x04",
+        filename="report.docx",
+        mime_type=(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ),
+    )
+    with pytest.raises(ValueError, match="doesn't support"):
+        AnthropicProvider._as_content_block(c)
+
+
+def test_anthropic_document_rejects_undecodable_bytes_with_clear_error():
+    c = ContentDocument(
+        data=b"\xff\xfe\x00", filename="weird.txt", mime_type="text/plain"
+    )
+    with pytest.raises(ValueError, match="UTF-8"):
+        AnthropicProvider._as_content_block(c)
+
+
+def test_anthropic_rejects_heic_images():
+    c = ContentImageInline(image_content_type="image/heic", data="abcd")
+    with pytest.raises(ValueError, match="image/heic"):
+        AnthropicProvider._as_content_block(c)
+
+
+@pytest.mark.parametrize(
+    "content_type", ["image/png", "image/jpeg", "image/webp", "image/gif"]
+)
+def test_anthropic_image_preserves_media_type(content_type):
+    c = ContentImageInline(image_content_type=content_type, data="abcd")
+    block = AnthropicProvider._as_content_block(c)
+    assert block["source"] == {
+        "type": "base64",
+        "media_type": content_type,
+        "data": "abcd",
+    }
 
 
 @pytest.mark.vcr
@@ -578,7 +665,9 @@ def test_anthropic_adaptive_effort_merges_with_structured_output():
 
 @pytest.mark.vcr
 def test_anthropic_token_count_complete_exceeds_new():
-    chat = ChatAnthropic(system_prompt="You are a terse assistant.")
+    chat = ChatAnthropic(
+        model="claude-sonnet-4-6", system_prompt="You are a terse assistant."
+    )
     chat.set_turns(
         [
             UserTurn("an earlier question with some length to it"),
@@ -622,3 +711,65 @@ def test_anthropic_truncated_plain_text_still_returns_a_turn():
 
     assert turn.text == '{"comments": [{"body": "trunc'
     assert turn.finish_reason == "max_tokens"
+
+
+def fallback_message(
+    *, requested_model: str = "claude-fable-5", served_model: str = "claude-opus-4-8"
+) -> "Message":
+    """A response where a server-side refusal fallback swapped the serving model.
+
+    https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback
+    """
+    return Message.construct(
+        id="msg_1",
+        type="message",
+        role="assistant",
+        model=requested_model,
+        stop_reason="end_turn",
+        stop_sequence=None,
+        content=[
+            TextBlock.construct(
+                type="fallback",
+                from_={"model": requested_model},
+                to={"model": served_model},
+            ),
+            TextBlock(type="text", text="ok"),
+        ],
+        usage=Usage(input_tokens=1000, output_tokens=50),
+    )
+
+
+def test_anthropic_fallback_block_excluded_from_contents():
+    provider = cast(AnthropicProvider, chat_func().provider)
+
+    turn = provider._as_turn(fallback_message(), has_data_model=False)
+
+    assert turn.text == "ok"
+    assert len(turn.contents) == 1
+
+
+def test_serving_model_prefers_last_fallback_blocks_to_model():
+    assert serving_model(fallback_message()) == "claude-opus-4-8"
+
+    no_fallback = Message.construct(
+        id="msg_1",
+        type="message",
+        role="assistant",
+        model="claude-fable-5",
+        stop_reason="end_turn",
+        stop_sequence=None,
+        content=[TextBlock(type="text", text="hi")],
+        usage=Usage(input_tokens=10, output_tokens=5),
+    )
+    assert serving_model(no_fallback) == "claude-fable-5"
+
+
+def test_anthropic_value_cost_prices_fallback_at_serving_models_rate():
+    provider = AnthropicProvider(model="claude-fable-5")
+
+    completion = fallback_message()
+    tokens = provider.value_tokens(completion)
+    cost = provider.value_cost(completion, tokens)
+
+    # opus-4-8 rates ($5/$25 per 1M), not fable-5's ($10/$50).
+    assert cost == pytest.approx((1000 * 5 + 50 * 25) / 1e6)

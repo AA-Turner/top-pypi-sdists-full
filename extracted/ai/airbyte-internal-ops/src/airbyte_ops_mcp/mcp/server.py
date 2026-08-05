@@ -104,6 +104,7 @@ from airbyte_ops_mcp.constants import (
 from airbyte_ops_mcp.mcp._client_credentials import wrap_if_enabled
 from airbyte_ops_mcp.mcp._oidc_storage import resolve_oidc_client_storage
 from airbyte_ops_mcp.mcp.connection_medic import register_connection_medic_tools
+from airbyte_ops_mcp.mcp.connection_resources import register_connection_resource_tools
 from airbyte_ops_mcp.mcp.connector_qa import register_connector_qa_tools
 from airbyte_ops_mcp.mcp.connector_registry import register_connector_registry_tools
 from airbyte_ops_mcp.mcp.connector_versions import register_connector_version_tools
@@ -482,6 +483,7 @@ def register_server_assets(app: FastMCP) -> None:
     register_connector_registry_tools(app)
     register_connector_qa_tools(app)
     register_connection_medic_tools(app)
+    register_connection_resource_tools(app)
     register_prod_db_ops_tools(app)
     register_logging_tools(app)
     register_context_store_ops_tools(app)

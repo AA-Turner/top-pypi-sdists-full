@@ -1,6 +1,6 @@
+use super::StatsigUser;
 use super::unit_id::UnitID;
 use super::user_data::{UserData, UserDataMap, UserDataMapOf, UserDataStringMap};
-use super::StatsigUser;
 use crate::dyn_value;
 use crate::evaluation::dynamic_value::DynamicValue;
 

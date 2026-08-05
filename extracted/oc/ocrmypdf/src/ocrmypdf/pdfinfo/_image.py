@@ -287,9 +287,15 @@ def _image_xobjects(container) -> Iterator[tuple[Object, str]]:
     if Name.Resources not in container:
         return
     resources = container[Name.Resources]
-    if Name.XObject not in resources:
+    # A malformed PDF may store a non-dictionary at /Resources or
+    # /Resources /XObject; treat that as "no image XObjects" instead of
+    # crashing when we try to iterate it.
+    if not isinstance(resources, Dictionary):
         return
-    for key, candidate in resources[Name.XObject].items():
+    xobjects = resources.get(Name.XObject)
+    if not isinstance(xobjects, Dictionary):
+        return
+    for key, candidate in xobjects.items():
         if candidate is None or Name.Subtype not in candidate:
             continue
         if candidate[Name.Subtype] == Name.Image:
@@ -336,9 +342,14 @@ def _find_form_xobject_images(pdf: Pdf, container: Object, contentsinfo: Content
     if Name.Resources not in container:
         return
     resources = container[Name.Resources]
-    if Name.XObject not in resources:
+    # As in _image_xobjects, tolerate a non-dictionary /Resources or
+    # /Resources /XObject in a malformed PDF rather than crashing.
+    if not isinstance(resources, Dictionary):
         return
-    xobjs = resources[Name.XObject].as_dict()
+    xobject = resources.get(Name.XObject)
+    if not isinstance(xobject, Dictionary):
+        return
+    xobjs = xobject.as_dict()
     for xobj in xobjs:
         candidate = xobjs[xobj]
         if candidate is None or candidate.get(Name.Subtype) != Name.Form:

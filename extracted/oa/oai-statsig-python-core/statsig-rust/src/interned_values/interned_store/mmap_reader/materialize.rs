@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use parking_lot::Mutex;
 
 use crate::{
+    DynamicReturnable,
     evaluation::{
         dynamic_string::DynamicString,
         evaluator_value::{EvaluatorValueType, MemoizedEvaluatorValue},
@@ -18,16 +19,17 @@ use crate::{
         explicit_params::ExplicitParameters,
         spec_types::{Rule, Spec},
     },
-    DynamicReturnable,
 };
 
-use super::{get_returnable, get_string, MMAP_DATA};
+use super::{MMAP_DATA, get_returnable, get_string};
 use crate::interned_values::interned_store::InternedStore;
 
 lazy_static! {
     static ref MMAP_EVALUATOR_MATERIALIZATIONS: Mutex<AHashMap<u64, &'static MemoizedEvaluatorValue>> =
         Mutex::new(AHashMap::new());
     static ref MMAP_SPEC_MATERIALIZATIONS: Mutex<AHashMap<usize, &'static Spec>> =
+        Mutex::new(AHashMap::new());
+    static ref MMAP_LIVE_SPEC_MATERIALIZATIONS: Mutex<AHashMap<usize, &'static Spec>> =
         Mutex::new(AHashMap::new());
 }
 
@@ -83,7 +85,22 @@ impl InternedStore {
             return spec;
         }
 
-        let spec = Box::leak(Box::new(materialize_spec(spec)));
+        let spec = Box::leak(Box::new(materialize_spec(spec, None)));
+        cached.insert(key, spec);
+        spec
+    }
+
+    pub(crate) fn materialize_mmap_live_spec(spec: &ArchivedMmapSpec) -> &'static Spec {
+        let key = spec as *const _ as usize;
+        let mut cached = MMAP_LIVE_SPEC_MATERIALIZATIONS.lock();
+        if let Some(spec) = cached.get(&key) {
+            return spec;
+        }
+
+        let spec = Box::leak(Box::new(materialize_spec(
+            spec,
+            Some(InternedString::from_str_ref("live")),
+        )));
         cached.insert(key, spec);
         spec
     }
@@ -99,30 +116,32 @@ pub(super) fn initialize_explicit_parameters() {
 }
 
 fn mmap_explicit_parameters() -> &'static AHashMap<usize, ExplicitParameters> {
-    let data = MMAP_DATA
+    let registry = MMAP_DATA
         .get()
         .expect("mmap data must be installed before explicit parameters are initialized");
 
-    data.explicit_parameters.get_or_init(|| {
+    registry.explicit_parameters.get_or_init(|| {
         let mut parameters = AHashMap::new();
-        let archive = data.archive.borrow_archived();
-        for specs in [
-            &archive.feature_gates,
-            &archive.dynamic_configs,
-            &archive.layer_configs,
-        ] {
-            for (_, spec) in specs.iter() {
-                let Some(values) = spec.explicit_parameters.as_ref() else {
-                    continue;
-                };
-                let key = values as *const _ as usize;
-                let value = ExplicitParameters::from_interned(
-                    values
-                        .iter()
-                        .map(|hash| mmap_interned_string(hash.to_native()))
-                        .collect(),
-                );
-                parameters.insert(key, value);
+        for project in registry.projects.iter() {
+            let archive = project.archive.borrow_archived();
+            for specs in [
+                &archive.feature_gates,
+                &archive.dynamic_configs,
+                &archive.layer_configs,
+            ] {
+                for (_, spec) in specs.iter() {
+                    let Some(values) = spec.explicit_parameters.as_ref() else {
+                        continue;
+                    };
+                    let key = values as *const _ as usize;
+                    let value = ExplicitParameters::from_interned(
+                        values
+                            .iter()
+                            .map(|hash| mmap_interned_string(hash.to_native()))
+                            .collect(),
+                    );
+                    parameters.insert(key, value);
+                }
             }
         }
         parameters
@@ -232,7 +251,7 @@ fn materialize_rule(rule: &ArchivedMmapRule) -> Rule {
     }
 }
 
-fn materialize_spec(spec: &ArchivedMmapSpec) -> Spec {
+fn materialize_spec(spec: &ArchivedMmapSpec, session_update_mode: Option<InternedString>) -> Spec {
     Spec {
         checksum: spec
             .checksum
@@ -266,7 +285,6 @@ fn materialize_spec(spec: &ArchivedMmapSpec) -> Spec {
                 .collect()
         }),
         use_new_layer_eval: spec.use_new_layer_eval.as_ref().copied(),
-        // session_update_mode does not affect evaluation and is only read from owned specs.
-        session_update_mode: None,
+        session_update_mode,
     }
 }

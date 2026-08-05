@@ -147,7 +147,7 @@ def _calculate_year_stats(request, year) -> dict:
     fats_in_year = (
         Fat.objects.filter(fatlink__created__year=year, character__in=characters)
         .values("character__character_id", "fatlink__created__month")
-        .annotate(fat_count=Count("id"))
+        .annotate(fat_count=Count("pk"))
         .order_by("fatlink__created__month", "character__character_name")
     )
 
@@ -359,7 +359,7 @@ def ajax_get_monthly_fats_for_main_character(
             "character__corporation_id",
             "character__corporation_name",
         )
-        .annotate(fat_count=Count("id"))
+        .annotate(fat_count=Count("pk"))
     )
 
     # if main_character.corporation_id != corporation_id:
@@ -465,7 +465,7 @@ def corporation(  # pylint: disable=too-many-statements too-many-branches too-ma
                 fatlink__created__year=year,
             )
             .values("fatlink__created__month")
-            .annotate(fat_count=Count("id"))
+            .annotate(fat_count=Count("pk"))
         )
 
         months = []
@@ -550,13 +550,13 @@ def corporation(  # pylint: disable=too-many-statements too-many-branches too-ma
     characters = EveCharacter.objects.filter(
         character_id__in=character_ids
     ).select_related("character_ownership__user")
-    character_fat_counts = fats.values("character_id").annotate(fat_count=Count("id"))
+    character_fat_counts = fats.values("character_id").annotate(fat_count=Count("pk"))
     character_fat_map = {
         item["character_id"]: item["fat_count"] for item in list(character_fat_counts)
     }
 
     for char in characters:
-        fat_c = character_fat_map.get(char.id, 0)
+        fat_c = character_fat_map.get(char.pk, 0)
         chars[char.character_name] = (fat_c, char.character_id)
         main_character = get_main_character_from_evecharacter(character=char)
 
@@ -651,7 +651,7 @@ def alliance(  # pylint: disable=too-many-statements too-many-branches too-many-
             )
             .order_by("fatlink__created__month")
             .values("fatlink__created__month")
-            .annotate(fat_count=Count("id"))
+            .annotate(fat_count=Count("pk"))
         )
 
         for entry in ally_fats_by_month:

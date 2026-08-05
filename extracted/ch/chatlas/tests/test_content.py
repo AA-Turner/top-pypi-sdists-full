@@ -2,7 +2,11 @@ import pytest
 from chatlas import ChatOpenAI
 from chatlas._content import (
     ContentCitation,
+    ContentDocument,
+    ContentPDF,
     ContentText,
+    ContentToolRequestFetch,
+    ContentToolRequestSearch,
     ContentToolResponseFetch,
     ContentToolResponseSearch,
     ContentUploaded,
@@ -114,10 +118,173 @@ def test_contenttext_add_concatenates():
 def test_content_uploaded_roundtrip():
     c = ContentUploaded(id="file_123", mime_type="application/pdf", provider="openai")
     assert c.content_type == "uploaded"
-    assert str(c) == "<uploaded file id=file_123 mime_type=application/pdf>"
+    assert str(c) == "`[uploaded file_123 · application/pdf]`"
 
     dumped = c.model_dump()
     restored = create_content(dumped)
     assert isinstance(restored, ContentUploaded)
     assert restored.id == "file_123"
     assert restored.provider == "openai"
+
+
+def test_content_document_roundtrip():
+    c = ContentDocument(data=b"hello", filename="a.txt", mime_type="text/plain")
+    assert c.content_type == "document"
+
+    dumped = c.model_dump(mode="json")
+    restored = create_content(dumped)
+    assert isinstance(restored, ContentDocument)
+    assert restored.data == b"hello"
+    assert restored.filename == "a.txt"
+    assert restored.mime_type == "text/plain"
+
+
+@pytest.mark.parametrize(
+    "content, expected",
+    [
+        (
+            ContentPDF(data=b"x" * (219 * 1024), filename="report.pdf"),
+            "`[PDF report.pdf · 219 KB]`",
+        ),
+        (
+            ContentPDF(
+                filename="r.pdf",
+                url="https://example.com/r.pdf",
+            ),
+            "`[PDF r.pdf · https://example.com/r.pdf]`",
+        ),
+        (
+            ContentDocument(data=b"hello", filename="data.csv", mime_type="text/csv"),
+            "`[document data.csv · text/csv]`",
+        ),
+        (
+            ContentUploaded(
+                id="file-abc123",
+                mime_type="image/png",
+                provider="openai",
+            ),
+            "`[uploaded file-abc123 · image/png]`",
+        ),
+    ],
+)
+def test_file_content_str_survives_markdown_rendering(content, expected):
+    assert str(content) == expected
+    rendered = expected[1:-1]
+    assert rendered in render_console_markdown(str(content))
+    assert rendered in render_notebook_markdown(str(content))
+
+
+@pytest.mark.parametrize(
+    "content, expected",
+    [
+        (
+            ContentPDF(data=b"x", filename="x`\n# heading"),
+            "``[PDF x`\\n# heading · 1 B]``",
+        ),
+        (
+            ContentDocument(
+                data=b"x",
+                filename="x`\n# heading",
+                mime_type="text/csv",
+            ),
+            "``[document x`\\n# heading · text/csv]``",
+        ),
+        (
+            ContentUploaded(
+                id="file-`abc\n# heading",
+                mime_type="image/png",
+                provider="openai",
+            ),
+            "``[uploaded file-`abc\\n# heading · image/png]``",
+        ),
+    ],
+)
+def test_file_content_with_backticks_and_newlines_stays_code(
+    content, expected
+):
+    assert str(content) == expected
+
+    console_out = render_console_markdown(str(content))
+    assert "heading" in console_out
+
+    notebook_out = render_notebook_markdown(str(content))
+    assert "<h1>" not in notebook_out
+    assert "<code>" in notebook_out
+    assert r"\n# heading" in notebook_out
+
+
+def render_console_markdown(md: str) -> str:
+    """Render markdown the way the console echo display does."""
+    from rich.console import Console
+    from rich.markdown import Markdown
+
+    console = Console(width=80)
+    with console.capture() as cap:
+        console.print(Markdown(md))
+    return cap.get().strip()
+
+
+def render_notebook_markdown(md: str) -> str:
+    """Render markdown the way a notebook front-end does (CommonMark)."""
+    from markdown_it import MarkdownIt
+
+    # The notebook display wraps each content in blank lines, which is what makes
+    # a bare `[label]: url` a block-level link reference definition.
+    return MarkdownIt("commonmark").render(f"\n\n{md}\n\n").strip()
+
+
+WEB_CONTENT_CASES = [
+    (
+        ContentToolRequestSearch(query="ggplot2 release date"),
+        "web search request",
+        "ggplot2 release date",
+    ),
+    (
+        ContentToolResponseSearch(
+            sources=[WebSource(url="https://example.com/a", title="Alpha")]
+        ),
+        "web search results",
+        "https://example.com/a",
+    ),
+    (
+        ContentToolRequestFetch(url="https://example.com/page"),
+        "web fetch request",
+        "https://example.com/page",
+    ),
+    (
+        ContentToolResponseFetch(url="https://example.com/page", status="success"),
+        "web fetch result",
+        "https://example.com/page",
+    ),
+    (
+        ContentCitation(source=WebSource(url="https://example.com/cite")),
+        "citation",
+        "https://example.com/cite",
+    ),
+]
+
+
+@pytest.mark.parametrize("content,label,detail", WEB_CONTENT_CASES)
+def test_web_content_survives_markdown_rendering(content, label, detail):
+    """
+    Regression test for the link-reference-definition bug.
+
+    `[label]: <url>` is valid CommonMark link-reference syntax, so a renderer
+    consumes the line and emits nothing. Every built-in content type has to
+    survive both renderers chatlas uses.
+    """
+    md = str(content)
+
+    console_out = render_console_markdown(md)
+    assert label in console_out, f"{type(content).__name__} vanished in the console"
+    assert detail in console_out
+
+    notebook_out = render_notebook_markdown(md)
+    assert label in notebook_out, f"{type(content).__name__} vanished in a notebook"
+    assert detail in notebook_out
+
+
+@pytest.mark.parametrize("content,label,detail", WEB_CONTENT_CASES)
+def test_web_content_str_has_no_link_reference_prefix(content, label, detail):
+    """The `[label]:` form is the bug; assert it can't come back."""
+    assert not str(content).startswith("[")

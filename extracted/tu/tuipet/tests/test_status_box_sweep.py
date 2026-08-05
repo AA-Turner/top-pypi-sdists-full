@@ -344,3 +344,202 @@ def test_the_road_card_names_the_wound_line_and_the_gate_verdict():
     pan._trans, pan.travelling = None, True
     assert clean.pet.battle_condition(check_energy=False) is None
     assert "fight." not in plain(_card(clean, pan))
+
+
+def test_every_card_fits_the_box_in_cells():
+    """⭐THE UNIVERSAL BUDGET SWEEP (card audit 2026-08-04, Joel: "lets do an
+    audit on ALL status cards").
+
+    The box is 26x16.  Individual cards had individual budget pins, and the
+    gaps between them are where the clipping lived: this audit found the DNA
+    card at 28 cells -- `Field    Virus Buster  (own)` -- and 7 of the 10 DNA
+    fields overflowed the same way whenever the card showed the pet's OWN
+    field, which is the commonest case there is.  Textual wrapped the tail
+    onto the box's invisible next row.
+
+    ⛔This drives EVERY registered painter through the REAL dispatcher, so a
+    new card cannot ship without a budget check, and an old one cannot drift
+    into overflow silently.  Cells, never len() -- THE CELL LAW."""
+    from rich.cells import cell_len
+    from rich.text import Text
+    from tuipet import adventure, data, statusbox
+    from tuipet.adventurescreen import AdventurePanel
+    from tuipet.battlescreen import BattlePanel
+    from tuipet.dnascreen import DNAPanel
+    from tuipet.feedscreen import FeedPanel
+    from tuipet.shopscreen import ShopPanel
+
+    def _sweep(tag, app):
+        txt = app.stats_w.txt
+        rows = Text.from_markup(txt).plain.split("\n")   # raises on bad markup
+        assert len(rows) <= 16, f"{tag}: {len(rows)} rows overflow the card"
+        for r in rows:
+            assert cell_len(r) <= 26, f"{tag}: {cell_len(r)} cells |{r}|"
+
+    # the three fixed cards, in their worst states
+    for tag, lines in (
+        ("home", statusbox.home_lines(_app().pet)),
+        ("home/loaded", statusbox.home_lines(
+            _app(Pet(num=399, name="Wwwwwwwwwwwwwwwwwwwwww", stage="Mega",
+                     attribute="Vaccine")).pet)),
+        ("egg", statusbox.egg_lines(Pet(num=-1, name="", stage="Egg"))),
+    ):
+        fake = _FakeStats()
+        fake.txt = "\n".join(lines)
+        _sweep(tag, type("A", (), {"stats_w": fake})())
+
+    # every DNA field -- the case this audit caught
+    for fld in data.DNA_FIELDS:
+        app = _app()
+        app.pet.field = fld
+        _sweep(f"dna[{fld}]", _card_app(app, DNAPanel(app.pet)))
+
+    # the panels, driven through painter_for
+    app = _app()
+    road = AdventurePanel(app.pet, zone=adventure.ZONES[0])
+    road._trans, road.travelling = None, True
+    for tag, mode in (
+        ("feed", FeedPanel(app.pet)),
+        ("shop", ShopPanel(app.pet)),
+        ("bag", ShopPanel(app.pet, start_mode="bag")),
+        ("road", road),
+        ("battle", BattlePanel(app.pet, {"num": 100, "name": "MetalGreymon"},
+                               wild=True)),
+    ):
+        _sweep(tag, _card_app(_app(), mode))
+
+
+def _card_app(app, mode):
+    """Paint `mode`'s card into `app` through the real dispatcher."""
+    from tuipet import statusbox
+    app.mode = mode
+    painter = statusbox.painter_for(mode)
+    assert painter is not None, f"{type(mode).__name__} fell to bare vitals"
+    painter(app)
+    return app
+
+
+def test_the_album_and_hall_wear_their_own_cards():
+    """⭐Joel's named order 2026-08-04 ("build the album and hall cards"), off
+    the all-cards audit that found both falling through to BARE VITALS -- you
+    opened the bestiary or the lineage book and the box on the right was still
+    reading out your pet's hunger.  Two screens he had asked for (2026-07-21
+    and 2026-07-26) had never had a card at all.
+
+    Each shows what a BOOK has and a scoreboard doesn't: where you are in it,
+    and the entry under the cursor."""
+    import re
+    from rich.cells import cell_len
+    from tuipet.albumscreen import AlbumPanel
+    from tuipet.hallscreen import HallPanel
+    plain = lambda t: re.sub(r"\[/?[^\[\]]*\]", "", t)
+
+    app = _app()
+    # ---- the ALBUM: progress, and the browsed form -------------------------
+    ap = AlbumPanel(app.pet)
+    ap.seen = set(ap.roster[:37])
+    txt = plain(_card(app, ap))
+    assert "Album" in txt
+    assert f"37 of {ap.n} forms" in txt              # LIVE off the panel's own data
+    assert "Found" in txt
+    rec_name = _rec_name(ap.roster[0])
+    assert rec_name in txt, "a DISCOVERED form must wear its name"
+    # ...and an undiscovered one stays masked, but carries its ROUTE
+    ap.i = next(i for i, n in enumerate(ap.roster) if n not in ap.seen)
+    txt = plain(_card(app, ap))
+    assert "???" in txt, "an undiscovered form must stay masked"
+    from tuipet.albumscreen import route_hint
+    hint = route_hint(ap.roster[ap.i])
+    assert hint.split()[0] in txt, "the route must reach the card"
+
+    # ---- the HALL: the line, and the elder ---------------------------------
+    hp = HallPanel(app.pet)
+    hp.elders = [
+        {"gen": 3, "name": "Wwwwwwwwwwwwwwwwwwwwwwww", "stage": "Mega",
+         "age": 3 * 86400 + 7000, "cups": 12, "dead": True, "num": 399,
+         "cause": "a really quite long and wordy demise", "wins": 74},
+        {"gen": 2, "name": "Agumon", "stage": "Rookie", "age": 6000,
+         "cups": 0, "dead": False, "num": 100, "wins": 3},
+    ]
+    hp.n = len(hp.elders)
+    txt = plain(_card(app, hp))
+    assert "2 elders" in txt and "gen 3" in txt      # the LINE
+    assert "3d01h" in txt and "74W" in txt and "12" in txt   # the ELDER
+    assert "†" in txt, "a fallen elder must be marked"
+    hp.i = 1
+    txt = plain(_card(app, hp))
+    assert "Agumon" in txt and "†" not in txt        # a RETIRED elder is not
+
+    # an empty lineage says so instead of crashing or lying
+    empty = HallPanel(app.pet)
+    empty.elders, empty.n = [], 0
+    assert "no elders yet" in plain(_card(app, empty))
+
+    # both fit the box in every state above
+    for mode in (ap, hp, empty):
+        rows = _card(app, mode).split("\n")
+        assert len(rows) <= 16
+        for r in rows:
+            assert cell_len(plain(r)) <= 26, r
+
+
+def _rec_name(num):
+    from tuipet import data
+    return data.record_for(num).get("name", "?")
+
+
+def test_the_zone_picker_wears_its_own_card():
+    """⭐Joel 2026-08-04 ("do the zone picker one too") -- the last of the
+    three the all-cards audit found on bare vitals.
+
+    The panel's LIST already carries the name, the conquered mark and the
+    standing best, so the card does NOT repeat them (a screen shows a fact
+    once).  It carries what the list cannot: the gate boss, the road's length,
+    whether there is a town on it, and the DEVICE'S VERDICT ON THE BODY --
+    from the same `battle_condition(check_energy=False)` the gate itself will
+    ask.  The road card learned that: a refusal that only speaks after forty
+    legs speaks too late."""
+    import re
+    from rich.cells import cell_len
+    from tuipet import adventure
+    from tuipet.adventurescreen import ZonePickPanel
+    plain = lambda t: re.sub(r"\[/?[^\[\]]*\]", "", t)
+    app = _app()
+    app.pet.hunger = app.pet.strength = 4
+
+    m = ZonePickPanel(app.pet)
+    zi = m.indices[m.cursor]
+    z = adventure.ZONES[zi]
+    txt = plain(_card(app, m))
+    assert (z.get("bosses") or [{}])[0].get("name", "?") in txt   # the GATE
+    assert f"{z['steps']} legs" in txt                            # the LENGTH
+    assert "town" in txt                                          # the REST stop
+    assert "Energy" in txt
+
+    # the body's verdict reaches the card, verbatim, before the walk
+    for attr, val in (("injured", True), ("sick", True), ("hunger", 0),
+                      ("poop", 2)):
+        q = _app()
+        q.pet.hunger = q.pet.strength = 4
+        setattr(q.pet, attr, val)
+        want = q.pet.battle_condition(check_energy=False)
+        assert want, attr
+        assert want in plain(_card(q, ZonePickPanel(q.pet))), attr
+
+    # ⛔the title must never restate the Gate row: `_zone_display` shortens a
+    # long zone name to its BOSS, which is right on the home card and a
+    # duplicate here.  Swept over all 26 zones, worst case included.
+    for zi in range(len(adventure.ZONES)):
+        mm = ZonePickPanel(app.pet)
+        mm.indices, mm.cursor = [zi], 0
+        rows = [plain(r) for r in _card(app, mm).split("\n")]
+        gate = next(r for r in rows if r.startswith("Gate")).replace("Gate", "").strip()
+        assert rows[0] != gate, f"zone {zi}: title restates the gate ({gate!r})"
+        assert len(rows) <= 16
+        for r in rows:
+            assert cell_len(r) <= 26, f"zone {zi}: {r!r}"
+
+    # no roads open yet says so, instead of an empty frame
+    empty = ZonePickPanel(app.pet)
+    empty.indices = []
+    assert "no roads open" in plain(_card(app, empty))

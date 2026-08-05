@@ -1,5 +1,5 @@
 use statsig_rust::{
-    dyn_value, evaluation::dynamic_string::DynamicString, StatsigUserBuilder, StatsigUserDataMap,
+    StatsigUserBuilder, StatsigUserDataMap, dyn_value, evaluation::dynamic_string::DynamicString,
 };
 use std::collections::HashMap;
 

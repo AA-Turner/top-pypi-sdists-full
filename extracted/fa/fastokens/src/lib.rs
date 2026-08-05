@@ -9,7 +9,7 @@ pub mod pre_tokenizers;
 pub mod tiktoken;
 
 use std::{
-    collections::VecDeque,
+    collections::{HashMap, VecDeque},
     fs,
     path::Path,
     sync::{Arc, Mutex},
@@ -23,13 +23,16 @@ pub use self::{
     json_structs::{
         AddedTokenConfig, DecoderConfig, DecoderKind, ModelConfig, ModelKind, NormalizerConfig,
         NormalizerKind, PostProcessorConfig, PostProcessorKind, PreTokenizerConfig,
-        PreTokenizerKind, TokenizerJson,
+        PreTokenizerKind, TokenizerConfig, TokenizerJson,
     },
     models::Model,
-    normalizers::{Nfc, Normalizer},
+    normalizers::{Nfc, Normalizer, Replace},
     post_processors::PostProcessor,
-    pre_tokenizers::{ByteLevel, PreTokenizer, Split, SplitBehavior},
-    tiktoken::{CL100K_BASE_PATTERN, O200K_BASE_PATTERN, TiktokenConfig},
+    pre_tokenizers::{ByteLevel, Pcre2Limits, PreTokenizer, Split, SplitBehavior},
+    tiktoken::{
+        CL100K_BASE_PATTERN, KIMI_PATTERN, KIMI_RESERVED_SPECIAL_TOKENS, O200K_BASE_PATTERN,
+        TiktokenConfig, TiktokenFamily,
+    },
 };
 
 use self::{
@@ -42,9 +45,12 @@ use self::{
 mod hf_hub_support {
     pub use hf_hub::api::sync::ApiError;
 
-    use super::{Error, Tokenizer, TokenizerJson};
-    use hf_hub::api::sync::{Api, ApiBuilder};
-    use std::fs;
+    use super::{
+        AddedTokenConfig, Error, KIMI_PATTERN, TiktokenConfig, TiktokenFamily, Tokenizer,
+        TokenizerConfig, TokenizerJson, TokenizerOptions, tiktoken::parse_tiktoken_model,
+    };
+    use hf_hub::api::sync::{Api, ApiBuilder, ApiRepo};
+    use std::{collections::HashMap, fs};
 
     /// Build an `hf-hub` [`Api`] client, optionally overriding the token that
     /// would otherwise be read from the local HuggingFace credential cache
@@ -69,13 +75,158 @@ mod hf_hub_support {
     /// Used by `Tokenizer::from_model` and `Tokenizer::from_model_with_token` to fetch
     /// `tokenizer.json` from the HuggingFace Hub and build a `Tokenizer`.
     pub fn from_model_with_token(model: &str, token: Option<&str>) -> Result<Tokenizer, Error> {
+        from_model_with_token_and_options(model, token, TokenizerOptions::default())
+    }
+
+    pub fn from_model_with_token_and_options(
+        model: &str,
+        token: Option<&str>,
+        options: TokenizerOptions,
+    ) -> Result<Tokenizer, Error> {
         validate_model_id(model)?;
         let api = make_api(token)?;
         let repo = api.model(model.to_string());
-        let json_path = repo.get("tokenizer.json")?;
-        let raw = fs::read_to_string(json_path)?;
+
+        // `tokenizer.json` first: it is the common case, and `ApiRepo::get`
+        // short-circuits on the local cache, so a warm cache needs no network.
+        // Only a genuinely absent file falls through to the tiktoken layout —
+        // a transport or auth failure must propagate, not be misread as
+        // "this repo must be tiktoken".
+        let json_path = match repo.get("tokenizer.json") {
+            Ok(path) => path,
+            Err(e) => {
+                let json_err = Error::from(e);
+                if !json_err.is_not_found() {
+                    return Err(json_err);
+                }
+                // Report the missing `tokenizer.json` rather than the missing
+                // `tiktoken.model` when the repo is neither: for a repo that is
+                // simply misconfigured, that is the more useful error.
+                return match from_tiktoken_repo(&repo)? {
+                    Some(tokenizer) => Ok(tokenizer),
+                    None => Err(json_err),
+                };
+            }
+        };
+        let raw = fs::read_to_string(&json_path)?;
         let json: TokenizerJson = serde_json::from_str(&raw)?;
-        Tokenizer::build(json)
+        // Some models (e.g. Qwen2-VL) declare added tokens only in
+        // `tokenizer_config.json`; fetch it too when present.
+        let config_path = json_path.with_file_name("tokenizer_config.json");
+        let tokenizer_config = if config_path.exists() {
+            Some(serde_json::from_str(&fs::read_to_string(config_path)?)?)
+        } else if repo
+            .info()?
+            .siblings
+            .iter()
+            .any(|sibling| sibling.rfilename == "tokenizer_config.json")
+        {
+            let config_path = repo.get("tokenizer_config.json")?;
+            Some(serde_json::from_str(&fs::read_to_string(config_path)?)?)
+        } else {
+            None
+        };
+        Tokenizer::build_with_options(json, tokenizer_config, options)
+    }
+
+    /// Build a [`Tokenizer`] from a repository that ships a bare
+    /// `tiktoken.model` instead of a `tokenizer.json` (e.g. Moonshot's Kimi).
+    ///
+    /// Returns `Ok(None)` when the repo has no `tiktoken.model` either, leaving
+    /// it to the caller to report the absent `tokenizer.json`. A `tiktoken.model`
+    /// that is present but unusable is an error, not a `None` — silently
+    /// reporting "no tokenizer.json" would hide the real cause.
+    fn from_tiktoken_repo(repo: &ApiRepo) -> Result<Option<Tokenizer>, Error> {
+        let ranks_path = match repo.get("tiktoken.model") {
+            Ok(path) => path,
+            Err(e) => {
+                let err = Error::from(e);
+                if err.is_not_found() {
+                    return Ok(None);
+                }
+                return Err(err);
+            }
+        };
+
+        // The ranks file carries no pattern or special tokens, so
+        // `tokenizer_config.json` is required to identify the family.
+        let config_path = ranks_path.with_file_name("tokenizer_config.json");
+        let config_raw = if config_path.exists() {
+            fs::read_to_string(config_path)?
+        } else {
+            fs::read_to_string(repo.get("tokenizer_config.json").map_err(|e| {
+                let err = Error::from(e);
+                if err.is_not_found() {
+                    Error::Tiktoken(
+                        "repository has tiktoken.model but no tokenizer_config.json, so the \
+                         pre-tokenization pattern cannot be determined"
+                            .into(),
+                    )
+                } else {
+                    err
+                }
+            })?)?
+        };
+        let config: TokenizerConfig = serde_json::from_str(&config_raw)?;
+
+        let family = TiktokenFamily::detect(config.tokenizer_class(), config.auto_map_tokenizer())
+            .ok_or_else(|| {
+                Error::Tiktoken(format!(
+                    "unrecognized tiktoken model family (tokenizer_class={:?}, \
+                     auto_map.AutoTokenizer={:?}); supply the pattern explicitly via \
+                     Tokenizer::from_tiktoken_file",
+                    config.tokenizer_class(),
+                    config.auto_map_tokenizer(),
+                ))
+            })?;
+
+        let ranks = parse_tiktoken_model(&fs::read_to_string(&ranks_path)?)?;
+        let declared = config.added_token_configs().map_err(Error::Tiktoken)?;
+
+        let tokenizer = match family {
+            TiktokenFamily::Kimi => {
+                let num_ranks = u32::try_from(ranks.len()).map_err(|_| {
+                    Error::Tiktoken(format!(
+                        "tiktoken.model has too many ranks: {}",
+                        ranks.len()
+                    ))
+                })?;
+                // `TiktokenConfig::kimi` owns the reserved-window layout (which
+                // ids exist and how undeclared ones are named); overlay the
+                // declared entries so their flags survive instead of being
+                // flattened to `special: true` across the whole window.
+                //
+                // On today's Kimi repos the effect is on decode, not encode:
+                // every declared token has `lstrip`/`rstrip` false, so the ids
+                // are identical either way. What differs is that K2.6 declares 7
+                // of its 23 tokens `special: false` (K3, 3 of 16) —
+                // `<|tool_call_begin|>`, `<think>`, … — and those must survive
+                // `decode(skip_special_tokens = true)`.
+                let by_id: HashMap<u32, &AddedTokenConfig> =
+                    declared.iter().map(|c| (c.id, c)).collect();
+                let named = declared.iter().map(|c| (c.id, c.content.clone()));
+                let added: Vec<AddedTokenConfig> = TiktokenConfig::kimi(num_ranks, named)
+                    .special_tokens
+                    .into_iter()
+                    .map(|(content, id)| {
+                        by_id.get(&id).map_or_else(
+                            || AddedTokenConfig {
+                                id,
+                                content,
+                                single_word: false,
+                                lstrip: false,
+                                rstrip: false,
+                                normalized: false,
+                                special: true,
+                            },
+                            |declared| (*declared).clone(),
+                        )
+                    })
+                    .collect();
+                Tokenizer::from_tiktoken_ranks_with_added_tokens(&ranks, KIMI_PATTERN, &added)?
+            }
+        };
+        Ok(Some(tokenizer))
     }
 
     /// Used by the Python layer to fetch `tokenizer.json` from the HuggingFace Hub and
@@ -122,6 +273,43 @@ pub enum Error {
 
     #[error("invalid model identifier: {0}")]
     InvalidIdentifier(String),
+}
+
+impl Error {
+    /// Whether this error means "the requested file does not exist", as opposed
+    /// to a transport, auth, or parse failure.
+    ///
+    /// This distinction is load-bearing for callers that probe for an optional
+    /// file: a missing file is a permanent, expected outcome to be handled (try
+    /// another format), whereas a network or credential failure is transient and
+    /// must be propagated and retried. Conflating the two makes a permanent 404
+    /// look retryable forever.
+    ///
+    /// Recognizes an HTTP 404 from the Hub, and a local
+    /// [`std::io::ErrorKind::NotFound`]. (`hf-hub` has no offline mode — a cache
+    /// miss is a `None` from the cache lookup, not an error.)
+    ///
+    /// The `Io` arm is unreachable from the Rust resolver, where `ApiRepo::get`
+    /// yields an `ApiError` and a failed read propagates on its own. It is live
+    /// for the Python layer, which classifies `download_tokenizer_json` — a `get`
+    /// followed by a `read_to_string` — so a file pruned from the cache between
+    /// those two steps is retried through the resolver instead of failing.
+    ///
+    /// Only the un-nested `RequestError(Status(404, _))` shape is matched, which
+    /// is what a missing remote file produces: the metadata `HEAD` raises before
+    /// the body phase, and `max_retries` defaults to 0 so nothing wraps it in
+    /// `TooManyRetries`. Enabling retries would need this widened.
+    #[must_use]
+    pub fn is_not_found(&self) -> bool {
+        match self {
+            #[cfg(feature = "hf-hub")]
+            Self::Hub(hf_hub_support::ApiError::RequestError(e)) => {
+                matches!(e.as_ref(), ureq::Error::Status(404, _))
+            }
+            Self::Io(e) => e.kind() == std::io::ErrorKind::NotFound,
+            _ => false,
+        }
+    }
 }
 
 /// Don't attempt prefix reuse unless the shared prefix is at least this many
@@ -285,6 +473,45 @@ fn input_cache_from_env() -> Option<Mutex<InputCache>> {
         .map(|c| Mutex::new(InputCache::new(c)))
 }
 
+/// Options applied while constructing a [`Tokenizer`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TokenizerOptions {
+    pub pcre2_limits: Pcre2Limits,
+}
+
+/// One piece of input for [`Tokenizer::encode_segments`].
+///
+/// A segment carries its own trust boundary: when `allow_special` is `true`,
+/// added/special vocabulary entries (e.g. `<|im_end|>`) in `text` are
+/// recognized as control tokens — appropriate for trusted chat-template output.
+/// When `false`, `text` is encoded as ordinary content, so a literal
+/// `<|im_end|>` becomes plain tokens and cannot be injected by untrusted input.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct EncodeSegment<'a> {
+    /// The text of this segment.
+    pub text: &'a str,
+    /// Whether special/added tokens are recognized within `text`.
+    pub allow_special: bool,
+}
+
+impl<'a> EncodeSegment<'a> {
+    /// A trusted segment whose special tokens are recognized.
+    pub fn special(text: &'a str) -> Self {
+        Self {
+            text,
+            allow_special: true,
+        }
+    }
+
+    /// An untrusted segment encoded as ordinary content.
+    pub fn ordinary(text: &'a str) -> Self {
+        Self {
+            text,
+            allow_special: false,
+        }
+    }
+}
+
 /// An LLM tokenizer backed by `tokenizer.json`.
 pub struct Tokenizer {
     added_tokens: Option<AddedTokens>,
@@ -298,16 +525,41 @@ pub struct Tokenizer {
     split_only: Option<PreTokenizer>,
     /// Optional whole-input encoding cache; `None` (off) unless enabled.
     input_cache: Option<Mutex<InputCache>>,
+    /// Whether to run vocab-aware (unbridgeable-bigram) splitting on encode.
+    /// True for metaspace models (e.g. Gemma) whose pre-tokenizer is a no-op
+    /// after normalization; false for ByteLevel models, whose regex `Split`
+    /// already produces word-level chunks. The pass is output-preserving, so
+    /// this flag only affects performance, never correctness.
+    needs_vocab_splitting: bool,
 }
 
 impl Tokenizer {
     /// Build the pipeline steps from a parsed JSON config.
     fn build(json: TokenizerJson) -> Result<Self, Error> {
+        Self::build_with_options(json, None, TokenizerOptions::default())
+    }
+
+    fn build_with_options(
+        mut json: TokenizerJson,
+        tokenizer_config: Option<TokenizerConfig>,
+        options: TokenizerOptions,
+    ) -> Result<Self, Error> {
+        // Merge added tokens declared only in `tokenizer_config.json`
+        // (`added_tokens_decoder`) — e.g. Qwen2-VL's `<|image_pad|>`, which is
+        // absent from `tokenizer.json`'s `added_tokens` array.
+        if let Some(tokenizer_config) = tokenizer_config {
+            Self::merge_added_tokens(
+                &mut json.added_tokens,
+                tokenizer_config
+                    .added_token_configs()
+                    .map_err(Error::Model)?,
+            )?;
+        }
         let added_tokens = AddedTokens::from_configs(&json.added_tokens).map_err(Error::Model)?;
         let normalizer = json.normalizer.map(Normalizer::from_config).transpose()?;
         let pre_tokenizer = json
             .pre_tokenizer
-            .map(PreTokenizer::from_config)
+            .map(|config| PreTokenizer::from_config_with_limits(config, options.pcre2_limits))
             .transpose()?;
         let model = Model::from_config(json.model).map_err(Error::Model)?;
         let post_processor = json
@@ -319,6 +571,11 @@ impl Tokenizer {
         // Detect Sequence([Split, ByteLevel(bulk)]) for fused byte-level+BPE.
         let split_only = Self::detect_fused_byte_level(&pre_tokenizer);
 
+        // ByteLevel pipelines already chunk at word boundaries via their regex
+        // Split, so vocab-aware splitting adds cost without benefit. Only run it
+        // when no ByteLevel step is present (metaspace models like Gemma).
+        let needs_vocab_splitting = !Self::pre_tokenizer_contains_byte_level(&pre_tokenizer);
+
         Ok(Self {
             added_tokens,
             normalizer,
@@ -328,7 +585,21 @@ impl Tokenizer {
             decoder,
             split_only,
             input_cache: input_cache_from_env(),
+            needs_vocab_splitting,
         })
+    }
+
+    /// Recursively check whether a pre-tokenizer pipeline contains a `ByteLevel`
+    /// step (including inside a `Sequence`).
+    fn pre_tokenizer_contains_byte_level(pt: &Option<PreTokenizer>) -> bool {
+        fn contains(pt: &PreTokenizer) -> bool {
+            match pt {
+                PreTokenizer::ByteLevel(_) => true,
+                PreTokenizer::Split(_) => false,
+                PreTokenizer::Sequence(steps) => steps.iter().any(contains),
+            }
+        }
+        pt.as_ref().is_some_and(contains)
     }
 
     /// If `pt` is `Sequence([Split, ByteLevel(bulk)])`, return a Split-only
@@ -355,10 +626,22 @@ impl Tokenizer {
         Self::build(json)
     }
 
+    /// Create a tokenizer from a raw JSON value for `tokenizer.json` with construction options.
+    pub fn from_json_with_options(json: Value, options: TokenizerOptions) -> Result<Self, Error> {
+        let json: TokenizerJson = serde_json::from_value(json)?;
+        Self::build_with_options(json, None, options)
+    }
+
     /// Create a tokenizer from a `tokenizer.json` file.
     pub fn from_file(path: &Path) -> Result<Self, Error> {
         let json: TokenizerJson = serde_json::from_str(&fs::read_to_string(path)?)?;
-        Self::build(json)
+        let config_path = path.with_file_name("tokenizer_config.json");
+        let tokenizer_config = if config_path.exists() {
+            Some(serde_json::from_str(&fs::read_to_string(config_path)?)?)
+        } else {
+            None
+        };
+        Self::build_with_options(json, tokenizer_config, TokenizerOptions::default())
     }
 
     /// Create a tokenizer from tiktoken mergeable ranks (`token_bytes -> rank`).
@@ -367,30 +650,15 @@ impl Tokenizer {
     /// pre-tokenization regex and special tokens are supplied via `config`
     /// (see [`TiktokenConfig`]). The resulting pipeline is: split special
     /// tokens → split on the regex → fused byte-level BPE → ByteLevel decode.
+    ///
+    /// Each special token becomes a literal (unnormalized, non-stripping) added
+    /// token marked special. To carry per-token `lstrip` / `rstrip` / `special`
+    /// flags through instead — as declared in a model's `added_tokens_decoder` —
+    /// use [`Self::from_tiktoken_ranks_with_added_tokens`].
     pub fn from_tiktoken_ranks(
         ranks: &[(Vec<u8>, u32)],
         config: TiktokenConfig,
     ) -> Result<Self, Error> {
-        let bpe = models::bpe::Bpe::from_tiktoken_ranks(ranks).map_err(Error::Model)?;
-        let model = Model::Bpe(bpe);
-
-        // Sequence([Split(pat_str, Isolated), ByteLevel(bulk)]) — the shape the
-        // fused byte-level path is detected from. The Split reproduces
-        // tiktoken's `regex.findall`; ByteLevel(bulk) marks byte-level BPE.
-        let split = Split::from_config(
-            &serde_json::json!({ "Regex": config.pattern }),
-            "Isolated",
-            false,
-        )?;
-        let byte_level = ByteLevel::from_config(false, false, false)?;
-        let pre_tokenizer = Some(PreTokenizer::Sequence(vec![
-            PreTokenizer::Split(split),
-            PreTokenizer::ByteLevel(byte_level),
-        ]));
-        let split_only = Self::detect_fused_byte_level(&pre_tokenizer);
-
-        // Special tokens become literal (unnormalized) added tokens, matched
-        // before the model and marked special so decode can skip them.
         let added_configs: Vec<AddedTokenConfig> = config
             .special_tokens
             .into_iter()
@@ -404,9 +672,53 @@ impl Tokenizer {
                 special: true,
             })
             .collect();
-        let added_tokens = AddedTokens::from_configs(&added_configs).map_err(Error::Model)?;
+        Self::from_tiktoken_ranks_with_added_tokens(ranks, &config.pattern, &added_configs)
+    }
+
+    /// Like [`Self::from_tiktoken_ranks`], but takes fully-specified added
+    /// tokens instead of `(content, id)` pairs.
+    ///
+    /// Use this when the model declares per-token flags — typically via
+    /// `tokenizer_config.json`'s `added_tokens_decoder`, which
+    /// [`TokenizerConfig::added_token_configs`] converts. The flags are not
+    /// cosmetic: `lstrip` / `rstrip` make a match absorb adjacent whitespace and
+    /// so change the resulting token ids, while `special` controls whether
+    /// decoding can skip the token.
+    ///
+    /// Takes no [`TokenizerOptions`] because its only member, the PCRE2 limits,
+    /// cannot apply here: Kimi-family patterns use character-class intersection
+    /// (`&&`), which PCRE2 cannot compile, so pre-tokenization runs on
+    /// `fancy-regex` and there is no PCRE2 matcher to bound. Threading limits in
+    /// would make `Split` reject the pattern outright
+    /// (`try_compile_pcre2_regexes` returns `Unsupported` when limits are set on
+    /// an intersection pattern), turning an inert knob into a load failure.
+    pub fn from_tiktoken_ranks_with_added_tokens(
+        ranks: &[(Vec<u8>, u32)],
+        pattern: &str,
+        added_configs: &[AddedTokenConfig],
+    ) -> Result<Self, Error> {
+        let bpe = models::bpe::Bpe::from_tiktoken_ranks(ranks).map_err(Error::Model)?;
+        let model = Model::Bpe(bpe);
+
+        // Sequence([Split(pat_str, Isolated), ByteLevel(bulk)]) — the shape the
+        // fused byte-level path is detected from. The Split reproduces
+        // tiktoken's `regex.findall`; ByteLevel(bulk) marks byte-level BPE.
+        let split =
+            Split::from_config(&serde_json::json!({ "Regex": pattern }), "Isolated", false)?;
+        let byte_level = ByteLevel::from_config(false, false, false)?;
+        let pre_tokenizer = Some(PreTokenizer::Sequence(vec![
+            PreTokenizer::Split(split),
+            PreTokenizer::ByteLevel(byte_level),
+        ]));
+        let split_only = Self::detect_fused_byte_level(&pre_tokenizer);
+
+        let added_tokens = AddedTokens::from_configs(added_configs).map_err(Error::Model)?;
 
         let decoder = Some(Decoder::from_config(DecoderConfig::ByteLevel)?);
+
+        // tiktoken pipelines are ByteLevel, so vocab-aware splitting is a no-op
+        // cost — the regex `Split` already chunks at word boundaries.
+        let needs_vocab_splitting = !Self::pre_tokenizer_contains_byte_level(&pre_tokenizer);
 
         Ok(Self {
             added_tokens,
@@ -417,6 +729,7 @@ impl Tokenizer {
             decoder,
             split_only,
             input_cache: input_cache_from_env(),
+            needs_vocab_splitting,
         })
     }
 
@@ -434,6 +747,18 @@ impl Tokenizer {
         Self::from_tiktoken_str(&contents, config)
     }
 
+    /// Create a tokenizer from a `tokenizer.json` file with construction options.
+    pub fn from_file_with_options(path: &Path, options: TokenizerOptions) -> Result<Self, Error> {
+        let json: TokenizerJson = serde_json::from_str(&fs::read_to_string(path)?)?;
+        let config_path = path.with_file_name("tokenizer_config.json");
+        let tokenizer_config = if config_path.exists() {
+            Some(serde_json::from_str(&fs::read_to_string(config_path)?)?)
+        } else {
+            None
+        };
+        Self::build_with_options(json, tokenizer_config, options)
+    }
+
     /// Download `tokenizer.json` from HuggingFace Hub for the given model (e.g.
     /// `"meta-llama/Llama-3.1-8B"`) and create a tokenizer with it.
     ///
@@ -445,12 +770,28 @@ impl Tokenizer {
         Self::from_model_with_token(model, None)
     }
 
+    /// Like [`Self::from_model`] but accepts construction options.
+    #[cfg(feature = "hf-hub")]
+    pub fn from_model_with_options(model: &str, options: TokenizerOptions) -> Result<Self, Error> {
+        Self::from_model_with_token_and_options(model, None, options)
+    }
+
     /// Like [`Self::from_model`] but accepts an explicit HuggingFace token,
     /// overriding the credential cache.  Pass `None` to use the credential
     /// cache (`~/.cache/huggingface/token`, set via `huggingface-cli login`).
     #[cfg(feature = "hf-hub")]
     pub fn from_model_with_token(model: &str, token: Option<&str>) -> Result<Self, Error> {
         hf_hub_support::from_model_with_token(model, token)
+    }
+
+    /// Like [`Self::from_model_with_token`] but accepts construction options.
+    #[cfg(feature = "hf-hub")]
+    pub fn from_model_with_token_and_options(
+        model: &str,
+        token: Option<&str>,
+        options: TokenizerOptions,
+    ) -> Result<Self, Error> {
+        hf_hub_support::from_model_with_token_and_options(model, token, options)
     }
 
     /// Download `tokenizer.json` and return its raw content without building
@@ -464,6 +805,52 @@ impl Tokenizer {
     /// Return the normalizer, if any.
     pub fn normalizer(&self) -> Option<&Normalizer> {
         self.normalizer.as_ref()
+    }
+
+    fn merge_added_tokens(
+        added_tokens: &mut Vec<AddedTokenConfig>,
+        extra_tokens: Vec<AddedTokenConfig>,
+    ) -> Result<(), Error> {
+        let mut ids = HashMap::with_capacity(added_tokens.len());
+        let mut contents = HashMap::with_capacity(added_tokens.len());
+        for (index, token) in added_tokens.iter().enumerate() {
+            ids.insert(token.id, index);
+            contents.insert(token.content.clone(), token.id);
+        }
+
+        for token in extra_tokens {
+            match (
+                ids.get(&token.id).copied(),
+                contents.get(&token.content).copied(),
+            ) {
+                (Some(_), Some(existing_id)) if existing_id == token.id => {
+                    // Same id + content already present from `tokenizer.json`,
+                    // which is authoritative. Field-level differences between
+                    // the two files (e.g. `special`, `lstrip`) are benign, so
+                    // keep the existing entry rather than rejecting the model.
+                }
+                (Some(index), _) => {
+                    return Err(Error::Model(format!(
+                        "added token id {} maps to both {:?} and {:?}",
+                        token.id, added_tokens[index].content, token.content
+                    )));
+                }
+                (_, Some(existing_id)) => {
+                    return Err(Error::Model(format!(
+                        "added token {:?} maps to both ids {} and {}",
+                        token.content, existing_id, token.id
+                    )));
+                }
+                (None, None) => {
+                    let index = added_tokens.len();
+                    ids.insert(token.id, index);
+                    contents.insert(token.content.clone(), token.id);
+                    added_tokens.push(token);
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Return the pre-tokenizer, if any.
@@ -520,6 +907,56 @@ impl Tokenizer {
         input: &str,
         add_special_tokens: bool,
     ) -> Result<Vec<u32>, Error> {
+        self.encode_inner(input, add_special_tokens, true)
+    }
+
+    /// Encode through the base tokenizer pipeline without recognizing added
+    /// vocabulary entries.
+    ///
+    /// Equivalent to [`Self::encode_with_special_tokens`] with
+    /// `add_special_tokens = false`, except that every added-token matcher is
+    /// bypassed. Normalization, pre-tokenization, model tokenization, and
+    /// post-processing are preserved.
+    pub fn encode_ordinary(&self, input: &str) -> Result<Vec<u32>, Error> {
+        self.encode_inner(input, false, false)
+    }
+
+    /// Encode a pre-segmented input, concatenating the token ids of each
+    /// segment in order.
+    ///
+    /// This mirrors legacy tiktoken / Dynamo segmented encoding: each
+    /// [`EncodeSegment`] is tokenized **independently** and its trust boundary
+    /// is honored — special tokens are recognized only in segments with
+    /// `allow_special = true` (see [`EncodeSegment`]). Segments are never
+    /// flattened into a single string first, so the trust boundary between
+    /// control tokens and untrusted content is preserved, and no BPE merge
+    /// crosses a segment boundary.
+    ///
+    /// No post-processor special tokens (BOS/EOS) are inserted — the caller's
+    /// segments are expected to already carry the full rendered sequence.
+    pub fn encode_segments(&self, segments: &[EncodeSegment<'_>]) -> Result<Vec<u32>, Error> {
+        // Single-segment shortcut avoids a second allocation + copy.
+        if let [seg] = segments {
+            return self.encode_inner(seg.text, false, seg.allow_special);
+        }
+        let mut ids = Vec::new();
+        for seg in segments {
+            let seg_ids = self.encode_inner(seg.text, false, seg.allow_special)?;
+            if ids.is_empty() {
+                ids = seg_ids;
+            } else {
+                ids.extend_from_slice(&seg_ids);
+            }
+        }
+        Ok(ids)
+    }
+
+    fn encode_inner(
+        &self,
+        input: &str,
+        add_special_tokens: bool,
+        recognize_added_tokens: bool,
+    ) -> Result<Vec<u32>, Error> {
         if input.is_empty() {
             return if add_special_tokens {
                 Ok(self.post_process(Vec::new(), true))
@@ -528,8 +965,12 @@ impl Tokenizer {
             };
         }
 
-        // 1. Split on added tokens + normalize into a single buffer.
-        let mut pts = self.build_pre_tokenized(input);
+        // 1. Normalize the input, optionally recognizing added vocabulary.
+        let mut pts = if recognize_added_tokens {
+            self.build_pre_tokenized(input)
+        } else {
+            self.build_pre_tokenized_ordinary(input)
+        };
 
         // Fused path: run only Split, then batch-tokenize with inline ByteLevel.
         if let Some(ref split) = self.split_only {
@@ -608,6 +1049,17 @@ impl Tokenizer {
             pt.pre_tokenize(&mut pts)?;
         }
 
+        // 2b. Break each text split at unbridgeable byte-pair boundaries.
+        //     Split at positions where adjacent bytes never appear together in
+        //     any vocab token. This is provably output-preserving and provides
+        //     fine-grained word-level chunking for models that don't use
+        //     ByteLevel (whose regex Split already chunks at word boundaries).
+        if self.needs_vocab_splitting
+            && let Some(table) = self.model.bigram_bridge_table()
+        {
+            split_on_unbridgeable_bigrams(&mut pts, table);
+        }
+
         // 3. Tokenize each text split with the model.
         let ids = pts
             .tokenize(|text, out| self.model.tokenize_into(text, out))
@@ -633,6 +1085,11 @@ impl Tokenizer {
     /// updates the post-processor (e.g. for `add_bos_token=True`).
     pub fn set_post_processor(&mut self, pp: Option<PostProcessor>) {
         self.post_processor = pp;
+    }
+
+    /// Replace the normalizer.
+    pub fn set_normalizer(&mut self, normalizer: Option<Normalizer>) {
+        self.normalizer = normalizer;
     }
 
     pub fn post_process(&self, ids: Vec<u32>, add_special_tokens: bool) -> Vec<u32> {
@@ -722,10 +1179,30 @@ impl Tokenizer {
         self.model.token_to_id(token)
     }
 
-    /// Return the vocabulary size (model tokens + added tokens).
+    /// Return the vocabulary size.
+    ///
+    /// A vocabulary is a token -> ID map, so its size is the number of *distinct
+    /// token strings*, which is how HuggingFace `tokenizers` computes it
+    /// (`get_vocab_size(true) == get_vocab(true).len()`). Adding the two counts
+    /// instead overcounts whenever `added_tokens` restates a string that is
+    /// already present, in either of two ways:
+    ///
+    /// - the string is also in `model.vocab` (e.g. a checkpoint that lists
+    ///   BOS/EOS/PAD in both places), or
+    /// - two `added_tokens` entries share a content under different IDs.
+    ///
+    /// Both collapse in a real vocabulary, so both are deduplicated here:
+    /// [`AddedTokens::contents`] yields distinct strings, and the model lookup
+    /// drops the ones the model already provides. Overcounting is not cosmetic —
+    /// callers size embedding tables from this and index every ID below it, so an
+    /// inflated count points at IDs that do not exist.
     pub fn vocab_size(&self) -> usize {
         let model_size = self.model.vocab_size();
-        let added_size = self.added_tokens.as_ref().map_or(0, |at| at.len());
+        let added_size = self.added_tokens.as_ref().map_or(0, |at| {
+            at.contents()
+                .filter(|content| self.model.token_to_id(content).is_none())
+                .count()
+        });
         model_size + added_size
     }
 
@@ -751,23 +1228,7 @@ impl Tokenizer {
         if segments.len() == 1
             && let Segment::Text(text) = segments[0]
         {
-            let normalized = match &self.normalizer {
-                Some(n) => n.normalize(text),
-                None => std::borrow::Cow::Borrowed(text),
-            };
-            return match normalized {
-                std::borrow::Cow::Borrowed(_) => PreTokenizedString::from_text(text),
-                std::borrow::Cow::Owned(s) => {
-                    let len = s.len();
-                    PreTokenizedString::new(
-                        s,
-                        vec![PtSplit {
-                            range: 0..len,
-                            token_id: None,
-                        }],
-                    )
-                }
-            };
+            return self.build_pre_tokenized_ordinary(text);
         }
 
         let mut buffer = String::with_capacity(input.len());
@@ -803,6 +1264,80 @@ impl Tokenizer {
 
         PreTokenizedString::new(buffer, splits)
     }
+
+    /// Normalize one input as a single text span, bypassing added vocabulary.
+    fn build_pre_tokenized_ordinary(&self, input: &str) -> PreTokenizedString {
+        let normalized = match &self.normalizer {
+            Some(normalizer) => normalizer.normalize(input),
+            None => std::borrow::Cow::Borrowed(input),
+        };
+        match normalized {
+            std::borrow::Cow::Borrowed(_) => PreTokenizedString::from_text(input),
+            std::borrow::Cow::Owned(buffer) => {
+                let len = buffer.len();
+                PreTokenizedString::new(
+                    buffer,
+                    vec![PtSplit {
+                        range: 0..len,
+                        token_id: None,
+                    }],
+                )
+            }
+        }
+    }
+}
+
+/// Split each text chunk at unbridgeable byte-pair boundaries using the
+/// vocab-derived bigram bridge table.
+///
+/// A byte pair (prev, cur) is "unbridgeable" if no vocabulary token contains
+/// that adjacent byte sequence. Splitting at such boundaries is provably
+/// output-preserving: any BPE merge that spans the boundary would produce a
+/// token containing that byte pair, which cannot exist in the vocabulary.
+///
+/// This generalizes newline splitting and enables fine-grained word-level
+/// chunking even in metaspace tokenizers like Gemma, where the pre-tokenizer
+/// is effectively a no-op after normalization.
+fn split_on_unbridgeable_bigrams(
+    pts: &mut PreTokenizedString,
+    bigram_table: &models::bpe::BigramBridgeTable,
+) {
+    let bytes = pts.buffer().as_bytes();
+    let mut new_splits = Vec::with_capacity(pts.splits().len() * 2);
+
+    for split in pts.splits() {
+        if split.token_id.is_some() || split.range.is_empty() {
+            new_splits.push(split.clone());
+            continue;
+        }
+
+        let end = split.range.end;
+        let mut start = split.range.start;
+
+        for i in (start + 1)..end {
+            let prev = bytes[i - 1];
+            let cur = bytes[i];
+
+            // Split here if:
+            // 1. This byte pair never appears in vocab, AND
+            // 2. Position i is a UTF-8 char boundary (cur is not a continuation byte)
+            if !bigram_table.is_bridgeable(prev, cur) && (cur & 0xC0) != 0x80 {
+                new_splits.push(PtSplit {
+                    range: start..i,
+                    token_id: None,
+                });
+                start = i;
+            }
+        }
+
+        // Push the final segment
+        new_splits.push(PtSplit {
+            range: start..end,
+            token_id: None,
+        });
+    }
+
+    pts.refine_splits(new_splits);
 }
 
 // ---------------------------------------------------------------------------
@@ -913,6 +1448,180 @@ pub fn decode_stream_step(
     }
 }
 
+#[cfg(test)]
+mod local_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    // ── Error::is_not_found, feature-independent arms ───────────────────────
+    //
+    // These live here rather than in `mod tests` because that module is gated on
+    // `feature = "hf-hub"`. Without it the `Hub` arm is compiled out and `Io` is
+    // the only live arm, so gating its tests would leave the one reachable branch
+    // untested in exactly the build where it matters.
+
+    #[test]
+    fn is_not_found_detects_io_not_found() {
+        let err = Error::Io(std::io::Error::from(std::io::ErrorKind::NotFound));
+        assert!(err.is_not_found());
+    }
+
+    #[test]
+    fn is_not_found_rejects_other_io_and_error_kinds() {
+        let denied = Error::Io(std::io::Error::from(std::io::ErrorKind::PermissionDenied));
+        assert!(!denied.is_not_found());
+        assert!(!Error::Model("boom".into()).is_not_found());
+        assert!(!Error::Tiktoken("boom".into()).is_not_found());
+    }
+
+    #[test]
+    fn from_json_with_options_propagates_pcre2_limits() {
+        let tokenizer = Tokenizer::from_json_with_options(
+            json!({
+                "model": {
+                    "type": "BPE",
+                    "vocab": {"a": 0, "!": 1},
+                    "merges": []
+                },
+                "pre_tokenizer": {
+                    "type": "Split",
+                    "pattern": {"Regex": "^(a+)+$"},
+                    "behavior": "Isolated",
+                    "invert": false
+                }
+            }),
+            TokenizerOptions {
+                pcre2_limits: Pcre2Limits {
+                    match_limit: Some(1),
+                    ..Default::default()
+                },
+            },
+        )
+        .unwrap();
+
+        let err = tokenizer.encode("aaaaaaaaaaaaaaaa!").unwrap_err();
+        assert!(
+            err.to_string().contains("match limit"),
+            "expected match limit error, got {err}"
+        );
+    }
+
+    fn vocab_size_of(model_vocab: Value, added_tokens: Value) -> usize {
+        Tokenizer::from_json(json!({
+            "model": {"type": "BPE", "vocab": model_vocab, "merges": []},
+            "added_tokens": added_tokens,
+        }))
+        .unwrap()
+        .vocab_size()
+    }
+
+    /// Every way `added_tokens` can overlap an existing vocabulary entry.
+    ///
+    /// Expectations are the values HuggingFace `tokenizers` reports from
+    /// `get_vocab_size(true)` for the same `tokenizer.json`, since a vocabulary
+    /// counts distinct token strings.
+    #[test]
+    fn vocab_size_matches_huggingface_across_added_token_overlaps() {
+        // No overlap: every added token is new.
+        assert_eq!(
+            vocab_size_of(
+                json!({"a": 0, "b": 1}),
+                json!([{"id": 2, "content": "<x>"}, {"id": 3, "content": "<y>"}]),
+            ),
+            4
+        );
+
+        // Added tokens restate strings the model already has. Seen in the wild on
+        // checkpoints that list BOS/EOS/PAD in both `model.vocab` and
+        // `added_tokens`.
+        assert_eq!(
+            vocab_size_of(
+                json!({"<bos>": 0, "<eos>": 1, "a": 2, "b": 3}),
+                json!([
+                    {"id": 0, "content": "<bos>", "special": true},
+                    {"id": 1, "content": "<eos>", "special": true},
+                    {"id": 4, "content": "<extra>"}
+                ]),
+            ),
+            5
+        );
+
+        // A gap between the model vocab and the added IDs does not inflate the
+        // count: the size follows the strings, not the highest ID.
+        assert_eq!(
+            vocab_size_of(
+                json!({"a": 0, "b": 1}),
+                json!([{"id": 5, "content": "<far>"}])
+            ),
+            3
+        );
+
+        // A new string at an ID inside the model range still adds one entry.
+        assert_eq!(
+            vocab_size_of(
+                json!({"a": 0, "b": 1, "c": 2}),
+                json!([{"id": 1, "content": "<inside>"}]),
+            ),
+            4
+        );
+    }
+
+    /// Two `added_tokens` entries sharing a content are rejected when the
+    /// matcher is built, so the count never sees that overlap. Recorded because
+    /// it is the reason the vocabulary count only has to deduplicate added
+    /// strings against the *model*, and because HuggingFace `tokenizers` accepts
+    /// such a file (reporting one entry for the shared string) — a separate
+    /// divergence, and the safer direction of the two.
+    #[test]
+    fn duplicate_added_token_contents_are_rejected_at_construction() {
+        // Tokenizer has no Debug impl, so unwrap_err() is unavailable.
+        let result = Tokenizer::from_json(json!({
+            "model": {"type": "BPE", "vocab": {"a": 0, "b": 1}, "merges": []},
+            "added_tokens": [
+                {"id": 2, "content": "<dup>"},
+                {"id": 3, "content": "<dup>"}
+            ],
+        }));
+        let err = match result {
+            Ok(_) => panic!("expected duplicate added-token contents to be rejected"),
+            Err(e) => e,
+        };
+
+        assert!(
+            err.to_string().contains("DuplicatePattern"),
+            "expected a duplicate-pattern error, got {err}"
+        );
+    }
+
+    /// The count must not claim IDs that cannot be resolved, which is the
+    /// property callers rely on when they size an embedding table from it and
+    /// then index every ID below it.
+    #[test]
+    fn vocab_size_only_counts_resolvable_ids() {
+        let tokenizer = Tokenizer::from_json(json!({
+            "model": {
+                "type": "BPE",
+                "vocab": {"<bos>": 0, "<eos>": 1, "a": 2, "b": 3},
+                "merges": []
+            },
+            "added_tokens": [
+                {"id": 0, "content": "<bos>", "special": true},
+                {"id": 1, "content": "<eos>", "special": true},
+                {"id": 4, "content": "<extra>"}
+            ]
+        }))
+        .unwrap();
+
+        for id in 0..tokenizer.vocab_size() as u32 {
+            assert!(
+                tokenizer.id_to_token(id).is_some(),
+                "id {id} is counted but has no token"
+            );
+        }
+    }
+}
+
 #[cfg(all(test, feature = "hf-hub"))]
 mod tests {
     use crate::hf_hub_support::make_api;
@@ -932,6 +1641,130 @@ mod tests {
         "nvidia/Qwen3-Nemotron-235B-A22B-GenRM",
         "hoangquan456/Kimi-K2.5",
     ];
+
+    // ── Error::is_not_found ─────────────────────────────────────────────────
+
+    #[test]
+    fn is_not_found_detects_http_404() {
+        let response = ureq::Response::new(404, "Not Found", "").unwrap();
+        let err = Error::Hub(hf_hub_support::ApiError::RequestError(Box::new(
+            ureq::Error::Status(404, response),
+        )));
+        assert!(err.is_not_found(), "404 must be reported as not-found");
+    }
+
+    /// A 403 (no access / bad credentials) must NOT read as not-found — it is
+    /// retryable once the token is fixed, and misclassifying it would make the
+    /// caller silently fall through to a different format.
+    #[test]
+    fn is_not_found_rejects_other_http_statuses() {
+        for status in [401, 403, 429, 500, 503] {
+            let response = ureq::Response::new(status, "Err", "").unwrap();
+            let err = Error::Hub(hf_hub_support::ApiError::RequestError(Box::new(
+                ureq::Error::Status(status, response),
+            )));
+            assert!(!err.is_not_found(), "{status} must not be not-found");
+        }
+    }
+
+    // ── tiktoken repositories (no tokenizer.json) ───────────────────────────
+
+    /// A repo that ships only `tiktoken.model` must load through the fallback,
+    /// and must produce exactly what the documented manual path produces. This
+    /// covers the fallback's plumbing — file discovery, family detection,
+    /// `tokenizer_config.json` parsing — against a construction that hardcodes
+    /// all of it.
+    ///
+    /// Bit-exactness against the reference tokenizer is covered separately by
+    /// `examples/validate_tiktoken.py`.
+    #[test]
+    fn tiktoken_repo_matches_explicit_construction() {
+        const MODEL: &str = "moonshotai/Kimi-K2.6";
+
+        let from_repo = Tokenizer::from_model(MODEL).unwrap();
+
+        // Same tokenizer, assembled by hand from the repo's raw files.
+        let api = make_api(None).unwrap();
+        let repo = api.model(MODEL.to_string());
+        let ranks_path = repo.get("tiktoken.model").unwrap();
+        let config: TokenizerConfig = serde_json::from_str(
+            &fs::read_to_string(repo.get("tokenizer_config.json").unwrap()).unwrap(),
+        )
+        .unwrap();
+        let ranks =
+            tiktoken::parse_tiktoken_model(&fs::read_to_string(&ranks_path).unwrap()).unwrap();
+        let declared = config.added_token_configs().unwrap();
+        let named = declared.iter().map(|c| (c.id, c.content.clone()));
+        let explicit = Tokenizer::from_tiktoken_ranks(
+            &ranks,
+            TiktokenConfig::kimi(u32::try_from(ranks.len()).unwrap(), named),
+        )
+        .unwrap();
+
+        for text in [
+            "Hello, world!",
+            "另一个测试 with mixed 内容",
+            "def f(x):\n    return x * 2  # comment\n",
+            "數據處理與分析，機器學習模型訓練。",
+            "camelCase HTTPRequest O'Brien don't ALLCAPS 12345",
+            "  leading and trailing whitespace \n\n\t",
+            "",
+        ] {
+            assert_eq!(
+                from_repo.encode(text).unwrap(),
+                explicit.encode(text).unwrap(),
+                "mismatch for {text:?}",
+            );
+        }
+    }
+
+    /// The declared names in `added_tokens_decoder` must win over the reserved
+    /// placeholders, and must still be matched as single tokens inside ordinary
+    /// text — otherwise a chat-templated prompt's token count silently drifts.
+    #[test]
+    fn tiktoken_repo_resolves_declared_special_tokens() {
+        let tok = Tokenizer::from_model("moonshotai/Kimi-K2.6").unwrap();
+
+        // Real ids from the repo's `added_tokens_decoder`.
+        assert_eq!(tok.token_to_id("[BOS]"), Some(163_584));
+        assert_eq!(tok.token_to_id("[EOS]"), Some(163_585));
+        assert_eq!(tok.token_to_id("<|im_end|>"), Some(163_586));
+        assert_eq!(tok.token_to_id("[UNK]"), Some(163_838));
+        assert_eq!(tok.token_to_id("[PAD]"), Some(163_839));
+
+        // An undeclared slot in the reserved window keeps its placeholder.
+        assert_eq!(tok.token_to_id("<|reserved_token_163700|>"), Some(163_700));
+
+        // Declared names must not have been flattened into ordinary text.
+        assert_eq!(tok.encode("a<|im_end|>b").unwrap(), vec![64, 163_586, 65]);
+    }
+
+    /// The declared `special` flag must reach the added tokens rather than being
+    /// flattened to `true` across the reserved window. Kimi marks its tool-call
+    /// and thinking markers `special: false` precisely so they survive
+    /// `skip_special_tokens`; losing the flag makes decoding swallow them, which
+    /// surfaces far from its cause as "the model stopped emitting tool calls".
+    ///
+    /// This has to assert on `decode`: the flag does not affect ids, so `encode`
+    /// is byte-identical whether or not the flags are carried through, and an
+    /// encode-only assertion cannot catch a regression here.
+    #[test]
+    fn tiktoken_repo_preserves_declared_special_flags() {
+        let tok = Tokenizer::from_model("moonshotai/Kimi-K2.6").unwrap();
+
+        // `<|im_end|>` is declared `special: true`, `<|tool_call_begin|>` false.
+        assert!(tok.is_special_token(163_586), "<|im_end|> must be special");
+        assert!(
+            !tok.is_special_token(163_597),
+            "<|tool_call_begin|> is declared special: false and must stay non-special"
+        );
+
+        // So skipping specials drops the former and keeps the latter.
+        assert_eq!(
+            tok.decode(&[163_586, 163_597], true).unwrap(),
+            "<|tool_call_begin|>"
+        );
+    }
 
     /// Verify that `TokenizerConfig` and `TokenizerJson` deserialize
     /// successfully for a range of HuggingFace models. This tests the JSON
@@ -1009,6 +1842,88 @@ mod tests {
                 .any(|entry| entry.id == think_id && entry.content == "<think>"),
             "added-token iterator should expose <think>"
         );
+    }
+
+    #[test]
+    fn from_file_merges_added_tokens_from_tokenizer_config() {
+        let dir = std::env::temp_dir().join(format!(
+            "fastokens-added-tokens-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+
+        let tokenizer_json = serde_json::json!({
+            "added_tokens": [
+                {
+                    "id": 10,
+                    "content": "<|im_start|>",
+                    "special": true
+                },
+                {
+                    "id": 11,
+                    "content": "<|im_end|>",
+                    "special": true
+                }
+            ],
+            "model": {
+                "type": "BPE",
+                "vocab": {
+                    "a": 0,
+                    "b": 1,
+                    "ab": 2
+                },
+                "merges": ["a b"]
+            }
+        });
+        let tokenizer_config_json = serde_json::json!({
+            "added_tokens_decoder": {
+                "10": {
+                    "content": "<|im_start|>",
+                    "special": true
+                },
+                "11": {
+                    "content": "<|im_end|>",
+                    "special": true
+                },
+                "12": {
+                    "content": "<|vision_start|>",
+                    "special": true
+                },
+                "13": {
+                    "content": "<|image_pad|>",
+                    "special": true
+                },
+                "14": {
+                    "content": "<|vision_end|>",
+                    "special": true
+                }
+            }
+        });
+
+        fs::write(
+            dir.join("tokenizer.json"),
+            serde_json::to_vec(&tokenizer_json).unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            dir.join("tokenizer_config.json"),
+            serde_json::to_vec(&tokenizer_config_json).unwrap(),
+        )
+        .unwrap();
+
+        let tok = Tokenizer::from_file(&dir.join("tokenizer.json")).unwrap();
+        assert_eq!(tok.token_to_id("<|image_pad|>"), Some(13));
+        assert_eq!(tok.id_to_token(13), Some("<|image_pad|>"));
+        assert_eq!(
+            tok.encode("<|vision_start|><|image_pad|><|vision_end|>")
+                .unwrap(),
+            vec![12, 13, 14]
+        );
+
+        fs::remove_dir_all(dir).unwrap();
     }
 
     // ── Correctness tests against HuggingFace tokenizers ─────────────
@@ -1442,6 +2357,74 @@ mod tests {
             // Round-trip: the ID must decode back to the same string.
             assert_eq!(tok.id_to_token(id.unwrap()), Some(*token));
         }
+    }
+
+    /// `encode_segments` honors the per-segment trust boundary and concatenates
+    /// each segment's ids without flattening or crossing BPE boundaries.
+    #[test]
+    fn encode_segments_honors_trust_boundary() {
+        let tok = Tokenizer::from_model("Qwen/Qwen3-0.6B").unwrap();
+        let special = "<|im_start|>";
+
+        // Trusted segment: the control token is recognized as a single id.
+        let trusted = tok
+            .encode_segments(&[EncodeSegment::special(special)])
+            .unwrap();
+        assert_eq!(trusted, tok.encode(special).unwrap());
+        assert_eq!(trusted.len(), 1, "control token should be one id");
+
+        // Untrusted segment: the same text is encoded as ordinary content and
+        // must NOT collapse to the special id.
+        let untrusted = tok
+            .encode_segments(&[EncodeSegment::ordinary(special)])
+            .unwrap();
+        assert_eq!(untrusted, tok.encode_ordinary(special).unwrap());
+        assert_ne!(untrusted, trusted);
+
+        // Mixed segments concatenate independently: a literal control token in
+        // the untrusted content segment stays ordinary.
+        let content = "hello <|im_start|> world";
+        let got = tok
+            .encode_segments(&[
+                EncodeSegment::special(special),
+                EncodeSegment::ordinary(content),
+            ])
+            .unwrap();
+        let mut want = tok.encode(special).unwrap();
+        want.extend(tok.encode_ordinary(content).unwrap());
+        assert_eq!(got, want);
+
+        // Empty input yields no tokens.
+        assert!(tok.encode_segments(&[]).unwrap().is_empty());
+        assert!(
+            tok.encode_segments(&[EncodeSegment::ordinary("")])
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    // Qwen2-VL's image token is located in the tokenizer_config.json's added_token_configs
+    #[test]
+    fn added_tokens_qwen2_vl_image_pad() {
+        let model = "Qwen/Qwen2-VL-2B-Instruct";
+        let api = make_api(None).unwrap();
+        let repo = api.model(model.to_string());
+        let tokenizer_config_path = repo.get("tokenizer_config.json").unwrap();
+        let tokenizer_config: TokenizerConfig =
+            serde_json::from_str(&fs::read_to_string(tokenizer_config_path).unwrap()).unwrap();
+
+        let tok = Tokenizer::from_model(model).unwrap();
+        let image_pad_id = tokenizer_config
+            .added_token_configs()
+            .unwrap()
+            .into_iter()
+            .find(|token| token.content == "<|image_pad|>")
+            .map(|token| token.id)
+            .expect("<|image_pad|> should exist in tokenizer_config.json");
+
+        assert_eq!(tok.token_to_id("<|image_pad|>"), Some(image_pad_id));
+        assert_eq!(tok.id_to_token(image_pad_id), Some("<|image_pad|>"));
+        assert_eq!(tok.decode(&[image_pad_id], false).unwrap(), "<|image_pad|>");
     }
 
     /// Qwen3-VL vision tokens — the exact text that triggered:
@@ -2278,3 +3261,6 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod ordinary_tests;

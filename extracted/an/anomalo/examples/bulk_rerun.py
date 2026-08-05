@@ -85,7 +85,7 @@ def _rerun_checks(
         ]
         if len(errored_runs) > 0:
             for run in errored_runs:
-                print(f"Encountered error:")
+                print("Encountered error:")
                 print(run["results"]["exception_traceback"])
                 print("Check details:")
                 print(run)

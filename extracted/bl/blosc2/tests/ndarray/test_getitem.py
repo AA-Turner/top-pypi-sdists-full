@@ -157,7 +157,7 @@ def test_lazyexpr_where_full_slice_no_recursion():
     np.testing.assert_allclose(a[a < 5][:], expected)
 
 
-def test_lazyexpr_where_full_slice_persisted_reuses_shared_chunk_cache(tmp_path):
+def test_where_full_slice_reuses_shared_cache(tmp_path):
     nitems = 60_000
     expected = np.linspace(0, 1, nitems)
     a = blosc2.asarray(
@@ -172,7 +172,7 @@ def test_lazyexpr_where_full_slice_persisted_reuses_shared_chunk_cache(tmp_path)
         blosc2.set_nthreads(old_nthreads)
 
 
-def test_lazyexpr_where_full_slice_cached_repeat_avoids_full_mask_scan(monkeypatch):
+def test_where_full_slice_repeat_avoids_scan(monkeypatch):
     nitems = 60_000
     expected = np.arange(5, dtype=np.int64)
     a = blosc2.asarray(np.arange(nitems, dtype=np.int64), chunks=(20_000,))
@@ -188,7 +188,7 @@ def test_lazyexpr_where_full_slice_cached_repeat_avoids_full_mask_scan(monkeypat
 
 
 @pytest.mark.parametrize("mode", ["r", "a"])
-def test_lazyexpr_where_full_slice_persistent_uses_hot_cache_without_persisting(tmp_path, monkeypatch, mode):
+def test_where_full_slice_hot_cache_no_persist(tmp_path, monkeypatch, mode):
     nitems = 60_000
     expected = np.arange(5, dtype=np.int64)
     urlpath = tmp_path / "persisted_readonly.b2nd"
@@ -303,7 +303,8 @@ def test_take_1d_sparse_path_negative_indices():
     np.testing.assert_array_equal(a[idx], npa[idx])
 
 
-def test_take_1d_sparse_path_structured_non_behaved_partitions():
+def test_take_1d_sparse_structured_partitions():
+    """The 1-D sparse path, on structured dtypes with non-behaved partitions."""
     npa = np.empty((100,), dtype=[("a", np.int32), ("b", np.int32)])
     npa["a"] = np.arange(1, 101)
     npa["b"] = np.arange(200, 100, -1)
@@ -328,7 +329,7 @@ def test_ndarray_take_1d_matches_numpy():
     np.testing.assert_array_equal(result[()], np.take(npa, idx))
 
 
-def test_ndarray_take_axis_with_nd_indices_matches_numpy():
+def test_take_axis_nd_indices_matches_numpy():
     npa = np.arange(3 * 4 * 5, dtype=np.int32).reshape(3, 4, 5)
     a = blosc2.asarray(npa, chunks=(2, 2, 3))
     idx = np.array([[3, 0], [1, -1]], dtype=np.int64)
@@ -342,7 +343,7 @@ def test_ndarray_take_axis_with_nd_indices_matches_numpy():
     np.testing.assert_array_equal(top_level_result[()], expected)
 
 
-def test_ndarray_take_axis_none_nd_fallback_matches_numpy():
+def test_take_axis_none_nd_matches_numpy():
     npa = np.arange(3 * 4 * 5, dtype=np.int32).reshape(3, 4, 5)
     a = blosc2.asarray(npa, chunks=(2, 2, 3))
     idx = np.array([[0, -1], [17, 5]], dtype=np.int64)
@@ -648,7 +649,7 @@ def test_getitem_integer_array_out_of_bounds():
         _ = a[[-4]]
 
 
-def test_getitem_integer_array_still_uses_fancy_for_boolean():
+def test_getitem_int_array_fancy_for_boolean():
     """Boolean arrays should NOT be routed through the sparse path."""
     a = blosc2.asarray(np.arange(12, dtype=np.int32).reshape(3, 4))
     mask = np.array([True, False, True])
@@ -762,3 +763,152 @@ def test_setitem_strided_does_not_use_gather():
 
     npa[::1000] = vals
     np.testing.assert_array_equal(a[:], npa)
+
+
+# Keys exercising process_key's fast path (plain slices/ints) and its ndindex
+# fallback (steps, ellipsis, newaxis, fancy, bool).  Compared against NumPy,
+# the ground truth ndindex emulates.  Covers negative ints, OOB ints
+# (IndexError), OOB slices (empty), and padded (short) tuples.
+_FAST_KEYS_2D = [
+    np.s_[2:4, :],
+    np.s_[2:4, 1:3],
+    np.s_[2, :],
+    np.s_[2, 3],
+    np.s_[-1, :],
+    np.s_[-5:-1, :],
+    np.s_[12:20, :],  # OOB slice -> empty
+    np.s_[5:2, :],  # start > stop, in bounds -> empty
+    np.s_[:, :],
+    np.s_[:, 4],
+    np.s_[:, -6],  # OOB int -> IndexError
+    np.s_[50, :],  # OOB int -> IndexError
+    np.s_[-50, :],  # OOB negative int -> IndexError
+    np.s_[:3],  # padded 1-tuple
+    np.s_[3],  # padded int
+]
+_FALLBACK_KEYS_2D = [
+    np.s_[::2, :],  # step -> ndindex path
+    np.s_[::-1, :],  # negative step -> ndindex path
+    np.s_[1:9:3],  # padded + step
+    np.s_[8:2:-1],  # padded + negative step
+    np.s_[1, 2, 3],  # too many -> IndexError
+    np.s_[np.array([0, 2]), :],  # fancy
+    np.s_[[0, 1], :],  # fancy list
+    np.s_[:, np.array([True, False, True, False, True])],  # bool array
+    np.s_[..., :],  # ellipsis
+    np.s_[None, :],  # newaxis
+]
+
+
+@pytest.mark.parametrize("shape", [(10, 5), (3, 7, 4)])
+@pytest.mark.parametrize("key", _FAST_KEYS_2D + _FALLBACK_KEYS_2D)
+def test_process_key_matches_numpy(shape, key):
+    npa = np.arange(math.prod(shape), dtype=np.float64).reshape(shape)
+    a = blosc2.asarray(npa)
+    try:
+        want = npa[key]
+        want_exc = None
+    except Exception as e:
+        want, want_exc = None, type(e)
+    try:
+        got = a[key]
+        got_exc = None
+    except Exception as e:
+        got, got_exc = None, type(e)
+    assert got_exc == want_exc
+    if want_exc is None:
+        np.testing.assert_array_equal(got, want)
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        np.s_[3:10],
+        np.s_[3],
+        np.s_[-1],
+        np.s_[-5:-1],
+        np.s_[:30],
+        np.s_[50],
+        np.s_[:],
+        np.s_[::2],
+        np.s_[::-1],
+        np.s_[...],
+        np.s_[None],
+        3,
+        slice(3, 10),
+        slice(None),
+        -2,
+    ],
+)
+def test_process_key_matches_numpy_1d(key):
+    npa = np.arange(20, dtype=np.float64)
+    a = blosc2.asarray(npa)
+    try:
+        want = npa[key]
+        want_exc = None
+    except Exception as e:
+        want, want_exc = None, type(e)
+    try:
+        got = a[key]
+        got_exc = None
+    except Exception as e:
+        got, got_exc = None, type(e)
+    assert got_exc == want_exc
+    if want_exc is None:
+        np.testing.assert_array_equal(got, want)
+
+
+# Scalar bools inside a tuple act as a single newaxis-like dimension (length 1
+# if all True, 0 if any False) at the first bool's position -- numpy semantics
+# that used to raise ValueError in get_fselection_numpy.
+_BOOL_KEYS = [
+    (True,),
+    (False,),
+    (True, slice(None)),
+    (slice(None), True),
+    (False, slice(None)),
+    (slice(None), False),
+    (True, 1),
+    (1, True),
+    (True, True),
+    (True, False),
+    (False, True),
+    (False, False),
+    (True, None),
+    (None, True),
+    (True, slice(None), 1),
+    (slice(None), True, 1),
+    (slice(None), True, True),
+    (True, True, slice(None)),
+    (np.True_, slice(None)),
+    (np.False_,),
+    (np.array(True), slice(None)),  # 0-d bool array
+    (np.array(False),),
+    (Ellipsis, True),
+    (True, Ellipsis),
+    (Ellipsis, False),
+    (False, Ellipsis),
+    (True, Ellipsis, False),
+    (slice(1), False, 2),
+    (slice(1), True, 2),
+]
+
+
+@pytest.mark.parametrize("shape", [(2, 3, 4, 5), (10, 5)])
+@pytest.mark.parametrize("key", _BOOL_KEYS)
+def test_scalar_bool_key_matches_numpy(shape, key):
+    npa = np.arange(math.prod(shape), dtype=np.float64).reshape(shape)
+    a = blosc2.asarray(npa)
+    try:
+        want = npa[key]
+        want_exc = None
+    except Exception as e:
+        want, want_exc = None, type(e)
+    try:
+        got = a[key]
+        got_exc = None
+    except Exception as e:
+        got, got_exc = None, type(e)
+    assert got_exc == want_exc
+    if want_exc is None:
+        np.testing.assert_array_equal(got, want)

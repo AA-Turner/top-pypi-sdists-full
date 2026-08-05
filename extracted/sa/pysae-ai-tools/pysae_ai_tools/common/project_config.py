@@ -355,6 +355,14 @@ class Board(_Model):
     # as such anyway (see ``glab/deploy_branches.py``); the flag makes the intent explicit and
     # skips the branch lookups.
     to_deploy: bool = True
+    # Name of a CI job that *is* the deployment, for a repo whose shipment is not a branch
+    # movement: a merged ticket has shipped once that job succeeded on its MR's pipeline.
+    # Set it on a repo that deploys from the MR pipeline yet does not deploy on every merge —
+    # a Terraform repo whose ``apply_prod`` is a manual job, where merging means "shipped"
+    # only if someone pressed it. The branch oracle cannot express that: there is no branch
+    # to compare, so ``deploy_branches`` resolves to nothing and every merged ticket looks
+    # shipped. None (default) → decide from the branch topology.
+    shipped_when_job: str | None = None
 
 
 class Autopilot(_Model):

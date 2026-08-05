@@ -1,17 +1,17 @@
 use std::borrow::Cow;
 
 use crate::{
+    EvaluationDetails, SecondaryExposure,
     evaluation::evaluation_types::{ExtraExposureInfo, GateEvaluation},
     event_logging::{
         event_logger::ExposureTrigger,
         exposure_sampling::{EvtSamplingDecision, ExposureSamplingKey},
         exposure_utils::{get_metadata_with_details, get_statsig_metadata_with_sampling_decision},
         statsig_event::StatsigEvent,
-        statsig_event_internal::{StatsigEventInternal, GATE_EXPOSURE_EVENT_NAME},
+        statsig_event_internal::{GATE_EXPOSURE_EVENT_NAME, StatsigEventInternal},
     },
     interned_string::InternedString,
     user::{StatsigUserInternal, StatsigUserLoggable},
-    EvaluationDetails, SecondaryExposure,
 };
 
 use super::queued_event::{EnqueueOperation, QueuedEvent, QueuedExposure};
@@ -161,7 +161,7 @@ fn extract_from_cow(moo: Option<Cow<'_, GateEvaluation>>) -> ExtractInfoResult {
                 None,
                 None,
                 None,
-            )
+            );
         }
     };
 

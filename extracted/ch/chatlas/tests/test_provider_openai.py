@@ -1,9 +1,15 @@
+import base64
 import warnings
 
 import httpx
 import pytest
-from chatlas import ChatOpenAI, tool_web_search
-from chatlas._content import ContentUploaded
+from chatlas import AssistantTurn, ChatOpenAI, UserTurn, tool_web_search
+from chatlas._content import (
+    ContentDocument,
+    ContentImageInline,
+    ContentPDF,
+    ContentUploaded,
+)
 from chatlas._provider_openai import OpenAIProvider, as_input_param
 from chatlas._provider_openai import (
     normalize_finish_reason as openai_normalize_finish_reason,
@@ -17,10 +23,13 @@ from openai.types.responses import (
 
 from .conftest import (
     assert_data_extraction,
+    assert_document_local,
+    assert_document_local_docx,
     assert_images_inline,
     assert_images_remote,
     assert_list_models,
     assert_pdf_local,
+    assert_pdf_remote,
     assert_tool_web_search,
     assert_tools_async,
     assert_tools_parallel,
@@ -92,9 +101,91 @@ def test_openai_uploaded_wrong_provider_raises():
         as_input_param(c, role="user")
 
 
+def test_openai_pdf_with_url_uses_file_url_without_downloading():
+    c = ContentPDF(filename="a.pdf", url="https://example.com/a.pdf")
+    param = as_input_param(c, role="user")
+    part = param["content"][0]
+    assert part["type"] == "input_file"
+    assert part["file_url"] == "https://example.com/a.pdf"
+    assert "file_data" not in part
+    # The API rejects `filename` and `file_url` together.
+    assert "filename" not in part
+
+
+def test_openai_pdf_with_data_uses_file_data():
+    c = ContentPDF(data=b"%PDF-1.4", filename="a.pdf")
+    param = as_input_param(c, role="user")
+    part = param["content"][0]
+    assert part["type"] == "input_file"
+    assert part["file_data"] == (
+        f"data:application/pdf;base64,{base64.b64encode(b'%PDF-1.4').decode('utf-8')}"
+    )
+
+
+def test_openai_document_with_url_uses_file_url_without_downloading():
+    c = ContentDocument(
+        filename="notes.txt",
+        mime_type="text/plain",
+        url="https://example.com/notes.txt",
+    )
+    param = as_input_param(c, role="user")
+    part = param["content"][0]
+    assert part["type"] == "input_file"
+    assert part["file_url"] == "https://example.com/notes.txt"
+    assert "file_data" not in part
+    assert "filename" not in part
+
+
+def test_openai_document_with_data_uses_file_data():
+    c = ContentDocument(data=b"hello", filename="notes.txt", mime_type="text/plain")
+    param = as_input_param(c, role="user")
+    part = param["content"][0]
+    assert part["type"] == "input_file"
+    assert part["file_data"] == (
+        f"data:text/plain;base64,{base64.b64encode(b'hello').decode('utf-8')}"
+    )
+
+
+def test_openai_rejects_heic_images():
+    c = ContentImageInline(image_content_type="image/heic", data="abcd")
+    with pytest.raises(ValueError, match="image/heic"):
+        as_input_param(c, role="user")
+
+
+def test_openai_rejects_heif_images():
+    c = ContentImageInline(image_content_type="image/heif", data="abcd")
+    with pytest.raises(ValueError, match="image/heif"):
+        as_input_param(c, role="user")
+
+
+def test_replayed_assistant_messages_carry_no_id():
+    # chatlas used to synthesize a placeholder id for every replayed assistant
+    # message purely to satisfy ResponseOutputMessageParam's Required fields.
+    # The API doesn't need one, and backends that reject duplicate item ids
+    # (e.g. bedrock-mantle) 400 as soon as a conversation has two assistant
+    # turns. Omitting it is what ellmer does too.
+    chat = ChatOpenAI()
+    turns = [
+        UserTurn("hi"),
+        AssistantTurn("first"),
+        UserTurn("again"),
+        AssistantTurn("second"),
+    ]
+    inputs = chat.provider._turns_as_inputs(turns)
+
+    assistant_msgs = [
+        item
+        for item in inputs
+        if item.get("type") == "message" and item.get("role") == "assistant"
+    ]
+    assert len(assistant_msgs) == 2
+    assert all("id" not in item for item in assistant_msgs)
+
+
 @pytest.mark.vcr
 def test_openai_simple_request():
     chat = ChatOpenAI(
+        model="gpt-5.4",
         system_prompt="Be as terse as possible; no punctuation",
     )
     chat.chat("What is 1 + 1?")
@@ -110,6 +201,7 @@ def test_openai_simple_request():
 @pytest.mark.asyncio
 async def test_openai_simple_streaming_request():
     chat = ChatOpenAI(
+        model="gpt-5.4",
         system_prompt="Be as terse as possible; no punctuation",
     )
     res = []
@@ -122,14 +214,18 @@ async def test_openai_simple_streaming_request():
 
 @pytest.mark.vcr
 def test_openai_respects_turns_interface():
-    chat_fun = ChatOpenAI
+    def chat_fun(**kwargs):
+        return ChatOpenAI(model="gpt-5.4", **kwargs)
+
     assert_turns_system(chat_fun)
     assert_turns_existing(chat_fun)
 
 
 @pytest.mark.vcr
 def test_openai_tool_variations():
-    chat_fun = ChatOpenAI
+    def chat_fun(**kwargs):
+        return ChatOpenAI(model="gpt-5.4", **kwargs)
+
     assert_tools_simple(chat_fun)
     assert_tools_simple_stream_content(chat_fun)
     assert_tools_parallel(chat_fun)
@@ -139,12 +235,18 @@ def test_openai_tool_variations():
 @pytest.mark.vcr
 @pytest.mark.asyncio
 async def test_openai_tool_variations_async():
-    await assert_tools_async(ChatOpenAI)
+    def chat_fun(**kwargs):
+        return ChatOpenAI(model="gpt-5.4", **kwargs)
+
+    await assert_tools_async(chat_fun)
 
 
 @pytest.mark.vcr
 def test_data_extraction():
-    assert_data_extraction(ChatOpenAI)
+    def chat_fun(**kwargs):
+        return ChatOpenAI(model="gpt-5.4", **kwargs)
+
+    assert_data_extraction(chat_fun)
 
 
 @pytest.mark.vcr
@@ -202,7 +304,9 @@ def test_openai_web_search_streaming():
 
 @pytest.mark.vcr
 def test_openai_images():
-    chat_fun = ChatOpenAI
+    def chat_fun(**kwargs):
+        return ChatOpenAI(model="gpt-5.4", **kwargs)
+
     assert_images_inline(chat_fun)
     assert_images_remote(chat_fun)
 
@@ -210,7 +314,7 @@ def test_openai_images():
 @pytest.mark.vcr
 @pytest.mark.asyncio
 async def test_openai_logprobs():
-    chat = ChatOpenAI()
+    chat = ChatOpenAI(model="gpt-5.4")
     chat.set_model_params(log_probs=True)
 
     pieces = []
@@ -231,7 +335,34 @@ async def test_openai_logprobs():
 
 @pytest.mark.vcr
 def test_openai_pdf():
-    assert_pdf_local(ChatOpenAI)
+    def chat_fun(**kwargs):
+        return ChatOpenAI(model="gpt-5.4", **kwargs)
+
+    assert_pdf_local(chat_fun)
+
+
+@pytest.mark.vcr
+def test_openai_pdf_url():
+    def chat_fun(**kwargs):
+        return ChatOpenAI(model="gpt-5.4", **kwargs)
+
+    assert_pdf_remote(chat_fun)
+
+
+@pytest.mark.vcr
+def test_openai_document():
+    def chat_fun(**kwargs):
+        return ChatOpenAI(model="gpt-5.4", **kwargs)
+
+    assert_document_local(chat_fun)
+
+
+@pytest.mark.vcr
+def test_openai_document_docx():
+    def chat_fun(**kwargs):
+        return ChatOpenAI(model="gpt-5.4", **kwargs)
+
+    assert_document_local_docx(chat_fun)
 
 
 @pytest.mark.vcr
@@ -240,7 +371,7 @@ def test_openai_token_count_uses_endpoint_and_counts_tools():
         "Get weather for a city."
         return "sunny"
 
-    chat = ChatOpenAI()
+    chat = ChatOpenAI(model="gpt-5.4")
     without_tool = chat.token_count("What is the weather?")
 
     chat.register_tool(get_weather)
@@ -268,7 +399,7 @@ def test_openai_service_tier():
 def test_openai_service_tier_affects_pricing():
     from chatlas._tokens import get_token_cost
 
-    chat = ChatOpenAI(service_tier="priority")
+    chat = ChatOpenAI(model="gpt-5.4", service_tier="priority")
     chat.chat("What is 1+1?")
 
     turn = chat.get_last_turn()

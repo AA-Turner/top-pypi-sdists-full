@@ -4,6 +4,7 @@ import asyncio
 import sqlite3
 import tempfile
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -568,6 +569,43 @@ async def test_session_callback_prepared_input(runner_method):
             session.close()
 
 
+@pytest.mark.parametrize("runner_method", ["run", "run_sync", "run_streamed"])
+@pytest.mark.asyncio
+async def test_session_callback_repeating_history_does_not_grow_session(runner_method):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        db_path = Path(temp_dir) / "test_memory.db"
+        model = FakeModel()
+        agent = Agent(name="test", model=model)
+        session = SQLiteSession("session_repeat", db_path)
+
+        def repeat_first(history, new_input):
+            if not history:
+                return new_input
+            return history + [history[0]] + new_input
+
+        try:
+            for turn in range(3):
+                model.set_next_output([get_text_message(f"assistant {turn}")])
+                await run_agent_async(
+                    runner_method,
+                    agent,
+                    f"user {turn}",
+                    session=session,
+                    run_config=RunConfig(session_input_callback=repeat_first),
+                )
+
+            stored = await session.get_items()
+            user_messages = [item for item in stored if item.get("role") == "user"]
+            assert [item.get("content") for item in user_messages] == [
+                "user 0",
+                "user 1",
+                "user 2",
+            ]
+            assert len(stored) == 6
+        finally:
+            session.close()
+
+
 @pytest.mark.asyncio
 async def test_sqlite_session_unicode_content():
     """Test that session correctly stores and retrieves unicode/non-ASCII content."""
@@ -691,6 +729,40 @@ async def test_sqlite_session_file_lock_is_shared_across_instances():
         session_2.close()
         assert lock_path not in SQLiteSession._file_lock_counts
         assert lock_path not in SQLiteSession._file_locks
+
+
+@pytest.mark.asyncio
+async def test_sqlite_session_failed_add_items_releases_write_lock():
+    """A failed add_items must not leave an open write transaction on the cached connection."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        db_path = Path(temp_dir) / "test_rollback.db"
+        session = SQLiteSession("rollback_test", db_path)
+
+        # json.dumps() fails only after _insert_items() has already opened a write
+        # transaction with the sessions-table upsert.
+        unserializable = cast(TResponseInputItem, {"role": "user", "content": object()})
+        with pytest.raises(TypeError):
+            await session.add_items([unserializable])
+
+        # timeout=0 disables the busy handler, so this raises immediately if the failed
+        # write is still holding the SQLite write lock.
+        probe = sqlite3.connect(str(db_path), timeout=0)
+        try:
+            probe.execute("INSERT INTO agent_sessions (session_id) VALUES ('probe')")
+            probe.commit()
+            rolled_back = probe.execute(
+                "SELECT COUNT(*) FROM agent_sessions WHERE session_id = 'rollback_test'"
+            ).fetchone()[0]
+        finally:
+            probe.close()
+
+        assert rolled_back == 0
+
+        # The session must remain usable after the failure.
+        await session.add_items([{"role": "user", "content": "after failure"}])
+        assert [item.get("content") for item in await session.get_items()] == ["after failure"]
+
+        session.close()
 
 
 @pytest.mark.asyncio

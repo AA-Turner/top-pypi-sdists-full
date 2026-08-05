@@ -1,12 +1,12 @@
 use crate::{
+    SecondaryExposure,
     event_logging::{
         exposure_sampling::{EvtSamplingDecision, ExposureSamplingKey},
         exposure_utils::get_statsig_metadata_with_sampling_decision,
         statsig_event::StatsigEvent,
-        statsig_event_internal::{StatsigEventInternal, GATE_EXPOSURE_EVENT_NAME},
+        statsig_event_internal::{GATE_EXPOSURE_EVENT_NAME, StatsigEventInternal},
     },
     user::StatsigUserLoggable,
-    SecondaryExposure,
 };
 
 use super::queued_event::{EnqueueOperation, QueuedEvent, QueuedExposure};

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tiered-debug
-Version: 1.4.0
+Version: 1.5.1
 Summary: A Python logging helper module that allows multiple levels of debug logging
 Project-URL: Homepage, https://github.com/untergeek/tiered-debug
 Project-URL: Bug Tracker, https://github.com/untergeek/tiered-debug/issues
@@ -14,13 +14,12 @@ License-File: LICENSE
 Keywords: debug,logging,tiered-debug
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Provides-Extra: doc
 Requires-Dist: sphinx; extra == 'doc'
 Requires-Dist: sphinx-rtd-theme; extra == 'doc'
@@ -56,4 +55,4 @@ Visit the [tiered-debug documentation](https://tiered-debug.readthedocs.io/en/la
 
 `tiered-debug` is distributed under the terms of the [Apache](LICENSE) license.
 
-© Copyright 2025 Aaron Mildenstein
+© Copyright 2025-2026 Aaron Mildenstein

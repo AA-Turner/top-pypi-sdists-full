@@ -4,19 +4,19 @@ use ahash::RandomState as AHashState;
 use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{
-    value::{to_raw_value, RawValue},
     Number as JsonNumber, Value as JsonValue,
+    value::{RawValue, to_raw_value},
 };
 use std::borrow::Cow;
 #[cfg(not(feature = "ordered_user_data_maps"))]
 use std::collections::HashMap;
 
 use crate::{
+    DynamicValue,
     hashing::ahash_str,
     interned_string::InternedString,
     log_w,
     value_parsing::{maybe_parse_f64, maybe_parse_i64, try_parse_timestamp},
-    DynamicValue,
 };
 
 const TAG: &str = "UserValue";

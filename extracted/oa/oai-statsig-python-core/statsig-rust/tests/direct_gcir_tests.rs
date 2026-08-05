@@ -3,25 +3,25 @@ mod utils;
 use std::{
     collections::{HashMap, HashSet},
     sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     },
     time::Duration,
 };
 
 use futures::future::join_all;
 use statsig_rust::{
+    ClientInitResponseOptions, HashAlgorithm, InitializeResponse, StatsigUser,
     evaluation::evaluator_context::{EvaluatorContext, IdListResolution},
     gcir::gcir_formatter::GCIRFormatter,
     hashing::HashUtil,
     interned_string::InternedString,
     specs_response::spec_types::SpecsResponseFull,
     user::{
+        StatsigUserInternal,
         fast_statsig_user::{FastStatsigUser, FastUserData, FastUserUnitIDMap},
         user_value::UserValue,
-        StatsigUserInternal,
     },
-    ClientInitResponseOptions, HashAlgorithm, InitializeResponse, StatsigUser,
 };
 use tokio::time::Instant;
 

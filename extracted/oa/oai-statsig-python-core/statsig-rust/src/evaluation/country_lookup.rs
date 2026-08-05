@@ -1,6 +1,6 @@
 use super::{dynamic_string::DynamicString, evaluator_context::EvaluatorContext};
 use crate::{
-    dyn_value, log_d, log_e, unwrap_or_return_with, user::StatsigUserInternal, DynamicValue,
+    DynamicValue, dyn_value, log_d, log_e, unwrap_or_return_with, user::StatsigUserInternal,
 };
 use parking_lot::RwLock;
 use std::sync::Arc;
@@ -152,7 +152,10 @@ impl CountryLookup {
 
         let country_lookup_data = unwrap_or_return_with!(lock.as_ref(), || {
             evaluator_context.result.override_reason = Some(UNINITIALIZED_REASON);
-            log_e!(TAG, "Failed to load country lookup. Did you disable CountryLookup or did not wait for country lookup to init. Check StatsigOptions configuration");
+            log_e!(
+                TAG,
+                "Failed to load country lookup. Did you disable CountryLookup or did not wait for country lookup to init. Check StatsigOptions configuration"
+            );
             None
         });
 

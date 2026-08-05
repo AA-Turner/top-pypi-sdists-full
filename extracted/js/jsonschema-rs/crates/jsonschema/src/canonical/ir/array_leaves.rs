@@ -375,19 +375,31 @@ fn drop_subsumed(leaves: &mut Vec<ArrayLeaf>) {
             }
             // Element constraints are compared only for equality: deciding that one schema admits
             // every element another does needs a subsumption test the algebra does not have. So
-            // `other` is looser exactly when its per-index schemas are an equal prefix of `leaf`'s
-            // and it places nothing beyond them, while `leaf` constrains further.
+            // `other` is looser exactly when its per-index schemas are an equal prefix of `leaf`'s,
+            // it places nothing beyond them, and every count demand it makes is one `leaf` repeats
+            // verbatim, while `leaf` constrains further.
+            let repeats_demands = other
+                .contains
+                .iter()
+                .all(|demand| leaf.contains.contains(demand));
             let looser_items = other.items.is_none()
-                && other.contains.is_empty()
+                && repeats_demands
                 && leaf.prefix.starts_with(&other.prefix)
                 && (leaf.items.is_some()
                     || leaf.prefix.len() > other.prefix.len()
-                    || !leaf.contains.is_empty());
+                    || leaf.contains.len() > other.contains.len());
             let same_elements = other.prefix == leaf.prefix
                 && other.items == leaf.items
                 && other.contains == leaf.contains;
+            // A window of at most one item holds nothing that can repeat, so distinctness is met
+            // there whatever the leaf says.
+            let distinct_already = leaf
+                .lengths
+                .maximum
+                .as_ref()
+                .is_some_and(|max| *max <= BoundCardinality::from(1));
             let wider = other.lengths.covers(&leaf.lengths)
-                && (!other.unique || leaf.unique)
+                && (!other.unique || leaf.unique || distinct_already)
                 && (looser_items || same_elements);
             // Leaves agreeing on every facet but the window were folded by merging, so one of the
             // facets is strictly looser here and decides which leaf goes.

@@ -99,7 +99,7 @@ class Encoder:
 
     def save(self, obj: Any, *args, **kwargs) -> None:
         if not obj:
-            print(f"No data to save")
+            print("No data to save")
             return
         with open(self.filename, "w") as file_handle:
             passed_kwargs = {**kwargs, **(self.file_encoder.save_args or {})}

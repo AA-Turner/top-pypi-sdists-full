@@ -24,6 +24,8 @@ pub struct SpecsTopLevel {
     pub checksum: ::prost::alloc::string::String,
     #[prost(bytes = "vec", tag = "7")]
     pub rest: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bool, optional, tag = "8")]
+    pub may_have_remote_config_metadata: ::core::option::Option<bool>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Spec {
@@ -57,6 +59,8 @@ pub struct Spec {
     pub fields_used: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(string, optional, tag = "15")]
     pub session_update_mode: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag = "16")]
+    pub remote_config_metadata: ::core::option::Option<RemoteConfigValueMetadata>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Rule {
@@ -87,6 +91,19 @@ pub struct Rule {
     pub sampling_rate: ::core::option::Option<f32>,
     #[prost(double, optional, tag = "13")]
     pub pass_percentage_float: ::core::option::Option<f64>,
+    #[prost(message, optional, tag = "14")]
+    pub remote_config_metadata: ::core::option::Option<RemoteConfigValueMetadata>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RemoteConfigValueMetadata {
+    #[prost(string, tag = "1")]
+    pub sha256: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "2")]
+    pub byte_length: u64,
+    #[prost(string, tag = "3")]
+    pub content_type: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub compression: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Condition {

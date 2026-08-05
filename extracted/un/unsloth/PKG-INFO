@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unsloth
-Version: 2026.8.2
+Version: 2026.8.3
 Summary: 2-5X faster training, reinforcement learning & finetuning
 Author: Unsloth AI team
 Author-email: info@unsloth.ai
@@ -18,7 +18,7 @@ Requires-Python: <3.15,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: COPYING
-Requires-Dist: unsloth_zoo>=2026.8.2
+Requires-Dist: unsloth_zoo>=2026.8.3
 Requires-Dist: wheel>=0.42.0
 Requires-Dist: packaging
 Requires-Dist: torch<2.12.0,>=2.4.0
@@ -75,7 +75,7 @@ Provides-Extra: triton
 Requires-Dist: triton>=3.0.0; "linux" in sys_platform and extra == "triton"
 Requires-Dist: triton-windows; (sys_platform == "win32" and (platform_machine == "AMD64" or platform_machine == "x86_64")) and extra == "triton"
 Provides-Extra: huggingface
-Requires-Dist: unsloth_zoo>=2026.8.2; extra == "huggingface"
+Requires-Dist: unsloth_zoo>=2026.8.3; extra == "huggingface"
 Requires-Dist: wheel>=0.42.0; extra == "huggingface"
 Requires-Dist: packaging; extra == "huggingface"
 Requires-Dist: torchvision; extra == "huggingface"
@@ -99,7 +99,7 @@ Requires-Dist: pydantic; extra == "huggingface"
 Requires-Dist: pyyaml; extra == "huggingface"
 Requires-Dist: nest-asyncio; extra == "huggingface"
 Provides-Extra: huggingfacenotorch
-Requires-Dist: unsloth_zoo>=2026.8.2; extra == "huggingfacenotorch"
+Requires-Dist: unsloth_zoo>=2026.8.3; extra == "huggingfacenotorch"
 Requires-Dist: wheel>=0.42.0; extra == "huggingfacenotorch"
 Requires-Dist: packaging; extra == "huggingfacenotorch"
 Requires-Dist: numpy; extra == "huggingfacenotorch"
@@ -411,7 +411,7 @@ Requires-Dist: bitsandbytes!=0.46.0,!=0.48.0,>=0.45.5; extra == "colab-ampere-to
 Requires-Dist: unsloth[cu121onlytorch220]; extra == "colab-ampere-torch220"
 Requires-Dist: unsloth[flashattention]; extra == "colab-ampere-torch220"
 Provides-Extra: colab-new
-Requires-Dist: unsloth_zoo>=2026.8.2; extra == "colab-new"
+Requires-Dist: unsloth_zoo>=2026.8.3; extra == "colab-new"
 Requires-Dist: packaging; extra == "colab-new"
 Requires-Dist: tyro; extra == "colab-new"
 Requires-Dist: transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.0,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.5.0,>=4.51.3; extra == "colab-new"

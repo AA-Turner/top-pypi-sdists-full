@@ -534,10 +534,10 @@ class AddFieldView(Table):
         self.source = stack(source, missing=missing)
         self.field = field
         self.value = value
-        self.index = index
+        self._index = index
 
     def __iter__(self):
-        return iteraddfield(self.source, self.field, self.value, self.index)
+        return iteraddfield(self.source, self.field, self.value, self._index)
 
 
 def iteraddfield(source, field, value, index):
@@ -928,7 +928,7 @@ class MoveFieldView(Table):
     def __init__(self, table, field, index, missing=None):
         self.table = table
         self.field = field
-        self.index = index
+        self._index = index
         self.missing = missing
 
     def __iter__(self):
@@ -940,7 +940,7 @@ class MoveFieldView(Table):
         except StopIteration:
             hdr = []
         outhdr = [f for f in hdr if f != self.field]
-        outhdr.insert(self.index, self.field)
+        outhdr.insert(self._index, self.field)
         yield tuple(outhdr)
 
         # define a function to transform each row in the source data

@@ -1,8 +1,8 @@
 mod utils;
 
 use statsig_rust::{
-    networking::{NetworkClient, RequestArgs},
     StatsigOptions,
+    networking::{NetworkClient, RequestArgs},
 };
 use std::sync::Arc;
 use utils::mock_scrapi::{Endpoint, EndpointStub, Method, MockScrapi, StubData};

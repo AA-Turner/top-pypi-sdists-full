@@ -97,25 +97,27 @@ def _make_manager(thread_id: str, send_event: Any = None) -> ThreadRunManager:
 
 async def _thread_events(request: Request) -> Response:
     """SSE stream scoped to a thread.
+    ---
+    summary: SSE stream scoped to a thread.
+    description: |
+        Body is an ``EventStreamRequest``:
 
-    Body is an ``EventStreamRequest``:
+            {
+              "channels": ["values", "messages", ...],
+              "namespaces": [["ns1"], ["ns2", "child"]],   // optional
+              "depth": 2,                                     // optional
+              "since": 42                                     // optional seq
+            }
 
-        {
-          "channels": ["values", "messages", ...],
-          "namespaces": [["ns1"], ["ns2", "child"]],   // optional
-          "depth": 2,                                     // optional
-          "since": 42                                     // optional seq
-        }
+        On reconnect, clients pass the last ``seq`` they received as
+        ``since`` in the body. Buffered events with ``seq > since`` are
+        replayed before the stream goes live. The endpoint is POST-only, so
+        browser-native ``EventSource`` auto-resume (``Last-Event-ID``)
+        doesn't apply — clients drive resume explicitly via the body.
 
-    On reconnect, clients pass the last ``seq`` they received as
-    ``since`` in the body. Buffered events with ``seq > since`` are
-    replayed before the stream goes live. The endpoint is POST-only, so
-    browser-native ``EventSource`` auto-resume (``Last-Event-ID``)
-    doesn't apply — clients drive resume explicitly via the body.
-
-    The filter applies for the lifetime of the connection; closing the
-    connection unsubscribes. No state is persisted server-side beyond the
-    connection.
+        The filter applies for the lifetime of the connection; closing the
+        connection unsubscribes. No state is persisted server-side beyond the
+        connection.
     """
     thread_id = request.path_params["thread_id"]
     try:
@@ -297,11 +299,13 @@ async def _thread_events(request: Request) -> Response:
 
 async def _thread_command(request: Request) -> Response:
     """Handle a single protocol command scoped to a thread.
-
-    Commands are stateless in the HTTP transport: a fresh manager is
-    created, the command is dispatched, and results are returned. For
-    ``run.start`` this creates/resumes a run; subsequent event streaming
-    happens over a separate ``POST .../stream`` connection.
+    ---
+    summary: Handle a single protocol command scoped to a thread.
+    description: |
+        Commands are stateless in the HTTP transport: a fresh manager is
+        created, the command is dispatched, and results are returned. For
+        ``run.start`` this creates/resumes a run; subsequent event streaming
+        happens over a separate ``POST .../stream`` connection.
     """
     thread_id = request.path_params["thread_id"]
     try:

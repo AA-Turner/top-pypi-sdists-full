@@ -28,6 +28,16 @@ def deploy_branches_for(project_path: str, override: dict[str, str] | None = Non
     return dict(DEFAULT_DEPLOY_BRANCHES)
 
 
+def shipped_when_job_for(project_path: str) -> str | None:
+    """The CI job that stands in for a branch movement on this project (``board.shipped_when_job``).
+
+    When set, a merged ticket has shipped once that job succeeded on its MR's pipeline.
+    ``None`` (the default, and the fallback on a missing/broken config) keeps the branch oracle.
+    """
+    cfg = _config_for(project_path)
+    return cfg.board.shipped_when_job if cfg is not None else ProjectConfig().board.shipped_when_job
+
+
 def uses_to_deploy_column(project_path: str) -> bool:
     """Whether the project opts into the ``workflow::To deploy`` column (``board.to_deploy``).
 
@@ -91,16 +101,19 @@ def resolve_deploy_pairs(project_id: str, mapping: dict[str, str]) -> list[tuple
 def has_deploy_step(project_id: str, project_path: str = "") -> bool:
     """Whether a merged ticket must still wait in ``workflow::To deploy`` on this project.
 
-    Two conditions, both required: the project opts into the column (``board.to_deploy``)
-    **and** at least one source→deploy branch pair resolves. A repo with no deploy branch
-    has no deployment step after the merge — its CI applies from the MR pipeline — so
-    merging *is* shipping and the ticket closes.
+    An explicit opt-out (``board.to_deploy: false``) always wins. Otherwise a step remains
+    when the project names a deployment job (``board.shipped_when_job`` — the shipment is
+    that job succeeding, not a branch moving), or when at least one source→deploy branch
+    pair resolves. A repo with neither has no deployment step after the merge — its CI
+    applies from the MR pipeline — so merging *is* shipping and the ticket closes.
 
     Fail-safe: when no pair resolves and the repo's branches cannot be listed at all, To
     deploy is kept — a transient API failure must never close a ticket early.
     """
     if not uses_to_deploy_column(project_path):
         return False
+    if shipped_when_job_for(project_path):
+        return True
     if resolve_deploy_pairs(project_id, deploy_branches_for(project_path)):
         return True
     return not _branches_reachable(project_id)

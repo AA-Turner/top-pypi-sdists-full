@@ -15,7 +15,7 @@ Examples:
     >>> isinstance(DebugLevel(1), int)
     True
     >>> __version__
-    '1.3.0'
+    '1.5.1'
     >>> __author__
     'Aaron Mildenstein'
 
@@ -25,19 +25,26 @@ Note:
     a sample usage with a global debug instance and decorator.
 """
 
-from datetime import datetime
-from ._base import TieredDebug, DebugLevel
+
+# When we go to 3.11+, this will change to
+# from datetime import UTC, datetime
+# And we can remove the timezone.utc fallback
+from datetime import datetime, timezone
+
+from ._base import DebugLevel, TieredDebug
 
 FIRST_YEAR = 2025
-now = datetime.now()
-if now.year == FIRST_YEAR:
-    COPYRIGHT_YEARS = "2025"
-else:
-    COPYRIGHT_YEARS = f"2025-{now.year}"
+UTC = getattr(datetime, "UTC", timezone.utc)
 
-__version__ = "1.4.0"
+def get_copyright_years() -> str:
+    now = datetime.now(UTC)
+    if now.year == FIRST_YEAR:
+        return f"{FIRST_YEAR}"
+    return f"{FIRST_YEAR}-{now.year}"
+
+__version__ = "1.5.1"
 __author__ = "Aaron Mildenstein"
-__copyright__ = f"{COPYRIGHT_YEARS}, Aaron Mildenstein"
+__copyright__ = f"{get_copyright_years()}, Aaron Mildenstein"
 __license__ = "Apache 2.0"
 __status__ = "Development"
 __description__ = "Tiered debug logging for multiple levels with stack tracing."
@@ -50,15 +57,14 @@ __classifiers__ = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 
-__all__ = ["TieredDebug", "DebugLevel", "__author__", "__copyright__", "__version__"]
+__all__ = ["DebugLevel", "TieredDebug", "__author__", "__copyright__", "__version__"]

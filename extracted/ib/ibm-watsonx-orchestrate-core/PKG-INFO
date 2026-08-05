@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ibm-watsonx-orchestrate-core
-Version: 2.13.0
+Version: 2.14.0
 Summary: Core Shared Dependecies of the IBM watsonx Orchestrate ADK
 Author-email: IBM <support@ibm.com>
 License: MIT License

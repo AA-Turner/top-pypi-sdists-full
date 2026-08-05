@@ -287,7 +287,7 @@ cdef extern from "blosc2.h":
 
     int blosc1_cbuffer_validate(const void* cbuffer, size_t cbytes, size_t* nbytes)
 
-    void blosc1_cbuffer_metainfo(const void* cbuffer, size_t* typesize, int* flags)
+    void blosc1_cbuffer_metainfo(const void* cbuffer, size_t* typesize, int* flags) nogil
 
     void blosc1_cbuffer_versions(const void* cbuffer, int* version, int* versionlz)
 
@@ -395,6 +395,10 @@ cdef extern from "blosc2.h":
     int blosc2_getitem_ctx(blosc2_context* context, const void* src,
                            int32_t srcsize, int start, int nitems, void* dest,
                            int32_t destsize) nogil
+
+    int blosc2_getitem_bytes_ctx(blosc2_context* context, const void* src,
+                                 int32_t srcsize, int32_t start, int32_t nbytes,
+                                 void* dest, int32_t destsize) nogil
 
 
 
@@ -674,6 +678,7 @@ cdef extern from "miniexpr.h":
         ME_COMPLEX64
         ME_COMPLEX128
         ME_STRING
+        ME_BYTES
 
     # typedef struct me_variable
     ctypedef struct me_variable:
@@ -696,6 +701,9 @@ cdef extern from "miniexpr.h":
         void *bytecode
         int ncode
         void *parameters[1]
+
+    int me_compile(const char *expression, const me_variable *variables,
+                   int var_count, me_dtype dtype, int *error, me_expr **out)
 
     int me_compile_nd_jit(const char *expression, const me_variable *variables,
                           int var_count, me_dtype dtype, int ndims,
@@ -739,6 +747,9 @@ cdef extern from "miniexpr.h":
                    int64_t nchunk, int64_t nblock, const me_eval_params *params) nogil
 
     int me_nd_valid_nitems(const me_expr *expr, int64_t nchunk, int64_t nblock, int64_t *valid_nitems) nogil
+
+    me_dtype me_get_dtype(const me_expr *expr) nogil
+    size_t me_get_itemsize(const me_expr *expr) nogil
 
     void me_print(const me_expr *n) nogil
     void me_free(me_expr *n) nogil
@@ -801,6 +812,8 @@ ctypedef struct me_input_cache_s:
 
 ctypedef struct me_udata:
     b2nd_array_t** inputs
+    uint8_t** np_data          # per-input raw base pointer; NULL entry = b2nd input
+    int32_t* np_typesizes      # per-input itemsize; valid where np_data[i] != NULL
     me_input_cache_s* input_chunk_caches
     int ninputs
     me_eval_params* eval_params
@@ -899,7 +912,135 @@ cdef inline me_dtype _me_dtype_from_numpy_dtype(dtype_obj):
                 f"miniexpr string operands require unicode dtype with UCS4 itemsize; got '{dtype}'"
             )
         return ME_STRING
+    elif kind == "S":
+        if itemsize <= 0:
+            raise TypeError(f"miniexpr bytes operands require a non-empty itemsize; got '{dtype}'")
+        return ME_BYTES
     return <me_dtype>-1
+
+
+cdef inline object _numpy_dtype_from_me_dtype(me_dtype dt):
+    if dt == ME_BOOL:
+        return np.dtype(np.bool_)
+    if dt == ME_INT8:
+        return np.dtype(np.int8)
+    if dt == ME_INT16:
+        return np.dtype(np.int16)
+    if dt == ME_INT32:
+        return np.dtype(np.int32)
+    if dt == ME_INT64:
+        return np.dtype(np.int64)
+    if dt == ME_UINT8:
+        return np.dtype(np.uint8)
+    if dt == ME_UINT16:
+        return np.dtype(np.uint16)
+    if dt == ME_UINT32:
+        return np.dtype(np.uint32)
+    if dt == ME_UINT64:
+        return np.dtype(np.uint64)
+    if dt == ME_FLOAT32:
+        return np.dtype(np.float32)
+    if dt == ME_FLOAT64:
+        return np.dtype(np.float64)
+    if dt == ME_COMPLEX64:
+        return np.dtype(np.complex64)
+    if dt == ME_COMPLEX128:
+        return np.dtype(np.complex128)
+    return None
+
+
+def me_output_dtype(expression, operands):
+    """Ask miniexpr what dtype *expression* would produce over *operands*.
+
+    ``operands`` maps operand name -> numpy dtype.  Compiles with ME_AUTO, reads
+    the inferred result back, and throws the program away.  python-blosc2 needs
+    this before evaluating, because the output container must be allocated with a
+    fixed itemsize and string widths are known only to miniexpr's own inference
+    (e.g. `<U20` + `<U15` -> `<U34`).
+
+    Returns a numpy dtype, or None when miniexpr cannot compile the expression,
+    in which case the caller should use its numpy fallback.
+    """
+    cdef Py_ssize_t n = len(operands)
+    cdef me_variable* variables = NULL
+    cdef me_variable *var
+    cdef bytes var_name
+    cdef bytes expression_bytes
+    cdef np.dtype operand_dtype
+    cdef Py_ssize_t built = 0
+    cdef int error = 0
+    cdef int rc = 0
+    cdef me_expr *out_expr = NULL
+    cdef me_dtype out_dt
+    cdef size_t itemsize = 0
+    cdef Py_ssize_t i
+
+    if n > 0:
+        variables = <me_variable *> malloc(sizeof(me_variable) * n)
+        if variables == NULL:
+            raise MemoryError()
+
+    try:
+        for k, v in operands.items():
+            var = &variables[built]
+            operand_dtype = np.dtype(v)
+            try:
+                var.dtype = _me_dtype_from_numpy_dtype(operand_dtype)
+            except TypeError:
+                return None
+            if <int>var.dtype < 0:
+                return None
+            var_name = k.encode("utf-8") if isinstance(k, str) else k
+            var.name = <char *> malloc(strlen(var_name) + 1)
+            strcpy(var.name, var_name)
+            var.address = NULL
+            var.type = 0
+            var.context = NULL
+            var.itemsize = operand_dtype.itemsize if operand_dtype.num in (18, 19) else 0
+            built += 1
+
+        expression_bytes = (
+            (<str>expression).encode("utf-8") if isinstance(expression, str) else expression
+        )
+        rc = me_compile(expression_bytes, variables, <int>n, ME_AUTO, &error, &out_expr)
+        if rc != ME_COMPILE_SUCCESS or out_expr == NULL:
+            if out_expr != NULL:
+                me_free(out_expr)
+            return None
+
+        out_dt = me_get_dtype(out_expr)
+        itemsize = me_get_itemsize(out_expr)
+        me_free(out_expr)
+
+        if out_dt == ME_STRING:
+            if itemsize == 0 or itemsize % 4 != 0:
+                return None
+            return np.dtype("<U%d" % (itemsize // 4))
+        if out_dt == ME_BYTES:
+            if itemsize == 0:
+                return None
+            return np.dtype("S%d" % itemsize)
+        return _numpy_dtype_from_me_dtype(out_dt)
+    finally:
+        for i in range(built):
+            free(variables[i].name)
+        free(variables)
+
+
+cdef inline void _free_me_udata_tables(me_udata* udata, b2nd_array_t** inputs_,
+                                       uint8_t** np_data, int32_t* np_typesizes):
+    """Release the per-input tables and the udata block itself.
+
+    ``_fill_me_udata`` has half a dozen allocation-failure exits; routing them
+    all through here is what keeps the tables from drifting apart, which they
+    already had once -- ``np_data``/``np_typesizes`` arrived later and every
+    exit but the first kept freeing only ``inputs``.  ``free(NULL)`` is a no-op,
+    so no exit needs to know which tables it got as far as allocating.
+    """
+    free(inputs_)
+    free(np_data)
+    free(np_typesizes)
+    free(udata)
 
 
 cdef inline str _me_compile_status_name(int rc):
@@ -1639,11 +1780,11 @@ cdef class SChunk:
         cdef int32_t csize
         cdef uint8_t* chunk
         cdef int32_t len_chunk
-        if data is not None and len(data) > 0:
+        if data is not None:
             PyObject_GetBuffer(data, &buf, PyBUF_SIMPLE)
             buf_ptr = <uint8_t *> buf.buf
             len_data = buf.len
-            nchunks = len_data // chunksize + 1 if len_data % chunksize != 0 else len_data // chunksize
+            nchunks = (len_data + chunksize - 1) // chunksize if len_data > 0 else 0
             len_chunk = chunksize
             for i in range(nchunks):
                 if i == (nchunks - 1):
@@ -2409,6 +2550,10 @@ cdef class SChunk:
                         free(me_data.input_chunk_caches)
                     if me_data.inputs != NULL:
                         free(me_data.inputs)
+                    if me_data.np_data != NULL:
+                        free(me_data.np_data)
+                    if me_data.np_typesizes != NULL:
+                        free(me_data.np_typesizes)
                     if me_data.miniexpr_handle != NULL:  # XXX do we really need the conditional?
                         me_free(me_data.miniexpr_handle)
                     if me_data.eval_params != NULL:
@@ -2515,6 +2660,15 @@ cdef int aux_miniexpr(me_udata *udata, int64_t nchunk, int32_t nblock,
     cdef int64_t start_ndim[B2ND_MAX_DIM]
     cdef int64_t stop_ndim[B2ND_MAX_DIM]
     cdef int64_t buffershape[B2ND_MAX_DIM]
+    # Raw-NumPy-input gather (odometer copy of a block out of a C-order buffer)
+    cdef int64_t counter[B2ND_MAX_DIM]
+    cdef int64_t shape_strides[B2ND_MAX_DIM]
+    cdef int64_t blockshape_strides[B2ND_MAX_DIM]
+    cdef int32_t np_ts
+    cdef int np_ndim
+    cdef c_bool all_pad
+    cdef int64_t ext, row_items, row_bytes, src_flat, dst_flat
+    cdef int dd
 
     cdef b2nd_array_t* ndarr
     cdef int rc
@@ -2566,6 +2720,68 @@ cdef int aux_miniexpr(me_udata *udata, int64_t nchunk, int32_t nblock,
             return 0
 
     for i in range(udata.ninputs):
+        if udata.np_data != NULL and udata.np_data[i] != NULL:
+            # Raw NumPy input: gather block (nchunk, nblock) from a C-order buffer.
+            # All geometry comes from the output array, valid because the Python
+            # gates guarantee every operand shares the output's shape and grid.
+            np_ts = udata.np_typesizes[i]
+            blocknitems = udata.array.blocknitems
+            block_nbytes = blocknitems * np_ts
+            if expected_blocknitems == -1:
+                expected_blocknitems = blocknitems
+            elif blocknitems != expected_blocknitems:
+                raise ValueError("miniexpr: inconsistent block element counts across inputs")
+            input_buffers[i] = malloc(block_nbytes)
+            if input_buffers[i] == NULL:
+                raise MemoryError("miniexpr: cannot allocate input block buffer")
+            memset(input_buffers[i], 0, block_nbytes)  # zero padding, matches b2nd semantics
+
+            np_ndim = udata.array.ndim
+            blosc2_unidim_to_multidim(np_ndim, udata.chunks_in_array, nchunk, chunk_ndim)
+            blosc2_unidim_to_multidim(np_ndim, udata.blocks_in_chunk, nblock, block_ndim)
+
+            all_pad = False
+            for dd in range(np_ndim):
+                start_ndim[dd] = chunk_ndim[dd] * udata.array.chunkshape[dd] + block_ndim[dd] * udata.array.blockshape[dd]
+                ext = udata.array.shape[dd] - start_ndim[dd]
+                stop_ndim[dd] = udata.array.blockshape[dd] if ext >= udata.array.blockshape[dd] else ext
+                if stop_ndim[dd] <= 0:
+                    all_pad = True  # fully-padded block: buffer stays zeroed
+
+            if not all_pad:
+                # C-order element strides for the full array shape and for the block shape.
+                shape_strides[np_ndim - 1] = 1
+                blockshape_strides[np_ndim - 1] = 1
+                for dd in range(np_ndim - 2, -1, -1):
+                    shape_strides[dd] = shape_strides[dd + 1] * udata.array.shape[dd + 1]
+                    blockshape_strides[dd] = blockshape_strides[dd + 1] * udata.array.blockshape[dd + 1]
+
+                row_items = stop_ndim[np_ndim - 1]
+                row_bytes = row_items * np_ts
+                for dd in range(np_ndim):
+                    counter[dd] = 0
+                # Odometer over the outer np_ndim-1 dims; the innermost dim is
+                # copied in bulk per row (1-D collapses to a single memcpy).
+                while True:
+                    src_flat = 0
+                    dst_flat = 0
+                    for dd in range(np_ndim):
+                        src_flat += (start_ndim[dd] + counter[dd]) * shape_strides[dd]
+                        dst_flat += counter[dd] * blockshape_strides[dd]
+                    memcpy(<uint8_t*> input_buffers[i] + dst_flat * np_ts,
+                           udata.np_data[i] + src_flat * np_ts,
+                           row_bytes)
+                    dd = np_ndim - 2
+                    while dd >= 0:
+                        counter[dd] += 1
+                        if counter[dd] < stop_ndim[dd]:
+                            break
+                        counter[dd] = 0
+                        dd -= 1
+                    else:
+                        break
+            continue
+
         ndarr = udata.inputs[i]
         if ndarr.sc.storage.urlpath == NULL:
             src = ndarr.sc.data[nchunk]
@@ -2636,7 +2852,6 @@ cdef int aux_miniexpr(me_udata *udata, int64_t nchunk, int32_t nblock,
             expected_blocknitems = blocknitems
         elif blocknitems != expected_blocknitems:
             raise ValueError("miniexpr: inconsistent block element counts across inputs")
-        start = nblock * blocknitems
         # This is needed for thread safety, but adds a pretty low overhead (< 400ns on a modern CPU)
         # In the future, perhaps one can create a specific (serial) context just for
         # blosc2_getitem_ctx, but this is probably never going to be necessary.
@@ -2645,17 +2860,21 @@ cdef int aux_miniexpr(me_udata *udata, int64_t nchunk, int32_t nblock,
         # dctx = ndarr.sc.dctx
         if valid_nitems > blocknitems:
             raise ValueError("miniexpr: valid items exceed padded block size")
-        rc = blosc2_getitem_ctx(dctx, src, chunk_cbytes, start, blocknitems,
-                                input_buffers[i], block_nbytes)
+        # Ask in bytes: blosc2_getitem_ctx() counts in the typesize the *chunk*
+        # records, which c-blosc2 caps to 1 above BLOSC_MAX_TYPESIZE (255), so its
+        # unit changes silently with the data -- every block past the first once
+        # came back as uninitialised memory here.  Bytes are unambiguous, and a
+        # block offset is already one.
+        rc = blosc2_getitem_bytes_ctx(dctx, src, chunk_cbytes, nblock * block_nbytes,
+                                      block_nbytes, input_buffers[i], block_nbytes)
         blosc2_free_ctx(dctx)
-        if rc < 0:
+        if rc != block_nbytes:
             raise ValueError("miniexpr: error decompressing the chunk")
     # For reduction operations, we need to track which block we're processing
-    # The linear_block_index should be based on the INPUT array structure, not the output array
-    # Get the first input array's chunk and block structure
-    cdef b2nd_array_t* first_input = udata.inputs[0]
+    # The linear_block_index should be based on the same grid the output shares
+    # with every input (raw NumPy inputs have no b2nd_array_t to read ndim from).
     cdef int nblocks_per_chunk = 1
-    for i in range(first_input.ndim):
+    for i in range(udata.array.ndim):
         nblocks_per_chunk *= <int>udata.blocks_in_chunk[i]
     # Calculate the global linear block index: nchunk * blocks_per_chunk + nblock
     # This works because blocks never span chunks (chunks are padded to block boundaries)
@@ -2711,7 +2930,6 @@ cdef int aux_matmul(mm_udata *udata, int64_t nchunk, int32_t nblock, void *param
     cdef int32_t chunk_nbytes[2]
     cdef int32_t chunk_cbytes[2]
     cdef int32_t block_nbytes[2]
-    cdef int blocknitems[2]
     cdef int startA, startB, expected_blocknitems
     cdef blosc2_context* dctx
     cdef int i, j, block_i, block_j, chunk_i, chunk_j, ncols, block_ncols, Bblock_ncols, Bncols, Ablock_ncols, Ancols
@@ -2795,21 +3013,24 @@ cdef int aux_matmul(mm_udata *udata, int64_t nchunk, int32_t nblock, void *param
                 input_buffers[i] = malloc(block_nbytes[i])
             if input_buffers[i] == NULL:
                 raise MemoryError("miniexpr: cannot allocate input block buffer")
-            blocknitems[i] = block_nbytes[i] // <int> ndarr.sc.typesize
 
         first_run = False
         nblockA = block_startA
         nblockB = block_startB
         while True: # block loop
-            startA = nblockA * blocknitems[0]
-            startB = nblockB * blocknitems[1]
-            rc = blosc2_getitem_ctx(dctx, src[0], chunk_cbytes[0], startA, blocknitems[0],
-                                    input_buffers[0], block_nbytes[0])
-            if rc < 0:
+            startA = nblockA * block_nbytes[0]
+            startB = nblockB * block_nbytes[1]
+            # In bytes, for the reason given in aux_miniexpr().  matmul only ever
+            # sees numeric scalars (typesize <= 8), so the capped-typesize case is
+            # unreachable here today; asking in the unambiguous unit keeps that from
+            # becoming a latent trap if it ever stops being true.
+            rc = blosc2_getitem_bytes_ctx(dctx, src[0], chunk_cbytes[0], startA,
+                                          block_nbytes[0], input_buffers[0], block_nbytes[0])
+            if rc != block_nbytes[0]:
                 raise ValueError("matmul: error decompressing the A chunk")
-            rc = blosc2_getitem_ctx(dctx, src[1], chunk_cbytes[1], startB, blocknitems[1],
-                                    input_buffers[1], block_nbytes[1])
-            if rc < 0:
+            rc = blosc2_getitem_bytes_ctx(dctx, src[1], chunk_cbytes[1], startB,
+                                          block_nbytes[1], input_buffers[1], block_nbytes[1])
+            if rc != block_nbytes[1]:
                 raise ValueError("matmul: error decompressing the B chunk")
             batch = 0
             while batch < batches:
@@ -3653,6 +3874,7 @@ cdef class NDArray:
         cdef int rc
         cdef int32_t lazychunk_cbytes
         cdef c_bool owns_dctx = False
+        cdef int32_t want_nbytes
 
         lazychunk_cbytes = blosc2_schunk_get_lazychunk(self.array.sc, nchunk, &chunk, &needs_free)
         if lazychunk_cbytes < 0:
@@ -3683,10 +3905,16 @@ cdef class NDArray:
             if needs_free:
                 free(chunk)
             raise RuntimeError("Could not create decompression context")
+        # In bytes, for the reason given in aux_miniexpr(): an index summary over a
+        # <U32 column is a 257-byte record, so in element units every such sidecar
+        # decoded to garbage and the index pruned away every candidate.
         # For lazy chunks, blosc2_cbuffer_sizes() only reports the header cbytes.
-        # blosc2_getitem_ctx() needs the full lazy chunk size returned by
+        # The getitem entry points need the full lazy chunk size returned by
         # blosc2_schunk_get_lazychunk().
-        rc = blosc2_getitem_ctx(dctx, chunk, lazychunk_cbytes, start, nitems, view.buf, view.len)
+        want_nbytes = nitems * self.array.sc.typesize
+        rc = blosc2_getitem_bytes_ctx(dctx, chunk, lazychunk_cbytes,
+                                      start * self.array.sc.typesize, want_nbytes,
+                                      view.buf, view.len)
         if owns_dctx:
             blosc2_free_ctx(dctx)
         PyBuffer_Release(&view)
@@ -3694,6 +3922,12 @@ cdef class NDArray:
             free(chunk)
         if rc < 0:
             raise RuntimeError("Error while decoding the requested span")
+        if rc != want_nbytes:
+            # A short read used to pass silently and leave the tail of the
+            # destination uninitialised.
+            raise RuntimeError(
+                f"decoded {rc} bytes for the requested span, expected {want_nbytes}"
+            )
 
         return arr
 
@@ -3913,6 +4147,8 @@ cdef class NDArray:
         cdef me_udata *udata = <me_udata *> calloc(1, sizeof(me_udata))
         cdef me_eval_params* eval_params
         cdef b2nd_array_t** inputs_
+        cdef uint8_t** np_data
+        cdef int32_t* np_typesizes
         cdef me_input_cache_s* input_chunk_caches
         cdef void* aux_reduc_ptr = NULL
         cdef int i
@@ -3925,21 +4161,35 @@ cdef class NDArray:
         if udata == NULL:
             raise MemoryError("Cannot allocate miniexpr user data")
         inputs_ = NULL
+        np_data = NULL
+        np_typesizes = NULL
         if ninputs > 0:
             inputs_ = <b2nd_array_t**> malloc(ninputs * sizeof(b2nd_array_t*))
             if inputs_ == NULL:
                 free(udata)
                 raise MemoryError("Cannot allocate miniexpr input table")
+            np_data = <uint8_t**> calloc(ninputs, sizeof(uint8_t*))
+            np_typesizes = <int32_t*> calloc(ninputs, sizeof(int32_t))
+            if np_data == NULL or np_typesizes == NULL:
+                _free_me_udata_tables(udata, inputs_, np_data, np_typesizes)
+                raise MemoryError("Cannot allocate miniexpr raw-input tables")
         for i, operand in enumerate(operands):
-            inputs_[i] = <b2nd_array_t*><uintptr_t>operand.c_array
+            if isinstance(operand, np.ndarray):
+                # Caller (fast_eval) guarantees C-contiguous, native-endian, non-scalar.
+                inputs_[i] = NULL
+                np_data[i] = <uint8_t*> np.PyArray_DATA(<np.ndarray> operand)
+                np_typesizes[i] = <int32_t> (<np.ndarray> operand).itemsize
+            else:
+                inputs_[i] = <b2nd_array_t*><uintptr_t>operand.c_array
         udata.inputs = inputs_
+        udata.np_data = np_data
+        udata.np_typesizes = np_typesizes
         udata.ninputs = ninputs
         input_chunk_caches = NULL
         if ninputs > 0:
             input_chunk_caches = <me_input_cache_s*> calloc(ninputs, sizeof(me_input_cache_s))
             if input_chunk_caches == NULL:
-                free(inputs_)
-                free(udata)
+                _free_me_udata_tables(udata, inputs_, np_data, np_typesizes)
                 raise MemoryError("Cannot allocate miniexpr chunk caches")
             for i in range(ninputs):
                 input_chunk_caches[i].nchunk = -1
@@ -3953,8 +4203,7 @@ cdef class NDArray:
                         if input_chunk_caches[i].ready_lock != NULL:
                             PyThread_free_lock(input_chunk_caches[i].ready_lock)
                     free(input_chunk_caches)
-                    free(inputs_)
-                    free(udata)
+                    _free_me_udata_tables(udata, inputs_, np_data, np_typesizes)
                     raise MemoryError("Cannot allocate miniexpr chunk cache state lock")
                 input_chunk_caches[i].ready_lock = PyThread_allocate_lock()
                 if input_chunk_caches[i].ready_lock == NULL:
@@ -3967,8 +4216,7 @@ cdef class NDArray:
                         if input_chunk_caches[i].ready_lock != NULL:
                             PyThread_free_lock(input_chunk_caches[i].ready_lock)
                     free(input_chunk_caches)
-                    free(inputs_)
-                    free(udata)
+                    _free_me_udata_tables(udata, inputs_, np_data, np_typesizes)
                     raise MemoryError("Cannot allocate miniexpr chunk cache ready lock")
         udata.input_chunk_caches = input_chunk_caches
         eval_params = <me_eval_params*> malloc(sizeof(me_eval_params))
@@ -3979,8 +4227,7 @@ cdef class NDArray:
                 if input_chunk_caches[i].ready_lock != NULL:
                     PyThread_free_lock(input_chunk_caches[i].ready_lock)
             free(input_chunk_caches)
-            free(inputs_)
-            free(udata)
+            _free_me_udata_tables(udata, inputs_, np_data, np_typesizes)
             raise MemoryError("Cannot allocate miniexpr eval params")
         eval_params.disable_simd = False
         eval_params.simd_ulp_mode = ME_SIMD_ULP_3_5 if fp_accuracy == blosc2.FPAccuracy.MEDIUM else ME_SIMD_ULP_1
@@ -4092,7 +4339,7 @@ cdef class NDArray:
             var.address = NULL  # chunked compile: addresses provided later
             var.type = 0  # auto-set to ME_VARIABLE inside compiler
             var.context = NULL
-            var.itemsize = v.dtype.itemsize if v.dtype.num == 19 else 0 # only store item type if string
+            var.itemsize = v.dtype.itemsize if v.dtype.num in (18, 19) else 0 # only store item size for strings/bytes
 
         cdef int error = 0
         cdef bytes expression_bytes
@@ -4120,6 +4367,15 @@ cdef class NDArray:
             raise TypeError(f"miniexpr does not support operand or output dtype: {expression_display}; details: {me_error_msg}")
         if rc != ME_COMPILE_SUCCESS:
             raise NotImplementedError(f"Cannot compile expression: {expression_display}; details: {me_error_msg}")
+        # The output container was allocated before compiling, so a width miniexpr
+        # infers differently from the container's would overrun the block buffer.
+        cdef size_t inferred_itemsize = me_get_itemsize(out_expr)
+        if me_output_dtype in (ME_STRING, ME_BYTES) and inferred_itemsize != <size_t> out_np_dtype.itemsize:
+            me_free(out_expr)
+            raise ValueError(
+                f"miniexpr infers a {inferred_itemsize}-byte string result for "
+                f"{expression_display}, but the output array is {out_np_dtype}"
+            )
         udata.miniexpr_handle = out_expr
 
         # Free resources
@@ -4183,7 +4439,7 @@ cdef class NDArray:
             var.address = NULL
             var.type = 0
             var.context = NULL
-            var.itemsize = v.dtype.itemsize if v.dtype.num == 19 else 0
+            var.itemsize = v.dtype.itemsize if v.dtype.num in (18, 19) else 0
 
         cdef bytes expression_bytes = (
             (<str>expression).encode("utf-8") if isinstance(expression, str) else expression

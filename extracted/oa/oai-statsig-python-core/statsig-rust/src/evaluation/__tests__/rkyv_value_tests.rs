@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use assert_json_diff::assert_json_eq;
-use serde_json::{json, Value as JsonValue};
+use serde_json::{Value as JsonValue, json};
 
 use crate::evaluation::rkyv_value::{ArchivedRkyvValue, RkyvNumber, RkyvValue};
 

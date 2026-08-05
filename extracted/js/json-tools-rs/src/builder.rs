@@ -4,6 +4,8 @@
 //! and orchestrates flattening, unflattening, transformations, and parallel
 //! batch processing.
 
+use std::borrow::Cow;
+
 use rayon::prelude::*;
 use smallvec::SmallVec;
 
@@ -34,7 +36,7 @@ impl ProcessingConfig {
         };
         let type_conversion_mode = type_conversion.classify();
         Self {
-            separator: tools.separator.clone(),
+            separator: tools.separator.to_string(),
             lowercase_keys: tools.lowercase_keys,
             filtering: FilteringConfig {
                 remove_empty_strings: tools.remove_empty_string_values,
@@ -87,8 +89,12 @@ pub struct JSONTools {
     /// value matches any of these. Uses SmallVec to avoid heap allocation for 0-2
     /// patterns (common case)
     value_exclusions: SmallVec<[String; 2]>,
-    /// Separator for nested keys (default: ".")
-    separator: String,
+    /// Separator for nested keys (default: "."). `Cow` rather than `String`:
+    /// the default and any explicit `.separator(".")` call store a
+    /// `Cow::Borrowed`, avoiding an allocation that `SeparatorCache::new`
+    /// (`flatten.rs`) would just special-case away anyway (it already
+    /// treats `"."` and 11 other common separators as borrowed constants).
+    separator: Cow<'static, str>,
     /// Flattened key names that must always render as an array -- see
     /// `CollisionConfig::always_array_keys`'s doc comment. `SmallVec`
     /// (stack-allocated up to 4 keys, the common case; a linear scan beats a
@@ -144,7 +150,7 @@ impl Default for JSONTools {
             value_replacements: SmallVec::new(),
             key_exclusions: SmallVec::new(),
             value_exclusions: SmallVec::new(),
-            separator: ".".to_string(),
+            separator: Cow::Borrowed("."),
             always_array_keys: SmallVec::new(),
             // Medium fields — use shared LazyLock statics from config module
             parallel_threshold: *DEFAULT_PARALLEL_THRESHOLD,
@@ -223,7 +229,11 @@ impl JSONTools {
     /// Empty separators are rejected at [`execute()`](Self::execute) time with a descriptive error.
     #[must_use]
     pub fn separator(mut self, separator: impl Into<String>) -> Self {
-        self.separator = separator.into();
+        let separator = separator.into();
+        self.separator = match separator.as_str() {
+            "." => Cow::Borrowed("."),
+            _ => Cow::Owned(separator),
+        };
         self
     }
 
@@ -956,7 +966,7 @@ impl JSONTools {
                 }
                 .to_string()
             }),
-            separator: Some(self.separator.clone()),
+            separator: Some(self.separator.to_string()),
             lowercase_keys: Some(self.lowercase_keys),
             key_replacements: self.key_replacements.iter().cloned().collect(),
             value_replacements: self.value_replacements.iter().cloned().collect(),

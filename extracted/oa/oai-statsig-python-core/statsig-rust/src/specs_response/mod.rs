@@ -1,6 +1,7 @@
 pub mod cmab_types;
 pub mod explicit_params;
 pub mod param_store_types;
+pub mod parse_options;
 pub mod proto_specs;
 pub mod proto_stream_reader;
 pub mod spec_types;

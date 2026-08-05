@@ -1,8 +1,7 @@
 use crate::{
-    log_e,
+    Statsig, log_e,
     sdk_event_emitter::{SdkEvent, SdkEventCode},
     statsig_types::{DynamicConfig, Experiment, Layer},
-    Statsig,
 };
 use dashmap::DashMap;
 use std::{ops::Deref, sync::Arc};
@@ -340,8 +339,9 @@ mod cleanup_tests {
     use super::*;
     use std::{
         sync::{
+            Arc, Barrier,
             atomic::{AtomicUsize, Ordering},
-            mpsc, Arc, Barrier,
+            mpsc,
         },
         thread,
         time::Duration,

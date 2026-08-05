@@ -1,10 +1,10 @@
 use std::{sync::Arc, time::Duration};
 
-use super::statsig_data_store_specs_adapter::StatsigDataStoreSpecsAdapter;
 use super::StatsigHttpSpecsAdapter;
+use super::statsig_data_store_specs_adapter::StatsigDataStoreSpecsAdapter;
 use super::{SpecAdapterConfig, SpecsAdapterType};
 use crate::data_store_interface::DataStoreTrait;
-use crate::{log_i, log_w, SpecsAdapter, SpecsUpdateListener, StatsigOptions};
+use crate::{SpecsAdapter, SpecsUpdateListener, StatsigOptions, log_i, log_w};
 use crate::{StatsigErr, StatsigRuntime};
 use async_trait::async_trait;
 

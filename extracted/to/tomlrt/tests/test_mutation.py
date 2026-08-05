@@ -63,6 +63,66 @@ def test_add_top_level_key_when_only_section_exists() -> None:
     assert _reparses(out) == {"name": "demo", "srv": {"port": 8080}}
 
 
+def test_add_top_level_key_before_first_section_with_blank_attached_block() -> None:
+    """Adding the first root KV ahead of a section keeps an existing
+    opening blank-separated block on that section intact."""
+    src = td("""
+
+        # attached
+        [srv]
+        port = 8080
+        """)
+    doc = tomlrt.loads(src)
+    doc["name"] = "demo"
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        name = "demo"
+
+        # attached
+        [srv]
+        port = 8080
+        """)
+    assert _reparses(out) == {"name": "demo", "srv": {"port": 8080}}
+
+
+def test_add_top_level_key_before_first_section_with_attached_comment() -> None:
+    """If the first section already owns a leading comment block, the
+    inserted root KV still leaves one blank separator before it."""
+    src = td("""
+        # attached
+        [srv]
+        port = 8080
+        """)
+    doc = tomlrt.loads(src)
+    doc["name"] = "demo"
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        name = "demo"
+
+        # attached
+        [srv]
+        port = 8080
+        """)
+    assert _reparses(out) == {"name": "demo", "srv": {"port": 8080}}
+
+
+def test_add_top_level_key_before_first_section_with_indented_comment() -> None:
+    """Leading indentation before the first section's attached comment
+    should survive when a new root KV is inserted ahead of it."""
+    src = "  # attached\n[srv]\nport = 8080\n"
+    doc = tomlrt.loads(src)
+    doc["name"] = "demo"
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        name = "demo"
+
+          # attached
+        [srv]
+        port = 8080
+        """)
+    assert _reparses(out) == {"name": "demo", "srv": {"port": 8080}}
+
+
 def test_add_key_inside_existing_section() -> None:
     src = "[srv]\nport = 80\n"
     doc = tomlrt.loads(src)
@@ -356,6 +416,25 @@ def test_inline_overwrite_sole_prefix_preserves_bracket_pad() -> None:
     doc["t"]["a"]["b"]["c"] = 9
     out = tomlrt.dumps(doc)
     assert out == "t = { a.b.c = 9 }\n"
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_inline_overwrite_dotted_prefix_on_multiline_table_skips_pad_restore() -> None:
+    """No single-line pad to restore when the table is already multiline.
+
+    ``set_multiline`` forces `is_multiline()` true, so overwriting a
+    dotted prefix must skip the single-line bracket-pad save/restore
+    entirely and let ``splice_in`` alone re-lay the multiline rows.
+    """
+    doc = tomlrt.loads("t = { a.b = 1, a.c = 2 }\n")
+    doc.table("t").multiline = True
+    doc.table("t")["a"] = 5
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        t = {
+            a = 5,
+        }
+        """)
     assert _reparses(out) == doc.to_dict()
 
 
@@ -762,6 +841,27 @@ def test_array_setitem_slice_extended_matching_length() -> None:
     assert _reparses(out) == {"xs": [10, 2, 30, 4, 50]}
 
 
+@pytest.mark.parametrize("index", [slice(0, 2), slice(None, None, 2)])
+def test_array_setitem_slice_invalid_value_is_atomic(index: slice) -> None:
+    src = td("""
+        xs = [ # values
+            1, # one
+            3,
+            5,
+        ]
+        """)
+    doc = tomlrt.loads(src)
+    xs = doc.array("xs")
+
+    with pytest.raises(TypeError):
+        xs[index] = [2, object()]
+
+    assert list(xs) == [1, 3, 5]
+    rendered = tomlrt.dumps(doc)
+    assert rendered == src
+    assert _reparses(rendered) == {"xs": [1, 3, 5]}
+
+
 def test_array_setitem_slice() -> None:
     doc = tomlrt.loads("xs = [1, 2, 3, 4]\n")
     xs = doc.array("xs")
@@ -949,6 +1049,56 @@ def test_array_extend_rejects_aot_atomically() -> None:
         doc["xs"].extend([2, AoT([{"a": 1}])])
     # The whole extend is rejected up front; no partial mutation.
     assert tomlrt.dumps(doc) == "xs = [1]\n"
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [{"nested": AoT([{"a": 1}])}, {"nested": Table.section({"a": 1})}],
+)
+def test_array_extend_rejects_nested_structural_value_atomically(
+    invalid: Any,
+) -> None:
+    doc = tomlrt.loads("xs = [1]\n")
+
+    with pytest.raises(tomlrt.TOMLError):
+        doc.array("xs").extend([2, invalid])
+
+    assert tomlrt.dumps(doc) == "xs = [1]\n"
+
+
+def test_array_extend_invalid_value_is_atomic() -> None:
+    src = td("""
+        xs = [ # values
+            1, # one
+        ]
+        """)
+    doc = tomlrt.loads(src)
+    xs = doc.array("xs")
+
+    with pytest.raises(TypeError):
+        xs.extend([2, object()])
+
+    assert list(xs) == [1]
+    rendered = tomlrt.dumps(doc)
+    assert rendered == src
+    assert _reparses(rendered) == {"xs": [1]}
+
+
+@pytest.mark.parametrize("value", [Array([2]), Table.inline({"x": 2})])
+def test_array_failed_bulk_mutation_does_not_attach_input(value: Any) -> None:
+    doc = tomlrt.loads("xs = []\n")
+
+    with pytest.raises(TypeError):
+        doc.array("xs").extend([value, object()])
+
+    doc["kept"] = value
+    assert doc["kept"] is value
+    expected = (
+        "xs = []\nkept = [2]\n"
+        if isinstance(value, Array)
+        else "xs = []\nkept = { x = 2 }\n"
+    )
+    assert tomlrt.dumps(doc) == expected
 
 
 def test_array_extend_self_duplicates_once() -> None:
@@ -2165,6 +2315,64 @@ def test_aot_sort_carries_nested_aot_blocks() -> None:
     )
 
 
+def test_aot_sort_carries_varying_nested_aot_counts_and_subtable() -> None:
+    """Sorting must carry each entry's own count of nested blocks: zero,
+    one, or several ``[[t.sub]]`` entries, and an unrelated ``[t.s]``
+    plain sub-table -- not just the uniform one-sub-each shape the
+    sibling tests above pin.
+    """
+    src = td("""
+        [[t]]
+        x = 3
+
+          [[t.sub]]
+          y = 30
+
+          [[t.sub]]
+          y = 31
+
+          [t.s]
+          z = 3
+
+        [[t]]
+        x = 1
+
+        [[t]]
+        x = 2
+
+          [[t.sub]]
+          y = 20
+        """)
+    doc = tomlrt.loads(src)
+    doc.aot("t").sort(key=lambda e: e["x"])
+    out = tomlrt.dumps(doc)
+    assert out == (
+        td("""
+            [[t]]
+            x = 1
+
+            [[t]]
+            x = 2
+
+              [[t.sub]]
+              y = 20
+
+            [[t]]
+            x = 3
+
+              [[t.sub]]
+              y = 30
+
+              [[t.sub]]
+              y = 31
+
+              [t.s]
+              z = 3
+            """)
+    )
+    assert _reparses(out) == doc.to_dict()
+
+
 def test_sort_container_with_synthetic_header_binding_keeps_kv_in_scope() -> None:
     """Sorting a table whose header is synthetic (promoted by an overwrite)
     must keep the synthetic header as the region marker so its body KV
@@ -2217,6 +2425,40 @@ def test_sort_container_with_synthetic_header_binding_dotted_kv() -> None:
         """)
     assert _reparses(out) == doc.to_dict()
     assert doc.to_dict() == {"fruit": {"apple": {}, "orange": {"deep": {"v": 1}}}}
+
+
+def test_sort_container_skips_empty_synthetic_header_region_marker() -> None:
+    """An empty synthetic header stays put while real children reorder.
+
+    Promote ``fruit`` to a synthetic ``[fruit]`` header, then delete the
+    body KV that made it non-elidable. Sorting the remaining child
+    sections must leave that now-empty placeholder header untouched
+    while still reordering the real children beneath it.
+    """
+    doc = tomlrt.loads(
+        td("""
+            [fruit.apple]
+            x = 1
+
+            [fruit.banana]
+            y = 2
+            """)
+    )
+    doc["fruit"]["orange"] = {"deep": {"v": 1}}
+    del doc["fruit"]["orange"]
+    doc["fruit"].sort(reverse=True)
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [fruit]
+
+        [fruit.banana]
+        y = 2
+
+        [fruit.apple]
+        x = 1
+        """)
+    assert _reparses(out) == doc.to_dict()
+    assert doc.to_dict() == {"fruit": {"banana": {"y": 2}, "apple": {"x": 1}}}
 
 
 def test_sort_aot_entry_with_nested_aot_child_reorders_physically() -> None:
@@ -2951,10 +3193,18 @@ def test_insert_into_implicit_parent_after_aot_attach() -> None:
     assert tomlrt.dumps(doc) == '[tool]\nv = 1\n\n[[tool.list]]\nname = "foo"\n'
 
 
-def test_install_section_through_scalar_intermediate_raises_typeerror() -> None:
-    """``install("a.b.c", section)`` where ``a`` is a scalar must fail loudly."""
+def test_install_section_through_scalar_intermediate_raises_tomlerror() -> None:
+    """``install("a.b.c", section)`` where ``a`` is a scalar must fail loudly.
+
+    Raises the same `TOMLError`, with the same message, that
+    `ensure_table` raises for the identical scenario: both walk the
+    same existing-prefix logic and neither can descend through a
+    non-table value.
+    """
     doc = tomlrt.loads("a = 1\n")
-    with pytest.raises(TypeError, match="intermediate 'a' is not a table"):
+    with pytest.raises(
+        tomlrt.TOMLError, match="existing value at 'a' is not section-backed"
+    ):
         doc.install("a.b.c", Table.section({"x": 1}))
 
 
@@ -3800,6 +4050,45 @@ def test_aot_extend_self_duplicates_once() -> None:
     assert [t["a"] for t in aot] == [1, 2, 1, 2]
 
 
+def test_aot_extend_invalid_entry_is_atomic() -> None:
+    src = td("""
+        [[a]]
+        x = 1
+        """)
+    doc = tomlrt.loads(src)
+    aot = doc.aot("a")
+    values: Any = [{"x": 2}, {"x": object()}]
+
+    with pytest.raises(TypeError):
+        aot.extend(values)
+
+    assert aot.to_list() == [{"x": 1}]
+    rendered = tomlrt.dumps(doc)
+    assert rendered == src
+    assert _reparses(rendered) == {"a": [{"x": 1}]}
+
+
+def test_aot_setitem_slice_invalid_entry_is_atomic() -> None:
+    src = td("""
+        [[a]]
+        x = 1
+
+        [[a]]
+        x = 2
+        """)
+    doc = tomlrt.loads(src)
+    aot = doc.aot("a")
+    values: Any = [{"x": 3}, {"x": object()}]
+
+    with pytest.raises(TypeError):
+        aot[:] = values
+
+    assert aot.to_list() == [{"x": 1}, {"x": 2}]
+    rendered = tomlrt.dumps(doc)
+    assert rendered == src
+    assert _reparses(rendered) == {"a": [{"x": 1}, {"x": 2}]}
+
+
 def test_aot_iadd_self_duplicates_once() -> None:
     """``aot += aot`` matches list semantics: duplicate once, no hang."""
     src = td("""
@@ -3848,6 +4137,36 @@ def test_aot_append_with_no_sibling_indent_stays_flush() -> None:
         [[xs]]
         b = 2
         """)
+
+
+def test_aot_append_skips_structural_only_sibling_when_inheriting_indent() -> None:
+    """A new entry's first KV inherits indent from the nearest earlier
+    sibling that actually has a direct KV."""
+    src = td("""
+        [[t]]
+            z = 0
+
+        [[t]]
+        [t.sub]
+        x = 1
+
+        [[t]]
+        """)
+    doc = tomlrt.loads(src)
+    doc.aot("t")[2]["y"] = 2
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[t]]
+            z = 0
+
+        [[t]]
+        [t.sub]
+        x = 1
+
+        [[t]]
+            y = 2
+        """)
+    assert _reparses(out) == doc.to_dict()
 
 
 def test_dotted_add_when_host_lacks_trailing_newline() -> None:
@@ -4463,6 +4782,40 @@ def test_overwrite_with_scattered_implicit_source_skips_reposition() -> None:
         """)
     assert _reparses(out) == doc.to_dict()
     assert doc["name"]["first"].to_dict() == doc["animal"]["type"].to_dict()
+
+
+def test_overwrite_first_root_key_with_implicit_source_skips_root_reposition() -> None:
+    """Replacing the first root KV with an implicit source whose cloned
+    block starts with a dotted KV must not try to move that dotted KV
+    back to the doc head across a header boundary."""
+    src = tomlrt.loads(
+        td("""
+        src.q = 2
+
+        [src.child]
+        z = 1
+        """)
+    )
+    dst = tomlrt.loads(
+        td("""
+        a = 0
+
+        [tail]
+        y = 1
+        """)
+    )
+    dst["a"] = src["src"]
+    out = tomlrt.dumps(dst)
+    assert out == td("""
+        a.q = 2
+
+        [a.child]
+        z = 1
+
+        [tail]
+        y = 1
+        """)
+    assert _reparses(out) == dst.to_dict()
 
 
 def test_overwrite_ancestor_with_own_nested_aot_preserves_nested_entries() -> None:
@@ -5266,6 +5619,79 @@ def test_ensure_table_through_scalar_value_raises() -> None:
         doc.ensure_table("a")
 
 
+def test_install_dotted_path_leaves_doc_untouched_when_blocked_by_comments() -> None:
+    """A dotted `install()` that must promote an ancestor, but is then
+    blocked by a *later* ancestor's inner comments, must not leave the
+    first ancestor promoted: the whole call is atomic."""
+    src = td("""
+        a = {b = { # comment
+        c = 1 }, sibling = 2}
+        """)
+    doc = tomlrt.loads(src)
+    with pytest.raises(tomlrt.TOMLError, match="inner comments"):
+        doc.install("a.b.x", 9)
+    assert tomlrt.dumps(doc) == src
+    assert _reparses(tomlrt.dumps(doc)) == {"a": {"b": {"c": 1}, "sibling": 2}}
+
+
+def test_install_dotted_path_leaves_doc_untouched_when_blocked_by_scalar() -> None:
+    """Same atomicity guarantee when the blocking component is simply a
+    non-table value rather than a comment-bearing inline table."""
+    src = "a = {arr = 1}\n"
+    doc = tomlrt.loads(src)
+    with pytest.raises(tomlrt.TOMLError, match="inline table or non-table"):
+        doc.install("a.arr.x", 9)
+    assert tomlrt.dumps(doc) == src
+    assert _reparses(tomlrt.dumps(doc)) == {"a": {"arr": 1}}
+
+
+def test_install_dotted_path_leaves_doc_untouched_when_blocked_by_aot() -> None:
+    """The AoT-blocks-the-walk branch of the preflight also leaves the
+    document untouched (an inline table can never itself hold an AoT,
+    so the AoT here is necessarily a sibling, not a promoted
+    descendant, of the inline table also present under ``x``)."""
+    src = td("""
+        [x]
+        a = {b = 1}
+        [[x.c]]
+        y = 1
+        """)
+    doc = tomlrt.loads(src)
+    with pytest.raises(tomlrt.TOMLError, match="array-of-tables"):
+        doc.install("x.c.d", 9)
+    assert tomlrt.dumps(doc) == src
+    assert _reparses(tomlrt.dumps(doc)) == {"x": {"a": {"b": 1}, "c": [{"y": 1}]}}
+
+
+def test_install_dotted_path_rolls_back_multiple_promotions_when_later_blocked() -> (
+    None
+):
+    """Two ancestors are both promotable, but the third path component
+    is a plain scalar: neither of the first two must end up promoted."""
+    src = "a = {b = {c = 1}, other = 2}\n"
+    doc = tomlrt.loads(src)
+    with pytest.raises(tomlrt.TOMLError, match="inline table or non-table"):
+        doc.install("a.b.c.x", 9)
+    assert tomlrt.dumps(doc) == src
+    assert _reparses(tomlrt.dumps(doc)) == {"a": {"b": {"c": 1}, "other": 2}}
+
+
+def test_install_dotted_path_promotes_every_promotable_ancestor() -> None:
+    """Every promotable ancestor on the path is promoted and the leaf
+    is installed."""
+    doc = tomlrt.loads("a = {b = {c = {d = 1}}, other = 2}\n")
+    doc.install("a.b.c.x", 9)
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [a]
+        other = 2
+        [a.b.c]
+        d = 1
+        x = 9
+        """)
+    assert _reparses(out) == {"a": {"other": 2, "b": {"c": {"d": 1, "x": 9}}}}
+
+
 def test_ensure_table_on_detached_table_section() -> None:
     t = Table.section()
     sub = t.ensure_table(["a", "b", "c"])
@@ -5357,6 +5783,38 @@ def test_delete_aot_entry_with_nested_aot() -> None:
         [[outer]]
         x = 2
         """)
+
+
+def test_delete_nested_aot_section_scans_past_earlier_inline_value() -> None:
+    """Deleting a nested section from one AoT entry should still find
+    surviving sibling-entry ownership even when an earlier inline table
+    is visited first during the reachability scan."""
+    doc = tomlrt.loads(
+        td("""
+        meta = { a = 1 }
+
+        [[fruit]]
+        name = "a"
+
+        [fruit.extra]
+        x = 1
+
+        [[fruit]]
+        name = "b"
+        """)
+    )
+    del doc.aot("fruit")[0]["extra"]
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        meta = { a = 1 }
+
+        [[fruit]]
+        name = "a"
+
+        [[fruit]]
+        name = "b"
+        """)
+    assert _reparses(out) == doc.to_dict()
 
 
 # ---------------------------------------------------------------------------
@@ -5711,6 +6169,20 @@ def test_sort_leaf_kvs_preserves_leading_and_eol_comments() -> None:
         c = 3
         """)
     assert _reparses(tomlrt.dumps(doc))
+
+
+def test_sort_moves_blank_separator_with_trailing_whitespace() -> None:
+    # A blank-line separator whose own line carries trailing whitespace
+    # (not itself the slot's own indent, since another blank line
+    # follows it) is purely positional, like any comment-free
+    # separator, and travels with the reorder like the plain-newline
+    # case above.
+    src = "a = 1\nb = 2\n   \n\nc = 3\n"
+    doc = tomlrt.loads(src)
+    doc.sort(reverse=True)
+    out = tomlrt.dumps(doc)
+    assert out == "c = 3\nb = 2\n   \n\na = 1\n"
+    assert _reparses(out)
 
 
 def test_sort_reverse_leaf_kvs() -> None:
@@ -6243,6 +6715,51 @@ def test_sort_inline_dotted_inner_navigator() -> None:
     # sort by ('p','q'): pos 1 ← a.p, pos 2 ← a.q. x and y unchanged.
     assert tomlrt.dumps(doc) == "t = {x = 0, a.p = 1, a.q = 2, y = 3}\n"
     assert _reparses(tomlrt.dumps(doc))
+
+
+def test_sort_detached_inline_factory_table() -> None:
+    """A detached ``Table.inline()`` sorts its dict order.
+
+    There is no backing inline value to permute yet, so the sort only
+    has to survive until attachment, where dict order decides what is
+    emitted.
+    """
+    table = Table.inline()
+    table["b"] = 1
+    table["a"] = 2
+    table.sort()
+    assert list(table) == ["a", "b"]
+    doc = tomlrt.Document()
+    doc["x"] = table
+    assert tomlrt.dumps(doc) == "x = { a = 2, b = 1 }\n"
+    assert _reparses(tomlrt.dumps(doc)) == doc.to_dict()
+
+
+def test_sort_detached_inline_factory_table_reverse_and_key() -> None:
+    """``key`` / ``reverse`` apply to a detached inline table too."""
+    table = Table.inline()
+    table["bb"] = 1
+    table["a"] = 2
+    table["ccc"] = 3
+    table.sort(key=len, reverse=True)
+    doc = tomlrt.Document()
+    doc["x"] = table
+    assert tomlrt.dumps(doc) == "x = { ccc = 3, bb = 1, a = 2 }\n"
+    assert _reparses(tomlrt.dumps(doc)) == doc.to_dict()
+
+
+def test_sort_nested_detached_inline_factory_table() -> None:
+    """Sorting a factory table already nested in another factory works."""
+    outer = Table.inline()
+    inner = Table.inline()
+    inner["b"] = 1
+    inner["a"] = 2
+    outer["n"] = inner
+    inner.sort()
+    doc = tomlrt.Document()
+    doc["x"] = outer
+    assert tomlrt.dumps(doc) == "x = { n = { a = 2, b = 1 } }\n"
+    assert _reparses(tomlrt.dumps(doc)) == doc.to_dict()
 
 
 def test_sort_preserves_lexeme_styles_and_whitespace() -> None:
@@ -6927,6 +7444,13 @@ def test_pop_all_array_keeps_bracket_eol_comment_without_blank_line() -> None:
     """)
 
 
+def test_pop_sole_item_closing_bracket_on_same_line_keeps_eol_comment() -> None:
+    """Item and closing bracket share a physical line (no newline between them)."""
+    doc = tomlrt.loads("a = [ # tail\n    1]\n")
+    doc.array("a").pop()
+    assert tomlrt.dumps(doc) == "a = [ # tail\n]\n"
+
+
 def test_append_after_empty_array_keeps_bracket_eol_comment() -> None:
     src = td("""
         arr = [ # tail
@@ -6955,6 +7479,13 @@ def test_delete_all_inline_keeps_bracket_eol_comment_without_blank_line() -> Non
         x = { # tail
         }
     """)
+
+
+def test_delete_sole_entry_closing_brace_on_same_line_keeps_eol_comment() -> None:
+    """Entry and closing brace share a physical line (no newline between them)."""
+    doc = tomlrt.loads("a = { # tail\n    x = 1}\n")
+    del doc.table("a")["x"]
+    assert tomlrt.dumps(doc) == "a = { # tail\n}\n"
 
 
 def test_add_after_empty_inline_keeps_bracket_eol_comment() -> None:
@@ -7175,6 +7706,17 @@ def test_aot_cross_doc_assign_negative_index() -> None:
     """)
 
 
+def test_aot_cross_doc_assign_empty_entry_clears_body() -> None:
+    """Replacing an attached entry with an empty foreign one keeps only
+    the destination header."""
+    src_doc = tomlrt.loads("[[s]]\n")
+    dst_doc = tomlrt.loads("[[a]]\nx = 1\n")
+    dst_doc.aot("a")[0] = src_doc.aot("s")[0]
+    out = tomlrt.dumps(dst_doc)
+    assert out == "[[a]]\n"
+    assert _reparses(out) == dst_doc.to_dict()
+
+
 def test_aot_sort_singleton_short_circuits() -> None:
     """``aot.sort()`` on a single-entry AoT takes the early-return path
     and leaves the doc byte-stable."""
@@ -7270,6 +7812,83 @@ def test_demote_synthetic_placeholder_then_sort_aot() -> None:
         [[tool.poetry]]
         x = 3
         """)
+
+
+def test_demote_synthetic_placeholder_inside_aot_entry_updates_membership() -> None:
+    """Demoting a synthetic placeholder inside an AoT entry must also
+    remove the orphaned header from that entry's slot membership."""
+    doc = tomlrt.loads('[[pkg]]\nname = "a"\n')
+    entry = doc.aot("pkg")[0]
+    entry["tool"] = Table.section({})
+    entry["tool"]["sub"] = Table.section({"x": 1})
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[pkg]]
+        name = "a"
+
+        [pkg.tool.sub]
+        x = 1
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_aot_clone_append_past_first_entry_keeps_trailing_placeholder() -> None:
+    """A placeholder header with nothing after it survives an AoT append.
+
+    Overwriting ``[fruit.orange]`` with a scalar synthesises a
+    ``[fruit]`` header at the document tail, and deleting the scalar
+    leaves it an empty placeholder. The appended entry anchors after its
+    predecessor's subtree — ahead of that placeholder — so there is no
+    successor to hand the placeholder's trivia to and it stays put.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [[fruit.k99]]
+        v = 1
+
+        [animal]
+
+        [fruit.orange]
+        """)
+    )
+    doc["fruit"]["orange"] = "str"
+    del doc["fruit"]["orange"]
+    doc.aot("fruit.k99").append(doc.table("animal"))
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[fruit.k99]]
+        v = 1
+
+        [[fruit.k99]]
+
+        [animal]
+
+        [fruit]
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_aot_append_past_first_entry_demotes_emptied_placeholder() -> None:
+    """A placeholder that empties after entry 0 is demoted by a later entry.
+
+    Every ``[[path]]`` header makes a synthetic placeholder parent
+    redundant, not just the first: the placeholder here still had a KV
+    body when the AoT was created.
+    """
+    doc = tomlrt.loads("")
+    doc["tool"] = Table.section({"a": 1})
+    doc["tool"]["poetry"] = tomlrt.AoT([{"x": 1}])
+    del doc["tool"]["a"]
+    doc.aot("tool.poetry").append({"x": 2})
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[tool.poetry]]
+        x = 1
+
+        [[tool.poetry]]
+        x = 2
+        """)
+    assert _reparses(out) == doc.to_dict()
 
 
 # ---------------------------------------------------------------------------

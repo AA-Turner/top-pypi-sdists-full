@@ -10,23 +10,41 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-__all__ = ['__version__', 'ServiceTypes']
+__all__ = ['ServiceTypes']
 
-from typing import TYPE_CHECKING, Optional
+from typing import cast, TYPE_CHECKING
+import warnings
 
 import pbr.version
 
 from os_service_types.service_types import ServiceTypes
 
 if TYPE_CHECKING:
+    from keystoneauth1 import session as ksa_session
     from requests import sessions
 
-__version__ = pbr.version.VersionInfo('os-service-types').version_string()
+
+def __getattr__(name: str) -> str:
+    if name == '__version__':
+        warnings.warn(
+            "Accessing os_service_types.__version__ is deprecated and will be "
+            "removed in a future release. Use importlib.metadata instead: "
+            "importlib.metadata.version('os-service-types')",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        version = pbr.version.VersionInfo('os-service-types').version_string()
+        return cast(str, version)
+    raise AttributeError(
+        f"module 'os_service_types' has no attribute {name!r}"
+    )
+
+
 _service_type_manager = None
 
 
 def get_service_types(
-    session: Optional['sessions.Session'] = None,
+    session: 'sessions.Session | ksa_session.Session | None' = None,
     only_remote: bool = False,
     warn: bool = False,
 ) -> ServiceTypes:

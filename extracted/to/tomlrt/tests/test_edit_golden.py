@@ -756,7 +756,7 @@ def test_cross_doc_table_assign_preserves_header_leading_comments() -> None:
 
     The clone path rewrites the structural prefix of the head's
     leading trivia (so the destination doc's spacing convention wins)
-    but keeps any comment pieces — they belong to the section being
+    but keeps any comments — they belong to the section being
     copied.
     """
     src = tomlrt.loads("# bee\n[b]  # eol\nval = 2\n")
@@ -3288,6 +3288,91 @@ def test_install_section_overwrites_inline_value() -> None:
     assert rendered == '[tool.poetry]\nversion = "2.0"\n'
 
 
+def test_install_dotted_path_past_unrelated_inline_key() -> None:
+    """Intermediate inline table exists, but the next path component
+    isn't one of its keys, so there's nothing to drop. The inline table
+    is still promoted to a section: a ``[tool.other.deps]`` header can't
+    be attached beneath a still-inline ``tool = {...}`` value without
+    leaving two conflicting definitions of ``tool``.
+    """
+    doc = tomlrt.loads('tool = {poetry = {name = "x"}}\n')
+    doc.install("tool.other.deps", Table.section({"requests": "1.0"}))
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [tool]
+        poetry = {name = "x"}
+
+        [tool.other.deps]
+        requests = "1.0"
+        """)
+    assert _reparses(out) == {
+        "tool": {"poetry": {"name": "x"}, "other": {"deps": {"requests": "1.0"}}}
+    }
+
+
+def test_install_dotted_path_promotes_nested_inline_ancestors() -> None:
+    """Every inline ancestor on the path is promoted to a section in
+    place, preserving its other entries; only the final leaf ("c") is
+    ever replaced. ``a`` and ``a.b`` both start life as inline tables
+    and both need a header, since a ``[a.b.c]`` section can't be
+    attached beneath a still-inline ``a = {...}`` or ``b = {...}``
+    value.
+    """
+    doc = tomlrt.loads("a = {b = {x = 1}, sibling = 2}\n")
+    doc.install("a.b.c", Table.section({"y": 9}))
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [a]
+        sibling = 2
+
+        [a.b]
+        x = 1
+
+        [a.b.c]
+        y = 9
+        """)
+    assert _reparses(out) == {"a": {"sibling": 2, "b": {"x": 1, "c": {"y": 9}}}}
+
+
+def test_install_dotted_path_overwrites_only_conflicting_leaf_inline_key() -> None:
+    """The leaf itself is overwritten when it already exists inline;
+    every ancestor's other entries, at every level, still survive.
+    """
+    doc = tomlrt.loads("a = {b = {c = 1, sibling2 = 2}, sibling = 2}\n")
+    doc.install("a.b.c", Table.section({"y": 9}))
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [a]
+        sibling = 2
+
+        [a.b]
+        sibling2 = 2
+
+        [a.b.c]
+        y = 9
+        """)
+    assert _reparses(out) == {"a": {"sibling": 2, "b": {"sibling2": 2, "c": {"y": 9}}}}
+
+
+def test_install_scalar_leaf_promotes_nested_inline_ancestors() -> None:
+    """Inline ancestors are promoted for a scalar leaf too, not just for
+    section/AoT values: ``a`` and ``a.b`` both need an explicit header
+    regardless, to hold the new ``c = 9``.
+    """
+    doc = tomlrt.loads("a = {b = {x = 1}, sibling = 2}\n")
+    doc.install("a.b.c", 9)
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [a]
+        sibling = 2
+
+        [a.b]
+        x = 1
+        c = 9
+        """)
+    assert _reparses(out) == {"a": {"sibling": 2, "b": {"x": 1, "c": 9}}}
+
+
 def test_install_empty_section() -> None:
     doc = tomlrt.loads("")
     t = doc.install("tool.poetry", Table.section())
@@ -3792,6 +3877,13 @@ def test_promote_array_moves_trailing_comment_to_header_only_entry() -> None:
     doc = tomlrt.loads("servers = [{}]  # tail\n")
     doc.promote_array("servers")
     assert tomlrt.dumps(doc) == "[[servers]]  # tail\n"
+
+
+def test_promote_array_moves_trailing_comment_with_no_preceding_whitespace() -> None:
+    """No gap-whitespace to carry over when the comment abuts the array."""
+    doc = tomlrt.loads("servers = [{a = 1}]# tail\n")
+    doc.promote_array("servers")
+    assert tomlrt.dumps(doc) == "[[servers]]\na = 1# tail\n"
 
 
 def test_aot_insert_at_zero_separates_from_following_entry() -> None:
@@ -4546,7 +4638,7 @@ def test_cross_doc_update_retargets_eol_to_dst() -> None:
     """``Document.update(src)`` adopts the destination's line ending.
 
     Grafting tables from a CRLF source into an LF destination (or
-    vice versa) used to leak the source's NewlineNode pieces into
+    vice versa) used to leak the source's line terminators into
     the destination's slot stream, producing mixed-EOL output.
     Cloning now retargets all structural newlines to the
     destination's detected line ending, so the merged document is
@@ -5095,6 +5187,98 @@ def test_reassign_orphan_section_repoints_array_nested_views() -> None:
     assert _reparses(tomlrt.dumps(doc)) == {"a": {"arr": [{"x": 7}, [10, 20, 30]]}}
 
 
+def test_reassign_nested_orphan_section_detaches_from_old_parent() -> None:
+    """Moving a nested child out of a private orphan scrubs the stale parent.
+
+    Rehoming ``orphan["child"]`` should remove the old ``child`` binding
+    from the orphan before wiring the section into its new parent, while
+    keeping the held view live at the destination.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [root.child]
+        x = 1
+
+        [dest]
+        y = 2
+        """)
+    )
+    orphan = doc.pop("root")
+    child = orphan["child"]
+    doc["dest"]["moved"] = child
+    child["z"] = 3
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [dest]
+        y = 2
+
+        [dest.moved]
+        x = 1
+        z = 3
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_reassign_nested_orphan_section_with_array_item_inline_view() -> None:
+    """Nested inline views inside arrays survive a nested-section rehome."""
+    doc = tomlrt.loads(
+        td("""
+        [root.child]
+        arr = [ { x = 1 } ]
+
+        [dest]
+        y = 2
+        """)
+    )
+    orphan = doc.pop("root")
+    child = orphan["child"]
+    item = child["arr"][0]
+    doc["dest"]["moved"] = child
+    assert doc["dest"]["moved"]["arr"][0] is item
+    item["x"] = 2
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [dest]
+        y = 2
+
+        [dest.moved]
+        arr = [ { x = 2 } ]
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_adopt_orphan_implicit_into_aot_entry_keeps_entry_body_tail() -> None:
+    """An adopted ownerless KV must not become the entry's body tail.
+
+    ``adopt_private_implicit`` moves the orphan's dotted KV into an AoT
+    entry without retargeting its ``owner_aot_entry``, so the slot is
+    physically inside the entry but is not part of the entry's own
+    body. A later direct append therefore still lands after ``x``, the
+    entry's real body tail, rather than after the adopted slot.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [a]
+        b.c = 1
+
+        [[t]]
+        x = 1
+        """)
+    )
+    orphan = doc.pop("a")
+    doc.aot("t")[0]["moved"] = orphan["b"]
+    doc.aot("t")[0]["after"] = 99
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[t]]
+        x = 1
+        after = 99
+        moved.c = 1
+        """)
+    assert _reparses(out) == doc.to_dict()
+    assert doc.to_dict() == {"t": [{"x": 1, "moved": {"c": 1}, "after": 99}]}
+
+
 def test_reassign_implicit_orphan_section_preserves_trivia() -> None:
     """A header-less (implicit, dotted) orphan section is moved, not rebuilt.
 
@@ -5178,3 +5362,1193 @@ def test_reassign_empty_implicit_orphan() -> None:
     doc["b"] = held
     assert doc["b"] is held
     assert _reparses(tomlrt.dumps(doc)) == {"other": 2, "b": {}}
+
+
+def test_sort_keeps_each_slot_own_indent() -> None:
+    """Sorting must carry each slot's own column indent with the slot.
+
+    The indent is the run after the last newline of a slot's leading, so
+    it belongs to the slot's remainder, not to the positional prefix that
+    stays behind at the seam.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [t]
+          # note
+            b = 1
+          a = 2
+        """)
+    )
+    doc.table("t").sort()
+    assert tomlrt.dumps(doc) == td("""
+        [t]
+          a = 2
+          # note
+            b = 1
+        """)
+
+
+def test_append_samples_indent_past_a_column_zero_comment() -> None:
+    """The item indent is sampled from the document, never invented.
+
+    An empty multi-line array keeps its whole interior in one pad, whose
+    trailing whitespace is where the first item will go. A comment
+    sitting at column zero must not mask that whitespace and send the
+    append to the four-space fallback -- six spaces are authored here,
+    and six is what the items must get.
+
+    The closing bracket returning to the opening line's column is the
+    established shape for filling an empty multi-line value: that pad's
+    indent is a forward reference to the item column, not the bracket's
+    own.
+    """
+    doc = tomlrt.loads(
+        td("""
+        a = [
+        # c
+              ]
+        """)
+    )
+    arr = doc.array("a")
+    arr.append(1)
+    arr.append(2)
+    assert tomlrt.dumps(doc) == td("""
+        a = [
+        # c
+              1,
+              2,
+        ]
+        """)
+
+
+def test_comma_first_insert_uses_the_comma_row_indent() -> None:
+    """A comma-first insert indents the new comma row as the value authored it.
+
+    The displaced item sits on its comma's row, so that row's authored
+    indent -- here none at all -- is the one to match, not the indent
+    the value's item rows happen to use.
+    """
+    doc = tomlrt.loads(
+        td("""
+        x = [
+        # attached
+        1
+        ,2
+        ]
+        """)
+    )
+    doc.array("x").insert(0, 9)
+    assert tomlrt.dumps(doc) == td("""
+        x = [
+        9
+        # attached
+        ,1
+        ,2
+        ]
+        """)
+
+
+def test_adopt_two_branches_of_same_orphan() -> None:
+    """Adopting one orphan branch leaves the rest of the orphan walkable.
+
+    The adopt paths splice the moved block into the destination but used
+    to leave the orphan's surviving neighbours pointing at it, so the two
+    documents became cross-linked. A second adopt then gathered slots it
+    could no longer reach from its own anchor.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [root.a]
+        b.c = 1
+
+        [root.a.e]
+        q = 1
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    doc["m1"] = orphan["a"]["b"]
+    doc["m2"] = orphan["a"]
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        m1.c = 1
+
+        [dest]
+        z = 0
+
+        [m2]
+
+        [m2.e]
+        q = 1
+        """)
+    assert _reparses(out) == doc.to_dict()
+    assert doc.to_dict() == {"m1": {"c": 1}, "dest": {"z": 0}, "m2": {"e": {"q": 1}}}
+
+
+def test_adopt_nested_orphan_branch_then_its_parent() -> None:
+    """A descendant may be adopted before the section that contained it."""
+    doc = tomlrt.loads(
+        td("""
+        [root.a]
+        x = 1
+
+        [root.a.e]
+        q = 1
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    doc["m1"] = orphan["a"]["e"]
+    doc["m2"] = orphan["a"]
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [dest]
+        z = 0
+
+        [m1]
+        q = 1
+
+        [m2]
+        x = 1
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_adopt_orphan_branch_into_aot_entry_destination() -> None:
+    """The destination may itself live inside an AoT entry.
+
+    The adopted block takes on the entry's owner, so this drives the
+    stale-owner transfer that a plain document destination does not.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [root.a]
+        b.c = 1
+
+        [root.a.e]
+        q = 1
+
+        [[t]]
+        x = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    doc["m1"] = orphan["a"]["b"]
+    doc.aot("t")[0]["m2"] = orphan["a"]
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        m1.c = 1
+
+        [[t]]
+        x = 0
+
+        [t.m2]
+
+        [t.m2.e]
+        q = 1
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_adopt_orphan_branch_keeps_surviving_branch_trivia() -> None:
+    """Removing the orphan's head must not restyle what stays behind.
+
+    The orphan is scratch space, so unlinking preserves the leading
+    trivia of the slots that remain: the blank line and comment above
+    ``c`` still separate it from its new neighbour once adopted.
+    """
+    doc = tomlrt.loads(
+        td("""
+        root.b.x = 1
+
+        # c comment
+        root.c.y = 2
+        """)
+    )
+    orphan = doc.pop("root")
+    doc["m0"] = orphan["b"]
+    doc["m1"] = orphan["c"]
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        m0.x = 1
+
+        # c comment
+        m1.y = 2
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_adopt_orphan_emptied_by_adopting_its_last_child() -> None:
+    """An orphan with no slots left is synthesised, not moved.
+
+    Adopting the last child away leaves the orphan pointing at its now
+    empty private document. There is no longer any trivia to preserve,
+    so it takes the same path as a source that was never attached.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [root.a]
+        x = 1
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    doc["m1"] = orphan["a"]
+    doc["m2"] = orphan
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [dest]
+        z = 0
+
+        [m1]
+        x = 1
+
+        [m2]
+        """)
+    assert _reparses(out) == doc.to_dict()
+    assert doc.to_dict() == {"dest": {"z": 0}, "m1": {"x": 1}, "m2": {}}
+
+
+def test_adopt_orphan_branch_repairs_ancestor_body_tail() -> None:
+    """Scrubbing an orphan's refs must not strand its cached body tail.
+
+    Adopting ``a``'s dotted KV away left ``a._body_tail`` naming a slot
+    no longer filed on it. Adopting ``a`` itself carried that stale
+    cache into the document, where the next append used it as an anchor
+    and failed to find it.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [[root.t]]
+        x = 1
+
+        [root.a]
+        b.c = 3
+        """)
+    )
+    orphan = doc.pop("root")
+    doc["m0"] = orphan["a"]["b"]
+    doc["m1"] = orphan["a"]
+    doc["m1"]["appended"] = 5
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        m0.c = 3
+
+        [m1]
+        appended = 5
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_adopt_orphan_aot_then_the_orphan_itself() -> None:
+    """Cloning an orphan's AoT out must unbind it from the orphan.
+
+    The AoT attach path left the orphan still pointing at an AoT that
+    had moved into this document, so adopting the orphan afterwards
+    gathered slots belonging to a different document.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [[root.t]]
+        x = 1
+
+        [[root.t]]
+        x = 2
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    doc["m0"] = orphan["t"]
+    doc["m1"] = orphan
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [dest]
+        z = 0
+
+        [[m0]]
+        x = 1
+
+        [[m0]]
+        x = 2
+
+        [m1]
+        """)
+    assert _reparses(out) == doc.to_dict()
+    assert doc.to_dict() == {"dest": {"z": 0}, "m0": [{"x": 1}, {"x": 2}], "m1": {}}
+
+
+def test_adopt_two_entries_of_the_same_orphan_aot() -> None:
+    """Moving an entry out of an orphan AoT removes it from that AoT.
+
+    An entry's path names the AoT rather than itself, so the binding has
+    to survive the departure of any one entry: the array shrinks, the
+    survivors stay bound, and only the last one to leave unbinds ``t``.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [[root.t]]
+        x = 1
+
+        [[root.t]]
+        x = 2
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    entries = orphan.aot("t")
+    doc["m0"] = entries[0]
+    assert len(entries) == 1
+    doc["m1"] = entries[0]
+    assert len(entries) == 0
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [dest]
+        z = 0
+
+        [m0]
+        x = 1
+
+        [m1]
+        x = 2
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_adopt_orphan_aot_entry_then_the_whole_aot() -> None:
+    """The AoT itself may be adopted after one of its entries.
+
+    It carries only what it still holds: the entry taken first has
+    already moved, so it is not cloned a second time.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [[root.t]]
+        x = 1
+
+        [[root.t]]
+        x = 2
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    entries = orphan.aot("t")
+    doc["m0"] = entries[0]
+    doc["m1"] = entries
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [dest]
+        z = 0
+
+        [m0]
+        x = 1
+
+        [[m1]]
+        x = 2
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_overwrite_key_inside_popped_orphan_leaves_document_alone() -> None:
+    """A popped subtree stays self-contained when mutated.
+
+    Overwriting a key inside the orphan relocates its slots within the
+    orphan's own stream. The block can be the whole of that stream, in
+    which case the move leaves the orphan with a new tail and the source
+    document untouched.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [root.a]
+        p = 1
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    orphan["a"] = 5
+    assert tomlrt.dumps(doc) == td("""
+        [dest]
+        z = 0
+        """)
+    assert orphan.to_dict() == {"a": 5}
+
+    doc["back"] = orphan
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [dest]
+        z = 0
+
+        [back]
+        a = 5
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_mutating_orphan_after_adopting_its_aot_does_not_leak() -> None:
+    """Orphan writes after an adopt must stay out of the destination.
+
+    Scrubbing the orphan's binding empties its ref cache, so the next
+    write there synthesises a header. That synthesis must anchor inside
+    the orphan and not climb the stale parent link into the document the
+    subtree was popped from.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [[root.t]]
+        x = 1
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    doc["dest"]["m0"] = orphan["t"]
+    orphan["n3"] = 1
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [dest]
+        z = 0
+
+        [[dest.m0]]
+        x = 1
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_adopt_orphan_repopulated_after_being_emptied() -> None:
+    """An orphan can be written to again after losing its last child.
+
+    Adopting ``a`` away leaves the orphan empty but still usable; the
+    later write lands in the orphan, and adopting the orphan itself
+    carries that content into the document.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [root.a]
+        x = 1
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    doc["m1"] = orphan["a"]
+    orphan["k"] = 7
+    doc["m2"] = orphan
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [dest]
+        z = 0
+
+        [m1]
+        x = 1
+
+        [m2]
+        k = 7
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_adopt_emptied_aot_from_orphan() -> None:
+    """Adopting an emptied AoT must not drag the orphan's header along.
+
+    The AoT's last entry is removed while it is still inside the
+    orphan, leaving it backed by a placeholder. Adopting it used to
+    also emit the orphan's own ``[root]`` section into the destination.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [[root.t]]
+        x = 1
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    orphan.aot("t").pop(0)
+    doc["m0"] = orphan["t"]
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        m0 = []
+
+        [dest]
+        z = 0
+        """)
+    assert _reparses(out) == doc.to_dict()
+    assert doc.to_dict() == {"m0": [], "dest": {"z": 0}}
+
+
+def test_write_to_popped_dotted_orphan_then_adopt_it() -> None:
+    """A popped dotted subtree accepts writes and adopts back intact.
+
+    The orphan has no header of its own, so the write has to find a
+    host inside the orphan rather than in the document it was popped
+    from — and the adopted block must carry both the original dotted
+    keys and the new one.
+    """
+    doc = tomlrt.loads(
+        td("""
+        root.a.x = 1
+        root.a.y = 2
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    doc["k0"] = 0
+    orphan["n1"] = 1
+    doc["m2"] = orphan
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        k0 = 0
+        m2.a.x = 1
+        m2.a.y = 2
+        m2.n1 = 1
+
+        [dest]
+        z = 0
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_write_to_popped_orphan_then_adopt_a_child() -> None:
+    """Writing to an orphan leaves its children adoptable."""
+    doc = tomlrt.loads(
+        td("""
+        [[root.t]]
+        x = 1
+
+        [root.a]
+        b.c = 3
+        """)
+    )
+    orphan = doc.pop("root")
+    orphan["n0"] = 0
+    doc["m1"] = orphan["a"]
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [m1]
+        b.c = 3
+        """)
+    assert _reparses(out) == doc.to_dict()
+    assert orphan.to_dict() == {"t": [{"x": 1}], "n0": 0}
+
+
+def test_delete_dotted_leaf_inside_a_popped_orphan() -> None:
+    """A dotted binding inside an orphan can be emptied in place.
+
+    Materialising the emptied table needs the KV's own host, which
+    inside an orphan is a stand-in container carrying no header — so
+    looking for the nearest header instead climbs straight past it.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [a]
+        b.c.d = 1
+        q = 0
+        """)
+    )
+    orphan = doc["a"].pop("b")
+    orphan["c"].pop("d")
+    assert orphan.to_dict() == {"c": {}}
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [a]
+        q = 0
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+    doc["back"] = orphan
+    readopted = tomlrt.dumps(doc)
+    assert _reparses(readopted) == doc.to_dict()
+
+
+def test_write_to_orphan_aot_entry_after_its_sibling_is_adopted() -> None:
+    """An orphan AoT entry stays writable once a sibling is adopted away.
+
+    Adopting one entry unbinds the whole AoT key from the orphan, so the
+    indent-inheriting lookup for the remaining entry must cope with its
+    key no longer being bound in its parent.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [[root.t]]
+        [[root.t]]
+        x = 2
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    first = orphan.aot("t")[0]
+    doc["m"] = orphan.aot("t")[1]
+    first["q"] = 9
+
+    assert dict(first) == {"q": 9}
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [dest]
+        z = 0
+
+        [m]
+        x = 2
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_install_a_popped_orphan_into_itself() -> None:
+    """A subtree can be installed inside itself, by copy.
+
+    Moving it there is impossible — it would have to become its own
+    descendant, and the parent chain would close into a loop — so the
+    overlapping install is copied, exactly as it already is when the
+    source is part of a live document.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [root.a]
+        b.c = 1
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    orphan["m"] = orphan
+
+    assert orphan.to_dict() == {
+        "a": {"b": {"c": 1}},
+        "m": {"a": {"b": {"c": 1}}},
+    }
+    assert orphan["m"] is not orphan
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [dest]
+        z = 0
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+    doc["back"] = orphan
+    readopted = tomlrt.dumps(doc)
+    assert _reparses(readopted) == doc.to_dict()
+
+
+def test_install_a_popped_orphan_into_its_own_descendant() -> None:
+    """The same holds when the destination is nested inside the source."""
+    doc = tomlrt.loads(
+        td("""
+        [root.a]
+        b.c = 1
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    orphan["a"]["m"] = orphan
+
+    assert orphan.to_dict() == {"a": {"b": {"c": 1}, "m": {"a": {"b": {"c": 1}}}}}
+    out = tomlrt.dumps(doc)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_adopting_each_level_of_a_popped_chain_leaves_no_phantom() -> None:
+    """Adopting a level away unbinds it from what used to hold it.
+
+    Each adopt empties its parent, so the next one synthesises rather
+    than moves. That path has to unbind the value it took, or the level
+    above still names a table that now lives elsewhere — and renders it
+    a second time.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [root.a.b.c]
+        x = 1
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    doc["m0"] = orphan["a"]["b"]["c"]
+    doc["m1"] = orphan["a"]["b"]
+    doc["m2"] = orphan["a"]
+
+    assert orphan.to_dict() == {}
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [dest]
+        z = 0
+
+        [m0]
+        x = 1
+
+        [m1]
+
+        [m2]
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_overwrite_a_key_inside_an_orphan_with_an_earlier_sibling() -> None:
+    """The replacement may be the very slot the old binding sat after.
+
+    Repositioning asks for the new block to be placed after whatever
+    preceded the old one — but here that predecessor is part of the
+    block being placed, so there is nowhere to move it to and it stays
+    where the reinstall put it.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [root.a]
+        b.c = 1
+
+        [root.a.e]
+        q = 1
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    orphan["k3"] = orphan["a"]["e"]
+    orphan["k3"] = orphan["a"]
+
+    assert orphan.to_dict() == {"k3": {"b": {"c": 1}}}
+    assert tomlrt.dumps(doc) == td("""
+        [dest]
+        z = 0
+        """)
+
+    doc["back"] = orphan
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [back.k3]
+        b.c = 1
+
+        [dest]
+        z = 0
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_adopt_the_only_child_of_a_headered_orphan_section() -> None:
+    """Taking a section's only child leaves the section behind.
+
+    The parent's whole physical presence was its child's header, so
+    without a replacement it would be bound but backed by nothing —
+    unable to render, and unable to accept a later write.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [root.c.y]
+        x = 1
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    doc["m1"] = orphan["c"]["y"]
+
+    assert orphan.to_dict() == {"c": {}}
+    orphan["c"] = 2
+    assert orphan.to_dict() == {"c": 2}
+
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [dest]
+        z = 0
+
+        [m1]
+        x = 1
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_adopt_both_entries_of_an_orphan_aot_beside_a_dotted_sibling() -> None:
+    """An AoT emptied entry-by-entry must not orphan its dotted sibling.
+
+    The last entry to leave unbinds ``t``, and the parent must not read
+    that as "the parent is now empty" — it still owns a dotted key of
+    its own, and giving it a header would declare it twice.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [root]
+        c.q = 5
+
+        [[root.c.t]]
+        x = 1
+
+        [[root.c.t]]
+        x = 2
+        """)
+    )
+    orphan = doc.pop("root")
+    entries = orphan["c"].aot("t")
+    doc["m0"] = entries[0]
+    doc["m1"] = entries[0]
+    doc["back"] = orphan
+
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [m0]
+        x = 1
+
+        [m1]
+        x = 2
+
+        [back]
+        c.q = 5
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_adopt_the_only_child_of_a_dotted_orphan_section() -> None:
+    """A parent that only ever existed as a dotted prefix still renders.
+
+    `c` has no presence of its own — it is spelled only as part of
+    `root.c.y.x`. Adopting `y` takes that spelling away, so `c` grows a
+    header to keep the key it still holds.
+    """
+    doc = tomlrt.loads("root.c.y.x = 1\n")
+    orphan = doc.pop("root")
+    doc["moved"] = orphan.table("c").table("y")
+    doc["back"] = orphan
+
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        moved.x = 1
+
+        [back.c]
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_adopt_an_aot_out_of_a_dotted_orphan_parent() -> None:
+    """Adopting an AoT away empties its parent just as a table does.
+
+    The AoT is the only thing giving `b` a spelling, so taking it has
+    to leave `b` a header of its own.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [[root.t]]
+        x = 1
+
+        [root.a]
+        b.c = 3
+        """)
+    )
+    orphan = doc.pop("root")
+    orphan.table("a").table("b")["c"] = orphan.aot("t")
+    doc["moved"] = orphan.table("a").table("b").aot("c")
+    doc["back"] = orphan["a"]
+
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[moved]]
+        x = 1
+
+        [back]
+
+        [back.b]
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_adopt_out_of_a_dotted_parent_that_keeps_a_sibling() -> None:
+    """A parent with content left over needs no header of its own."""
+    doc = tomlrt.loads(
+        td("""
+        root.a.b.c = 1
+        root.a.e = 2
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    doc["moved"] = orphan.table("a").table("b")
+    doc["back"] = orphan
+
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        moved.c = 1
+        back.a.e = 2
+
+        [dest]
+        z = 0
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_repair_of_an_emptied_parent_does_not_move_an_in_place_overwrite() -> None:
+    """Repairing a parent must not disturb the install that emptied it.
+
+    `orphan["z"] = orphan["a"]["b"]` replaces `z` where it stands, which
+    is a repositioned install; the header `a` grows to stay renderable
+    is not part of that install and must not travel to its anchor. `z`
+    therefore keeps its original place ahead of `q`.
+    """
+    doc = tomlrt.loads(
+        td("""
+        root.z = 9
+        root.a.b.c = 1
+        root.q = 7
+
+        [dest]
+        w = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    orphan["z"] = orphan.table("a").table("b")
+    doc["back"] = orphan
+
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        back.z.c = 1
+        back.q = 7
+
+        [back.a]
+
+        [dest]
+        w = 0
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_move_one_entry_out_of_an_orphan_aot_keeps_the_rest() -> None:
+    """Taking one entry shrinks the array; it does not unbind it.
+
+    An entry's path names the array, so unbinding on that path would
+    take the survivors' text with it while dropping them from the
+    model.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [[root.t]]
+        x = 1
+
+        [[root.t]]
+        x = 2
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    entries = orphan.aot("t")
+    doc["m0"] = entries[0]
+
+    assert [dict(e) for e in entries] == [{"x": 2}]
+    assert orphan.to_dict() == {"t": [{"x": 2}]}
+
+    doc["back"] = orphan
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[back.t]]
+        x = 2
+
+        [dest]
+        z = 0
+
+        [m0]
+        x = 1
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_move_the_last_entry_out_of_an_orphan_aot_detaches_it() -> None:
+    """An array emptied by a move stops being a view onto the orphan.
+
+    Its key is gone from the model, so a caller still holding the array
+    must not be able to write through it into a document that no longer
+    names it.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [[root.t]]
+        x = 1
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    entries = orphan.aot("t")
+    doc["m"] = entries[0]
+
+    assert orphan.to_dict() == {}
+    entries.add({"y": 2})
+    assert orphan.to_dict() == {}
+
+    doc["later"] = entries
+    doc["back"] = orphan
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [dest]
+        z = 0
+
+        [m]
+        x = 1
+
+        [[later]]
+        y = 2
+
+        [back]
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_adopting_a_whole_orphan_aot_leaves_no_text_behind() -> None:
+    """The entries are copied out, so the originals leave the orphan.
+
+    Left linked they would be text the orphan's model no longer claims,
+    and adopting the orphan afterwards would carry them along twice.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [[root.t]]
+        x = 1
+
+        [[root.t]]
+        x = 2
+
+        [dest]
+        z = 0
+        """)
+    )
+    orphan = doc.pop("root")
+    doc["m"] = orphan.aot("t")
+
+    assert orphan.to_dict() == {}
+
+    doc["back"] = orphan
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [dest]
+        z = 0
+
+        [[m]]
+        x = 1
+
+        [[m]]
+        x = 2
+
+        [back]
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_adopt_an_orphan_array_emptied_by_popping_its_last_entry() -> None:
+    """An array emptied by `pop` takes its own slot with it when it goes.
+
+    Emptying it leaves the key bound, rendering `t = []`, which is what
+    the model says at that point. Moving it away unbinds the key — and
+    with no entries left, nothing else would carry that slot out.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [[root.t]]
+        x = 1
+
+        [root.a]
+        b.c = 3
+        """)
+    )
+    orphan = doc.pop("root")
+    orphan.aot("t").pop(0)
+    doc["m"] = orphan.aot("t")
+    doc["back"] = orphan
+
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        m = []
+
+        [back]
+
+        [back.a]
+        b.c = 3
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_adopt_onto_the_document_head_needs_no_separator() -> None:
+    """A block becoming the head has nothing before it to be spaced from.
+
+    Whatever separator it carried out of the orphan would otherwise
+    open the document with a blank line.
+    """
+    src = td("""
+        root.a = 1
+
+        [root.c.y]
+        x = 1
+        """)
+    doc = tomlrt.loads(src)
+    orphan = doc.pop("root")
+    dest = tomlrt.loads("[dest]\nz = 0\n")
+    dest["moved"] = orphan["c"]
+
+    out = tomlrt.dumps(dest)
+    assert out == td("""
+        [moved.y]
+        x = 1
+
+        [dest]
+        z = 0
+        """)
+    assert _reparses(out) == dest.to_dict()
+
+
+def test_adopt_a_dotted_block_onto_the_head_keeps_its_own_comment() -> None:
+    """Losing the separator must not cost the block its comment block.
+
+    A comment above a blank line belongs to the key beneath it, so it
+    travels with that key. Only the blank lines are positional, and
+    only those go when the block becomes the document head — a header
+    sheds its comment block on every adopt, but a KV owns its own.
+    """
+    doc = tomlrt.loads(
+        td("""
+        fruit.apple.color = "red"
+        # owned by taste.sweet
+
+        fruit.apple.taste.sweet = true
+        """)
+    )
+    orphan = doc.pop("fruit")
+    dest = tomlrt.loads("[dest]\nz = 0\n")
+    dest["moved"] = orphan.table("apple").table("taste")
+
+    out = tomlrt.dumps(dest)
+    assert out == td("""
+        # owned by taste.sweet
+
+        moved.sweet = true
+
+        [dest]
+        z = 0
+        """)
+    assert _reparses(out) == dest.to_dict()
+    assert dict(dest.table("moved").leading_block) == {
+        "sweet": ("owned by taste.sweet", None)
+    }

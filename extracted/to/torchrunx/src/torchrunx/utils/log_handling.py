@@ -14,7 +14,10 @@ import logging
 import os
 from logging import LogRecord
 from pathlib import Path
-from typing import Callable
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def get_handler_filter(
@@ -60,7 +63,7 @@ def file_handlers(
         "%(asctime)s:%(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
     )
 
-    for hostname, num_workers in zip(hostnames, workers_per_host):
+    for hostname, num_workers in zip(hostnames, workers_per_host, strict=True):
         for local_rank in [None, *range(num_workers)]:
             local_rank_str = f"[{local_rank}]" if local_rank is not None else ""
             file_path = log_dir / f"{hostname}{local_rank_str}.log"

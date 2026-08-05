@@ -10,8 +10,8 @@
 //! expected O(n) rather than becoming quadratic.
 
 use crate::{
-    evaluation::evaluator_result::EvaluatorResult, hashing::HashUtil,
-    interned_string::InternedString, HashAlgorithm, SecondaryExposure,
+    HashAlgorithm, SecondaryExposure, evaluation::evaluator_result::EvaluatorResult,
+    hashing::HashUtil, interned_string::InternedString,
 };
 use std::collections::{HashMap, HashSet};
 

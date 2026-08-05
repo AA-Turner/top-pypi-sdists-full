@@ -23,12 +23,15 @@ Examples:
 
 # pylint: disable=R0913,R0917,W0212
 import logging
-import sys
-from contextlib import contextmanager
-from functools import lru_cache
-from typing import Any, Dict, Iterator, Literal, Optional
-
 import platform
+import sys
+from collections.abc import Callable, Generator, Mapping
+from contextlib import contextmanager
+from types import TracebackType
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias
+
+_SysExcInfoType: TypeAlias = tuple[type[BaseException], BaseException, TracebackType | None] | tuple[None, None, None]
+_ExcInfoType: TypeAlias = bool | _SysExcInfoType | BaseException | None
 
 DebugLevel = Literal[1, 2, 3, 4, 5]
 """Type hint for debug level (1-5)."""
@@ -68,6 +71,14 @@ class TieredDebug:
         >>> debug.lv3("Level 3 message")  # Not logged
     """
 
+    # Type stubs for dynamic methods (visible to type checkers)
+    if TYPE_CHECKING:
+        lv1: Callable[..., None]  # pyright: ignore[reportUninitializedInstanceVariable]
+        lv2: Callable[..., None]  # pyright: ignore[reportUninitializedInstanceVariable]
+        lv3: Callable[..., None]  # pyright: ignore[reportUninitializedInstanceVariable]
+        lv4: Callable[..., None]  # pyright: ignore[reportUninitializedInstanceVariable]
+        lv5: Callable[..., None]  # pyright: ignore[reportUninitializedInstanceVariable]
+
     def __init__(
         self,
         level: int = DEFAULTS["debug"],
@@ -75,9 +86,9 @@ class TieredDebug:
         logger_name: str = "tiered_debug._base",
     ) -> None:
         """Initialize a TieredDebug instance with specified settings."""
-        self._logger = logging.getLogger(logger_name)
-        self._level = self.check_val(level, "debug")
-        self._stacklevel = self.check_val(stacklevel, "stack")
+        self.logger: logging.Logger = logging.getLogger(logger_name)
+        self._level: int = self.check_val(level, "debug")
+        self._stacklevel: int = self.check_val(stacklevel, "stack")
 
     @property
     def level(self) -> int:
@@ -125,20 +136,6 @@ class TieredDebug:
         """
         self._stacklevel = self.check_val(value, "stack")
 
-    @property
-    def logger(self) -> logging.Logger:
-        """Get the configured logger instance.
-
-        Returns:
-            logging.Logger: Logger instance for this TieredDebug object.
-
-        Examples:
-            >>> debug = TieredDebug()
-            >>> isinstance(debug.logger, logging.Logger)
-            True
-        """
-        return self._logger
-
     def check_val(self, val: int, kind: str) -> int:
         """Validate and return a debug or stack level, or default if invalid.
 
@@ -176,7 +173,7 @@ class TieredDebug:
     def add_handler(
         self,
         handler: logging.Handler,
-        formatter: Optional[logging.Formatter] = None,
+        formatter: logging.Formatter | None = None,
     ) -> None:
         """Add a handler to the logger if not already present.
 
@@ -197,10 +194,10 @@ class TieredDebug:
                 handler.setFormatter(formatter)
             handler.setLevel(logging.DEBUG)
             self.logger.addHandler(handler)
+            self.logger.info("Handler added to logger")
         else:
             self.logger.info("Handler already attached to logger, skipping")
 
-    @lru_cache(maxsize=1)
     def _select_frame_getter(self) -> Any:
         """Select the appropriate frame getter based on Python implementation.
 
@@ -214,7 +211,7 @@ class TieredDebug:
             ...     assert debug._select_frame_getter() is sys._getframe
         """
         return (
-            sys._getframe
+            sys._getframe  # pyright: ignore[reportPrivateUsage]
             if platform.python_implementation() == "CPython"
             else sys.modules["inspect"].currentframe
         )
@@ -236,11 +233,12 @@ class TieredDebug:
         try:
             frame = self._select_frame_getter()(stack_level)
             return frame.f_globals.get("__name__", "unknown")
-        except (ValueError, AttributeError):
+        except (ValueError, AttributeError) as e:
+            self.logger.debug(f"Failed to access frame at level {stack_level}: {e}")
             return "unknown"
 
     @contextmanager
-    def change_level(self, level: int) -> Iterator[None]:
+    def change_level(self, level: int) -> Generator[None, None, None]:
         """Temporarily change the debug level within a context.
 
         Args:
@@ -254,7 +252,7 @@ class TieredDebug:
             2
         """
         original_level = self.level
-        self.level = level
+        self.level = self.check_val(level, "debug")
         try:
             yield
         finally:
@@ -263,12 +261,12 @@ class TieredDebug:
     def log(
         self,
         level: DebugLevel,
-        msg: str,
-        *args,
-        exc_info: Optional[bool] = None,
-        stack_info: Optional[bool] = None,
-        stacklevel: Optional[int] = None,
-        extra: Optional[Dict[str, Any]] = None,
+        msg: Any,
+        *args: Any,
+        exc_info: _ExcInfoType = None,
+        stack_info: bool | None = False,
+        stacklevel: int | None = None,
+        extra: Mapping[str, object] | None = None,
     ) -> None:
         """Log a message at the specified debug level.
 
@@ -298,14 +296,8 @@ class TieredDebug:
         if level > self.level:
             return
 
-        if exc_info is None:
-            exc_info = False
-
         if stack_info is None:
             stack_info = False
-
-        if extra is not None and not isinstance(extra, dict):
-            raise TypeError("extra must be a dictionary or None")
 
         if extra is None:
             extra = {}
@@ -325,36 +317,41 @@ class TieredDebug:
             extra=extra,
         )
 
-    def lv1(
-        self,
-        msg: str,
-        *args,
-        exc_info: Optional[bool] = None,
-        stack_info: Optional[bool] = None,
-        stacklevel: Optional[int] = None,
-        extra: Optional[Dict[str, Any]] = None,
+
+def _make_lv_method(level: int) -> Any:
+    """Create a level-specific logging method.
+
+    Args:
+        level: Debug level (1-5).
+
+    Returns:
+        Callable: Method bound to the given level.
+    """
+    doc_template = """Log a message at debug level {level}.
+
+    Args:
+        msg: Message to log, optionally with format specifiers. (str)
+        *args: Arguments for message formatting.
+        exc_info: Include exception info if True. (bool)
+        stack_info: Include stack trace if True. (bool)
+        stacklevel: Stack level for caller reporting (1-9). (int)
+        extra: Extra metadata dictionary. (Dict[str, Any])
+    """
+
+    def lv_method(
+        # We ignore these types because we're dynamically adding these methods
+        self,  # pyright: ignore[reportMissingParameterType,reportUnknownParameterType]
+        msg: Any,
+        *args: Any,
+        exc_info: _ExcInfoType = None,
+        stack_info: bool | None = False,
+        stacklevel: int | None = None,
+        extra: Mapping[str, object] | None = None,
     ) -> None:
-        """Log a message at debug level 1 (always logged).
-
-        Args:
-            msg: Message to log, optionally with format specifiers. (str)
-            *args: Arguments for message formatting.
-            exc_info: Include exception info if True. (bool)
-            stack_info: Include stack trace if True. (bool)
-            stacklevel: Stack level for caller reporting (1-9). (int)
-            extra: Extra metadata dictionary. (Dict[str, Any])
-
-        Raises:
-            TypeError: If extra is not a dictionary or None.
-
-        Examples:
-            >>> debug = TieredDebug(level=2)
-            >>> import logging
-            >>> debug.add_handler(logging.StreamHandler())
-            >>> debug.lv1("Level 1 message: %s", "test")
-        """
-        self.log(
-            1,
+        """Log a message at debug level {level}."""
+        # UnknownMemberType because it's dynamically added
+        self.log(  # pyright: ignore[reportUnknownMemberType]
+            level,
             msg,
             *args,
             exc_info=exc_info,
@@ -363,154 +360,13 @@ class TieredDebug:
             extra=extra,
         )
 
-    def lv2(
-        self,
-        msg: str,
-        *args,
-        exc_info: Optional[bool] = None,
-        stack_info: Optional[bool] = None,
-        stacklevel: Optional[int] = None,
-        extra: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        """Log a message at debug level 2 (logged if level >= 2).
+    lv_method.__name__ = f"lv{level}"
+    lv_method.__qualname__ = f"TieredDebug.lv{level}"
+    lv_method.__doc__ = doc_template.format(level=level)
+    # Unknown because we're dynamically addding methods to the class.
+    return lv_method  # pyright: ignore[reportUnknownVariableType]
 
-        Args:
-            msg: Message to log, optionally with format specifiers. (str)
-            *args: Arguments for message formatting.
-            exc_info: Include exception info if True. (bool)
-            stack_info: Include stack trace if True. (bool)
-            stacklevel: Stack level for caller reporting (1-9). (int)
-            extra: Extra metadata dictionary. (Dict[str, Any])
 
-        Raises:
-            TypeError: If extra is not a dictionary or None.
-
-        Examples:
-            >>> debug = TieredDebug(level=2)
-            >>> import logging
-            >>> debug.add_handler(logging.StreamHandler())
-            >>> debug.lv2("Level 2 message: %s", "test")
-        """
-        self.log(
-            2,
-            msg,
-            *args,
-            exc_info=exc_info,
-            stack_info=stack_info,
-            stacklevel=stacklevel,
-            extra=extra,
-        )
-
-    def lv3(
-        self,
-        msg: str,
-        *args,
-        exc_info: Optional[bool] = None,
-        stack_info: Optional[bool] = None,
-        stacklevel: Optional[int] = None,
-        extra: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        """Log a message at debug level 3 (logged if level >= 3).
-
-        Args:
-            msg: Message to log, optionally with format specifiers. (str)
-            *args: Arguments for message formatting.
-            exc_info: Include exception info if True. (bool)
-            stack_info: Include stack trace if True. (bool)
-            stacklevel: Stack level for caller reporting (1-9). (int)
-            extra: Extra metadata dictionary. (Dict[str, Any])
-
-        Raises:
-            TypeError: If extra is not a dictionary or None.
-
-        Examples:
-            >>> debug = TieredDebug(level=3)
-            >>> import logging
-            >>> debug.add_handler(logging.StreamHandler())
-            >>> debug.lv3("Level 3 message: %s", "test")
-        """
-        self.log(
-            3,
-            msg,
-            *args,
-            exc_info=exc_info,
-            stack_info=stack_info,
-            stacklevel=stacklevel,
-            extra=extra,
-        )
-
-    def lv4(
-        self,
-        msg: str,
-        *args,
-        exc_info: Optional[bool] = None,
-        stack_info: Optional[bool] = None,
-        stacklevel: Optional[int] = None,
-        extra: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        """Log a message at debug level 4 (logged if level >= 4).
-
-        Args:
-            msg: Message to log, optionally with format specifiers. (str)
-            *args: Arguments for message formatting.
-            exc_info: Include exception info if True. (bool)
-            stack_info: Include stack trace if True. (bool)
-            stacklevel: Stack level for caller reporting (1-9). (int)
-            extra: Extra metadata dictionary. (Dict[str, Any])
-
-        Raises:
-            TypeError: If extra is not a dictionary or None.
-
-        Examples:
-            >>> debug = TieredDebug(level=4)
-            >>> import logging
-            >>> debug.add_handler(logging.StreamHandler())
-            >>> debug.lv4("Level 4 message: %s", "test")
-        """
-        self.log(
-            4,
-            msg,
-            *args,
-            exc_info=exc_info,
-            stack_info=stack_info,
-            stacklevel=stacklevel,
-            extra=extra,
-        )
-
-    def lv5(
-        self,
-        msg: str,
-        *args,
-        exc_info: Optional[bool] = None,
-        stack_info: Optional[bool] = None,
-        stacklevel: Optional[int] = None,
-        extra: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        """Log a message at debug level 5 (logged if level >= 5).
-
-        Args:
-            msg: Message to log, optionally with format specifiers. (str)
-            *args: Arguments for message formatting.
-            exc_info: Include exception info if True. (bool)
-            stack_info: Include stack trace if True. (bool)
-            stacklevel: Stack level for caller reporting (1-9). (int)
-            extra: Extra metadata dictionary. (Dict[str, Any])
-
-        Raises:
-            TypeError: If extra is not a dictionary or None.
-
-        Examples:
-            >>> debug = TieredDebug(level=5)
-            >>> import logging
-            >>> debug.add_handler(logging.StreamHandler())
-            >>> debug.lv5("Level 5 message: %s", "test")
-        """
-        self.log(
-            5,
-            msg,
-            *args,
-            exc_info=exc_info,
-            stack_info=stack_info,
-            stacklevel=stacklevel,
-            extra=extra,
-        )
+# Dynamically generate lv1 through lv5 methods
+for _lvl in range(1, 6):
+    setattr(TieredDebug, f"lv{_lvl}", _make_lv_method(_lvl))

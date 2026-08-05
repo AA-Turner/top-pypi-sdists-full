@@ -10,7 +10,7 @@ use crate::evaluation::{
 use crate::interned_string::InternedString;
 use crate::specs_response::explicit_params::ExplicitParameters;
 use crate::user::StatsigUserLoggable;
-use crate::{log_e, SecondaryExposure};
+use crate::{SecondaryExposure, log_e};
 
 const TAG: &str = "SpecTypesRaw";
 

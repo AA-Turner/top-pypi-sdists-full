@@ -1,8 +1,8 @@
-use std::io::Read;
+use std::{io::Read, sync::Arc};
 
 use crate::{
-    networking::{ResponseData, ResponseDataStream},
     StatsigErr,
+    networking::{ResponseData, ResponseDataStream},
 };
 use brotli::Decompressor;
 use bytes::BytesMut;
@@ -10,19 +10,37 @@ use bytes::BytesMut;
 pub const BUFFER_SIZE: usize = 4096;
 
 pub struct ProtoStreamReader<'a> {
-    brotli_decompressor: Decompressor<StreamBorrower<'a>>,
-
+    source: ProtoStreamSource<'a>,
     scratch: [u8; BUFFER_SIZE],
     buf: BytesMut,
 }
 
 impl<'a> ProtoStreamReader<'a> {
     pub fn new(data: &'a mut ResponseData) -> Self {
+        if let Some(bytes) = data.get_prepared_protobuf_stream() {
+            return Self::from_prepared_stream(bytes);
+        }
+
+        Self::new_compressed(data)
+    }
+
+    /// Always reads the original statsig-br stream, ignoring any prepared
+    /// protobuf stream attached by hydration. Hydration uses this constructor
+    /// while producing the prepared stream itself.
+    pub(crate) fn new_compressed(data: &'a mut ResponseData) -> Self {
         let stream_borrower = StreamBorrower::new(data);
         let brotli_decompressor = Decompressor::new(stream_borrower, BUFFER_SIZE);
 
         Self {
-            brotli_decompressor,
+            source: ProtoStreamSource::Brotli(Box::new(brotli_decompressor)),
+            scratch: [0u8; BUFFER_SIZE],
+            buf: BytesMut::new(),
+        }
+    }
+
+    fn from_prepared_stream(bytes: Arc<Vec<u8>>) -> Self {
+        Self {
+            source: ProtoStreamSource::Prepared(PreparedStreamReader { bytes, position: 0 }),
             scratch: [0u8; BUFFER_SIZE],
             buf: BytesMut::new(),
         }
@@ -32,7 +50,7 @@ impl<'a> ProtoStreamReader<'a> {
         let required_len = self.read_length_delimiter()?;
 
         while self.buf.len() < required_len {
-            match self.brotli_decompressor.read(&mut self.scratch) {
+            match self.source.read(&mut self.scratch) {
                 Ok(0) => {
                     return Ok(self.buf.split_to(required_len));
                 }
@@ -70,15 +88,12 @@ impl<'a> ProtoStreamReader<'a> {
                     ));
                 }
                 Err(_) => {
-                    let read_len =
-                        self.brotli_decompressor
-                            .read(&mut self.scratch)
-                            .map_err(|e| {
-                                StatsigErr::ProtobufParseError(
-                                    "ReadLengthDelimiter".to_string(),
-                                    e.to_string(),
-                                )
-                            })?;
+                    let read_len = self.source.read(&mut self.scratch).map_err(|e| {
+                        StatsigErr::ProtobufParseError(
+                            "ReadLengthDelimiter".to_string(),
+                            e.to_string(),
+                        )
+                    })?;
 
                     if read_len == 0 {
                         return Err(StatsigErr::ProtobufParseError(
@@ -91,6 +106,35 @@ impl<'a> ProtoStreamReader<'a> {
                 }
             }
         }
+    }
+}
+
+enum ProtoStreamSource<'a> {
+    Brotli(Box<Decompressor<StreamBorrower<'a>>>),
+    Prepared(PreparedStreamReader),
+}
+
+impl Read for ProtoStreamSource<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self {
+            Self::Brotli(reader) => reader.read(buf),
+            Self::Prepared(reader) => reader.read(buf),
+        }
+    }
+}
+
+struct PreparedStreamReader {
+    bytes: Arc<Vec<u8>>,
+    position: usize,
+}
+
+impl Read for PreparedStreamReader {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let remaining = &self.bytes[self.position..];
+        let read_len = remaining.len().min(buf.len());
+        buf[..read_len].copy_from_slice(&remaining[..read_len]);
+        self.position += read_len;
+        Ok(read_len)
     }
 }
 

@@ -1,9 +1,9 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: flit_core
-Version: 3.12.0
+Version: 4.0.2
 Summary: Distribution-building parts of Flit. See flit package for more information
 Author-email: Thomas Kluyver & contributors <thomas@kluyver.me.uk>
-Requires-Python: >=3.6
+Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-Expression: BSD-3-Clause
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -11,6 +11,7 @@ License-File: LICENSE
 License-File: flit_core/vendor/tomli-1.2.3.dist-info/LICENSE
 Project-URL: Documentation, https://flit.pypa.io
 Project-URL: Source, https://github.com/pypa/flit
+Import-Name: flit_core
 
 flit_core
 ---------

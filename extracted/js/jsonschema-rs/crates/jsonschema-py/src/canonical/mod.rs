@@ -131,6 +131,7 @@ impl PyCanonicalSchema {
                         })
                         .transpose()?,
                     patterns: view.patterns,
+                    excluded_patterns: view.excluded_patterns,
                     formats: view.formats,
                     excluded_formats: view.excluded_formats,
                     content_media_types: view.content_media_types,
@@ -157,6 +158,8 @@ impl PyCanonicalSchema {
                         .transpose()?,
                     exclusive_maximum: view.exclusive_maximum,
                     multiple_of: divisors_to_python(py, view.multiple_of)?,
+                    not_multiple_of: divisors_to_python(py, view.not_multiple_of)?,
+                    excludes_integers: view.excludes_integers,
                 },
             )?
             .into_any(),
@@ -176,6 +179,7 @@ impl PyCanonicalSchema {
                         })
                         .transpose()?,
                     multiple_of: divisors_to_python(py, view.multiple_of)?,
+                    not_multiple_of: divisors_to_python(py, view.not_multiple_of)?,
                 },
             )?
             .into_any(),
@@ -303,6 +307,13 @@ impl PyCanonicalSchema {
             .map_err(|error| canonicalization_error(py, error))
     }
 
+    /// Whether `other` admits every value this schema admits, or `None` when undecided.
+    fn is_subset_of(&self, py: Python<'_>, other: &Self) -> PyResult<Option<bool>> {
+        self.inner
+            .is_subset_of(&other.inner)
+            .map_err(|error| canonicalization_error(py, error))
+    }
+
     /// Every value this schema rejects, or `None` where the canonical form cannot spell it exactly.
     fn negate(&self) -> Option<Self> {
         self.inner.negate().map(|inner| Self { inner })
@@ -405,7 +416,7 @@ impl TypedGroupView {
     }
 }
 
-/// A string value within a length window matching every pattern, format, media type, and encoding.
+/// A string value within a length window, matching every required facet and no barred one.
 #[pyclass(frozen, name = "StringView", module = "jsonschema_rs.canonical")]
 pub(crate) struct StringView {
     #[pyo3(get)]
@@ -414,6 +425,8 @@ pub(crate) struct StringView {
     max_length: Option<Py<PyAny>>,
     #[pyo3(get)]
     patterns: Vec<String>,
+    #[pyo3(get)]
+    excluded_patterns: Vec<String>,
     #[pyo3(get)]
     formats: Vec<String>,
     #[pyo3(get)]
@@ -438,11 +451,13 @@ impl StringView {
         &'static str,
         &'static str,
         &'static str,
+        &'static str,
     ) {
         (
             "min_length",
             "max_length",
             "patterns",
+            "excluded_patterns",
             "formats",
             "excluded_formats",
             "content_media_types",
@@ -568,12 +583,18 @@ pub(crate) struct NumberView {
     exclusive_maximum: bool,
     #[pyo3(get)]
     multiple_of: Vec<Py<PyAny>>,
+    #[pyo3(get)]
+    not_multiple_of: Vec<Py<PyAny>>,
+    #[pyo3(get)]
+    excludes_integers: bool,
 }
 
 #[pymethods]
 impl NumberView {
     #[classattr]
     fn __match_args__() -> (
+        &'static str,
+        &'static str,
         &'static str,
         &'static str,
         &'static str,
@@ -586,6 +607,8 @@ impl NumberView {
             "maximum",
             "exclusive_maximum",
             "multiple_of",
+            "not_multiple_of",
+            "excludes_integers",
         )
     }
 }
@@ -599,13 +622,15 @@ pub(crate) struct IntegerView {
     maximum: Option<Py<PyAny>>,
     #[pyo3(get)]
     multiple_of: Vec<Py<PyAny>>,
+    #[pyo3(get)]
+    not_multiple_of: Vec<Py<PyAny>>,
 }
 
 #[pymethods]
 impl IntegerView {
     #[classattr]
-    fn __match_args__() -> (&'static str, &'static str, &'static str) {
-        ("minimum", "maximum", "multiple_of")
+    fn __match_args__() -> (&'static str, &'static str, &'static str, &'static str) {
+        ("minimum", "maximum", "multiple_of", "not_multiple_of")
     }
 }
 

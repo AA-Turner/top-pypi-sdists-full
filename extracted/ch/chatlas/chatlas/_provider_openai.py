@@ -22,6 +22,7 @@ from ._content import (
     PROVIDER_ANNOTATION_TYPES,
     Content,
     ContentCitation,
+    ContentDocument,
     ContentImageInline,
     ContentImageRemote,
     ContentJson,
@@ -36,14 +37,16 @@ from ._content import (
     ContentUploaded,
     ProviderAnnotation,
     WebSource,
+    check_image_content_type_supported,
 )
+from ._content_file import ensure_bytes
 from ._files import FileMetadata, maybe_write, open_binary
 from ._logging import log_model_default
 from ._provider import StandardModelParamNames, StandardModelParams
 from ._provider_openai_completions import load_tool_request_args
 from ._provider_openai_generic import BatchResult, OpenAIAbstractProvider
 from ._tools import Tool, ToolBuiltIn, basemodel_to_param_schema
-from ._tools_builtin import ToolWebFetch, ToolWebSearch
+from ._tools_builtin import ToolWebSearch
 from ._turn import AssistantTurn, FinishReason, Turn, check_finish_reason
 
 if TYPE_CHECKING:
@@ -53,6 +56,7 @@ if TYPE_CHECKING:
     from openai.types.file_object import FileObject
     from openai.types.responses import (
         ResponseInputContentParam,
+        ResponseInputFileParam,
         ResponseInputItemParam,
         ResponseReasoningItemParam,
     )
@@ -187,7 +191,7 @@ def ChatOpenAI(
     check_base_url(base_url)
 
     if model is None:
-        model = log_model_default("gpt-5.4")
+        model = log_model_default("gpt-5.6-terra")
 
     kwargs_chat: "SubmitInputArgs" = {}
 
@@ -241,6 +245,8 @@ class OpenAIProvider(
         "SubmitInputArgs",
     ]
 ):
+    supported_builtin_tools = (ToolWebSearch,)
+
     def chat_perform(
         self,
         *,
@@ -283,14 +289,11 @@ class OpenAIProvider(
 
         tool_params: list["ToolParam"] = []
         for tool in tools.values():
+            if isinstance(tool, ToolBuiltIn):
+                self.check_builtin_tool_support(tool)
+
             if isinstance(tool, ToolWebSearch):
                 tool_params.append(tool.get_definition("openai"))
-            elif isinstance(tool, ToolWebFetch):
-                raise ValueError(
-                    "Web fetch is currently not natively supported by OpenAI. "
-                    "Consider using the MCP Fetch server instead via chat.register_mcp_tools_stdio_async(). "
-                    "See help(tool_web_fetch) for details."
-                )
             elif isinstance(tool, ToolBuiltIn):
                 tool_params.append(cast("ToolParam", tool.definition))
             else:
@@ -702,22 +705,22 @@ def openai_replayable(content: ProviderAnnotation) -> bool:
 def as_input_param(content: Content, role: Role) -> "ResponseInputItemParam":
     if isinstance(content, ContentText):
         if role == "assistant":
-            # OpenAI's type for this value (ResponseOutputMessageParam) currently has a bunch
-            # of fields marked as Required that probably shouldn't be?
-            # When that gets fixed, this can be updated to be simpler (i.e., as_message() call)
-            return {
-                "role": "assistant",
-                "content": [
-                    {
-                        "type": "output_text",
-                        "text": content.text,
-                        "annotations": [],
-                    }
-                ],
-                "status": "completed",
-                "type": "message",
-                "id": "msg_missing_id",  # Not sure if it matters if we have a fake id here?
-            }
+            # Assistant messages use output_text, but the SDK incorrectly requires an id.
+            return cast(
+                "ResponseInputItemParam",
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": content.text,
+                            "annotations": [],
+                        }
+                    ],
+                    "status": "completed",
+                    "type": "message",
+                },
+            )
         else:
             return as_message({"type": "input_text", "text": content.text}, role)
     elif isinstance(content, ContentJson):
@@ -733,6 +736,7 @@ def as_input_param(content: Content, role: Role) -> "ResponseInputItemParam":
             role,
         )
     elif isinstance(content, ContentImageInline):
+        check_image_content_type_supported("OpenAI", content.image_content_type)
         return as_message(
             {
                 "type": "input_image",
@@ -742,14 +746,9 @@ def as_input_param(content: Content, role: Role) -> "ResponseInputItemParam":
             role,
         )
     elif isinstance(content, ContentPDF):
-        return as_message(
-            {
-                "type": "input_file",
-                "filename": content.filename,
-                "file_data": f"data:application/pdf;base64,{base64.b64encode(content.data).decode('utf-8')}",
-            },
-            role,
-        )
+        return as_message(as_input_file_param(content, "application/pdf"), role)
+    elif isinstance(content, ContentDocument):
+        return as_message(as_input_file_param(content, content.mime_type), role)
     elif isinstance(content, ContentThinking):
         # Filter out 'status' which is output-only and not accepted as input
         extra = content.extra or {}
@@ -791,6 +790,29 @@ def as_input_param(content: Content, role: Role) -> "ResponseInputItemParam":
 
 def as_message(x: "ResponseInputContentParam", role: Role) -> "EasyInputMessageParam":
     return {"role": role, "content": [x]}
+
+
+def as_input_file_param(
+    content: "ContentPDF | ContentDocument", mime_type: str
+) -> "ResponseInputFileParam":
+    """Build an `input_file` param, preferring a URL over re-sending bytes.
+
+    The Responses API accepts `file_url` for any file type (not just PDFs),
+    so a `ContentPDF`/`ContentDocument` with a URL never needs to download it.
+    `filename` is deliberately omitted on that path: the API treats it as
+    mutually exclusive with `file_url` and rejects requests carrying both.
+    """
+    if content.url is not None:
+        return {
+            "type": "input_file",
+            "file_url": content.url,
+        }
+    data = ensure_bytes(content, "file")
+    return {
+        "type": "input_file",
+        "filename": content.filename,
+        "file_data": f"data:{mime_type};base64,{base64.b64encode(data).decode('utf-8')}",
+    }
 
 
 def check_base_url(base_url: str) -> None:

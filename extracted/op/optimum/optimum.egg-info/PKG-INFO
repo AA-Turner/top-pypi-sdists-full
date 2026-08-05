@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optimum
-Version: 2.2.0
+Version: 2.3.0
 Summary: Optimum Library is an extension of the Hugging Face Transformers library, providing a framework to integrate third-party libraries from Hardware Partners and interface with their specific functionality.
 Home-page: https://github.com/huggingface/optimum
 Author: HuggingFace Inc. Special Ops Team

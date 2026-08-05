@@ -3,16 +3,19 @@ import builtins
 import logging
 import sys
 import traceback
+from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
+from mcp.types import ListPromptsResult, ListToolsResult
 
 from agents import Agent, _debug
 from agents.exceptions import UserError
 from agents.mcp.server import (
     MCPServerSse,
     MCPServerStreamableHttp,
+    _client_session_read_timeout,
     _MCPServerWithClientSession,
 )
 from agents.run_context import RunContextWrapper
@@ -96,6 +99,18 @@ def _assert_url_credentials_hidden_from_traceback_locals(error: BaseException) -
         current = current.tb_next
 
 
+def _assert_text_hidden_from_server_traceback_locals(
+    error: BaseException,
+    sensitive_text: str,
+) -> None:
+    current = error.__traceback__
+    while current is not None:
+        if current.tb_frame.f_code.co_filename.endswith("/src/agents/mcp/server.py"):
+            attached_values = repr(tuple(current.tb_frame.f_locals.values()))
+            assert sensitive_text not in attached_values
+        current = current.tb_next
+
+
 def _assert_url_credentials_hidden_from_log_record(record: logging.LogRecord) -> None:
     rendered = logging.Formatter("%(levelname)s %(message)s").format(record)
     attached_values = repr(
@@ -160,6 +175,43 @@ class CrashingClientSessionServer(_MCPServerWithClientSession):
         return "crashing_client_session_server"
 
 
+@pytest.mark.parametrize("timeout_seconds", [None, 0, 0.0])
+def test_client_session_read_timeout_treats_zero_as_disabled(
+    timeout_seconds: float | None,
+) -> None:
+    assert _client_session_read_timeout(timeout_seconds) is None
+
+
+@pytest.mark.parametrize("timeout_seconds", [0.000001, 2.5])
+def test_client_session_read_timeout_preserves_positive_value(timeout_seconds: float) -> None:
+    assert _client_session_read_timeout(timeout_seconds) == timedelta(seconds=timeout_seconds)
+
+
+@pytest.mark.parametrize(
+    ("timeout_seconds", "error_type"),
+    [
+        (True, TypeError),
+        ("5", TypeError),
+        (-1, ValueError),
+        (-0.5, ValueError),
+        (float("nan"), ValueError),
+        (float("inf"), ValueError),
+        (5e-7, ValueError),
+        (1e20, ValueError),
+        (10**400, ValueError),
+    ],
+)
+def test_server_rejects_unsupported_client_session_read_timeout_at_construction(
+    timeout_seconds: object,
+    error_type: type[Exception],
+) -> None:
+    with pytest.raises(error_type, match="client_session_timeout_seconds"):
+        MCPServerSse(
+            params={"url": "https://mcp.example.com/sse"},
+            client_session_timeout_seconds=timeout_seconds,  # type: ignore[arg-type]
+        )
+
+
 @pytest.mark.asyncio
 async def test_server_errors_cause_error_and_cleanup_called():
     server = CrashingClientSessionServer()
@@ -168,6 +220,33 @@ async def test_server_errors_cause_error_and_cleanup_called():
         await server.connect()
 
     assert server.cleanup_called
+
+
+@pytest.mark.asyncio
+async def test_server_revalidates_mutated_timeout_before_creating_streams() -> None:
+    server = CrashingClientSessionServer()
+    server.client_session_timeout_seconds = 5e-7
+
+    with pytest.raises(ValueError, match="at least one microsecond"):
+        await server.connect()
+
+    assert server.cleanup_called is False
+
+
+@pytest.mark.asyncio
+async def test_isolated_session_revalidates_mutated_timeout_before_creating_streams(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server = MCPServerStreamableHttp(params={"url": "https://mcp.example.com/mcp"})
+    create_streams = MagicMock()
+    monkeypatch.setattr(server, "create_streams", create_streams)
+    server.client_session_timeout_seconds = 5e-7
+
+    with pytest.raises(ValueError, match="at least one microsecond"):
+        async with server._isolated_client_session():
+            raise AssertionError("context body should not run")
+
+    create_streams.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -324,6 +403,134 @@ async def test_prompt_request_http_status_hides_url_credentials():
     _assert_url_credentials_hidden(user_error_info.value)
     _assert_not_retained_in_traceback_locals(user_error_info.value, http_error)
     _assert_url_credentials_hidden_from_traceback_locals(user_error_info.value)
+
+
+def _paginated_list_result(
+    method_name: str,
+    next_cursor: str,
+) -> ListToolsResult | ListPromptsResult:
+    if method_name == "list_tools":
+        return ListToolsResult(tools=[], nextCursor=next_cursor)
+    return ListPromptsResult(prompts=[], nextCursor=next_cursor)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method_name", ["list_tools", "list_prompts"])
+async def test_paginated_list_failure_does_not_retain_opaque_cursor(method_name: str):
+    cursor = "SECRET_OPAQUE_CURSOR"
+    failure_message = "SECRET_CONTINUATION_FAILURE"
+    continuation_error = RuntimeError(failure_message)
+    server = MCPServerStreamableHttp(params={"url": _SAFE_URL})
+    session = MagicMock()
+    setattr(
+        session,
+        method_name,
+        AsyncMock(
+            side_effect=[
+                _paginated_list_result(method_name, cursor),
+                continuation_error,
+            ]
+        ),
+    )
+    server.session = session
+    server.max_retry_attempts = 0
+
+    with pytest.raises(UserError) as user_error_info:
+        await getattr(server, method_name)()
+
+    rendered = "".join(traceback.format_exception(user_error_info.value))
+    assert "Request failed" in str(user_error_info.value)
+    assert cursor not in rendered
+    assert failure_message not in rendered
+    assert user_error_info.value.__cause__ is None
+    assert user_error_info.value.__context__ is None
+    _assert_not_retained_in_exception_graph(user_error_info.value, continuation_error)
+    _assert_text_hidden_from_server_traceback_locals(user_error_info.value, cursor)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method_name", ["list_tools", "list_prompts"])
+async def test_paginated_list_cycle_does_not_retain_opaque_cursor(method_name: str):
+    cursor = "SECRET_OPAQUE_CURSOR"
+    server = MCPServerStreamableHttp(params={"url": _SAFE_URL})
+    session = MagicMock()
+    setattr(
+        session,
+        method_name,
+        AsyncMock(
+            side_effect=[
+                _paginated_list_result(method_name, cursor),
+                _paginated_list_result(method_name, cursor),
+            ]
+        ),
+    )
+    server.session = session
+    server.max_retry_attempts = 0
+
+    with pytest.raises(UserError, match=f"repeated cursor while listing {method_name[5:]}") as info:
+        await getattr(server, method_name)()
+
+    assert cursor not in "".join(traceback.format_exception(info.value))
+    assert info.value.__cause__ is None
+    assert info.value.__context__ is None
+    _assert_text_hidden_from_server_traceback_locals(info.value, cursor)
+    if method_name == "list_tools":
+        assert server.cached_tools is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method_name", ["list_tools", "list_prompts"])
+async def test_paginated_list_cancellation_preserves_control_flow_without_cursor(
+    method_name: str,
+):
+    cursor = "SECRET_OPAQUE_CURSOR"
+    cancellation = asyncio.CancelledError(cursor)
+    server = MCPServerStreamableHttp(params={"url": _SAFE_URL})
+    session = MagicMock()
+    setattr(
+        session,
+        method_name,
+        AsyncMock(
+            side_effect=[
+                _paginated_list_result(method_name, cursor),
+                cancellation,
+            ]
+        ),
+    )
+    server.session = session
+    server.max_retry_attempts = 0
+
+    with pytest.raises(asyncio.CancelledError) as cancellation_info:
+        await getattr(server, method_name)()
+
+    assert str(cancellation_info.value) == ""
+    assert cancellation_info.value.__cause__ is None
+    assert cancellation_info.value.__context__ is None
+    _assert_not_retained_in_exception_graph(cancellation_info.value, cancellation)
+    _assert_text_hidden_from_server_traceback_locals(cancellation_info.value, cursor)
+
+
+@pytest.mark.asyncio
+async def test_paginated_tools_clear_cursor_before_filter_failure():
+    cursor = "SECRET_OPAQUE_CURSOR"
+    server = MCPServerStreamableHttp(
+        params={"url": _SAFE_URL},
+        tool_filter=lambda context, tool: True,
+    )
+    session = MagicMock()
+    session.list_tools = AsyncMock(
+        side_effect=[
+            ListToolsResult(tools=[], nextCursor=cursor),
+            ListToolsResult(tools=[]),
+        ]
+    )
+    server.session = session
+
+    with pytest.raises(UserError, match="run_context and agent are required") as error_info:
+        await server.list_tools()
+
+    assert cursor not in "".join(traceback.format_exception(error_info.value))
+    _assert_text_hidden_from_server_traceback_locals(error_info.value, cursor)
 
 
 @pytest.mark.asyncio

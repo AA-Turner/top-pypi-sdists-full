@@ -387,6 +387,7 @@ from wandelbots_api_client.v2.models.service_status_status import ServiceStatusS
 from wandelbots_api_client.v2.models.session_response import SessionResponse
 from wandelbots_api_client.v2.models.set_io import SetIO
 from wandelbots_api_client.v2.models.settable_robot_system_mode import SettableRobotSystemMode
+from wandelbots_api_client.v2.models.singularity_handling import SingularityHandling
 from wandelbots_api_client.v2.models.singularity_type_enum import SingularityTypeEnum
 from wandelbots_api_client.v2.models.snap7_io import Snap7IO
 from wandelbots_api_client.v2.models.snap7_io_area import Snap7IOArea

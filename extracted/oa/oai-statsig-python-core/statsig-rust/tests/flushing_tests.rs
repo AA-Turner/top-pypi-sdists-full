@@ -1,8 +1,8 @@
 mod utils;
 use serde_json::Value;
 use statsig_rust::{
-    output_logger::LogLevel, DynamicConfigEvaluationOptions, ExperimentEvaluationOptions,
-    FeatureGateEvaluationOptions, Statsig, StatsigOptions, StatsigUser,
+    DynamicConfigEvaluationOptions, ExperimentEvaluationOptions, FeatureGateEvaluationOptions,
+    Statsig, StatsigOptions, StatsigUser, output_logger::LogLevel,
 };
 use std::{
     io::Read,

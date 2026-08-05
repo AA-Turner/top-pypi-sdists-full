@@ -1,5 +1,5 @@
 use serial_test::serial;
-use statsig_rust::{statsig_global::StatsigGlobal, StatsigRuntime};
+use statsig_rust::{StatsigRuntime, statsig_global::StatsigGlobal};
 use std::time::Duration;
 
 fn is_runtime_none() -> bool {

@@ -219,6 +219,39 @@ def test_dir_info_url_scheme_file() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "FILE:///home/myproject",
+        "File:///home/myproject",
+        "file:/home/myproject",
+        "file://localhost/home/myproject",
+    ],
+)
+def test_dir_info_url_file_absolute_case_insensitive(url: str) -> None:
+    """Per RFC 3986 §3.1, URL schemes are case-insensitive; all variants of
+    absolute file URLs must be accepted when dir_info is present."""
+    DirectUrl.from_dict({"url": url, "dir_info": {}})
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "file:relative",
+        "file:./relative",
+        "file:",
+        "file://relative",
+        "file://localhost",
+    ],
+)
+def test_dir_info_url_requires_absolute_file_url(url: str) -> None:
+    with pytest.raises(
+        DirectUrlValidationError,
+        match=r"File URL must be absolute when dir_info is present",
+    ):
+        DirectUrl.from_dict({"url": url, "dir_info": {}})
+
+
 def test_missing_url() -> None:
     with pytest.raises(
         DirectUrlValidationError,
@@ -260,6 +293,7 @@ def test_validate_error() -> None:
     [
         ("https://g.c/user/repo.git", ["git"], "https://g.c/user/repo.git"),
         ("https://user:pass@g.c/user/repo.git", ["git"], "https://g.c/user/repo.git"),
+        ("https://user:pa@ss@g.c/user/repo.git", ["git"], "https://g.c/user/repo.git"),
         ("ssh://git@g.c/user/repo.git", [], "ssh://g.c/user/repo.git"),
         ("ssh://git@g.c/user/repo.git", ["git"], "ssh://git@g.c/user/repo.git"),
         ("ssh://cvs@g.c/user/repo.git", ["git"], "ssh://g.c/user/repo.git"),
@@ -293,6 +327,14 @@ def test_strip_url(url: str, safe_user_passwords: list[str], expected_url: str) 
 def test_to_dict_strip_url() -> None:
     direct_url = DirectUrl(
         url="https://user:pass@g.c/user/repo.git",
+        vcs_info=VcsInfo(vcs="git", commit_id="a" * 40),
+    )
+    assert direct_url.to_dict()["url"] == "https://g.c/user/repo.git"
+
+
+def test_to_dict_strip_url_with_at_in_password() -> None:
+    direct_url = DirectUrl(
+        url="https://user:pa@ss@g.c/user/repo.git",
         vcs_info=VcsInfo(vcs="git", commit_id="a" * 40),
     )
     assert direct_url.to_dict()["url"] == "https://g.c/user/repo.git"

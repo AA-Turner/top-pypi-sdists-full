@@ -1,4 +1,4 @@
-use crate::{dyn_value, log_w, DynamicValue};
+use crate::{DynamicValue, dyn_value, log_w};
 
 use super::statsig_uaparser::UaParser;
 
@@ -15,10 +15,11 @@ impl FirstPartyUserAgentParser {
             }
             "os_version" | "osversion" => {
                 let os = UaParser::parse_os(user_agent);
-                Some(dyn_value!(os
-                    .version
-                    .get_version_string()
-                    .unwrap_or("0.0.0".to_string())))
+                Some(dyn_value!(
+                    os.version
+                        .get_version_string()
+                        .unwrap_or("0.0.0".to_string())
+                ))
             }
             "browser_name" | "browsername" => {
                 let browser = UaParser::parse_browser(user_agent);
@@ -26,10 +27,12 @@ impl FirstPartyUserAgentParser {
             }
             "browser_version" | "browserversion" => {
                 let browser = UaParser::parse_browser(user_agent);
-                Some(dyn_value!(browser
-                    .version
-                    .get_version_string()
-                    .unwrap_or("0.0.0".to_string())))
+                Some(dyn_value!(
+                    browser
+                        .version
+                        .get_version_string()
+                        .unwrap_or("0.0.0".to_string())
+                ))
             }
             _ => {
                 log_w!(TAG, "Unsupported field: {}", field);

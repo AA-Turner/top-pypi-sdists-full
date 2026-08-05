@@ -4,9 +4,10 @@ use crate::evaluation::dynamic_string::DynamicString;
 use crate::evaluation::user_agent_parsing::ParsedUserAgentValue;
 use crate::interned_string::InternedString;
 use crate::user::StatsigUserInternal;
-use crate::{log_w, unwrap_or_return, DynamicValue, StatsigOptions, StatsigUser};
+use crate::{DynamicValue, StatsigOptions, StatsigUser, log_w, unwrap_or_return};
 
 use super::first_party_ua_parser::FirstPartyUserAgentParser;
+use super::statsig_uaparser::UaParser;
 use super::third_party_ua_parser::ThirdPartyUserAgentParser;
 
 lazy_static::lazy_static! {
@@ -18,9 +19,23 @@ const UNINITIALIZED_REASON: &str = "UAParserNotLoaded";
 
 pub struct UserAgentParser;
 
-fn get_first_party_ua_value(key: &str, ua: &str) -> Option<InternedString> {
-    FirstPartyUserAgentParser::get_value_from_user_agent(key, ua)
-        .and_then(|v| v.string_value.map(|s| s.value))
+fn parse_first_party_user_agent(ua: &str) -> ParsedUserAgentValue {
+    let (os, browser) = UaParser::parse_os_and_browser(ua);
+    ParsedUserAgentValue {
+        os_name: Some(InternedString::from_string(os.name.to_string())),
+        os_version: Some(InternedString::from_string(
+            os.version
+                .get_version_string()
+                .unwrap_or_else(|| "0.0.0".to_string()),
+        )),
+        browser_name: Some(InternedString::from_string(browser.name.to_string())),
+        browser_version: Some(InternedString::from_string(
+            browser
+                .version
+                .get_version_string()
+                .unwrap_or_else(|| "0.0.0".to_string()),
+        )),
+    }
 }
 
 fn get_third_party_ua_value(key: &str, ua: &str) -> Option<InternedString> {
@@ -56,7 +71,10 @@ impl UserAgentParser {
                 Ok(v) => v,
                 Err(_) => {
                     *override_reason = Some(UNINITIALIZED_REASON);
-                    log_w!(TAG, "Failed to load UA Parser. Check StatsigOptions.disable_user_agent_parsing and or wait_for_user_agent_init");
+                    log_w!(
+                        TAG,
+                        "Failed to load UA Parser. Check StatsigOptions.disable_user_agent_parsing and or wait_for_user_agent_init"
+                    );
                     None
                 }
             }
@@ -81,12 +99,7 @@ impl UserAgentParser {
                 browser_name: get_third_party_ua_value("browser_name", user_agent_str),
                 browser_version: get_third_party_ua_value("browser_version", user_agent_str),
             }),
-            _ => Some(ParsedUserAgentValue {
-                os_name: get_first_party_ua_value("os_name", user_agent_str),
-                os_version: get_first_party_ua_value("os_version", user_agent_str),
-                browser_name: get_first_party_ua_value("browser_name", user_agent_str),
-                browser_version: get_first_party_ua_value("browser_version", user_agent_str),
-            }),
+            _ => Some(parse_first_party_user_agent(user_agent_str)),
         }
     }
 }

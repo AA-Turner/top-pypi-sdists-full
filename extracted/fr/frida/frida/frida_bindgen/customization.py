@@ -119,11 +119,7 @@ if aux:
                 ),
                 "attach": MethodCustomizations(
                     param_typings=["target: ProcessTarget", "**kwargs: Any"],
-                    custom_logic=(
-                        "pid = self._pid_of(target)\n" "options = _make_options(_frida.SessionOptions, kwargs, {})",
-                        "pid = await self._pid_of(target)\n"
-                        "options = _make_options(_frida.SessionOptions, kwargs, {})",
-                    ),
+                    custom_logic=_RESOLVE_PID,
                 ),
             },
             custom_code=CustomCode(
@@ -141,6 +137,7 @@ if aux:
                     param_typings=["message: Any", "data: Optional[bytes] = None"],
                     custom_logic="json = _to_json(message)",
                 ),
+                "enable_debugger": MethodCustomizations(param_typings=["port: int = 0"]),
                 "is_destroyed": MethodCustomizations(as_property=True),
             },
         ),

@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-tqdm"
-version = "4.70.0.20260731"
+version = "4.70.0.20260805"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for tqdm"
@@ -30,7 +30,7 @@ This package was tested with the following type checkers:
 * [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`866b5466c43a66135c0ef98a4eecf9586db0636d`](https://github.com/python/typeshed/commit/866b5466c43a66135c0ef98a4eecf9586db0636d).
+[`53592546e0bc6d32bbd0ed671ec99bacce7cce45`](https://github.com/python/typeshed/commit/53592546e0bc6d32bbd0ed671ec99bacce7cce45).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

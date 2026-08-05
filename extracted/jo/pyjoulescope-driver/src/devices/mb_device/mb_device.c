@@ -1781,8 +1781,6 @@ static bool handle_cmd(struct jsdrvp_mb_dev_s * d, struct jsdrvp_msg_s * msg) {
         } else {
             JSDRV_LOGE("handle_cmd unsupported %s", msg->topic);
         }
-    //} else if (d->state != ST_OPEN) {
-    //    // todo error code.
     } else if (d->drv && d->drv->handle_cmd && d->drv->handle_cmd(d->drv, d, topic, &msg->value)) {
         // upper driver handled it
     } else if (((topic[0] == 'h') || (topic[0] == '.')) && (topic[1] == '/')) {
@@ -1812,6 +1810,11 @@ static bool handle_cmd(struct jsdrvp_mb_dev_s * d, struct jsdrvp_msg_s * msg) {
             JSDRV_LOGW("handle_cmd unsupported h/ topic: %s", topic);
             send_return_code_to_frontend(d, topic, JSDRV_ERROR_NOT_SUPPORTED);
         }
+    } else if (d->state != ST_OPEN) {
+        // reject device publishes while closed (JS220 does the same);
+        // @-commands, upper-driver commands, and h/ topics still work
+        JSDRV_LOGW("handle_cmd %s but device not open", topic);
+        send_return_code_to_frontend(d, topic, JSDRV_ERROR_CLOSED);
     } else {
         publish_to_device_confirmed(d, topic, &msg->value, msg->source != 0);
     }
@@ -1836,7 +1839,8 @@ static void handle_in_link(struct jsdrvp_mb_dev_s * d, uint16_t metadata, uint32
             JSDRV_LOGW("link msg: invalid");
             break;
         case MB_LINK_MSG_PING:
-            // todo respond with pong
+            // echo the payload back so device-side link supervision works
+            send_to_device(d, MB_FRAME_ST_LINK, MB_LINK_MSG_PONG, data, length);
             break;
         case MB_LINK_MSG_PONG:
             if (d->revalidate_remaining) {
@@ -2198,7 +2202,6 @@ static void handle_stream_in_frame(struct jsdrvp_mb_dev_s * d, uint32_t * p_u32)
 }
 
 static void handle_stream_in(struct jsdrvp_mb_dev_s * d, struct jsdrvp_msg_s * msg) {
-    JSDRV_ASSERT(msg->value.type == JSDRV_UNION_BIN);
     d->rx_utc = jsdrv_time_utc();  // any RX proves the link is alive
     uint32_t frame_count = (msg->value.size + FRAME_SIZE_U8 - 1) / FRAME_SIZE_U8;
     for (uint32_t i = 0; i < frame_count; ++i) {
@@ -2264,9 +2267,22 @@ static bool handle_rsp(struct jsdrvp_mb_dev_s * d, struct jsdrvp_msg_s * msg) {
         // cleanly via jsdrvp_msg_free.
         msg->inner_msg_type = JSDRV_MSG_TYPE_NORMAL;
         jsdrvp_msg_free(d->context, msg);
-        return true;
+        // Stop draining: the sentinel is the last message of this LL
+        // session.  Anything queued behind it belongs to the slot's
+        // next life and must be left for its consumer (js110/js220
+        // stop here for the same reason).
+        return false;
     }
     if (0 == strcmp(JSDRV_USBBK_MSG_STREAM_IN_DATA, msg->topic)) {
+        if (JSDRV_UNION_BIN != msg->value.type) {
+            // Not a loaned stream buffer: e.g. a retired-slot echo that
+            // rewrote the value to an error code.  Returning it to the
+            // backend would be treated as a buffer loan, so free it.
+            JSDRV_LOGW("stream_in_data with non-bin type %d: drop",
+                       (int) msg->value.type);
+            jsdrvp_msg_free(d->context, msg);
+            return true;
+        }
         JSDRV_LOGD3("stream_in_data sz=%d", (int) msg->value.size);
         handle_stream_in(d, msg);
         msg_queue_push(d->ll.cmd_q, msg);  // return
@@ -2424,8 +2440,7 @@ static JSDRV_THREAD_RETURN_TYPE driver_thread(JSDRV_THREAD_ARG_TYPE lpParam) {
 #if _WIN32
         WaitForMultipleObjects(handle_count, handles, false, thread_timeout_duration_ms(d));
 #else
-        (void) thread_timeout_duration_ms; // todo support timeout_duration_ms
-        poll(fds, 2, 2);
+        poll(fds, 2, (int) thread_timeout_duration_ms(d));
 #endif
         JSDRV_LOGD2("ul thread tick");
         while (handle_cmd(d, msg_queue_pop_immediate(d->ul.cmd_q))) {

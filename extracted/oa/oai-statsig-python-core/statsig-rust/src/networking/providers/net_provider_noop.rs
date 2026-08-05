@@ -2,7 +2,6 @@ use async_trait::async_trait;
 
 use crate::networking::{HttpMethod, NetworkProvider, RequestArgs, Response};
 
-#[allow(dead_code)]
 pub struct NetworkProviderNoop;
 
 #[async_trait]

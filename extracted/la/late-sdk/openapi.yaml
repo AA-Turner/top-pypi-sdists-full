@@ -1457,6 +1457,11 @@ components:
               type: array
               items: { type: string }
               description: Sample values for header text variables
+            header_text_named_params:
+              type: array
+              items:
+                $ref: '#/components/schemas/WhatsAppNamedParamExample'
+              description: 'Sample values for NAMED header variables (templates using {{customer_name}}-style tokens with parameter_format: NAMED).'
             header_handle:
               type: array
               minItems: 1
@@ -1487,6 +1492,22 @@ components:
                 type: array
                 items: { type: string }
               description: Sample values for body variables (array of arrays)
+            body_text_named_params:
+              type: array
+              items:
+                $ref: '#/components/schemas/WhatsAppNamedParamExample'
+              description: 'Sample values for NAMED body variables (templates using {{customer_name}}-style tokens with parameter_format: NAMED).'
+    WhatsAppNamedParamExample:
+      type: object
+      required: [param_name, example]
+      properties:
+        param_name:
+          type: string
+          pattern: '^[a-z0-9_]+$'
+          description: 'Variable name as it appears in the text, without braces (e.g. customer_name for {{customer_name}}).'
+        example:
+          type: string
+          description: Sample value for this variable.
     WhatsAppFooterComponent:
       type: object
       required: [type]
@@ -6995,7 +7016,7 @@ components:
           type: [object, "null"]
           description: Platform-specific creative data. Fields vary by platform.
           properties:
-            thumbnailUrl: { type: string, description: Primary thumbnail/image URL }
+            thumbnailUrl: { type: [string, "null"], description: Primary thumbnail/image URL }
             imageUrl: { type: string, description: Alternative image URL }
             videoId: { type: [string, "null"], description: "Meta video ID for VIDEO-type ads. Null for non-video ads. Callers that need an embeddable MP4 can call GET /{videoId}?fields=source with the page access token." }
             videoUrl: { type: [string, "null"], description: "Public Facebook watch URL for VIDEO-type ads (https://www.facebook.com/watch/?v={videoId}). Null for non-video ads." }
@@ -15459,7 +15480,7 @@ paths:
                       selectedPageName: { type: string }
               example:
                 message: "Facebook page connected successfully"
-                redirect_url: "https://yourdomain.com/integrations/callback?connected=facebook&profileId=507f1f77bcf86cd799439011&username=My+Brand+Page"
+                redirect_url: "https://yourdomain.com/integrations/callback?connected=facebook&profileId=507f1f77bcf86cd799439011&accountId=64e1f0a9e2b5af0012ab34cd&username=My+Brand+Page"
                 account:
                   accountId: "64e1f0a9e2b5af0012ab34cd"
                   platform: "facebook"
@@ -15660,7 +15681,7 @@ paths:
                       selectedLocationId: { type: string, description: 'Bare GBP location id. Combine with the GBP account id as accounts/{gbpAccountId}/locations/{selectedLocationId} to form the location resource names that gmb-reviews/batch expects in locationNames.' }
               example:
                 message: "Google Business location connected successfully"
-                redirect_url: "https://yourdomain.com/integrations/callback?connected=googlebusiness&profileId=507f1f77bcf86cd799439011&username=My+Coffee+Shop"
+                redirect_url: "https://yourdomain.com/integrations/callback?connected=googlebusiness&profileId=507f1f77bcf86cd799439011&accountId=64e1f0a9e2b5af0012ab34cd&username=My+Coffee+Shop"
                 account:
                   accountId: "64e1f0a9e2b5af0012ab34cd"
                   platform: "googlebusiness"
@@ -18095,7 +18116,7 @@ paths:
                       defaultBoardName: { type: string }
               example:
                 message: "Pinterest connected successfully with default board"
-                redirect_url: "https://yourdomain.com/integrations/callback?connected=pinterest&profileId=507f1f77bcf86cd799439011&board=Marketing+Ideas"
+                redirect_url: "https://yourdomain.com/integrations/callback?connected=pinterest&profileId=507f1f77bcf86cd799439011&accountId=64e1f0a9e2b5af0012ab34cd&board=Marketing+Ideas"
                 account:
                   accountId: "64e1f0a9e2b5af0012ab34cd"
                   platform: "pinterest"
@@ -18278,7 +18299,7 @@ paths:
                       publicProfileName: { type: string }
               example:
                 message: "Snapchat connected successfully with public profile"
-                redirect_url: "https://yourdomain.com/integrations/callback?connected=snapchat&profileId=507f1f77bcf86cd799439011&publicProfile=My+Brand"
+                redirect_url: "https://yourdomain.com/integrations/callback?connected=snapchat&profileId=507f1f77bcf86cd799439011&accountId=64e1f0a9e2b5af0012ab34cd&publicProfile=My+Brand"
                 account:
                   accountId: "64e1f0a9e2b5af0012ab34cd"
                   platform: "snapchat"
@@ -21090,12 +21111,6 @@ paths:
         objects so callers can build community-ops automation (e.g. "add role
         to all members joined in the last 7 days") on the actual platform shape.
 
-        **Important:** this endpoint requires the privileged "Server Members
-        Intent" on the Discord application. If the intent is not enabled,
-        Discord rejects the call and this endpoint returns **403**. Single
-        member lookup and prefix search (see the sibling endpoints) do not
-        need the intent.
-
         Pagination: pass `after` = the last `user.id` from the previous page.
         Omit on the first call. Response includes a `nextCursor` and `hasMore`
         flag so callers don't need to know Discord's pagination shape.
@@ -21122,7 +21137,7 @@ paths:
                       hasMore: { type: boolean }
         '400': { description: Invalid query params. }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { description: The Server Members Intent is not enabled on the Discord application. }
+        '403': { description: 'Discord denied access to the guild members (the bot is no longer in the guild).' }
         '404': { description: Discord account not found or not in this guild. }
 
   /v1/discord/guilds/{guildId}/members/search:
@@ -21134,8 +21149,8 @@ paths:
         Search guild members whose username or nickname **starts with** the
         query (Discord matches prefixes only, not substrings).
 
-        Does not require the privileged Server Members Intent, so this works
-        even where the full member listing returns 403.
+        Cheaper than paginating the full member listing when you already know
+        who you are looking for.
       parameters:
         - { name: guildId, in: path, required: true, schema: { type: string } }
         - { name: accountId, in: query, required: true, schema: { type: string } }
@@ -21164,8 +21179,8 @@ paths:
       description: |
         Fetch a single guild member by Discord user id.
 
-        Does not require the privileged Server Members Intent, so this works
-        even where the full member listing returns 403.
+        Cheaper than paginating the full member listing when you already know
+        who you are looking for.
       parameters:
         - { name: guildId, in: path, required: true, schema: { type: string } }
         - { name: userId, in: path, required: true, schema: { type: string }, description: Discord user snowflake. }
@@ -25707,6 +25722,70 @@ paths:
         '404': { description: Account not found }
         '429': { description: 'X search rate limit exceeded (300 requests per 15 minutes)' }
 
+  /v1/twitter/tweet:
+    get:
+      operationId: getTweet
+      summary: Look up a tweet
+      description: |
+        Resolve a single tweet by ID or URL into its text, author and public metrics.
+
+        Use this to render a post you are referencing, e.g. the tweet quoted by a quote-style post.
+        Unlike `/v1/twitter/search` this is not limited to the last 7 days and works for any tweet
+        visible to the connected account.
+
+        Billed as an X posts read ($0.005). Repeat lookups of the same tweet within the same UTC day
+        are charged once.
+      tags: [Twitter Engagement]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: accountId
+          in: query
+          required: true
+          schema: { type: string }
+          description: The social account ID whose X token is used for the lookup
+        - name: id
+          in: query
+          required: true
+          schema: { type: string }
+          description: 'Numeric tweet ID or a tweet URL (e.g. https://x.com/user/status/123...)'
+      responses:
+        '200':
+          description: The resolved tweet
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  tweet:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      text: { type: string }
+                      created: { type: string, format: date-time }
+                      conversationId: { type: string }
+                      inReplyToTweetId: { type: [string, "null"], description: 'Parent tweet ID when the tweet is itself a reply' }
+                      lang: { type: string }
+                      author:
+                        type: object
+                        properties:
+                          id: { type: string }
+                          username: { type: string }
+                          displayName: { type: string }
+                          avatar: { type: string }
+                          verifiedType: { type: string }
+                      likeCount: { type: integer }
+                      replyCount: { type: integer }
+                      retweetCount: { type: integer }
+                      quoteCount: { type: integer }
+                      platform: { type: string, example: twitter }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { description: 'X API spend cap reached for this billing period' }
+        '403': { description: 'X analytics capability not enabled for this account (code X_ANALYTICS_NOT_ENABLED), or the tweet author is protected or suspended' }
+        '404': { description: 'Account not found, or the tweet was deleted or never existed' }
+        '429': { description: 'X rate limit exceeded' }
+
   /v1/inbox/mentions:
     get:
       operationId: listInboxMentions
@@ -26161,6 +26240,10 @@ paths:
                 language:
                   type: string
                   description: Template language code (e.g., en_US)
+                parameter_format:
+                  type: string
+                  enum: [POSITIONAL, NAMED, positional, named]
+                  description: 'Variable style: POSITIONAL ({{1}}, the default) or NAMED ({{customer_name}}). Named templates provide examples via body_text_named_params / header_text_named_params. Inferred as NAMED when omitted but a named-params example is present.'
                 components:
                   type: array
                   description: "Template components (header, body, footer, buttons, carousel, limited_time_offer). Required for custom templates, omit when using library_template_name."
@@ -37854,6 +37937,13 @@ paths:
                     `excluded_geo_locations` (built sub-keys win; raw-only sub-keys such as
                     `location_types` survive). Array values (`flexible_spec`, ...) are replaced
                     as a whole key, never element-merged.
+
+                    When `rawTargeting` is present the `advantage_audience: 0` default that
+                    Zernio normally applies is no longer emitted, so it cannot clobber a
+                    `targeting_automation` sent in the raw spec. Meta requires
+                    `targeting_automation` on ad set creation, so include it in the raw spec,
+                    or send `targeting.advantage_audience` (0 or 1), which is merged over raw
+                    as `targeting_automation`.
                 bidStrategy:
                   allOf: [{ $ref: '#/components/schemas/BidStrategy' }]
                   description: |

@@ -56,12 +56,14 @@ from datamodel_code_generator.parser.base import (
     _is_pydantic_v2_data_model_field,
     _merge_data_type_modifiers,
     _needs_validate_default,
+    _remap_imports,
     _unwrap_type_alias,
     add_model_path_to_list,
     escape_characters,
     exact_import,
     get_module_directory,
     get_most_of_parent,
+    is_ancestor_package_reference,
     relative,
     sort_data_models,
     to_hashable,
@@ -97,6 +99,15 @@ class C(Parser):
 
     def parse_raw(self, name: str, raw: dict[str, Any]) -> None:
         """Parse raw data into models."""
+
+
+def test_remap_imports_empty_fastpath() -> None:
+    """Skip remapping work when no imports were collected."""
+    imports = Imports()
+
+    _remap_imports(imports, {"Model": "target"})
+
+    assert not imports.counter
 
 
 def test_parser() -> None:
@@ -429,6 +440,51 @@ def test_relative(current_module: str, reference: str, val: tuple[str, str]) -> 
 def test_exact_import(from_: str, import_: str, name: str, val: tuple[str, str]) -> None:
     """Test exact import formatting."""
     assert exact_import(from_, import_, name) == val
+
+
+@pytest.mark.parametrize(
+    ("current_module", "reference", "expected"),
+    [
+        ("", "Foo", False),  # no current module
+        ("a", "Foo", True),  # root package is the immediate parent
+        ("a.b", "Foo", True),  # root package is a grandparent
+        ("a.b.c", "Foo", True),  # root package is a deeper ancestor
+        ("a.b", "a.Foo", True),  # immediate parent package
+        ("a.b.c", "a.Foo", True),  # deeper ancestor package
+        ("a", "a.Foo", False),  # same module
+        ("a.b", "a.b.Foo", False),  # same module, nested
+        ("a", "a.b.Foo", False),  # child module
+        ("a.b", "a.c.Foo", False),  # sibling module
+        ("a.b", "z.Foo", False),  # unrelated module
+    ],
+)
+def test_is_ancestor_package_reference(current_module: str, reference: str, *, expected: bool) -> None:
+    """Test detection of references declared in an ancestor package's ``__init__.py``.
+
+    This is exactly the set of cases where :func:`relative` returns a class name rather
+    than a module name, so callers must not treat its result as an importable module.
+    """
+    assert is_ancestor_package_reference(current_module, reference) is expected
+
+
+@pytest.mark.parametrize(
+    ("current_module", "reference", "expected"),
+    [
+        ("a", "Foo", (".", "Foo")),
+        ("a.b", "Foo", ("..", "Foo")),
+        ("a.b.c", "Foo", ("...", "Foo")),
+        ("a.b", "a.Foo", (".", "Foo")),
+        ("a.b.c", "a.Foo", ("..", "Foo")),
+    ],
+)
+def test_relative_returns_class_name_for_ancestor_package(
+    current_module: str,
+    reference: str,
+    expected: tuple[str, str],
+) -> None:
+    """``relative`` yields the class name, not a module, for ancestor package references."""
+    assert relative(current_module, reference) == expected
+    assert is_ancestor_package_reference(current_module, reference)
 
 
 @pytest.mark.parametrize(
@@ -1251,6 +1307,27 @@ def test_no_additional_imports() -> None:
         source="",
     )
     assert len(new_parser.imports) == 0
+
+
+def test_collect_used_names_retains_qualified_python_type_module() -> None:
+    """Keep the module portion of qualified semantic annotations in use."""
+    from datamodel_code_generator._python_type_annotation import PythonTypeQualifiedName
+    from datamodel_code_generator._python_type_binding import BoundPythonType
+
+    model = BaseModel(
+        fields=[
+            DataModelField(
+                name="value",
+                data_type=DataType(
+                    type="external.Model",
+                    python_type=BoundPythonType(PythonTypeQualifiedName(("external", "Model")), ()),
+                ),
+            )
+        ],
+        reference=_reference("Model"),
+    )
+
+    assert Parser._collect_used_names_from_models([model]) == {"BaseModel", "Model", "Optional", "external", "value"}
 
 
 @pytest.mark.parametrize(

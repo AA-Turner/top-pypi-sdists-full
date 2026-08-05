@@ -1,2 +1,0 @@
-import"./rolldown-runtime-B4f9JIsa.js";import{Mt as e,j as t}from"./vendor-vue-core-C0-qk8Ov.js";import{H as n}from"./vendor-vueuse-BowoNZkv.js";var r=e(`unloaded`),i=t(()=>r.value===`authenticated`),a=e({});function configValueOrDefault(e,t,n){return e[t]||n}var o=n(`team_workspaces_enabled`,void 0),s=n(`consolidated_billing_enabled`,void 0);export{a,i,o as n,r as o,configValueOrDefault as r,s as t};
-//# sourceMappingURL=remoteConfig-CwnQH-ZN.js.map

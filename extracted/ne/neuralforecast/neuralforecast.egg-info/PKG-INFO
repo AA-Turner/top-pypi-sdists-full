@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neuralforecast
-Version: 3.2.0
+Version: 3.2.1
 Summary: Time series forecasting suite using deep learning models
 Author-email: Nixtla <business@nixtla.io>
 License: Apache-2.0

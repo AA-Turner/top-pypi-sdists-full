@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiopulse
-Version: 0.5.1
+Version: 0.5.3
 Summary: Asynchronous library to control Rollease Acmeda Automate roller blinds via a version 1 Pulse Hub.
 Project-URL: Homepage, https://github.com/atmurray/aiopulse
 Project-URL: Issues, https://github.com/atmurray/aiopulse/issues

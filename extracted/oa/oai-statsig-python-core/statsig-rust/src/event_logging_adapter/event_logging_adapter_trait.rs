@@ -17,14 +17,14 @@ pub trait EventLoggingAdapter: Send + Sync {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
 
+    use crate::StatsigUser;
     use crate::event_logging::statsig_event::StatsigEvent;
     use crate::event_logging::statsig_event_internal::StatsigEventInternal;
     use crate::log_event_payload::{LogEventPayload, LogEventRequest};
     use crate::statsig_metadata::StatsigMetadata;
     use crate::user::StatsigUserInternal;
-    use crate::StatsigUser;
 
     #[test]
     fn test_request_jsonify() {

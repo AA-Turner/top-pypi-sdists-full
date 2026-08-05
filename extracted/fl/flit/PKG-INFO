@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: flit
-Version: 3.12.0
+Version: 4.0.2
 Summary: A simple packaging tool for simple packages.
 Author-email: Thomas Kluyver <thomas@kluyver.me.uk>
 Requires-Python: >=3.8
@@ -10,7 +10,7 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 License-File: LICENSE
-Requires-Dist: flit_core >=3.12.0
+Requires-Dist: flit_core >=4.0.2
 Requires-Dist: requests
 Requires-Dist: docutils
 Requires-Dist: tomli-w
@@ -28,6 +28,7 @@ Project-URL: Documentation, https://flit.pypa.io
 Project-URL: Source, https://github.com/pypa/flit
 Provides-Extra: doc
 Provides-Extra: test
+Import-Name: flit
 
 **Flit** is a simple way to put Python packages and modules on PyPI.
 It tries to require less thought about packaging and help you avoid common
@@ -96,7 +97,7 @@ or as a directory — and you want to distribute it.
 
        flit publish
 
-Once your package is published, people can install it using *pip* just like
+Once your package is published, people can install it using pip just like
 any other package. In most cases, pip will download a 'wheel' package, a
 standard format it knows how to install. If you specifically ask pip to install
 an 'sdist' package, it will install and use Flit in a temporary environment.

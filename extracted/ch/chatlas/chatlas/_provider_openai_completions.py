@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from ._chat import Chat
 from ._content import (
     Content,
+    ContentDocument,
     ContentImageInline,
     ContentImageRemote,
     ContentJson,
@@ -29,7 +30,9 @@ from ._content import (
     ContentToolRequest,
     ContentToolResult,
     ContentUploaded,
+    check_image_content_type_supported,
 )
+from ._content_file import ensure_bytes
 from ._logging import log_model_default
 from ._merge import merge_dicts
 from ._provider import StandardModelParamNames, StandardModelParams
@@ -110,7 +113,7 @@ def ChatOpenAICompletions(
         seed = 1014 if is_testing() else None
 
     if model is None:
-        model = log_model_default("gpt-5.4")
+        model = log_model_default("gpt-5.6-terra")
 
     return Chat(
         provider=OpenAICompletionsProvider(
@@ -140,6 +143,30 @@ def normalize_finish_reason(reason: str | None) -> str | None:
     return _OPENAI_COMPLETIONS_FINISH_REASON_MAP.get(reason, reason)
 
 
+def completions_file_part(
+    content: "ContentPDF | ContentDocument", mime_type: str
+) -> "ChatCompletionContentPartParam":
+    """Build a `file` content part.
+
+    Unlike the Responses API, Chat Completions has no `file_url` -- only
+    `file_data`/`file_id` -- so a URL-only `ContentPDF`/`ContentDocument` is
+    downloaded here (and cached back onto `content`) rather than sent as-is.
+
+    `mime_type` is passed through rather than validated: OpenAI's own endpoint
+    only accepts `application/pdf` here, but this provider is also the base for
+    a dozen OpenAI-compatible backends (Ollama, LMStudio, OpenRouter, ...) whose
+    file support differs and changes independently. Let the backend refuse it.
+    """
+    data = ensure_bytes(content, "file")
+    return {
+        "type": "file",
+        "file": {
+            "filename": content.filename,
+            "file_data": f"data:{mime_type};base64,{base64.b64encode(data).decode('utf-8')}",
+        },
+    }
+
+
 class OpenAICompletionsProvider(
     OpenAIAbstractProvider[
         ChatCompletion,
@@ -148,6 +175,12 @@ class OpenAICompletionsProvider(
         "SubmitInputArgs",
     ]
 ):
+    # The Chat Completions API has no server-side tools, so `supported_builtin_tools`
+    # stays empty here and for the OpenAI-compatible providers that subclass this.
+    unsupported_builtin_tool_hint = (
+        "The Chat Completions API has no concept of provider-run tools."
+    )
+
     def __init__(
         self,
         *,
@@ -204,6 +237,7 @@ class OpenAICompletionsProvider(
         tool_schemas = []
         for tool in tools.values():
             if isinstance(tool, ToolBuiltIn):
+                self.check_builtin_tool_support(tool)
                 tool_schemas.append(tool.definition)
             else:
                 tool_schemas.append(tool.schema)
@@ -367,18 +401,9 @@ class OpenAICompletionsProvider(
                         text = orjson.dumps(x.value).decode("utf-8")
                         contents.append({"type": "text", "text": text})
                     elif isinstance(x, ContentPDF):
-                        contents.append(
-                            {
-                                "type": "file",
-                                "file": {
-                                    "filename": x.filename,
-                                    "file_data": (
-                                        "data:application/pdf;base64,"
-                                        f"{base64.b64encode(x.data).decode('utf-8')}"
-                                    ),
-                                },
-                            }
-                        )
+                        contents.append(completions_file_part(x, "application/pdf"))
+                    elif isinstance(x, ContentDocument):
+                        contents.append(completions_file_part(x, x.mime_type))
                     elif isinstance(x, ContentImageRemote):
                         contents.append(
                             {
@@ -390,6 +415,9 @@ class OpenAICompletionsProvider(
                             }
                         )
                     elif isinstance(x, ContentImageInline):
+                        check_image_content_type_supported(
+                            "The Chat Completions API", x.image_content_type
+                        )
                         contents.append(
                             {
                                 "type": "image_url",

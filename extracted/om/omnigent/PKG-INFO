@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: omnigent
-Version: 0.8.1
+Version: 0.8.2
 Summary: Omnigent: declarative agent authoring and runtime framework
 Author: Databricks, Inc.
 Keywords: agents,llm,ai,databricks,cli
@@ -14,8 +14,8 @@ Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: omnigent-client==0.8.1
-Requires-Dist: omnigent-ui-sdk==0.8.1
+Requires-Dist: omnigent-client==0.8.2
+Requires-Dist: omnigent-ui-sdk==0.8.2
 Requires-Dist: pyyaml<7,>=6.0
 Requires-Dist: json5<1,>=0.10
 Requires-Dist: openai<2.45,>=1.0
@@ -102,7 +102,7 @@ Requires-Dist: hindsight-client>=0.4.0; extra == "hindsight"
 Provides-Extra: memory
 Requires-Dist: hindsight-client>=0.4.0; extra == "memory"
 Provides-Extra: slack
-Requires-Dist: omnigent-slack==0.8.1; extra == "slack"
+Requires-Dist: omnigent-slack==0.8.2; extra == "slack"
 Provides-Extra: databricks
 Requires-Dist: databricks-sdk<1,>=0.56.0; extra == "databricks"
 Requires-Dist: opentelemetry-distro<1,>=0; extra == "databricks"

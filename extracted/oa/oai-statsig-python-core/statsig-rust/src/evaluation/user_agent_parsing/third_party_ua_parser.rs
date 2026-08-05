@@ -1,4 +1,4 @@
-use crate::{dyn_value, log_d, log_e, DynamicValue};
+use crate::{DynamicValue, dyn_value, log_d, log_e};
 use parking_lot::RwLock;
 use std::borrow::Cow;
 use std::sync::Arc;

@@ -8,9 +8,11 @@ use pyo3::types::PyModule;
 use pyo3::types::PyType;
 use pyo3_stub_gen::derive::*;
 
-use statsig_rust::interned_values::{InternedStore, MmapReaderMemorySnapshot};
-use statsig_rust::log_e;
 use statsig_rust::StatsigRuntime;
+use statsig_rust::interned_values::{
+    InternedStore, MmapPreloadReport as RustMmapPreloadReport, MmapReaderMemorySnapshot,
+};
+use statsig_rust::log_e;
 
 const TAG: &str = stringify!(InternStorePy);
 
@@ -46,6 +48,29 @@ impl From<MmapReaderMemorySnapshot> for MmapReaderMemorySnapshotPy {
             deleted_mapped_bytes: snapshot.deleted_mapped_bytes,
             loaded_generation_count: snapshot.loaded_generation_count,
             vma_segment_count: snapshot.vma_segment_count,
+        }
+    }
+}
+
+#[gen_stub_pyclass]
+#[pyclass(name = "MmapPreloadReport", module = "statsig_python_core")]
+pub struct MmapPreloadReportPy {
+    #[pyo3(get)]
+    pub loaded: usize,
+
+    #[pyo3(get)]
+    pub skipped_optional_indexes: Vec<usize>,
+}
+
+impl From<RustMmapPreloadReport> for MmapPreloadReportPy {
+    fn from(report: RustMmapPreloadReport) -> Self {
+        Self {
+            loaded: report.loaded,
+            skipped_optional_indexes: report
+                .skipped_optional
+                .into_iter()
+                .map(|failure| failure.index)
+                .collect(),
         }
     }
 }
@@ -135,7 +160,6 @@ impl InternedStorePy {
 
         Ok(())
     }
-
     #[classmethod]
     pub fn mmap_reader_memory_snapshot(
         _cls: &Bound<'_, PyType>,
@@ -149,6 +173,32 @@ impl InternedStorePy {
             log_e!(TAG, "Failed to inspect mmap reader memory: {error}");
             PyRuntimeError::new_err(error)
         })
+    }
+
+    #[classmethod]
+    #[pyo3(signature = (required_sdk_keys, optional_sdk_keys=None))]
+    pub fn preload_mmap_multi(
+        _cls: &Bound<'_, PyType>,
+        required_sdk_keys: Vec<String>,
+        optional_sdk_keys: Option<Vec<String>>,
+    ) -> PyResult<MmapPreloadReportPy> {
+        let optional_sdk_keys = optional_sdk_keys.unwrap_or_default();
+        let required = required_sdk_keys
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+        let optional = optional_sdk_keys
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+
+        match InternedStore::preload_mmap_multi(&required, &optional) {
+            Ok(report) => Ok(report.into()),
+            Err(error) => {
+                log_e!(TAG, "Failed to load mmap data: {}", error);
+                Err(PyRuntimeError::new_err(error.to_string()))
+            }
+        }
     }
 }
 

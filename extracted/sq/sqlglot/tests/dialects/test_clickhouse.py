@@ -652,6 +652,16 @@ class TestClickhouse(Validator):
         self.validate_identity("DELETE FROM tbl ON CLUSTER test_cluster WHERE date = '2019-01-01'")
         self.validate_identity("DELETE FROM tbl ON CLUSTER '{cluster}' WHERE date = '2019-01-01'")
 
+        # ClickHouse changes a column's type with ALTER COLUMN ... TYPE, not the
+        # ANSI ALTER COLUMN ... SET DATA TYPE
+        self.validate_all(
+            "ALTER TABLE t ALTER COLUMN c TYPE Nullable(Int64)",
+            read={
+                "clickhouse": "ALTER TABLE t ALTER COLUMN c TYPE Nullable(Int64)",
+                "postgres": "ALTER TABLE t ALTER COLUMN c TYPE BIGINT",
+            },
+        )
+
         self.assertIsInstance(
             parse_one("Tuple(select Int64)", into=exp.DataType, read="clickhouse"), exp.DataType
         )
@@ -741,6 +751,19 @@ class TestClickhouse(Validator):
                         self.validate_identity(sql)
 
         self.validate_identity("SELECT []")
+
+    def test_safe_div(self):
+        # ClickHouse never returns NULL on division by zero: `/` follows IEEE 754
+        # (`a / 0` yields inf/nan) and DECIMAL division raises, so the divisor must
+        # not be wrapped to emulate NULL-safe division when ClickHouse is the source.
+        self.validate_all(
+            "a / b",
+            write={
+                "clickhouse": "a / b",
+                "mysql": "a / b",
+                "postgres": "CAST(a AS DOUBLE PRECISION) / b",
+            },
+        )
 
     def test_clickhouse_values(self):
         ast = self.parse_one("SELECT * FROM VALUES (1, 2, 3)")
@@ -1442,6 +1465,10 @@ LIFETIME(MIN 0 MAX 0)""",
         def extract_agg_func(query):
             return parse_one(query, read="clickhouse").selects[0].this
 
+        self.validate_identity(
+            "SELECT quantileExactInclusive(0.25)(number) AS x FROM numbers(5)"
+        ).selects[0].this.assert_is(exp.ParameterizedAgg)
+
         self.assertIsInstance(
             extract_agg_func("select quantileGK(100, 0.95) OVER (PARTITION BY id) FROM table"),
             exp.AnonymousAggFunc,
@@ -1906,3 +1933,24 @@ LIFETIME(MIN 0 MAX 0)""",
         for stmt in stmts:
             with self.subTest(stmt):
                 self.validate_identity(stmt)
+
+    def test_refreshable_materialized_view(self):
+        statements = [
+            "CREATE MATERIALIZED VIEW v REFRESH EVERY 30 SECOND AS SELECT 1",
+            "CREATE MATERIALIZED VIEW v REFRESH AFTER 5 MINUTE AS SELECT 1",
+            "CREATE MATERIALIZED VIEW v REFRESH DEPENDS ON db.x, db.y APPEND TO db.t AS SELECT 1",
+            "CREATE MATERIALIZED VIEW v ON CLUSTER '{cluster}' REFRESH EVERY 1 MONTH OFFSET 5 DAY 2 HOUR RANDOMIZE FOR 1 HOUR DEPENDS ON db.x, db.y SETTINGS refresh_retries = 5 APPEND TO db.t AS SELECT 1",
+            "CREATE MATERIALIZED VIEW v REFRESH EVERY 1 HOUR (id UInt64) AS SELECT 1 AS id",
+            "CREATE MATERIALIZED VIEW v REFRESH DEPENDS ON dep (id UInt64) AS SELECT 1",
+        ]
+
+        for statement in statements:
+            with self.subTest(statement):
+                self.validate_identity(statement).assert_is(exp.Create)
+
+        self.validate_identity("CREATE MATERIALIZED VIEW v TO db.t AS SELECT 1").assert_is(
+            exp.Create
+        )
+        self.validate_identity(
+            "CREATE MATERIALIZED VIEW v REFRESH AS SELECT 1", check_command_warning=True
+        ).assert_is(exp.Command)

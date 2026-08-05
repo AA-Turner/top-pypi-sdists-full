@@ -22,6 +22,33 @@
 #include <Python.h>
 #include <structmember.h>
 
+#if PY_VERSION_HEX >= 0x030D0000 && defined(Py_GIL_DISABLED)
+#define CAIO_BEGIN_CRITICAL_SECTION(object) \
+    PyCriticalSection caio_critical_section; \
+    PyCriticalSection_Begin( \
+        &caio_critical_section, (PyObject *)(object) \
+    )
+#define CAIO_END_CRITICAL_SECTION() \
+    PyCriticalSection_End(&caio_critical_section)
+#else
+#define CAIO_BEGIN_CRITICAL_SECTION(object)
+#define CAIO_END_CRITICAL_SECTION()
+#endif
+
+#define CAIO_ATOMIC_LOAD(value) \
+    __atomic_load_n(&(value), __ATOMIC_ACQUIRE)
+#define CAIO_ATOMIC_STORE(value, new_value) \
+    __atomic_store_n(&(value), (new_value), __ATOMIC_RELEASE)
+#define CAIO_ATOMIC_LOAD_STORE(value, new_value) \
+    __atomic_exchange_n(&(value), (new_value), __ATOMIC_ACQ_REL)
+
+#if PY_VERSION_HEX >= 0x030D0000 && defined(Py_GIL_DISABLED)
+#define CAIO_DECLARE_FREE_THREADED(module) \
+    PyUnstable_Module_SetGIL((module), Py_MOD_GIL_NOT_USED)
+#else
+#define CAIO_DECLARE_FREE_THREADED(module) 0
+#endif
+
 /* ---- syscall wrappers ---- */
 static inline int io_uring_setup(uint32_t entries, struct io_uring_params *p) {
     return (int) syscall(__NR_io_uring_setup, entries, p);
@@ -117,6 +144,15 @@ static int AIOOperation_clear(AIOOperation *self) {
      * it separately; Py_CLEAR(py_buffer) handles the memory. */
     Py_CLEAR(self->py_buffer);
     return 0;
+}
+
+
+static PyObject *AIOOperation_callback_ref(AIOOperation *self) {
+    PyObject *callback;
+    CAIO_BEGIN_CRITICAL_SECTION(self);
+    callback = Py_XNewRef(self->callback);
+    CAIO_END_CRITICAL_SECTION();
+    return callback;
 }
 
 
@@ -343,7 +379,10 @@ PyDoc_STRVAR(AIOOperation_get_value_docstring,
 static PyObject *AIOOperation_get_value(
     AIOOperation *self, PyObject *args, PyObject *kwds
 ) {
-    if (self->in_progress && !self->done) {
+    if (
+        CAIO_ATOMIC_LOAD(self->in_progress) &&
+        !CAIO_ATOMIC_LOAD(self->done)
+    ) {
         PyErr_SetString(
             PyExc_RuntimeError,
             "get_value() is not available while the operation is in flight"
@@ -389,21 +428,29 @@ PyDoc_STRVAR(AIOOperation_set_callback_docstring,
 static PyObject *AIOOperation_set_callback(
     AIOOperation *self, PyObject *callback
 ) {
+    PyObject *old_callback;
+
     if (!PyCallable_Check(callback)) {
         PyErr_Format(PyExc_ValueError, "object %r is not callable", callback);
         return NULL;
     }
 
     Py_INCREF(callback);
-    Py_XDECREF(self->callback);
+    CAIO_BEGIN_CRITICAL_SECTION(self);
+    old_callback = self->callback;
     self->callback = callback;
+    CAIO_END_CRITICAL_SECTION();
+    Py_XDECREF(old_callback);
 
     Py_RETURN_TRUE;
 }
 
 
 static PyObject *AIOOperation_payload_getter(AIOOperation *self, void *closure) {
-    if (self->in_progress && !self->done) {
+    if (
+        CAIO_ATOMIC_LOAD(self->in_progress) &&
+        !CAIO_ATOMIC_LOAD(self->done)
+    ) {
         PyErr_SetString(
             PyExc_RuntimeError,
             "payload is not available while the operation is in flight"
@@ -657,7 +704,8 @@ static int AIOContext_init(AIOContext *self, PyObject *args, PyObject *kwds) {
         params.flags = flag_table[i];
         if (params.flags & IORING_SETUP_SQPOLL)
             params.sq_thread_idle = 100;  /* ms; let kthread sleep when idle */
-        self->uring_fd = io_uring_setup(self->max_requests, &params);
+        /* +1: SQPOLL dequeue lag headroom */
+        self->uring_fd = io_uring_setup(self->max_requests + 1, &params);
         if (self->uring_fd >= 0) {
             flags_used = params.flags;
             break;
@@ -808,6 +856,8 @@ static PyObject *AIOContext_repr(AIOContext *self) {
  * callbacks afterward removes the race entirely.
  */
 static int uring_drain_cq(AIOContext *self, uint32_t max) {
+    CAIO_BEGIN_CRITICAL_SECTION(self);  /* released before any callback runs */
+
     uint32_t head = __atomic_load_n(self->cq_head, __ATOMIC_RELAXED);
     uint32_t tail = __atomic_load_n(self->cq_tail, __ATOMIC_ACQUIRE);
     uint32_t mask = *self->cq_ring_mask;
@@ -823,6 +873,7 @@ static int uring_drain_cq(AIOContext *self, uint32_t max) {
         if (ops == NULL || results == NULL) {
             PyMem_Free(ops);
             PyMem_Free(results);
+            CAIO_END_CRITICAL_SECTION();
             PyErr_NoMemory();
             return -1;
         }
@@ -844,14 +895,14 @@ static int uring_drain_cq(AIOContext *self, uint32_t max) {
          * done touching anything for this op, so there's no more reason
          * to keep the Context alive on its behalf. */
         AIOOperation *op = (AIOOperation *)(uintptr_t) cqe->user_data;
-        Py_CLEAR(op->context);
-        op->done = 1;
         op->result = cqe->res;
         if (cqe->res < 0) {
             op->error = -cqe->res;
         } else if (op->opcode == URING_READ) {
             op->buf_size = cqe->res;
         }
+        Py_CLEAR(op->context);
+        CAIO_ATOMIC_STORE(op->done, 1);
 
         ops[count] = op;
         results[count] = cqe->res;
@@ -861,23 +912,26 @@ static int uring_drain_cq(AIOContext *self, uint32_t max) {
     /* Ring state fully committed - reentrant callers now see this whole
      * batch as already consumed, before a single callback has run. */
     __atomic_store_n(self->cq_head, head, __ATOMIC_RELEASE);
+    CAIO_END_CRITICAL_SECTION();
 
     for (uint32_t i = 0; i < count; i++) {
         AIOOperation *op = ops[i];
+        PyObject *callback = AIOOperation_callback_ref(op);
 
-        if (op->callback != NULL) {
+        if (callback != NULL) {
             PyObject *arg = PyLong_FromLong((long) results[i]);
             if (arg == NULL) {
-                PyErr_WriteUnraisable(op->callback);
+                PyErr_WriteUnraisable(callback);
             } else {
-                PyObject *rv = PyObject_CallOneArg(op->callback, arg);
+                PyObject *rv = PyObject_CallOneArg(callback, arg);
                 Py_DECREF(arg);
                 if (rv == NULL) {
-                    PyErr_WriteUnraisable(op->callback);
+                    PyErr_WriteUnraisable(callback);
                 } else {
                     Py_DECREF(rv);
                 }
             }
+            Py_DECREF(callback);
         }
 
         Py_DECREF(op);
@@ -916,6 +970,8 @@ static PyObject *AIOContext_submit(AIOContext *self, PyObject *args) {
         }
     }
 
+    CAIO_BEGIN_CRITICAL_SECTION(self);  /* serializes tail/SQE writes */
+
     uint32_t tail     = __atomic_load_n(self->sq_tail, __ATOMIC_RELAXED);
     uint32_t head     = __atomic_load_n(self->sq_head, __ATOMIC_ACQUIRE);
     uint32_t mask     = *self->sq_ring_mask;
@@ -925,19 +981,19 @@ static PyObject *AIOContext_submit(AIOContext *self, PyObject *args) {
     for (Py_ssize_t i = 0; i < nr; i++) {
         AIOOperation *op = (AIOOperation *) PyTuple_GET_ITEM(args, i);
 
-        if (op->in_progress)
-            continue;
+        /* Atomic exchange, not check-then-set: two Contexts racing on the same
+         * Operation must not both stage an SQE for it. Claimed up front
+         * so the check-and-set is one atomic step - the exit paths below
+         * that can still skip a freshly-claimed op undo the claim. */
+        if (CAIO_ATOMIC_LOAD_STORE(op->in_progress, 1)) continue;
 
         if ((tail - head) >= capacity) {
-            /* Commit whatever WAS successfully staged earlier in this same
-             * call before returning - those ops already have in_progress=1
-             * and their own Py_INCREF applied, and their SQEs are already
-             * written into the ring buffer; without this they'd be
-             * invisible to the kernel forever (sq_tail never advanced past
-             * them) despite looking submitted from Python's side - stuck
-             * in_progress permanently, no completion ever able to arrive
-             * to clear it, and their reference leaked for good. */
+            /* Not staged - give the claim back. Commit whatever WAS
+             * staged earlier in this call first, or it'd be invisible to
+             * the kernel forever (sq_tail never advanced past it). */
+            CAIO_ATOMIC_STORE(op->in_progress, 0);
             __atomic_store_n(self->sq_tail, tail, __ATOMIC_RELEASE);
+            CAIO_END_CRITICAL_SECTION();
             PyErr_SetString(PyExc_OverflowError, "io_uring SQ ring full");
             return NULL;
         }
@@ -969,6 +1025,9 @@ static PyObject *AIOContext_submit(AIOContext *self, PyObject *args) {
                 sqe->fsync_flags  = IORING_FSYNC_DATASYNC;
                 break;
             default:
+                /* Unrecognized opcode: give the claim back, this op was
+                 * never staged. */
+                CAIO_ATOMIC_STORE(op->in_progress, 0);
                 continue;
         }
 
@@ -976,7 +1035,6 @@ static PyObject *AIOContext_submit(AIOContext *self, PyObject *args) {
             self->sq_array[index] = index;
         tail++;
 
-        op->in_progress = 1;
         Py_INCREF(op);
 
         /* Held only while genuinely in flight (cleared on completion in
@@ -992,6 +1050,7 @@ static PyObject *AIOContext_submit(AIOContext *self, PyObject *args) {
     }
 
     __atomic_store_n(self->sq_tail, tail, __ATOMIC_RELEASE);
+    CAIO_END_CRITICAL_SECTION();
 
     /*
      * Do NOT call io_uring_enter here.  The Python asyncio layer batches
@@ -1088,9 +1147,12 @@ static PyObject *AIOContext_cancel(
             args, kwds, "O!", kwlist, &AIOOperationType, &op))
         return NULL;
 
+    CAIO_BEGIN_CRITICAL_SECTION(self);
+
     uint32_t tail  = __atomic_load_n(self->sq_tail, __ATOMIC_RELAXED);
     uint32_t head  = __atomic_load_n(self->sq_head, __ATOMIC_ACQUIRE);
     if ((tail - head) >= *self->sq_ring_entries) {
+        CAIO_END_CRITICAL_SECTION();
         PyErr_SetString(PyExc_OverflowError, "io_uring SQ ring full");
         return NULL;
     }
@@ -1105,6 +1167,7 @@ static PyObject *AIOContext_cancel(
     if (!self->no_sqarray)
         self->sq_array[index] = index;
     __atomic_store_n(self->sq_tail, tail + 1, __ATOMIC_RELEASE);
+    CAIO_END_CRITICAL_SECTION();
 
     io_uring_enter(self->uring_fd, 1, 0, 0, NULL);
 
@@ -1413,9 +1476,32 @@ PyMODINIT_FUNC PyInit_linux_uring(void) {
     }
     close(probe_fd);
 
+    /* Probe whether SQPOLL is actually usable (kernel + capabilities) -
+     * exposed as SQPOLL_ALLOWED so callers can pick a default without
+     * constructing a real Context just to find out. Context(sqpoll=True)
+     * already falls back gracefully on its own either way (see
+     * flag_table_sqpoll) - this is purely informational. */
+    struct io_uring_params sqpoll_probe;
+    memset(&sqpoll_probe, 0, sizeof(sqpoll_probe));
+    sqpoll_probe.flags = IORING_SETUP_SQPOLL;
+    sqpoll_probe.sq_thread_idle = 100;
+    int sqpoll_probe_fd = io_uring_setup(1, &sqpoll_probe);
+    int sqpoll_allowed = sqpoll_probe_fd >= 0;
+    if (sqpoll_probe_fd >= 0)
+        close(sqpoll_probe_fd);
+
     PyObject *m = PyModule_Create(&linux_uring_module);
     if (m == NULL)
         return NULL;
+    if (CAIO_DECLARE_FREE_THREADED(m) < 0) {
+        Py_DECREF(m);
+        return NULL;
+    }
+
+    if (PyModule_AddObject(m, "SQPOLL_ALLOWED", PyBool_FromLong(sqpoll_allowed)) < 0) {
+        Py_DECREF(m);
+        return NULL;
+    }
 
     if (PyType_Ready(&AIOContextType)   < 0) return NULL;
     if (PyType_Ready(&AIOOperationType) < 0) return NULL;

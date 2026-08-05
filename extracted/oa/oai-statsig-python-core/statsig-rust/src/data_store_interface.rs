@@ -3,7 +3,7 @@ use std::fmt::Display;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::{hashing::HashUtil, StatsigErr, StatsigOptions};
+use crate::{StatsigErr, StatsigOptions, hashing::HashUtil};
 
 pub enum RequestPath {
     RulesetsV2,

@@ -5,7 +5,7 @@ import json
 import logging
 import os
 import zipfile
-from typing import Iterator, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 from capstone import CS_ARCH_ARM64, CS_ARCH_X86, CS_MODE_32, CS_MODE_64, CS_MODE_LITTLE_ENDIAN, Cs
 
@@ -25,12 +25,13 @@ class SmdaReport:
     abi = None
     base_addr = None
     binary_size = None
-    binweight = None
+    binweight = 0
     bitness = None
     block_locator = None
     buffer = None
     code_areas = None
-    code_sections = None
+    # immutable-by-convention sentinel: __init__ always rebinds this to a fresh list
+    code_sections: List[Any] = []
     component = None
     confidence_threshold = None
     disassembly_errors = None
@@ -52,7 +53,8 @@ class SmdaReport:
     status = None
     timestamp = None
     version = None
-    xcfg = None
+    # likewise a sentinel only; every construction path assigns a fresh dict below
+    xcfg: Dict[int, "SmdaFunction"] = {}
     xheader = None
     pe_header_hash = None
     data_refs_from = None
@@ -77,6 +79,8 @@ class SmdaReport:
         # likewise keep xmetadata serializable on reports without a disassembly
         # (it has no class-level default), so toDict()/toFile() never raise.
         self.xmetadata = {}
+        # never leave this pointing at the shared class-level sentinel
+        self.code_sections = []
         if disassembly is not None:
             self.architecture = disassembly.binary_info.architecture
             self.abi = disassembly.binary_info.abi
@@ -193,6 +197,14 @@ class SmdaReport:
         block = self.block_locator.findBlockByContainedAddress(inner_address)
         return block
 
+    def __getstate__(self):
+        # the capstone singleton holds ctypes pointers and cannot be pickled; the class-level
+        # default makes attribute lookup fall through to None after unpickling, so getCapstone()
+        # simply re-creates it on demand
+        state = self.__dict__.copy()
+        state.pop("capstone", None)
+        return state
+
     def getCapstone(self):
         if self.capstone is None:
             if self.architecture is not None and self.architecture not in ("intel", "aarch64"):
@@ -234,7 +246,8 @@ class SmdaReport:
                 return section
 
     def isAddrWithinMemoryImage(self, offset):
-        return self.base_addr <= offset < self.base_addr + self.binary_size
+        base_addr = self.base_addr or 0
+        return base_addr <= offset < base_addr + (self.binary_size or 0)
 
     def initCodeXrefs(self):
         if not self._has_codexrefs:
@@ -451,7 +464,9 @@ class SmdaReport:
             LOGGER.info(f"SmdaReport saved to: {output_filepath}")
 
     def __str__(self):
+        duration = f"{self.execution_time:>6.3f}s" if self.execution_time is not None else "     ?s"
         if self.status == "error":
-            return f"{self.execution_time:>6.3f}s -> {self.message}"
+            return f"{duration} -> {self.message}"
         arch_str = f"{self.architecture}.{self.bitness}bit" if self.bitness else self.architecture
-        return f"{self.execution_time:>6.3f}s -> (architecture: {arch_str}, base_addr: 0x{self.base_addr:08x}): {len(self.xcfg)} functions"
+        base_addr = f"0x{self.base_addr:08x}" if self.base_addr is not None else "0x????????"
+        return f"{duration} -> (architecture: {arch_str}, base_addr: {base_addr}): {len(self.xcfg)} functions"

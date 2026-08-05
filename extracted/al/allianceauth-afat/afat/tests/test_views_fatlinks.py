@@ -1185,7 +1185,7 @@ class TestAjaxGetFatsByFatlink(FatlinksViewTestCase):
 
         # Create a mock Fat object with realistic attributes
         class MockFat:
-            id = 1
+            pk = 1
             shiptype = "Omen"
             system = "Jita"
 
@@ -1214,7 +1214,7 @@ class TestAjaxGetFatsByFatlink(FatlinksViewTestCase):
 
         # Mock the convert_fats_to_dict function to return a JSON-serializable dictionary
         mock_convert_fats_to_dict.return_value = {
-            "id": mock_fat.id,
+            "id": mock_fat.pk,
             "character": mock_fat.character.character_name,
             "shiptype": mock_fat.shiptype,
         }

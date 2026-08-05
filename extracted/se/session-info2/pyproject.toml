@@ -8,13 +8,11 @@ readme = "README.md"
 keywords = [ "jupyter", "session-info" ]
 license = "MPL-2.0"
 authors = [ { name = "Philipp A.", email = "flying-sheep@web.de" } ]
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
@@ -45,7 +43,7 @@ test = [
 docs = [
   "click>=8.3.1",
   "furo",
-  "hatch",
+  "hatch @ git+https://github.com/pypa/hatch.git@af5339a1a5bb8e6d4b659c4c1bfff8e7e37cdaff",
   "ipywidgets",
   "myst-nb>=1.3",
   "session-info2[notebook]",
@@ -61,23 +59,31 @@ notebook = [
 ]
 
 [tool.hatch]
+version.source = "vcs"
+metadata.hooks.docstring-description = {}
 envs.default.installer = "uv"
-envs.docs.dependency-groups = [ "docs" ]
 envs.docs.scripts.build = "sphinx-build -W --keep-going -b html docs docs/_build/html {args}"
-envs.docs.scripts.open = "python3 -m webbrowser -t docs/_build/html/index.html"
 envs.docs.scripts.clean = "git clean -fdX -- {args:docs}"
+envs.docs.scripts.open = "python3 -m webbrowser -t docs/_build/html/index.html"
+envs.docs.dependency-groups = [ "docs" ]
+envs.hatch-test.extra-dependencies = [ "pyinstrument" ]
+envs.hatch-test.matrix = [
+  { python = [
+    "3.14",
+    "3.12",
+  ], deps = [
+    "all",
+    "min",
+  ] },
+]
+envs.hatch-test.overrides.matrix.deps.features = [
+  { value = "jupyter", if = [ "all" ] },
+]
 envs.hatch-test.default-args = []
 envs.hatch-test.dependency-groups = [ "test" ]
-envs.hatch-test.extra-dependencies = [ "pyinstrument" ]
-envs.hatch-test.overrides.matrix.deps.features = [
-  { if = [ "all" ], value = "jupyter" },
-]
-envs.hatch-test.matrix = [ { python = [ "3.14", "3.10" ], deps = [ "all", "min" ] } ]
-envs.notebook.dependency-groups = [ "notebook" ]
 envs.notebook.extra-dependencies = [ "ipykernel" ]
 envs.notebook.scripts.install-kernel = "python -m ipykernel install --user --name=session-info2 --display-name=session-info2 --env COLUMNS 110"
-metadata.hooks.docstring-description = {}
-version.source = "vcs"
+envs.notebook.dependency-groups = [ "notebook" ]
 
 [tool.ruff]
 lint.select = [ "ALL" ]
@@ -120,33 +126,40 @@ lint.pylint.max-args = 7
 lint.pylint.max-positional-args = 3
 
 [tool.mypy]
-strict = true
-explicit_package_bases = true
 mypy_path = [ "$MYPY_CONFIG_FILE_DIR/stubs", "$MYPY_CONFIG_FILE_DIR/src" ]
+explicit_package_bases = true
+strict = true
 
 [tool.pyright]
 stubPath = "./stubs"
 reportPrivateUsage = false
 
 [tool.pytest]
-strict = true
 addopts = [ "--import-mode=importlib" ]
-asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
+asyncio_mode = "auto"
 filterwarnings = [
   "error",
   "ignore:Jupyter is migrating its paths:DeprecationWarning",
   "ignore:datetime.datetime.utcfromtimestamp:DeprecationWarning:dateutil",
 ]
+strict = true
 
 [tool.coverage]
 run.branch = true
 run.omit = []
 run.parallel = true
 run.source_pkgs = [ "session_info2", "tests" ]
-paths.session_info2 = [ "src/session_info2", "*/session-info2/src/session_info2" ]
+paths.session_info2 = [
+  "src/session_info2",
+  "*/session-info2/src/session_info2",
+]
 paths.tests = [ "tests", "*/session-info2/tests" ]
-report.exclude_lines = [ "if __name__ == .__main__.:", "if TYPE_CHECKING:", "no cov" ]
+report.exclude_lines = [
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+  "no cov",
+]
 
 [tool.esbonio]
 sphinx.pythonCommand = [ "hatch", "-e", "docs", "run", "python" ]

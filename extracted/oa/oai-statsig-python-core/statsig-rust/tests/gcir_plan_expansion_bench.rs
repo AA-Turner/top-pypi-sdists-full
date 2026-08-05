@@ -1,6 +1,7 @@
 use std::time::Instant;
 
 use statsig_rust::{
+    ClientInitResponseOptions, HashAlgorithm, StatsigUser,
     evaluation::evaluator_context::{EvaluatorContext, IdListResolution},
     gcir::{
         evaluation_plan::GcirEvaluationPlan,
@@ -10,7 +11,6 @@ use statsig_rust::{
     hashing::HashUtil,
     specs_response::spec_types::SpecsResponseFull,
     user::StatsigUserInternal,
-    ClientInitResponseOptions, HashAlgorithm, StatsigUser,
 };
 
 #[test]

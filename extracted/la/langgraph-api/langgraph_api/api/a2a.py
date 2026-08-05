@@ -28,6 +28,7 @@ from langgraph_api import __version__
 from langgraph_api.metadata import USER_API_URL
 from langgraph_api.route import ApiRequest, ApiRoute
 from langgraph_api.schema import RunCommand
+from langgraph_api.serde import json_dumpb
 from langgraph_api.sse import EventSourceResponse
 from langgraph_api.utils.cache import LRUCache
 from langgraph_api.utils.uuids import uuid7
@@ -121,6 +122,22 @@ def _normalize_input_role(role: str) -> str:
     return _ROLE_LEGACY_TO_V1.get(role, role)
 
 
+def _validate_history_length(history_length: Any) -> str | None:
+    """Return an error message when an A2A historyLength is invalid."""
+
+    if history_length is None:
+        return None
+    if (
+        not isinstance(history_length, int)
+        or isinstance(history_length, bool)
+        or history_length < 0
+    ):
+        return "historyLength must be a non-negative integer"
+    if history_length > MAX_HISTORY_LENGTH_REQUESTED:
+        return f"historyLength cannot exceed {MAX_HISTORY_LENGTH_REQUESTED}"
+    return None
+
+
 def _to_spec_format(data: Any) -> Any:
     """Recursively convert internal roles/states to A2A spec format.
 
@@ -144,6 +161,17 @@ def _to_spec_format(data: Any) -> Any:
     if isinstance(data, list):
         return [_to_spec_format(item) for item in data]
     return data
+
+
+def _serialize_a2a_sse_payload(data: Any) -> bytes:
+    """Serialize one A2A SSE payload without exposing Unicode line boundaries."""
+
+    return (
+        json_dumpb(data)
+        .replace(b"\xc2\x85", b"\\u0085")
+        .replace(b"\xe2\x80\xa8", b"\\u2028")
+        .replace(b"\xe2\x80\xa9", b"\\u2029")
+    )
 
 
 @functools.lru_cache(maxsize=1)
@@ -212,9 +240,9 @@ async def _validate_supports_messages(
     headers: Headers | dict[str, Any] | None,
     parts: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Validate that assistant supports messages if text parts are present.
+    """Validate that assistant supports messages if text or file parts are present.
 
-    If the parts contain text parts, the agent must support the 'messages' field.
+    If the parts contain text or file parts, the agent must support the 'messages' field.
     If the parts only contain data parts, no validation is performed.
 
     Args:
@@ -226,7 +254,7 @@ async def _validate_supports_messages(
         The schemas dictionary from the assistant
 
     Raises:
-        ValueError: If assistant doesn't support messages when text parts are present
+        ValueError: If assistant doesn't support messages when text or file parts are present
     """
     assistant_id = assistant["assistant_id"]
 
@@ -244,14 +272,16 @@ async def _validate_supports_messages(
                 f"Failed to get schemas for assistant '{assistant_id}': {e}"
             ) from e
 
-    # Validate messages field only if there are text parts
-    has_text_parts = any("text" in part for part in parts)
-    if has_text_parts:
+    # Validate messages field only if there are text or file parts
+    has_message_parts = any(
+        ("text" in part) or ("file" in part) for part in parts if isinstance(part, dict)
+    )
+    if has_message_parts:
         input_schema = schemas.get("input_schema") or schemas.get("state_schema")
         if not input_schema:
             raise ValueError(
                 f"Assistant '{assistant_id}' has no input schema defined. "
-                f"A2A conversational agents using text parts must have an input schema with a 'messages' field."
+                f"A2A conversational agents using text or file parts must have an input schema with a 'messages' field."
             )
 
         properties = input_schema.get("properties", {})
@@ -259,7 +289,7 @@ async def _validate_supports_messages(
             graph_id = assistant["graph_id"]
             raise ValueError(
                 f"Assistant '{assistant_id}' (graph '{graph_id}') does not support A2A conversational messages. "
-                f"Graph input schema must include a 'messages' field to accept text parts. "
+                f"Graph input schema must include a 'messages' field to accept text or file parts. "
                 f"Available input fields: {list(properties.keys())}"
             )
 
@@ -426,6 +456,42 @@ async def _maybe_promote_resume_to_command(
     return {"resume": resume_value}, None, input_content
 
 
+def _mime_to_block_type(mime_type: str | None) -> str:
+    """Map a MIME type to a LangChain multimodal content-block type."""
+    if isinstance(mime_type, str):
+        top = mime_type.split("/", 1)[0].strip().lower()
+        if top in ("image", "audio", "video"):
+            return top
+    return "file"
+
+
+def _a2a_file_part_to_content_block(part: dict[str, Any]) -> dict[str, Any]:
+    """Convert an A2A FilePart to a LangChain multimodal content block.
+
+    URI values are passed through as ``url`` and are never fetched server-side
+    (SSRF safety).
+    """
+    file_obj = part.get("file")
+    if not isinstance(file_obj, dict):
+        raise ValueError("FilePart must contain a 'file' object with 'bytes' or 'uri'.")
+    data_b64, uri = file_obj.get("bytes"), file_obj.get("uri")
+    if data_b64 is None and uri is None:
+        raise ValueError("FilePart 'file' must contain either 'bytes' or 'uri'.")
+    if data_b64 is not None and uri is not None:
+        raise ValueError("FilePart 'file' must contain only one of 'bytes' or 'uri'.")
+    mime_type = file_obj.get("mimeType")
+    block: dict[str, Any] = {"type": _mime_to_block_type(mime_type)}
+    if data_b64 is not None:
+        block["base64"] = data_b64
+    else:
+        block["url"] = uri
+    if mime_type:
+        block["mime_type"] = mime_type
+    if file_obj.get("name"):
+        block["extras"] = {"filename": file_obj["name"]}
+    return block
+
+
 def _process_a2a_message_parts(
     parts: list[dict[str, Any]],
     message_role: str,
@@ -433,9 +499,13 @@ def _process_a2a_message_parts(
 ) -> dict[str, Any]:
     """Convert A2A message parts to LangChain messages format.
 
+    Text-only messages keep today's per-part string content. When any file part
+    is present, emit one consolidated message whose ``content`` is an ordered
+    list of LangChain content blocks (text + file/image/audio/video).
+
     Args:
         parts: List of A2A message parts
-        message_role: A2A message role ("user" or "agent")
+        message_role: A2A message role ("ROLE_USER" or "ROLE_AGENT")
 
     Returns:
         Input content with messages in LangChain format
@@ -445,15 +515,38 @@ def _process_a2a_message_parts(
     """
     messages = []
     additional_data = {}
+    content_blocks: list[dict[str, Any]] = []
+    has_file_parts = any(isinstance(part, dict) and "file" in part for part in parts)
+    langgraph_role = "human" if message_role == "ROLE_USER" else "assistant"
 
     for part in parts:
-        if "text" in part:
-            # Text parts become messages with role based on A2A message role
-            # Map A2A role to LangGraph role
-            langgraph_role = "human" if message_role == "ROLE_USER" else "assistant"
-            messages.append(
-                {"role": langgraph_role, "content": part["text"], "id": message_id}
+        if not isinstance(part, dict):
+            raise ValueError(
+                "Each message part must be an object. "
+                "A2A agents support 'text', 'data', and 'file' parts only."
             )
+
+        present_keys = [k for k in ("text", "file", "data") if k in part]
+        if len(present_keys) > 1:
+            raise ValueError(
+                "Each message part must contain exactly one of 'text', 'file', or 'data'. "
+                f"Got multiple: {present_keys}."
+            )
+
+        if "text" in part:
+            if has_file_parts:
+                content_blocks.append({"type": "text", "text": part["text"]})
+            else:
+                messages.append(
+                    {
+                        "role": langgraph_role,
+                        "content": part["text"],
+                        "id": message_id,
+                    }
+                )
+
+        elif "file" in part:
+            content_blocks.append(_a2a_file_part_to_content_block(part))
 
         elif "data" in part:
             # Data parts become structured input parameters
@@ -467,11 +560,22 @@ def _process_a2a_message_parts(
         else:
             raise ValueError(
                 "Unsupported part type. "
-                "A2A agents support 'text' and 'data' parts only."
+                "A2A agents support 'text', 'data', and 'file' parts only."
             )
 
+    if has_file_parts:
+        messages.append(
+            {
+                "role": langgraph_role,
+                "content": content_blocks,
+                "id": message_id,
+            }
+        )
+
     if not messages and not additional_data:
-        raise ValueError("Message must contain at least one valid text or data part")
+        raise ValueError(
+            "Message must contain at least one valid text, data, or file part"
+        )
 
     # Create input with messages in LangChain format
     input_content = {}
@@ -481,6 +585,69 @@ def _process_a2a_message_parts(
         input_content.update(additional_data)
 
     return input_content
+
+
+_USER_MESSAGE_TYPES = {"human", "humanmessage", "humanmessagechunk"}
+_AGENT_MESSAGE_TYPES = {"ai", "aimessage", "aimessagechunk"}
+_ROLE_DEFINED_MESSAGE_TYPES = {"chat", "chatmessage", "chatmessagechunk"}
+_USER_MESSAGE_ROLES = {"human", "user"}
+_AGENT_MESSAGE_ROLES = {"agent", "assistant"}
+
+
+def _normalize_message_label(value: Any) -> str:
+    if not isinstance(value, str):
+        return ""
+    return value.lower().replace("_", "").replace("-", "")
+
+
+def _a2a_role_for_message(
+    message: dict[str, Any],
+) -> Literal["ROLE_AGENT", "ROLE_USER"] | None:
+    """Map public LangChain messages to A2A roles and reject internals."""
+
+    message_type = _normalize_message_label(message.get("type"))
+    message_role = _normalize_message_label(message.get("role"))
+    type_role: Literal["ROLE_AGENT", "ROLE_USER"] | None = None
+    role_role: Literal["ROLE_AGENT", "ROLE_USER"] | None = None
+    if message_type:
+        if message_type in _USER_MESSAGE_TYPES:
+            type_role = "ROLE_USER"
+        elif message_type in _AGENT_MESSAGE_TYPES:
+            type_role = "ROLE_AGENT"
+        elif message_type in _ROLE_DEFINED_MESSAGE_TYPES:
+            pass
+        else:
+            return None
+    if message_role:
+        if message_role in _USER_MESSAGE_ROLES:
+            role_role = "ROLE_USER"
+        elif message_role in _AGENT_MESSAGE_ROLES:
+            role_role = "ROLE_AGENT"
+        else:
+            return None
+    if type_role is not None and role_role is not None and type_role != role_role:
+        return None
+    return type_role or role_role
+
+
+def _content_to_text(content: Any) -> str:
+    """Convert public LangChain message content to A2A text."""
+
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        text_parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                text_parts.append(block)
+            elif isinstance(block, dict) and block.get("type") == "text":
+                text = block.get("text")
+                if isinstance(text, str):
+                    text_parts.append(text)
+        return "".join(text_parts)
+    if content is None:
+        return ""
+    return str(content)
 
 
 def _extract_a2a_response(result: dict[str, Any]) -> str:
@@ -510,19 +677,14 @@ def _extract_a2a_response(result: dict[str, Any]) -> str:
 
     # Find the last assistant message
     for message in reversed(messages):
-        if (
-            isinstance(message, dict)
-            and message.get("role") == "assistant"
-            and "content" in message
-        ) or (message.get("type") == "ai" and "content" in message):
-            return message["content"]
+        if not isinstance(message, dict):
+            continue
+        if _a2a_role_for_message(message) == "ROLE_AGENT" and "content" in message:
+            text = _content_to_text(message["content"])
+            if text:
+                return text
 
-    # If no assistant message found, return the last message content
-    last_message = messages[-1]
-    if isinstance(last_message, dict):
-        return last_message.get("content", str(last_message))
-
-    return str(last_message)
+    return ""
 
 
 def _create_interrupt_artifact(interrupts: list[dict[str, Any]]) -> dict[str, Any]:
@@ -552,20 +714,45 @@ def _create_interrupt_artifact(interrupts: list[dict[str, Any]]) -> dict[str, An
     }
 
 
-def _tool_result_data(it: dict[str, Any]) -> dict[str, Any] | None:
-    tool_call_id = it.get("tool_call_id")
-    if not isinstance(tool_call_id, str) or not tool_call_id:
-        return None
+def _create_response_artifact(text: str, assistant_id: str) -> dict[str, Any]:
+    """Create an A2A artifact carrying the agent's final response text.
 
-    result: dict[str, Any] = {"toolCallId": tool_call_id}
-    content = it.get("content")
-    if content not in (None, ""):
-        result["content"] = content
-    for key in ("name", "status"):
-        value = it.get(key)
-        if isinstance(value, str) and value:
-            result[key] = value
-    return result
+    Shared by ``message/send`` and ``message/stream`` so both paths return the
+    same first-class Artifact shape. Per A2A spec section 3.7, task outputs
+    SHOULD be returned via Artifacts rather than embedded in a status Message.
+
+    Args:
+        text: The final response text (from ``_extract_a2a_response``).
+        assistant_id: The assistant ID, used only for the description.
+
+    Returns:
+        A2A artifact dict with a single text part.
+    """
+    return {
+        "artifactId": str(uuid.uuid4()),
+        "name": "Assistant Response",
+        "description": f"Response from assistant {assistant_id}",
+        "parts": [{"kind": "text", "text": text}],
+    }
+
+
+def _create_response_artifact_update(
+    *,
+    task_id: str,
+    context_id: str,
+    text: str,
+    assistant_id: str,
+) -> dict[str, Any]:
+    """Create a final streaming update containing the response artifact."""
+
+    return {
+        "taskId": task_id,
+        "contextId": context_id,
+        "kind": "artifact-update",
+        "artifact": _create_response_artifact(text, assistant_id),
+        "append": False,
+        "lastChunk": True,
+    }
 
 
 def _lc_stream_items_to_a2a_message(
@@ -579,7 +766,7 @@ def _lc_stream_items_to_a2a_message(
 
     This takes the list found in a messages/* StreamPart's data field and
     constructs a single A2A Message object, concatenating textual content and
-    preserving select structured metadata into a DataPart.
+    omitting internal system/tool messages and metadata.
 
     Args:
         items: List of LangChain message dicts from stream (e.g., with keys like
@@ -593,42 +780,16 @@ def _lc_stream_items_to_a2a_message(
     """
     # Aggregate any text content across items
     text_parts: list[str] = []
-    # Collect a small amount of structured data for debugging/traceability
-    extra_data: dict[str, Any] = {}
-
-    def _sse_safe_text(s: str) -> str:
-        return s.replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
-
     for it in items:
-        if not isinstance(it, dict):
+        if not isinstance(it, dict) or _a2a_role_for_message(it) is None:
             continue
-        content = it.get("content")
-        if isinstance(content, str) and content:
-            text_parts.append(_sse_safe_text(content))
-        elif isinstance(content, list):
-            # Handle Anthropic-style content blocks: [{"type": "text", "text": "..."}]
-            for block in content:
-                if isinstance(block, dict) and block.get("type") == "text":
-                    text = block.get("text", "")
-                    if text:
-                        text_parts.append(_sse_safe_text(text))
-                elif isinstance(block, str) and block:
-                    text_parts.append(_sse_safe_text(block))
-
-        # Only preserve tool_calls as structured data — response_metadata is
-        # internal LangChain metadata that should not leak to A2A clients.
-        tc = it.get("tool_calls")
-        if isinstance(tc, list) and tc:
-            extra_data.setdefault("tool_calls", tc)
-        tool_result = _tool_result_data(it)
-        if tool_result is not None:
-            extra_data.setdefault("tool_results", []).append(tool_result)
+        text = _content_to_text(it.get("content"))
+        if text:
+            text_parts.append(text)
 
     parts: list[dict[str, Any]] = []
     if text_parts:
         parts.append({"kind": "text", "text": "".join(text_parts)})
-    if extra_data:
-        parts.append({"kind": "data", "data": extra_data})
 
     # Ensure we always produce a minimally valid A2A Message
     if not parts:
@@ -799,6 +960,8 @@ def _convert_messages_to_a2a_format(
     messages: list[dict[str, Any]],
     task_id: str,
     context_id: str,
+    *,
+    history_length: int | None = None,
 ) -> list[dict[str, Any]]:
     """Convert LangChain messages to A2A message format.
 
@@ -806,6 +969,7 @@ def _convert_messages_to_a2a_format(
         messages: List of LangChain messages
         task_id: The task ID to assign to all messages
         context_id: The context ID to assign to all messages
+        history_length: Maximum number of visible A2A messages to return.
 
     Returns:
         List of A2A messages
@@ -815,41 +979,31 @@ def _convert_messages_to_a2a_format(
     a2a_messages = []
     for msg in messages:
         if isinstance(msg, dict):
-            msg_type = msg.get("type", "ai")
-            msg_role = msg.get("role", "")
+            a2a_role = _a2a_role_for_message(msg)
+            if a2a_role is None:
+                continue
+
             content = msg.get("content", "")
             id = msg.get("id") or str(uuid7())
-
-            # Support both LangChain style (type: "human"/"ai") and OpenAI style (role: "user"/"assistant")
-            # Map to A2A roles: "human"/"user" -> "ROLE_USER", everything else -> "ROLE_AGENT"
-            a2a_role = (
-                "ROLE_USER"
-                if msg_type == "human" or msg_role == "user"
-                else "ROLE_AGENT"
-            )
-
-            parts: list[dict[str, Any]] = [{"kind": "text", "text": str(content)}]
-            extra_data: dict[str, Any] = {}
-            tc = msg.get("tool_calls")
-            if isinstance(tc, list) and tc:
-                extra_data["tool_calls"] = tc
-            tool_result = _tool_result_data(msg)
-            if tool_result is not None:
-                extra_data["tool_results"] = [tool_result]
-            if extra_data:
-                parts.append({"kind": "data", "data": extra_data})
+            text = _content_to_text(content)
+            if a2a_role == "ROLE_AGENT" and not text:
+                continue
 
             a2a_message = {
                 "kind": "message",
                 "role": a2a_role,
-                "parts": parts,
+                "parts": [{"kind": "text", "text": text}],
                 "messageId": id,
                 "taskId": task_id,
                 "contextId": context_id,
             }
             a2a_messages.append(a2a_message)
 
-    return a2a_messages
+    if history_length is None:
+        return a2a_messages
+    if history_length == 0:
+        return []
+    return a2a_messages[-history_length:]
 
 
 async def _create_task_response(
@@ -857,30 +1011,36 @@ async def _create_task_response(
     context_id: str,
     result: dict[str, Any],
     assistant_id: str,
+    history_length: int | None = None,
 ) -> dict[str, Any]:
     """Create A2A Task response structure for both success and failure cases.
 
     Args:
         task_id: The task/run ID
         context_id: The context/thread ID
-        message: Original A2A message from request
         result: LangGraph execution result
         assistant_id: The assistant ID used
-        headers: Request headers
+        history_length: Maximum public history messages to include.
 
     Returns:
         A2A Task response dictionary
     """
     # Convert result messages to A2A message format
     messages = result.get("messages", []) or []
-    thread_history = _convert_messages_to_a2a_format(messages, task_id, context_id)
+    thread_history = _convert_messages_to_a2a_format(
+        messages,
+        task_id,
+        context_id,
+        history_length=history_length,
+    )
 
     base_task: dict[str, Any] = {
         "kind": "task",
         "id": task_id,
         "contextId": context_id,
-        "history": thread_history,
     }
+    if history_length != 0:
+        base_task["history"] = thread_history
 
     if "__error__" in result:
         base_task["status"] = {
@@ -906,26 +1066,13 @@ async def _create_task_response(
         }
         base_task["artifacts"] = [_create_interrupt_artifact(result["__interrupt__"])]
     else:
-        artifact_id = str(uuid.uuid4())
-        artifacts = [
-            {
-                "artifactId": artifact_id,
-                "name": "Assistant Response",
-                "description": f"Response from assistant {assistant_id}",
-                "parts": [
-                    {
-                        "kind": "text",
-                        "text": _extract_a2a_response(result),
-                    }
-                ],
-            }
-        ]
-
         base_task["status"] = {
             "state": "TASK_STATE_COMPLETED",
             "timestamp": datetime.now(UTC).isoformat(),
         }
-        base_task["artifacts"] = artifacts
+        base_task["artifacts"] = [
+            _create_response_artifact(_extract_a2a_response(result), assistant_id)
+        ]
 
     return {"result": {"task": base_task}}
 
@@ -1248,6 +1395,25 @@ async def handle_message_send(
     run_context = params.get("context")
 
     try:
+        configuration = params.get("configuration")
+        if configuration is None:
+            configuration = {}
+        if not isinstance(configuration, dict):
+            return {
+                "error": {
+                    "code": ERROR_CODE_INVALID_PARAMS,
+                    "message": "Invalid params: 'configuration' must be an object",
+                }
+            }
+        history_length = configuration.get("historyLength")
+        if history_error := _validate_history_length(history_length):
+            return {
+                "error": {
+                    "code": ERROR_CODE_INVALID_PARAMS,
+                    "message": history_error,
+                }
+            }
+
         message = params.get("message")
         if not message:
             return {
@@ -1387,6 +1553,7 @@ async def handle_message_send(
             context_id=context_id,
             result=result,
             assistant_id=assistant_id,
+            history_length=history_length,
         )
 
     except Exception:
@@ -1403,7 +1570,6 @@ async def _get_historical_messages_for_task(
     context_id: str,
     task_run_id: str,
     request_headers: Headers,
-    history_length: int | None = None,
 ) -> list[Any]:
     """Get historical messages for a specific task by matching run_id."""
     history = await get_client().threads.get_history(
@@ -1419,13 +1585,7 @@ async def _get_historical_messages_for_task(
             history, key=lambda c: c.get("metadata", {}).get("step", 0)
         )
         values = target_checkpoint["values"]
-        messages = values.get("messages", [])
-
-        # Apply client-requested history length limit per A2A spec
-        if history_length is not None and len(messages) > history_length:
-            # Return the most recent messages up to the limit
-            messages = messages[-history_length:]
-        return messages
+        return values.get("messages", [])
     else:
         return []
 
@@ -1480,22 +1640,13 @@ async def handle_tasks_get(
         # Keep original task_id for A2A response (preserve what was sent/received)
         task_id = task_id_raw
 
-        # Validate history_length parameter per A2A spec
-        if history_length is not None:
-            if not isinstance(history_length, int) or history_length < 0:
-                return {
-                    "error": {
-                        "code": ERROR_CODE_INVALID_PARAMS,
-                        "message": "historyLength must be a non-negative integer",
-                    }
+        if history_error := _validate_history_length(history_length):
+            return {
+                "error": {
+                    "code": ERROR_CODE_INVALID_PARAMS,
+                    "message": history_error,
                 }
-            if history_length > MAX_HISTORY_LENGTH_REQUESTED:
-                return {
-                    "error": {
-                        "code": ERROR_CODE_INVALID_PARAMS,
-                        "message": f"historyLength cannot exceed {MAX_HISTORY_LENGTH_REQUESTED}",
-                    }
-                }
+            }
 
         try:
             # TODO: fix the N+1 query issue
@@ -1540,28 +1691,35 @@ async def handle_tasks_get(
         else:
             a2a_state = "TASK_STATE_SUBMITTED"
 
-        try:
-            task_run_id = run_info.get("run_id")
-            messages = await _get_historical_messages_for_task(
-                context_id, task_run_id, request.headers, history_length
-            )
-            thread_history = _convert_messages_to_a2a_format(
-                messages, task_id, context_id
-            )
-        except Exception as e:
-            await logger.aexception(f"Failed to get thread state for tasks/get: {e}")
-            thread_history = []
+        thread_history = []
+        if history_length != 0:
+            try:
+                task_run_id = run_info.get("run_id")
+                messages = await _get_historical_messages_for_task(
+                    context_id, task_run_id, request.headers
+                )
+                thread_history = _convert_messages_to_a2a_format(
+                    messages,
+                    task_id,
+                    context_id,
+                    history_length=history_length,
+                )
+            except Exception as e:
+                await logger.aexception(
+                    f"Failed to get thread state for tasks/get: {e}"
+                )
 
         # Build the A2A Task response
         task_response: dict[str, Any] = {
             "kind": "task",
             "id": task_id,
             "contextId": context_id,
-            "history": thread_history,
             "status": {
                 "state": a2a_state,
             },
         }
+        if history_length != 0:
+            task_response["history"] = thread_history
 
         # Add result message if completed
         if a2a_state == "TASK_STATE_COMPLETED":
@@ -1782,16 +1940,14 @@ async def handle_list_tasks(
     requested_page_size: int = raw_page_size if raw_page_size is not None else 50
 
     raw_history_length = params.get("historyLength")
-    if raw_history_length is not None and (
-        not isinstance(raw_history_length, int) or raw_history_length < 0
-    ):
+    if history_error := _validate_history_length(raw_history_length):
         return {
             "error": {
                 "code": ERROR_CODE_INVALID_PARAMS,
-                "message": "historyLength must be a non-negative integer.",
+                "message": history_error,
             }
         }
-    history_length: int = raw_history_length if raw_history_length is not None else 0
+    history_length: int | None = raw_history_length
 
     valid_states = {
         "TASK_STATE_SUBMITTED",
@@ -1907,19 +2063,6 @@ async def handle_list_tasks(
                     },
                 }
 
-                if history_length > 0:
-                    try:
-                        messages = await _get_historical_messages_for_task(
-                            tid, run["run_id"], request.headers, history_length
-                        )
-                        task["history"] = _convert_messages_to_a2a_format(
-                            messages, task_id, tid
-                        )
-                    except Exception:
-                        task["history"] = []
-                else:
-                    task["history"] = []
-
                 if not include_artifacts:
                     task["artifacts"] = []
 
@@ -1935,6 +2078,22 @@ async def handle_list_tasks(
         offset = int(page_token) if page_token else 0
 
         page_tasks = all_tasks[offset : offset + requested_page_size]
+        if history_length != 0:
+
+            async def populate_history(task: dict[str, Any]) -> None:
+                _, run_id = _parse_task_id(task["id"])
+                messages = await _get_historical_messages_for_task(
+                    task["contextId"], run_id, request.headers
+                )
+                task["history"] = _convert_messages_to_a2a_format(
+                    messages,
+                    task["id"],
+                    task["contextId"],
+                    history_length=history_length,
+                )
+
+            await asyncio.gather(*(populate_history(task) for task in page_tasks))
+
         next_offset = offset + len(page_tasks)
         next_page_token = str(next_offset) if next_offset < total_size else ""
 
@@ -2396,52 +2555,35 @@ async def handle_message_stream(
                     if chunk.event == "metadata":
                         data = chunk.data or {}
                         if data.get("status") == "run_done":
-                            final_message = None
+                            is_interrupt = (
+                                isinstance(result, dict) and "__interrupt__" in result
+                            )
+                            # Extract the final response text (shared by both
+                            # the completed and interrupt paths).
+                            final_text: str | None = None
                             if isinstance(result, dict):
                                 try:
                                     final_text = _extract_a2a_response(result)
-                                    final_message = {
-                                        "kind": "message",
-                                        "role": "ROLE_AGENT",
-                                        "parts": [{"kind": "text", "text": final_text}],
-                                        "messageId": str(uuid.uuid4()),
-                                        "taskId": task_id,
-                                        "contextId": context_id,
-                                    }
                                 except Exception:
                                     await logger.aexception(
                                         "Failed to extract final message from result",
                                         result=result,
                                     )
-                            if final_message is None:
+                            if final_text is None:
+                                final_text = str(result)
+
+                            if is_interrupt:
+                                # Interrupt path is unchanged: emit the interrupt
+                                # artifact plus an INPUT_REQUIRED status carrying
+                                # the agent's prompt as its message.
                                 final_message = {
                                     "kind": "message",
                                     "role": "ROLE_AGENT",
-                                    "parts": [{"kind": "text", "text": str(result)}],
+                                    "parts": [{"kind": "text", "text": final_text}],
                                     "messageId": str(uuid.uuid4()),
                                     "taskId": task_id,
                                     "contextId": context_id,
                                 }
-                            # Check if result contains an interrupt
-                            final_state = (
-                                "TASK_STATE_INPUT_REQUIRED"
-                                if isinstance(result, dict)
-                                and "__interrupt__" in result
-                                else "TASK_STATE_COMPLETED"
-                            )
-                            completed = {
-                                "taskId": task_id,
-                                "contextId": context_id,
-                                "kind": "status-update",
-                                "status": {
-                                    "state": final_state,
-                                    "message": final_message,
-                                    "timestamp": datetime.now(UTC).isoformat(),
-                                },
-                                "final": True,
-                            }
-                            # Emit interrupt artifact as separate event
-                            if isinstance(result, dict) and "__interrupt__" in result:
                                 yield (
                                     b"message",
                                     {
@@ -2457,9 +2599,62 @@ async def handle_message_stream(
                                         },
                                     },
                                 )
+                                yield (
+                                    b"message",
+                                    {
+                                        "jsonrpc": "2.0",
+                                        "id": rpc_id,
+                                        "result": {
+                                            "taskId": task_id,
+                                            "contextId": context_id,
+                                            "kind": "status-update",
+                                            "status": {
+                                                "state": "TASK_STATE_INPUT_REQUIRED",
+                                                "message": final_message,
+                                                "timestamp": datetime.now(
+                                                    UTC
+                                                ).isoformat(),
+                                            },
+                                            "final": True,
+                                        },
+                                    },
+                                )
+                                return
+
+                            # Completed path: return the produced output as a
+                            # first-class Artifact (A2A spec 3.7), emitted BEFORE
+                            # the terminal status-update. The terminal event is
+                            # output-free (state + timestamp only) so the answer
+                            # is not duplicated into the status "message".
                             yield (
                                 b"message",
-                                {"jsonrpc": "2.0", "id": rpc_id, "result": completed},
+                                {
+                                    "jsonrpc": "2.0",
+                                    "id": rpc_id,
+                                    "result": _create_response_artifact_update(
+                                        task_id=task_id,
+                                        context_id=context_id,
+                                        text=final_text,
+                                        assistant_id=assistant_id,
+                                    ),
+                                },
+                            )
+                            yield (
+                                b"message",
+                                {
+                                    "jsonrpc": "2.0",
+                                    "id": rpc_id,
+                                    "result": {
+                                        "taskId": task_id,
+                                        "contextId": context_id,
+                                        "kind": "status-update",
+                                        "status": {
+                                            "state": "TASK_STATE_COMPLETED",
+                                            "timestamp": datetime.now(UTC).isoformat(),
+                                        },
+                                        "final": True,
+                                    },
+                                },
                             )
                             return
                         # TODO: This should just be sent from the start as well
@@ -2555,6 +2750,32 @@ async def handle_message_stream(
                 },
                 "final": True,
             }
+            # Emit the produced output as an artifact before the terminal event
+            # (mirrors the run_done path). Only when the run completed normally
+            # and we actually captured a result; a degenerate empty exit keeps
+            # its plain terminal status-update.
+            if fallback_state == "TASK_STATE_COMPLETED" and isinstance(result, dict):
+                try:
+                    fallback_text = _extract_a2a_response(result)
+                except Exception:
+                    await logger.aexception(
+                        "Failed to extract final message from result",
+                        result=result,
+                    )
+                    fallback_text = str(result)
+                yield (
+                    b"message",
+                    {
+                        "jsonrpc": "2.0",
+                        "id": rpc_id,
+                        "result": _create_response_artifact_update(
+                            task_id=task_id,
+                            context_id=context_id,
+                            text=fallback_text,
+                            assistant_id=assistant_id,
+                        ),
+                    },
+                )
             # Emit interrupt artifact as separate event
             if isinstance(result, dict) and "__interrupt__" in result:
                 yield (
@@ -2593,11 +2814,10 @@ async def handle_message_stream(
     spec_format = getattr(request.state, "a2a_spec_format", False)
 
     async def consume_():
-        async for chunk in stream_body():
+        async for event_type, data in stream_body():
             if spec_format:
-                event_type, data = chunk
                 data = _to_spec_format(data)
-                chunk = (event_type, data)
+            chunk = (event_type, _serialize_a2a_sse_payload(data))
             await logger.adebug("A2A.stream_body: Yielding chunk", chunk=chunk)
             yield chunk
 

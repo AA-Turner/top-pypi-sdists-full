@@ -4,18 +4,18 @@
 {
     "distutils": {
         "depends": [
-            "/tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/_core/include/numpy/arrayobject.h",
-            "/tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/_core/include/numpy/arrayscalars.h",
-            "/tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/_core/include/numpy/ndarrayobject.h",
-            "/tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/_core/include/numpy/ndarraytypes.h",
-            "/tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/_core/include/numpy/ufuncobject.h"
+            "/tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/_core/include/numpy/arrayobject.h",
+            "/tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/_core/include/numpy/arrayscalars.h",
+            "/tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/_core/include/numpy/ndarrayobject.h",
+            "/tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/_core/include/numpy/ndarraytypes.h",
+            "/tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/_core/include/numpy/ufuncobject.h"
         ],
         "include_dirs": [
             "/home/runner/work/joulescope_driver/joulescope_driver/include",
             "/home/runner/work/joulescope_driver/joulescope_driver/include_private",
             "/home/runner/work/joulescope_driver/joulescope_driver/third-party/tinyprintf",
             "/home/runner/work/joulescope_driver/joulescope_driver/third-party/miniz",
-            "/tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/_core/include",
+            "/tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/_core/include",
             "/home/runner/work/joulescope_driver/joulescope_driver/third-party/libusb/libusb",
             "/home/runner/work/joulescope_driver/joulescope_driver/third-party/libusb/include/linux"
         ],
@@ -1478,7 +1478,7 @@ static const char *__pyx_filename;
 static const char* const __pyx_f[] = {
   "pyjoulescope_driver/binding.pyx",
   "<stringsource>",
-  "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd",
+  "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd",
   "cpython/type.pxd",
   "pyjoulescope_driver/module.pxi",
 };
@@ -1732,7 +1732,7 @@ typedef struct {
 
 /* #### Code section: numeric_typedefs ### */
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":761
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":761
  * # in Cython to enable them only on the right systems.
  * 
  * ctypedef npy_int8       int8_t             # <<<<<<<<<<<<<<
@@ -1741,7 +1741,7 @@ typedef struct {
 */
 typedef npy_int8 __pyx_t_5numpy_int8_t;
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":762
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":762
  * 
  * ctypedef npy_int8       int8_t
  * ctypedef npy_int16      int16_t             # <<<<<<<<<<<<<<
@@ -1750,7 +1750,7 @@ typedef npy_int8 __pyx_t_5numpy_int8_t;
 */
 typedef npy_int16 __pyx_t_5numpy_int16_t;
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":763
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":763
  * ctypedef npy_int8       int8_t
  * ctypedef npy_int16      int16_t
  * ctypedef npy_int32      int32_t             # <<<<<<<<<<<<<<
@@ -1759,7 +1759,7 @@ typedef npy_int16 __pyx_t_5numpy_int16_t;
 */
 typedef npy_int32 __pyx_t_5numpy_int32_t;
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":764
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":764
  * ctypedef npy_int16      int16_t
  * ctypedef npy_int32      int32_t
  * ctypedef npy_int64      int64_t             # <<<<<<<<<<<<<<
@@ -1768,7 +1768,7 @@ typedef npy_int32 __pyx_t_5numpy_int32_t;
 */
 typedef npy_int64 __pyx_t_5numpy_int64_t;
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":766
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":766
  * ctypedef npy_int64      int64_t
  * 
  * ctypedef npy_uint8      uint8_t             # <<<<<<<<<<<<<<
@@ -1777,7 +1777,7 @@ typedef npy_int64 __pyx_t_5numpy_int64_t;
 */
 typedef npy_uint8 __pyx_t_5numpy_uint8_t;
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":767
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":767
  * 
  * ctypedef npy_uint8      uint8_t
  * ctypedef npy_uint16     uint16_t             # <<<<<<<<<<<<<<
@@ -1786,7 +1786,7 @@ typedef npy_uint8 __pyx_t_5numpy_uint8_t;
 */
 typedef npy_uint16 __pyx_t_5numpy_uint16_t;
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":768
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":768
  * ctypedef npy_uint8      uint8_t
  * ctypedef npy_uint16     uint16_t
  * ctypedef npy_uint32     uint32_t             # <<<<<<<<<<<<<<
@@ -1795,7 +1795,7 @@ typedef npy_uint16 __pyx_t_5numpy_uint16_t;
 */
 typedef npy_uint32 __pyx_t_5numpy_uint32_t;
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":769
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":769
  * ctypedef npy_uint16     uint16_t
  * ctypedef npy_uint32     uint32_t
  * ctypedef npy_uint64     uint64_t             # <<<<<<<<<<<<<<
@@ -1804,7 +1804,7 @@ typedef npy_uint32 __pyx_t_5numpy_uint32_t;
 */
 typedef npy_uint64 __pyx_t_5numpy_uint64_t;
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":771
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":771
  * ctypedef npy_uint64     uint64_t
  * 
  * ctypedef npy_float32    float32_t             # <<<<<<<<<<<<<<
@@ -1813,7 +1813,7 @@ typedef npy_uint64 __pyx_t_5numpy_uint64_t;
 */
 typedef npy_float32 __pyx_t_5numpy_float32_t;
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":772
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":772
  * 
  * ctypedef npy_float32    float32_t
  * ctypedef npy_float64    float64_t             # <<<<<<<<<<<<<<
@@ -1822,7 +1822,7 @@ typedef npy_float32 __pyx_t_5numpy_float32_t;
 */
 typedef npy_float64 __pyx_t_5numpy_float64_t;
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":779
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":779
  * ctypedef double complex complex128_t
  * 
  * ctypedef npy_longlong   longlong_t             # <<<<<<<<<<<<<<
@@ -1831,7 +1831,7 @@ typedef npy_float64 __pyx_t_5numpy_float64_t;
 */
 typedef npy_longlong __pyx_t_5numpy_longlong_t;
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":780
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":780
  * 
  * ctypedef npy_longlong   longlong_t
  * ctypedef npy_ulonglong  ulonglong_t             # <<<<<<<<<<<<<<
@@ -1840,7 +1840,7 @@ typedef npy_longlong __pyx_t_5numpy_longlong_t;
 */
 typedef npy_ulonglong __pyx_t_5numpy_ulonglong_t;
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":782
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":782
  * ctypedef npy_ulonglong  ulonglong_t
  * 
  * ctypedef npy_intp       intp_t             # <<<<<<<<<<<<<<
@@ -1849,7 +1849,7 @@ typedef npy_ulonglong __pyx_t_5numpy_ulonglong_t;
 */
 typedef npy_intp __pyx_t_5numpy_intp_t;
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":783
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":783
  * 
  * ctypedef npy_intp       intp_t
  * ctypedef npy_uintp      uintp_t             # <<<<<<<<<<<<<<
@@ -1858,7 +1858,7 @@ typedef npy_intp __pyx_t_5numpy_intp_t;
 */
 typedef npy_uintp __pyx_t_5numpy_uintp_t;
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":785
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":785
  * ctypedef npy_uintp      uintp_t
  * 
  * ctypedef npy_double     float_t             # <<<<<<<<<<<<<<
@@ -1867,7 +1867,7 @@ typedef npy_uintp __pyx_t_5numpy_uintp_t;
 */
 typedef npy_double __pyx_t_5numpy_float_t;
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":786
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":786
  * 
  * ctypedef npy_double     float_t
  * ctypedef npy_double     double_t             # <<<<<<<<<<<<<<
@@ -1876,7 +1876,7 @@ typedef npy_double __pyx_t_5numpy_float_t;
 */
 typedef npy_double __pyx_t_5numpy_double_t;
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":787
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":787
  * ctypedef npy_double     float_t
  * ctypedef npy_double     double_t
  * ctypedef npy_longdouble longdouble_t             # <<<<<<<<<<<<<<
@@ -1933,7 +1933,7 @@ struct __pyx_memoryview_obj;
 struct __pyx_memoryviewslice_obj;
 struct __pyx_opt_args_19pyjoulescope_driver_7binding__timeout_validate;
 
-/* "pyjoulescope_driver/binding.pyx":758
+/* "pyjoulescope_driver/binding.pyx":763
  * 
  * 
  * cdef int32_t _timeout_validate(value, default=None):             # <<<<<<<<<<<<<<
@@ -1959,7 +1959,7 @@ struct __pyx_obj_19pyjoulescope_driver_7binding_TimeMap {
 };
 
 
-/* "pyjoulescope_driver/binding.pyx":780
+/* "pyjoulescope_driver/binding.pyx":785
  * 
  * 
  * cdef class Driver:             # <<<<<<<<<<<<<<
@@ -1973,7 +1973,7 @@ struct __pyx_obj_19pyjoulescope_driver_7binding_Driver {
 };
 
 
-/* "pyjoulescope_driver/binding.pyx":924
+/* "pyjoulescope_driver/binding.pyx":929
  *         return _jsdrv_union_to_py(&v)
  * 
  *     def publish_and_wait(self, publish_topic, publish_value,             # <<<<<<<<<<<<<<
@@ -2948,6 +2948,9 @@ static CYTHON_INLINE PyObject* __Pyx_decode_c_string(
          const char* cstring, Py_ssize_t start, Py_ssize_t stop,
          const char* encoding, const char* errors,
          PyObject* (*decode_func)(const char *s, Py_ssize_t size, const char *errors));
+
+/* PyLongCompare.proto */
+static CYTHON_INLINE int __Pyx_PyLong_BoolEqObjC(PyObject *op1, PyObject *op2, long intval, long inplace);
 
 /* PyLongBinop.proto */
 #if !CYTHON_COMPILING_IN_PYPY
@@ -17426,7 +17429,7 @@ static PyObject *__pyx_unpickle_Enum__set_state(struct __pyx_MemviewEnum_obj *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":230
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":230
  * 
  *     ctypedef class numpy.dtype [object PyArray_Descr, check_size ignore]:
  *         @property             # <<<<<<<<<<<<<<
@@ -17437,7 +17440,7 @@ static PyObject *__pyx_unpickle_Enum__set_state(struct __pyx_MemviewEnum_obj *__
 static CYTHON_INLINE PyTypeObject *__pyx_f_5numpy_5dtype_7typeobj_typeobj(PyArray_Descr *__pyx_v_self) {
   PyTypeObject *__pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":232
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":232
  *         @property
  *         cdef inline PyTypeObject* typeobj(self) noexcept nogil:
  *             return PyDataType_TYPEOBJ(self)             # <<<<<<<<<<<<<<
@@ -17447,7 +17450,7 @@ static CYTHON_INLINE PyTypeObject *__pyx_f_5numpy_5dtype_7typeobj_typeobj(PyArra
   __pyx_r = PyDataType_TYPEOBJ(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":230
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":230
  * 
  *     ctypedef class numpy.dtype [object PyArray_Descr, check_size ignore]:
  *         @property             # <<<<<<<<<<<<<<
@@ -17460,7 +17463,7 @@ static CYTHON_INLINE PyTypeObject *__pyx_f_5numpy_5dtype_7typeobj_typeobj(PyArra
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":234
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":234
  *             return PyDataType_TYPEOBJ(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17471,7 +17474,7 @@ static CYTHON_INLINE PyTypeObject *__pyx_f_5numpy_5dtype_7typeobj_typeobj(PyArra
 static CYTHON_INLINE char __pyx_f_5numpy_5dtype_4kind_kind(PyArray_Descr *__pyx_v_self) {
   char __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":236
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":236
  *         @property
  *         cdef inline char kind(self) noexcept nogil:
  *             return PyDataType_KIND(self)             # <<<<<<<<<<<<<<
@@ -17481,7 +17484,7 @@ static CYTHON_INLINE char __pyx_f_5numpy_5dtype_4kind_kind(PyArray_Descr *__pyx_
   __pyx_r = PyDataType_KIND(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":234
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":234
  *             return PyDataType_TYPEOBJ(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17494,7 +17497,7 @@ static CYTHON_INLINE char __pyx_f_5numpy_5dtype_4kind_kind(PyArray_Descr *__pyx_
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":238
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":238
  *             return PyDataType_KIND(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17505,7 +17508,7 @@ static CYTHON_INLINE char __pyx_f_5numpy_5dtype_4kind_kind(PyArray_Descr *__pyx_
 static CYTHON_INLINE char __pyx_f_5numpy_5dtype_4type_type(PyArray_Descr *__pyx_v_self) {
   char __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":240
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":240
  *         @property
  *         cdef inline char type(self) noexcept nogil:
  *             return PyDataType_TYPE(self)             # <<<<<<<<<<<<<<
@@ -17515,7 +17518,7 @@ static CYTHON_INLINE char __pyx_f_5numpy_5dtype_4type_type(PyArray_Descr *__pyx_
   __pyx_r = PyDataType_TYPE(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":238
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":238
  *             return PyDataType_KIND(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17528,7 +17531,7 @@ static CYTHON_INLINE char __pyx_f_5numpy_5dtype_4type_type(PyArray_Descr *__pyx_
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":247
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":247
  *         # PyArray_IsNativeByteOrder(dtype.byteorder) instead of
  *         # directly accessing this field.
  *         @property             # <<<<<<<<<<<<<<
@@ -17539,7 +17542,7 @@ static CYTHON_INLINE char __pyx_f_5numpy_5dtype_4type_type(PyArray_Descr *__pyx_
 static CYTHON_INLINE char __pyx_f_5numpy_5dtype_9byteorder_byteorder(PyArray_Descr *__pyx_v_self) {
   char __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":249
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":249
  *         @property
  *         cdef inline char byteorder(self) noexcept nogil:
  *             return PyDataType_BYTEORDER(self)             # <<<<<<<<<<<<<<
@@ -17549,7 +17552,7 @@ static CYTHON_INLINE char __pyx_f_5numpy_5dtype_9byteorder_byteorder(PyArray_Des
   __pyx_r = PyDataType_BYTEORDER(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":247
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":247
  *         # PyArray_IsNativeByteOrder(dtype.byteorder) instead of
  *         # directly accessing this field.
  *         @property             # <<<<<<<<<<<<<<
@@ -17562,7 +17565,7 @@ static CYTHON_INLINE char __pyx_f_5numpy_5dtype_9byteorder_byteorder(PyArray_Des
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":251
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":251
  *             return PyDataType_BYTEORDER(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17573,7 +17576,7 @@ static CYTHON_INLINE char __pyx_f_5numpy_5dtype_9byteorder_byteorder(PyArray_Des
 static CYTHON_INLINE int __pyx_f_5numpy_5dtype_8type_num_type_num(PyArray_Descr *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":253
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":253
  *         @property
  *         cdef inline int type_num(self) noexcept nogil:
  *             return PyDataType_TYPENUM(self)             # <<<<<<<<<<<<<<
@@ -17583,7 +17586,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5dtype_8type_num_type_num(PyArray_Descr 
   __pyx_r = PyDataType_TYPENUM(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":251
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":251
  *             return PyDataType_BYTEORDER(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17596,7 +17599,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5dtype_8type_num_type_num(PyArray_Descr 
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":255
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":255
  *             return PyDataType_TYPENUM(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17607,7 +17610,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5dtype_8type_num_type_num(PyArray_Descr 
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_8itemsize_itemsize(PyArray_Descr *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":257
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":257
  *         @property
  *         cdef inline npy_intp itemsize(self) noexcept nogil:
  *             return PyDataType_ELSIZE(self)             # <<<<<<<<<<<<<<
@@ -17617,7 +17620,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_8itemsize_itemsize(PyArray_D
   __pyx_r = PyDataType_ELSIZE(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":255
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":255
  *             return PyDataType_TYPENUM(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17630,7 +17633,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_8itemsize_itemsize(PyArray_D
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":259
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":259
  *             return PyDataType_ELSIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17641,7 +17644,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_8itemsize_itemsize(PyArray_D
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_9alignment_alignment(PyArray_Descr *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":261
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":261
  *         @property
  *         cdef inline npy_intp alignment(self) noexcept nogil:
  *             return PyDataType_ALIGNMENT(self)             # <<<<<<<<<<<<<<
@@ -17651,7 +17654,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_9alignment_alignment(PyArray
   __pyx_r = PyDataType_ALIGNMENT(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":259
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":259
  *             return PyDataType_ELSIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17664,7 +17667,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_9alignment_alignment(PyArray
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":265
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":265
  *         # Use fields/names with care as they may be NULL.  You must check
  *         # for this using PyDataType_HASFIELDS.
  *         @property             # <<<<<<<<<<<<<<
@@ -17678,7 +17681,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_6fields_fields(PyArray_Desc
   PyObject *__pyx_t_1;
   __Pyx_RefNannySetupContext("fields", 0);
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":267
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":267
  *         @property
  *         cdef inline object fields(self):
  *             return <object>PyDataType_FIELDS(self)             # <<<<<<<<<<<<<<
@@ -17691,7 +17694,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_6fields_fields(PyArray_Desc
   __pyx_r = ((PyObject *)__pyx_t_1);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":265
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":265
  *         # Use fields/names with care as they may be NULL.  You must check
  *         # for this using PyDataType_HASFIELDS.
  *         @property             # <<<<<<<<<<<<<<
@@ -17706,7 +17709,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_6fields_fields(PyArray_Desc
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":269
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":269
  *             return <object>PyDataType_FIELDS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17720,7 +17723,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_5names_names(PyArray_Descr 
   PyObject *__pyx_t_1;
   __Pyx_RefNannySetupContext("names", 0);
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":271
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":271
  *         @property
  *         cdef inline tuple names(self):
  *             return <tuple>PyDataType_NAMES(self)             # <<<<<<<<<<<<<<
@@ -17733,7 +17736,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_5names_names(PyArray_Descr 
   __pyx_r = ((PyObject*)__pyx_t_1);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":269
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":269
  *             return <object>PyDataType_FIELDS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17748,7 +17751,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_5names_names(PyArray_Descr 
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":276
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":276
  *         # valid (the pointer can be NULL). Most users should access
  *         # this field via the inline helper method PyDataType_SHAPE.
  *         @property             # <<<<<<<<<<<<<<
@@ -17759,7 +17762,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_5names_names(PyArray_Descr 
 static CYTHON_INLINE PyArray_ArrayDescr *__pyx_f_5numpy_5dtype_8subarray_subarray(PyArray_Descr *__pyx_v_self) {
   PyArray_ArrayDescr *__pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":278
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":278
  *         @property
  *         cdef inline PyArray_ArrayDescr* subarray(self) noexcept nogil:
  *             return PyDataType_SUBARRAY(self)             # <<<<<<<<<<<<<<
@@ -17769,7 +17772,7 @@ static CYTHON_INLINE PyArray_ArrayDescr *__pyx_f_5numpy_5dtype_8subarray_subarra
   __pyx_r = PyDataType_SUBARRAY(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":276
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":276
  *         # valid (the pointer can be NULL). Most users should access
  *         # this field via the inline helper method PyDataType_SHAPE.
  *         @property             # <<<<<<<<<<<<<<
@@ -17782,7 +17785,7 @@ static CYTHON_INLINE PyArray_ArrayDescr *__pyx_f_5numpy_5dtype_8subarray_subarra
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":280
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":280
  *             return PyDataType_SUBARRAY(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17793,7 +17796,7 @@ static CYTHON_INLINE PyArray_ArrayDescr *__pyx_f_5numpy_5dtype_8subarray_subarra
 static CYTHON_INLINE npy_uint64 __pyx_f_5numpy_5dtype_5flags_flags(PyArray_Descr *__pyx_v_self) {
   npy_uint64 __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":283
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":283
  *         cdef inline npy_uint64 flags(self) noexcept nogil:
  *             """The data types flags."""
  *             return PyDataType_FLAGS(self)             # <<<<<<<<<<<<<<
@@ -17803,7 +17806,7 @@ static CYTHON_INLINE npy_uint64 __pyx_f_5numpy_5dtype_5flags_flags(PyArray_Descr
   __pyx_r = PyDataType_FLAGS(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":280
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":280
  *             return PyDataType_SUBARRAY(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17816,7 +17819,7 @@ static CYTHON_INLINE npy_uint64 __pyx_f_5numpy_5dtype_5flags_flags(PyArray_Descr
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":292
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":292
  *     ctypedef class numpy.broadcast [object PyArrayMultiIterObject, check_size ignore]:
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17827,7 +17830,7 @@ static CYTHON_INLINE npy_uint64 __pyx_f_5numpy_5dtype_5flags_flags(PyArray_Descr
 static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_7numiter_numiter(PyArrayMultiIterObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":295
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":295
  *         cdef inline int numiter(self) noexcept nogil:
  *             """The number of arrays that need to be broadcast to the same shape."""
  *             return PyArray_MultiIter_NUMITER(self)             # <<<<<<<<<<<<<<
@@ -17837,7 +17840,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_7numiter_numiter(PyArrayMulti
   __pyx_r = PyArray_MultiIter_NUMITER(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":292
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":292
  *     ctypedef class numpy.broadcast [object PyArrayMultiIterObject, check_size ignore]:
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17850,7 +17853,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_7numiter_numiter(PyArrayMulti
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":297
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":297
  *             return PyArray_MultiIter_NUMITER(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17861,7 +17864,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_7numiter_numiter(PyArrayMulti
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_4size_size(PyArrayMultiIterObject *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":300
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":300
  *         cdef inline npy_intp size(self) noexcept nogil:
  *             """The total broadcasted size."""
  *             return PyArray_MultiIter_SIZE(self)             # <<<<<<<<<<<<<<
@@ -17871,7 +17874,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_4size_size(PyArrayMultiI
   __pyx_r = PyArray_MultiIter_SIZE(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":297
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":297
  *             return PyArray_MultiIter_NUMITER(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17884,7 +17887,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_4size_size(PyArrayMultiI
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":302
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":302
  *             return PyArray_MultiIter_SIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17895,7 +17898,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_4size_size(PyArrayMultiI
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_5index_index(PyArrayMultiIterObject *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":305
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":305
  *         cdef inline npy_intp index(self) noexcept nogil:
  *             """The current (1-d) index into the broadcasted result."""
  *             return PyArray_MultiIter_INDEX(self)             # <<<<<<<<<<<<<<
@@ -17905,7 +17908,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_5index_index(PyArrayMult
   __pyx_r = PyArray_MultiIter_INDEX(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":302
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":302
  *             return PyArray_MultiIter_SIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17918,7 +17921,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_5index_index(PyArrayMult
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":307
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":307
  *             return PyArray_MultiIter_INDEX(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17929,7 +17932,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_5index_index(PyArrayMult
 static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_2nd_nd(PyArrayMultiIterObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":310
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":310
  *         cdef inline int nd(self) noexcept nogil:
  *             """The number of dimensions in the broadcasted result."""
  *             return PyArray_MultiIter_NDIM(self)             # <<<<<<<<<<<<<<
@@ -17939,7 +17942,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_2nd_nd(PyArrayMultiIterObject
   __pyx_r = PyArray_MultiIter_NDIM(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":307
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":307
  *             return PyArray_MultiIter_INDEX(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17952,7 +17955,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_2nd_nd(PyArrayMultiIterObject
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":312
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":312
  *             return PyArray_MultiIter_NDIM(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17963,7 +17966,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_2nd_nd(PyArrayMultiIterObject
 static CYTHON_INLINE npy_intp *__pyx_f_5numpy_9broadcast_10dimensions_dimensions(PyArrayMultiIterObject *__pyx_v_self) {
   npy_intp *__pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":315
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":315
  *         cdef inline npy_intp* dimensions(self) noexcept nogil:
  *             """The shape of the broadcasted result."""
  *             return PyArray_MultiIter_DIMS(self)             # <<<<<<<<<<<<<<
@@ -17973,7 +17976,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_9broadcast_10dimensions_dimensions
   __pyx_r = PyArray_MultiIter_DIMS(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":312
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":312
  *             return PyArray_MultiIter_NDIM(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17986,7 +17989,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_9broadcast_10dimensions_dimensions
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":317
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":317
  *             return PyArray_MultiIter_DIMS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -17997,7 +18000,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_9broadcast_10dimensions_dimensions
 static CYTHON_INLINE void **__pyx_f_5numpy_9broadcast_5iters_iters(PyArrayMultiIterObject *__pyx_v_self) {
   void **__pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":321
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":321
  *             """An array of iterator objects that holds the iterators for the arrays to be broadcast together.
  *             On return, the iterators are adjusted for broadcasting."""
  *             return PyArray_MultiIter_ITERS(self)             # <<<<<<<<<<<<<<
@@ -18007,7 +18010,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_9broadcast_5iters_iters(PyArrayMultiI
   __pyx_r = PyArray_MultiIter_ITERS(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":317
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":317
  *             return PyArray_MultiIter_DIMS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18020,7 +18023,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_9broadcast_5iters_iters(PyArrayMultiI
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":335
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":335
  *         # Instead, we use properties that map to the corresponding C-API functions.
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18031,7 +18034,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_9broadcast_5iters_iters(PyArrayMultiI
 static CYTHON_INLINE PyObject *__pyx_f_5numpy_7ndarray_4base_base(PyArrayObject *__pyx_v_self) {
   PyObject *__pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":339
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":339
  *             """Returns a borrowed reference to the object owning the data/memory.
  *             """
  *             return PyArray_BASE(self)             # <<<<<<<<<<<<<<
@@ -18041,7 +18044,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_7ndarray_4base_base(PyArrayObject 
   __pyx_r = PyArray_BASE(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":335
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":335
  *         # Instead, we use properties that map to the corresponding C-API functions.
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18054,7 +18057,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_7ndarray_4base_base(PyArrayObject 
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":341
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":341
  *             return PyArray_BASE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18068,7 +18071,7 @@ static CYTHON_INLINE PyArray_Descr *__pyx_f_5numpy_7ndarray_5descr_descr(PyArray
   PyArray_Descr *__pyx_t_1;
   __Pyx_RefNannySetupContext("descr", 0);
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":345
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":345
  *             """Returns an owned reference to the dtype of the array.
  *             """
  *             return <dtype>PyArray_DESCR(self)             # <<<<<<<<<<<<<<
@@ -18081,7 +18084,7 @@ static CYTHON_INLINE PyArray_Descr *__pyx_f_5numpy_7ndarray_5descr_descr(PyArray
   __pyx_r = ((PyArray_Descr *)__pyx_t_1);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":341
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":341
  *             return PyArray_BASE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18096,7 +18099,7 @@ static CYTHON_INLINE PyArray_Descr *__pyx_f_5numpy_7ndarray_5descr_descr(PyArray
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":347
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":347
  *             return <dtype>PyArray_DESCR(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18107,7 +18110,7 @@ static CYTHON_INLINE PyArray_Descr *__pyx_f_5numpy_7ndarray_5descr_descr(PyArray
 static CYTHON_INLINE int __pyx_f_5numpy_7ndarray_4ndim_ndim(PyArrayObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":351
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":351
  *             """Returns the number of dimensions in the array.
  *             """
  *             return PyArray_NDIM(self)             # <<<<<<<<<<<<<<
@@ -18117,7 +18120,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_7ndarray_4ndim_ndim(PyArrayObject *__pyx
   __pyx_r = PyArray_NDIM(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":347
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":347
  *             return <dtype>PyArray_DESCR(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18130,7 +18133,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_7ndarray_4ndim_ndim(PyArrayObject *__pyx
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":353
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":353
  *             return PyArray_NDIM(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18141,7 +18144,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_7ndarray_4ndim_ndim(PyArrayObject *__pyx
 static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_5shape_shape(PyArrayObject *__pyx_v_self) {
   npy_intp *__pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":359
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":359
  *             Can return NULL for 0-dimensional arrays.
  *             """
  *             return PyArray_DIMS(self)             # <<<<<<<<<<<<<<
@@ -18151,7 +18154,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_5shape_shape(PyArrayObjec
   __pyx_r = PyArray_DIMS(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":353
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":353
  *             return PyArray_NDIM(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18164,7 +18167,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_5shape_shape(PyArrayObjec
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":361
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":361
  *             return PyArray_DIMS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18175,7 +18178,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_5shape_shape(PyArrayObjec
 static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_7strides_strides(PyArrayObject *__pyx_v_self) {
   npy_intp *__pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":366
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":366
  *             The number of elements matches the number of dimensions of the array (ndim).
  *             """
  *             return PyArray_STRIDES(self)             # <<<<<<<<<<<<<<
@@ -18185,7 +18188,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_7strides_strides(PyArrayO
   __pyx_r = PyArray_STRIDES(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":361
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":361
  *             return PyArray_DIMS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18198,7 +18201,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_7strides_strides(PyArrayO
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":368
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":368
  *             return PyArray_STRIDES(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18209,7 +18212,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_7strides_strides(PyArrayO
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_7ndarray_4size_size(PyArrayObject *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":372
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":372
  *             """Returns the total size (in number of elements) of the array.
  *             """
  *             return PyArray_SIZE(self)             # <<<<<<<<<<<<<<
@@ -18219,7 +18222,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_7ndarray_4size_size(PyArrayObject *
   __pyx_r = PyArray_SIZE(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":368
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":368
  *             return PyArray_STRIDES(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18232,7 +18235,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_7ndarray_4size_size(PyArrayObject *
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":374
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":374
  *             return PyArray_SIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18243,7 +18246,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_7ndarray_4size_size(PyArrayObject *
 static CYTHON_INLINE char *__pyx_f_5numpy_7ndarray_4data_data(PyArrayObject *__pyx_v_self) {
   char *__pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":381
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":381
  *             of `PyArray_DATA()` instead, which returns a 'void*'.
  *             """
  *             return PyArray_BYTES(self)             # <<<<<<<<<<<<<<
@@ -18253,7 +18256,7 @@ static CYTHON_INLINE char *__pyx_f_5numpy_7ndarray_4data_data(PyArrayObject *__p
   __pyx_r = PyArray_BYTES(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":374
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":374
  *             return PyArray_SIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18266,7 +18269,7 @@ static CYTHON_INLINE char *__pyx_f_5numpy_7ndarray_4data_data(PyArrayObject *__p
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":794
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":794
  * ctypedef long double complex clongdouble_t
  * 
  * cdef inline object PyArray_MultiIterNew1(a):             # <<<<<<<<<<<<<<
@@ -18283,7 +18286,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew1(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew1", 0);
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":795
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":795
  * 
  * cdef inline object PyArray_MultiIterNew1(a):
  *     return PyArray_MultiIterNew(1, <void*>a)             # <<<<<<<<<<<<<<
@@ -18297,7 +18300,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew1(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":794
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":794
  * ctypedef long double complex clongdouble_t
  * 
  * cdef inline object PyArray_MultiIterNew1(a):             # <<<<<<<<<<<<<<
@@ -18316,7 +18319,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew1(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":797
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":797
  *     return PyArray_MultiIterNew(1, <void*>a)
  * 
  * cdef inline object PyArray_MultiIterNew2(a, b):             # <<<<<<<<<<<<<<
@@ -18333,7 +18336,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew2(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew2", 0);
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":798
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":798
  * 
  * cdef inline object PyArray_MultiIterNew2(a, b):
  *     return PyArray_MultiIterNew(2, <void*>a, <void*>b)             # <<<<<<<<<<<<<<
@@ -18347,7 +18350,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew2(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":797
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":797
  *     return PyArray_MultiIterNew(1, <void*>a)
  * 
  * cdef inline object PyArray_MultiIterNew2(a, b):             # <<<<<<<<<<<<<<
@@ -18366,7 +18369,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew2(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":800
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":800
  *     return PyArray_MultiIterNew(2, <void*>a, <void*>b)
  * 
  * cdef inline object PyArray_MultiIterNew3(a, b, c):             # <<<<<<<<<<<<<<
@@ -18383,7 +18386,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew3(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew3", 0);
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":801
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":801
  * 
  * cdef inline object PyArray_MultiIterNew3(a, b, c):
  *     return PyArray_MultiIterNew(3, <void*>a, <void*>b, <void*> c)             # <<<<<<<<<<<<<<
@@ -18397,7 +18400,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew3(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":800
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":800
  *     return PyArray_MultiIterNew(2, <void*>a, <void*>b)
  * 
  * cdef inline object PyArray_MultiIterNew3(a, b, c):             # <<<<<<<<<<<<<<
@@ -18416,7 +18419,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew3(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":803
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":803
  *     return PyArray_MultiIterNew(3, <void*>a, <void*>b, <void*> c)
  * 
  * cdef inline object PyArray_MultiIterNew4(a, b, c, d):             # <<<<<<<<<<<<<<
@@ -18433,7 +18436,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew4(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew4", 0);
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":804
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":804
  * 
  * cdef inline object PyArray_MultiIterNew4(a, b, c, d):
  *     return PyArray_MultiIterNew(4, <void*>a, <void*>b, <void*>c, <void*> d)             # <<<<<<<<<<<<<<
@@ -18447,7 +18450,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew4(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":803
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":803
  *     return PyArray_MultiIterNew(3, <void*>a, <void*>b, <void*> c)
  * 
  * cdef inline object PyArray_MultiIterNew4(a, b, c, d):             # <<<<<<<<<<<<<<
@@ -18466,7 +18469,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew4(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":806
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":806
  *     return PyArray_MultiIterNew(4, <void*>a, <void*>b, <void*>c, <void*> d)
  * 
  * cdef inline object PyArray_MultiIterNew5(a, b, c, d, e):             # <<<<<<<<<<<<<<
@@ -18483,7 +18486,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew5(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew5", 0);
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":807
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":807
  * 
  * cdef inline object PyArray_MultiIterNew5(a, b, c, d, e):
  *     return PyArray_MultiIterNew(5, <void*>a, <void*>b, <void*>c, <void*> d, <void*> e)             # <<<<<<<<<<<<<<
@@ -18497,7 +18500,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew5(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":806
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":806
  *     return PyArray_MultiIterNew(4, <void*>a, <void*>b, <void*>c, <void*> d)
  * 
  * cdef inline object PyArray_MultiIterNew5(a, b, c, d, e):             # <<<<<<<<<<<<<<
@@ -18516,7 +18519,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew5(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":809
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":809
  *     return PyArray_MultiIterNew(5, <void*>a, <void*>b, <void*>c, <void*> d, <void*> e)
  * 
  * cdef inline tuple PyDataType_SHAPE(dtype d):             # <<<<<<<<<<<<<<
@@ -18531,7 +18534,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
   PyObject *__pyx_t_2;
   __Pyx_RefNannySetupContext("PyDataType_SHAPE", 0);
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":810
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":810
  * 
  * cdef inline tuple PyDataType_SHAPE(dtype d):
  *     if PyDataType_HASSUBARRAY(d):             # <<<<<<<<<<<<<<
@@ -18541,7 +18544,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
   __pyx_t_1 = PyDataType_HASSUBARRAY(__pyx_v_d);
   if (__pyx_t_1) {
 
-    /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":811
+    /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":811
  * cdef inline tuple PyDataType_SHAPE(dtype d):
  *     if PyDataType_HASSUBARRAY(d):
  *         return <tuple>d.subarray.shape             # <<<<<<<<<<<<<<
@@ -18554,7 +18557,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
     __pyx_r = ((PyObject*)__pyx_t_2);
     goto __pyx_L0;
 
-    /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":810
+    /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":810
  * 
  * cdef inline tuple PyDataType_SHAPE(dtype d):
  *     if PyDataType_HASSUBARRAY(d):             # <<<<<<<<<<<<<<
@@ -18563,7 +18566,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
 */
   }
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":813
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":813
  *         return <tuple>d.subarray.shape
  *     else:
  *         return ()             # <<<<<<<<<<<<<<
@@ -18577,7 +18580,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
     goto __pyx_L0;
   }
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":809
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":809
  *     return PyArray_MultiIterNew(5, <void*>a, <void*>b, <void*>c, <void*> d, <void*> e)
  * 
  * cdef inline tuple PyDataType_SHAPE(dtype d):             # <<<<<<<<<<<<<<
@@ -18592,7 +18595,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":947
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":947
  * 
  *     ctypedef class numpy.ufunc [object PyUFuncObject, check_size ignore]:
  *         @property             # <<<<<<<<<<<<<<
@@ -18603,7 +18606,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
 static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_3nin_nin(PyUFuncObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":949
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":949
  *         @property
  *         cdef inline int nin(self) noexcept nogil:
  *             return _PyUFuncObject_GET_ITEM_DATA(self).nin             # <<<<<<<<<<<<<<
@@ -18613,7 +18616,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_3nin_nin(PyUFuncObject *__pyx_v_s
   __pyx_r = _PyUFuncObject_GET_ITEM_DATA(__pyx_v_self)->nin;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":947
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":947
  * 
  *     ctypedef class numpy.ufunc [object PyUFuncObject, check_size ignore]:
  *         @property             # <<<<<<<<<<<<<<
@@ -18626,7 +18629,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_3nin_nin(PyUFuncObject *__pyx_v_s
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":951
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":951
  *             return _PyUFuncObject_GET_ITEM_DATA(self).nin
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18637,7 +18640,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_3nin_nin(PyUFuncObject *__pyx_v_s
 static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_4nout_nout(PyUFuncObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":953
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":953
  *         @property
  *         cdef inline int nout(self) noexcept nogil:
  *             return _PyUFuncObject_GET_ITEM_DATA(self).nout             # <<<<<<<<<<<<<<
@@ -18647,7 +18650,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_4nout_nout(PyUFuncObject *__pyx_v
   __pyx_r = _PyUFuncObject_GET_ITEM_DATA(__pyx_v_self)->nout;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":951
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":951
  *             return _PyUFuncObject_GET_ITEM_DATA(self).nin
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18660,7 +18663,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_4nout_nout(PyUFuncObject *__pyx_v
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":955
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":955
  *             return _PyUFuncObject_GET_ITEM_DATA(self).nout
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18671,7 +18674,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_4nout_nout(PyUFuncObject *__pyx_v
 static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_5nargs_nargs(PyUFuncObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":957
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":957
  *         @property
  *         cdef inline int nargs(self) noexcept nogil:
  *             return _PyUFuncObject_GET_ITEM_DATA(self).nargs             # <<<<<<<<<<<<<<
@@ -18681,7 +18684,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_5nargs_nargs(PyUFuncObject *__pyx
   __pyx_r = _PyUFuncObject_GET_ITEM_DATA(__pyx_v_self)->nargs;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":955
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":955
  *             return _PyUFuncObject_GET_ITEM_DATA(self).nout
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18694,7 +18697,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_5nargs_nargs(PyUFuncObject *__pyx
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":959
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":959
  *             return _PyUFuncObject_GET_ITEM_DATA(self).nargs
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18705,7 +18708,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_5nargs_nargs(PyUFuncObject *__pyx
 static CYTHON_INLINE PyUFuncGenericFunction *__pyx_f_5numpy_5ufunc_9functions_functions(PyUFuncObject *__pyx_v_self) {
   PyUFuncGenericFunction *__pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":961
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":961
  *         @property
  *         cdef inline PyUFuncGenericFunction* functions(self) noexcept nogil:
  *             return _PyUFuncObject_GET_ITEM_DATA(self).functions             # <<<<<<<<<<<<<<
@@ -18715,7 +18718,7 @@ static CYTHON_INLINE PyUFuncGenericFunction *__pyx_f_5numpy_5ufunc_9functions_fu
   __pyx_r = _PyUFuncObject_GET_ITEM_DATA(__pyx_v_self)->functions;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":959
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":959
  *             return _PyUFuncObject_GET_ITEM_DATA(self).nargs
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18728,7 +18731,7 @@ static CYTHON_INLINE PyUFuncGenericFunction *__pyx_f_5numpy_5ufunc_9functions_fu
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":963
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":963
  *             return _PyUFuncObject_GET_ITEM_DATA(self).functions
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18739,7 +18742,7 @@ static CYTHON_INLINE PyUFuncGenericFunction *__pyx_f_5numpy_5ufunc_9functions_fu
 static CYTHON_INLINE void **__pyx_f_5numpy_5ufunc_4data_data(PyUFuncObject *__pyx_v_self) {
   void **__pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":965
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":965
  *         @property
  *         cdef inline void ** data(self) noexcept nogil:
  *             return <void **>_PyUFuncObject_GET_ITEM_DATA(self).data             # <<<<<<<<<<<<<<
@@ -18749,7 +18752,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_5ufunc_4data_data(PyUFuncObject *__py
   __pyx_r = ((void **)_PyUFuncObject_GET_ITEM_DATA(__pyx_v_self)->data);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":963
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":963
  *             return _PyUFuncObject_GET_ITEM_DATA(self).functions
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18762,7 +18765,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_5ufunc_4data_data(PyUFuncObject *__py
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":967
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":967
  *             return <void **>_PyUFuncObject_GET_ITEM_DATA(self).data
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18773,7 +18776,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_5ufunc_4data_data(PyUFuncObject *__py
 static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_6ntypes_ntypes(PyUFuncObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":969
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":969
  *         @property
  *         cdef inline int ntypes(self) noexcept nogil:
  *             return _PyUFuncObject_GET_ITEM_DATA(self).ntypes             # <<<<<<<<<<<<<<
@@ -18783,7 +18786,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_6ntypes_ntypes(PyUFuncObject *__p
   __pyx_r = _PyUFuncObject_GET_ITEM_DATA(__pyx_v_self)->ntypes;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":967
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":967
  *             return <void **>_PyUFuncObject_GET_ITEM_DATA(self).data
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18796,7 +18799,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_6ntypes_ntypes(PyUFuncObject *__p
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":971
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":971
  *             return _PyUFuncObject_GET_ITEM_DATA(self).ntypes
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18807,7 +18810,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_5ufunc_6ntypes_ntypes(PyUFuncObject *__p
 static CYTHON_INLINE char const *__pyx_f_5numpy_5ufunc_4name_name(PyUFuncObject *__pyx_v_self) {
   char const *__pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":973
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":973
  *         @property
  *         cdef inline const char* name(self) noexcept nogil:
  *             return _PyUFuncObject_GET_ITEM_DATA(self).name             # <<<<<<<<<<<<<<
@@ -18817,7 +18820,7 @@ static CYTHON_INLINE char const *__pyx_f_5numpy_5ufunc_4name_name(PyUFuncObject 
   __pyx_r = _PyUFuncObject_GET_ITEM_DATA(__pyx_v_self)->name;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":971
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":971
  *             return _PyUFuncObject_GET_ITEM_DATA(self).ntypes
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18830,7 +18833,7 @@ static CYTHON_INLINE char const *__pyx_f_5numpy_5ufunc_4name_name(PyUFuncObject 
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":975
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":975
  *             return _PyUFuncObject_GET_ITEM_DATA(self).name
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18841,7 +18844,7 @@ static CYTHON_INLINE char const *__pyx_f_5numpy_5ufunc_4name_name(PyUFuncObject 
 static CYTHON_INLINE char const *__pyx_f_5numpy_5ufunc_3doc_doc(PyUFuncObject *__pyx_v_self) {
   char const *__pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":977
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":977
  *         @property
  *         cdef inline const char* doc(self) noexcept nogil:
  *             return _PyUFuncObject_GET_ITEM_DATA(self).doc             # <<<<<<<<<<<<<<
@@ -18851,7 +18854,7 @@ static CYTHON_INLINE char const *__pyx_f_5numpy_5ufunc_3doc_doc(PyUFuncObject *_
   __pyx_r = _PyUFuncObject_GET_ITEM_DATA(__pyx_v_self)->doc;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":975
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":975
  *             return _PyUFuncObject_GET_ITEM_DATA(self).name
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18864,7 +18867,7 @@ static CYTHON_INLINE char const *__pyx_f_5numpy_5ufunc_3doc_doc(PyUFuncObject *_
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":979
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":979
  *             return _PyUFuncObject_GET_ITEM_DATA(self).doc
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18875,7 +18878,7 @@ static CYTHON_INLINE char const *__pyx_f_5numpy_5ufunc_3doc_doc(PyUFuncObject *_
 static CYTHON_INLINE void *__pyx_f_5numpy_5ufunc_3ptr_ptr(PyUFuncObject *__pyx_v_self) {
   void *__pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":981
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":981
  *         @property
  *         cdef inline void* ptr(self) noexcept nogil:
  *             return _PyUFuncObject_GET_ITEM_DATA(self).ptr             # <<<<<<<<<<<<<<
@@ -18885,7 +18888,7 @@ static CYTHON_INLINE void *__pyx_f_5numpy_5ufunc_3ptr_ptr(PyUFuncObject *__pyx_v
   __pyx_r = _PyUFuncObject_GET_ITEM_DATA(__pyx_v_self)->ptr;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":979
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":979
  *             return _PyUFuncObject_GET_ITEM_DATA(self).doc
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18898,7 +18901,7 @@ static CYTHON_INLINE void *__pyx_f_5numpy_5ufunc_3ptr_ptr(PyUFuncObject *__pyx_v
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":983
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":983
  *             return _PyUFuncObject_GET_ITEM_DATA(self).ptr
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18909,7 +18912,7 @@ static CYTHON_INLINE void *__pyx_f_5numpy_5ufunc_3ptr_ptr(PyUFuncObject *__pyx_v
 static CYTHON_INLINE PyObject *__pyx_f_5numpy_5ufunc_3obj_obj(PyUFuncObject *__pyx_v_self) {
   PyObject *__pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":985
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":985
  *         @property
  *         cdef inline PyObject* obj(self) noexcept nogil:
  *             return _PyUFuncObject_GET_ITEM_DATA(self).obj             # <<<<<<<<<<<<<<
@@ -18919,7 +18922,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5ufunc_3obj_obj(PyUFuncObject *__p
   __pyx_r = _PyUFuncObject_GET_ITEM_DATA(__pyx_v_self)->obj;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":983
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":983
  *             return _PyUFuncObject_GET_ITEM_DATA(self).ptr
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18932,7 +18935,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5ufunc_3obj_obj(PyUFuncObject *__p
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":987
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":987
  *             return _PyUFuncObject_GET_ITEM_DATA(self).obj
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18943,7 +18946,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5ufunc_3obj_obj(PyUFuncObject *__p
 static CYTHON_INLINE PyObject *__pyx_f_5numpy_5ufunc_9userloops_userloops(PyUFuncObject *__pyx_v_self) {
   PyObject *__pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":989
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":989
  *         @property
  *         cdef inline PyObject* userloops(self) noexcept nogil:
  *             return _PyUFuncObject_GET_ITEM_DATA(self).userloops             # <<<<<<<<<<<<<<
@@ -18953,7 +18956,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5ufunc_9userloops_userloops(PyUFun
   __pyx_r = _PyUFuncObject_GET_ITEM_DATA(__pyx_v_self)->userloops;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":987
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":987
  *             return _PyUFuncObject_GET_ITEM_DATA(self).obj
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -18966,7 +18969,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5ufunc_9userloops_userloops(PyUFun
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1065
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1065
  *     int _import_umath() except -1
  * 
  * cdef inline void set_array_base(ndarray arr, object base) except *:             # <<<<<<<<<<<<<<
@@ -18980,7 +18983,7 @@ static CYTHON_INLINE void __pyx_f_5numpy_set_array_base(PyArrayObject *__pyx_v_a
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1066
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1066
  * 
  * cdef inline void set_array_base(ndarray arr, object base) except *:
  *     Py_INCREF(base) # important to do this before stealing the reference below!             # <<<<<<<<<<<<<<
@@ -18989,7 +18992,7 @@ static CYTHON_INLINE void __pyx_f_5numpy_set_array_base(PyArrayObject *__pyx_v_a
 */
   Py_INCREF(__pyx_v_base);
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1067
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1067
  * cdef inline void set_array_base(ndarray arr, object base) except *:
  *     Py_INCREF(base) # important to do this before stealing the reference below!
  *     PyArray_SetBaseObject(arr, base)             # <<<<<<<<<<<<<<
@@ -18998,7 +19001,7 @@ static CYTHON_INLINE void __pyx_f_5numpy_set_array_base(PyArrayObject *__pyx_v_a
 */
   __pyx_t_1 = PyArray_SetBaseObject(__pyx_v_arr, __pyx_v_base); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(2, 1067, __pyx_L1_error)
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1065
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1065
  *     int _import_umath() except -1
  * 
  * cdef inline void set_array_base(ndarray arr, object base) except *:             # <<<<<<<<<<<<<<
@@ -19013,7 +19016,7 @@ static CYTHON_INLINE void __pyx_f_5numpy_set_array_base(PyArrayObject *__pyx_v_a
   __pyx_L0:;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1069
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1069
  *     PyArray_SetBaseObject(arr, base)
  * 
  * cdef inline object get_array_base(ndarray arr):             # <<<<<<<<<<<<<<
@@ -19028,7 +19031,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
   int __pyx_t_1;
   __Pyx_RefNannySetupContext("get_array_base", 0);
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1070
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1070
  * 
  * cdef inline object get_array_base(ndarray arr):
  *     base = PyArray_BASE(arr)             # <<<<<<<<<<<<<<
@@ -19037,7 +19040,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
 */
   __pyx_v_base = PyArray_BASE(__pyx_v_arr);
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1071
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1071
  * cdef inline object get_array_base(ndarray arr):
  *     base = PyArray_BASE(arr)
  *     if base is NULL:             # <<<<<<<<<<<<<<
@@ -19047,7 +19050,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
   __pyx_t_1 = (__pyx_v_base == NULL);
   if (__pyx_t_1) {
 
-    /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1072
+    /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1072
  *     base = PyArray_BASE(arr)
  *     if base is NULL:
  *         return None             # <<<<<<<<<<<<<<
@@ -19058,7 +19061,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1071
+    /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1071
  * cdef inline object get_array_base(ndarray arr):
  *     base = PyArray_BASE(arr)
  *     if base is NULL:             # <<<<<<<<<<<<<<
@@ -19067,7 +19070,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
 */
   }
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1073
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1073
  *     if base is NULL:
  *         return None
  *     return <object>base             # <<<<<<<<<<<<<<
@@ -19079,7 +19082,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
   __pyx_r = ((PyObject *)__pyx_v_base);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1069
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1069
  *     PyArray_SetBaseObject(arr, base)
  * 
  * cdef inline object get_array_base(ndarray arr):             # <<<<<<<<<<<<<<
@@ -19094,7 +19097,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1077
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1077
  * # Versions of the import_* functions which are more suitable for
  * # Cython code.
  * cdef inline int import_array() except -1:             # <<<<<<<<<<<<<<
@@ -19120,7 +19123,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("import_array", 0);
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1078
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1078
  * # Cython code.
  * cdef inline int import_array() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -19136,7 +19139,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1079
+      /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1079
  * cdef inline int import_array() except -1:
  *     try:
  *         __pyx_import_array()             # <<<<<<<<<<<<<<
@@ -19145,7 +19148,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
 */
       __pyx_t_4 = _import_array(); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(2, 1079, __pyx_L3_error)
 
-      /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1078
+      /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1078
  * # Cython code.
  * cdef inline int import_array() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -19159,7 +19162,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
     goto __pyx_L8_try_end;
     __pyx_L3_error:;
 
-    /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1080
+    /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1080
  *     try:
  *         __pyx_import_array()
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -19174,7 +19177,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1081
+      /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1081
  *         __pyx_import_array()
  *     except Exception:
  *         raise ImportError("numpy._core.multiarray failed to import")             # <<<<<<<<<<<<<<
@@ -19196,7 +19199,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
     }
     goto __pyx_L5_except_error;
 
-    /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1078
+    /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1078
  * # Cython code.
  * cdef inline int import_array() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -19212,7 +19215,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
     __pyx_L8_try_end:;
   }
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1077
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1077
  * # Versions of the import_* functions which are more suitable for
  * # Cython code.
  * cdef inline int import_array() except -1:             # <<<<<<<<<<<<<<
@@ -19236,7 +19239,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1083
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1083
  *         raise ImportError("numpy._core.multiarray failed to import")
  * 
  * cdef inline int import_umath() except -1:             # <<<<<<<<<<<<<<
@@ -19262,7 +19265,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("import_umath", 0);
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1084
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1084
  * 
  * cdef inline int import_umath() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -19278,7 +19281,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1085
+      /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1085
  * cdef inline int import_umath() except -1:
  *     try:
  *         _import_umath()             # <<<<<<<<<<<<<<
@@ -19287,7 +19290,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
 */
       __pyx_t_4 = _import_umath(); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(2, 1085, __pyx_L3_error)
 
-      /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1084
+      /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1084
  * 
  * cdef inline int import_umath() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -19301,7 +19304,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
     goto __pyx_L8_try_end;
     __pyx_L3_error:;
 
-    /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1086
+    /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1086
  *     try:
  *         _import_umath()
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -19316,7 +19319,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1087
+      /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1087
  *         _import_umath()
  *     except Exception:
  *         raise ImportError("numpy._core.umath failed to import")             # <<<<<<<<<<<<<<
@@ -19338,7 +19341,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
     }
     goto __pyx_L5_except_error;
 
-    /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1084
+    /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1084
  * 
  * cdef inline int import_umath() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -19354,7 +19357,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
     __pyx_L8_try_end:;
   }
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1083
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1083
  *         raise ImportError("numpy._core.multiarray failed to import")
  * 
  * cdef inline int import_umath() except -1:             # <<<<<<<<<<<<<<
@@ -19378,7 +19381,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1089
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1089
  *         raise ImportError("numpy._core.umath failed to import")
  * 
  * cdef inline int import_ufunc() except -1:             # <<<<<<<<<<<<<<
@@ -19404,7 +19407,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("import_ufunc", 0);
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1090
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1090
  * 
  * cdef inline int import_ufunc() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -19420,7 +19423,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1091
+      /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1091
  * cdef inline int import_ufunc() except -1:
  *     try:
  *         _import_umath()             # <<<<<<<<<<<<<<
@@ -19429,7 +19432,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
 */
       __pyx_t_4 = _import_umath(); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(2, 1091, __pyx_L3_error)
 
-      /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1090
+      /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1090
  * 
  * cdef inline int import_ufunc() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -19443,7 +19446,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
     goto __pyx_L8_try_end;
     __pyx_L3_error:;
 
-    /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1092
+    /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1092
  *     try:
  *         _import_umath()
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -19458,7 +19461,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1093
+      /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1093
  *         _import_umath()
  *     except Exception:
  *         raise ImportError("numpy._core.umath failed to import")             # <<<<<<<<<<<<<<
@@ -19480,7 +19483,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
     }
     goto __pyx_L5_except_error;
 
-    /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1090
+    /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1090
  * 
  * cdef inline int import_ufunc() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -19496,7 +19499,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
     __pyx_L8_try_end:;
   }
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1089
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1089
  *         raise ImportError("numpy._core.umath failed to import")
  * 
  * cdef inline int import_ufunc() except -1:             # <<<<<<<<<<<<<<
@@ -19520,7 +19523,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1096
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1096
  * 
  * 
  * cdef inline bint is_timedelta64_object(object obj) noexcept:             # <<<<<<<<<<<<<<
@@ -19531,7 +19534,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
 static CYTHON_INLINE int __pyx_f_5numpy_is_timedelta64_object(PyObject *__pyx_v_obj) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1108
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1108
  *     bool
  *     """
  *     return PyObject_TypeCheck(obj, &PyTimedeltaArrType_Type)             # <<<<<<<<<<<<<<
@@ -19541,7 +19544,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_timedelta64_object(PyObject *__pyx_v_
   __pyx_r = PyObject_TypeCheck(__pyx_v_obj, (&PyTimedeltaArrType_Type));
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1096
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1096
  * 
  * 
  * cdef inline bint is_timedelta64_object(object obj) noexcept:             # <<<<<<<<<<<<<<
@@ -19554,7 +19557,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_timedelta64_object(PyObject *__pyx_v_
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1111
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1111
  * 
  * 
  * cdef inline bint is_datetime64_object(object obj) noexcept:             # <<<<<<<<<<<<<<
@@ -19565,7 +19568,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_timedelta64_object(PyObject *__pyx_v_
 static CYTHON_INLINE int __pyx_f_5numpy_is_datetime64_object(PyObject *__pyx_v_obj) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1123
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1123
  *     bool
  *     """
  *     return PyObject_TypeCheck(obj, &PyDatetimeArrType_Type)             # <<<<<<<<<<<<<<
@@ -19575,7 +19578,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_datetime64_object(PyObject *__pyx_v_o
   __pyx_r = PyObject_TypeCheck(__pyx_v_obj, (&PyDatetimeArrType_Type));
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1111
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1111
  * 
  * 
  * cdef inline bint is_datetime64_object(object obj) noexcept:             # <<<<<<<<<<<<<<
@@ -19588,7 +19591,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_datetime64_object(PyObject *__pyx_v_o
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1126
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1126
  * 
  * 
  * cdef inline npy_datetime get_datetime64_value(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -19599,7 +19602,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_datetime64_object(PyObject *__pyx_v_o
 static CYTHON_INLINE npy_datetime __pyx_f_5numpy_get_datetime64_value(PyObject *__pyx_v_obj) {
   npy_datetime __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1133
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1133
  *     also needed.  That can be found using `get_datetime64_unit`.
  *     """
  *     return _PyDatetimeScalarObject_GetValue(obj)             # <<<<<<<<<<<<<<
@@ -19609,7 +19612,7 @@ static CYTHON_INLINE npy_datetime __pyx_f_5numpy_get_datetime64_value(PyObject *
   __pyx_r = _PyDatetimeScalarObject_GetValue(__pyx_v_obj);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1126
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1126
  * 
  * 
  * cdef inline npy_datetime get_datetime64_value(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -19622,7 +19625,7 @@ static CYTHON_INLINE npy_datetime __pyx_f_5numpy_get_datetime64_value(PyObject *
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1136
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1136
  * 
  * 
  * cdef inline npy_timedelta get_timedelta64_value(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -19633,7 +19636,7 @@ static CYTHON_INLINE npy_datetime __pyx_f_5numpy_get_datetime64_value(PyObject *
 static CYTHON_INLINE npy_timedelta __pyx_f_5numpy_get_timedelta64_value(PyObject *__pyx_v_obj) {
   npy_timedelta __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1140
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1140
  *     returns the int64 value underlying scalar numpy timedelta64 object
  *     """
  *     return _PyTimedeltaScalarObject_GetValue(obj)             # <<<<<<<<<<<<<<
@@ -19643,7 +19646,7 @@ static CYTHON_INLINE npy_timedelta __pyx_f_5numpy_get_timedelta64_value(PyObject
   __pyx_r = _PyTimedeltaScalarObject_GetValue(__pyx_v_obj);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1136
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1136
  * 
  * 
  * cdef inline npy_timedelta get_timedelta64_value(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -19656,7 +19659,7 @@ static CYTHON_INLINE npy_timedelta __pyx_f_5numpy_get_timedelta64_value(PyObject
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1143
+/* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1143
  * 
  * 
  * cdef inline NPY_DATETIMEUNIT get_datetime64_unit(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -19667,7 +19670,7 @@ static CYTHON_INLINE npy_timedelta __pyx_f_5numpy_get_timedelta64_value(PyObject
 static CYTHON_INLINE NPY_DATETIMEUNIT __pyx_f_5numpy_get_datetime64_unit(PyObject *__pyx_v_obj) {
   NPY_DATETIMEUNIT __pyx_r;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1147
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1147
  *     returns the unit part of the dtype for a numpy datetime64 object.
  *     """
  *     return _PyDatetimeScalarObject_GetMetadata(obj).base             # <<<<<<<<<<<<<<
@@ -19677,7 +19680,7 @@ static CYTHON_INLINE NPY_DATETIMEUNIT __pyx_f_5numpy_get_datetime64_unit(PyObjec
   __pyx_r = _PyDatetimeScalarObject_GetMetadata(__pyx_v_obj).base;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-89f7aqqa/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1143
+  /* "../../../../../tmp/build-env-kys_578o/lib/python3.14/site-packages/numpy/__init__.cython-30.pxd":1143
  * 
  * 
  * cdef inline NPY_DATETIMEUNIT get_datetime64_unit(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -23866,6 +23869,7 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
   PyObject *__pyx_v_ndarray = NULL;
   struct jsdrv_statistics_s *__pyx_v_stats;
   PyObject *__pyx_v_sample_freq = NULL;
+  PyObject *__pyx_v_decimate_factor = NULL;
   PyObject *__pyx_v_samples_full_rate = NULL;
   PyObject *__pyx_v_sample_id_start = NULL;
   PyObject *__pyx_v_sample_id_end = NULL;
@@ -24850,7 +24854,7 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
  *             elif value[0].app == c_jsdrv.JSDRV_PAYLOAD_TYPE_STATISTICS:
  *                 stats = <c_jsdrv.jsdrv_statistics_s *> &(value[0].value.bin[0])             # <<<<<<<<<<<<<<
  *                 sample_freq = stats[0].sample_freq
- *                 samples_full_rate = stats[0].block_sample_count * stats[0].decimate_factor
+ *                 # u8 decimate_factor saturates at 255; decimate_factor32 has the
 */
           __pyx_v_stats = ((struct jsdrv_statistics_s *)(&((__pyx_v_value[0]).value.bin[0])));
 
@@ -24858,752 +24862,795 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
  *             elif value[0].app == c_jsdrv.JSDRV_PAYLOAD_TYPE_STATISTICS:
  *                 stats = <c_jsdrv.jsdrv_statistics_s *> &(value[0].value.bin[0])
  *                 sample_freq = stats[0].sample_freq             # <<<<<<<<<<<<<<
- *                 samples_full_rate = stats[0].block_sample_count * stats[0].decimate_factor
- *                 sample_id_start = stats[0].block_sample_id
+ *                 # u8 decimate_factor saturates at 255; decimate_factor32 has the
+ *                 # exact value (0 from older producers - fall back)
 */
           __pyx_t_11 = __Pyx_PyLong_From_uint32_t((__pyx_v_stats[0]).sample_freq); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 401, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_11);
           __pyx_v_sample_freq = __pyx_t_11;
           __pyx_t_11 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":402
- *                 stats = <c_jsdrv.jsdrv_statistics_s *> &(value[0].value.bin[0])
- *                 sample_freq = stats[0].sample_freq
- *                 samples_full_rate = stats[0].block_sample_count * stats[0].decimate_factor             # <<<<<<<<<<<<<<
+          /* "pyjoulescope_driver/binding.pyx":404
+ *                 # u8 decimate_factor saturates at 255; decimate_factor32 has the
+ *                 # exact value (0 from older producers - fall back)
+ *                 decimate_factor = stats[0].decimate_factor32             # <<<<<<<<<<<<<<
+ *                 if decimate_factor == 0:
+ *                     decimate_factor = stats[0].decimate_factor
+*/
+          __pyx_t_11 = __Pyx_PyLong_From_uint32_t((__pyx_v_stats[0]).decimate_factor32); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 404, __pyx_L3_error)
+          __Pyx_GOTREF(__pyx_t_11);
+          __pyx_v_decimate_factor = __pyx_t_11;
+          __pyx_t_11 = 0;
+
+          /* "pyjoulescope_driver/binding.pyx":405
+ *                 # exact value (0 from older producers - fall back)
+ *                 decimate_factor = stats[0].decimate_factor32
+ *                 if decimate_factor == 0:             # <<<<<<<<<<<<<<
+ *                     decimate_factor = stats[0].decimate_factor
+ *                 samples_full_rate = stats[0].block_sample_count * decimate_factor
+*/
+          __pyx_t_16 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_decimate_factor, __pyx_mstate_global->__pyx_int_0, 0, 0)); if (unlikely((__pyx_t_16 < 0))) __PYX_ERR(0, 405, __pyx_L3_error)
+          if (__pyx_t_16) {
+
+            /* "pyjoulescope_driver/binding.pyx":406
+ *                 decimate_factor = stats[0].decimate_factor32
+ *                 if decimate_factor == 0:
+ *                     decimate_factor = stats[0].decimate_factor             # <<<<<<<<<<<<<<
+ *                 samples_full_rate = stats[0].block_sample_count * decimate_factor
+ *                 sample_id_start = stats[0].block_sample_id
+*/
+            __pyx_t_11 = __Pyx_PyLong_From_uint8_t((__pyx_v_stats[0]).decimate_factor); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 406, __pyx_L3_error)
+            __Pyx_GOTREF(__pyx_t_11);
+            __Pyx_DECREF_SET(__pyx_v_decimate_factor, __pyx_t_11);
+            __pyx_t_11 = 0;
+
+            /* "pyjoulescope_driver/binding.pyx":405
+ *                 # exact value (0 from older producers - fall back)
+ *                 decimate_factor = stats[0].decimate_factor32
+ *                 if decimate_factor == 0:             # <<<<<<<<<<<<<<
+ *                     decimate_factor = stats[0].decimate_factor
+ *                 samples_full_rate = stats[0].block_sample_count * decimate_factor
+*/
+          }
+
+          /* "pyjoulescope_driver/binding.pyx":407
+ *                 if decimate_factor == 0:
+ *                     decimate_factor = stats[0].decimate_factor
+ *                 samples_full_rate = stats[0].block_sample_count * decimate_factor             # <<<<<<<<<<<<<<
  *                 sample_id_start = stats[0].block_sample_id
  *                 sample_id_end = stats[0].block_sample_id + samples_full_rate
 */
-          __pyx_t_11 = __Pyx_PyLong_From_uint32_t(((__pyx_v_stats[0]).block_sample_count * (__pyx_v_stats[0]).decimate_factor)); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 402, __pyx_L3_error)
+          __pyx_t_11 = __Pyx_PyLong_From_uint32_t((__pyx_v_stats[0]).block_sample_count); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 407, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_11);
-          __pyx_v_samples_full_rate = __pyx_t_11;
-          __pyx_t_11 = 0;
+          __pyx_t_12 = PyNumber_Multiply(__pyx_t_11, __pyx_v_decimate_factor); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 407, __pyx_L3_error)
+          __Pyx_GOTREF(__pyx_t_12);
+          __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+          __pyx_v_samples_full_rate = __pyx_t_12;
+          __pyx_t_12 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":403
- *                 sample_freq = stats[0].sample_freq
- *                 samples_full_rate = stats[0].block_sample_count * stats[0].decimate_factor
+          /* "pyjoulescope_driver/binding.pyx":408
+ *                     decimate_factor = stats[0].decimate_factor
+ *                 samples_full_rate = stats[0].block_sample_count * decimate_factor
  *                 sample_id_start = stats[0].block_sample_id             # <<<<<<<<<<<<<<
  *                 sample_id_end = stats[0].block_sample_id + samples_full_rate
  *                 t_start = sample_id_start / sample_freq
 */
-          __pyx_t_11 = __Pyx_PyLong_From_uint64_t((__pyx_v_stats[0]).block_sample_id); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 403, __pyx_L3_error)
-          __Pyx_GOTREF(__pyx_t_11);
-          __pyx_v_sample_id_start = __pyx_t_11;
-          __pyx_t_11 = 0;
+          __pyx_t_12 = __Pyx_PyLong_From_uint64_t((__pyx_v_stats[0]).block_sample_id); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 408, __pyx_L3_error)
+          __Pyx_GOTREF(__pyx_t_12);
+          __pyx_v_sample_id_start = __pyx_t_12;
+          __pyx_t_12 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":404
- *                 samples_full_rate = stats[0].block_sample_count * stats[0].decimate_factor
+          /* "pyjoulescope_driver/binding.pyx":409
+ *                 samples_full_rate = stats[0].block_sample_count * decimate_factor
  *                 sample_id_start = stats[0].block_sample_id
  *                 sample_id_end = stats[0].block_sample_id + samples_full_rate             # <<<<<<<<<<<<<<
  *                 t_start = sample_id_start / sample_freq
  *                 t_delta = samples_full_rate / sample_freq
 */
-          __pyx_t_11 = __Pyx_PyLong_From_uint64_t((__pyx_v_stats[0]).block_sample_id); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 404, __pyx_L3_error)
-          __Pyx_GOTREF(__pyx_t_11);
-          __pyx_t_12 = PyNumber_Add(__pyx_t_11, __pyx_v_samples_full_rate); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 404, __pyx_L3_error)
+          __pyx_t_12 = __Pyx_PyLong_From_uint64_t((__pyx_v_stats[0]).block_sample_id); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 409, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_12);
-          __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-          __pyx_v_sample_id_end = __pyx_t_12;
-          __pyx_t_12 = 0;
+          __pyx_t_11 = PyNumber_Add(__pyx_t_12, __pyx_v_samples_full_rate); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 409, __pyx_L3_error)
+          __Pyx_GOTREF(__pyx_t_11);
+          __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+          __pyx_v_sample_id_end = __pyx_t_11;
+          __pyx_t_11 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":405
+          /* "pyjoulescope_driver/binding.pyx":410
  *                 sample_id_start = stats[0].block_sample_id
  *                 sample_id_end = stats[0].block_sample_id + samples_full_rate
  *                 t_start = sample_id_start / sample_freq             # <<<<<<<<<<<<<<
  *                 t_delta = samples_full_rate / sample_freq
  *                 charge = _i128_to_int(stats[0].charge_i128[1], stats[0].charge_i128[0])
 */
-          __pyx_t_12 = __Pyx_PyNumber_Divide(__pyx_v_sample_id_start, __pyx_v_sample_freq); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 405, __pyx_L3_error)
-          __Pyx_GOTREF(__pyx_t_12);
-          __pyx_v_t_start = __pyx_t_12;
-          __pyx_t_12 = 0;
+          __pyx_t_11 = __Pyx_PyNumber_Divide(__pyx_v_sample_id_start, __pyx_v_sample_freq); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 410, __pyx_L3_error)
+          __Pyx_GOTREF(__pyx_t_11);
+          __pyx_v_t_start = __pyx_t_11;
+          __pyx_t_11 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":406
+          /* "pyjoulescope_driver/binding.pyx":411
  *                 sample_id_end = stats[0].block_sample_id + samples_full_rate
  *                 t_start = sample_id_start / sample_freq
  *                 t_delta = samples_full_rate / sample_freq             # <<<<<<<<<<<<<<
  *                 charge = _i128_to_int(stats[0].charge_i128[1], stats[0].charge_i128[0])
  *                 energy = _i128_to_int(stats[0].energy_i128[1], stats[0].energy_i128[0])
 */
-          __pyx_t_12 = __Pyx_PyNumber_Divide(__pyx_v_samples_full_rate, __pyx_v_sample_freq); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 406, __pyx_L3_error)
-          __Pyx_GOTREF(__pyx_t_12);
-          __pyx_v_t_delta = __pyx_t_12;
-          __pyx_t_12 = 0;
+          __pyx_t_11 = __Pyx_PyNumber_Divide(__pyx_v_samples_full_rate, __pyx_v_sample_freq); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 411, __pyx_L3_error)
+          __Pyx_GOTREF(__pyx_t_11);
+          __pyx_v_t_delta = __pyx_t_11;
+          __pyx_t_11 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":407
+          /* "pyjoulescope_driver/binding.pyx":412
  *                 t_start = sample_id_start / sample_freq
  *                 t_delta = samples_full_rate / sample_freq
  *                 charge = _i128_to_int(stats[0].charge_i128[1], stats[0].charge_i128[0])             # <<<<<<<<<<<<<<
  *                 energy = _i128_to_int(stats[0].energy_i128[1], stats[0].energy_i128[0])
  *                 v = {
 */
-          __pyx_t_12 = __pyx_f_19pyjoulescope_driver_7binding__i128_to_int(((__pyx_v_stats[0]).charge_i128[1]), ((__pyx_v_stats[0]).charge_i128[0])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 407, __pyx_L3_error)
-          __Pyx_GOTREF(__pyx_t_12);
-          __pyx_v_charge = __pyx_t_12;
-          __pyx_t_12 = 0;
+          __pyx_t_11 = __pyx_f_19pyjoulescope_driver_7binding__i128_to_int(((__pyx_v_stats[0]).charge_i128[1]), ((__pyx_v_stats[0]).charge_i128[0])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 412, __pyx_L3_error)
+          __Pyx_GOTREF(__pyx_t_11);
+          __pyx_v_charge = __pyx_t_11;
+          __pyx_t_11 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":408
+          /* "pyjoulescope_driver/binding.pyx":413
  *                 t_delta = samples_full_rate / sample_freq
  *                 charge = _i128_to_int(stats[0].charge_i128[1], stats[0].charge_i128[0])
  *                 energy = _i128_to_int(stats[0].energy_i128[1], stats[0].energy_i128[0])             # <<<<<<<<<<<<<<
  *                 v = {
  *                     'time': {
 */
-          __pyx_t_12 = __pyx_f_19pyjoulescope_driver_7binding__i128_to_int(((__pyx_v_stats[0]).energy_i128[1]), ((__pyx_v_stats[0]).energy_i128[0])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 408, __pyx_L3_error)
-          __Pyx_GOTREF(__pyx_t_12);
-          __pyx_v_energy = __pyx_t_12;
-          __pyx_t_12 = 0;
+          __pyx_t_11 = __pyx_f_19pyjoulescope_driver_7binding__i128_to_int(((__pyx_v_stats[0]).energy_i128[1]), ((__pyx_v_stats[0]).energy_i128[0])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 413, __pyx_L3_error)
+          __Pyx_GOTREF(__pyx_t_11);
+          __pyx_v_energy = __pyx_t_11;
+          __pyx_t_11 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":410
+          /* "pyjoulescope_driver/binding.pyx":415
  *                 energy = _i128_to_int(stats[0].energy_i128[1], stats[0].energy_i128[0])
  *                 v = {
  *                     'time': {             # <<<<<<<<<<<<<<
  *                         'samples': {'value': [sample_id_start, sample_id_end], 'units': 'samples'},
  *                         'utc': {
 */
-          __pyx_t_12 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 410, __pyx_L3_error)
-          __Pyx_GOTREF(__pyx_t_12);
+          __pyx_t_11 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 415, __pyx_L3_error)
+          __Pyx_GOTREF(__pyx_t_11);
 
-          /* "pyjoulescope_driver/binding.pyx":411
+          /* "pyjoulescope_driver/binding.pyx":416
  *                 v = {
  *                     'time': {
  *                         'samples': {'value': [sample_id_start, sample_id_end], 'units': 'samples'},             # <<<<<<<<<<<<<<
  *                         'utc': {
  *                             'value': [
 */
-          __pyx_t_11 = __Pyx_PyDict_NewPresized(9); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 411, __pyx_L3_error)
-          __Pyx_GOTREF(__pyx_t_11);
-          __pyx_t_17 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 411, __pyx_L3_error)
+          __pyx_t_12 = __Pyx_PyDict_NewPresized(9); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 416, __pyx_L3_error)
+          __Pyx_GOTREF(__pyx_t_12);
+          __pyx_t_17 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 416, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_17);
-          __pyx_t_18 = PyList_New(2); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 411, __pyx_L3_error)
+          __pyx_t_18 = PyList_New(2); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 416, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_18);
           __Pyx_INCREF(__pyx_v_sample_id_start);
           __Pyx_GIVEREF(__pyx_v_sample_id_start);
-          if (__Pyx_PyList_SET_ITEM(__pyx_t_18, 0, __pyx_v_sample_id_start) != (0)) __PYX_ERR(0, 411, __pyx_L3_error);
+          if (__Pyx_PyList_SET_ITEM(__pyx_t_18, 0, __pyx_v_sample_id_start) != (0)) __PYX_ERR(0, 416, __pyx_L3_error);
           __Pyx_INCREF(__pyx_v_sample_id_end);
           __Pyx_GIVEREF(__pyx_v_sample_id_end);
-          if (__Pyx_PyList_SET_ITEM(__pyx_t_18, 1, __pyx_v_sample_id_end) != (0)) __PYX_ERR(0, 411, __pyx_L3_error);
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 411, __pyx_L3_error)
+          if (__Pyx_PyList_SET_ITEM(__pyx_t_18, 1, __pyx_v_sample_id_end) != (0)) __PYX_ERR(0, 416, __pyx_L3_error);
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 416, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_samples) < (0)) __PYX_ERR(0, 411, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_samples, __pyx_t_17) < (0)) __PYX_ERR(0, 411, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_samples) < (0)) __PYX_ERR(0, 416, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_samples, __pyx_t_17) < (0)) __PYX_ERR(0, 416, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":413
+          /* "pyjoulescope_driver/binding.pyx":418
  *                         'samples': {'value': [sample_id_start, sample_id_end], 'units': 'samples'},
  *                         'utc': {
  *                             'value': [             # <<<<<<<<<<<<<<
  *                                 c_jsdrv.jsdrv_time_from_counter(&stats[0].time_map, sample_id_start),
  *                                 c_jsdrv.jsdrv_time_from_counter(&stats[0].time_map, sample_id_end),
 */
-          __pyx_t_17 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 413, __pyx_L3_error)
+          __pyx_t_17 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 418, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_17);
 
-          /* "pyjoulescope_driver/binding.pyx":414
+          /* "pyjoulescope_driver/binding.pyx":419
  *                         'utc': {
  *                             'value': [
  *                                 c_jsdrv.jsdrv_time_from_counter(&stats[0].time_map, sample_id_start),             # <<<<<<<<<<<<<<
  *                                 c_jsdrv.jsdrv_time_from_counter(&stats[0].time_map, sample_id_end),
  *                             ],
 */
-          __pyx_t_24 = __Pyx_PyLong_As_uint64_t(__pyx_v_sample_id_start); if (unlikely((__pyx_t_24 == ((uint64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 414, __pyx_L3_error)
-          __pyx_t_18 = __Pyx_PyLong_From_int64_t(jsdrv_time_from_counter((&(__pyx_v_stats[0]).time_map), __pyx_t_24)); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 414, __pyx_L3_error)
+          __pyx_t_24 = __Pyx_PyLong_As_uint64_t(__pyx_v_sample_id_start); if (unlikely((__pyx_t_24 == ((uint64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 419, __pyx_L3_error)
+          __pyx_t_18 = __Pyx_PyLong_From_int64_t(jsdrv_time_from_counter((&(__pyx_v_stats[0]).time_map), __pyx_t_24)); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 419, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_18);
 
-          /* "pyjoulescope_driver/binding.pyx":415
+          /* "pyjoulescope_driver/binding.pyx":420
  *                             'value': [
  *                                 c_jsdrv.jsdrv_time_from_counter(&stats[0].time_map, sample_id_start),
  *                                 c_jsdrv.jsdrv_time_from_counter(&stats[0].time_map, sample_id_end),             # <<<<<<<<<<<<<<
  *                             ],
  *                             'units': 'time64',
 */
-          __pyx_t_24 = __Pyx_PyLong_As_uint64_t(__pyx_v_sample_id_end); if (unlikely((__pyx_t_24 == ((uint64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 415, __pyx_L3_error)
-          __pyx_t_7 = __Pyx_PyLong_From_int64_t(jsdrv_time_from_counter((&(__pyx_v_stats[0]).time_map), __pyx_t_24)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 415, __pyx_L3_error)
+          __pyx_t_24 = __Pyx_PyLong_As_uint64_t(__pyx_v_sample_id_end); if (unlikely((__pyx_t_24 == ((uint64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 420, __pyx_L3_error)
+          __pyx_t_7 = __Pyx_PyLong_From_int64_t(jsdrv_time_from_counter((&(__pyx_v_stats[0]).time_map), __pyx_t_24)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 420, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_7);
 
-          /* "pyjoulescope_driver/binding.pyx":413
+          /* "pyjoulescope_driver/binding.pyx":418
  *                         'samples': {'value': [sample_id_start, sample_id_end], 'units': 'samples'},
  *                         'utc': {
  *                             'value': [             # <<<<<<<<<<<<<<
  *                                 c_jsdrv.jsdrv_time_from_counter(&stats[0].time_map, sample_id_start),
  *                                 c_jsdrv.jsdrv_time_from_counter(&stats[0].time_map, sample_id_end),
 */
-          __pyx_t_13 = PyList_New(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 413, __pyx_L3_error)
+          __pyx_t_13 = PyList_New(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 418, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
           __Pyx_GIVEREF(__pyx_t_18);
-          if (__Pyx_PyList_SET_ITEM(__pyx_t_13, 0, __pyx_t_18) != (0)) __PYX_ERR(0, 413, __pyx_L3_error);
+          if (__Pyx_PyList_SET_ITEM(__pyx_t_13, 0, __pyx_t_18) != (0)) __PYX_ERR(0, 418, __pyx_L3_error);
           __Pyx_GIVEREF(__pyx_t_7);
-          if (__Pyx_PyList_SET_ITEM(__pyx_t_13, 1, __pyx_t_7) != (0)) __PYX_ERR(0, 413, __pyx_L3_error);
+          if (__Pyx_PyList_SET_ITEM(__pyx_t_13, 1, __pyx_t_7) != (0)) __PYX_ERR(0, 418, __pyx_L3_error);
           __pyx_t_18 = 0;
           __pyx_t_7 = 0;
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_13) < (0)) __PYX_ERR(0, 413, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_13) < (0)) __PYX_ERR(0, 418, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_time64) < (0)) __PYX_ERR(0, 413, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_utc, __pyx_t_17) < (0)) __PYX_ERR(0, 411, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_time64) < (0)) __PYX_ERR(0, 418, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_utc, __pyx_t_17) < (0)) __PYX_ERR(0, 416, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":419
+          /* "pyjoulescope_driver/binding.pyx":424
  *                             'units': 'time64',
  *                         },
  *                         'sample_freq': {'value': sample_freq, 'units': 'Hz'},             # <<<<<<<<<<<<<<
  *                         'range': {'value': [t_start, t_start + t_delta], 'units': 's'},
  *                         'delta': {'value': t_delta, 'units': 's'},
 */
-          __pyx_t_17 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 419, __pyx_L3_error)
+          __pyx_t_17 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 424, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_17);
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_value, __pyx_v_sample_freq) < (0)) __PYX_ERR(0, 419, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_Hz) < (0)) __PYX_ERR(0, 419, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_sample_freq, __pyx_t_17) < (0)) __PYX_ERR(0, 411, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_value, __pyx_v_sample_freq) < (0)) __PYX_ERR(0, 424, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_Hz) < (0)) __PYX_ERR(0, 424, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_sample_freq, __pyx_t_17) < (0)) __PYX_ERR(0, 416, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":420
+          /* "pyjoulescope_driver/binding.pyx":425
  *                         },
  *                         'sample_freq': {'value': sample_freq, 'units': 'Hz'},
  *                         'range': {'value': [t_start, t_start + t_delta], 'units': 's'},             # <<<<<<<<<<<<<<
  *                         'delta': {'value': t_delta, 'units': 's'},
- *                         'decimate_factor': {'value': stats[0].decimate_factor, 'units': 'samples'},
+ *                         'decimate_factor': {'value': decimate_factor, 'units': 'samples'},
 */
-          __pyx_t_17 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 420, __pyx_L3_error)
+          __pyx_t_17 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 425, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_17);
-          __pyx_t_13 = PyNumber_Add(__pyx_v_t_start, __pyx_v_t_delta); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 420, __pyx_L3_error)
+          __pyx_t_13 = PyNumber_Add(__pyx_v_t_start, __pyx_v_t_delta); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 425, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          __pyx_t_7 = PyList_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 420, __pyx_L3_error)
+          __pyx_t_7 = PyList_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 425, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_7);
           __Pyx_INCREF(__pyx_v_t_start);
           __Pyx_GIVEREF(__pyx_v_t_start);
-          if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 0, __pyx_v_t_start) != (0)) __PYX_ERR(0, 420, __pyx_L3_error);
+          if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 0, __pyx_v_t_start) != (0)) __PYX_ERR(0, 425, __pyx_L3_error);
           __Pyx_GIVEREF(__pyx_t_13);
-          if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 1, __pyx_t_13) != (0)) __PYX_ERR(0, 420, __pyx_L3_error);
+          if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 1, __pyx_t_13) != (0)) __PYX_ERR(0, 425, __pyx_L3_error);
           __pyx_t_13 = 0;
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_7) < (0)) __PYX_ERR(0, 420, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_7) < (0)) __PYX_ERR(0, 425, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_s) < (0)) __PYX_ERR(0, 420, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_range, __pyx_t_17) < (0)) __PYX_ERR(0, 411, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_s) < (0)) __PYX_ERR(0, 425, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_range, __pyx_t_17) < (0)) __PYX_ERR(0, 416, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":421
+          /* "pyjoulescope_driver/binding.pyx":426
  *                         'sample_freq': {'value': sample_freq, 'units': 'Hz'},
  *                         'range': {'value': [t_start, t_start + t_delta], 'units': 's'},
  *                         'delta': {'value': t_delta, 'units': 's'},             # <<<<<<<<<<<<<<
- *                         'decimate_factor': {'value': stats[0].decimate_factor, 'units': 'samples'},
+ *                         'decimate_factor': {'value': decimate_factor, 'units': 'samples'},
  *                         'decimate_sample_count': {'value': stats[0].block_sample_count, 'units': 'samples'},
 */
-          __pyx_t_17 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 421, __pyx_L3_error)
+          __pyx_t_17 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 426, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_17);
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_value, __pyx_v_t_delta) < (0)) __PYX_ERR(0, 421, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_s) < (0)) __PYX_ERR(0, 421, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_delta, __pyx_t_17) < (0)) __PYX_ERR(0, 411, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_value, __pyx_v_t_delta) < (0)) __PYX_ERR(0, 426, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_s) < (0)) __PYX_ERR(0, 426, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_delta, __pyx_t_17) < (0)) __PYX_ERR(0, 416, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":422
+          /* "pyjoulescope_driver/binding.pyx":427
  *                         'range': {'value': [t_start, t_start + t_delta], 'units': 's'},
  *                         'delta': {'value': t_delta, 'units': 's'},
- *                         'decimate_factor': {'value': stats[0].decimate_factor, 'units': 'samples'},             # <<<<<<<<<<<<<<
+ *                         'decimate_factor': {'value': decimate_factor, 'units': 'samples'},             # <<<<<<<<<<<<<<
  *                         'decimate_sample_count': {'value': stats[0].block_sample_count, 'units': 'samples'},
  *                         'accum_samples': {'value': [stats[0].accum_sample_id, sample_id_end], 'units': 'samples'},
 */
-          __pyx_t_17 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 422, __pyx_L3_error)
+          __pyx_t_17 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 427, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_17);
-          __pyx_t_7 = __Pyx_PyLong_From_uint8_t((__pyx_v_stats[0]).decimate_factor); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 422, __pyx_L3_error)
-          __Pyx_GOTREF(__pyx_t_7);
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_7) < (0)) __PYX_ERR(0, 422, __pyx_L3_error)
-          __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_samples) < (0)) __PYX_ERR(0, 422, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_decimate_factor, __pyx_t_17) < (0)) __PYX_ERR(0, 411, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_value, __pyx_v_decimate_factor) < (0)) __PYX_ERR(0, 427, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_samples) < (0)) __PYX_ERR(0, 427, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_decimate_factor, __pyx_t_17) < (0)) __PYX_ERR(0, 416, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":423
+          /* "pyjoulescope_driver/binding.pyx":428
  *                         'delta': {'value': t_delta, 'units': 's'},
- *                         'decimate_factor': {'value': stats[0].decimate_factor, 'units': 'samples'},
+ *                         'decimate_factor': {'value': decimate_factor, 'units': 'samples'},
  *                         'decimate_sample_count': {'value': stats[0].block_sample_count, 'units': 'samples'},             # <<<<<<<<<<<<<<
  *                         'accum_samples': {'value': [stats[0].accum_sample_id, sample_id_end], 'units': 'samples'},
  *                         'time_map': {
 */
-          __pyx_t_17 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 423, __pyx_L3_error)
+          __pyx_t_17 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 428, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_17);
-          __pyx_t_7 = __Pyx_PyLong_From_uint32_t((__pyx_v_stats[0]).block_sample_count); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 423, __pyx_L3_error)
+          __pyx_t_7 = __Pyx_PyLong_From_uint32_t((__pyx_v_stats[0]).block_sample_count); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 428, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_7);
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_7) < (0)) __PYX_ERR(0, 423, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_7) < (0)) __PYX_ERR(0, 428, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_samples) < (0)) __PYX_ERR(0, 423, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_decimate_sample_count, __pyx_t_17) < (0)) __PYX_ERR(0, 411, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_samples) < (0)) __PYX_ERR(0, 428, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_decimate_sample_count, __pyx_t_17) < (0)) __PYX_ERR(0, 416, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":424
- *                         'decimate_factor': {'value': stats[0].decimate_factor, 'units': 'samples'},
+          /* "pyjoulescope_driver/binding.pyx":429
+ *                         'decimate_factor': {'value': decimate_factor, 'units': 'samples'},
  *                         'decimate_sample_count': {'value': stats[0].block_sample_count, 'units': 'samples'},
  *                         'accum_samples': {'value': [stats[0].accum_sample_id, sample_id_end], 'units': 'samples'},             # <<<<<<<<<<<<<<
  *                         'time_map': {
  *                             'offset_time': stats[0].time_map.offset_time,
 */
-          __pyx_t_17 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 424, __pyx_L3_error)
+          __pyx_t_17 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 429, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_17);
-          __pyx_t_7 = __Pyx_PyLong_From_uint64_t((__pyx_v_stats[0]).accum_sample_id); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 424, __pyx_L3_error)
+          __pyx_t_7 = __Pyx_PyLong_From_uint64_t((__pyx_v_stats[0]).accum_sample_id); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 429, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_7);
-          __pyx_t_13 = PyList_New(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 424, __pyx_L3_error)
+          __pyx_t_13 = PyList_New(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 429, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
           __Pyx_GIVEREF(__pyx_t_7);
-          if (__Pyx_PyList_SET_ITEM(__pyx_t_13, 0, __pyx_t_7) != (0)) __PYX_ERR(0, 424, __pyx_L3_error);
+          if (__Pyx_PyList_SET_ITEM(__pyx_t_13, 0, __pyx_t_7) != (0)) __PYX_ERR(0, 429, __pyx_L3_error);
           __Pyx_INCREF(__pyx_v_sample_id_end);
           __Pyx_GIVEREF(__pyx_v_sample_id_end);
-          if (__Pyx_PyList_SET_ITEM(__pyx_t_13, 1, __pyx_v_sample_id_end) != (0)) __PYX_ERR(0, 424, __pyx_L3_error);
+          if (__Pyx_PyList_SET_ITEM(__pyx_t_13, 1, __pyx_v_sample_id_end) != (0)) __PYX_ERR(0, 429, __pyx_L3_error);
           __pyx_t_7 = 0;
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_13) < (0)) __PYX_ERR(0, 424, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_13) < (0)) __PYX_ERR(0, 429, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_samples) < (0)) __PYX_ERR(0, 424, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_accum_samples, __pyx_t_17) < (0)) __PYX_ERR(0, 411, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_samples) < (0)) __PYX_ERR(0, 429, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_accum_samples, __pyx_t_17) < (0)) __PYX_ERR(0, 416, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":426
+          /* "pyjoulescope_driver/binding.pyx":431
  *                         'accum_samples': {'value': [stats[0].accum_sample_id, sample_id_end], 'units': 'samples'},
  *                         'time_map': {
  *                             'offset_time': stats[0].time_map.offset_time,             # <<<<<<<<<<<<<<
  *                             'offset_counter': stats[0].time_map.offset_counter,
  *                             'counter_rate': stats[0].time_map.counter_rate,
 */
-          __pyx_t_17 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 426, __pyx_L3_error)
+          __pyx_t_17 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 431, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_17);
-          __pyx_t_13 = __Pyx_PyLong_From_int64_t((__pyx_v_stats[0]).time_map.offset_time); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 426, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyLong_From_int64_t((__pyx_v_stats[0]).time_map.offset_time); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 431, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_offset_time, __pyx_t_13) < (0)) __PYX_ERR(0, 426, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_offset_time, __pyx_t_13) < (0)) __PYX_ERR(0, 431, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":427
+          /* "pyjoulescope_driver/binding.pyx":432
  *                         'time_map': {
  *                             'offset_time': stats[0].time_map.offset_time,
  *                             'offset_counter': stats[0].time_map.offset_counter,             # <<<<<<<<<<<<<<
  *                             'counter_rate': stats[0].time_map.counter_rate,
  *                         }
 */
-          __pyx_t_13 = __Pyx_PyLong_From_uint64_t((__pyx_v_stats[0]).time_map.offset_counter); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 427, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyLong_From_uint64_t((__pyx_v_stats[0]).time_map.offset_counter); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 432, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_offset_counter, __pyx_t_13) < (0)) __PYX_ERR(0, 426, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_offset_counter, __pyx_t_13) < (0)) __PYX_ERR(0, 431, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":428
+          /* "pyjoulescope_driver/binding.pyx":433
  *                             'offset_time': stats[0].time_map.offset_time,
  *                             'offset_counter': stats[0].time_map.offset_counter,
  *                             'counter_rate': stats[0].time_map.counter_rate,             # <<<<<<<<<<<<<<
  *                         }
  *                     },
 */
-          __pyx_t_13 = PyFloat_FromDouble((__pyx_v_stats[0]).time_map.counter_rate); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 428, __pyx_L3_error)
+          __pyx_t_13 = PyFloat_FromDouble((__pyx_v_stats[0]).time_map.counter_rate); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 433, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_counter_rate, __pyx_t_13) < (0)) __PYX_ERR(0, 426, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_counter_rate, __pyx_t_13) < (0)) __PYX_ERR(0, 431, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_time_map, __pyx_t_17) < (0)) __PYX_ERR(0, 411, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_time_map, __pyx_t_17) < (0)) __PYX_ERR(0, 416, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_time, __pyx_t_11) < (0)) __PYX_ERR(0, 410, __pyx_L3_error)
-          __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_time, __pyx_t_12) < (0)) __PYX_ERR(0, 415, __pyx_L3_error)
+          __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":432
+          /* "pyjoulescope_driver/binding.pyx":437
  *                     },
  *                     'signals': {
  *                         'current': {             # <<<<<<<<<<<<<<
  *                             'avg': {'value': stats[0].i_avg, 'units': 'A'},
  *                             'std': {'value': stats[0].i_std, 'units': 'A'},
 */
-          __pyx_t_11 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 432, __pyx_L3_error)
-          __Pyx_GOTREF(__pyx_t_11);
+          __pyx_t_12 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 437, __pyx_L3_error)
+          __Pyx_GOTREF(__pyx_t_12);
 
-          /* "pyjoulescope_driver/binding.pyx":433
+          /* "pyjoulescope_driver/binding.pyx":438
  *                     'signals': {
  *                         'current': {
  *                             'avg': {'value': stats[0].i_avg, 'units': 'A'},             # <<<<<<<<<<<<<<
  *                             'std': {'value': stats[0].i_std, 'units': 'A'},
  *                             'min': {'value': stats[0].i_min, 'units': 'A'},
 */
-          __pyx_t_17 = __Pyx_PyDict_NewPresized(6); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 433, __pyx_L3_error)
+          __pyx_t_17 = __Pyx_PyDict_NewPresized(6); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 438, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_17);
-          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 433, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 438, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          __pyx_t_7 = PyFloat_FromDouble((__pyx_v_stats[0]).i_avg); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 433, __pyx_L3_error)
+          __pyx_t_7 = PyFloat_FromDouble((__pyx_v_stats[0]).i_avg); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 438, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_7);
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_7) < (0)) __PYX_ERR(0, 433, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_7) < (0)) __PYX_ERR(0, 438, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_A) < (0)) __PYX_ERR(0, 433, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_avg, __pyx_t_13) < (0)) __PYX_ERR(0, 433, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_A) < (0)) __PYX_ERR(0, 438, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_avg, __pyx_t_13) < (0)) __PYX_ERR(0, 438, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":434
+          /* "pyjoulescope_driver/binding.pyx":439
  *                         'current': {
  *                             'avg': {'value': stats[0].i_avg, 'units': 'A'},
  *                             'std': {'value': stats[0].i_std, 'units': 'A'},             # <<<<<<<<<<<<<<
  *                             'min': {'value': stats[0].i_min, 'units': 'A'},
  *                             'max': {'value': stats[0].i_max, 'units': 'A'},
 */
-          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 434, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 439, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          __pyx_t_7 = PyFloat_FromDouble((__pyx_v_stats[0]).i_std); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 434, __pyx_L3_error)
+          __pyx_t_7 = PyFloat_FromDouble((__pyx_v_stats[0]).i_std); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 439, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_7);
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_7) < (0)) __PYX_ERR(0, 434, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_7) < (0)) __PYX_ERR(0, 439, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_A) < (0)) __PYX_ERR(0, 434, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_std, __pyx_t_13) < (0)) __PYX_ERR(0, 433, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_A) < (0)) __PYX_ERR(0, 439, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_std, __pyx_t_13) < (0)) __PYX_ERR(0, 438, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":435
+          /* "pyjoulescope_driver/binding.pyx":440
  *                             'avg': {'value': stats[0].i_avg, 'units': 'A'},
  *                             'std': {'value': stats[0].i_std, 'units': 'A'},
  *                             'min': {'value': stats[0].i_min, 'units': 'A'},             # <<<<<<<<<<<<<<
  *                             'max': {'value': stats[0].i_max, 'units': 'A'},
  *                             'p2p': {'value': stats[0].i_max - stats[0].i_min, 'units': 'A'},
 */
-          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 435, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 440, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          __pyx_t_7 = PyFloat_FromDouble((__pyx_v_stats[0]).i_min); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 435, __pyx_L3_error)
+          __pyx_t_7 = PyFloat_FromDouble((__pyx_v_stats[0]).i_min); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 440, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_7);
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_7) < (0)) __PYX_ERR(0, 435, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_7) < (0)) __PYX_ERR(0, 440, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_A) < (0)) __PYX_ERR(0, 435, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_min, __pyx_t_13) < (0)) __PYX_ERR(0, 433, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_A) < (0)) __PYX_ERR(0, 440, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_min, __pyx_t_13) < (0)) __PYX_ERR(0, 438, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":436
+          /* "pyjoulescope_driver/binding.pyx":441
  *                             'std': {'value': stats[0].i_std, 'units': 'A'},
  *                             'min': {'value': stats[0].i_min, 'units': 'A'},
  *                             'max': {'value': stats[0].i_max, 'units': 'A'},             # <<<<<<<<<<<<<<
  *                             'p2p': {'value': stats[0].i_max - stats[0].i_min, 'units': 'A'},
  *                             'integral': {'value': stats[0].i_avg * t_delta, 'units': 'C'},
 */
-          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 436, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 441, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          __pyx_t_7 = PyFloat_FromDouble((__pyx_v_stats[0]).i_max); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 436, __pyx_L3_error)
+          __pyx_t_7 = PyFloat_FromDouble((__pyx_v_stats[0]).i_max); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 441, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_7);
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_7) < (0)) __PYX_ERR(0, 436, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_7) < (0)) __PYX_ERR(0, 441, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_A) < (0)) __PYX_ERR(0, 436, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_max, __pyx_t_13) < (0)) __PYX_ERR(0, 433, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_A) < (0)) __PYX_ERR(0, 441, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_max, __pyx_t_13) < (0)) __PYX_ERR(0, 438, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":437
+          /* "pyjoulescope_driver/binding.pyx":442
  *                             'min': {'value': stats[0].i_min, 'units': 'A'},
  *                             'max': {'value': stats[0].i_max, 'units': 'A'},
  *                             'p2p': {'value': stats[0].i_max - stats[0].i_min, 'units': 'A'},             # <<<<<<<<<<<<<<
  *                             'integral': {'value': stats[0].i_avg * t_delta, 'units': 'C'},
  *                         },
 */
-          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 437, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 442, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          __pyx_t_7 = PyFloat_FromDouble(((__pyx_v_stats[0]).i_max - (__pyx_v_stats[0]).i_min)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 437, __pyx_L3_error)
+          __pyx_t_7 = PyFloat_FromDouble(((__pyx_v_stats[0]).i_max - (__pyx_v_stats[0]).i_min)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 442, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_7);
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_7) < (0)) __PYX_ERR(0, 437, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_7) < (0)) __PYX_ERR(0, 442, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_A) < (0)) __PYX_ERR(0, 437, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_p2p, __pyx_t_13) < (0)) __PYX_ERR(0, 433, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_A) < (0)) __PYX_ERR(0, 442, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_p2p, __pyx_t_13) < (0)) __PYX_ERR(0, 438, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":438
+          /* "pyjoulescope_driver/binding.pyx":443
  *                             'max': {'value': stats[0].i_max, 'units': 'A'},
  *                             'p2p': {'value': stats[0].i_max - stats[0].i_min, 'units': 'A'},
  *                             'integral': {'value': stats[0].i_avg * t_delta, 'units': 'C'},             # <<<<<<<<<<<<<<
  *                         },
  *                         'voltage': {
 */
-          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 438, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 443, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          __pyx_t_7 = PyFloat_FromDouble((__pyx_v_stats[0]).i_avg); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 438, __pyx_L3_error)
+          __pyx_t_7 = PyFloat_FromDouble((__pyx_v_stats[0]).i_avg); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 443, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_7);
-          __pyx_t_18 = PyNumber_Multiply(__pyx_t_7, __pyx_v_t_delta); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 438, __pyx_L3_error)
+          __pyx_t_18 = PyNumber_Multiply(__pyx_t_7, __pyx_v_t_delta); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 443, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_18);
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 438, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 443, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_C) < (0)) __PYX_ERR(0, 438, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_integral, __pyx_t_13) < (0)) __PYX_ERR(0, 433, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_C) < (0)) __PYX_ERR(0, 443, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_integral, __pyx_t_13) < (0)) __PYX_ERR(0, 438, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_current, __pyx_t_17) < (0)) __PYX_ERR(0, 432, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_current, __pyx_t_17) < (0)) __PYX_ERR(0, 437, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":441
+          /* "pyjoulescope_driver/binding.pyx":446
  *                         },
  *                         'voltage': {
  *                             'avg': {'value': stats[0].v_avg, 'units': 'V'},             # <<<<<<<<<<<<<<
  *                             'std': {'value': stats[0].v_std, 'units': 'V'},
  *                             'min': {'value': stats[0].v_min, 'units': 'V'},
 */
-          __pyx_t_17 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 441, __pyx_L3_error)
+          __pyx_t_17 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 446, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_17);
-          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 441, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 446, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          __pyx_t_18 = PyFloat_FromDouble((__pyx_v_stats[0]).v_avg); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 441, __pyx_L3_error)
+          __pyx_t_18 = PyFloat_FromDouble((__pyx_v_stats[0]).v_avg); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 446, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_18);
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 441, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 446, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_V) < (0)) __PYX_ERR(0, 441, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_avg, __pyx_t_13) < (0)) __PYX_ERR(0, 441, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_V) < (0)) __PYX_ERR(0, 446, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_avg, __pyx_t_13) < (0)) __PYX_ERR(0, 446, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":442
+          /* "pyjoulescope_driver/binding.pyx":447
  *                         'voltage': {
  *                             'avg': {'value': stats[0].v_avg, 'units': 'V'},
  *                             'std': {'value': stats[0].v_std, 'units': 'V'},             # <<<<<<<<<<<<<<
  *                             'min': {'value': stats[0].v_min, 'units': 'V'},
  *                             'max': {'value': stats[0].v_max, 'units': 'V'},
 */
-          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 442, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 447, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          __pyx_t_18 = PyFloat_FromDouble((__pyx_v_stats[0]).v_std); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 442, __pyx_L3_error)
+          __pyx_t_18 = PyFloat_FromDouble((__pyx_v_stats[0]).v_std); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 447, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_18);
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 442, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 447, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_V) < (0)) __PYX_ERR(0, 442, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_std, __pyx_t_13) < (0)) __PYX_ERR(0, 441, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_V) < (0)) __PYX_ERR(0, 447, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_std, __pyx_t_13) < (0)) __PYX_ERR(0, 446, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":443
+          /* "pyjoulescope_driver/binding.pyx":448
  *                             'avg': {'value': stats[0].v_avg, 'units': 'V'},
  *                             'std': {'value': stats[0].v_std, 'units': 'V'},
  *                             'min': {'value': stats[0].v_min, 'units': 'V'},             # <<<<<<<<<<<<<<
  *                             'max': {'value': stats[0].v_max, 'units': 'V'},
  *                             'p2p': {'value': stats[0].v_max - stats[0].v_min, 'units': 'V'},
 */
-          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 443, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 448, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          __pyx_t_18 = PyFloat_FromDouble((__pyx_v_stats[0]).v_min); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 443, __pyx_L3_error)
+          __pyx_t_18 = PyFloat_FromDouble((__pyx_v_stats[0]).v_min); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 448, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_18);
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 443, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 448, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_V) < (0)) __PYX_ERR(0, 443, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_min, __pyx_t_13) < (0)) __PYX_ERR(0, 441, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_V) < (0)) __PYX_ERR(0, 448, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_min, __pyx_t_13) < (0)) __PYX_ERR(0, 446, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":444
+          /* "pyjoulescope_driver/binding.pyx":449
  *                             'std': {'value': stats[0].v_std, 'units': 'V'},
  *                             'min': {'value': stats[0].v_min, 'units': 'V'},
  *                             'max': {'value': stats[0].v_max, 'units': 'V'},             # <<<<<<<<<<<<<<
  *                             'p2p': {'value': stats[0].v_max - stats[0].v_min, 'units': 'V'},
  *                         },
 */
-          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 444, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 449, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          __pyx_t_18 = PyFloat_FromDouble((__pyx_v_stats[0]).v_max); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 444, __pyx_L3_error)
+          __pyx_t_18 = PyFloat_FromDouble((__pyx_v_stats[0]).v_max); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 449, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_18);
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 444, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 449, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_V) < (0)) __PYX_ERR(0, 444, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_max, __pyx_t_13) < (0)) __PYX_ERR(0, 441, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_V) < (0)) __PYX_ERR(0, 449, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_max, __pyx_t_13) < (0)) __PYX_ERR(0, 446, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":445
+          /* "pyjoulescope_driver/binding.pyx":450
  *                             'min': {'value': stats[0].v_min, 'units': 'V'},
  *                             'max': {'value': stats[0].v_max, 'units': 'V'},
  *                             'p2p': {'value': stats[0].v_max - stats[0].v_min, 'units': 'V'},             # <<<<<<<<<<<<<<
  *                         },
  *                         'power': {
 */
-          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 445, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 450, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          __pyx_t_18 = PyFloat_FromDouble(((__pyx_v_stats[0]).v_max - (__pyx_v_stats[0]).v_min)); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 445, __pyx_L3_error)
+          __pyx_t_18 = PyFloat_FromDouble(((__pyx_v_stats[0]).v_max - (__pyx_v_stats[0]).v_min)); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 450, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_18);
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 445, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 450, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_V) < (0)) __PYX_ERR(0, 445, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_p2p, __pyx_t_13) < (0)) __PYX_ERR(0, 441, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_V) < (0)) __PYX_ERR(0, 450, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_p2p, __pyx_t_13) < (0)) __PYX_ERR(0, 446, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_voltage, __pyx_t_17) < (0)) __PYX_ERR(0, 432, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_voltage, __pyx_t_17) < (0)) __PYX_ERR(0, 437, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":448
+          /* "pyjoulescope_driver/binding.pyx":453
  *                         },
  *                         'power': {
  *                             'avg': {'value': stats[0].p_avg, 'units': 'W'},             # <<<<<<<<<<<<<<
  *                             'std': {'value': stats[0].p_std, 'units': 'W'},
  *                             'min': {'value': stats[0].p_min, 'units': 'W'},
 */
-          __pyx_t_17 = __Pyx_PyDict_NewPresized(6); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 448, __pyx_L3_error)
+          __pyx_t_17 = __Pyx_PyDict_NewPresized(6); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 453, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_17);
-          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 448, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 453, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          __pyx_t_18 = PyFloat_FromDouble((__pyx_v_stats[0]).p_avg); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 448, __pyx_L3_error)
+          __pyx_t_18 = PyFloat_FromDouble((__pyx_v_stats[0]).p_avg); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 453, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_18);
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 448, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 453, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_W) < (0)) __PYX_ERR(0, 448, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_avg, __pyx_t_13) < (0)) __PYX_ERR(0, 448, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_W) < (0)) __PYX_ERR(0, 453, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_avg, __pyx_t_13) < (0)) __PYX_ERR(0, 453, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":449
+          /* "pyjoulescope_driver/binding.pyx":454
  *                         'power': {
  *                             'avg': {'value': stats[0].p_avg, 'units': 'W'},
  *                             'std': {'value': stats[0].p_std, 'units': 'W'},             # <<<<<<<<<<<<<<
  *                             'min': {'value': stats[0].p_min, 'units': 'W'},
  *                             'max': {'value': stats[0].p_max, 'units': 'W'},
 */
-          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 449, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 454, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          __pyx_t_18 = PyFloat_FromDouble((__pyx_v_stats[0]).p_std); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 449, __pyx_L3_error)
+          __pyx_t_18 = PyFloat_FromDouble((__pyx_v_stats[0]).p_std); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 454, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_18);
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 449, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 454, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_W) < (0)) __PYX_ERR(0, 449, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_std, __pyx_t_13) < (0)) __PYX_ERR(0, 448, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_W) < (0)) __PYX_ERR(0, 454, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_std, __pyx_t_13) < (0)) __PYX_ERR(0, 453, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":450
+          /* "pyjoulescope_driver/binding.pyx":455
  *                             'avg': {'value': stats[0].p_avg, 'units': 'W'},
  *                             'std': {'value': stats[0].p_std, 'units': 'W'},
  *                             'min': {'value': stats[0].p_min, 'units': 'W'},             # <<<<<<<<<<<<<<
  *                             'max': {'value': stats[0].p_max, 'units': 'W'},
  *                             'p2p': {'value': stats[0].p_max - stats[0].p_min, 'units': 'W'},
 */
-          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 450, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 455, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          __pyx_t_18 = PyFloat_FromDouble((__pyx_v_stats[0]).p_min); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 450, __pyx_L3_error)
+          __pyx_t_18 = PyFloat_FromDouble((__pyx_v_stats[0]).p_min); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 455, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_18);
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 450, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 455, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_W) < (0)) __PYX_ERR(0, 450, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_min, __pyx_t_13) < (0)) __PYX_ERR(0, 448, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_W) < (0)) __PYX_ERR(0, 455, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_min, __pyx_t_13) < (0)) __PYX_ERR(0, 453, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":451
+          /* "pyjoulescope_driver/binding.pyx":456
  *                             'std': {'value': stats[0].p_std, 'units': 'W'},
  *                             'min': {'value': stats[0].p_min, 'units': 'W'},
  *                             'max': {'value': stats[0].p_max, 'units': 'W'},             # <<<<<<<<<<<<<<
  *                             'p2p': {'value': stats[0].p_max - stats[0].p_min, 'units': 'W'},
  *                             'integral': {'value': stats[0].p_avg * t_delta, 'units': 'J'},
 */
-          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 451, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 456, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          __pyx_t_18 = PyFloat_FromDouble((__pyx_v_stats[0]).p_max); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 451, __pyx_L3_error)
+          __pyx_t_18 = PyFloat_FromDouble((__pyx_v_stats[0]).p_max); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 456, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_18);
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 451, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 456, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_W) < (0)) __PYX_ERR(0, 451, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_max, __pyx_t_13) < (0)) __PYX_ERR(0, 448, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_W) < (0)) __PYX_ERR(0, 456, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_max, __pyx_t_13) < (0)) __PYX_ERR(0, 453, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":452
+          /* "pyjoulescope_driver/binding.pyx":457
  *                             'min': {'value': stats[0].p_min, 'units': 'W'},
  *                             'max': {'value': stats[0].p_max, 'units': 'W'},
  *                             'p2p': {'value': stats[0].p_max - stats[0].p_min, 'units': 'W'},             # <<<<<<<<<<<<<<
  *                             'integral': {'value': stats[0].p_avg * t_delta, 'units': 'J'},
  *                         },
 */
-          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 452, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 457, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          __pyx_t_18 = PyFloat_FromDouble(((__pyx_v_stats[0]).p_max - (__pyx_v_stats[0]).p_min)); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 452, __pyx_L3_error)
+          __pyx_t_18 = PyFloat_FromDouble(((__pyx_v_stats[0]).p_max - (__pyx_v_stats[0]).p_min)); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 457, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_18);
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 452, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_18) < (0)) __PYX_ERR(0, 457, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_W) < (0)) __PYX_ERR(0, 452, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_p2p, __pyx_t_13) < (0)) __PYX_ERR(0, 448, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_W) < (0)) __PYX_ERR(0, 457, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_p2p, __pyx_t_13) < (0)) __PYX_ERR(0, 453, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":453
+          /* "pyjoulescope_driver/binding.pyx":458
  *                             'max': {'value': stats[0].p_max, 'units': 'W'},
  *                             'p2p': {'value': stats[0].p_max - stats[0].p_min, 'units': 'W'},
  *                             'integral': {'value': stats[0].p_avg * t_delta, 'units': 'J'},             # <<<<<<<<<<<<<<
  *                         },
  *                     },
 */
-          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 453, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 458, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          __pyx_t_18 = PyFloat_FromDouble((__pyx_v_stats[0]).p_avg); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 453, __pyx_L3_error)
+          __pyx_t_18 = PyFloat_FromDouble((__pyx_v_stats[0]).p_avg); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 458, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_18);
-          __pyx_t_7 = PyNumber_Multiply(__pyx_t_18, __pyx_v_t_delta); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 453, __pyx_L3_error)
+          __pyx_t_7 = PyNumber_Multiply(__pyx_t_18, __pyx_v_t_delta); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 458, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_7);
           __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_7) < (0)) __PYX_ERR(0, 453, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_7) < (0)) __PYX_ERR(0, 458, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_J) < (0)) __PYX_ERR(0, 453, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_integral, __pyx_t_13) < (0)) __PYX_ERR(0, 448, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_13, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_J) < (0)) __PYX_ERR(0, 458, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_integral, __pyx_t_13) < (0)) __PYX_ERR(0, 453, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_power, __pyx_t_17) < (0)) __PYX_ERR(0, 432, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_power, __pyx_t_17) < (0)) __PYX_ERR(0, 437, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_signals, __pyx_t_11) < (0)) __PYX_ERR(0, 410, __pyx_L3_error)
-          __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_signals, __pyx_t_12) < (0)) __PYX_ERR(0, 415, __pyx_L3_error)
+          __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":457
+          /* "pyjoulescope_driver/binding.pyx":462
  *                     },
  *                     'accumulators': {
  *                         'charge': {             # <<<<<<<<<<<<<<
  *                             'value': stats[0].charge_f64,
  *                             'int_value': charge,
 */
-          __pyx_t_11 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 457, __pyx_L3_error)
-          __Pyx_GOTREF(__pyx_t_11);
+          __pyx_t_12 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 462, __pyx_L3_error)
+          __Pyx_GOTREF(__pyx_t_12);
 
-          /* "pyjoulescope_driver/binding.pyx":458
+          /* "pyjoulescope_driver/binding.pyx":463
  *                     'accumulators': {
  *                         'charge': {
  *                             'value': stats[0].charge_f64,             # <<<<<<<<<<<<<<
  *                             'int_value': charge,
  *                             'int_scale': 2 ** -31,
 */
-          __pyx_t_17 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 458, __pyx_L3_error)
+          __pyx_t_17 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 463, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_17);
-          __pyx_t_13 = PyFloat_FromDouble((__pyx_v_stats[0]).charge_f64); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 458, __pyx_L3_error)
+          __pyx_t_13 = PyFloat_FromDouble((__pyx_v_stats[0]).charge_f64); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 463, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_13) < (0)) __PYX_ERR(0, 458, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_13) < (0)) __PYX_ERR(0, 463, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":459
+          /* "pyjoulescope_driver/binding.pyx":464
  *                         'charge': {
  *                             'value': stats[0].charge_f64,
  *                             'int_value': charge,             # <<<<<<<<<<<<<<
  *                             'int_scale': 2 ** -31,
  *                             'units': 'C',
 */
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_int_value, __pyx_v_charge) < (0)) __PYX_ERR(0, 458, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_int_value, __pyx_v_charge) < (0)) __PYX_ERR(0, 463, __pyx_L3_error)
 
-          /* "pyjoulescope_driver/binding.pyx":460
+          /* "pyjoulescope_driver/binding.pyx":465
  *                             'value': stats[0].charge_f64,
  *                             'int_value': charge,
  *                             'int_scale': 2 ** -31,             # <<<<<<<<<<<<<<
  *                             'units': 'C',
  *                         },
 */
-          __pyx_t_13 = PyFloat_FromDouble(pow(2.0, -31.0)); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 460, __pyx_L3_error)
+          __pyx_t_13 = PyFloat_FromDouble(pow(2.0, -31.0)); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 465, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_int_scale, __pyx_t_13) < (0)) __PYX_ERR(0, 458, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_int_scale, __pyx_t_13) < (0)) __PYX_ERR(0, 463, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_C) < (0)) __PYX_ERR(0, 458, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_charge, __pyx_t_17) < (0)) __PYX_ERR(0, 457, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_C) < (0)) __PYX_ERR(0, 463, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_charge, __pyx_t_17) < (0)) __PYX_ERR(0, 462, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":464
+          /* "pyjoulescope_driver/binding.pyx":469
  *                         },
  *                         'energy': {
  *                             'value': stats[0].energy_f64,             # <<<<<<<<<<<<<<
  *                             'int_value': energy,
  *                             'int_scale': 2 ** -27,
 */
-          __pyx_t_17 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 464, __pyx_L3_error)
+          __pyx_t_17 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 469, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_17);
-          __pyx_t_13 = PyFloat_FromDouble((__pyx_v_stats[0]).energy_f64); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 464, __pyx_L3_error)
+          __pyx_t_13 = PyFloat_FromDouble((__pyx_v_stats[0]).energy_f64); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 469, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_13) < (0)) __PYX_ERR(0, 464, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_13) < (0)) __PYX_ERR(0, 469, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":465
+          /* "pyjoulescope_driver/binding.pyx":470
  *                         'energy': {
  *                             'value': stats[0].energy_f64,
  *                             'int_value': energy,             # <<<<<<<<<<<<<<
  *                             'int_scale': 2 ** -27,
  *                             'units': 'J',
 */
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_int_value, __pyx_v_energy) < (0)) __PYX_ERR(0, 464, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_int_value, __pyx_v_energy) < (0)) __PYX_ERR(0, 469, __pyx_L3_error)
 
-          /* "pyjoulescope_driver/binding.pyx":466
+          /* "pyjoulescope_driver/binding.pyx":471
  *                             'value': stats[0].energy_f64,
  *                             'int_value': energy,
  *                             'int_scale': 2 ** -27,             # <<<<<<<<<<<<<<
  *                             'units': 'J',
  *                         },
 */
-          __pyx_t_13 = PyFloat_FromDouble(pow(2.0, -27.0)); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 466, __pyx_L3_error)
+          __pyx_t_13 = PyFloat_FromDouble(pow(2.0, -27.0)); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 471, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_int_scale, __pyx_t_13) < (0)) __PYX_ERR(0, 464, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_int_scale, __pyx_t_13) < (0)) __PYX_ERR(0, 469, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_J) < (0)) __PYX_ERR(0, 464, __pyx_L3_error)
-          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_energy, __pyx_t_17) < (0)) __PYX_ERR(0, 457, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_units, __pyx_mstate_global->__pyx_n_u_J) < (0)) __PYX_ERR(0, 469, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_energy, __pyx_t_17) < (0)) __PYX_ERR(0, 462, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_accumulators, __pyx_t_11) < (0)) __PYX_ERR(0, 410, __pyx_L3_error)
-          __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_source, __pyx_mstate_global->__pyx_n_u_sensor) < (0)) __PYX_ERR(0, 410, __pyx_L3_error)
-          __pyx_v_v = __pyx_t_12;
-          __pyx_t_12 = 0;
+          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_accumulators, __pyx_t_12) < (0)) __PYX_ERR(0, 415, __pyx_L3_error)
+          __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_source, __pyx_mstate_global->__pyx_n_u_sensor) < (0)) __PYX_ERR(0, 415, __pyx_L3_error)
+          __pyx_v_v = __pyx_t_11;
+          __pyx_t_11 = 0;
 
           /* "pyjoulescope_driver/binding.pyx":399
  *                     print('jsdrv._jsdrv_union_to_py: unsupported data type')
@@ -25615,7 +25662,7 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
           goto __pyx_L17;
         }
 
-        /* "pyjoulescope_driver/binding.pyx":472
+        /* "pyjoulescope_driver/binding.pyx":477
  *                     'source': 'sensor',
  *                 }
  *             elif value[0].app == c_jsdrv.JSDRV_PAYLOAD_TYPE_BUFFER_INFO:             # <<<<<<<<<<<<<<
@@ -25625,19 +25672,19 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
         __pyx_t_16 = ((__pyx_v_value[0]).app == JSDRV_PAYLOAD_TYPE_BUFFER_INFO);
         if (__pyx_t_16) {
 
-          /* "pyjoulescope_driver/binding.pyx":473
+          /* "pyjoulescope_driver/binding.pyx":478
  *                 }
  *             elif value[0].app == c_jsdrv.JSDRV_PAYLOAD_TYPE_BUFFER_INFO:
  *                 v = _parse_buffer_info(<c_jsdrv.jsdrv_buffer_info_s *> &(value[0].value.bin[0]))             # <<<<<<<<<<<<<<
  *             elif value[0].app == c_jsdrv.JSDRV_PAYLOAD_TYPE_BUFFER_RSP:
  *                 v = _parse_buffer_rsp(<c_jsdrv.jsdrv_buffer_response_s *> &(value[0].value.bin[0]))
 */
-          __pyx_t_12 = __pyx_f_19pyjoulescope_driver_7binding__parse_buffer_info(((struct jsdrv_buffer_info_s *)(&((__pyx_v_value[0]).value.bin[0])))); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 473, __pyx_L3_error)
-          __Pyx_GOTREF(__pyx_t_12);
-          __pyx_v_v = __pyx_t_12;
-          __pyx_t_12 = 0;
+          __pyx_t_11 = __pyx_f_19pyjoulescope_driver_7binding__parse_buffer_info(((struct jsdrv_buffer_info_s *)(&((__pyx_v_value[0]).value.bin[0])))); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 478, __pyx_L3_error)
+          __Pyx_GOTREF(__pyx_t_11);
+          __pyx_v_v = __pyx_t_11;
+          __pyx_t_11 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":472
+          /* "pyjoulescope_driver/binding.pyx":477
  *                     'source': 'sensor',
  *                 }
  *             elif value[0].app == c_jsdrv.JSDRV_PAYLOAD_TYPE_BUFFER_INFO:             # <<<<<<<<<<<<<<
@@ -25647,7 +25694,7 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
           goto __pyx_L17;
         }
 
-        /* "pyjoulescope_driver/binding.pyx":474
+        /* "pyjoulescope_driver/binding.pyx":479
  *             elif value[0].app == c_jsdrv.JSDRV_PAYLOAD_TYPE_BUFFER_INFO:
  *                 v = _parse_buffer_info(<c_jsdrv.jsdrv_buffer_info_s *> &(value[0].value.bin[0]))
  *             elif value[0].app == c_jsdrv.JSDRV_PAYLOAD_TYPE_BUFFER_RSP:             # <<<<<<<<<<<<<<
@@ -25657,19 +25704,19 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
         __pyx_t_16 = ((__pyx_v_value[0]).app == JSDRV_PAYLOAD_TYPE_BUFFER_RSP);
         if (__pyx_t_16) {
 
-          /* "pyjoulescope_driver/binding.pyx":475
+          /* "pyjoulescope_driver/binding.pyx":480
  *                 v = _parse_buffer_info(<c_jsdrv.jsdrv_buffer_info_s *> &(value[0].value.bin[0]))
  *             elif value[0].app == c_jsdrv.JSDRV_PAYLOAD_TYPE_BUFFER_RSP:
  *                 v = _parse_buffer_rsp(<c_jsdrv.jsdrv_buffer_response_s *> &(value[0].value.bin[0]))             # <<<<<<<<<<<<<<
  *             else:
  *                 v = value[0].value.bin[:value[0].size]
 */
-          __pyx_t_12 = __pyx_f_19pyjoulescope_driver_7binding__parse_buffer_rsp(((struct jsdrv_buffer_response_s *)(&((__pyx_v_value[0]).value.bin[0])))); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 475, __pyx_L3_error)
-          __Pyx_GOTREF(__pyx_t_12);
-          __pyx_v_v = __pyx_t_12;
-          __pyx_t_12 = 0;
+          __pyx_t_11 = __pyx_f_19pyjoulescope_driver_7binding__parse_buffer_rsp(((struct jsdrv_buffer_response_s *)(&((__pyx_v_value[0]).value.bin[0])))); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 480, __pyx_L3_error)
+          __Pyx_GOTREF(__pyx_t_11);
+          __pyx_v_v = __pyx_t_11;
+          __pyx_t_11 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":474
+          /* "pyjoulescope_driver/binding.pyx":479
  *             elif value[0].app == c_jsdrv.JSDRV_PAYLOAD_TYPE_BUFFER_INFO:
  *                 v = _parse_buffer_info(<c_jsdrv.jsdrv_buffer_info_s *> &(value[0].value.bin[0]))
  *             elif value[0].app == c_jsdrv.JSDRV_PAYLOAD_TYPE_BUFFER_RSP:             # <<<<<<<<<<<<<<
@@ -25679,7 +25726,7 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
           goto __pyx_L17;
         }
 
-        /* "pyjoulescope_driver/binding.pyx":477
+        /* "pyjoulescope_driver/binding.pyx":482
  *                 v = _parse_buffer_rsp(<c_jsdrv.jsdrv_buffer_response_s *> &(value[0].value.bin[0]))
  *             else:
  *                 v = value[0].value.bin[:value[0].size]             # <<<<<<<<<<<<<<
@@ -25687,10 +25734,10 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
  *             if value[0].size < 8:
 */
         /*else*/ {
-          __pyx_t_12 = __Pyx_PyBytes_FromStringAndSize(((char const *)(__pyx_v_value[0]).value.bin) + 0, (__pyx_v_value[0]).size - 0); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 477, __pyx_L3_error)
-          __Pyx_GOTREF(__pyx_t_12);
-          __pyx_v_v = __pyx_t_12;
-          __pyx_t_12 = 0;
+          __pyx_t_11 = __Pyx_PyBytes_FromStringAndSize(((char const *)(__pyx_v_value[0]).value.bin) + 0, (__pyx_v_value[0]).size - 0); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 482, __pyx_L3_error)
+          __Pyx_GOTREF(__pyx_t_11);
+          __pyx_v_v = __pyx_t_11;
+          __pyx_t_11 = 0;
         }
         __pyx_L17:;
 
@@ -25704,7 +25751,7 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
         break;
         case JSDRV_UNION_STDMSG:
 
-        /* "pyjoulescope_driver/binding.pyx":479
+        /* "pyjoulescope_driver/binding.pyx":484
  *                 v = value[0].value.bin[:value[0].size]
  *         elif t == c_jsdrv.JSDRV_UNION_STDMSG:
  *             if value[0].size < 8:             # <<<<<<<<<<<<<<
@@ -25714,45 +25761,45 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
         __pyx_t_16 = ((__pyx_v_value[0]).size < 8);
         if (__pyx_t_16) {
 
-          /* "pyjoulescope_driver/binding.pyx":480
+          /* "pyjoulescope_driver/binding.pyx":485
  *         elif t == c_jsdrv.JSDRV_UNION_STDMSG:
  *             if value[0].size < 8:
  *                 _log_c.warning('STDMSG malformed: size %d < 8 byte header', value[0].size)             # <<<<<<<<<<<<<<
  *                 v = None
  *             else:
 */
-          __pyx_t_11 = NULL;
-          __Pyx_GetModuleGlobalName(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_log_c); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 480, __pyx_L3_error)
+          __pyx_t_12 = NULL;
+          __Pyx_GetModuleGlobalName(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_log_c); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 485, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_17);
-          __pyx_t_13 = __Pyx_PyObject_GetAttrStr(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_warning); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 480, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyObject_GetAttrStr(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_warning); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 485, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-          __pyx_t_17 = __Pyx_PyLong_From_uint32_t((__pyx_v_value[0]).size); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 480, __pyx_L3_error)
+          __pyx_t_17 = __Pyx_PyLong_From_uint32_t((__pyx_v_value[0]).size); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 485, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_17);
           __pyx_t_14 = 1;
           #if CYTHON_UNPACK_METHODS
           if (unlikely(PyMethod_Check(__pyx_t_13))) {
-            __pyx_t_11 = PyMethod_GET_SELF(__pyx_t_13);
-            assert(__pyx_t_11);
+            __pyx_t_12 = PyMethod_GET_SELF(__pyx_t_13);
+            assert(__pyx_t_12);
             PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_13);
-            __Pyx_INCREF(__pyx_t_11);
+            __Pyx_INCREF(__pyx_t_12);
             __Pyx_INCREF(__pyx__function);
             __Pyx_DECREF_SET(__pyx_t_13, __pyx__function);
             __pyx_t_14 = 0;
           }
           #endif
           {
-            PyObject *__pyx_callargs[3] = {__pyx_t_11, __pyx_mstate_global->__pyx_kp_u_STDMSG_malformed_size_d_8_byte_h, __pyx_t_17};
-            __pyx_t_12 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_13, __pyx_callargs+__pyx_t_14, (3-__pyx_t_14) | (__pyx_t_14*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-            __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
+            PyObject *__pyx_callargs[3] = {__pyx_t_12, __pyx_mstate_global->__pyx_kp_u_STDMSG_malformed_size_d_8_byte_h, __pyx_t_17};
+            __pyx_t_11 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_13, __pyx_callargs+__pyx_t_14, (3-__pyx_t_14) | (__pyx_t_14*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+            __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
             __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
             __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-            if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 480, __pyx_L3_error)
-            __Pyx_GOTREF(__pyx_t_12);
+            if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 485, __pyx_L3_error)
+            __Pyx_GOTREF(__pyx_t_11);
           }
-          __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+          __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":481
+          /* "pyjoulescope_driver/binding.pyx":486
  *             if value[0].size < 8:
  *                 _log_c.warning('STDMSG malformed: size %d < 8 byte header', value[0].size)
  *                 v = None             # <<<<<<<<<<<<<<
@@ -25762,17 +25809,17 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
           __Pyx_INCREF(Py_None);
           __pyx_v_v = Py_None;
 
-          /* "pyjoulescope_driver/binding.pyx":479
+          /* "pyjoulescope_driver/binding.pyx":484
  *                 v = value[0].value.bin[:value[0].size]
  *         elif t == c_jsdrv.JSDRV_UNION_STDMSG:
  *             if value[0].size < 8:             # <<<<<<<<<<<<<<
  *                 _log_c.warning('STDMSG malformed: size %d < 8 byte header', value[0].size)
  *                 v = None
 */
-          goto __pyx_L21;
+          goto __pyx_L22;
         }
 
-        /* "pyjoulescope_driver/binding.pyx":483
+        /* "pyjoulescope_driver/binding.pyx":488
  *                 v = None
  *             else:
  *                 u8_ptr = <uint8_t *> &value[0].value.bin[0]             # <<<<<<<<<<<<<<
@@ -25782,7 +25829,7 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
         /*else*/ {
           __pyx_v_u8_ptr = ((uint8_t *)(&((__pyx_v_value[0]).value.bin[0])));
 
-          /* "pyjoulescope_driver/binding.pyx":484
+          /* "pyjoulescope_driver/binding.pyx":489
  *             else:
  *                 u8_ptr = <uint8_t *> &value[0].value.bin[0]
  *                 u16_ptr = <uint16_t *> &value[0].value.bin[0]             # <<<<<<<<<<<<<<
@@ -25791,7 +25838,7 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
 */
           __pyx_v_u16_ptr = ((uint16_t *)(&((__pyx_v_value[0]).value.bin[0])));
 
-          /* "pyjoulescope_driver/binding.pyx":485
+          /* "pyjoulescope_driver/binding.pyx":490
  *                 u8_ptr = <uint8_t *> &value[0].value.bin[0]
  *                 u16_ptr = <uint16_t *> &value[0].value.bin[0]
  *                 u32_ptr = <uint32_t *> &value[0].value.bin[0]             # <<<<<<<<<<<<<<
@@ -25800,7 +25847,7 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
 */
           __pyx_v_u32_ptr = ((uint32_t *)(&((__pyx_v_value[0]).value.bin[0])));
 
-          /* "pyjoulescope_driver/binding.pyx":486
+          /* "pyjoulescope_driver/binding.pyx":491
  *                 u16_ptr = <uint16_t *> &value[0].value.bin[0]
  *                 u32_ptr = <uint32_t *> &value[0].value.bin[0]
  *                 u64_ptr = <uint64_t *> &value[0].value.bin[0]             # <<<<<<<<<<<<<<
@@ -25809,68 +25856,68 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
 */
           __pyx_v_u64_ptr = ((uint64_t *)(&((__pyx_v_value[0]).value.bin[0])));
 
-          /* "pyjoulescope_driver/binding.pyx":488
+          /* "pyjoulescope_driver/binding.pyx":493
  *                 u64_ptr = <uint64_t *> &value[0].value.bin[0]
  *                 v = {
  *                     'dtype': 'stdmsg',             # <<<<<<<<<<<<<<
  *                     'version': u16_ptr[0],
  *                     'version_major': value[0].value.bin[0],
 */
-          __pyx_t_12 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 488, __pyx_L3_error)
-          __Pyx_GOTREF(__pyx_t_12);
-          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_dtype, __pyx_mstate_global->__pyx_n_u_stdmsg) < (0)) __PYX_ERR(0, 488, __pyx_L3_error)
+          __pyx_t_11 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 493, __pyx_L3_error)
+          __Pyx_GOTREF(__pyx_t_11);
+          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_dtype, __pyx_mstate_global->__pyx_n_u_stdmsg) < (0)) __PYX_ERR(0, 493, __pyx_L3_error)
 
-          /* "pyjoulescope_driver/binding.pyx":489
+          /* "pyjoulescope_driver/binding.pyx":494
  *                 v = {
  *                     'dtype': 'stdmsg',
  *                     'version': u16_ptr[0],             # <<<<<<<<<<<<<<
  *                     'version_major': value[0].value.bin[0],
  *                     'version_minor': value[0].value.bin[1],
 */
-          __pyx_t_13 = __Pyx_PyLong_From_uint16_t((__pyx_v_u16_ptr[0])); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 489, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyLong_From_uint16_t((__pyx_v_u16_ptr[0])); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 494, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_version, __pyx_t_13) < (0)) __PYX_ERR(0, 488, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_version, __pyx_t_13) < (0)) __PYX_ERR(0, 493, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":490
+          /* "pyjoulescope_driver/binding.pyx":495
  *                     'dtype': 'stdmsg',
  *                     'version': u16_ptr[0],
  *                     'version_major': value[0].value.bin[0],             # <<<<<<<<<<<<<<
  *                     'version_minor': value[0].value.bin[1],
  *                     'metadata': u32_ptr[1],
 */
-          __pyx_t_13 = __Pyx_PyLong_From_uint8_t(((__pyx_v_value[0]).value.bin[0])); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 490, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyLong_From_uint8_t(((__pyx_v_value[0]).value.bin[0])); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 495, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_version_major, __pyx_t_13) < (0)) __PYX_ERR(0, 488, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_version_major, __pyx_t_13) < (0)) __PYX_ERR(0, 493, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":491
+          /* "pyjoulescope_driver/binding.pyx":496
  *                     'version': u16_ptr[0],
  *                     'version_major': value[0].value.bin[0],
  *                     'version_minor': value[0].value.bin[1],             # <<<<<<<<<<<<<<
  *                     'metadata': u32_ptr[1],
  *                 }
 */
-          __pyx_t_13 = __Pyx_PyLong_From_uint8_t(((__pyx_v_value[0]).value.bin[1])); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 491, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyLong_From_uint8_t(((__pyx_v_value[0]).value.bin[1])); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 496, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_version_minor, __pyx_t_13) < (0)) __PYX_ERR(0, 488, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_version_minor, __pyx_t_13) < (0)) __PYX_ERR(0, 493, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":492
+          /* "pyjoulescope_driver/binding.pyx":497
  *                     'version_major': value[0].value.bin[0],
  *                     'version_minor': value[0].value.bin[1],
  *                     'metadata': u32_ptr[1],             # <<<<<<<<<<<<<<
  *                 }
  *                 if value[0].value.bin[2] == 0x05: # MB_STDMSG_COMM_STATS
 */
-          __pyx_t_13 = __Pyx_PyLong_From_uint32_t((__pyx_v_u32_ptr[1])); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 492, __pyx_L3_error)
+          __pyx_t_13 = __Pyx_PyLong_From_uint32_t((__pyx_v_u32_ptr[1])); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 497, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_13);
-          if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_metadata, __pyx_t_13) < (0)) __PYX_ERR(0, 488, __pyx_L3_error)
+          if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_metadata, __pyx_t_13) < (0)) __PYX_ERR(0, 493, __pyx_L3_error)
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-          __pyx_v_v = __pyx_t_12;
-          __pyx_t_12 = 0;
+          __pyx_v_v = __pyx_t_11;
+          __pyx_t_11 = 0;
 
-          /* "pyjoulescope_driver/binding.pyx":494
+          /* "pyjoulescope_driver/binding.pyx":499
  *                     'metadata': u32_ptr[1],
  *                 }
  *                 if value[0].value.bin[2] == 0x05: # MB_STDMSG_COMM_STATS             # <<<<<<<<<<<<<<
@@ -25880,7 +25927,7 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
           __pyx_t_16 = (((__pyx_v_value[0]).value.bin[2]) == 0x05);
           if (__pyx_t_16) {
 
-            /* "pyjoulescope_driver/binding.pyx":495
+            /* "pyjoulescope_driver/binding.pyx":500
  *                 }
  *                 if value[0].value.bin[2] == 0x05: # MB_STDMSG_COMM_STATS
  *                     if value[0].size < 44:             # <<<<<<<<<<<<<<
@@ -25890,7 +25937,7 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
             __pyx_t_16 = ((__pyx_v_value[0]).size < 44);
             if (__pyx_t_16) {
 
-              /* "pyjoulescope_driver/binding.pyx":496
+              /* "pyjoulescope_driver/binding.pyx":501
  *                 if value[0].value.bin[2] == 0x05: # MB_STDMSG_COMM_STATS
  *                     if value[0].size < 44:
  *                         _log_c.warning('MB_STDMSG_COMM_STATS malformed: size %d < 44', value[0].size)             # <<<<<<<<<<<<<<
@@ -25898,37 +25945,37 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
  *                     else:
 */
               __pyx_t_13 = NULL;
-              __Pyx_GetModuleGlobalName(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_log_c); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 496, __pyx_L3_error)
+              __Pyx_GetModuleGlobalName(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_log_c); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 501, __pyx_L3_error)
               __Pyx_GOTREF(__pyx_t_17);
-              __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_warning); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 496, __pyx_L3_error)
-              __Pyx_GOTREF(__pyx_t_11);
+              __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_warning); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 501, __pyx_L3_error)
+              __Pyx_GOTREF(__pyx_t_12);
               __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-              __pyx_t_17 = __Pyx_PyLong_From_uint32_t((__pyx_v_value[0]).size); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 496, __pyx_L3_error)
+              __pyx_t_17 = __Pyx_PyLong_From_uint32_t((__pyx_v_value[0]).size); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 501, __pyx_L3_error)
               __Pyx_GOTREF(__pyx_t_17);
               __pyx_t_14 = 1;
               #if CYTHON_UNPACK_METHODS
-              if (unlikely(PyMethod_Check(__pyx_t_11))) {
-                __pyx_t_13 = PyMethod_GET_SELF(__pyx_t_11);
+              if (unlikely(PyMethod_Check(__pyx_t_12))) {
+                __pyx_t_13 = PyMethod_GET_SELF(__pyx_t_12);
                 assert(__pyx_t_13);
-                PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_11);
+                PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_12);
                 __Pyx_INCREF(__pyx_t_13);
                 __Pyx_INCREF(__pyx__function);
-                __Pyx_DECREF_SET(__pyx_t_11, __pyx__function);
+                __Pyx_DECREF_SET(__pyx_t_12, __pyx__function);
                 __pyx_t_14 = 0;
               }
               #endif
               {
                 PyObject *__pyx_callargs[3] = {__pyx_t_13, __pyx_mstate_global->__pyx_kp_u_MB_STDMSG_COMM_STATS_malformed_s, __pyx_t_17};
-                __pyx_t_12 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_11, __pyx_callargs+__pyx_t_14, (3-__pyx_t_14) | (__pyx_t_14*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+                __pyx_t_11 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_12, __pyx_callargs+__pyx_t_14, (3-__pyx_t_14) | (__pyx_t_14*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
                 __Pyx_XDECREF(__pyx_t_13); __pyx_t_13 = 0;
                 __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-                __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-                if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 496, __pyx_L3_error)
-                __Pyx_GOTREF(__pyx_t_12);
+                __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+                if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 501, __pyx_L3_error)
+                __Pyx_GOTREF(__pyx_t_11);
               }
-              __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+              __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-              /* "pyjoulescope_driver/binding.pyx":497
+              /* "pyjoulescope_driver/binding.pyx":502
  *                     if value[0].size < 44:
  *                         _log_c.warning('MB_STDMSG_COMM_STATS malformed: size %d < 44', value[0].size)
  *                         v = None             # <<<<<<<<<<<<<<
@@ -25938,17 +25985,17 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
               __Pyx_INCREF(Py_None);
               __Pyx_DECREF_SET(__pyx_v_v, Py_None);
 
-              /* "pyjoulescope_driver/binding.pyx":495
+              /* "pyjoulescope_driver/binding.pyx":500
  *                 }
  *                 if value[0].value.bin[2] == 0x05: # MB_STDMSG_COMM_STATS
  *                     if value[0].size < 44:             # <<<<<<<<<<<<<<
  *                         _log_c.warning('MB_STDMSG_COMM_STATS malformed: size %d < 44', value[0].size)
  *                         v = None
 */
-              goto __pyx_L23;
+              goto __pyx_L24;
             }
 
-            /* "pyjoulescope_driver/binding.pyx":499
+            /* "pyjoulescope_driver/binding.pyx":504
  *                         v = None
  *                     else:
  *                         v['stdmsg_type'] = 'comm_stats'             # <<<<<<<<<<<<<<
@@ -25956,105 +26003,105 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
  *                         v['counter_end'] = u64_ptr[2]
 */
             /*else*/ {
-              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_stdmsg_type, __pyx_mstate_global->__pyx_n_u_comm_stats) < 0))) __PYX_ERR(0, 499, __pyx_L3_error)
+              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_stdmsg_type, __pyx_mstate_global->__pyx_n_u_comm_stats) < 0))) __PYX_ERR(0, 504, __pyx_L3_error)
 
-              /* "pyjoulescope_driver/binding.pyx":500
+              /* "pyjoulescope_driver/binding.pyx":505
  *                     else:
  *                         v['stdmsg_type'] = 'comm_stats'
  *                         v['counter_start'] = u64_ptr[1]             # <<<<<<<<<<<<<<
  *                         v['counter_end'] = u64_ptr[2]
  *                         v['frames'] = u32_ptr[6]
 */
-              __pyx_t_12 = __Pyx_PyLong_From_uint64_t((__pyx_v_u64_ptr[1])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 500, __pyx_L3_error)
-              __Pyx_GOTREF(__pyx_t_12);
-              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_counter_start, __pyx_t_12) < 0))) __PYX_ERR(0, 500, __pyx_L3_error)
-              __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+              __pyx_t_11 = __Pyx_PyLong_From_uint64_t((__pyx_v_u64_ptr[1])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 505, __pyx_L3_error)
+              __Pyx_GOTREF(__pyx_t_11);
+              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_counter_start, __pyx_t_11) < 0))) __PYX_ERR(0, 505, __pyx_L3_error)
+              __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-              /* "pyjoulescope_driver/binding.pyx":501
+              /* "pyjoulescope_driver/binding.pyx":506
  *                         v['stdmsg_type'] = 'comm_stats'
  *                         v['counter_start'] = u64_ptr[1]
  *                         v['counter_end'] = u64_ptr[2]             # <<<<<<<<<<<<<<
  *                         v['frames'] = u32_ptr[6]
  *                         v['bytes'] = u32_ptr[7]
 */
-              __pyx_t_12 = __Pyx_PyLong_From_uint64_t((__pyx_v_u64_ptr[2])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 501, __pyx_L3_error)
-              __Pyx_GOTREF(__pyx_t_12);
-              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_counter_end, __pyx_t_12) < 0))) __PYX_ERR(0, 501, __pyx_L3_error)
-              __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+              __pyx_t_11 = __Pyx_PyLong_From_uint64_t((__pyx_v_u64_ptr[2])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 506, __pyx_L3_error)
+              __Pyx_GOTREF(__pyx_t_11);
+              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_counter_end, __pyx_t_11) < 0))) __PYX_ERR(0, 506, __pyx_L3_error)
+              __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-              /* "pyjoulescope_driver/binding.pyx":502
+              /* "pyjoulescope_driver/binding.pyx":507
  *                         v['counter_start'] = u64_ptr[1]
  *                         v['counter_end'] = u64_ptr[2]
  *                         v['frames'] = u32_ptr[6]             # <<<<<<<<<<<<<<
  *                         v['bytes'] = u32_ptr[7]
  *                         v['frame_error'] = u32_ptr[8]
 */
-              __pyx_t_12 = __Pyx_PyLong_From_uint32_t((__pyx_v_u32_ptr[6])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 502, __pyx_L3_error)
-              __Pyx_GOTREF(__pyx_t_12);
-              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_frames, __pyx_t_12) < 0))) __PYX_ERR(0, 502, __pyx_L3_error)
-              __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+              __pyx_t_11 = __Pyx_PyLong_From_uint32_t((__pyx_v_u32_ptr[6])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 507, __pyx_L3_error)
+              __Pyx_GOTREF(__pyx_t_11);
+              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_frames, __pyx_t_11) < 0))) __PYX_ERR(0, 507, __pyx_L3_error)
+              __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-              /* "pyjoulescope_driver/binding.pyx":503
+              /* "pyjoulescope_driver/binding.pyx":508
  *                         v['counter_end'] = u64_ptr[2]
  *                         v['frames'] = u32_ptr[6]
  *                         v['bytes'] = u32_ptr[7]             # <<<<<<<<<<<<<<
  *                         v['frame_error'] = u32_ptr[8]
  *                         v['link_error'] = u32_ptr[9]
 */
-              __pyx_t_12 = __Pyx_PyLong_From_uint32_t((__pyx_v_u32_ptr[7])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 503, __pyx_L3_error)
-              __Pyx_GOTREF(__pyx_t_12);
-              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_bytes, __pyx_t_12) < 0))) __PYX_ERR(0, 503, __pyx_L3_error)
-              __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+              __pyx_t_11 = __Pyx_PyLong_From_uint32_t((__pyx_v_u32_ptr[7])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 508, __pyx_L3_error)
+              __Pyx_GOTREF(__pyx_t_11);
+              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_bytes, __pyx_t_11) < 0))) __PYX_ERR(0, 508, __pyx_L3_error)
+              __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-              /* "pyjoulescope_driver/binding.pyx":504
+              /* "pyjoulescope_driver/binding.pyx":509
  *                         v['frames'] = u32_ptr[6]
  *                         v['bytes'] = u32_ptr[7]
  *                         v['frame_error'] = u32_ptr[8]             # <<<<<<<<<<<<<<
  *                         v['link_error'] = u32_ptr[9]
  *                         v['app_error'] = u32_ptr[10]
 */
-              __pyx_t_12 = __Pyx_PyLong_From_uint32_t((__pyx_v_u32_ptr[8])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 504, __pyx_L3_error)
-              __Pyx_GOTREF(__pyx_t_12);
-              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_frame_error, __pyx_t_12) < 0))) __PYX_ERR(0, 504, __pyx_L3_error)
-              __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+              __pyx_t_11 = __Pyx_PyLong_From_uint32_t((__pyx_v_u32_ptr[8])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 509, __pyx_L3_error)
+              __Pyx_GOTREF(__pyx_t_11);
+              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_frame_error, __pyx_t_11) < 0))) __PYX_ERR(0, 509, __pyx_L3_error)
+              __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-              /* "pyjoulescope_driver/binding.pyx":505
+              /* "pyjoulescope_driver/binding.pyx":510
  *                         v['bytes'] = u32_ptr[7]
  *                         v['frame_error'] = u32_ptr[8]
  *                         v['link_error'] = u32_ptr[9]             # <<<<<<<<<<<<<<
  *                         v['app_error'] = u32_ptr[10]
  *                 elif value[0].value.bin[2] == 0x07:  # MB_STDMSG_MEM
 */
-              __pyx_t_12 = __Pyx_PyLong_From_uint32_t((__pyx_v_u32_ptr[9])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 505, __pyx_L3_error)
-              __Pyx_GOTREF(__pyx_t_12);
-              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_link_error, __pyx_t_12) < 0))) __PYX_ERR(0, 505, __pyx_L3_error)
-              __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+              __pyx_t_11 = __Pyx_PyLong_From_uint32_t((__pyx_v_u32_ptr[9])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 510, __pyx_L3_error)
+              __Pyx_GOTREF(__pyx_t_11);
+              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_link_error, __pyx_t_11) < 0))) __PYX_ERR(0, 510, __pyx_L3_error)
+              __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-              /* "pyjoulescope_driver/binding.pyx":506
+              /* "pyjoulescope_driver/binding.pyx":511
  *                         v['frame_error'] = u32_ptr[8]
  *                         v['link_error'] = u32_ptr[9]
  *                         v['app_error'] = u32_ptr[10]             # <<<<<<<<<<<<<<
  *                 elif value[0].value.bin[2] == 0x07:  # MB_STDMSG_MEM
  *                     if value[0].size < 32:
 */
-              __pyx_t_12 = __Pyx_PyLong_From_uint32_t((__pyx_v_u32_ptr[10])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 506, __pyx_L3_error)
-              __Pyx_GOTREF(__pyx_t_12);
-              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_app_error, __pyx_t_12) < 0))) __PYX_ERR(0, 506, __pyx_L3_error)
-              __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+              __pyx_t_11 = __Pyx_PyLong_From_uint32_t((__pyx_v_u32_ptr[10])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 511, __pyx_L3_error)
+              __Pyx_GOTREF(__pyx_t_11);
+              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_app_error, __pyx_t_11) < 0))) __PYX_ERR(0, 511, __pyx_L3_error)
+              __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
             }
-            __pyx_L23:;
+            __pyx_L24:;
 
-            /* "pyjoulescope_driver/binding.pyx":494
+            /* "pyjoulescope_driver/binding.pyx":499
  *                     'metadata': u32_ptr[1],
  *                 }
  *                 if value[0].value.bin[2] == 0x05: # MB_STDMSG_COMM_STATS             # <<<<<<<<<<<<<<
  *                     if value[0].size < 44:
  *                         _log_c.warning('MB_STDMSG_COMM_STATS malformed: size %d < 44', value[0].size)
 */
-            goto __pyx_L22;
+            goto __pyx_L23;
           }
 
-          /* "pyjoulescope_driver/binding.pyx":507
+          /* "pyjoulescope_driver/binding.pyx":512
  *                         v['link_error'] = u32_ptr[9]
  *                         v['app_error'] = u32_ptr[10]
  *                 elif value[0].value.bin[2] == 0x07:  # MB_STDMSG_MEM             # <<<<<<<<<<<<<<
@@ -26064,7 +26111,7 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
           __pyx_t_16 = (((__pyx_v_value[0]).value.bin[2]) == 0x07);
           if (__pyx_t_16) {
 
-            /* "pyjoulescope_driver/binding.pyx":508
+            /* "pyjoulescope_driver/binding.pyx":513
  *                         v['app_error'] = u32_ptr[10]
  *                 elif value[0].value.bin[2] == 0x07:  # MB_STDMSG_MEM
  *                     if value[0].size < 32:             # <<<<<<<<<<<<<<
@@ -26074,45 +26121,45 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
             __pyx_t_16 = ((__pyx_v_value[0]).size < 32);
             if (__pyx_t_16) {
 
-              /* "pyjoulescope_driver/binding.pyx":509
+              /* "pyjoulescope_driver/binding.pyx":514
  *                 elif value[0].value.bin[2] == 0x07:  # MB_STDMSG_MEM
  *                     if value[0].size < 32:
  *                         _log_c.warning('MB_STDMSG_MEM malformed: size %d < 32 byte header', value[0].size)             # <<<<<<<<<<<<<<
  *                         v = None
  *                     else:
 */
-              __pyx_t_11 = NULL;
-              __Pyx_GetModuleGlobalName(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_log_c); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 509, __pyx_L3_error)
+              __pyx_t_12 = NULL;
+              __Pyx_GetModuleGlobalName(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_log_c); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 514, __pyx_L3_error)
               __Pyx_GOTREF(__pyx_t_17);
-              __pyx_t_13 = __Pyx_PyObject_GetAttrStr(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_warning); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 509, __pyx_L3_error)
+              __pyx_t_13 = __Pyx_PyObject_GetAttrStr(__pyx_t_17, __pyx_mstate_global->__pyx_n_u_warning); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 514, __pyx_L3_error)
               __Pyx_GOTREF(__pyx_t_13);
               __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-              __pyx_t_17 = __Pyx_PyLong_From_uint32_t((__pyx_v_value[0]).size); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 509, __pyx_L3_error)
+              __pyx_t_17 = __Pyx_PyLong_From_uint32_t((__pyx_v_value[0]).size); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 514, __pyx_L3_error)
               __Pyx_GOTREF(__pyx_t_17);
               __pyx_t_14 = 1;
               #if CYTHON_UNPACK_METHODS
               if (unlikely(PyMethod_Check(__pyx_t_13))) {
-                __pyx_t_11 = PyMethod_GET_SELF(__pyx_t_13);
-                assert(__pyx_t_11);
+                __pyx_t_12 = PyMethod_GET_SELF(__pyx_t_13);
+                assert(__pyx_t_12);
                 PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_13);
-                __Pyx_INCREF(__pyx_t_11);
+                __Pyx_INCREF(__pyx_t_12);
                 __Pyx_INCREF(__pyx__function);
                 __Pyx_DECREF_SET(__pyx_t_13, __pyx__function);
                 __pyx_t_14 = 0;
               }
               #endif
               {
-                PyObject *__pyx_callargs[3] = {__pyx_t_11, __pyx_mstate_global->__pyx_kp_u_MB_STDMSG_MEM_malformed_size_d_3, __pyx_t_17};
-                __pyx_t_12 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_13, __pyx_callargs+__pyx_t_14, (3-__pyx_t_14) | (__pyx_t_14*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
+                PyObject *__pyx_callargs[3] = {__pyx_t_12, __pyx_mstate_global->__pyx_kp_u_MB_STDMSG_MEM_malformed_size_d_3, __pyx_t_17};
+                __pyx_t_11 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_13, __pyx_callargs+__pyx_t_14, (3-__pyx_t_14) | (__pyx_t_14*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+                __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
                 __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
                 __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-                if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 509, __pyx_L3_error)
-                __Pyx_GOTREF(__pyx_t_12);
+                if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 514, __pyx_L3_error)
+                __Pyx_GOTREF(__pyx_t_11);
               }
-              __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+              __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-              /* "pyjoulescope_driver/binding.pyx":510
+              /* "pyjoulescope_driver/binding.pyx":515
  *                     if value[0].size < 32:
  *                         _log_c.warning('MB_STDMSG_MEM malformed: size %d < 32 byte header', value[0].size)
  *                         v = None             # <<<<<<<<<<<<<<
@@ -26122,17 +26169,17 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
               __Pyx_INCREF(Py_None);
               __Pyx_DECREF_SET(__pyx_v_v, Py_None);
 
-              /* "pyjoulescope_driver/binding.pyx":508
+              /* "pyjoulescope_driver/binding.pyx":513
  *                         v['app_error'] = u32_ptr[10]
  *                 elif value[0].value.bin[2] == 0x07:  # MB_STDMSG_MEM
  *                     if value[0].size < 32:             # <<<<<<<<<<<<<<
  *                         _log_c.warning('MB_STDMSG_MEM malformed: size %d < 32 byte header', value[0].size)
  *                         v = None
 */
-              goto __pyx_L24;
+              goto __pyx_L25;
             }
 
-            /* "pyjoulescope_driver/binding.pyx":512
+            /* "pyjoulescope_driver/binding.pyx":517
  *                         v = None
  *                     else:
  *                         v['transaction_id'] = u32_ptr[2]             # <<<<<<<<<<<<<<
@@ -26140,120 +26187,120 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
  *                         v['operation'] = u8_ptr[13]
 */
             /*else*/ {
-              __pyx_t_12 = __Pyx_PyLong_From_uint32_t((__pyx_v_u32_ptr[2])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 512, __pyx_L3_error)
-              __Pyx_GOTREF(__pyx_t_12);
-              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_transaction_id, __pyx_t_12) < 0))) __PYX_ERR(0, 512, __pyx_L3_error)
-              __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+              __pyx_t_11 = __Pyx_PyLong_From_uint32_t((__pyx_v_u32_ptr[2])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 517, __pyx_L3_error)
+              __Pyx_GOTREF(__pyx_t_11);
+              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_transaction_id, __pyx_t_11) < 0))) __PYX_ERR(0, 517, __pyx_L3_error)
+              __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-              /* "pyjoulescope_driver/binding.pyx":513
+              /* "pyjoulescope_driver/binding.pyx":518
  *                     else:
  *                         v['transaction_id'] = u32_ptr[2]
  *                         v['target'] = u8_ptr[12]             # <<<<<<<<<<<<<<
  *                         v['operation'] = u8_ptr[13]
  *                         v['flags'] = u8_ptr[14]
 */
-              __pyx_t_12 = __Pyx_PyLong_From_uint8_t((__pyx_v_u8_ptr[12])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 513, __pyx_L3_error)
-              __Pyx_GOTREF(__pyx_t_12);
-              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_target, __pyx_t_12) < 0))) __PYX_ERR(0, 513, __pyx_L3_error)
-              __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+              __pyx_t_11 = __Pyx_PyLong_From_uint8_t((__pyx_v_u8_ptr[12])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 518, __pyx_L3_error)
+              __Pyx_GOTREF(__pyx_t_11);
+              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_target, __pyx_t_11) < 0))) __PYX_ERR(0, 518, __pyx_L3_error)
+              __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-              /* "pyjoulescope_driver/binding.pyx":514
+              /* "pyjoulescope_driver/binding.pyx":519
  *                         v['transaction_id'] = u32_ptr[2]
  *                         v['target'] = u8_ptr[12]
  *                         v['operation'] = u8_ptr[13]             # <<<<<<<<<<<<<<
  *                         v['flags'] = u8_ptr[14]
  *                         v['status'] = u8_ptr[15]
 */
-              __pyx_t_12 = __Pyx_PyLong_From_uint8_t((__pyx_v_u8_ptr[13])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 514, __pyx_L3_error)
-              __Pyx_GOTREF(__pyx_t_12);
-              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_operation, __pyx_t_12) < 0))) __PYX_ERR(0, 514, __pyx_L3_error)
-              __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+              __pyx_t_11 = __Pyx_PyLong_From_uint8_t((__pyx_v_u8_ptr[13])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 519, __pyx_L3_error)
+              __Pyx_GOTREF(__pyx_t_11);
+              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_operation, __pyx_t_11) < 0))) __PYX_ERR(0, 519, __pyx_L3_error)
+              __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-              /* "pyjoulescope_driver/binding.pyx":515
+              /* "pyjoulescope_driver/binding.pyx":520
  *                         v['target'] = u8_ptr[12]
  *                         v['operation'] = u8_ptr[13]
  *                         v['flags'] = u8_ptr[14]             # <<<<<<<<<<<<<<
  *                         v['status'] = u8_ptr[15]
  *                         v['timeout_ms'] = u16_ptr[8]
 */
-              __pyx_t_12 = __Pyx_PyLong_From_uint8_t((__pyx_v_u8_ptr[14])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 515, __pyx_L3_error)
-              __Pyx_GOTREF(__pyx_t_12);
-              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_flags, __pyx_t_12) < 0))) __PYX_ERR(0, 515, __pyx_L3_error)
-              __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+              __pyx_t_11 = __Pyx_PyLong_From_uint8_t((__pyx_v_u8_ptr[14])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 520, __pyx_L3_error)
+              __Pyx_GOTREF(__pyx_t_11);
+              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_flags, __pyx_t_11) < 0))) __PYX_ERR(0, 520, __pyx_L3_error)
+              __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-              /* "pyjoulescope_driver/binding.pyx":516
+              /* "pyjoulescope_driver/binding.pyx":521
  *                         v['operation'] = u8_ptr[13]
  *                         v['flags'] = u8_ptr[14]
  *                         v['status'] = u8_ptr[15]             # <<<<<<<<<<<<<<
  *                         v['timeout_ms'] = u16_ptr[8]
  *                         v['offset'] = u32_ptr[5]
 */
-              __pyx_t_12 = __Pyx_PyLong_From_uint8_t((__pyx_v_u8_ptr[15])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 516, __pyx_L3_error)
-              __Pyx_GOTREF(__pyx_t_12);
-              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_status, __pyx_t_12) < 0))) __PYX_ERR(0, 516, __pyx_L3_error)
-              __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+              __pyx_t_11 = __Pyx_PyLong_From_uint8_t((__pyx_v_u8_ptr[15])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 521, __pyx_L3_error)
+              __Pyx_GOTREF(__pyx_t_11);
+              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_status, __pyx_t_11) < 0))) __PYX_ERR(0, 521, __pyx_L3_error)
+              __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-              /* "pyjoulescope_driver/binding.pyx":517
+              /* "pyjoulescope_driver/binding.pyx":522
  *                         v['flags'] = u8_ptr[14]
  *                         v['status'] = u8_ptr[15]
  *                         v['timeout_ms'] = u16_ptr[8]             # <<<<<<<<<<<<<<
  *                         v['offset'] = u32_ptr[5]
  *                         v['length'] = u32_ptr[6]
 */
-              __pyx_t_12 = __Pyx_PyLong_From_uint16_t((__pyx_v_u16_ptr[8])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 517, __pyx_L3_error)
-              __Pyx_GOTREF(__pyx_t_12);
-              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_timeout_ms, __pyx_t_12) < 0))) __PYX_ERR(0, 517, __pyx_L3_error)
-              __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+              __pyx_t_11 = __Pyx_PyLong_From_uint16_t((__pyx_v_u16_ptr[8])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 522, __pyx_L3_error)
+              __Pyx_GOTREF(__pyx_t_11);
+              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_timeout_ms, __pyx_t_11) < 0))) __PYX_ERR(0, 522, __pyx_L3_error)
+              __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-              /* "pyjoulescope_driver/binding.pyx":518
+              /* "pyjoulescope_driver/binding.pyx":523
  *                         v['status'] = u8_ptr[15]
  *                         v['timeout_ms'] = u16_ptr[8]
  *                         v['offset'] = u32_ptr[5]             # <<<<<<<<<<<<<<
  *                         v['length'] = u32_ptr[6]
  *                         v['delay_us'] = u32_ptr[7]
 */
-              __pyx_t_12 = __Pyx_PyLong_From_uint32_t((__pyx_v_u32_ptr[5])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 518, __pyx_L3_error)
-              __Pyx_GOTREF(__pyx_t_12);
-              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_offset, __pyx_t_12) < 0))) __PYX_ERR(0, 518, __pyx_L3_error)
-              __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+              __pyx_t_11 = __Pyx_PyLong_From_uint32_t((__pyx_v_u32_ptr[5])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 523, __pyx_L3_error)
+              __Pyx_GOTREF(__pyx_t_11);
+              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_offset, __pyx_t_11) < 0))) __PYX_ERR(0, 523, __pyx_L3_error)
+              __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-              /* "pyjoulescope_driver/binding.pyx":519
+              /* "pyjoulescope_driver/binding.pyx":524
  *                         v['timeout_ms'] = u16_ptr[8]
  *                         v['offset'] = u32_ptr[5]
  *                         v['length'] = u32_ptr[6]             # <<<<<<<<<<<<<<
  *                         v['delay_us'] = u32_ptr[7]
  *                         data_size = value[0].size - 32
 */
-              __pyx_t_12 = __Pyx_PyLong_From_uint32_t((__pyx_v_u32_ptr[6])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 519, __pyx_L3_error)
-              __Pyx_GOTREF(__pyx_t_12);
-              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_length, __pyx_t_12) < 0))) __PYX_ERR(0, 519, __pyx_L3_error)
-              __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+              __pyx_t_11 = __Pyx_PyLong_From_uint32_t((__pyx_v_u32_ptr[6])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 524, __pyx_L3_error)
+              __Pyx_GOTREF(__pyx_t_11);
+              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_length, __pyx_t_11) < 0))) __PYX_ERR(0, 524, __pyx_L3_error)
+              __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-              /* "pyjoulescope_driver/binding.pyx":520
+              /* "pyjoulescope_driver/binding.pyx":525
  *                         v['offset'] = u32_ptr[5]
  *                         v['length'] = u32_ptr[6]
  *                         v['delay_us'] = u32_ptr[7]             # <<<<<<<<<<<<<<
  *                         data_size = value[0].size - 32
  *                         v['data'] = bytes(u8_ptr[32:32 + data_size])
 */
-              __pyx_t_12 = __Pyx_PyLong_From_uint32_t((__pyx_v_u32_ptr[7])); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 520, __pyx_L3_error)
-              __Pyx_GOTREF(__pyx_t_12);
-              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_delay_us, __pyx_t_12) < 0))) __PYX_ERR(0, 520, __pyx_L3_error)
-              __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+              __pyx_t_11 = __Pyx_PyLong_From_uint32_t((__pyx_v_u32_ptr[7])); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 525, __pyx_L3_error)
+              __Pyx_GOTREF(__pyx_t_11);
+              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_delay_us, __pyx_t_11) < 0))) __PYX_ERR(0, 525, __pyx_L3_error)
+              __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-              /* "pyjoulescope_driver/binding.pyx":521
+              /* "pyjoulescope_driver/binding.pyx":526
  *                         v['length'] = u32_ptr[6]
  *                         v['delay_us'] = u32_ptr[7]
  *                         data_size = value[0].size - 32             # <<<<<<<<<<<<<<
  *                         v['data'] = bytes(u8_ptr[32:32 + data_size])
  *         elif t == c_jsdrv.JSDRV_UNION_F32:
 */
-              __pyx_t_12 = __Pyx_PyLong_From_long(((__pyx_v_value[0]).size - 32)); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 521, __pyx_L3_error)
-              __Pyx_GOTREF(__pyx_t_12);
-              __pyx_v_data_size = __pyx_t_12;
-              __pyx_t_12 = 0;
+              __pyx_t_11 = __Pyx_PyLong_From_long(((__pyx_v_value[0]).size - 32)); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 526, __pyx_L3_error)
+              __Pyx_GOTREF(__pyx_t_11);
+              __pyx_v_data_size = __pyx_t_11;
+              __pyx_t_11 = 0;
 
-              /* "pyjoulescope_driver/binding.pyx":522
+              /* "pyjoulescope_driver/binding.pyx":527
  *                         v['delay_us'] = u32_ptr[7]
  *                         data_size = value[0].size - 32
  *                         v['data'] = bytes(u8_ptr[32:32 + data_size])             # <<<<<<<<<<<<<<
@@ -26261,33 +26308,33 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
  *             v = value[0].value.f32
 */
               __pyx_t_13 = NULL;
-              __pyx_t_17 = __Pyx_PyLong_AddCObj(__pyx_mstate_global->__pyx_int_32, __pyx_v_data_size, 32, 0, 0); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 522, __pyx_L3_error)
+              __pyx_t_17 = __Pyx_PyLong_AddCObj(__pyx_mstate_global->__pyx_int_32, __pyx_v_data_size, 32, 0, 0); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 527, __pyx_L3_error)
               __Pyx_GOTREF(__pyx_t_17);
               __pyx_t_16 = (__pyx_t_17 == Py_None);
               if (__pyx_t_16) {
                 __pyx_t_6 = PY_SSIZE_T_MAX;
               } else {
-                __pyx_t_25 = __Pyx_PyIndex_AsSsize_t(__pyx_t_17); if (unlikely((__pyx_t_25 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 522, __pyx_L3_error)
+                __pyx_t_25 = __Pyx_PyIndex_AsSsize_t(__pyx_t_17); if (unlikely((__pyx_t_25 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 527, __pyx_L3_error)
                 __pyx_t_6 = __pyx_t_25;
               }
               __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-              __pyx_t_17 = __Pyx_PyBytes_FromStringAndSize(((char const *)__pyx_v_u8_ptr) + 32, __pyx_t_6 - 32); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 522, __pyx_L3_error)
+              __pyx_t_17 = __Pyx_PyBytes_FromStringAndSize(((char const *)__pyx_v_u8_ptr) + 32, __pyx_t_6 - 32); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 527, __pyx_L3_error)
               __Pyx_GOTREF(__pyx_t_17);
               __pyx_t_14 = 1;
               {
                 PyObject *__pyx_callargs[2] = {__pyx_t_13, __pyx_t_17};
-                __pyx_t_12 = __Pyx_PyObject_FastCall((PyObject*)(&PyBytes_Type), __pyx_callargs+__pyx_t_14, (2-__pyx_t_14) | (__pyx_t_14*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+                __pyx_t_11 = __Pyx_PyObject_FastCall((PyObject*)(&PyBytes_Type), __pyx_callargs+__pyx_t_14, (2-__pyx_t_14) | (__pyx_t_14*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
                 __Pyx_XDECREF(__pyx_t_13); __pyx_t_13 = 0;
                 __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-                if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 522, __pyx_L3_error)
-                __Pyx_GOTREF(__pyx_t_12);
+                if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 527, __pyx_L3_error)
+                __Pyx_GOTREF(__pyx_t_11);
               }
-              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_data, __pyx_t_12) < 0))) __PYX_ERR(0, 522, __pyx_L3_error)
-              __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+              if (unlikely((PyObject_SetItem(__pyx_v_v, __pyx_mstate_global->__pyx_n_u_data, __pyx_t_11) < 0))) __PYX_ERR(0, 527, __pyx_L3_error)
+              __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
             }
-            __pyx_L24:;
+            __pyx_L25:;
 
-            /* "pyjoulescope_driver/binding.pyx":507
+            /* "pyjoulescope_driver/binding.pyx":512
  *                         v['link_error'] = u32_ptr[9]
  *                         v['app_error'] = u32_ptr[10]
  *                 elif value[0].value.bin[2] == 0x07:  # MB_STDMSG_MEM             # <<<<<<<<<<<<<<
@@ -26295,11 +26342,11 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
  *                         _log_c.warning('MB_STDMSG_MEM malformed: size %d < 32 byte header', value[0].size)
 */
           }
-          __pyx_L22:;
+          __pyx_L23:;
         }
-        __pyx_L21:;
+        __pyx_L22:;
 
-        /* "pyjoulescope_driver/binding.pyx":478
+        /* "pyjoulescope_driver/binding.pyx":483
  *             else:
  *                 v = value[0].value.bin[:value[0].size]
  *         elif t == c_jsdrv.JSDRV_UNION_STDMSG:             # <<<<<<<<<<<<<<
@@ -26309,19 +26356,19 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
         break;
         case JSDRV_UNION_F32:
 
-        /* "pyjoulescope_driver/binding.pyx":524
+        /* "pyjoulescope_driver/binding.pyx":529
  *                         v['data'] = bytes(u8_ptr[32:32 + data_size])
  *         elif t == c_jsdrv.JSDRV_UNION_F32:
  *             v = value[0].value.f32             # <<<<<<<<<<<<<<
  *         elif t == c_jsdrv.JSDRV_UNION_F64:
  *             v = value[0].value.f64
 */
-        __pyx_t_12 = PyFloat_FromDouble((__pyx_v_value[0]).value.f32); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 524, __pyx_L3_error)
-        __Pyx_GOTREF(__pyx_t_12);
-        __pyx_v_v = __pyx_t_12;
-        __pyx_t_12 = 0;
+        __pyx_t_11 = PyFloat_FromDouble((__pyx_v_value[0]).value.f32); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 529, __pyx_L3_error)
+        __Pyx_GOTREF(__pyx_t_11);
+        __pyx_v_v = __pyx_t_11;
+        __pyx_t_11 = 0;
 
-        /* "pyjoulescope_driver/binding.pyx":523
+        /* "pyjoulescope_driver/binding.pyx":528
  *                         data_size = value[0].size - 32
  *                         v['data'] = bytes(u8_ptr[32:32 + data_size])
  *         elif t == c_jsdrv.JSDRV_UNION_F32:             # <<<<<<<<<<<<<<
@@ -26331,19 +26378,19 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
         break;
         case JSDRV_UNION_F64:
 
-        /* "pyjoulescope_driver/binding.pyx":526
+        /* "pyjoulescope_driver/binding.pyx":531
  *             v = value[0].value.f32
  *         elif t == c_jsdrv.JSDRV_UNION_F64:
  *             v = value[0].value.f64             # <<<<<<<<<<<<<<
  *         elif t == c_jsdrv.JSDRV_UNION_U8:
  *             v = value[0].value.u8
 */
-        __pyx_t_12 = PyFloat_FromDouble((__pyx_v_value[0]).value.f64); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 526, __pyx_L3_error)
-        __Pyx_GOTREF(__pyx_t_12);
-        __pyx_v_v = __pyx_t_12;
-        __pyx_t_12 = 0;
+        __pyx_t_11 = PyFloat_FromDouble((__pyx_v_value[0]).value.f64); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 531, __pyx_L3_error)
+        __Pyx_GOTREF(__pyx_t_11);
+        __pyx_v_v = __pyx_t_11;
+        __pyx_t_11 = 0;
 
-        /* "pyjoulescope_driver/binding.pyx":525
+        /* "pyjoulescope_driver/binding.pyx":530
  *         elif t == c_jsdrv.JSDRV_UNION_F32:
  *             v = value[0].value.f32
  *         elif t == c_jsdrv.JSDRV_UNION_F64:             # <<<<<<<<<<<<<<
@@ -26353,19 +26400,19 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
         break;
         case JSDRV_UNION_U8:
 
-        /* "pyjoulescope_driver/binding.pyx":528
+        /* "pyjoulescope_driver/binding.pyx":533
  *             v = value[0].value.f64
  *         elif t == c_jsdrv.JSDRV_UNION_U8:
  *             v = value[0].value.u8             # <<<<<<<<<<<<<<
  *         elif t == c_jsdrv.JSDRV_UNION_U16:
  *             v = value[0].value.u16
 */
-        __pyx_t_12 = __Pyx_PyLong_From_uint8_t((__pyx_v_value[0]).value.u8); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 528, __pyx_L3_error)
-        __Pyx_GOTREF(__pyx_t_12);
-        __pyx_v_v = __pyx_t_12;
-        __pyx_t_12 = 0;
+        __pyx_t_11 = __Pyx_PyLong_From_uint8_t((__pyx_v_value[0]).value.u8); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 533, __pyx_L3_error)
+        __Pyx_GOTREF(__pyx_t_11);
+        __pyx_v_v = __pyx_t_11;
+        __pyx_t_11 = 0;
 
-        /* "pyjoulescope_driver/binding.pyx":527
+        /* "pyjoulescope_driver/binding.pyx":532
  *         elif t == c_jsdrv.JSDRV_UNION_F64:
  *             v = value[0].value.f64
  *         elif t == c_jsdrv.JSDRV_UNION_U8:             # <<<<<<<<<<<<<<
@@ -26375,19 +26422,19 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
         break;
         case JSDRV_UNION_U16:
 
-        /* "pyjoulescope_driver/binding.pyx":530
+        /* "pyjoulescope_driver/binding.pyx":535
  *             v = value[0].value.u8
  *         elif t == c_jsdrv.JSDRV_UNION_U16:
  *             v = value[0].value.u16             # <<<<<<<<<<<<<<
  *         elif t == c_jsdrv.JSDRV_UNION_U32:
  *             v = value[0].value.u32
 */
-        __pyx_t_12 = __Pyx_PyLong_From_uint16_t((__pyx_v_value[0]).value.u16); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 530, __pyx_L3_error)
-        __Pyx_GOTREF(__pyx_t_12);
-        __pyx_v_v = __pyx_t_12;
-        __pyx_t_12 = 0;
+        __pyx_t_11 = __Pyx_PyLong_From_uint16_t((__pyx_v_value[0]).value.u16); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 535, __pyx_L3_error)
+        __Pyx_GOTREF(__pyx_t_11);
+        __pyx_v_v = __pyx_t_11;
+        __pyx_t_11 = 0;
 
-        /* "pyjoulescope_driver/binding.pyx":529
+        /* "pyjoulescope_driver/binding.pyx":534
  *         elif t == c_jsdrv.JSDRV_UNION_U8:
  *             v = value[0].value.u8
  *         elif t == c_jsdrv.JSDRV_UNION_U16:             # <<<<<<<<<<<<<<
@@ -26397,19 +26444,19 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
         break;
         case JSDRV_UNION_U32:
 
-        /* "pyjoulescope_driver/binding.pyx":532
+        /* "pyjoulescope_driver/binding.pyx":537
  *             v = value[0].value.u16
  *         elif t == c_jsdrv.JSDRV_UNION_U32:
  *             v = value[0].value.u32             # <<<<<<<<<<<<<<
  *         elif t == c_jsdrv.JSDRV_UNION_U64:
  *             v = value[0].value.u64
 */
-        __pyx_t_12 = __Pyx_PyLong_From_uint32_t((__pyx_v_value[0]).value.u32); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 532, __pyx_L3_error)
-        __Pyx_GOTREF(__pyx_t_12);
-        __pyx_v_v = __pyx_t_12;
-        __pyx_t_12 = 0;
+        __pyx_t_11 = __Pyx_PyLong_From_uint32_t((__pyx_v_value[0]).value.u32); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 537, __pyx_L3_error)
+        __Pyx_GOTREF(__pyx_t_11);
+        __pyx_v_v = __pyx_t_11;
+        __pyx_t_11 = 0;
 
-        /* "pyjoulescope_driver/binding.pyx":531
+        /* "pyjoulescope_driver/binding.pyx":536
  *         elif t == c_jsdrv.JSDRV_UNION_U16:
  *             v = value[0].value.u16
  *         elif t == c_jsdrv.JSDRV_UNION_U32:             # <<<<<<<<<<<<<<
@@ -26419,19 +26466,19 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
         break;
         case JSDRV_UNION_U64:
 
-        /* "pyjoulescope_driver/binding.pyx":534
+        /* "pyjoulescope_driver/binding.pyx":539
  *             v = value[0].value.u32
  *         elif t == c_jsdrv.JSDRV_UNION_U64:
  *             v = value[0].value.u64             # <<<<<<<<<<<<<<
  *         elif t == c_jsdrv.JSDRV_UNION_I8:
  *             v = value[0].value.i8
 */
-        __pyx_t_12 = __Pyx_PyLong_From_uint64_t((__pyx_v_value[0]).value.u64); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 534, __pyx_L3_error)
-        __Pyx_GOTREF(__pyx_t_12);
-        __pyx_v_v = __pyx_t_12;
-        __pyx_t_12 = 0;
+        __pyx_t_11 = __Pyx_PyLong_From_uint64_t((__pyx_v_value[0]).value.u64); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 539, __pyx_L3_error)
+        __Pyx_GOTREF(__pyx_t_11);
+        __pyx_v_v = __pyx_t_11;
+        __pyx_t_11 = 0;
 
-        /* "pyjoulescope_driver/binding.pyx":533
+        /* "pyjoulescope_driver/binding.pyx":538
  *         elif t == c_jsdrv.JSDRV_UNION_U32:
  *             v = value[0].value.u32
  *         elif t == c_jsdrv.JSDRV_UNION_U64:             # <<<<<<<<<<<<<<
@@ -26441,19 +26488,19 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
         break;
         case JSDRV_UNION_I8:
 
-        /* "pyjoulescope_driver/binding.pyx":536
+        /* "pyjoulescope_driver/binding.pyx":541
  *             v = value[0].value.u64
  *         elif t == c_jsdrv.JSDRV_UNION_I8:
  *             v = value[0].value.i8             # <<<<<<<<<<<<<<
  *         elif t == c_jsdrv.JSDRV_UNION_I16:
  *             v = value[0].value.i16
 */
-        __pyx_t_12 = __Pyx_PyLong_From_int8_t((__pyx_v_value[0]).value.i8); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 536, __pyx_L3_error)
-        __Pyx_GOTREF(__pyx_t_12);
-        __pyx_v_v = __pyx_t_12;
-        __pyx_t_12 = 0;
+        __pyx_t_11 = __Pyx_PyLong_From_int8_t((__pyx_v_value[0]).value.i8); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 541, __pyx_L3_error)
+        __Pyx_GOTREF(__pyx_t_11);
+        __pyx_v_v = __pyx_t_11;
+        __pyx_t_11 = 0;
 
-        /* "pyjoulescope_driver/binding.pyx":535
+        /* "pyjoulescope_driver/binding.pyx":540
  *         elif t == c_jsdrv.JSDRV_UNION_U64:
  *             v = value[0].value.u64
  *         elif t == c_jsdrv.JSDRV_UNION_I8:             # <<<<<<<<<<<<<<
@@ -26463,19 +26510,19 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
         break;
         case JSDRV_UNION_I16:
 
-        /* "pyjoulescope_driver/binding.pyx":538
+        /* "pyjoulescope_driver/binding.pyx":543
  *             v = value[0].value.i8
  *         elif t == c_jsdrv.JSDRV_UNION_I16:
  *             v = value[0].value.i16             # <<<<<<<<<<<<<<
  *         elif t == c_jsdrv.JSDRV_UNION_I32:
  *             v = value[0].value.i32
 */
-        __pyx_t_12 = __Pyx_PyLong_From_int16_t((__pyx_v_value[0]).value.i16); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 538, __pyx_L3_error)
-        __Pyx_GOTREF(__pyx_t_12);
-        __pyx_v_v = __pyx_t_12;
-        __pyx_t_12 = 0;
+        __pyx_t_11 = __Pyx_PyLong_From_int16_t((__pyx_v_value[0]).value.i16); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 543, __pyx_L3_error)
+        __Pyx_GOTREF(__pyx_t_11);
+        __pyx_v_v = __pyx_t_11;
+        __pyx_t_11 = 0;
 
-        /* "pyjoulescope_driver/binding.pyx":537
+        /* "pyjoulescope_driver/binding.pyx":542
  *         elif t == c_jsdrv.JSDRV_UNION_I8:
  *             v = value[0].value.i8
  *         elif t == c_jsdrv.JSDRV_UNION_I16:             # <<<<<<<<<<<<<<
@@ -26485,19 +26532,19 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
         break;
         case JSDRV_UNION_I32:
 
-        /* "pyjoulescope_driver/binding.pyx":540
+        /* "pyjoulescope_driver/binding.pyx":545
  *             v = value[0].value.i16
  *         elif t == c_jsdrv.JSDRV_UNION_I32:
  *             v = value[0].value.i32             # <<<<<<<<<<<<<<
  *         elif t == c_jsdrv.JSDRV_UNION_I64:
  *             v = value[0].value.i64
 */
-        __pyx_t_12 = __Pyx_PyLong_From_int32_t((__pyx_v_value[0]).value.i32); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 540, __pyx_L3_error)
-        __Pyx_GOTREF(__pyx_t_12);
-        __pyx_v_v = __pyx_t_12;
-        __pyx_t_12 = 0;
+        __pyx_t_11 = __Pyx_PyLong_From_int32_t((__pyx_v_value[0]).value.i32); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 545, __pyx_L3_error)
+        __Pyx_GOTREF(__pyx_t_11);
+        __pyx_v_v = __pyx_t_11;
+        __pyx_t_11 = 0;
 
-        /* "pyjoulescope_driver/binding.pyx":539
+        /* "pyjoulescope_driver/binding.pyx":544
  *         elif t == c_jsdrv.JSDRV_UNION_I16:
  *             v = value[0].value.i16
  *         elif t == c_jsdrv.JSDRV_UNION_I32:             # <<<<<<<<<<<<<<
@@ -26507,19 +26554,19 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
         break;
         case JSDRV_UNION_I64:
 
-        /* "pyjoulescope_driver/binding.pyx":542
+        /* "pyjoulescope_driver/binding.pyx":547
  *             v = value[0].value.i32
  *         elif t == c_jsdrv.JSDRV_UNION_I64:
  *             v = value[0].value.i64             # <<<<<<<<<<<<<<
  *         else:
  *             v = None
 */
-        __pyx_t_12 = __Pyx_PyLong_From_int64_t((__pyx_v_value[0]).value.i64); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 542, __pyx_L3_error)
-        __Pyx_GOTREF(__pyx_t_12);
-        __pyx_v_v = __pyx_t_12;
-        __pyx_t_12 = 0;
+        __pyx_t_11 = __Pyx_PyLong_From_int64_t((__pyx_v_value[0]).value.i64); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 547, __pyx_L3_error)
+        __Pyx_GOTREF(__pyx_t_11);
+        __pyx_v_v = __pyx_t_11;
+        __pyx_t_11 = 0;
 
-        /* "pyjoulescope_driver/binding.pyx":541
+        /* "pyjoulescope_driver/binding.pyx":546
  *         elif t == c_jsdrv.JSDRV_UNION_I32:
  *             v = value[0].value.i32
  *         elif t == c_jsdrv.JSDRV_UNION_I64:             # <<<<<<<<<<<<<<
@@ -26529,7 +26576,7 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
         break;
         default:
 
-        /* "pyjoulescope_driver/binding.pyx":544
+        /* "pyjoulescope_driver/binding.pyx":549
  *             v = value[0].value.i64
  *         else:
  *             v = None             # <<<<<<<<<<<<<<
@@ -26563,7 +26610,7 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
     __pyx_t_19.memview = NULL; __pyx_t_19.data = NULL;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "pyjoulescope_driver/binding.pyx":545
+    /* "pyjoulescope_driver/binding.pyx":550
  *         else:
  *             v = None
  *     except Exception as ex:             # <<<<<<<<<<<<<<
@@ -26573,15 +26620,15 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
     __pyx_t_15 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
     if (__pyx_t_15) {
       __Pyx_AddTraceback("pyjoulescope_driver.binding._jsdrv_union_to_py", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_12, &__pyx_t_17, &__pyx_t_13) < 0) __PYX_ERR(0, 545, __pyx_L5_except_error)
-      __Pyx_XGOTREF(__pyx_t_12);
+      if (__Pyx_GetException(&__pyx_t_11, &__pyx_t_17, &__pyx_t_13) < 0) __PYX_ERR(0, 550, __pyx_L5_except_error)
+      __Pyx_XGOTREF(__pyx_t_11);
       __Pyx_XGOTREF(__pyx_t_17);
       __Pyx_XGOTREF(__pyx_t_13);
       __Pyx_INCREF(__pyx_t_17);
       __pyx_v_ex = __pyx_t_17;
       /*try:*/ {
 
-        /* "pyjoulescope_driver/binding.pyx":546
+        /* "pyjoulescope_driver/binding.pyx":551
  *             v = None
  *     except Exception as ex:
  *         _log_c.exception(ex)             # <<<<<<<<<<<<<<
@@ -26589,9 +26636,9 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
  *     return v
 */
         __pyx_t_7 = NULL;
-        __Pyx_GetModuleGlobalName(__pyx_t_18, __pyx_mstate_global->__pyx_n_u_log_c); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 546, __pyx_L30_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_18, __pyx_mstate_global->__pyx_n_u_log_c); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 551, __pyx_L31_error)
         __Pyx_GOTREF(__pyx_t_18);
-        __pyx_t_26 = __Pyx_PyObject_GetAttrStr(__pyx_t_18, __pyx_mstate_global->__pyx_n_u_exception); if (unlikely(!__pyx_t_26)) __PYX_ERR(0, 546, __pyx_L30_error)
+        __pyx_t_26 = __Pyx_PyObject_GetAttrStr(__pyx_t_18, __pyx_mstate_global->__pyx_n_u_exception); if (unlikely(!__pyx_t_26)) __PYX_ERR(0, 551, __pyx_L31_error)
         __Pyx_GOTREF(__pyx_t_26);
         __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
         __pyx_t_14 = 1;
@@ -26608,15 +26655,15 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
         #endif
         {
           PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_v_ex};
-          __pyx_t_11 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_26, __pyx_callargs+__pyx_t_14, (2-__pyx_t_14) | (__pyx_t_14*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+          __pyx_t_12 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_26, __pyx_callargs+__pyx_t_14, (2-__pyx_t_14) | (__pyx_t_14*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
           __Pyx_DECREF(__pyx_t_26); __pyx_t_26 = 0;
-          if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 546, __pyx_L30_error)
-          __Pyx_GOTREF(__pyx_t_11);
+          if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 551, __pyx_L31_error)
+          __Pyx_GOTREF(__pyx_t_12);
         }
-        __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+        __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
 
-        /* "pyjoulescope_driver/binding.pyx":547
+        /* "pyjoulescope_driver/binding.pyx":552
  *     except Exception as ex:
  *         _log_c.exception(ex)
  *         v = None             # <<<<<<<<<<<<<<
@@ -26627,7 +26674,7 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
         __Pyx_XDECREF_SET(__pyx_v_v, Py_None);
       }
 
-      /* "pyjoulescope_driver/binding.pyx":545
+      /* "pyjoulescope_driver/binding.pyx":550
  *         else:
  *             v = None
  *     except Exception as ex:             # <<<<<<<<<<<<<<
@@ -26637,14 +26684,14 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
       /*finally:*/ {
         /*normal exit:*/{
           __Pyx_DECREF(__pyx_v_ex); __pyx_v_ex = 0;
-          goto __pyx_L31;
+          goto __pyx_L32;
         }
-        __pyx_L30_error:;
+        __pyx_L31_error:;
         /*exception exit:*/{
           __Pyx_PyThreadState_declare
           __Pyx_PyThreadState_assign
           __pyx_t_10 = 0; __pyx_t_9 = 0; __pyx_t_8 = 0; __pyx_t_29 = 0; __pyx_t_30 = 0; __pyx_t_31 = 0;
-          __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
+          __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
           __Pyx_XDECREF(__pyx_t_18); __pyx_t_18 = 0;
           __PYX_XCLEAR_MEMVIEW(&__pyx_t_19, 1);
           __pyx_t_19.memview = NULL; __pyx_t_19.data = NULL;
@@ -26674,9 +26721,9 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
           __pyx_lineno = __pyx_t_15; __pyx_clineno = __pyx_t_27; __pyx_filename = __pyx_t_28;
           goto __pyx_L5_except_error;
         }
-        __pyx_L31:;
+        __pyx_L32:;
       }
-      __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
+      __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
       __Pyx_XDECREF(__pyx_t_17); __pyx_t_17 = 0;
       __Pyx_XDECREF(__pyx_t_13); __pyx_t_13 = 0;
       goto __pyx_L4_exception_handled;
@@ -26704,7 +26751,7 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
     __pyx_L8_try_end:;
   }
 
-  /* "pyjoulescope_driver/binding.pyx":548
+  /* "pyjoulescope_driver/binding.pyx":553
  *         _log_c.exception(ex)
  *         v = None
  *     return v             # <<<<<<<<<<<<<<
@@ -26742,6 +26789,7 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
   __Pyx_XDECREF(__pyx_v_el);
   __Pyx_XDECREF(__pyx_v_ndarray);
   __Pyx_XDECREF(__pyx_v_sample_freq);
+  __Pyx_XDECREF(__pyx_v_decimate_factor);
   __Pyx_XDECREF(__pyx_v_samples_full_rate);
   __Pyx_XDECREF(__pyx_v_sample_id_start);
   __Pyx_XDECREF(__pyx_v_sample_id_end);
@@ -26756,7 +26804,7 @@ static PyObject *__pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(struc
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":643
+/* "pyjoulescope_driver/binding.pyx":648
  * 
  * 
  * def error_code_to_str(ec):             # <<<<<<<<<<<<<<
@@ -26804,32 +26852,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_ec,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 643, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 648, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 643, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 648, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "error_code_to_str", 0) < (0)) __PYX_ERR(0, 643, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "error_code_to_str", 0) < (0)) __PYX_ERR(0, 648, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("error_code_to_str", 1, 1, 1, i); __PYX_ERR(0, 643, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("error_code_to_str", 1, 1, 1, i); __PYX_ERR(0, 648, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 643, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 648, __pyx_L3_error)
     }
     __pyx_v_ec = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("error_code_to_str", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 643, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("error_code_to_str", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 648, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -26869,7 +26917,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_error_code_to_str(CYTHO
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("error_code_to_str", 0);
 
-  /* "pyjoulescope_driver/binding.pyx":649
+  /* "pyjoulescope_driver/binding.pyx":654
  *     :return: The error code's name
  *     """
  *     v, name, rv = _error_code_to_meta.get(ec, (-1, "unknown", "unknown"))             # <<<<<<<<<<<<<<
@@ -26877,9 +26925,9 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_error_code_to_str(CYTHO
  * 
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_error_code_to_meta); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 649, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_error_code_to_meta); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 654, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 649, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 654, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_5 = 1;
@@ -26899,7 +26947,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_error_code_to_str(CYTHO
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (3-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 649, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 654, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   if ((likely(PyTuple_CheckExact(__pyx_t_1))) || (PyList_CheckExact(__pyx_t_1))) {
@@ -26908,7 +26956,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_error_code_to_str(CYTHO
     if (unlikely(size != 3)) {
       if (size > 3) __Pyx_RaiseTooManyValuesError(3);
       else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-      __PYX_ERR(0, 649, __pyx_L1_error)
+      __PYX_ERR(0, 654, __pyx_L1_error)
     }
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
     if (likely(PyTuple_CheckExact(sequence))) {
@@ -26920,27 +26968,27 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_error_code_to_str(CYTHO
       __Pyx_INCREF(__pyx_t_3);
     } else {
       __pyx_t_4 = __Pyx_PyList_GET_ITEM_REF(sequence, 0, __Pyx_ReferenceSharing_SharedReference);
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 649, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 654, __pyx_L1_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __pyx_t_2 = __Pyx_PyList_GET_ITEM_REF(sequence, 1, __Pyx_ReferenceSharing_SharedReference);
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 649, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 654, __pyx_L1_error)
       __Pyx_XGOTREF(__pyx_t_2);
       __pyx_t_3 = __Pyx_PyList_GET_ITEM_REF(sequence, 2, __Pyx_ReferenceSharing_SharedReference);
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 649, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 654, __pyx_L1_error)
       __Pyx_XGOTREF(__pyx_t_3);
     }
     #else
-    __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 649, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 654, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_2 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 649, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 654, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PySequence_ITEM(sequence, 2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 649, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PySequence_ITEM(sequence, 2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 654, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     #endif
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   } else {
     Py_ssize_t index = -1;
-    __pyx_t_6 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 649, __pyx_L1_error)
+    __pyx_t_6 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 654, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_7 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_6);
@@ -26950,7 +26998,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_error_code_to_str(CYTHO
     __Pyx_GOTREF(__pyx_t_2);
     index = 2; __pyx_t_3 = __pyx_t_7(__pyx_t_6); if (unlikely(!__pyx_t_3)) goto __pyx_L3_unpacking_failed;
     __Pyx_GOTREF(__pyx_t_3);
-    if (__Pyx_IternextUnpackEndCheck(__pyx_t_7(__pyx_t_6), 3) < (0)) __PYX_ERR(0, 649, __pyx_L1_error)
+    if (__Pyx_IternextUnpackEndCheck(__pyx_t_7(__pyx_t_6), 3) < (0)) __PYX_ERR(0, 654, __pyx_L1_error)
     __pyx_t_7 = NULL;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     goto __pyx_L4_unpacking_done;
@@ -26958,7 +27006,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_error_code_to_str(CYTHO
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_t_7 = NULL;
     if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-    __PYX_ERR(0, 649, __pyx_L1_error)
+    __PYX_ERR(0, 654, __pyx_L1_error)
     __pyx_L4_unpacking_done:;
   }
   __pyx_v_v = __pyx_t_4;
@@ -26968,7 +27016,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_error_code_to_str(CYTHO
   __pyx_v_rv = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":650
+  /* "pyjoulescope_driver/binding.pyx":655
  *     """
  *     v, name, rv = _error_code_to_meta.get(ec, (-1, "unknown", "unknown"))
  *     return f'{v} {name} : {rv}'             # <<<<<<<<<<<<<<
@@ -26976,11 +27024,11 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_error_code_to_str(CYTHO
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_v, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 650, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_v, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 655, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_v_name, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 650, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_v_name, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 655, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_rv, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 650, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_rv, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 655, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_8[0] = __pyx_t_1;
   __pyx_t_8[1] = __pyx_mstate_global->__pyx_kp_u__8;
@@ -26988,7 +27036,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_error_code_to_str(CYTHO
   __pyx_t_8[3] = __pyx_mstate_global->__pyx_kp_u__9;
   __pyx_t_8[4] = __pyx_t_2;
   __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_8, 5, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1) + 1 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2));
-  if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 650, __pyx_L1_error)
+  if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 655, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -26997,7 +27045,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_error_code_to_str(CYTHO
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "pyjoulescope_driver/binding.pyx":643
+  /* "pyjoulescope_driver/binding.pyx":648
  * 
  * 
  * def error_code_to_str(ec):             # <<<<<<<<<<<<<<
@@ -27023,7 +27071,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_error_code_to_str(CYTHO
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":712
+/* "pyjoulescope_driver/binding.pyx":717
  * 
  * 
  * def log_level_c_to_py(lvl):             # <<<<<<<<<<<<<<
@@ -27070,32 +27118,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_lvl,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 712, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 717, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 712, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 717, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "log_level_c_to_py", 0) < (0)) __PYX_ERR(0, 712, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "log_level_c_to_py", 0) < (0)) __PYX_ERR(0, 717, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("log_level_c_to_py", 1, 1, 1, i); __PYX_ERR(0, 712, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("log_level_c_to_py", 1, 1, 1, i); __PYX_ERR(0, 717, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 712, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 717, __pyx_L3_error)
     }
     __pyx_v_lvl = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("log_level_c_to_py", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 712, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("log_level_c_to_py", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 717, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -27129,7 +27177,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_2log_level_c_to_py(CYTH
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("log_level_c_to_py", 0);
 
-  /* "pyjoulescope_driver/binding.pyx":713
+  /* "pyjoulescope_driver/binding.pyx":718
  * 
  * def log_level_c_to_py(lvl):
  *     return _log_level_c_to_py.get(int(lvl))             # <<<<<<<<<<<<<<
@@ -27138,12 +27186,12 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_2log_level_c_to_py(CYTH
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_log_level_c_to_py); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 713, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_log_level_c_to_py); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 718, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 713, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 718, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyNumber_Int(__pyx_v_lvl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 713, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyNumber_Int(__pyx_v_lvl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 718, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -27163,14 +27211,14 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_2log_level_c_to_py(CYTH
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 713, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 718, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "pyjoulescope_driver/binding.pyx":712
+  /* "pyjoulescope_driver/binding.pyx":717
  * 
  * 
  * def log_level_c_to_py(lvl):             # <<<<<<<<<<<<<<
@@ -27192,7 +27240,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_2log_level_c_to_py(CYTH
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":758
+/* "pyjoulescope_driver/binding.pyx":763
  * 
  * 
  * cdef int32_t _timeout_validate(value, default=None):             # <<<<<<<<<<<<<<
@@ -27219,7 +27267,7 @@ static int32_t __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(PyObject
   }
   __Pyx_INCREF(__pyx_v_default);
 
-  /* "pyjoulescope_driver/binding.pyx":759
+  /* "pyjoulescope_driver/binding.pyx":764
  * 
  * cdef int32_t _timeout_validate(value, default=None):
  *     if default is None:             # <<<<<<<<<<<<<<
@@ -27229,19 +27277,19 @@ static int32_t __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(PyObject
   __pyx_t_1 = (__pyx_v_default == Py_None);
   if (__pyx_t_1) {
 
-    /* "pyjoulescope_driver/binding.pyx":760
+    /* "pyjoulescope_driver/binding.pyx":765
  * cdef int32_t _timeout_validate(value, default=None):
  *     if default is None:
  *         default = _TIMEOUT_MS_DEFAULT             # <<<<<<<<<<<<<<
  *     if value is None:
  *         return default
 */
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_TIMEOUT_MS_DEFAULT); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 760, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_TIMEOUT_MS_DEFAULT); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 765, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF_SET(__pyx_v_default, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "pyjoulescope_driver/binding.pyx":759
+    /* "pyjoulescope_driver/binding.pyx":764
  * 
  * cdef int32_t _timeout_validate(value, default=None):
  *     if default is None:             # <<<<<<<<<<<<<<
@@ -27250,7 +27298,7 @@ static int32_t __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(PyObject
 */
   }
 
-  /* "pyjoulescope_driver/binding.pyx":761
+  /* "pyjoulescope_driver/binding.pyx":766
  *     if default is None:
  *         default = _TIMEOUT_MS_DEFAULT
  *     if value is None:             # <<<<<<<<<<<<<<
@@ -27260,18 +27308,18 @@ static int32_t __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(PyObject
   __pyx_t_1 = (__pyx_v_value == Py_None);
   if (__pyx_t_1) {
 
-    /* "pyjoulescope_driver/binding.pyx":762
+    /* "pyjoulescope_driver/binding.pyx":767
  *         default = _TIMEOUT_MS_DEFAULT
  *     if value is None:
  *         return default             # <<<<<<<<<<<<<<
  *     return <int32_t> (float(value) * 1000)
  * 
 */
-    __pyx_t_3 = __Pyx_PyLong_As_int32_t(__pyx_v_default); if (unlikely((__pyx_t_3 == ((int32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 762, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyLong_As_int32_t(__pyx_v_default); if (unlikely((__pyx_t_3 == ((int32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 767, __pyx_L1_error)
     __pyx_r = __pyx_t_3;
     goto __pyx_L0;
 
-    /* "pyjoulescope_driver/binding.pyx":761
+    /* "pyjoulescope_driver/binding.pyx":766
  *     if default is None:
  *         default = _TIMEOUT_MS_DEFAULT
  *     if value is None:             # <<<<<<<<<<<<<<
@@ -27280,18 +27328,18 @@ static int32_t __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(PyObject
 */
   }
 
-  /* "pyjoulescope_driver/binding.pyx":763
+  /* "pyjoulescope_driver/binding.pyx":768
  *     if value is None:
  *         return default
  *     return <int32_t> (float(value) * 1000)             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __pyx_t_4 = __Pyx_PyObject_AsDouble(__pyx_v_value); if (unlikely(__PYX_CHECK_FLOAT_EXCEPTION(__pyx_t_4, ((double)((double)-1))) && PyErr_Occurred())) __PYX_ERR(0, 763, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_AsDouble(__pyx_v_value); if (unlikely(__PYX_CHECK_FLOAT_EXCEPTION(__pyx_t_4, ((double)((double)-1))) && PyErr_Occurred())) __PYX_ERR(0, 768, __pyx_L1_error)
   __pyx_r = ((int32_t)(__pyx_t_4 * 1000.0));
   goto __pyx_L0;
 
-  /* "pyjoulescope_driver/binding.pyx":758
+  /* "pyjoulescope_driver/binding.pyx":763
  * 
  * 
  * cdef int32_t _timeout_validate(value, default=None):             # <<<<<<<<<<<<<<
@@ -27310,7 +27358,7 @@ static int32_t __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(PyObject
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":766
+/* "pyjoulescope_driver/binding.pyx":771
  * 
  * 
  * def _handle_rc(rc, src, cause=None):             # <<<<<<<<<<<<<<
@@ -27359,41 +27407,41 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_rc,&__pyx_mstate_global->__pyx_n_u_src,&__pyx_mstate_global->__pyx_n_u_cause,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 766, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 771, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 766, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 771, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 766, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 771, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 766, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 771, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_handle_rc", 0) < (0)) __PYX_ERR(0, 766, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_handle_rc", 0) < (0)) __PYX_ERR(0, 771, __pyx_L3_error)
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_handle_rc", 0, 2, 3, i); __PYX_ERR(0, 766, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_handle_rc", 0, 2, 3, i); __PYX_ERR(0, 771, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 766, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 771, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 766, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 771, __pyx_L3_error)
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 766, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 771, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -27405,7 +27453,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_handle_rc", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 766, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_handle_rc", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 771, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -27453,74 +27501,74 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_4_handle_rc(CYTHON_UNUS
   __Pyx_RefNannySetupContext("_handle_rc", 0);
   __Pyx_INCREF(__pyx_v_cause);
 
-  /* "pyjoulescope_driver/binding.pyx":767
+  /* "pyjoulescope_driver/binding.pyx":772
  * 
  * def _handle_rc(rc, src, cause=None):
  *     if rc:             # <<<<<<<<<<<<<<
  *         name = c_jsdrv.jsdrv_error_code_name(rc).decode('utf-8')
  *         description = c_jsdrv.jsdrv_error_code_description(rc).decode('utf-8')
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_rc); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 767, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_rc); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 772, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "pyjoulescope_driver/binding.pyx":768
+    /* "pyjoulescope_driver/binding.pyx":773
  * def _handle_rc(rc, src, cause=None):
  *     if rc:
  *         name = c_jsdrv.jsdrv_error_code_name(rc).decode('utf-8')             # <<<<<<<<<<<<<<
  *         description = c_jsdrv.jsdrv_error_code_description(rc).decode('utf-8')
  *         if cause:
 */
-    __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_v_rc); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 768, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_v_rc); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 773, __pyx_L1_error)
     __pyx_t_3 = jsdrv_error_code_name(__pyx_t_2);
-    __pyx_t_4 = __Pyx_ssize_strlen(__pyx_t_3); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 768, __pyx_L1_error)
-    __pyx_t_5 = __Pyx_decode_c_string(__pyx_t_3, 0, __pyx_t_4, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 768, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_ssize_strlen(__pyx_t_3); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 773, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_decode_c_string(__pyx_t_3, 0, __pyx_t_4, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 773, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_INCREF(__pyx_t_5);
     __pyx_v_name = __pyx_t_5;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "pyjoulescope_driver/binding.pyx":769
+    /* "pyjoulescope_driver/binding.pyx":774
  *     if rc:
  *         name = c_jsdrv.jsdrv_error_code_name(rc).decode('utf-8')
  *         description = c_jsdrv.jsdrv_error_code_description(rc).decode('utf-8')             # <<<<<<<<<<<<<<
  *         if cause:
  *             cause = f' | {cause}'
 */
-    __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_v_rc); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 769, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_v_rc); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 774, __pyx_L1_error)
     __pyx_t_6 = jsdrv_error_code_description(__pyx_t_2);
-    __pyx_t_4 = __Pyx_ssize_strlen(__pyx_t_6); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 769, __pyx_L1_error)
-    __pyx_t_5 = __Pyx_decode_c_string(__pyx_t_6, 0, __pyx_t_4, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 769, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_ssize_strlen(__pyx_t_6); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 774, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_decode_c_string(__pyx_t_6, 0, __pyx_t_4, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 774, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_INCREF(__pyx_t_5);
     __pyx_v_description = __pyx_t_5;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "pyjoulescope_driver/binding.pyx":770
+    /* "pyjoulescope_driver/binding.pyx":775
  *         name = c_jsdrv.jsdrv_error_code_name(rc).decode('utf-8')
  *         description = c_jsdrv.jsdrv_error_code_description(rc).decode('utf-8')
  *         if cause:             # <<<<<<<<<<<<<<
  *             cause = f' | {cause}'
  *         else:
 */
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_cause); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 770, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_cause); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 775, __pyx_L1_error)
     if (__pyx_t_1) {
 
-      /* "pyjoulescope_driver/binding.pyx":771
+      /* "pyjoulescope_driver/binding.pyx":776
  *         description = c_jsdrv.jsdrv_error_code_description(rc).decode('utf-8')
  *         if cause:
  *             cause = f' | {cause}'             # <<<<<<<<<<<<<<
  *         else:
  *             cause = ''
 */
-      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_cause, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 771, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_cause, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 776, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_7 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u__10, __pyx_t_5); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 771, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u__10, __pyx_t_5); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 776, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF_SET(__pyx_v_cause, __pyx_t_7);
       __pyx_t_7 = 0;
 
-      /* "pyjoulescope_driver/binding.pyx":770
+      /* "pyjoulescope_driver/binding.pyx":775
  *         name = c_jsdrv.jsdrv_error_code_name(rc).decode('utf-8')
  *         description = c_jsdrv.jsdrv_error_code_description(rc).decode('utf-8')
  *         if cause:             # <<<<<<<<<<<<<<
@@ -27530,7 +27578,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_4_handle_rc(CYTHON_UNUS
       goto __pyx_L4;
     }
 
-    /* "pyjoulescope_driver/binding.pyx":773
+    /* "pyjoulescope_driver/binding.pyx":778
  *             cause = f' | {cause}'
  *         else:
  *             cause = ''             # <<<<<<<<<<<<<<
@@ -27543,25 +27591,25 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_4_handle_rc(CYTHON_UNUS
     }
     __pyx_L4:;
 
-    /* "pyjoulescope_driver/binding.pyx":774
+    /* "pyjoulescope_driver/binding.pyx":779
  *         else:
  *             cause = ''
  *         if rc == ErrorCode.TIMED_OUT:             # <<<<<<<<<<<<<<
  *             raise TimeoutError(f'{src} timed out{cause}')
  *         else:
 */
-    __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_ErrorCode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 774, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_ErrorCode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 779, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_TIMED_OUT); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 774, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_TIMED_OUT); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 779, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __pyx_t_7 = PyObject_RichCompare(__pyx_v_rc, __pyx_t_5, Py_EQ); __Pyx_XGOTREF(__pyx_t_7); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 774, __pyx_L1_error)
+    __pyx_t_7 = PyObject_RichCompare(__pyx_v_rc, __pyx_t_5, Py_EQ); __Pyx_XGOTREF(__pyx_t_7); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 779, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 774, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 779, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     if (unlikely(__pyx_t_1)) {
 
-      /* "pyjoulescope_driver/binding.pyx":775
+      /* "pyjoulescope_driver/binding.pyx":780
  *             cause = ''
  *         if rc == ErrorCode.TIMED_OUT:
  *             raise TimeoutError(f'{src} timed out{cause}')             # <<<<<<<<<<<<<<
@@ -27569,15 +27617,15 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_4_handle_rc(CYTHON_UNUS
  *             raise RuntimeError(f'{src} failed {rc} {name} | {description}{cause}')
 */
       __pyx_t_5 = NULL;
-      __pyx_t_8 = __Pyx_PyObject_FormatSimple(__pyx_v_src, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 775, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_FormatSimple(__pyx_v_src, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 780, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
-      __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_v_cause, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 775, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_v_cause, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 780, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
       __pyx_t_10[0] = __pyx_t_8;
       __pyx_t_10[1] = __pyx_mstate_global->__pyx_kp_u_timed_out;
       __pyx_t_10[2] = __pyx_t_9;
       __pyx_t_11 = __Pyx_PyUnicode_Join(__pyx_t_10, 3, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8) + 10 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_9), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_9));
-      if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 775, __pyx_L1_error)
+      if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 780, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
@@ -27587,14 +27635,14 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_4_handle_rc(CYTHON_UNUS
         __pyx_t_7 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TimeoutError)), __pyx_callargs+__pyx_t_12, (2-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 775, __pyx_L1_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 780, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
       }
       __Pyx_Raise(__pyx_t_7, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      __PYX_ERR(0, 775, __pyx_L1_error)
+      __PYX_ERR(0, 780, __pyx_L1_error)
 
-      /* "pyjoulescope_driver/binding.pyx":774
+      /* "pyjoulescope_driver/binding.pyx":779
  *         else:
  *             cause = ''
  *         if rc == ErrorCode.TIMED_OUT:             # <<<<<<<<<<<<<<
@@ -27603,7 +27651,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_4_handle_rc(CYTHON_UNUS
 */
     }
 
-    /* "pyjoulescope_driver/binding.pyx":777
+    /* "pyjoulescope_driver/binding.pyx":782
  *             raise TimeoutError(f'{src} timed out{cause}')
  *         else:
  *             raise RuntimeError(f'{src} failed {rc} {name} | {description}{cause}')             # <<<<<<<<<<<<<<
@@ -27612,15 +27660,15 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_4_handle_rc(CYTHON_UNUS
 */
     /*else*/ {
       __pyx_t_11 = NULL;
-      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_src, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 777, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_src, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 782, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_v_rc, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 777, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_v_rc, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 782, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
-      __pyx_t_8 = __Pyx_PyObject_FormatSimple(__pyx_v_name, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 777, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_FormatSimple(__pyx_v_name, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 782, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
-      __pyx_t_13 = __Pyx_PyObject_FormatSimple(__pyx_v_description, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 777, __pyx_L1_error)
+      __pyx_t_13 = __Pyx_PyObject_FormatSimple(__pyx_v_description, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 782, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_13);
-      __pyx_t_14 = __Pyx_PyObject_FormatSimple(__pyx_v_cause, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 777, __pyx_L1_error)
+      __pyx_t_14 = __Pyx_PyObject_FormatSimple(__pyx_v_cause, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 782, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_14);
       __pyx_t_15[0] = __pyx_t_5;
       __pyx_t_15[1] = __pyx_mstate_global->__pyx_kp_u_failed;
@@ -27631,7 +27679,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_4_handle_rc(CYTHON_UNUS
       __pyx_t_15[6] = __pyx_t_13;
       __pyx_t_15[7] = __pyx_t_14;
       __pyx_t_16 = __Pyx_PyUnicode_Join(__pyx_t_15, 8, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5) + 8 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_9) + 1 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8) + 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_13) + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_14), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_9) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_13) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_14));
-      if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 777, __pyx_L1_error)
+      if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 782, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_16);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
@@ -27644,15 +27692,15 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_4_handle_rc(CYTHON_UNUS
         __pyx_t_7 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_RuntimeError)), __pyx_callargs+__pyx_t_12, (2-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
         __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 777, __pyx_L1_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 782, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
       }
       __Pyx_Raise(__pyx_t_7, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      __PYX_ERR(0, 777, __pyx_L1_error)
+      __PYX_ERR(0, 782, __pyx_L1_error)
     }
 
-    /* "pyjoulescope_driver/binding.pyx":767
+    /* "pyjoulescope_driver/binding.pyx":772
  * 
  * def _handle_rc(rc, src, cause=None):
  *     if rc:             # <<<<<<<<<<<<<<
@@ -27661,7 +27709,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_4_handle_rc(CYTHON_UNUS
 */
   }
 
-  /* "pyjoulescope_driver/binding.pyx":766
+  /* "pyjoulescope_driver/binding.pyx":771
  * 
  * 
  * def _handle_rc(rc, src, cause=None):             # <<<<<<<<<<<<<<
@@ -27692,7 +27740,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_4_handle_rc(CYTHON_UNUS
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":789
+/* "pyjoulescope_driver/binding.pyx":794
  *     cdef object _subscribers
  * 
  *     def __init__(self, timeout=None):             # <<<<<<<<<<<<<<
@@ -27722,24 +27770,24 @@ static int __pyx_pw_19pyjoulescope_driver_7binding_6Driver_1__init__(PyObject *_
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_timeout,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 789, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 794, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 789, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 794, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 789, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 794, __pyx_L3_error)
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)Py_None));
     } else {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 789, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 794, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
@@ -27750,7 +27798,7 @@ static int __pyx_pw_19pyjoulescope_driver_7binding_6Driver_1__init__(PyObject *_
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 789, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 794, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -27789,7 +27837,7 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver___init__(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "pyjoulescope_driver/binding.pyx":791
+  /* "pyjoulescope_driver/binding.pyx":796
  *     def __init__(self, timeout=None):
  *         global _driver_count
  *         self._context = NULL             # <<<<<<<<<<<<<<
@@ -27798,22 +27846,22 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver___init__(struct __pyx
 */
   __pyx_v_self->_context = NULL;
 
-  /* "pyjoulescope_driver/binding.pyx":793
+  /* "pyjoulescope_driver/binding.pyx":798
  *         self._context = NULL
  *         cdef int32_t rc
  *         timeout_ms = _timeout_validate(timeout, _TIMEOUT_MS_INIT)             # <<<<<<<<<<<<<<
  *         with nogil:
  *             rc = c_jsdrv.jsdrv_initialize(&self._context, NULL, timeout_ms)
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_TIMEOUT_MS_INIT); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 793, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_TIMEOUT_MS_INIT); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 798, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_3.__pyx_n = 1;
   __pyx_t_3.__pyx_default = __pyx_t_1;
-  __pyx_t_2 = __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(__pyx_v_timeout, &__pyx_t_3); if (unlikely(__pyx_t_2 == ((int32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 793, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(__pyx_v_timeout, &__pyx_t_3); if (unlikely(__pyx_t_2 == ((int32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 798, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_timeout_ms = __pyx_t_2;
 
-  /* "pyjoulescope_driver/binding.pyx":794
+  /* "pyjoulescope_driver/binding.pyx":799
  *         cdef int32_t rc
  *         timeout_ms = _timeout_validate(timeout, _TIMEOUT_MS_INIT)
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -27826,7 +27874,7 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver___init__(struct __pyx
       __Pyx_FastGIL_Remember();
       /*try:*/ {
 
-        /* "pyjoulescope_driver/binding.pyx":795
+        /* "pyjoulescope_driver/binding.pyx":800
  *         timeout_ms = _timeout_validate(timeout, _TIMEOUT_MS_INIT)
  *         with nogil:
  *             rc = c_jsdrv.jsdrv_initialize(&self._context, NULL, timeout_ms)             # <<<<<<<<<<<<<<
@@ -27836,7 +27884,7 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver___init__(struct __pyx
         __pyx_v_rc = jsdrv_initialize((&__pyx_v_self->_context), NULL, __pyx_v_timeout_ms);
       }
 
-      /* "pyjoulescope_driver/binding.pyx":794
+      /* "pyjoulescope_driver/binding.pyx":799
  *         cdef int32_t rc
  *         timeout_ms = _timeout_validate(timeout, _TIMEOUT_MS_INIT)
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -27853,7 +27901,7 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver___init__(struct __pyx
       }
   }
 
-  /* "pyjoulescope_driver/binding.pyx":796
+  /* "pyjoulescope_driver/binding.pyx":801
  *         with nogil:
  *             rc = c_jsdrv.jsdrv_initialize(&self._context, NULL, timeout_ms)
  *         _handle_rc(rc, 'jsdrv_initialize')             # <<<<<<<<<<<<<<
@@ -27861,9 +27909,9 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver___init__(struct __pyx
  *         if _driver_count == 0:
 */
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_handle_rc); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 796, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_handle_rc); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 801, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyLong_From_int32_t(__pyx_v_rc); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 796, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyLong_From_int32_t(__pyx_v_rc); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 801, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __pyx_t_7 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -27883,19 +27931,19 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver___init__(struct __pyx
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 796, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 801, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":797
+  /* "pyjoulescope_driver/binding.pyx":802
  *             rc = c_jsdrv.jsdrv_initialize(&self._context, NULL, timeout_ms)
  *         _handle_rc(rc, 'jsdrv_initialize')
  *         self._subscribers = set()  # (topic, fn)             # <<<<<<<<<<<<<<
  *         if _driver_count == 0:
  *             c_jsdrv.jsdrv_log_initialize()
 */
-  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 797, __pyx_L1_error)
+  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 802, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_subscribers);
@@ -27903,7 +27951,7 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver___init__(struct __pyx
   __pyx_v_self->_subscribers = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":798
+  /* "pyjoulescope_driver/binding.pyx":803
  *         _handle_rc(rc, 'jsdrv_initialize')
  *         self._subscribers = set()  # (topic, fn)
  *         if _driver_count == 0:             # <<<<<<<<<<<<<<
@@ -27913,7 +27961,7 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver___init__(struct __pyx
   __pyx_t_8 = (__pyx_v_19pyjoulescope_driver_7binding__driver_count == 0);
   if (__pyx_t_8) {
 
-    /* "pyjoulescope_driver/binding.pyx":799
+    /* "pyjoulescope_driver/binding.pyx":804
  *         self._subscribers = set()  # (topic, fn)
  *         if _driver_count == 0:
  *             c_jsdrv.jsdrv_log_initialize()             # <<<<<<<<<<<<<<
@@ -27922,7 +27970,7 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver___init__(struct __pyx
 */
     jsdrv_log_initialize();
 
-    /* "pyjoulescope_driver/binding.pyx":800
+    /* "pyjoulescope_driver/binding.pyx":805
  *         if _driver_count == 0:
  *             c_jsdrv.jsdrv_log_initialize()
  *             c_jsdrv.jsdrv_log_register(_on_log_recv, NULL)             # <<<<<<<<<<<<<<
@@ -27931,7 +27979,7 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver___init__(struct __pyx
 */
     (void)(jsdrv_log_register(__pyx_f_19pyjoulescope_driver_7binding__on_log_recv, NULL));
 
-    /* "pyjoulescope_driver/binding.pyx":798
+    /* "pyjoulescope_driver/binding.pyx":803
  *         _handle_rc(rc, 'jsdrv_initialize')
  *         self._subscribers = set()  # (topic, fn)
  *         if _driver_count == 0:             # <<<<<<<<<<<<<<
@@ -27940,7 +27988,7 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver___init__(struct __pyx
 */
   }
 
-  /* "pyjoulescope_driver/binding.pyx":801
+  /* "pyjoulescope_driver/binding.pyx":806
  *             c_jsdrv.jsdrv_log_initialize()
  *             c_jsdrv.jsdrv_log_register(_on_log_recv, NULL)
  *         _driver_count += 1             # <<<<<<<<<<<<<<
@@ -27949,7 +27997,7 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver___init__(struct __pyx
 */
   __pyx_v_19pyjoulescope_driver_7binding__driver_count = (__pyx_v_19pyjoulescope_driver_7binding__driver_count + 1);
 
-  /* "pyjoulescope_driver/binding.pyx":789
+  /* "pyjoulescope_driver/binding.pyx":794
  *     cdef object _subscribers
  * 
  *     def __init__(self, timeout=None):             # <<<<<<<<<<<<<<
@@ -27972,7 +28020,7 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver___init__(struct __pyx
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":803
+/* "pyjoulescope_driver/binding.pyx":808
  *         _driver_count += 1
  * 
  *     def __enter__(self):             # <<<<<<<<<<<<<<
@@ -28027,7 +28075,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_2__enter__(stru
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__enter__", 0);
 
-  /* "pyjoulescope_driver/binding.pyx":804
+  /* "pyjoulescope_driver/binding.pyx":809
  * 
  *     def __enter__(self):
  *         return self             # <<<<<<<<<<<<<<
@@ -28039,7 +28087,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_2__enter__(stru
   __pyx_r = ((PyObject *)__pyx_v_self);
   goto __pyx_L0;
 
-  /* "pyjoulescope_driver/binding.pyx":803
+  /* "pyjoulescope_driver/binding.pyx":808
  *         _driver_count += 1
  * 
  *     def __enter__(self):             # <<<<<<<<<<<<<<
@@ -28054,7 +28102,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_2__enter__(stru
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":806
+/* "pyjoulescope_driver/binding.pyx":811
  *         return self
  * 
  *     def __exit__(self, type, value, traceback):             # <<<<<<<<<<<<<<
@@ -28103,38 +28151,38 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_type,&__pyx_mstate_global->__pyx_n_u_value,&__pyx_mstate_global->__pyx_n_u_traceback,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 806, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 811, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 806, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 811, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 806, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 811, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 806, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 811, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__exit__", 0) < (0)) __PYX_ERR(0, 806, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__exit__", 0) < (0)) __PYX_ERR(0, 811, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__exit__", 1, 3, 3, i); __PYX_ERR(0, 806, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__exit__", 1, 3, 3, i); __PYX_ERR(0, 811, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 806, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 811, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 806, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 811, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 806, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 811, __pyx_L3_error)
     }
     __pyx_v_type = values[0];
     __pyx_v_value = values[1];
@@ -28142,7 +28190,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__exit__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 806, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__exit__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 811, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -28174,7 +28222,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_4__exit__(struc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__exit__", 0);
 
-  /* "pyjoulescope_driver/binding.pyx":807
+  /* "pyjoulescope_driver/binding.pyx":812
  * 
  *     def __exit__(self, type, value, traceback):
  *         self.finalize()             # <<<<<<<<<<<<<<
@@ -28188,12 +28236,12 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_4__exit__(struc
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_finalize, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 807, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 812, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":806
+  /* "pyjoulescope_driver/binding.pyx":811
  *         return self
  * 
  *     def __exit__(self, type, value, traceback):             # <<<<<<<<<<<<<<
@@ -28215,7 +28263,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_4__exit__(struc
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":809
+/* "pyjoulescope_driver/binding.pyx":814
  *         self.finalize()
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -28247,7 +28295,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_9log_level___ge
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "pyjoulescope_driver/binding.pyx":815
+  /* "pyjoulescope_driver/binding.pyx":820
  *         See :class:`LogLevel`.
  *         """
  *         return c_jsdrv.jsdrv_log_level_get()             # <<<<<<<<<<<<<<
@@ -28255,13 +28303,13 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_9log_level___ge
  *     @log_level.setter
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int8_t(jsdrv_log_level_get()); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 815, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int8_t(jsdrv_log_level_get()); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 820, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "pyjoulescope_driver/binding.pyx":809
+  /* "pyjoulescope_driver/binding.pyx":814
  *         self.finalize()
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -28280,7 +28328,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_9log_level___ge
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":817
+/* "pyjoulescope_driver/binding.pyx":822
  *         return c_jsdrv.jsdrv_log_level_get()
  * 
  *     @log_level.setter             # <<<<<<<<<<<<<<
@@ -28321,7 +28369,7 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver_9log_level_2__set__(C
   __Pyx_RefNannySetupContext("__set__", 0);
   __Pyx_INCREF(__pyx_v_level);
 
-  /* "pyjoulescope_driver/binding.pyx":823
+  /* "pyjoulescope_driver/binding.pyx":828
  *         :param level: The log level.
  *         """
  *         if isinstance(level, str):             # <<<<<<<<<<<<<<
@@ -28331,7 +28379,7 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver_9log_level_2__set__(C
   __pyx_t_1 = PyUnicode_Check(__pyx_v_level); 
   if (__pyx_t_1) {
 
-    /* "pyjoulescope_driver/binding.pyx":824
+    /* "pyjoulescope_driver/binding.pyx":829
  *         """
  *         if isinstance(level, str):
  *             level = _log_level_str_to_int.get(level.lower(), LogLevel.OFF)             # <<<<<<<<<<<<<<
@@ -28339,9 +28387,9 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver_9log_level_2__set__(C
  * 
 */
     __pyx_t_3 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_log_level_str_to_int); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 824, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_log_level_str_to_int); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 829, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 824, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 829, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_6 = __pyx_v_level;
@@ -28351,12 +28399,12 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver_9log_level_2__set__(C
       PyObject *__pyx_callargs[2] = {__pyx_t_6, NULL};
       __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_lower, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 824, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 829, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 824, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 829, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_OFF); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 824, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_OFF); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 829, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_t_7 = 1;
@@ -28378,13 +28426,13 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver_9log_level_2__set__(C
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 824, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 829, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF_SET(__pyx_v_level, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "pyjoulescope_driver/binding.pyx":823
+    /* "pyjoulescope_driver/binding.pyx":828
  *         :param level: The log level.
  *         """
  *         if isinstance(level, str):             # <<<<<<<<<<<<<<
@@ -28393,17 +28441,17 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver_9log_level_2__set__(C
 */
   }
 
-  /* "pyjoulescope_driver/binding.pyx":825
+  /* "pyjoulescope_driver/binding.pyx":830
  *         if isinstance(level, str):
  *             level = _log_level_str_to_int.get(level.lower(), LogLevel.OFF)
  *         c_jsdrv.jsdrv_log_level_set(level)             # <<<<<<<<<<<<<<
  * 
  *     def finalize(self, timeout=None):
 */
-  __pyx_t_9 = __Pyx_PyLong_As_int8_t(__pyx_v_level); if (unlikely((__pyx_t_9 == ((int8_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 825, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyLong_As_int8_t(__pyx_v_level); if (unlikely((__pyx_t_9 == ((int8_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 830, __pyx_L1_error)
   jsdrv_log_level_set(__pyx_t_9);
 
-  /* "pyjoulescope_driver/binding.pyx":817
+  /* "pyjoulescope_driver/binding.pyx":822
  *         return c_jsdrv.jsdrv_log_level_get()
  * 
  *     @log_level.setter             # <<<<<<<<<<<<<<
@@ -28429,7 +28477,7 @@ static int __pyx_pf_19pyjoulescope_driver_7binding_6Driver_9log_level_2__set__(C
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":827
+/* "pyjoulescope_driver/binding.pyx":832
  *         c_jsdrv.jsdrv_log_level_set(level)
  * 
  *     def finalize(self, timeout=None):             # <<<<<<<<<<<<<<
@@ -28477,24 +28525,24 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_timeout,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 827, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 832, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 827, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 832, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "finalize", 0) < (0)) __PYX_ERR(0, 827, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "finalize", 0) < (0)) __PYX_ERR(0, 832, __pyx_L3_error)
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)Py_None));
     } else {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 827, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 832, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
@@ -28505,7 +28553,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("finalize", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 827, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("finalize", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 832, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -28538,7 +28586,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_6finalize(struc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("finalize", 0);
 
-  /* "pyjoulescope_driver/binding.pyx":834
+  /* "pyjoulescope_driver/binding.pyx":839
  *         """
  *         global _driver_count
  *         cdef c_jsdrv.jsdrv_context_s * context = self._context             # <<<<<<<<<<<<<<
@@ -28548,17 +28596,17 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_6finalize(struc
   __pyx_t_1 = __pyx_v_self->_context;
   __pyx_v_context = __pyx_t_1;
 
-  /* "pyjoulescope_driver/binding.pyx":835
+  /* "pyjoulescope_driver/binding.pyx":840
  *         global _driver_count
  *         cdef c_jsdrv.jsdrv_context_s * context = self._context
  *         timeout_ms = _timeout_validate(timeout)             # <<<<<<<<<<<<<<
  *         with nogil:
  *             c_jsdrv.jsdrv_finalize(context, timeout_ms)
 */
-  __pyx_t_2 = __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(__pyx_v_timeout, NULL); if (unlikely(__pyx_t_2 == ((int32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 835, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(__pyx_v_timeout, NULL); if (unlikely(__pyx_t_2 == ((int32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 840, __pyx_L1_error)
   __pyx_v_timeout_ms = __pyx_t_2;
 
-  /* "pyjoulescope_driver/binding.pyx":836
+  /* "pyjoulescope_driver/binding.pyx":841
  *         cdef c_jsdrv.jsdrv_context_s * context = self._context
  *         timeout_ms = _timeout_validate(timeout)
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -28571,7 +28619,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_6finalize(struc
       __Pyx_FastGIL_Remember();
       /*try:*/ {
 
-        /* "pyjoulescope_driver/binding.pyx":837
+        /* "pyjoulescope_driver/binding.pyx":842
  *         timeout_ms = _timeout_validate(timeout)
  *         with nogil:
  *             c_jsdrv.jsdrv_finalize(context, timeout_ms)             # <<<<<<<<<<<<<<
@@ -28580,7 +28628,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_6finalize(struc
 */
         jsdrv_finalize(__pyx_v_context, __pyx_v_timeout_ms);
 
-        /* "pyjoulescope_driver/binding.pyx":838
+        /* "pyjoulescope_driver/binding.pyx":843
  *         with nogil:
  *             c_jsdrv.jsdrv_finalize(context, timeout_ms)
  *             c_jsdrv.jsdrv_log_finalize()             # <<<<<<<<<<<<<<
@@ -28590,7 +28638,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_6finalize(struc
         jsdrv_log_finalize();
       }
 
-      /* "pyjoulescope_driver/binding.pyx":836
+      /* "pyjoulescope_driver/binding.pyx":841
  *         cdef c_jsdrv.jsdrv_context_s * context = self._context
  *         timeout_ms = _timeout_validate(timeout)
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -28607,7 +28655,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_6finalize(struc
       }
   }
 
-  /* "pyjoulescope_driver/binding.pyx":839
+  /* "pyjoulescope_driver/binding.pyx":844
  *             c_jsdrv.jsdrv_finalize(context, timeout_ms)
  *             c_jsdrv.jsdrv_log_finalize()
  *         _driver_count -= 1             # <<<<<<<<<<<<<<
@@ -28616,7 +28664,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_6finalize(struc
 */
   __pyx_v_19pyjoulescope_driver_7binding__driver_count = (__pyx_v_19pyjoulescope_driver_7binding__driver_count - 1);
 
-  /* "pyjoulescope_driver/binding.pyx":827
+  /* "pyjoulescope_driver/binding.pyx":832
  *         c_jsdrv.jsdrv_log_level_set(level)
  * 
  *     def finalize(self, timeout=None):             # <<<<<<<<<<<<<<
@@ -28636,7 +28684,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_6finalize(struc
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":841
+/* "pyjoulescope_driver/binding.pyx":846
  *         _driver_count -= 1
  * 
  *     def publish(self, topic: str, value, timeout=None):             # <<<<<<<<<<<<<<
@@ -28686,41 +28734,41 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_topic,&__pyx_mstate_global->__pyx_n_u_value,&__pyx_mstate_global->__pyx_n_u_timeout,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 841, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 846, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 841, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 846, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 841, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 846, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 841, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 846, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "publish", 0) < (0)) __PYX_ERR(0, 841, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "publish", 0) < (0)) __PYX_ERR(0, 846, __pyx_L3_error)
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("publish", 0, 2, 3, i); __PYX_ERR(0, 841, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("publish", 0, 2, 3, i); __PYX_ERR(0, 846, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 841, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 846, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 841, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 846, __pyx_L3_error)
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 841, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 846, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -28732,7 +28780,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("publish", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 841, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("publish", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 846, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -28743,7 +28791,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_topic), (&PyUnicode_Type), 0, "topic", 2))) __PYX_ERR(0, 841, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_topic), (&PyUnicode_Type), 0, "topic", 2))) __PYX_ERR(0, 846, __pyx_L1_error)
   __pyx_r = __pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(((struct __pyx_obj_19pyjoulescope_driver_7binding_Driver *)__pyx_v_self), __pyx_v_topic, __pyx_v_value, __pyx_v_timeout);
 
   /* function exit code */
@@ -28794,32 +28842,32 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
   __Pyx_RefNannySetupContext("publish", 0);
   __Pyx_INCREF(__pyx_v_value);
 
-  /* "pyjoulescope_driver/binding.pyx":852
+  /* "pyjoulescope_driver/binding.pyx":857
  *         cdef c_jsdrv.jsdrv_union_s v
  *         cdef char * byte_str
  *         cdef const uint8_t[:] topic_str = topic.encode('utf-8')             # <<<<<<<<<<<<<<
  *         cdef int32_t timeout_ms = _timeout_validate(timeout)
  * 
 */
-  __pyx_t_1 = PyUnicode_AsUTF8String(__pyx_v_topic); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 852, __pyx_L1_error)
+  __pyx_t_1 = PyUnicode_AsUTF8String(__pyx_v_topic); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 857, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_to_MemoryviewSlice_ds_nn_uint8_t__const__(__pyx_t_1, 0); if (unlikely(!__pyx_t_2.memview)) __PYX_ERR(0, 852, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_to_MemoryviewSlice_ds_nn_uint8_t__const__(__pyx_t_1, 0); if (unlikely(!__pyx_t_2.memview)) __PYX_ERR(0, 857, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_topic_str = __pyx_t_2;
   __pyx_t_2.memview = NULL;
   __pyx_t_2.data = NULL;
 
-  /* "pyjoulescope_driver/binding.pyx":853
+  /* "pyjoulescope_driver/binding.pyx":858
  *         cdef char * byte_str
  *         cdef const uint8_t[:] topic_str = topic.encode('utf-8')
  *         cdef int32_t timeout_ms = _timeout_validate(timeout)             # <<<<<<<<<<<<<<
  * 
  *         memset(&v, 0, sizeof(v))
 */
-  __pyx_t_3 = __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(__pyx_v_timeout, NULL); if (unlikely(__pyx_t_3 == ((int32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 853, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(__pyx_v_timeout, NULL); if (unlikely(__pyx_t_3 == ((int32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 858, __pyx_L1_error)
   __pyx_v_timeout_ms = __pyx_t_3;
 
-  /* "pyjoulescope_driver/binding.pyx":855
+  /* "pyjoulescope_driver/binding.pyx":860
  *         cdef int32_t timeout_ms = _timeout_validate(timeout)
  * 
  *         memset(&v, 0, sizeof(v))             # <<<<<<<<<<<<<<
@@ -28828,7 +28876,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
 */
   (void)(memset((&__pyx_v_v), 0, (sizeof(__pyx_v_v))));
 
-  /* "pyjoulescope_driver/binding.pyx":856
+  /* "pyjoulescope_driver/binding.pyx":861
  * 
  *         memset(&v, 0, sizeof(v))
  *         if isinstance(value, str):             # <<<<<<<<<<<<<<
@@ -28838,7 +28886,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
   __pyx_t_4 = PyUnicode_Check(__pyx_v_value); 
   if (__pyx_t_4) {
 
-    /* "pyjoulescope_driver/binding.pyx":857
+    /* "pyjoulescope_driver/binding.pyx":862
  *         memset(&v, 0, sizeof(v))
  *         if isinstance(value, str):
  *             py_byte_str = value.encode('utf-8')             # <<<<<<<<<<<<<<
@@ -28852,23 +28900,23 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
       PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_mstate_global->__pyx_kp_u_utf_8};
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_encode, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 857, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 862, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __pyx_v_py_byte_str = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "pyjoulescope_driver/binding.pyx":858
+    /* "pyjoulescope_driver/binding.pyx":863
  *         if isinstance(value, str):
  *             py_byte_str = value.encode('utf-8')
  *             byte_str = py_byte_str             # <<<<<<<<<<<<<<
  *             v.type = c_jsdrv.JSDRV_UNION_STR
  *             v.value.str = &byte_str[0]
 */
-    __pyx_t_7 = __Pyx_PyObject_AsWritableString(__pyx_v_py_byte_str); if (unlikely((!__pyx_t_7) && PyErr_Occurred())) __PYX_ERR(0, 858, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_AsWritableString(__pyx_v_py_byte_str); if (unlikely((!__pyx_t_7) && PyErr_Occurred())) __PYX_ERR(0, 863, __pyx_L1_error)
     __pyx_v_byte_str = __pyx_t_7;
 
-    /* "pyjoulescope_driver/binding.pyx":859
+    /* "pyjoulescope_driver/binding.pyx":864
  *             py_byte_str = value.encode('utf-8')
  *             byte_str = py_byte_str
  *             v.type = c_jsdrv.JSDRV_UNION_STR             # <<<<<<<<<<<<<<
@@ -28877,7 +28925,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
 */
     __pyx_v_v.type = JSDRV_UNION_STR;
 
-    /* "pyjoulescope_driver/binding.pyx":860
+    /* "pyjoulescope_driver/binding.pyx":865
  *             byte_str = py_byte_str
  *             v.type = c_jsdrv.JSDRV_UNION_STR
  *             v.value.str = &byte_str[0]             # <<<<<<<<<<<<<<
@@ -28886,7 +28934,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
 */
     __pyx_v_v.value.str = (&(__pyx_v_byte_str[0]));
 
-    /* "pyjoulescope_driver/binding.pyx":856
+    /* "pyjoulescope_driver/binding.pyx":861
  * 
  *         memset(&v, 0, sizeof(v))
  *         if isinstance(value, str):             # <<<<<<<<<<<<<<
@@ -28896,7 +28944,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
     goto __pyx_L3;
   }
 
-  /* "pyjoulescope_driver/binding.pyx":861
+  /* "pyjoulescope_driver/binding.pyx":866
  *             v.type = c_jsdrv.JSDRV_UNION_STR
  *             v.value.str = &byte_str[0]
  *         elif isinstance(value, int):             # <<<<<<<<<<<<<<
@@ -28906,29 +28954,29 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
   __pyx_t_4 = PyLong_Check(__pyx_v_value); 
   if (__pyx_t_4) {
 
-    /* "pyjoulescope_driver/binding.pyx":862
+    /* "pyjoulescope_driver/binding.pyx":867
  *             v.value.str = &byte_str[0]
  *         elif isinstance(value, int):
  *             if (value >= 0) and (value < 4294967296LL):             # <<<<<<<<<<<<<<
  *                 v.type = c_jsdrv.JSDRV_UNION_U32
  *                 v.value.u64 = value
 */
-    __pyx_t_1 = PyObject_RichCompare(__pyx_v_value, __pyx_mstate_global->__pyx_int_0, Py_GE); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 862, __pyx_L1_error)
-    __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 862, __pyx_L1_error)
+    __pyx_t_1 = PyObject_RichCompare(__pyx_v_value, __pyx_mstate_global->__pyx_int_0, Py_GE); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 867, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 867, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (__pyx_t_8) {
     } else {
       __pyx_t_4 = __pyx_t_8;
       goto __pyx_L5_bool_binop_done;
     }
-    __pyx_t_1 = PyObject_RichCompare(__pyx_v_value, __pyx_mstate_global->__pyx_int_4294967296L, Py_LT); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 862, __pyx_L1_error)
-    __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 862, __pyx_L1_error)
+    __pyx_t_1 = PyObject_RichCompare(__pyx_v_value, __pyx_mstate_global->__pyx_int_4294967296L, Py_LT); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 867, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 867, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_4 = __pyx_t_8;
     __pyx_L5_bool_binop_done:;
     if (__pyx_t_4) {
 
-      /* "pyjoulescope_driver/binding.pyx":863
+      /* "pyjoulescope_driver/binding.pyx":868
  *         elif isinstance(value, int):
  *             if (value >= 0) and (value < 4294967296LL):
  *                 v.type = c_jsdrv.JSDRV_UNION_U32             # <<<<<<<<<<<<<<
@@ -28937,17 +28985,17 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
 */
       __pyx_v_v.type = JSDRV_UNION_U32;
 
-      /* "pyjoulescope_driver/binding.pyx":864
+      /* "pyjoulescope_driver/binding.pyx":869
  *             if (value >= 0) and (value < 4294967296LL):
  *                 v.type = c_jsdrv.JSDRV_UNION_U32
  *                 v.value.u64 = value             # <<<<<<<<<<<<<<
  *             elif value >= 0:
  *                 v.type = c_jsdrv.JSDRV_UNION_U64
 */
-      __pyx_t_9 = __Pyx_PyLong_As_uint64_t(__pyx_v_value); if (unlikely((__pyx_t_9 == ((uint64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 864, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PyLong_As_uint64_t(__pyx_v_value); if (unlikely((__pyx_t_9 == ((uint64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 869, __pyx_L1_error)
       __pyx_v_v.value.u64 = __pyx_t_9;
 
-      /* "pyjoulescope_driver/binding.pyx":862
+      /* "pyjoulescope_driver/binding.pyx":867
  *             v.value.str = &byte_str[0]
  *         elif isinstance(value, int):
  *             if (value >= 0) and (value < 4294967296LL):             # <<<<<<<<<<<<<<
@@ -28957,19 +29005,19 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
       goto __pyx_L4;
     }
 
-    /* "pyjoulescope_driver/binding.pyx":865
+    /* "pyjoulescope_driver/binding.pyx":870
  *                 v.type = c_jsdrv.JSDRV_UNION_U32
  *                 v.value.u64 = value
  *             elif value >= 0:             # <<<<<<<<<<<<<<
  *                 v.type = c_jsdrv.JSDRV_UNION_U64
  *                 v.value.u64 = value
 */
-    __pyx_t_1 = PyObject_RichCompare(__pyx_v_value, __pyx_mstate_global->__pyx_int_0, Py_GE); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 865, __pyx_L1_error)
-    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 865, __pyx_L1_error)
+    __pyx_t_1 = PyObject_RichCompare(__pyx_v_value, __pyx_mstate_global->__pyx_int_0, Py_GE); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 870, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 870, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (__pyx_t_4) {
 
-      /* "pyjoulescope_driver/binding.pyx":866
+      /* "pyjoulescope_driver/binding.pyx":871
  *                 v.value.u64 = value
  *             elif value >= 0:
  *                 v.type = c_jsdrv.JSDRV_UNION_U64             # <<<<<<<<<<<<<<
@@ -28978,17 +29026,17 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
 */
       __pyx_v_v.type = JSDRV_UNION_U64;
 
-      /* "pyjoulescope_driver/binding.pyx":867
+      /* "pyjoulescope_driver/binding.pyx":872
  *             elif value >= 0:
  *                 v.type = c_jsdrv.JSDRV_UNION_U64
  *                 v.value.u64 = value             # <<<<<<<<<<<<<<
  *             elif value >= -2147483648LL:
  *                 v.type = c_jsdrv.JSDRV_UNION_I32
 */
-      __pyx_t_9 = __Pyx_PyLong_As_uint64_t(__pyx_v_value); if (unlikely((__pyx_t_9 == ((uint64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 867, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PyLong_As_uint64_t(__pyx_v_value); if (unlikely((__pyx_t_9 == ((uint64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 872, __pyx_L1_error)
       __pyx_v_v.value.u64 = __pyx_t_9;
 
-      /* "pyjoulescope_driver/binding.pyx":865
+      /* "pyjoulescope_driver/binding.pyx":870
  *                 v.type = c_jsdrv.JSDRV_UNION_U32
  *                 v.value.u64 = value
  *             elif value >= 0:             # <<<<<<<<<<<<<<
@@ -28998,19 +29046,19 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
       goto __pyx_L4;
     }
 
-    /* "pyjoulescope_driver/binding.pyx":868
+    /* "pyjoulescope_driver/binding.pyx":873
  *                 v.type = c_jsdrv.JSDRV_UNION_U64
  *                 v.value.u64 = value
  *             elif value >= -2147483648LL:             # <<<<<<<<<<<<<<
  *                 v.type = c_jsdrv.JSDRV_UNION_I32
  *                 v.value.i64 = value
 */
-    __pyx_t_1 = PyObject_RichCompare(__pyx_v_value, __pyx_mstate_global->__pyx_int_neg_2147483648L, Py_GE); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 868, __pyx_L1_error)
-    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 868, __pyx_L1_error)
+    __pyx_t_1 = PyObject_RichCompare(__pyx_v_value, __pyx_mstate_global->__pyx_int_neg_2147483648L, Py_GE); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 873, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 873, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (__pyx_t_4) {
 
-      /* "pyjoulescope_driver/binding.pyx":869
+      /* "pyjoulescope_driver/binding.pyx":874
  *                 v.value.u64 = value
  *             elif value >= -2147483648LL:
  *                 v.type = c_jsdrv.JSDRV_UNION_I32             # <<<<<<<<<<<<<<
@@ -29019,17 +29067,17 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
 */
       __pyx_v_v.type = JSDRV_UNION_I32;
 
-      /* "pyjoulescope_driver/binding.pyx":870
+      /* "pyjoulescope_driver/binding.pyx":875
  *             elif value >= -2147483648LL:
  *                 v.type = c_jsdrv.JSDRV_UNION_I32
  *                 v.value.i64 = value             # <<<<<<<<<<<<<<
  *             else:
  *                 v.type = c_jsdrv.JSDRV_UNION_I64
 */
-      __pyx_t_10 = __Pyx_PyLong_As_int64_t(__pyx_v_value); if (unlikely((__pyx_t_10 == ((int64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 870, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyLong_As_int64_t(__pyx_v_value); if (unlikely((__pyx_t_10 == ((int64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 875, __pyx_L1_error)
       __pyx_v_v.value.i64 = __pyx_t_10;
 
-      /* "pyjoulescope_driver/binding.pyx":868
+      /* "pyjoulescope_driver/binding.pyx":873
  *                 v.type = c_jsdrv.JSDRV_UNION_U64
  *                 v.value.u64 = value
  *             elif value >= -2147483648LL:             # <<<<<<<<<<<<<<
@@ -29039,7 +29087,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
       goto __pyx_L4;
     }
 
-    /* "pyjoulescope_driver/binding.pyx":872
+    /* "pyjoulescope_driver/binding.pyx":877
  *                 v.value.i64 = value
  *             else:
  *                 v.type = c_jsdrv.JSDRV_UNION_I64             # <<<<<<<<<<<<<<
@@ -29049,19 +29097,19 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
     /*else*/ {
       __pyx_v_v.type = JSDRV_UNION_I64;
 
-      /* "pyjoulescope_driver/binding.pyx":873
+      /* "pyjoulescope_driver/binding.pyx":878
  *             else:
  *                 v.type = c_jsdrv.JSDRV_UNION_I64
  *                 v.value.i64 = value             # <<<<<<<<<<<<<<
  *         elif topic.startswith('m/') and topic.endswith('/!req'):
  *             value = _pack_buffer_req(value)
 */
-      __pyx_t_10 = __Pyx_PyLong_As_int64_t(__pyx_v_value); if (unlikely((__pyx_t_10 == ((int64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 873, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyLong_As_int64_t(__pyx_v_value); if (unlikely((__pyx_t_10 == ((int64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 878, __pyx_L1_error)
       __pyx_v_v.value.i64 = __pyx_t_10;
     }
     __pyx_L4:;
 
-    /* "pyjoulescope_driver/binding.pyx":861
+    /* "pyjoulescope_driver/binding.pyx":866
  *             v.type = c_jsdrv.JSDRV_UNION_STR
  *             v.value.str = &byte_str[0]
  *         elif isinstance(value, int):             # <<<<<<<<<<<<<<
@@ -29071,47 +29119,47 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
     goto __pyx_L3;
   }
 
-  /* "pyjoulescope_driver/binding.pyx":874
+  /* "pyjoulescope_driver/binding.pyx":879
  *                 v.type = c_jsdrv.JSDRV_UNION_I64
  *                 v.value.i64 = value
  *         elif topic.startswith('m/') and topic.endswith('/!req'):             # <<<<<<<<<<<<<<
  *             value = _pack_buffer_req(value)
  *             byte_str = value
 */
-  __pyx_t_8 = __Pyx_PyUnicode_Tailmatch(__pyx_v_topic, __pyx_mstate_global->__pyx_kp_u_m, 0, PY_SSIZE_T_MAX, -1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 874, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyUnicode_Tailmatch(__pyx_v_topic, __pyx_mstate_global->__pyx_kp_u_m, 0, PY_SSIZE_T_MAX, -1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 879, __pyx_L1_error)
   if (__pyx_t_8) {
   } else {
     __pyx_t_4 = __pyx_t_8;
     goto __pyx_L7_bool_binop_done;
   }
-  __pyx_t_8 = __Pyx_PyUnicode_Tailmatch(__pyx_v_topic, __pyx_mstate_global->__pyx_kp_u_req, 0, PY_SSIZE_T_MAX, 1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 874, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyUnicode_Tailmatch(__pyx_v_topic, __pyx_mstate_global->__pyx_kp_u_req, 0, PY_SSIZE_T_MAX, 1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 879, __pyx_L1_error)
   __pyx_t_4 = __pyx_t_8;
   __pyx_L7_bool_binop_done:;
   if (__pyx_t_4) {
 
-    /* "pyjoulescope_driver/binding.pyx":875
+    /* "pyjoulescope_driver/binding.pyx":880
  *                 v.value.i64 = value
  *         elif topic.startswith('m/') and topic.endswith('/!req'):
  *             value = _pack_buffer_req(value)             # <<<<<<<<<<<<<<
  *             byte_str = value
  *             v.type = c_jsdrv.JSDRV_UNION_BIN
 */
-    __pyx_t_1 = __pyx_f_19pyjoulescope_driver_7binding__pack_buffer_req(__pyx_v_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 875, __pyx_L1_error)
+    __pyx_t_1 = __pyx_f_19pyjoulescope_driver_7binding__pack_buffer_req(__pyx_v_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 880, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF_SET(__pyx_v_value, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "pyjoulescope_driver/binding.pyx":876
+    /* "pyjoulescope_driver/binding.pyx":881
  *         elif topic.startswith('m/') and topic.endswith('/!req'):
  *             value = _pack_buffer_req(value)
  *             byte_str = value             # <<<<<<<<<<<<<<
  *             v.type = c_jsdrv.JSDRV_UNION_BIN
  *             v.value.bin = <const uint8_t *> byte_str
 */
-    __pyx_t_7 = __Pyx_PyObject_AsWritableString(__pyx_v_value); if (unlikely((!__pyx_t_7) && PyErr_Occurred())) __PYX_ERR(0, 876, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_AsWritableString(__pyx_v_value); if (unlikely((!__pyx_t_7) && PyErr_Occurred())) __PYX_ERR(0, 881, __pyx_L1_error)
     __pyx_v_byte_str = __pyx_t_7;
 
-    /* "pyjoulescope_driver/binding.pyx":877
+    /* "pyjoulescope_driver/binding.pyx":882
  *             value = _pack_buffer_req(value)
  *             byte_str = value
  *             v.type = c_jsdrv.JSDRV_UNION_BIN             # <<<<<<<<<<<<<<
@@ -29120,7 +29168,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
 */
     __pyx_v_v.type = JSDRV_UNION_BIN;
 
-    /* "pyjoulescope_driver/binding.pyx":878
+    /* "pyjoulescope_driver/binding.pyx":883
  *             byte_str = value
  *             v.type = c_jsdrv.JSDRV_UNION_BIN
  *             v.value.bin = <const uint8_t *> byte_str             # <<<<<<<<<<<<<<
@@ -29129,7 +29177,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
 */
     __pyx_v_v.value.bin = ((uint8_t const *)__pyx_v_byte_str);
 
-    /* "pyjoulescope_driver/binding.pyx":879
+    /* "pyjoulescope_driver/binding.pyx":884
  *             v.type = c_jsdrv.JSDRV_UNION_BIN
  *             v.value.bin = <const uint8_t *> byte_str
  *             v.app = c_jsdrv.JSDRV_PAYLOAD_TYPE_BUFFER_REQ             # <<<<<<<<<<<<<<
@@ -29138,17 +29186,17 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
 */
     __pyx_v_v.app = JSDRV_PAYLOAD_TYPE_BUFFER_REQ;
 
-    /* "pyjoulescope_driver/binding.pyx":880
+    /* "pyjoulescope_driver/binding.pyx":885
  *             v.value.bin = <const uint8_t *> byte_str
  *             v.app = c_jsdrv.JSDRV_PAYLOAD_TYPE_BUFFER_REQ
  *             v.size = <uint32_t> len(value)             # <<<<<<<<<<<<<<
  *         elif isinstance(value, StdMsg):
  *             byte_str = value
 */
-    __pyx_t_11 = PyObject_Length(__pyx_v_value); if (unlikely(__pyx_t_11 == ((Py_ssize_t)-1))) __PYX_ERR(0, 880, __pyx_L1_error)
+    __pyx_t_11 = PyObject_Length(__pyx_v_value); if (unlikely(__pyx_t_11 == ((Py_ssize_t)-1))) __PYX_ERR(0, 885, __pyx_L1_error)
     __pyx_v_v.size = ((uint32_t)__pyx_t_11);
 
-    /* "pyjoulescope_driver/binding.pyx":874
+    /* "pyjoulescope_driver/binding.pyx":879
  *                 v.type = c_jsdrv.JSDRV_UNION_I64
  *                 v.value.i64 = value
  *         elif topic.startswith('m/') and topic.endswith('/!req'):             # <<<<<<<<<<<<<<
@@ -29158,30 +29206,30 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
     goto __pyx_L3;
   }
 
-  /* "pyjoulescope_driver/binding.pyx":881
+  /* "pyjoulescope_driver/binding.pyx":886
  *             v.app = c_jsdrv.JSDRV_PAYLOAD_TYPE_BUFFER_REQ
  *             v.size = <uint32_t> len(value)
  *         elif isinstance(value, StdMsg):             # <<<<<<<<<<<<<<
  *             byte_str = value
  *             v.type = c_jsdrv.JSDRV_UNION_STDMSG
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_StdMsg); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 881, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_StdMsg); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 886, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = PyObject_IsInstance(__pyx_v_value, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 881, __pyx_L1_error)
+  __pyx_t_4 = PyObject_IsInstance(__pyx_v_value, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 886, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_4) {
 
-    /* "pyjoulescope_driver/binding.pyx":882
+    /* "pyjoulescope_driver/binding.pyx":887
  *             v.size = <uint32_t> len(value)
  *         elif isinstance(value, StdMsg):
  *             byte_str = value             # <<<<<<<<<<<<<<
  *             v.type = c_jsdrv.JSDRV_UNION_STDMSG
  *             v.value.bin = <const uint8_t *> byte_str
 */
-    __pyx_t_7 = __Pyx_PyObject_AsWritableString(__pyx_v_value); if (unlikely((!__pyx_t_7) && PyErr_Occurred())) __PYX_ERR(0, 882, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_AsWritableString(__pyx_v_value); if (unlikely((!__pyx_t_7) && PyErr_Occurred())) __PYX_ERR(0, 887, __pyx_L1_error)
     __pyx_v_byte_str = __pyx_t_7;
 
-    /* "pyjoulescope_driver/binding.pyx":883
+    /* "pyjoulescope_driver/binding.pyx":888
  *         elif isinstance(value, StdMsg):
  *             byte_str = value
  *             v.type = c_jsdrv.JSDRV_UNION_STDMSG             # <<<<<<<<<<<<<<
@@ -29190,7 +29238,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
 */
     __pyx_v_v.type = JSDRV_UNION_STDMSG;
 
-    /* "pyjoulescope_driver/binding.pyx":884
+    /* "pyjoulescope_driver/binding.pyx":889
  *             byte_str = value
  *             v.type = c_jsdrv.JSDRV_UNION_STDMSG
  *             v.value.bin = <const uint8_t *> byte_str             # <<<<<<<<<<<<<<
@@ -29199,17 +29247,17 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
 */
     __pyx_v_v.value.bin = ((uint8_t const *)__pyx_v_byte_str);
 
-    /* "pyjoulescope_driver/binding.pyx":885
+    /* "pyjoulescope_driver/binding.pyx":890
  *             v.type = c_jsdrv.JSDRV_UNION_STDMSG
  *             v.value.bin = <const uint8_t *> byte_str
  *             v.size = <uint32_t> len(value)             # <<<<<<<<<<<<<<
  *         elif isinstance(value, bytes):
  *             byte_str = value
 */
-    __pyx_t_11 = PyObject_Length(__pyx_v_value); if (unlikely(__pyx_t_11 == ((Py_ssize_t)-1))) __PYX_ERR(0, 885, __pyx_L1_error)
+    __pyx_t_11 = PyObject_Length(__pyx_v_value); if (unlikely(__pyx_t_11 == ((Py_ssize_t)-1))) __PYX_ERR(0, 890, __pyx_L1_error)
     __pyx_v_v.size = ((uint32_t)__pyx_t_11);
 
-    /* "pyjoulescope_driver/binding.pyx":881
+    /* "pyjoulescope_driver/binding.pyx":886
  *             v.app = c_jsdrv.JSDRV_PAYLOAD_TYPE_BUFFER_REQ
  *             v.size = <uint32_t> len(value)
  *         elif isinstance(value, StdMsg):             # <<<<<<<<<<<<<<
@@ -29219,7 +29267,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
     goto __pyx_L3;
   }
 
-  /* "pyjoulescope_driver/binding.pyx":886
+  /* "pyjoulescope_driver/binding.pyx":891
  *             v.value.bin = <const uint8_t *> byte_str
  *             v.size = <uint32_t> len(value)
  *         elif isinstance(value, bytes):             # <<<<<<<<<<<<<<
@@ -29229,17 +29277,17 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
   __pyx_t_4 = PyBytes_Check(__pyx_v_value); 
   if (__pyx_t_4) {
 
-    /* "pyjoulescope_driver/binding.pyx":887
+    /* "pyjoulescope_driver/binding.pyx":892
  *             v.size = <uint32_t> len(value)
  *         elif isinstance(value, bytes):
  *             byte_str = value             # <<<<<<<<<<<<<<
  *             v.type = c_jsdrv.JSDRV_UNION_BIN
  *             v.value.bin = <const uint8_t *> byte_str
 */
-    __pyx_t_7 = __Pyx_PyObject_AsWritableString(__pyx_v_value); if (unlikely((!__pyx_t_7) && PyErr_Occurred())) __PYX_ERR(0, 887, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_AsWritableString(__pyx_v_value); if (unlikely((!__pyx_t_7) && PyErr_Occurred())) __PYX_ERR(0, 892, __pyx_L1_error)
     __pyx_v_byte_str = __pyx_t_7;
 
-    /* "pyjoulescope_driver/binding.pyx":888
+    /* "pyjoulescope_driver/binding.pyx":893
  *         elif isinstance(value, bytes):
  *             byte_str = value
  *             v.type = c_jsdrv.JSDRV_UNION_BIN             # <<<<<<<<<<<<<<
@@ -29248,7 +29296,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
 */
     __pyx_v_v.type = JSDRV_UNION_BIN;
 
-    /* "pyjoulescope_driver/binding.pyx":889
+    /* "pyjoulescope_driver/binding.pyx":894
  *             byte_str = value
  *             v.type = c_jsdrv.JSDRV_UNION_BIN
  *             v.value.bin = <const uint8_t *> byte_str             # <<<<<<<<<<<<<<
@@ -29257,17 +29305,17 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
 */
     __pyx_v_v.value.bin = ((uint8_t const *)__pyx_v_byte_str);
 
-    /* "pyjoulescope_driver/binding.pyx":890
+    /* "pyjoulescope_driver/binding.pyx":895
  *             v.type = c_jsdrv.JSDRV_UNION_BIN
  *             v.value.bin = <const uint8_t *> byte_str
  *             v.size = <uint32_t> len(value)             # <<<<<<<<<<<<<<
  *         elif isinstance(value, float):
  *             v.type = c_jsdrv.JSDRV_UNION_F64
 */
-    __pyx_t_11 = PyObject_Length(__pyx_v_value); if (unlikely(__pyx_t_11 == ((Py_ssize_t)-1))) __PYX_ERR(0, 890, __pyx_L1_error)
+    __pyx_t_11 = PyObject_Length(__pyx_v_value); if (unlikely(__pyx_t_11 == ((Py_ssize_t)-1))) __PYX_ERR(0, 895, __pyx_L1_error)
     __pyx_v_v.size = ((uint32_t)__pyx_t_11);
 
-    /* "pyjoulescope_driver/binding.pyx":886
+    /* "pyjoulescope_driver/binding.pyx":891
  *             v.value.bin = <const uint8_t *> byte_str
  *             v.size = <uint32_t> len(value)
  *         elif isinstance(value, bytes):             # <<<<<<<<<<<<<<
@@ -29277,7 +29325,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
     goto __pyx_L3;
   }
 
-  /* "pyjoulescope_driver/binding.pyx":891
+  /* "pyjoulescope_driver/binding.pyx":896
  *             v.value.bin = <const uint8_t *> byte_str
  *             v.size = <uint32_t> len(value)
  *         elif isinstance(value, float):             # <<<<<<<<<<<<<<
@@ -29287,7 +29335,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
   __pyx_t_4 = PyFloat_Check(__pyx_v_value); 
   if (likely(__pyx_t_4)) {
 
-    /* "pyjoulescope_driver/binding.pyx":892
+    /* "pyjoulescope_driver/binding.pyx":897
  *             v.size = <uint32_t> len(value)
  *         elif isinstance(value, float):
  *             v.type = c_jsdrv.JSDRV_UNION_F64             # <<<<<<<<<<<<<<
@@ -29296,17 +29344,17 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
 */
     __pyx_v_v.type = JSDRV_UNION_F64;
 
-    /* "pyjoulescope_driver/binding.pyx":893
+    /* "pyjoulescope_driver/binding.pyx":898
  *         elif isinstance(value, float):
  *             v.type = c_jsdrv.JSDRV_UNION_F64
  *             v.value.f64 = value             # <<<<<<<<<<<<<<
  *         else:
  *             raise ValueError(f'Unsupported value type: {type(value)}')
 */
-    __pyx_t_12 = __Pyx_PyFloat_AsDouble(__pyx_v_value); if (unlikely((__pyx_t_12 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 893, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyFloat_AsDouble(__pyx_v_value); if (unlikely((__pyx_t_12 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 898, __pyx_L1_error)
     __pyx_v_v.value.f64 = __pyx_t_12;
 
-    /* "pyjoulescope_driver/binding.pyx":891
+    /* "pyjoulescope_driver/binding.pyx":896
  *             v.value.bin = <const uint8_t *> byte_str
  *             v.size = <uint32_t> len(value)
  *         elif isinstance(value, float):             # <<<<<<<<<<<<<<
@@ -29316,7 +29364,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
     goto __pyx_L3;
   }
 
-  /* "pyjoulescope_driver/binding.pyx":895
+  /* "pyjoulescope_driver/binding.pyx":900
  *             v.value.f64 = value
  *         else:
  *             raise ValueError(f'Unsupported value type: {type(value)}')             # <<<<<<<<<<<<<<
@@ -29325,9 +29373,9 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
 */
   /*else*/ {
     __pyx_t_5 = NULL;
-    __pyx_t_13 = __Pyx_PyObject_FormatSimple(((PyObject *)Py_TYPE(__pyx_v_value)), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 895, __pyx_L1_error)
+    __pyx_t_13 = __Pyx_PyObject_FormatSimple(((PyObject *)Py_TYPE(__pyx_v_value)), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 900, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_13);
-    __pyx_t_14 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Unsupported_value_type, __pyx_t_13); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 895, __pyx_L1_error)
+    __pyx_t_14 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Unsupported_value_type, __pyx_t_13); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 900, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_14);
     __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
     __pyx_t_6 = 1;
@@ -29336,26 +29384,26 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 895, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 900, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 895, __pyx_L1_error)
+    __PYX_ERR(0, 900, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "pyjoulescope_driver/binding.pyx":896
+  /* "pyjoulescope_driver/binding.pyx":901
  *         else:
  *             raise ValueError(f'Unsupported value type: {type(value)}')
  *         if '!' not in topic:             # <<<<<<<<<<<<<<
  *             v.flags = c_jsdrv.JSDRV_UNION_FLAG_RETAIN
  *         with nogil:
 */
-  __pyx_t_4 = (__Pyx_PyUnicode_ContainsTF(__pyx_mstate_global->__pyx_kp_u__12, __pyx_v_topic, Py_NE)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 896, __pyx_L1_error)
+  __pyx_t_4 = (__Pyx_PyUnicode_ContainsTF(__pyx_mstate_global->__pyx_kp_u__12, __pyx_v_topic, Py_NE)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 901, __pyx_L1_error)
   if (__pyx_t_4) {
 
-    /* "pyjoulescope_driver/binding.pyx":897
+    /* "pyjoulescope_driver/binding.pyx":902
  *             raise ValueError(f'Unsupported value type: {type(value)}')
  *         if '!' not in topic:
  *             v.flags = c_jsdrv.JSDRV_UNION_FLAG_RETAIN             # <<<<<<<<<<<<<<
@@ -29364,7 +29412,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
 */
     __pyx_v_v.flags = JSDRV_UNION_FLAG_RETAIN;
 
-    /* "pyjoulescope_driver/binding.pyx":896
+    /* "pyjoulescope_driver/binding.pyx":901
  *         else:
  *             raise ValueError(f'Unsupported value type: {type(value)}')
  *         if '!' not in topic:             # <<<<<<<<<<<<<<
@@ -29373,7 +29421,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
 */
   }
 
-  /* "pyjoulescope_driver/binding.pyx":898
+  /* "pyjoulescope_driver/binding.pyx":903
  *         if '!' not in topic:
  *             v.flags = c_jsdrv.JSDRV_UNION_FLAG_RETAIN
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -29386,7 +29434,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
       __Pyx_FastGIL_Remember();
       /*try:*/ {
 
-        /* "pyjoulescope_driver/binding.pyx":899
+        /* "pyjoulescope_driver/binding.pyx":904
  *             v.flags = c_jsdrv.JSDRV_UNION_FLAG_RETAIN
  *         with nogil:
  *             rc = c_jsdrv.jsdrv_publish(self._context, <char *> &topic_str[0], &v, timeout_ms)             # <<<<<<<<<<<<<<
@@ -29401,12 +29449,12 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
         } else if (unlikely(__pyx_t_15 >= __pyx_v_topic_str.shape[0])) __pyx_t_16 = 0;
         if (unlikely(__pyx_t_16 != -1)) {
           __Pyx_RaiseBufferIndexErrorNogil(__pyx_t_16);
-          __PYX_ERR(0, 899, __pyx_L11_error)
+          __PYX_ERR(0, 904, __pyx_L11_error)
         }
         __pyx_v_rc = jsdrv_publish(__pyx_v_self->_context, ((char *)(&(*((uint8_t const  *) ( /* dim=0 */ (__pyx_v_topic_str.data + __pyx_t_15 * __pyx_v_topic_str.strides[0]) ))))), (&__pyx_v_v), __pyx_v_timeout_ms);
       }
 
-      /* "pyjoulescope_driver/binding.pyx":898
+      /* "pyjoulescope_driver/binding.pyx":903
  *         if '!' not in topic:
  *             v.flags = c_jsdrv.JSDRV_UNION_FLAG_RETAIN
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -29428,7 +29476,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
       }
   }
 
-  /* "pyjoulescope_driver/binding.pyx":900
+  /* "pyjoulescope_driver/binding.pyx":905
  *         with nogil:
  *             rc = c_jsdrv.jsdrv_publish(self._context, <char *> &topic_str[0], &v, timeout_ms)
  *         _handle_rc(rc, 'jsdrv_publish', topic)             # <<<<<<<<<<<<<<
@@ -29436,9 +29484,9 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
  *     def query(self, topic: str, timeout=None):
 */
   __pyx_t_14 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_handle_rc); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 900, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_handle_rc); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 905, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_13 = __Pyx_PyLong_From_int32_t(__pyx_v_rc); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 900, __pyx_L1_error)
+  __pyx_t_13 = __Pyx_PyLong_From_int32_t(__pyx_v_rc); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 905, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_13);
   __pyx_t_6 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -29458,12 +29506,12 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
     __Pyx_XDECREF(__pyx_t_14); __pyx_t_14 = 0;
     __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 900, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 905, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":841
+  /* "pyjoulescope_driver/binding.pyx":846
  *         _driver_count -= 1
  * 
  *     def publish(self, topic: str, value, timeout=None):             # <<<<<<<<<<<<<<
@@ -29491,7 +29539,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_8publish(struct
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":902
+/* "pyjoulescope_driver/binding.pyx":907
  *         _handle_rc(rc, 'jsdrv_publish', topic)
  * 
  *     def query(self, topic: str, timeout=None):             # <<<<<<<<<<<<<<
@@ -29540,35 +29588,35 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_topic,&__pyx_mstate_global->__pyx_n_u_timeout,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 902, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 907, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 902, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 907, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 902, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 907, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "query", 0) < (0)) __PYX_ERR(0, 902, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "query", 0) < (0)) __PYX_ERR(0, 907, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("query", 0, 1, 2, i); __PYX_ERR(0, 902, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("query", 0, 1, 2, i); __PYX_ERR(0, 907, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 902, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 907, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 902, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 907, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -29579,7 +29627,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("query", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 902, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("query", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 907, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -29590,7 +29638,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_topic), (&PyUnicode_Type), 0, "topic", 2))) __PYX_ERR(0, 902, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_topic), (&PyUnicode_Type), 0, "topic", 2))) __PYX_ERR(0, 907, __pyx_L1_error)
   __pyx_r = __pyx_pf_19pyjoulescope_driver_7binding_6Driver_10query(((struct __pyx_obj_19pyjoulescope_driver_7binding_Driver *)__pyx_v_self), __pyx_v_topic, __pyx_v_timeout);
 
   /* function exit code */
@@ -29632,32 +29680,32 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_10query(struct 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("query", 0);
 
-  /* "pyjoulescope_driver/binding.pyx":913
+  /* "pyjoulescope_driver/binding.pyx":918
  *         cdef c_jsdrv.jsdrv_union_s v
  *         cdef char byte_str[1024]
  *         cdef const uint8_t[:] topic_str = topic.encode('utf-8')             # <<<<<<<<<<<<<<
  *         cdef int32_t timeout_ms = _timeout_validate(timeout)
  * 
 */
-  __pyx_t_1 = PyUnicode_AsUTF8String(__pyx_v_topic); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 913, __pyx_L1_error)
+  __pyx_t_1 = PyUnicode_AsUTF8String(__pyx_v_topic); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 918, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_to_MemoryviewSlice_ds_nn_uint8_t__const__(__pyx_t_1, 0); if (unlikely(!__pyx_t_2.memview)) __PYX_ERR(0, 913, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_to_MemoryviewSlice_ds_nn_uint8_t__const__(__pyx_t_1, 0); if (unlikely(!__pyx_t_2.memview)) __PYX_ERR(0, 918, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_topic_str = __pyx_t_2;
   __pyx_t_2.memview = NULL;
   __pyx_t_2.data = NULL;
 
-  /* "pyjoulescope_driver/binding.pyx":914
+  /* "pyjoulescope_driver/binding.pyx":919
  *         cdef char byte_str[1024]
  *         cdef const uint8_t[:] topic_str = topic.encode('utf-8')
  *         cdef int32_t timeout_ms = _timeout_validate(timeout)             # <<<<<<<<<<<<<<
  * 
  *         v.type = c_jsdrv.JSDRV_UNION_BIN
 */
-  __pyx_t_3 = __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(__pyx_v_timeout, NULL); if (unlikely(__pyx_t_3 == ((int32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 914, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(__pyx_v_timeout, NULL); if (unlikely(__pyx_t_3 == ((int32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 919, __pyx_L1_error)
   __pyx_v_timeout_ms = __pyx_t_3;
 
-  /* "pyjoulescope_driver/binding.pyx":916
+  /* "pyjoulescope_driver/binding.pyx":921
  *         cdef int32_t timeout_ms = _timeout_validate(timeout)
  * 
  *         v.type = c_jsdrv.JSDRV_UNION_BIN             # <<<<<<<<<<<<<<
@@ -29666,7 +29714,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_10query(struct 
 */
   __pyx_v_v.type = JSDRV_UNION_BIN;
 
-  /* "pyjoulescope_driver/binding.pyx":917
+  /* "pyjoulescope_driver/binding.pyx":922
  * 
  *         v.type = c_jsdrv.JSDRV_UNION_BIN
  *         v.size = 1024             # <<<<<<<<<<<<<<
@@ -29675,7 +29723,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_10query(struct 
 */
   __pyx_v_v.size = 0x400;
 
-  /* "pyjoulescope_driver/binding.pyx":918
+  /* "pyjoulescope_driver/binding.pyx":923
  *         v.type = c_jsdrv.JSDRV_UNION_BIN
  *         v.size = 1024
  *         v.value.str = byte_str             # <<<<<<<<<<<<<<
@@ -29684,7 +29732,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_10query(struct 
 */
   __pyx_v_v.value.str = __pyx_v_byte_str;
 
-  /* "pyjoulescope_driver/binding.pyx":919
+  /* "pyjoulescope_driver/binding.pyx":924
  *         v.size = 1024
  *         v.value.str = byte_str
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -29697,7 +29745,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_10query(struct 
       __Pyx_FastGIL_Remember();
       /*try:*/ {
 
-        /* "pyjoulescope_driver/binding.pyx":920
+        /* "pyjoulescope_driver/binding.pyx":925
  *         v.value.str = byte_str
  *         with nogil:
  *             rc = c_jsdrv.jsdrv_query(self._context, <char *> &topic_str[0], &v, timeout_ms)             # <<<<<<<<<<<<<<
@@ -29712,12 +29760,12 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_10query(struct 
         } else if (unlikely(__pyx_t_4 >= __pyx_v_topic_str.shape[0])) __pyx_t_5 = 0;
         if (unlikely(__pyx_t_5 != -1)) {
           __Pyx_RaiseBufferIndexErrorNogil(__pyx_t_5);
-          __PYX_ERR(0, 920, __pyx_L4_error)
+          __PYX_ERR(0, 925, __pyx_L4_error)
         }
         __pyx_v_rc = jsdrv_query(__pyx_v_self->_context, ((char *)(&(*((uint8_t const  *) ( /* dim=0 */ (__pyx_v_topic_str.data + __pyx_t_4 * __pyx_v_topic_str.strides[0]) ))))), (&__pyx_v_v), __pyx_v_timeout_ms);
       }
 
-      /* "pyjoulescope_driver/binding.pyx":919
+      /* "pyjoulescope_driver/binding.pyx":924
  *         v.size = 1024
  *         v.value.str = byte_str
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -29739,7 +29787,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_10query(struct 
       }
   }
 
-  /* "pyjoulescope_driver/binding.pyx":921
+  /* "pyjoulescope_driver/binding.pyx":926
  *         with nogil:
  *             rc = c_jsdrv.jsdrv_query(self._context, <char *> &topic_str[0], &v, timeout_ms)
  *         _handle_rc(rc, 'jsdrv_query', topic)             # <<<<<<<<<<<<<<
@@ -29747,9 +29795,9 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_10query(struct 
  * 
 */
   __pyx_t_6 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_handle_rc); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 921, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_handle_rc); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 926, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_8 = __Pyx_PyLong_From_int32_t(__pyx_v_rc); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 921, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyLong_From_int32_t(__pyx_v_rc); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 926, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __pyx_t_9 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -29769,12 +29817,12 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_10query(struct 
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 921, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 926, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":922
+  /* "pyjoulescope_driver/binding.pyx":927
  *             rc = c_jsdrv.jsdrv_query(self._context, <char *> &topic_str[0], &v, timeout_ms)
  *         _handle_rc(rc, 'jsdrv_query', topic)
  *         return _jsdrv_union_to_py(&v)             # <<<<<<<<<<<<<<
@@ -29782,13 +29830,13 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_10query(struct 
  *     def publish_and_wait(self, publish_topic, publish_value,
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py((&__pyx_v_v)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 922, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py((&__pyx_v_v)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 927, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "pyjoulescope_driver/binding.pyx":902
+  /* "pyjoulescope_driver/binding.pyx":907
  *         _handle_rc(rc, 'jsdrv_publish', topic)
  * 
  *     def query(self, topic: str, timeout=None):             # <<<<<<<<<<<<<<
@@ -29812,7 +29860,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_10query(struct 
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":924
+/* "pyjoulescope_driver/binding.pyx":929
  *         return _jsdrv_union_to_py(&v)
  * 
  *     def publish_and_wait(self, publish_topic, publish_value,             # <<<<<<<<<<<<<<
@@ -29863,32 +29911,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_publish_topic,&__pyx_mstate_global->__pyx_n_u_publish_value,&__pyx_mstate_global->__pyx_n_u_response_topic,&__pyx_mstate_global->__pyx_n_u_timeout,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 924, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 929, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 924, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 929, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 924, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 929, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 924, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 929, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 924, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 929, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "publish_and_wait", 0) < (0)) __PYX_ERR(0, 924, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "publish_and_wait", 0) < (0)) __PYX_ERR(0, 929, __pyx_L3_error)
 
-      /* "pyjoulescope_driver/binding.pyx":925
+      /* "pyjoulescope_driver/binding.pyx":930
  * 
  *     def publish_and_wait(self, publish_topic, publish_value,
  *                          response_topic, timeout=None):             # <<<<<<<<<<<<<<
@@ -29897,21 +29945,21 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("publish_and_wait", 0, 3, 4, i); __PYX_ERR(0, 924, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("publish_and_wait", 0, 3, 4, i); __PYX_ERR(0, 929, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 924, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 929, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 924, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 929, __pyx_L3_error)
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 924, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 929, __pyx_L3_error)
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 924, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 929, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -29924,7 +29972,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("publish_and_wait", 0, 3, 4, __pyx_nargs); __PYX_ERR(0, 924, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("publish_and_wait", 0, 3, 4, __pyx_nargs); __PYX_ERR(0, 929, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -29937,7 +29985,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_19pyjoulescope_driver_7binding_6Driver_12publish_and_wait(((struct __pyx_obj_19pyjoulescope_driver_7binding_Driver *)__pyx_v_self), __pyx_v_publish_topic, __pyx_v_publish_value, __pyx_v_response_topic, __pyx_v_timeout);
 
-  /* "pyjoulescope_driver/binding.pyx":924
+  /* "pyjoulescope_driver/binding.pyx":929
  *         return _jsdrv_union_to_py(&v)
  * 
  *     def publish_and_wait(self, publish_topic, publish_value,             # <<<<<<<<<<<<<<
@@ -29953,7 +30001,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":942
+/* "pyjoulescope_driver/binding.pyx":947
  *         result = [None]
  * 
  *         def on_response(topic, value):             # <<<<<<<<<<<<<<
@@ -30001,39 +30049,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_topic,&__pyx_mstate_global->__pyx_n_u_value,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 942, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 947, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 942, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 947, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 942, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 947, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "on_response", 0) < (0)) __PYX_ERR(0, 942, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "on_response", 0) < (0)) __PYX_ERR(0, 947, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("on_response", 1, 2, 2, i); __PYX_ERR(0, 942, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("on_response", 1, 2, 2, i); __PYX_ERR(0, 947, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 942, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 947, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 942, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 947, __pyx_L3_error)
     }
     __pyx_v_topic = values[0];
     __pyx_v_value = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("on_response", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 942, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("on_response", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 947, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -30069,28 +30117,28 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16publish_and_w
   __pyx_outer_scope = (struct __pyx_obj_19pyjoulescope_driver_7binding___pyx_scope_struct__publish_and_wait *) __Pyx_CyFunction_GetClosure(__pyx_self);
   __pyx_cur_scope = __pyx_outer_scope;
 
-  /* "pyjoulescope_driver/binding.pyx":943
+  /* "pyjoulescope_driver/binding.pyx":948
  * 
  *         def on_response(topic, value):
  *             result[0] = value             # <<<<<<<<<<<<<<
  *             event.set()
  * 
 */
-  if (unlikely(!__pyx_cur_scope->__pyx_v_result)) { __Pyx_RaiseClosureNameError("result"); __PYX_ERR(0, 943, __pyx_L1_error) }
+  if (unlikely(!__pyx_cur_scope->__pyx_v_result)) { __Pyx_RaiseClosureNameError("result"); __PYX_ERR(0, 948, __pyx_L1_error) }
   if (unlikely(__pyx_cur_scope->__pyx_v_result == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 943, __pyx_L1_error)
+    __PYX_ERR(0, 948, __pyx_L1_error)
   }
-  if (unlikely((__Pyx_SetItemInt(__pyx_cur_scope->__pyx_v_result, 0, __pyx_v_value, long, 1, __Pyx_PyLong_From_long, 1, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference) < 0))) __PYX_ERR(0, 943, __pyx_L1_error)
+  if (unlikely((__Pyx_SetItemInt(__pyx_cur_scope->__pyx_v_result, 0, __pyx_v_value, long, 1, __Pyx_PyLong_From_long, 1, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference) < 0))) __PYX_ERR(0, 948, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":944
+  /* "pyjoulescope_driver/binding.pyx":949
  *         def on_response(topic, value):
  *             result[0] = value
  *             event.set()             # <<<<<<<<<<<<<<
  * 
  *         self.subscribe(response_topic, 'pub', on_response)
 */
-  if (unlikely(!__pyx_cur_scope->__pyx_v_event)) { __Pyx_RaiseClosureNameError("event"); __PYX_ERR(0, 944, __pyx_L1_error) }
+  if (unlikely(!__pyx_cur_scope->__pyx_v_event)) { __Pyx_RaiseClosureNameError("event"); __PYX_ERR(0, 949, __pyx_L1_error) }
   __pyx_t_2 = __pyx_cur_scope->__pyx_v_event;
   __Pyx_INCREF(__pyx_t_2);
   __pyx_t_3 = 0;
@@ -30098,12 +30146,12 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16publish_and_w
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_set, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 944, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 949, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":942
+  /* "pyjoulescope_driver/binding.pyx":947
  *         result = [None]
  * 
  *         def on_response(topic, value):             # <<<<<<<<<<<<<<
@@ -30125,7 +30173,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16publish_and_w
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":924
+/* "pyjoulescope_driver/binding.pyx":929
  *         return _jsdrv_union_to_py(&v)
  * 
  *     def publish_and_wait(self, publish_topic, publish_value,             # <<<<<<<<<<<<<<
@@ -30164,13 +30212,13 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_12publish_and_w
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_19pyjoulescope_driver_7binding___pyx_scope_struct__publish_and_wait *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 924, __pyx_L1_error)
+    __PYX_ERR(0, 929, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
   __Pyx_INCREF(__pyx_v_timeout);
 
-  /* "pyjoulescope_driver/binding.pyx":937
+  /* "pyjoulescope_driver/binding.pyx":942
  *         :raises TimeoutError: If no response arrives in time.
  *         """
  *         if timeout is None:             # <<<<<<<<<<<<<<
@@ -30180,22 +30228,22 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_12publish_and_w
   __pyx_t_1 = (__pyx_v_timeout == Py_None);
   if (__pyx_t_1) {
 
-    /* "pyjoulescope_driver/binding.pyx":938
+    /* "pyjoulescope_driver/binding.pyx":943
  *         """
  *         if timeout is None:
  *             timeout = _TIMEOUT_MS_DEFAULT / 1000.0             # <<<<<<<<<<<<<<
  *         event = threading.Event()
  *         result = [None]
 */
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_TIMEOUT_MS_DEFAULT); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 938, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_TIMEOUT_MS_DEFAULT); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 943, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyFloat_TrueDivideObjC(__pyx_t_2, __pyx_mstate_global->__pyx_float_1000_0, 1000.0, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 938, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyFloat_TrueDivideObjC(__pyx_t_2, __pyx_mstate_global->__pyx_float_1000_0, 1000.0, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 943, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF_SET(__pyx_v_timeout, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "pyjoulescope_driver/binding.pyx":937
+    /* "pyjoulescope_driver/binding.pyx":942
  *         :raises TimeoutError: If no response arrives in time.
  *         """
  *         if timeout is None:             # <<<<<<<<<<<<<<
@@ -30204,7 +30252,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_12publish_and_w
 */
   }
 
-  /* "pyjoulescope_driver/binding.pyx":939
+  /* "pyjoulescope_driver/binding.pyx":944
  *         if timeout is None:
  *             timeout = _TIMEOUT_MS_DEFAULT / 1000.0
  *         event = threading.Event()             # <<<<<<<<<<<<<<
@@ -30212,9 +30260,9 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_12publish_and_w
  * 
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 939, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 944, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_Event); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 939, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_Event); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 944, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_6 = 1;
@@ -30234,42 +30282,42 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_12publish_and_w
     __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 939, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 944, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __Pyx_GIVEREF(__pyx_t_3);
   __pyx_cur_scope->__pyx_v_event = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":940
+  /* "pyjoulescope_driver/binding.pyx":945
  *             timeout = _TIMEOUT_MS_DEFAULT / 1000.0
  *         event = threading.Event()
  *         result = [None]             # <<<<<<<<<<<<<<
  * 
  *         def on_response(topic, value):
 */
-  __pyx_t_3 = PyList_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 940, __pyx_L1_error)
+  __pyx_t_3 = PyList_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 945, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF(Py_None);
   __Pyx_GIVEREF(Py_None);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 0, Py_None) != (0)) __PYX_ERR(0, 940, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 0, Py_None) != (0)) __PYX_ERR(0, 945, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_3);
   __pyx_cur_scope->__pyx_v_result = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":942
+  /* "pyjoulescope_driver/binding.pyx":947
  *         result = [None]
  * 
  *         def on_response(topic, value):             # <<<<<<<<<<<<<<
  *             result[0] = value
  *             event.set()
 */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_16publish_and_wait_1on_response, 0, __pyx_mstate_global->__pyx_n_u_publish_and_wait_locals_on_respo, ((PyObject*)__pyx_cur_scope), __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 942, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_16publish_and_wait_1on_response, 0, __pyx_mstate_global->__pyx_n_u_publish_and_wait_locals_on_respo, ((PyObject*)__pyx_cur_scope), __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 947, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_v_on_response = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":946
+  /* "pyjoulescope_driver/binding.pyx":951
  *             event.set()
  * 
  *         self.subscribe(response_topic, 'pub', on_response)             # <<<<<<<<<<<<<<
@@ -30283,12 +30331,12 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_12publish_and_w
     PyObject *__pyx_callargs[4] = {__pyx_t_5, __pyx_v_response_topic, __pyx_mstate_global->__pyx_n_u_pub, __pyx_v_on_response};
     __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_subscribe, __pyx_callargs+__pyx_t_6, (4-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 946, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 951, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":947
+  /* "pyjoulescope_driver/binding.pyx":952
  * 
  *         self.subscribe(response_topic, 'pub', on_response)
  *         try:             # <<<<<<<<<<<<<<
@@ -30297,7 +30345,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_12publish_and_w
 */
   /*try:*/ {
 
-    /* "pyjoulescope_driver/binding.pyx":948
+    /* "pyjoulescope_driver/binding.pyx":953
  *         self.subscribe(response_topic, 'pub', on_response)
  *         try:
  *             self.publish(publish_topic, publish_value, timeout=0)             # <<<<<<<<<<<<<<
@@ -30309,18 +30357,18 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_12publish_and_w
     __pyx_t_6 = 0;
     {
       PyObject *__pyx_callargs[3 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_5, __pyx_v_publish_topic, __pyx_v_publish_value};
-      __pyx_t_2 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 948, __pyx_L5_error)
+      __pyx_t_2 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 953, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_2);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_timeout, __pyx_mstate_global->__pyx_int_0, __pyx_t_2, __pyx_callargs+3, 0) < (0)) __PYX_ERR(0, 948, __pyx_L5_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_timeout, __pyx_mstate_global->__pyx_int_0, __pyx_t_2, __pyx_callargs+3, 0) < (0)) __PYX_ERR(0, 953, __pyx_L5_error)
       __pyx_t_3 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_publish, __pyx_callargs+__pyx_t_6, (3-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_2);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 948, __pyx_L5_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 953, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "pyjoulescope_driver/binding.pyx":949
+    /* "pyjoulescope_driver/binding.pyx":954
  *         try:
  *             self.publish(publish_topic, publish_value, timeout=0)
  *             if not event.wait(timeout):             # <<<<<<<<<<<<<<
@@ -30334,15 +30382,15 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_12publish_and_w
       PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_timeout};
       __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_wait, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 949, __pyx_L5_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 954, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 949, __pyx_L5_error)
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 954, __pyx_L5_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_t_7 = (!__pyx_t_1);
     if (unlikely(__pyx_t_7)) {
 
-      /* "pyjoulescope_driver/binding.pyx":950
+      /* "pyjoulescope_driver/binding.pyx":955
  *             self.publish(publish_topic, publish_value, timeout=0)
  *             if not event.wait(timeout):
  *                 raise TimeoutError(             # <<<<<<<<<<<<<<
@@ -30351,31 +30399,31 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_12publish_and_w
 */
       __pyx_t_2 = NULL;
 
-      /* "pyjoulescope_driver/binding.pyx":952
+      /* "pyjoulescope_driver/binding.pyx":957
  *                 raise TimeoutError(
  *                     f'publish_and_wait timed out: '
  *                     f'publish={publish_topic}, '             # <<<<<<<<<<<<<<
  *                     f'response={response_topic}'
  *                 )
 */
-      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_publish_topic, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 952, __pyx_L5_error)
+      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_publish_topic, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 957, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_5);
 
-      /* "pyjoulescope_driver/binding.pyx":953
+      /* "pyjoulescope_driver/binding.pyx":958
  *                     f'publish_and_wait timed out: '
  *                     f'publish={publish_topic}, '
  *                     f'response={response_topic}'             # <<<<<<<<<<<<<<
  *                 )
  *             return result[0]
 */
-      __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_v_response_topic, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 953, __pyx_L5_error)
+      __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_v_response_topic, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 958, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_4);
       __pyx_t_8[0] = __pyx_mstate_global->__pyx_kp_u_publish_and_wait_timed_out_publi;
       __pyx_t_8[1] = __pyx_t_5;
       __pyx_t_8[2] = __pyx_mstate_global->__pyx_kp_u_response;
       __pyx_t_8[3] = __pyx_t_4;
 
-      /* "pyjoulescope_driver/binding.pyx":951
+      /* "pyjoulescope_driver/binding.pyx":956
  *             if not event.wait(timeout):
  *                 raise TimeoutError(
  *                     f'publish_and_wait timed out: '             # <<<<<<<<<<<<<<
@@ -30383,7 +30431,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_12publish_and_w
  *                     f'response={response_topic}'
 */
       __pyx_t_9 = __Pyx_PyUnicode_Join(__pyx_t_8, 4, 36 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5) + 11 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4));
-      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 951, __pyx_L5_error)
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 956, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -30393,14 +30441,14 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_12publish_and_w
         __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TimeoutError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 950, __pyx_L5_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 955, __pyx_L5_error)
         __Pyx_GOTREF(__pyx_t_3);
       }
       __Pyx_Raise(__pyx_t_3, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __PYX_ERR(0, 950, __pyx_L5_error)
+      __PYX_ERR(0, 955, __pyx_L5_error)
 
-      /* "pyjoulescope_driver/binding.pyx":949
+      /* "pyjoulescope_driver/binding.pyx":954
  *         try:
  *             self.publish(publish_topic, publish_value, timeout=0)
  *             if not event.wait(timeout):             # <<<<<<<<<<<<<<
@@ -30409,7 +30457,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_12publish_and_w
 */
     }
 
-    /* "pyjoulescope_driver/binding.pyx":955
+    /* "pyjoulescope_driver/binding.pyx":960
  *                     f'response={response_topic}'
  *                 )
  *             return result[0]             # <<<<<<<<<<<<<<
@@ -30417,14 +30465,14 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_12publish_and_w
  *             self.unsubscribe(response_topic, on_response)
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_3 = __Pyx_GetItemInt_List(__pyx_cur_scope->__pyx_v_result, 0, long, 1, __Pyx_PyLong_From_long, 1, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 955, __pyx_L5_error)
+    __pyx_t_3 = __Pyx_GetItemInt_List(__pyx_cur_scope->__pyx_v_result, 0, long, 1, __Pyx_PyLong_From_long, 1, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 960, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L4_return;
   }
 
-  /* "pyjoulescope_driver/binding.pyx":957
+  /* "pyjoulescope_driver/binding.pyx":962
  *             return result[0]
  *         finally:
  *             self.unsubscribe(response_topic, on_response)             # <<<<<<<<<<<<<<
@@ -30459,7 +30507,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_12publish_and_w
           PyObject *__pyx_callargs[3] = {__pyx_t_9, __pyx_v_response_topic, __pyx_v_on_response};
           __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_unsubscribe, __pyx_callargs+__pyx_t_6, (3-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-          if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 957, __pyx_L9_error)
+          if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 962, __pyx_L9_error)
           __Pyx_GOTREF(__pyx_t_3);
         }
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -30496,7 +30544,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_12publish_and_w
         PyObject *__pyx_callargs[3] = {__pyx_t_9, __pyx_v_response_topic, __pyx_v_on_response};
         __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_unsubscribe, __pyx_callargs+__pyx_t_6, (3-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 957, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 962, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
       }
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -30506,7 +30554,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_12publish_and_w
     }
   }
 
-  /* "pyjoulescope_driver/binding.pyx":924
+  /* "pyjoulescope_driver/binding.pyx":929
  *         return _jsdrv_union_to_py(&v)
  * 
  *     def publish_and_wait(self, publish_topic, publish_value,             # <<<<<<<<<<<<<<
@@ -30532,7 +30580,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_12publish_and_w
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":959
+/* "pyjoulescope_driver/binding.pyx":964
  *             self.unsubscribe(response_topic, on_response)
  * 
  *     def device_paths(self, timeout=None):             # <<<<<<<<<<<<<<
@@ -30580,24 +30628,24 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_timeout,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 959, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 964, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 959, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 964, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "device_paths", 0) < (0)) __PYX_ERR(0, 959, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "device_paths", 0) < (0)) __PYX_ERR(0, 964, __pyx_L3_error)
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)Py_None));
     } else {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 959, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 964, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
@@ -30608,7 +30656,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("device_paths", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 959, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("device_paths", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 964, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -30643,7 +30691,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_14device_paths(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("device_paths", 0);
 
-  /* "pyjoulescope_driver/binding.pyx":966
+  /* "pyjoulescope_driver/binding.pyx":971
  *         :return: The list of device path strings.
  *         """
  *         s = self.query('@/list', timeout)             # <<<<<<<<<<<<<<
@@ -30657,24 +30705,24 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_14device_paths(
     PyObject *__pyx_callargs[3] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_list, __pyx_v_timeout};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_query, __pyx_callargs+__pyx_t_3, (3-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 966, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 971, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_s = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":967
+  /* "pyjoulescope_driver/binding.pyx":972
  *         """
  *         s = self.query('@/list', timeout)
  *         if not len(s):             # <<<<<<<<<<<<<<
  *             return []
  *         return sorted(s.split(','))
 */
-  __pyx_t_4 = PyObject_Length(__pyx_v_s); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 967, __pyx_L1_error)
+  __pyx_t_4 = PyObject_Length(__pyx_v_s); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 972, __pyx_L1_error)
   __pyx_t_5 = (!(__pyx_t_4 != 0));
   if (__pyx_t_5) {
 
-    /* "pyjoulescope_driver/binding.pyx":968
+    /* "pyjoulescope_driver/binding.pyx":973
  *         s = self.query('@/list', timeout)
  *         if not len(s):
  *             return []             # <<<<<<<<<<<<<<
@@ -30682,13 +30730,13 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_14device_paths(
  * 
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 968, __pyx_L1_error)
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 973, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "pyjoulescope_driver/binding.pyx":967
+    /* "pyjoulescope_driver/binding.pyx":972
  *         """
  *         s = self.query('@/list', timeout)
  *         if not len(s):             # <<<<<<<<<<<<<<
@@ -30697,7 +30745,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_14device_paths(
 */
   }
 
-  /* "pyjoulescope_driver/binding.pyx":969
+  /* "pyjoulescope_driver/binding.pyx":974
  *         if not len(s):
  *             return []
  *         return sorted(s.split(','))             # <<<<<<<<<<<<<<
@@ -30712,18 +30760,18 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_14device_paths(
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u__13};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_split, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 969, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 974, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_2 = PySequence_List(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 969, __pyx_L1_error)
+  __pyx_t_2 = PySequence_List(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 974, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely((PyList_Sort(__pyx_t_2) < 0))) __PYX_ERR(0, 969, __pyx_L1_error)
+  if (unlikely((PyList_Sort(__pyx_t_2) < 0))) __PYX_ERR(0, 974, __pyx_L1_error)
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "pyjoulescope_driver/binding.pyx":959
+  /* "pyjoulescope_driver/binding.pyx":964
  *             self.unsubscribe(response_topic, on_response)
  * 
  *     def device_paths(self, timeout=None):             # <<<<<<<<<<<<<<
@@ -30744,7 +30792,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_14device_paths(
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":971
+/* "pyjoulescope_driver/binding.pyx":976
  *         return sorted(s.split(','))
  * 
  *     def subscribe(self, topic: str, flags, fn, timeout=None):             # <<<<<<<<<<<<<<
@@ -30795,47 +30843,47 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_topic,&__pyx_mstate_global->__pyx_n_u_flags,&__pyx_mstate_global->__pyx_n_u_fn,&__pyx_mstate_global->__pyx_n_u_timeout,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 971, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 976, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 971, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 976, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 971, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 976, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 971, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 976, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 971, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 976, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "subscribe", 0) < (0)) __PYX_ERR(0, 971, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "subscribe", 0) < (0)) __PYX_ERR(0, 976, __pyx_L3_error)
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("subscribe", 0, 3, 4, i); __PYX_ERR(0, 971, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("subscribe", 0, 3, 4, i); __PYX_ERR(0, 976, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 971, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 976, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 971, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 976, __pyx_L3_error)
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 971, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 976, __pyx_L3_error)
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 971, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 976, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -30848,7 +30896,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("subscribe", 0, 3, 4, __pyx_nargs); __PYX_ERR(0, 971, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("subscribe", 0, 3, 4, __pyx_nargs); __PYX_ERR(0, 976, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -30859,7 +30907,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_topic), (&PyUnicode_Type), 0, "topic", 2))) __PYX_ERR(0, 971, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_topic), (&PyUnicode_Type), 0, "topic", 2))) __PYX_ERR(0, 976, __pyx_L1_error)
   __pyx_r = __pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(((struct __pyx_obj_19pyjoulescope_driver_7binding_Driver *)__pyx_v_self), __pyx_v_topic, __pyx_v_flags, __pyx_v_fn, __pyx_v_timeout);
 
   /* function exit code */
@@ -30908,32 +30956,32 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("subscribe", 0);
 
-  /* "pyjoulescope_driver/binding.pyx":1001
+  /* "pyjoulescope_driver/binding.pyx":1006
  *         :raise RuntimeError: on subscribe failure.
  *         """
  *         cdef const uint8_t[:] topic_str = topic.encode('utf-8')             # <<<<<<<<<<<<<<
  *         cdef int32_t timeout_ms = _timeout_validate(timeout)
  *         cdef int32_t c_flags = 0
 */
-  __pyx_t_1 = PyUnicode_AsUTF8String(__pyx_v_topic); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1001, __pyx_L1_error)
+  __pyx_t_1 = PyUnicode_AsUTF8String(__pyx_v_topic); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1006, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_to_MemoryviewSlice_ds_nn_uint8_t__const__(__pyx_t_1, 0); if (unlikely(!__pyx_t_2.memview)) __PYX_ERR(0, 1001, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_to_MemoryviewSlice_ds_nn_uint8_t__const__(__pyx_t_1, 0); if (unlikely(!__pyx_t_2.memview)) __PYX_ERR(0, 1006, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_topic_str = __pyx_t_2;
   __pyx_t_2.memview = NULL;
   __pyx_t_2.data = NULL;
 
-  /* "pyjoulescope_driver/binding.pyx":1002
+  /* "pyjoulescope_driver/binding.pyx":1007
  *         """
  *         cdef const uint8_t[:] topic_str = topic.encode('utf-8')
  *         cdef int32_t timeout_ms = _timeout_validate(timeout)             # <<<<<<<<<<<<<<
  *         cdef int32_t c_flags = 0
  *         cdef void * fn_ptr = <void *> fn
 */
-  __pyx_t_3 = __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(__pyx_v_timeout, NULL); if (unlikely(__pyx_t_3 == ((int32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 1002, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(__pyx_v_timeout, NULL); if (unlikely(__pyx_t_3 == ((int32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 1007, __pyx_L1_error)
   __pyx_v_timeout_ms = __pyx_t_3;
 
-  /* "pyjoulescope_driver/binding.pyx":1003
+  /* "pyjoulescope_driver/binding.pyx":1008
  *         cdef const uint8_t[:] topic_str = topic.encode('utf-8')
  *         cdef int32_t timeout_ms = _timeout_validate(timeout)
  *         cdef int32_t c_flags = 0             # <<<<<<<<<<<<<<
@@ -30942,7 +30990,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
 */
   __pyx_v_c_flags = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1004
+  /* "pyjoulescope_driver/binding.pyx":1009
  *         cdef int32_t timeout_ms = _timeout_validate(timeout)
  *         cdef int32_t c_flags = 0
  *         cdef void * fn_ptr = <void *> fn             # <<<<<<<<<<<<<<
@@ -30951,7 +30999,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
 */
   __pyx_v_fn_ptr = ((void *)__pyx_v_fn);
 
-  /* "pyjoulescope_driver/binding.pyx":1006
+  /* "pyjoulescope_driver/binding.pyx":1011
  *         cdef void * fn_ptr = <void *> fn
  * 
  *         if isinstance(flags, str):             # <<<<<<<<<<<<<<
@@ -30961,14 +31009,14 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
   __pyx_t_4 = PyUnicode_Check(__pyx_v_flags); 
   if (__pyx_t_4) {
 
-    /* "pyjoulescope_driver/binding.pyx":1007
+    /* "pyjoulescope_driver/binding.pyx":1012
  * 
  *         if isinstance(flags, str):
  *             c_flags = _SUBSCRIBE_FLAG_LOOKUP[flags.lower()]             # <<<<<<<<<<<<<<
  *         elif isinstance(flags, (list, tuple)) and isinstance(flags[0], str):
  *             for f in flags:
 */
-    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_SUBSCRIBE_FLAG_LOOKUP); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1007, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_SUBSCRIBE_FLAG_LOOKUP); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1012, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_6 = __pyx_v_flags;
     __Pyx_INCREF(__pyx_t_6);
@@ -30977,18 +31025,18 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
       PyObject *__pyx_callargs[2] = {__pyx_t_6, NULL};
       __pyx_t_5 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_lower, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1007, __pyx_L1_error)
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1012, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
     }
-    __pyx_t_6 = __Pyx_PyObject_GetItem(__pyx_t_1, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1007, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetItem(__pyx_t_1, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1012, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_3 = __Pyx_PyLong_As_int32_t(__pyx_t_6); if (unlikely((__pyx_t_3 == ((int32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 1007, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyLong_As_int32_t(__pyx_t_6); if (unlikely((__pyx_t_3 == ((int32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 1012, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_v_c_flags = __pyx_t_3;
 
-    /* "pyjoulescope_driver/binding.pyx":1006
+    /* "pyjoulescope_driver/binding.pyx":1011
  *         cdef void * fn_ptr = <void *> fn
  * 
  *         if isinstance(flags, str):             # <<<<<<<<<<<<<<
@@ -30998,7 +31046,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
     goto __pyx_L3;
   }
 
-  /* "pyjoulescope_driver/binding.pyx":1008
+  /* "pyjoulescope_driver/binding.pyx":1013
  *         if isinstance(flags, str):
  *             c_flags = _SUBSCRIBE_FLAG_LOOKUP[flags.lower()]
  *         elif isinstance(flags, (list, tuple)) and isinstance(flags[0], str):             # <<<<<<<<<<<<<<
@@ -31019,7 +31067,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
     __pyx_t_4 = __pyx_t_8;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_6 = __Pyx_GetItemInt(__pyx_v_flags, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_FunctionArgument); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1008, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_GetItemInt(__pyx_v_flags, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_FunctionArgument); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1013, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __pyx_t_8 = PyUnicode_Check(__pyx_t_6); 
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -31027,7 +31075,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_4) {
 
-    /* "pyjoulescope_driver/binding.pyx":1009
+    /* "pyjoulescope_driver/binding.pyx":1014
  *             c_flags = _SUBSCRIBE_FLAG_LOOKUP[flags.lower()]
  *         elif isinstance(flags, (list, tuple)) and isinstance(flags[0], str):
  *             for f in flags:             # <<<<<<<<<<<<<<
@@ -31039,9 +31087,9 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
       __pyx_t_10 = 0;
       __pyx_t_11 = NULL;
     } else {
-      __pyx_t_10 = -1; __pyx_t_6 = PyObject_GetIter(__pyx_v_flags); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1009, __pyx_L1_error)
+      __pyx_t_10 = -1; __pyx_t_6 = PyObject_GetIter(__pyx_v_flags); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1014, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_11 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_6); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1009, __pyx_L1_error)
+      __pyx_t_11 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_6); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1014, __pyx_L1_error)
     }
     for (;;) {
       if (likely(!__pyx_t_11)) {
@@ -31049,7 +31097,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1009, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1014, __pyx_L1_error)
             #endif
             if (__pyx_t_10 >= __pyx_temp) break;
           }
@@ -31059,7 +31107,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_6);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1009, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1014, __pyx_L1_error)
             #endif
             if (__pyx_t_10 >= __pyx_temp) break;
           }
@@ -31070,13 +31118,13 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
           #endif
           ++__pyx_t_10;
         }
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1009, __pyx_L1_error)
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1014, __pyx_L1_error)
       } else {
         __pyx_t_5 = __pyx_t_11(__pyx_t_6);
         if (unlikely(!__pyx_t_5)) {
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
-            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 1009, __pyx_L1_error)
+            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 1014, __pyx_L1_error)
             PyErr_Clear();
           }
           break;
@@ -31086,16 +31134,16 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
       __Pyx_XDECREF_SET(__pyx_v_f, __pyx_t_5);
       __pyx_t_5 = 0;
 
-      /* "pyjoulescope_driver/binding.pyx":1010
+      /* "pyjoulescope_driver/binding.pyx":1015
  *         elif isinstance(flags, (list, tuple)) and isinstance(flags[0], str):
  *             for f in flags:
  *                 c_flags |= _SUBSCRIBE_FLAG_LOOKUP[f.lower()]             # <<<<<<<<<<<<<<
  *         else:
  *             c_flags = <int32_t> int(flags)
 */
-      __pyx_t_5 = __Pyx_PyLong_From_int32_t(__pyx_v_c_flags); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1010, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyLong_From_int32_t(__pyx_v_c_flags); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1015, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_SUBSCRIBE_FLAG_LOOKUP); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1010, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_SUBSCRIBE_FLAG_LOOKUP); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1015, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_13 = __pyx_v_f;
       __Pyx_INCREF(__pyx_t_13);
@@ -31104,22 +31152,22 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
         PyObject *__pyx_callargs[2] = {__pyx_t_13, NULL};
         __pyx_t_12 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_lower, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_13); __pyx_t_13 = 0;
-        if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1010, __pyx_L1_error)
+        if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1015, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_12);
       }
-      __pyx_t_13 = __Pyx_PyObject_GetItem(__pyx_t_1, __pyx_t_12); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 1010, __pyx_L1_error)
+      __pyx_t_13 = __Pyx_PyObject_GetItem(__pyx_t_1, __pyx_t_12); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 1015, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_13);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-      __pyx_t_12 = PyNumber_InPlaceOr(__pyx_t_5, __pyx_t_13); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1010, __pyx_L1_error)
+      __pyx_t_12 = PyNumber_InPlaceOr(__pyx_t_5, __pyx_t_13); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1015, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_12);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-      __pyx_t_3 = __Pyx_PyLong_As_int32_t(__pyx_t_12); if (unlikely((__pyx_t_3 == ((int32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 1010, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyLong_As_int32_t(__pyx_t_12); if (unlikely((__pyx_t_3 == ((int32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 1015, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
       __pyx_v_c_flags = __pyx_t_3;
 
-      /* "pyjoulescope_driver/binding.pyx":1009
+      /* "pyjoulescope_driver/binding.pyx":1014
  *             c_flags = _SUBSCRIBE_FLAG_LOOKUP[flags.lower()]
  *         elif isinstance(flags, (list, tuple)) and isinstance(flags[0], str):
  *             for f in flags:             # <<<<<<<<<<<<<<
@@ -31129,7 +31177,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
     }
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "pyjoulescope_driver/binding.pyx":1008
+    /* "pyjoulescope_driver/binding.pyx":1013
  *         if isinstance(flags, str):
  *             c_flags = _SUBSCRIBE_FLAG_LOOKUP[flags.lower()]
  *         elif isinstance(flags, (list, tuple)) and isinstance(flags[0], str):             # <<<<<<<<<<<<<<
@@ -31139,7 +31187,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
     goto __pyx_L3;
   }
 
-  /* "pyjoulescope_driver/binding.pyx":1012
+  /* "pyjoulescope_driver/binding.pyx":1017
  *                 c_flags |= _SUBSCRIBE_FLAG_LOOKUP[f.lower()]
  *         else:
  *             c_flags = <int32_t> int(flags)             # <<<<<<<<<<<<<<
@@ -31147,15 +31195,15 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
  *         with nogil:
 */
   /*else*/ {
-    __pyx_t_6 = __Pyx_PyNumber_Int(__pyx_v_flags); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1012, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyNumber_Int(__pyx_v_flags); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1017, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_3 = __Pyx_PyLong_As_int32_t(__pyx_t_6); if (unlikely((__pyx_t_3 == ((int32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 1012, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyLong_As_int32_t(__pyx_t_6); if (unlikely((__pyx_t_3 == ((int32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 1017, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_v_c_flags = ((int32_t)__pyx_t_3);
   }
   __pyx_L3:;
 
-  /* "pyjoulescope_driver/binding.pyx":1013
+  /* "pyjoulescope_driver/binding.pyx":1018
  *         else:
  *             c_flags = <int32_t> int(flags)
  *         self._subscribers.add((topic, fn))             # <<<<<<<<<<<<<<
@@ -31164,26 +31212,26 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
 */
   __pyx_t_12 = __pyx_v_self->_subscribers;
   __Pyx_INCREF(__pyx_t_12);
-  __pyx_t_13 = PyTuple_New(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 1013, __pyx_L1_error)
+  __pyx_t_13 = PyTuple_New(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 1018, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_13);
   __Pyx_INCREF(__pyx_v_topic);
   __Pyx_GIVEREF(__pyx_v_topic);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 0, __pyx_v_topic) != (0)) __PYX_ERR(0, 1013, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 0, __pyx_v_topic) != (0)) __PYX_ERR(0, 1018, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_fn);
   __Pyx_GIVEREF(__pyx_v_fn);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 1, __pyx_v_fn) != (0)) __PYX_ERR(0, 1013, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_13, 1, __pyx_v_fn) != (0)) __PYX_ERR(0, 1018, __pyx_L1_error);
   __pyx_t_7 = 0;
   {
     PyObject *__pyx_callargs[2] = {__pyx_t_12, __pyx_t_13};
     __pyx_t_6 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_add, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
     __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1013, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1018, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
   }
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1014
+  /* "pyjoulescope_driver/binding.pyx":1019
  *             c_flags = <int32_t> int(flags)
  *         self._subscribers.add((topic, fn))
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -31196,7 +31244,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
       __Pyx_FastGIL_Remember();
       /*try:*/ {
 
-        /* "pyjoulescope_driver/binding.pyx":1015
+        /* "pyjoulescope_driver/binding.pyx":1020
  *         self._subscribers.add((topic, fn))
  *         with nogil:
  *             rc = c_jsdrv.jsdrv_subscribe(self._context, <char *> &topic_str[0], c_flags, _on_cmd_publish_cbk, fn_ptr, timeout_ms)             # <<<<<<<<<<<<<<
@@ -31211,12 +31259,12 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
         } else if (unlikely(__pyx_t_14 >= __pyx_v_topic_str.shape[0])) __pyx_t_15 = 0;
         if (unlikely(__pyx_t_15 != -1)) {
           __Pyx_RaiseBufferIndexErrorNogil(__pyx_t_15);
-          __PYX_ERR(0, 1015, __pyx_L12_error)
+          __PYX_ERR(0, 1020, __pyx_L12_error)
         }
         __pyx_v_rc = jsdrv_subscribe(__pyx_v_self->_context, ((char *)(&(*((uint8_t const  *) ( /* dim=0 */ (__pyx_v_topic_str.data + __pyx_t_14 * __pyx_v_topic_str.strides[0]) ))))), __pyx_v_c_flags, __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk, __pyx_v_fn_ptr, __pyx_v_timeout_ms);
       }
 
-      /* "pyjoulescope_driver/binding.pyx":1014
+      /* "pyjoulescope_driver/binding.pyx":1019
  *             c_flags = <int32_t> int(flags)
  *         self._subscribers.add((topic, fn))
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -31238,7 +31286,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
       }
   }
 
-  /* "pyjoulescope_driver/binding.pyx":1016
+  /* "pyjoulescope_driver/binding.pyx":1021
  *         with nogil:
  *             rc = c_jsdrv.jsdrv_subscribe(self._context, <char *> &topic_str[0], c_flags, _on_cmd_publish_cbk, fn_ptr, timeout_ms)
  *         _handle_rc(rc, 'jsdrv_subscribe', topic)             # <<<<<<<<<<<<<<
@@ -31246,9 +31294,9 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
  *     def unsubscribe(self, topic, fn, timeout=None):
 */
   __pyx_t_13 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_handle_rc); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1016, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_handle_rc); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1021, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
-  __pyx_t_5 = __Pyx_PyLong_From_int32_t(__pyx_v_rc); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1016, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyLong_From_int32_t(__pyx_v_rc); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1021, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_7 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -31268,12 +31316,12 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
     __Pyx_XDECREF(__pyx_t_13); __pyx_t_13 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1016, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1021, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
   }
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":971
+  /* "pyjoulescope_driver/binding.pyx":976
  *         return sorted(s.split(','))
  * 
  *     def subscribe(self, topic: str, flags, fn, timeout=None):             # <<<<<<<<<<<<<<
@@ -31301,7 +31349,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_16subscribe(str
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":1018
+/* "pyjoulescope_driver/binding.pyx":1023
  *         _handle_rc(rc, 'jsdrv_subscribe', topic)
  * 
  *     def unsubscribe(self, topic, fn, timeout=None):             # <<<<<<<<<<<<<<
@@ -31351,41 +31399,41 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_topic,&__pyx_mstate_global->__pyx_n_u_fn,&__pyx_mstate_global->__pyx_n_u_timeout,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1018, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1023, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1018, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1023, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1018, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1023, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1018, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1023, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "unsubscribe", 0) < (0)) __PYX_ERR(0, 1018, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "unsubscribe", 0) < (0)) __PYX_ERR(0, 1023, __pyx_L3_error)
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("unsubscribe", 0, 2, 3, i); __PYX_ERR(0, 1018, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("unsubscribe", 0, 2, 3, i); __PYX_ERR(0, 1023, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1018, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1023, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1018, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1023, __pyx_L3_error)
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1018, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1023, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -31397,7 +31445,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("unsubscribe", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 1018, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("unsubscribe", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 1023, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -31439,7 +31487,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_18unsubscribe(s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("unsubscribe", 0);
 
-  /* "pyjoulescope_driver/binding.pyx":1027
+  /* "pyjoulescope_driver/binding.pyx":1032
  *         :raise: On error.
  *         """
  *         cdef const uint8_t[:] topic_str = topic.encode('utf-8')             # <<<<<<<<<<<<<<
@@ -31453,26 +31501,26 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_18unsubscribe(s
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_utf_8};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_encode, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1027, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1032, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_4 = __Pyx_PyObject_to_MemoryviewSlice_ds_nn_uint8_t__const__(__pyx_t_1, 0); if (unlikely(!__pyx_t_4.memview)) __PYX_ERR(0, 1027, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_to_MemoryviewSlice_ds_nn_uint8_t__const__(__pyx_t_1, 0); if (unlikely(!__pyx_t_4.memview)) __PYX_ERR(0, 1032, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_topic_str = __pyx_t_4;
   __pyx_t_4.memview = NULL;
   __pyx_t_4.data = NULL;
 
-  /* "pyjoulescope_driver/binding.pyx":1028
+  /* "pyjoulescope_driver/binding.pyx":1033
  *         """
  *         cdef const uint8_t[:] topic_str = topic.encode('utf-8')
  *         cdef int32_t timeout_ms = _timeout_validate(timeout)             # <<<<<<<<<<<<<<
  *         cdef void * fn_ptr = <void *> fn
  * 
 */
-  __pyx_t_5 = __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(__pyx_v_timeout, NULL); if (unlikely(__pyx_t_5 == ((int32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 1028, __pyx_L1_error)
+  __pyx_t_5 = __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(__pyx_v_timeout, NULL); if (unlikely(__pyx_t_5 == ((int32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 1033, __pyx_L1_error)
   __pyx_v_timeout_ms = __pyx_t_5;
 
-  /* "pyjoulescope_driver/binding.pyx":1029
+  /* "pyjoulescope_driver/binding.pyx":1034
  *         cdef const uint8_t[:] topic_str = topic.encode('utf-8')
  *         cdef int32_t timeout_ms = _timeout_validate(timeout)
  *         cdef void * fn_ptr = <void *> fn             # <<<<<<<<<<<<<<
@@ -31481,7 +31529,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_18unsubscribe(s
 */
   __pyx_v_fn_ptr = ((void *)__pyx_v_fn);
 
-  /* "pyjoulescope_driver/binding.pyx":1031
+  /* "pyjoulescope_driver/binding.pyx":1036
  *         cdef void * fn_ptr = <void *> fn
  * 
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -31494,7 +31542,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_18unsubscribe(s
       __Pyx_FastGIL_Remember();
       /*try:*/ {
 
-        /* "pyjoulescope_driver/binding.pyx":1032
+        /* "pyjoulescope_driver/binding.pyx":1037
  * 
  *         with nogil:
  *             rc = c_jsdrv.jsdrv_unsubscribe(self._context, <char *> &topic_str[0], _on_cmd_publish_cbk, fn_ptr, timeout_ms)             # <<<<<<<<<<<<<<
@@ -31509,12 +31557,12 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_18unsubscribe(s
         } else if (unlikely(__pyx_t_6 >= __pyx_v_topic_str.shape[0])) __pyx_t_7 = 0;
         if (unlikely(__pyx_t_7 != -1)) {
           __Pyx_RaiseBufferIndexErrorNogil(__pyx_t_7);
-          __PYX_ERR(0, 1032, __pyx_L4_error)
+          __PYX_ERR(0, 1037, __pyx_L4_error)
         }
         __pyx_v_rc = jsdrv_unsubscribe(__pyx_v_self->_context, ((char *)(&(*((uint8_t const  *) ( /* dim=0 */ (__pyx_v_topic_str.data + __pyx_t_6 * __pyx_v_topic_str.strides[0]) ))))), __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk, __pyx_v_fn_ptr, __pyx_v_timeout_ms);
       }
 
-      /* "pyjoulescope_driver/binding.pyx":1031
+      /* "pyjoulescope_driver/binding.pyx":1036
  *         cdef void * fn_ptr = <void *> fn
  * 
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -31536,7 +31584,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_18unsubscribe(s
       }
   }
 
-  /* "pyjoulescope_driver/binding.pyx":1033
+  /* "pyjoulescope_driver/binding.pyx":1038
  *         with nogil:
  *             rc = c_jsdrv.jsdrv_unsubscribe(self._context, <char *> &topic_str[0], _on_cmd_publish_cbk, fn_ptr, timeout_ms)
  *         self._subscribers.discard((topic, fn))             # <<<<<<<<<<<<<<
@@ -31545,26 +31593,26 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_18unsubscribe(s
 */
   __pyx_t_2 = __pyx_v_self->_subscribers;
   __Pyx_INCREF(__pyx_t_2);
-  __pyx_t_8 = PyTuple_New(2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1033, __pyx_L1_error)
+  __pyx_t_8 = PyTuple_New(2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1038, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_INCREF(__pyx_v_topic);
   __Pyx_GIVEREF(__pyx_v_topic);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_v_topic) != (0)) __PYX_ERR(0, 1033, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_v_topic) != (0)) __PYX_ERR(0, 1038, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_fn);
   __Pyx_GIVEREF(__pyx_v_fn);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 1, __pyx_v_fn) != (0)) __PYX_ERR(0, 1033, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 1, __pyx_v_fn) != (0)) __PYX_ERR(0, 1038, __pyx_L1_error);
   __pyx_t_3 = 0;
   {
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_t_8};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_discard, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1033, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1038, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1034
+  /* "pyjoulescope_driver/binding.pyx":1039
  *             rc = c_jsdrv.jsdrv_unsubscribe(self._context, <char *> &topic_str[0], _on_cmd_publish_cbk, fn_ptr, timeout_ms)
  *         self._subscribers.discard((topic, fn))
  *         _handle_rc(rc, 'jsdrv_unsubscribe', topic)             # <<<<<<<<<<<<<<
@@ -31572,9 +31620,9 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_18unsubscribe(s
  *     def unsubscribe_all(self, fn, timeout=None):
 */
   __pyx_t_8 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_handle_rc); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1034, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_handle_rc); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1039, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_9 = __Pyx_PyLong_From_int32_t(__pyx_v_rc); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1034, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyLong_From_int32_t(__pyx_v_rc); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1039, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __pyx_t_3 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -31594,12 +31642,12 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_18unsubscribe(s
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1034, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1039, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1018
+  /* "pyjoulescope_driver/binding.pyx":1023
  *         _handle_rc(rc, 'jsdrv_subscribe', topic)
  * 
  *     def unsubscribe(self, topic, fn, timeout=None):             # <<<<<<<<<<<<<<
@@ -31625,7 +31673,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_18unsubscribe(s
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":1036
+/* "pyjoulescope_driver/binding.pyx":1041
  *         _handle_rc(rc, 'jsdrv_unsubscribe', topic)
  * 
  *     def unsubscribe_all(self, fn, timeout=None):             # <<<<<<<<<<<<<<
@@ -31674,35 +31722,35 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_fn,&__pyx_mstate_global->__pyx_n_u_timeout,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1036, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1041, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1036, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1041, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1036, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1041, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "unsubscribe_all", 0) < (0)) __PYX_ERR(0, 1036, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "unsubscribe_all", 0) < (0)) __PYX_ERR(0, 1041, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("unsubscribe_all", 0, 1, 2, i); __PYX_ERR(0, 1036, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("unsubscribe_all", 0, 1, 2, i); __PYX_ERR(0, 1041, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1036, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1041, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1036, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1041, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -31713,7 +31761,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("unsubscribe_all", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 1036, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("unsubscribe_all", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 1041, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -31760,17 +31808,17 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_20unsubscribe_a
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("unsubscribe_all", 0);
 
-  /* "pyjoulescope_driver/binding.pyx":1044
+  /* "pyjoulescope_driver/binding.pyx":1049
  *         :raise: On error.
  *         """
  *         cdef int32_t timeout_ms = _timeout_validate(timeout)             # <<<<<<<<<<<<<<
  * 
  *         with nogil:
 */
-  __pyx_t_1 = __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(__pyx_v_timeout, NULL); if (unlikely(__pyx_t_1 == ((int32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 1044, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(__pyx_v_timeout, NULL); if (unlikely(__pyx_t_1 == ((int32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 1049, __pyx_L1_error)
   __pyx_v_timeout_ms = __pyx_t_1;
 
-  /* "pyjoulescope_driver/binding.pyx":1046
+  /* "pyjoulescope_driver/binding.pyx":1051
  *         cdef int32_t timeout_ms = _timeout_validate(timeout)
  * 
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -31783,7 +31831,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_20unsubscribe_a
       __Pyx_FastGIL_Remember();
       /*try:*/ {
 
-        /* "pyjoulescope_driver/binding.pyx":1047
+        /* "pyjoulescope_driver/binding.pyx":1052
  * 
  *         with nogil:
  *             rc = c_jsdrv.jsdrv_unsubscribe_all(self._context, _on_cmd_publish_cbk, <void *> fn, timeout_ms)             # <<<<<<<<<<<<<<
@@ -31793,7 +31841,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_20unsubscribe_a
         __pyx_v_rc = jsdrv_unsubscribe_all(__pyx_v_self->_context, __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk, ((void *)__pyx_v_fn), __pyx_v_timeout_ms);
       }
 
-      /* "pyjoulescope_driver/binding.pyx":1046
+      /* "pyjoulescope_driver/binding.pyx":1051
  *         cdef int32_t timeout_ms = _timeout_validate(timeout)
  * 
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -31810,7 +31858,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_20unsubscribe_a
       }
   }
 
-  /* "pyjoulescope_driver/binding.pyx":1048
+  /* "pyjoulescope_driver/binding.pyx":1053
  *         with nogil:
  *             rc = c_jsdrv.jsdrv_unsubscribe_all(self._context, _on_cmd_publish_cbk, <void *> fn, timeout_ms)
  *         remove_list = [(t, f) for t, f in self._subscribers if f == fn]             # <<<<<<<<<<<<<<
@@ -31818,16 +31866,16 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_20unsubscribe_a
  *             self._subscribers.discard(item)
 */
   { /* enter inner scope */
-    __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1048, __pyx_L8_error)
+    __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1053, __pyx_L8_error)
     __Pyx_GOTREF(__pyx_t_2);
     if (likely(PyList_CheckExact(__pyx_v_self->_subscribers)) || PyTuple_CheckExact(__pyx_v_self->_subscribers)) {
       __pyx_t_3 = __pyx_v_self->_subscribers; __Pyx_INCREF(__pyx_t_3);
       __pyx_t_4 = 0;
       __pyx_t_5 = NULL;
     } else {
-      __pyx_t_4 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_v_self->_subscribers); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1048, __pyx_L8_error)
+      __pyx_t_4 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_v_self->_subscribers); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1053, __pyx_L8_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_5 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1048, __pyx_L8_error)
+      __pyx_t_5 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1053, __pyx_L8_error)
     }
     for (;;) {
       if (likely(!__pyx_t_5)) {
@@ -31835,7 +31883,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_20unsubscribe_a
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1048, __pyx_L8_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1053, __pyx_L8_error)
             #endif
             if (__pyx_t_4 >= __pyx_temp) break;
           }
@@ -31845,7 +31893,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_20unsubscribe_a
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1048, __pyx_L8_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1053, __pyx_L8_error)
             #endif
             if (__pyx_t_4 >= __pyx_temp) break;
           }
@@ -31856,13 +31904,13 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_20unsubscribe_a
           #endif
           ++__pyx_t_4;
         }
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1048, __pyx_L8_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1053, __pyx_L8_error)
       } else {
         __pyx_t_6 = __pyx_t_5(__pyx_t_3);
         if (unlikely(!__pyx_t_6)) {
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
-            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 1048, __pyx_L8_error)
+            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 1053, __pyx_L8_error)
             PyErr_Clear();
           }
           break;
@@ -31875,7 +31923,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_20unsubscribe_a
         if (unlikely(size != 2)) {
           if (size > 2) __Pyx_RaiseTooManyValuesError(2);
           else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-          __PYX_ERR(0, 1048, __pyx_L8_error)
+          __PYX_ERR(0, 1053, __pyx_L8_error)
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
         if (likely(PyTuple_CheckExact(sequence))) {
@@ -31885,22 +31933,22 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_20unsubscribe_a
           __Pyx_INCREF(__pyx_t_8);
         } else {
           __pyx_t_7 = __Pyx_PyList_GET_ITEM_REF(sequence, 0, __Pyx_ReferenceSharing_SharedReference);
-          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1048, __pyx_L8_error)
+          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1053, __pyx_L8_error)
           __Pyx_XGOTREF(__pyx_t_7);
           __pyx_t_8 = __Pyx_PyList_GET_ITEM_REF(sequence, 1, __Pyx_ReferenceSharing_SharedReference);
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1048, __pyx_L8_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1053, __pyx_L8_error)
           __Pyx_XGOTREF(__pyx_t_8);
         }
         #else
-        __pyx_t_7 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1048, __pyx_L8_error)
+        __pyx_t_7 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1053, __pyx_L8_error)
         __Pyx_GOTREF(__pyx_t_7);
-        __pyx_t_8 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1048, __pyx_L8_error)
+        __pyx_t_8 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1053, __pyx_L8_error)
         __Pyx_GOTREF(__pyx_t_8);
         #endif
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       } else {
         Py_ssize_t index = -1;
-        __pyx_t_9 = PyObject_GetIter(__pyx_t_6); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1048, __pyx_L8_error)
+        __pyx_t_9 = PyObject_GetIter(__pyx_t_6); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1053, __pyx_L8_error)
         __Pyx_GOTREF(__pyx_t_9);
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
         __pyx_t_10 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_9);
@@ -31908,7 +31956,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_20unsubscribe_a
         __Pyx_GOTREF(__pyx_t_7);
         index = 1; __pyx_t_8 = __pyx_t_10(__pyx_t_9); if (unlikely(!__pyx_t_8)) goto __pyx_L11_unpacking_failed;
         __Pyx_GOTREF(__pyx_t_8);
-        if (__Pyx_IternextUnpackEndCheck(__pyx_t_10(__pyx_t_9), 2) < (0)) __PYX_ERR(0, 1048, __pyx_L8_error)
+        if (__Pyx_IternextUnpackEndCheck(__pyx_t_10(__pyx_t_9), 2) < (0)) __PYX_ERR(0, 1053, __pyx_L8_error)
         __pyx_t_10 = NULL;
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         goto __pyx_L12_unpacking_done;
@@ -31916,26 +31964,26 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_20unsubscribe_a
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         __pyx_t_10 = NULL;
         if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-        __PYX_ERR(0, 1048, __pyx_L8_error)
+        __PYX_ERR(0, 1053, __pyx_L8_error)
         __pyx_L12_unpacking_done:;
       }
       __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_t, __pyx_t_7);
       __pyx_t_7 = 0;
       __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_f, __pyx_t_8);
       __pyx_t_8 = 0;
-      __pyx_t_6 = PyObject_RichCompare(__pyx_7genexpr__pyx_v_f, __pyx_v_fn, Py_EQ); __Pyx_XGOTREF(__pyx_t_6); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1048, __pyx_L8_error)
-      __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 1048, __pyx_L8_error)
+      __pyx_t_6 = PyObject_RichCompare(__pyx_7genexpr__pyx_v_f, __pyx_v_fn, Py_EQ); __Pyx_XGOTREF(__pyx_t_6); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1053, __pyx_L8_error)
+      __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 1053, __pyx_L8_error)
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       if (__pyx_t_11) {
-        __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1048, __pyx_L8_error)
+        __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1053, __pyx_L8_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_INCREF(__pyx_7genexpr__pyx_v_t);
         __Pyx_GIVEREF(__pyx_7genexpr__pyx_v_t);
-        if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_7genexpr__pyx_v_t) != (0)) __PYX_ERR(0, 1048, __pyx_L8_error);
+        if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_7genexpr__pyx_v_t) != (0)) __PYX_ERR(0, 1053, __pyx_L8_error);
         __Pyx_INCREF(__pyx_7genexpr__pyx_v_f);
         __Pyx_GIVEREF(__pyx_7genexpr__pyx_v_f);
-        if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_7genexpr__pyx_v_f) != (0)) __PYX_ERR(0, 1048, __pyx_L8_error);
-        if (unlikely(__Pyx_ListComp_Append(__pyx_t_2, (PyObject*)__pyx_t_6))) __PYX_ERR(0, 1048, __pyx_L8_error)
+        if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_7genexpr__pyx_v_f) != (0)) __PYX_ERR(0, 1053, __pyx_L8_error);
+        if (unlikely(__Pyx_ListComp_Append(__pyx_t_2, (PyObject*)__pyx_t_6))) __PYX_ERR(0, 1053, __pyx_L8_error)
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       }
     }
@@ -31952,7 +32000,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_20unsubscribe_a
   __pyx_v_remove_list = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1049
+  /* "pyjoulescope_driver/binding.pyx":1054
  *             rc = c_jsdrv.jsdrv_unsubscribe_all(self._context, _on_cmd_publish_cbk, <void *> fn, timeout_ms)
  *         remove_list = [(t, f) for t, f in self._subscribers if f == fn]
  *         for item in remove_list:             # <<<<<<<<<<<<<<
@@ -31965,18 +32013,18 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_20unsubscribe_a
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_2);
       #if !CYTHON_ASSUME_SAFE_SIZE
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1049, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1054, __pyx_L1_error)
       #endif
       if (__pyx_t_4 >= __pyx_temp) break;
     }
     __pyx_t_3 = __Pyx_PyList_GET_ITEM_REF(__pyx_t_2, __pyx_t_4, __Pyx_ReferenceSharing_OwnStrongReference);
     ++__pyx_t_4;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1049, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1054, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_XDECREF_SET(__pyx_v_item, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "pyjoulescope_driver/binding.pyx":1050
+    /* "pyjoulescope_driver/binding.pyx":1055
  *         remove_list = [(t, f) for t, f in self._subscribers if f == fn]
  *         for item in remove_list:
  *             self._subscribers.discard(item)             # <<<<<<<<<<<<<<
@@ -31990,12 +32038,12 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_20unsubscribe_a
       PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_item};
       __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_discard, __pyx_callargs+__pyx_t_12, (2-__pyx_t_12) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1050, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1055, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "pyjoulescope_driver/binding.pyx":1049
+    /* "pyjoulescope_driver/binding.pyx":1054
  *             rc = c_jsdrv.jsdrv_unsubscribe_all(self._context, _on_cmd_publish_cbk, <void *> fn, timeout_ms)
  *         remove_list = [(t, f) for t, f in self._subscribers if f == fn]
  *         for item in remove_list:             # <<<<<<<<<<<<<<
@@ -32005,7 +32053,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_20unsubscribe_a
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1051
+  /* "pyjoulescope_driver/binding.pyx":1056
  *         for item in remove_list:
  *             self._subscribers.discard(item)
  *         _handle_rc(rc, 'jsdrv_unsubscribe_all')             # <<<<<<<<<<<<<<
@@ -32013,9 +32061,9 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_20unsubscribe_a
  *     def open(self, device_prefix, mode=None, timeout=None):
 */
   __pyx_t_3 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_handle_rc); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1051, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_handle_rc); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1056, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_8 = __Pyx_PyLong_From_int32_t(__pyx_v_rc); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1051, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyLong_From_int32_t(__pyx_v_rc); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1056, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __pyx_t_12 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -32035,12 +32083,12 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_20unsubscribe_a
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1051, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1056, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1036
+  /* "pyjoulescope_driver/binding.pyx":1041
  *         _handle_rc(rc, 'jsdrv_unsubscribe', topic)
  * 
  *     def unsubscribe_all(self, fn, timeout=None):             # <<<<<<<<<<<<<<
@@ -32070,7 +32118,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_20unsubscribe_a
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":1053
+/* "pyjoulescope_driver/binding.pyx":1058
  *         _handle_rc(rc, 'jsdrv_unsubscribe_all')
  * 
  *     def open(self, device_prefix, mode=None, timeout=None):             # <<<<<<<<<<<<<<
@@ -32086,7 +32134,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_19pyjoulescope_driver_7binding_6Driver_22open, "Open an attached device.\n\n        :param device_prefix: The prefix name for the device.\n        :param mode: The open mode which is one of:\n            * 'defaults': Reconfigure the device for default operation.\n            * 'restore': Update our state with the current device state.\n            * 'raw': Open the device in raw mode for development or firmware update.\n            * None: equivalent to 'defaults'.\n        :param timeout: The timeout in seconds.  None uses the default timeout.\n        ");
+PyDoc_STRVAR(__pyx_doc_19pyjoulescope_driver_7binding_6Driver_22open, "Open an attached device.\n\n        :param device_prefix: The prefix name for the device.\n        :param mode: The open mode which is one of:\n            * 'defaults': Push state to the device: the host's retained\n              value for each writable topic when present, else the\n              metadata default.\n            * 'restore': Push nothing; adopt the device's current state\n              into the host cache.\n            * 'raw': Open the device in raw mode for development or firmware update.\n            * None: equivalent to 'defaults'.\n        :param timeout: The timeout in seconds.  None uses the default timeout.\n        ");
 static PyMethodDef __pyx_mdef_19pyjoulescope_driver_7binding_6Driver_23open = {"open", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_19pyjoulescope_driver_7binding_6Driver_23open, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_19pyjoulescope_driver_7binding_6Driver_22open};
 static PyObject *__pyx_pw_19pyjoulescope_driver_7binding_6Driver_23open(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -32120,44 +32168,44 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_device_prefix,&__pyx_mstate_global->__pyx_n_u_mode,&__pyx_mstate_global->__pyx_n_u_timeout,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1053, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1058, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1053, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1058, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1053, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1058, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1053, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1058, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "open", 0) < (0)) __PYX_ERR(0, 1053, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "open", 0) < (0)) __PYX_ERR(0, 1058, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("open", 0, 1, 3, i); __PYX_ERR(0, 1053, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("open", 0, 1, 3, i); __PYX_ERR(0, 1058, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1053, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 1058, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1053, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1058, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1053, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1058, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -32170,7 +32218,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("open", 0, 1, 3, __pyx_nargs); __PYX_ERR(0, 1053, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("open", 0, 1, 3, __pyx_nargs); __PYX_ERR(0, 1058, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -32216,17 +32264,17 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_22open(struct _
   __Pyx_INCREF(__pyx_v_device_prefix);
   __Pyx_INCREF(__pyx_v_mode);
 
-  /* "pyjoulescope_driver/binding.pyx":1066
+  /* "pyjoulescope_driver/binding.pyx":1074
  * 
  *         cdef const uint8_t[:] topic_str
  *         cdef int32_t timeout_ms = _timeout_validate(timeout)             # <<<<<<<<<<<<<<
  *         cdef c_jsdrv.jsdrv_union_s v
  *         memset(&v, 0, sizeof(v))
 */
-  __pyx_t_1 = __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(__pyx_v_timeout, NULL); if (unlikely(__pyx_t_1 == ((int32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 1066, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(__pyx_v_timeout, NULL); if (unlikely(__pyx_t_1 == ((int32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 1074, __pyx_L1_error)
   __pyx_v_timeout_ms = __pyx_t_1;
 
-  /* "pyjoulescope_driver/binding.pyx":1068
+  /* "pyjoulescope_driver/binding.pyx":1076
  *         cdef int32_t timeout_ms = _timeout_validate(timeout)
  *         cdef c_jsdrv.jsdrv_union_s v
  *         memset(&v, 0, sizeof(v))             # <<<<<<<<<<<<<<
@@ -32235,7 +32283,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_22open(struct _
 */
   (void)(memset((&__pyx_v_v), 0, (sizeof(__pyx_v_v))));
 
-  /* "pyjoulescope_driver/binding.pyx":1070
+  /* "pyjoulescope_driver/binding.pyx":1078
  *         memset(&v, 0, sizeof(v))
  * 
  *         if isinstance(mode, str):             # <<<<<<<<<<<<<<
@@ -32245,7 +32293,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_22open(struct _
   __pyx_t_2 = PyUnicode_Check(__pyx_v_mode); 
   if (__pyx_t_2) {
 
-    /* "pyjoulescope_driver/binding.pyx":1071
+    /* "pyjoulescope_driver/binding.pyx":1079
  * 
  *         if isinstance(mode, str):
  *             mode = mode.lower()             # <<<<<<<<<<<<<<
@@ -32259,13 +32307,13 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_22open(struct _
       PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
       __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_lower, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1071, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1079, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_DECREF_SET(__pyx_v_mode, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "pyjoulescope_driver/binding.pyx":1070
+    /* "pyjoulescope_driver/binding.pyx":1078
  *         memset(&v, 0, sizeof(v))
  * 
  *         if isinstance(mode, str):             # <<<<<<<<<<<<<<
@@ -32274,22 +32322,22 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_22open(struct _
 */
   }
 
-  /* "pyjoulescope_driver/binding.pyx":1072
+  /* "pyjoulescope_driver/binding.pyx":1080
  *         if isinstance(mode, str):
  *             mode = mode.lower()
  *         mode = _DEVICE_OPEN_MODES[mode]             # <<<<<<<<<<<<<<
  * 
  *         while device_prefix[-1] == '/':
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_DEVICE_OPEN_MODES); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1072, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_DEVICE_OPEN_MODES); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1080, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetItem(__pyx_t_3, __pyx_v_mode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1072, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetItem(__pyx_t_3, __pyx_v_mode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1080, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF_SET(__pyx_v_mode, __pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1074
+  /* "pyjoulescope_driver/binding.pyx":1082
  *         mode = _DEVICE_OPEN_MODES[mode]
  * 
  *         while device_prefix[-1] == '/':             # <<<<<<<<<<<<<<
@@ -32297,38 +32345,38 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_22open(struct _
  *         topic = device_prefix + "/@/!open"
 */
   while (1) {
-    __pyx_t_4 = __Pyx_GetItemInt(__pyx_v_device_prefix, -1L, long, 1, __Pyx_PyLong_From_long, 0, 1, 1, 1, __Pyx_ReferenceSharing_FunctionArgument); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1074, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_GetItemInt(__pyx_v_device_prefix, -1L, long, 1, __Pyx_PyLong_From_long, 0, 1, 1, 1, __Pyx_ReferenceSharing_FunctionArgument); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1082, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u__14, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 1074, __pyx_L1_error)
+    __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u__14, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 1082, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     if (!__pyx_t_2) break;
 
-    /* "pyjoulescope_driver/binding.pyx":1075
+    /* "pyjoulescope_driver/binding.pyx":1083
  * 
  *         while device_prefix[-1] == '/':
  *             device_prefix = device_prefix[:-1]             # <<<<<<<<<<<<<<
  *         topic = device_prefix + "/@/!open"
  *         topic_str = topic.encode('utf-8')
 */
-    __pyx_t_4 = __Pyx_PyObject_GetSlice(__pyx_v_device_prefix, 0, -1L, NULL, NULL, &__pyx_mstate_global->__pyx_slice[1], 0, 1, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1075, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetSlice(__pyx_v_device_prefix, 0, -1L, NULL, NULL, &__pyx_mstate_global->__pyx_slice[1], 0, 1, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1083, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF_SET(__pyx_v_device_prefix, __pyx_t_4);
     __pyx_t_4 = 0;
   }
 
-  /* "pyjoulescope_driver/binding.pyx":1076
+  /* "pyjoulescope_driver/binding.pyx":1084
  *         while device_prefix[-1] == '/':
  *             device_prefix = device_prefix[:-1]
  *         topic = device_prefix + "/@/!open"             # <<<<<<<<<<<<<<
  *         topic_str = topic.encode('utf-8')
  * 
 */
-  __pyx_t_4 = PyNumber_Add(__pyx_v_device_prefix, __pyx_mstate_global->__pyx_kp_u_open); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1076, __pyx_L1_error)
+  __pyx_t_4 = PyNumber_Add(__pyx_v_device_prefix, __pyx_mstate_global->__pyx_kp_u_open); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1084, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_v_topic = __pyx_t_4;
   __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1077
+  /* "pyjoulescope_driver/binding.pyx":1085
  *             device_prefix = device_prefix[:-1]
  *         topic = device_prefix + "/@/!open"
  *         topic_str = topic.encode('utf-8')             # <<<<<<<<<<<<<<
@@ -32342,16 +32390,16 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_22open(struct _
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_utf_8};
     __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_encode, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1077, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1085, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
-  __pyx_t_6 = __Pyx_PyObject_to_MemoryviewSlice_ds_nn_uint8_t__const__(__pyx_t_4, 0); if (unlikely(!__pyx_t_6.memview)) __PYX_ERR(0, 1077, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_to_MemoryviewSlice_ds_nn_uint8_t__const__(__pyx_t_4, 0); if (unlikely(!__pyx_t_6.memview)) __PYX_ERR(0, 1085, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_v_topic_str = __pyx_t_6;
   __pyx_t_6.memview = NULL;
   __pyx_t_6.data = NULL;
 
-  /* "pyjoulescope_driver/binding.pyx":1079
+  /* "pyjoulescope_driver/binding.pyx":1087
  *         topic_str = topic.encode('utf-8')
  * 
  *         v.type = c_jsdrv.JSDRV_UNION_I32             # <<<<<<<<<<<<<<
@@ -32360,17 +32408,17 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_22open(struct _
 */
   __pyx_v_v.type = JSDRV_UNION_I32;
 
-  /* "pyjoulescope_driver/binding.pyx":1080
+  /* "pyjoulescope_driver/binding.pyx":1088
  * 
  *         v.type = c_jsdrv.JSDRV_UNION_I32
  *         v.value.i32 = mode             # <<<<<<<<<<<<<<
  * 
  *         with nogil:
 */
-  __pyx_t_1 = __Pyx_PyLong_As_int32_t(__pyx_v_mode); if (unlikely((__pyx_t_1 == ((int32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 1080, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_int32_t(__pyx_v_mode); if (unlikely((__pyx_t_1 == ((int32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 1088, __pyx_L1_error)
   __pyx_v_v.value.i32 = __pyx_t_1;
 
-  /* "pyjoulescope_driver/binding.pyx":1082
+  /* "pyjoulescope_driver/binding.pyx":1090
  *         v.value.i32 = mode
  * 
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -32383,7 +32431,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_22open(struct _
       __Pyx_FastGIL_Remember();
       /*try:*/ {
 
-        /* "pyjoulescope_driver/binding.pyx":1083
+        /* "pyjoulescope_driver/binding.pyx":1091
  * 
  *         with nogil:
  *             rc = c_jsdrv.jsdrv_publish(self._context, <char *> &topic_str[0], &v, timeout_ms);             # <<<<<<<<<<<<<<
@@ -32398,12 +32446,12 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_22open(struct _
         } else if (unlikely(__pyx_t_7 >= __pyx_v_topic_str.shape[0])) __pyx_t_8 = 0;
         if (unlikely(__pyx_t_8 != -1)) {
           __Pyx_RaiseBufferIndexErrorNogil(__pyx_t_8);
-          __PYX_ERR(0, 1083, __pyx_L7_error)
+          __PYX_ERR(0, 1091, __pyx_L7_error)
         }
         __pyx_v_rc = jsdrv_publish(__pyx_v_self->_context, ((char *)(&(*((uint8_t const  *) ( /* dim=0 */ (__pyx_v_topic_str.data + __pyx_t_7 * __pyx_v_topic_str.strides[0]) ))))), (&__pyx_v_v), __pyx_v_timeout_ms);
       }
 
-      /* "pyjoulescope_driver/binding.pyx":1082
+      /* "pyjoulescope_driver/binding.pyx":1090
  *         v.value.i32 = mode
  * 
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -32425,7 +32473,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_22open(struct _
       }
   }
 
-  /* "pyjoulescope_driver/binding.pyx":1084
+  /* "pyjoulescope_driver/binding.pyx":1092
  *         with nogil:
  *             rc = c_jsdrv.jsdrv_publish(self._context, <char *> &topic_str[0], &v, timeout_ms);
  *         _handle_rc(rc, 'jsdrv_open', device_prefix)             # <<<<<<<<<<<<<<
@@ -32433,9 +32481,9 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_22open(struct _
  *     def close(self, device_prefix, timeout=None):
 */
   __pyx_t_3 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_handle_rc); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1084, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_handle_rc); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1092, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_10 = __Pyx_PyLong_From_int32_t(__pyx_v_rc); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1084, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyLong_From_int32_t(__pyx_v_rc); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1092, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -32455,12 +32503,12 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_22open(struct _
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1084, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1092, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1053
+  /* "pyjoulescope_driver/binding.pyx":1058
  *         _handle_rc(rc, 'jsdrv_unsubscribe_all')
  * 
  *     def open(self, device_prefix, mode=None, timeout=None):             # <<<<<<<<<<<<<<
@@ -32489,7 +32537,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_22open(struct _
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":1086
+/* "pyjoulescope_driver/binding.pyx":1094
  *         _handle_rc(rc, 'jsdrv_open', device_prefix)
  * 
  *     def close(self, device_prefix, timeout=None):             # <<<<<<<<<<<<<<
@@ -32538,35 +32586,35 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_device_prefix,&__pyx_mstate_global->__pyx_n_u_timeout,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1086, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1094, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1086, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1094, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1086, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1094, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "close", 0) < (0)) __PYX_ERR(0, 1086, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "close", 0) < (0)) __PYX_ERR(0, 1094, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("close", 0, 1, 2, i); __PYX_ERR(0, 1086, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("close", 0, 1, 2, i); __PYX_ERR(0, 1094, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1086, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1094, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1086, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1094, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -32577,7 +32625,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("close", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 1086, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("close", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 1094, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -32622,17 +32670,17 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_24close(struct 
   __Pyx_RefNannySetupContext("close", 0);
   __Pyx_INCREF(__pyx_v_device_prefix);
 
-  /* "pyjoulescope_driver/binding.pyx":1093
+  /* "pyjoulescope_driver/binding.pyx":1101
  *         """
  *         cdef const uint8_t[:] topic_str
  *         cdef int32_t timeout_ms = _timeout_validate(timeout)             # <<<<<<<<<<<<<<
  *         cdef c_jsdrv.jsdrv_union_s v
  * 
 */
-  __pyx_t_1 = __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(__pyx_v_timeout, NULL); if (unlikely(__pyx_t_1 == ((int32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 1093, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_19pyjoulescope_driver_7binding__timeout_validate(__pyx_v_timeout, NULL); if (unlikely(__pyx_t_1 == ((int32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 1101, __pyx_L1_error)
   __pyx_v_timeout_ms = __pyx_t_1;
 
-  /* "pyjoulescope_driver/binding.pyx":1096
+  /* "pyjoulescope_driver/binding.pyx":1104
  *         cdef c_jsdrv.jsdrv_union_s v
  * 
  *         while device_prefix[-1] == '/':             # <<<<<<<<<<<<<<
@@ -32640,38 +32688,38 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_24close(struct 
  *         topic = device_prefix + "/@/!close"
 */
   while (1) {
-    __pyx_t_2 = __Pyx_GetItemInt(__pyx_v_device_prefix, -1L, long, 1, __Pyx_PyLong_From_long, 0, 1, 1, 1, __Pyx_ReferenceSharing_FunctionArgument); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1096, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_GetItemInt(__pyx_v_device_prefix, -1L, long, 1, __Pyx_PyLong_From_long, 0, 1, 1, 1, __Pyx_ReferenceSharing_FunctionArgument); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1104, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_mstate_global->__pyx_kp_u__14, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1096, __pyx_L1_error)
+    __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_mstate_global->__pyx_kp_u__14, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 1104, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     if (!__pyx_t_3) break;
 
-    /* "pyjoulescope_driver/binding.pyx":1097
+    /* "pyjoulescope_driver/binding.pyx":1105
  * 
  *         while device_prefix[-1] == '/':
  *             device_prefix = device_prefix[:-1]             # <<<<<<<<<<<<<<
  *         topic = device_prefix + "/@/!close"
  *         topic_str = topic.encode('utf-8')
 */
-    __pyx_t_2 = __Pyx_PyObject_GetSlice(__pyx_v_device_prefix, 0, -1L, NULL, NULL, &__pyx_mstate_global->__pyx_slice[1], 0, 1, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1097, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetSlice(__pyx_v_device_prefix, 0, -1L, NULL, NULL, &__pyx_mstate_global->__pyx_slice[1], 0, 1, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1105, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF_SET(__pyx_v_device_prefix, __pyx_t_2);
     __pyx_t_2 = 0;
   }
 
-  /* "pyjoulescope_driver/binding.pyx":1098
+  /* "pyjoulescope_driver/binding.pyx":1106
  *         while device_prefix[-1] == '/':
  *             device_prefix = device_prefix[:-1]
  *         topic = device_prefix + "/@/!close"             # <<<<<<<<<<<<<<
  *         topic_str = topic.encode('utf-8')
  *         v.type = c_jsdrv.JSDRV_UNION_I32
 */
-  __pyx_t_2 = PyNumber_Add(__pyx_v_device_prefix, __pyx_mstate_global->__pyx_kp_u_close); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1098, __pyx_L1_error)
+  __pyx_t_2 = PyNumber_Add(__pyx_v_device_prefix, __pyx_mstate_global->__pyx_kp_u_close); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1106, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_v_topic = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1099
+  /* "pyjoulescope_driver/binding.pyx":1107
  *             device_prefix = device_prefix[:-1]
  *         topic = device_prefix + "/@/!close"
  *         topic_str = topic.encode('utf-8')             # <<<<<<<<<<<<<<
@@ -32685,16 +32733,16 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_24close(struct 
     PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_utf_8};
     __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_encode, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1099, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  __pyx_t_6 = __Pyx_PyObject_to_MemoryviewSlice_ds_nn_uint8_t__const__(__pyx_t_2, 0); if (unlikely(!__pyx_t_6.memview)) __PYX_ERR(0, 1099, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_to_MemoryviewSlice_ds_nn_uint8_t__const__(__pyx_t_2, 0); if (unlikely(!__pyx_t_6.memview)) __PYX_ERR(0, 1107, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_topic_str = __pyx_t_6;
   __pyx_t_6.memview = NULL;
   __pyx_t_6.data = NULL;
 
-  /* "pyjoulescope_driver/binding.pyx":1100
+  /* "pyjoulescope_driver/binding.pyx":1108
  *         topic = device_prefix + "/@/!close"
  *         topic_str = topic.encode('utf-8')
  *         v.type = c_jsdrv.JSDRV_UNION_I32             # <<<<<<<<<<<<<<
@@ -32703,7 +32751,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_24close(struct 
 */
   __pyx_v_v.type = JSDRV_UNION_I32;
 
-  /* "pyjoulescope_driver/binding.pyx":1101
+  /* "pyjoulescope_driver/binding.pyx":1109
  *         topic_str = topic.encode('utf-8')
  *         v.type = c_jsdrv.JSDRV_UNION_I32
  *         v.value.i32 = 0             # <<<<<<<<<<<<<<
@@ -32712,7 +32760,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_24close(struct 
 */
   __pyx_v_v.value.i32 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1102
+  /* "pyjoulescope_driver/binding.pyx":1110
  *         v.type = c_jsdrv.JSDRV_UNION_I32
  *         v.value.i32 = 0
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -32725,7 +32773,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_24close(struct 
       __Pyx_FastGIL_Remember();
       /*try:*/ {
 
-        /* "pyjoulescope_driver/binding.pyx":1103
+        /* "pyjoulescope_driver/binding.pyx":1111
  *         v.value.i32 = 0
  *         with nogil:
  *             rc = c_jsdrv.jsdrv_publish(self._context, <char *> &topic_str[0], &v, timeout_ms);             # <<<<<<<<<<<<<<
@@ -32740,12 +32788,12 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_24close(struct 
         } else if (unlikely(__pyx_t_7 >= __pyx_v_topic_str.shape[0])) __pyx_t_8 = 0;
         if (unlikely(__pyx_t_8 != -1)) {
           __Pyx_RaiseBufferIndexErrorNogil(__pyx_t_8);
-          __PYX_ERR(0, 1103, __pyx_L6_error)
+          __PYX_ERR(0, 1111, __pyx_L6_error)
         }
         __pyx_v_rc = jsdrv_publish(__pyx_v_self->_context, ((char *)(&(*((uint8_t const  *) ( /* dim=0 */ (__pyx_v_topic_str.data + __pyx_t_7 * __pyx_v_topic_str.strides[0]) ))))), (&__pyx_v_v), __pyx_v_timeout_ms);
       }
 
-      /* "pyjoulescope_driver/binding.pyx":1102
+      /* "pyjoulescope_driver/binding.pyx":1110
  *         v.type = c_jsdrv.JSDRV_UNION_I32
  *         v.value.i32 = 0
  *         with nogil:             # <<<<<<<<<<<<<<
@@ -32767,7 +32815,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_24close(struct 
       }
   }
 
-  /* "pyjoulescope_driver/binding.pyx":1104
+  /* "pyjoulescope_driver/binding.pyx":1112
  *         with nogil:
  *             rc = c_jsdrv.jsdrv_publish(self._context, <char *> &topic_str[0], &v, timeout_ms);
  *         _handle_rc(rc, 'jsdrv_close', device_prefix)             # <<<<<<<<<<<<<<
@@ -32775,9 +32823,9 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_24close(struct 
  * 
 */
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_handle_rc); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1104, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_handle_rc); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1112, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_10 = __Pyx_PyLong_From_int32_t(__pyx_v_rc); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1104, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyLong_From_int32_t(__pyx_v_rc); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1112, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -32797,12 +32845,12 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_24close(struct 
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1104, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1112, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1086
+  /* "pyjoulescope_driver/binding.pyx":1094
  *         _handle_rc(rc, 'jsdrv_open', device_prefix)
  * 
  *     def close(self, device_prefix, timeout=None):             # <<<<<<<<<<<<<<
@@ -33034,7 +33082,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6Driver_28__setstate_cy
   return __pyx_r;
 }
 
-/* "pyjoulescope_driver/binding.pyx":1107
+/* "pyjoulescope_driver/binding.pyx":1115
  * 
  * 
  * cdef void _on_cmd_publish_cbk(void * user_data, const char * topic,             # <<<<<<<<<<<<<<
@@ -33067,7 +33115,7 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk(void *__p
   PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
   __Pyx_RefNannySetupContext("_on_cmd_publish_cbk", 0);
 
-  /* "pyjoulescope_driver/binding.pyx":1109
+  /* "pyjoulescope_driver/binding.pyx":1117
  * cdef void _on_cmd_publish_cbk(void * user_data, const char * topic,
  *                               const c_jsdrv.jsdrv_union_s * value) noexcept with gil:
  *     cdef object fn = <object> user_data             # <<<<<<<<<<<<<<
@@ -33079,7 +33127,7 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk(void *__p
   __pyx_v_fn = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1110
+  /* "pyjoulescope_driver/binding.pyx":1118
  *                               const c_jsdrv.jsdrv_union_s * value) noexcept with gil:
  *     cdef object fn = <object> user_data
  *     try:             # <<<<<<<<<<<<<<
@@ -33095,20 +33143,20 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk(void *__p
     __Pyx_XGOTREF(__pyx_t_4);
     /*try:*/ {
 
-      /* "pyjoulescope_driver/binding.pyx":1111
+      /* "pyjoulescope_driver/binding.pyx":1119
  *     cdef object fn = <object> user_data
  *     try:
  *         topic_str = topic.decode('utf-8')             # <<<<<<<<<<<<<<
  *     except:
  *         _log_c.exception('_on_cmd_publish_cbk could not convert topic to utf-8')
 */
-      __pyx_t_5 = __Pyx_ssize_strlen(__pyx_v_topic); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1111, __pyx_L3_error)
-      __pyx_t_1 = __Pyx_decode_c_string(__pyx_v_topic, 0, __pyx_t_5, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1111, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_ssize_strlen(__pyx_v_topic); if (unlikely(__pyx_t_5 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1119, __pyx_L3_error)
+      __pyx_t_1 = __Pyx_decode_c_string(__pyx_v_topic, 0, __pyx_t_5, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1119, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_v_topic_str = __pyx_t_1;
       __pyx_t_1 = 0;
 
-      /* "pyjoulescope_driver/binding.pyx":1110
+      /* "pyjoulescope_driver/binding.pyx":1118
  *                               const c_jsdrv.jsdrv_union_s * value) noexcept with gil:
  *     cdef object fn = <object> user_data
  *     try:             # <<<<<<<<<<<<<<
@@ -33123,7 +33171,7 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk(void *__p
     __pyx_L3_error:;
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "pyjoulescope_driver/binding.pyx":1112
+    /* "pyjoulescope_driver/binding.pyx":1120
  *     try:
  *         topic_str = topic.decode('utf-8')
  *     except:             # <<<<<<<<<<<<<<
@@ -33132,12 +33180,12 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk(void *__p
 */
     /*except:*/ {
       __Pyx_AddTraceback("pyjoulescope_driver.binding._on_cmd_publish_cbk", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_6, &__pyx_t_7) < 0) __PYX_ERR(0, 1112, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_6, &__pyx_t_7) < 0) __PYX_ERR(0, 1120, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_1);
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "pyjoulescope_driver/binding.pyx":1113
+      /* "pyjoulescope_driver/binding.pyx":1121
  *         topic_str = topic.decode('utf-8')
  *     except:
  *         _log_c.exception('_on_cmd_publish_cbk could not convert topic to utf-8')             # <<<<<<<<<<<<<<
@@ -33145,9 +33193,9 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk(void *__p
  *     try:
 */
       __pyx_t_9 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_log_c); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1113, __pyx_L5_except_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_log_c); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1121, __pyx_L5_except_error)
       __Pyx_GOTREF(__pyx_t_10);
-      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_exception); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1113, __pyx_L5_except_error)
+      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_exception); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 1121, __pyx_L5_except_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __pyx_t_12 = 1;
@@ -33167,12 +33215,12 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk(void *__p
         __pyx_t_8 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_11, __pyx_callargs+__pyx_t_12, (2-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1113, __pyx_L5_except_error)
+        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1121, __pyx_L5_except_error)
         __Pyx_GOTREF(__pyx_t_8);
       }
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-      /* "pyjoulescope_driver/binding.pyx":1114
+      /* "pyjoulescope_driver/binding.pyx":1122
  *     except:
  *         _log_c.exception('_on_cmd_publish_cbk could not convert topic to utf-8')
  *         return             # <<<<<<<<<<<<<<
@@ -33185,7 +33233,7 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk(void *__p
       goto __pyx_L6_except_return;
     }
 
-    /* "pyjoulescope_driver/binding.pyx":1110
+    /* "pyjoulescope_driver/binding.pyx":1118
  *                               const c_jsdrv.jsdrv_union_s * value) noexcept with gil:
  *     cdef object fn = <object> user_data
  *     try:             # <<<<<<<<<<<<<<
@@ -33207,7 +33255,7 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk(void *__p
     __pyx_L8_try_end:;
   }
 
-  /* "pyjoulescope_driver/binding.pyx":1115
+  /* "pyjoulescope_driver/binding.pyx":1123
  *         _log_c.exception('_on_cmd_publish_cbk could not convert topic to utf-8')
  *         return
  *     try:             # <<<<<<<<<<<<<<
@@ -33223,19 +33271,19 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk(void *__p
     __Pyx_XGOTREF(__pyx_t_2);
     /*try:*/ {
 
-      /* "pyjoulescope_driver/binding.pyx":1116
+      /* "pyjoulescope_driver/binding.pyx":1124
  *         return
  *     try:
  *         v = _jsdrv_union_to_py(value)             # <<<<<<<<<<<<<<
  *         # print(f'{topic_str} = {v}')
  *         fn(topic_str, v)
 */
-      __pyx_t_7 = __pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(__pyx_v_value); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1116, __pyx_L11_error)
+      __pyx_t_7 = __pyx_f_19pyjoulescope_driver_7binding__jsdrv_union_to_py(__pyx_v_value); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1124, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_7);
       __pyx_v_v = __pyx_t_7;
       __pyx_t_7 = 0;
 
-      /* "pyjoulescope_driver/binding.pyx":1118
+      /* "pyjoulescope_driver/binding.pyx":1126
  *         v = _jsdrv_union_to_py(value)
  *         # print(f'{topic_str} = {v}')
  *         fn(topic_str, v)             # <<<<<<<<<<<<<<
@@ -33262,12 +33310,12 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk(void *__p
         __pyx_t_7 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_1, __pyx_callargs+__pyx_t_12, (3-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1118, __pyx_L11_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1126, __pyx_L11_error)
         __Pyx_GOTREF(__pyx_t_7);
       }
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-      /* "pyjoulescope_driver/binding.pyx":1115
+      /* "pyjoulescope_driver/binding.pyx":1123
  *         _log_c.exception('_on_cmd_publish_cbk could not convert topic to utf-8')
  *         return
  *     try:             # <<<<<<<<<<<<<<
@@ -33288,7 +33336,7 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk(void *__p
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-    /* "pyjoulescope_driver/binding.pyx":1119
+    /* "pyjoulescope_driver/binding.pyx":1127
  *         # print(f'{topic_str} = {v}')
  *         fn(topic_str, v)
  *     except:             # <<<<<<<<<<<<<<
@@ -33297,12 +33345,12 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk(void *__p
 */
     /*except:*/ {
       __Pyx_AddTraceback("pyjoulescope_driver.binding._on_cmd_publish_cbk", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_7, &__pyx_t_1, &__pyx_t_6) < 0) __PYX_ERR(0, 1119, __pyx_L13_except_error)
+      if (__Pyx_GetException(&__pyx_t_7, &__pyx_t_1, &__pyx_t_6) < 0) __PYX_ERR(0, 1127, __pyx_L13_except_error)
       __Pyx_XGOTREF(__pyx_t_7);
       __Pyx_XGOTREF(__pyx_t_1);
       __Pyx_XGOTREF(__pyx_t_6);
 
-      /* "pyjoulescope_driver/binding.pyx":1120
+      /* "pyjoulescope_driver/binding.pyx":1128
  *         fn(topic_str, v)
  *     except:
  *         _log_c.exception(f'_on_cmd_publish_cbk({topic_str})')             # <<<<<<<<<<<<<<
@@ -33310,18 +33358,18 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk(void *__p
  * 
 */
       __pyx_t_11 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_log_c); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1120, __pyx_L13_except_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_log_c); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1128, __pyx_L13_except_error)
       __Pyx_GOTREF(__pyx_t_9);
-      __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_exception); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1120, __pyx_L13_except_error)
+      __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_exception); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1128, __pyx_L13_except_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_v_topic_str, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1120, __pyx_L13_except_error)
+      __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_v_topic_str, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1128, __pyx_L13_except_error)
       __Pyx_GOTREF(__pyx_t_9);
       __pyx_t_13[0] = __pyx_mstate_global->__pyx_kp_u_on_cmd_publish_cbk;
       __pyx_t_13[1] = __pyx_t_9;
       __pyx_t_13[2] = __pyx_mstate_global->__pyx_kp_u__5;
       __pyx_t_14 = __Pyx_PyUnicode_Join(__pyx_t_13, 3, 20 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_9) + 1, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_9));
-      if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 1120, __pyx_L13_except_error)
+      if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 1128, __pyx_L13_except_error)
       __Pyx_GOTREF(__pyx_t_14);
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __pyx_t_12 = 1;
@@ -33342,7 +33390,7 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk(void *__p
         __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
         __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1120, __pyx_L13_except_error)
+        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1128, __pyx_L13_except_error)
         __Pyx_GOTREF(__pyx_t_8);
       }
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
@@ -33352,7 +33400,7 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk(void *__p
       goto __pyx_L12_exception_handled;
     }
 
-    /* "pyjoulescope_driver/binding.pyx":1115
+    /* "pyjoulescope_driver/binding.pyx":1123
  *         _log_c.exception('_on_cmd_publish_cbk could not convert topic to utf-8')
  *         return
  *     try:             # <<<<<<<<<<<<<<
@@ -33373,7 +33421,7 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk(void *__p
     __pyx_L16_try_end:;
   }
 
-  /* "pyjoulescope_driver/binding.pyx":1107
+  /* "pyjoulescope_driver/binding.pyx":1115
  * 
  * 
  * cdef void _on_cmd_publish_cbk(void * user_data, const char * topic,             # <<<<<<<<<<<<<<
@@ -33401,7 +33449,7 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_cmd_publish_cbk(void *__p
   __Pyx_PyGILState_Release(__pyx_gilstate_save);
 }
 
-/* "pyjoulescope_driver/binding.pyx":1123
+/* "pyjoulescope_driver/binding.pyx":1131
  * 
  * 
  * cdef void _on_log_recv(void * user_data, const c_jsdrv.jsdrv_log_header_s * header,             # <<<<<<<<<<<<<<
@@ -33430,22 +33478,22 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_log_recv(CYTHON_UNUSED vo
   PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
   __Pyx_RefNannySetupContext("_on_log_recv", 0);
 
-  /* "pyjoulescope_driver/binding.pyx":1125
+  /* "pyjoulescope_driver/binding.pyx":1133
  * cdef void _on_log_recv(void * user_data, const c_jsdrv.jsdrv_log_header_s * header,
  *                        const char * filename, const char * message) noexcept with gil:
  *     lvl = _log_level_c_to_py[header[0].level]             # <<<<<<<<<<<<<<
  *     if _log_c.isEnabledFor(lvl):
  *         fname = filename.decode('utf-8')
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_log_level_c_to_py); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1125, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_log_level_c_to_py); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_GetItemInt(__pyx_t_1, (__pyx_v_header[0]).level, uint8_t const , 0, __Pyx_PyLong_From_uint8_t, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1125, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_GetItemInt(__pyx_t_1, (__pyx_v_header[0]).level, uint8_t const , 0, __Pyx_PyLong_From_uint8_t, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_lvl = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1126
+  /* "pyjoulescope_driver/binding.pyx":1134
  *                        const char * filename, const char * message) noexcept with gil:
  *     lvl = _log_level_c_to_py[header[0].level]
  *     if _log_c.isEnabledFor(lvl):             # <<<<<<<<<<<<<<
@@ -33453,9 +33501,9 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_log_recv(CYTHON_UNUSED vo
  *         msg = message.decode('utf-8')
 */
   __pyx_t_1 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_log_c); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1126, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_log_c); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1134, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_isEnabledFor); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1126, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_isEnabledFor); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1134, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_5 = 1;
@@ -33475,40 +33523,40 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_log_recv(CYTHON_UNUSED vo
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1126, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1134, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1126, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 1134, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_6) {
 
-    /* "pyjoulescope_driver/binding.pyx":1127
+    /* "pyjoulescope_driver/binding.pyx":1135
  *     lvl = _log_level_c_to_py[header[0].level]
  *     if _log_c.isEnabledFor(lvl):
  *         fname = filename.decode('utf-8')             # <<<<<<<<<<<<<<
  *         msg = message.decode('utf-8')
  *         record = _log_c.makeRecord(_log_c_name, lvl, fname, header[0].line, msg, [], None)
 */
-    __pyx_t_7 = __Pyx_ssize_strlen(__pyx_v_filename); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1127, __pyx_L1_error)
-    __pyx_t_2 = __Pyx_decode_c_string(__pyx_v_filename, 0, __pyx_t_7, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1127, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_ssize_strlen(__pyx_v_filename); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1135, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_decode_c_string(__pyx_v_filename, 0, __pyx_t_7, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1135, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_v_fname = __pyx_t_2;
     __pyx_t_2 = 0;
 
-    /* "pyjoulescope_driver/binding.pyx":1128
+    /* "pyjoulescope_driver/binding.pyx":1136
  *     if _log_c.isEnabledFor(lvl):
  *         fname = filename.decode('utf-8')
  *         msg = message.decode('utf-8')             # <<<<<<<<<<<<<<
  *         record = _log_c.makeRecord(_log_c_name, lvl, fname, header[0].line, msg, [], None)
  *         _log_c.handle(record)
 */
-    __pyx_t_7 = __Pyx_ssize_strlen(__pyx_v_message); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1128, __pyx_L1_error)
-    __pyx_t_2 = __Pyx_decode_c_string(__pyx_v_message, 0, __pyx_t_7, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1128, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_ssize_strlen(__pyx_v_message); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1136, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_decode_c_string(__pyx_v_message, 0, __pyx_t_7, NULL, NULL, PyUnicode_DecodeUTF8); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1136, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_v_msg = __pyx_t_2;
     __pyx_t_2 = 0;
 
-    /* "pyjoulescope_driver/binding.pyx":1129
+    /* "pyjoulescope_driver/binding.pyx":1137
  *         fname = filename.decode('utf-8')
  *         msg = message.decode('utf-8')
  *         record = _log_c.makeRecord(_log_c_name, lvl, fname, header[0].line, msg, [], None)             # <<<<<<<<<<<<<<
@@ -33516,16 +33564,16 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_log_recv(CYTHON_UNUSED vo
  * 
 */
     __pyx_t_4 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_log_c); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1129, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_log_c); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1137, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_makeRecord); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1129, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_makeRecord); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1137, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_log_c_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1129, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_log_c_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1137, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_8 = __Pyx_PyLong_From_uint32_t((__pyx_v_header[0]).line); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1129, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyLong_From_uint32_t((__pyx_v_header[0]).line); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1137, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_9 = PyList_New(0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1129, __pyx_L1_error)
+    __pyx_t_9 = PyList_New(0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1137, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -33547,13 +33595,13 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_log_recv(CYTHON_UNUSED vo
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1129, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1137, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __pyx_v_record = __pyx_t_2;
     __pyx_t_2 = 0;
 
-    /* "pyjoulescope_driver/binding.pyx":1130
+    /* "pyjoulescope_driver/binding.pyx":1138
  *         msg = message.decode('utf-8')
  *         record = _log_c.makeRecord(_log_c_name, lvl, fname, header[0].line, msg, [], None)
  *         _log_c.handle(record)             # <<<<<<<<<<<<<<
@@ -33561,9 +33609,9 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_log_recv(CYTHON_UNUSED vo
  * 
 */
     __pyx_t_3 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_log_c); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1130, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_log_c); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1138, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_handle); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1130, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_handle); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1138, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __pyx_t_5 = 1;
@@ -33583,12 +33631,12 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_log_recv(CYTHON_UNUSED vo
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1130, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1138, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "pyjoulescope_driver/binding.pyx":1126
+    /* "pyjoulescope_driver/binding.pyx":1134
  *                        const char * filename, const char * message) noexcept with gil:
  *     lvl = _log_level_c_to_py[header[0].level]
  *     if _log_c.isEnabledFor(lvl):             # <<<<<<<<<<<<<<
@@ -33597,7 +33645,7 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_log_recv(CYTHON_UNUSED vo
 */
   }
 
-  /* "pyjoulescope_driver/binding.pyx":1123
+  /* "pyjoulescope_driver/binding.pyx":1131
  * 
  * 
  * cdef void _on_log_recv(void * user_data, const c_jsdrv.jsdrv_log_header_s * header,             # <<<<<<<<<<<<<<
@@ -33624,7 +33672,7 @@ static void __pyx_f_19pyjoulescope_driver_7binding__on_log_recv(CYTHON_UNUSED vo
   __Pyx_PyGILState_Release(__pyx_gilstate_save);
 }
 
-/* "pyjoulescope_driver/binding.pyx":1133
+/* "pyjoulescope_driver/binding.pyx":1141
  * 
  * 
  * def calibration_hash(msg):             # <<<<<<<<<<<<<<
@@ -33671,32 +33719,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_msg,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1133, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 1141, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1133, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1141, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "calibration_hash", 0) < (0)) __PYX_ERR(0, 1133, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "calibration_hash", 0) < (0)) __PYX_ERR(0, 1141, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("calibration_hash", 1, 1, 1, i); __PYX_ERR(0, 1133, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("calibration_hash", 1, 1, 1, i); __PYX_ERR(0, 1141, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1133, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1141, __pyx_L3_error)
     }
     __pyx_v_msg = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("calibration_hash", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1133, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("calibration_hash", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1141, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -33744,18 +33792,18 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6calibration_hash(CYTHO
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("calibration_hash", 0);
 
-  /* "pyjoulescope_driver/binding.pyx":1137
+  /* "pyjoulescope_driver/binding.pyx":1145
  *     cdef uint32_t[:] hash_u32
  * 
  *     if (len(msg) % 32) != 0:             # <<<<<<<<<<<<<<
  *         raise ValueError('msg length must be multiple of 32 bytes')
  * 
 */
-  __pyx_t_1 = PyObject_Length(__pyx_v_msg); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1137, __pyx_L1_error)
+  __pyx_t_1 = PyObject_Length(__pyx_v_msg); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1145, __pyx_L1_error)
   __pyx_t_2 = (__Pyx_mod_Py_ssize_t(__pyx_t_1, 32, 1) != 0);
   if (unlikely(__pyx_t_2)) {
 
-    /* "pyjoulescope_driver/binding.pyx":1138
+    /* "pyjoulescope_driver/binding.pyx":1146
  * 
  *     if (len(msg) % 32) != 0:
  *         raise ValueError('msg length must be multiple of 32 bytes')             # <<<<<<<<<<<<<<
@@ -33768,14 +33816,14 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6calibration_hash(CYTHO
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_msg_length_must_be_multiple_of_3};
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1138, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1146, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 1138, __pyx_L1_error)
+    __PYX_ERR(0, 1146, __pyx_L1_error)
 
-    /* "pyjoulescope_driver/binding.pyx":1137
+    /* "pyjoulescope_driver/binding.pyx":1145
  *     cdef uint32_t[:] hash_u32
  * 
  *     if (len(msg) % 32) != 0:             # <<<<<<<<<<<<<<
@@ -33784,7 +33832,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6calibration_hash(CYTHO
 */
   }
 
-  /* "pyjoulescope_driver/binding.pyx":1140
+  /* "pyjoulescope_driver/binding.pyx":1148
  *         raise ValueError('msg length must be multiple of 32 bytes')
  * 
  *     msg_np = np.empty(len(msg) // 4, dtype=np.uint32)             # <<<<<<<<<<<<<<
@@ -33792,17 +33840,17 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6calibration_hash(CYTHO
  *     msg_u32 = msg_np
 */
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1140, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1148, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1140, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1148, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  __pyx_t_1 = PyObject_Length(__pyx_v_msg); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1140, __pyx_L1_error)
-  __pyx_t_6 = PyLong_FromSsize_t(__Pyx_div_Py_ssize_t(__pyx_t_1, 4, 1)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1140, __pyx_L1_error)
+  __pyx_t_1 = PyObject_Length(__pyx_v_msg); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1148, __pyx_L1_error)
+  __pyx_t_6 = PyLong_FromSsize_t(__Pyx_div_Py_ssize_t(__pyx_t_1, 4, 1)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1148, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1140, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1148, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_uint32); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1140, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_uint32); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1148, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   __pyx_t_5 = 1;
@@ -33819,22 +33867,22 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6calibration_hash(CYTHO
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_4, __pyx_t_6};
-    __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1140, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1148, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_9, __pyx_t_8, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 1140, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_9, __pyx_t_8, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 1148, __pyx_L1_error)
     __pyx_t_3 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_7, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_8);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1140, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1148, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __pyx_v_msg_np = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1141
+  /* "pyjoulescope_driver/binding.pyx":1149
  * 
  *     msg_np = np.empty(len(msg) // 4, dtype=np.uint32)
  *     msg_np.view(dtype=np.uint8)[:] = msg             # <<<<<<<<<<<<<<
@@ -33843,40 +33891,40 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6calibration_hash(CYTHO
 */
   __pyx_t_7 = __pyx_v_msg_np;
   __Pyx_INCREF(__pyx_t_7);
-  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1141, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1149, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_uint8); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1141, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_uint8); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1149, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   __pyx_t_5 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_7, NULL};
-    __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1141, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1149, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_9, __pyx_t_8, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 1141, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_9, __pyx_t_8, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 1149, __pyx_L1_error)
     __pyx_t_3 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_view, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_8);
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1141, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1149, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
-  if (__Pyx_PyObject_SetSlice(__pyx_t_3, __pyx_v_msg, 0, 0, NULL, NULL, &__pyx_mstate_global->__pyx_slice[0], 0, 0, 1) < (0)) __PYX_ERR(0, 1141, __pyx_L1_error)
+  if (__Pyx_PyObject_SetSlice(__pyx_t_3, __pyx_v_msg, 0, 0, NULL, NULL, &__pyx_mstate_global->__pyx_slice[0], 0, 0, 1) < (0)) __PYX_ERR(0, 1149, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1142
+  /* "pyjoulescope_driver/binding.pyx":1150
  *     msg_np = np.empty(len(msg) // 4, dtype=np.uint32)
  *     msg_np.view(dtype=np.uint8)[:] = msg
  *     msg_u32 = msg_np             # <<<<<<<<<<<<<<
  * 
  *     hash = np.zeros(16, dtype=np.uint32)
 */
-  __pyx_t_10 = __Pyx_PyObject_to_MemoryviewSlice_ds_nn_uint32_t__const__(__pyx_v_msg_np, 0); if (unlikely(!__pyx_t_10.memview)) __PYX_ERR(0, 1142, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_to_MemoryviewSlice_ds_nn_uint32_t__const__(__pyx_v_msg_np, 0); if (unlikely(!__pyx_t_10.memview)) __PYX_ERR(0, 1150, __pyx_L1_error)
   __pyx_v_msg_u32 = __pyx_t_10;
   __pyx_t_10.memview = NULL;
   __pyx_t_10.data = NULL;
 
-  /* "pyjoulescope_driver/binding.pyx":1144
+  /* "pyjoulescope_driver/binding.pyx":1152
  *     msg_u32 = msg_np
  * 
  *     hash = np.zeros(16, dtype=np.uint32)             # <<<<<<<<<<<<<<
@@ -33884,14 +33932,14 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6calibration_hash(CYTHO
  *     rc = c_jsdrv.jsdrv_calibration_hash(&msg_u32[0], len(msg), &hash_u32[0])
 */
   __pyx_t_8 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1144, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1152, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1144, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_zeros); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1152, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1144, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1152, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_uint32); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1144, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_uint32); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1152, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   __pyx_t_5 = 1;
@@ -33908,33 +33956,33 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6calibration_hash(CYTHO
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_8, __pyx_mstate_global->__pyx_int_16};
-    __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1144, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1152, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_6, __pyx_t_9, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 1144, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_6, __pyx_t_9, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 1152, __pyx_L1_error)
     __pyx_t_3 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_7, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1144, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1152, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __pyx_v_hash = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1145
+  /* "pyjoulescope_driver/binding.pyx":1153
  * 
  *     hash = np.zeros(16, dtype=np.uint32)
  *     hash_u32 = hash             # <<<<<<<<<<<<<<
  *     rc = c_jsdrv.jsdrv_calibration_hash(&msg_u32[0], len(msg), &hash_u32[0])
  *     if rc:
 */
-  __pyx_t_11 = __Pyx_PyObject_to_MemoryviewSlice_ds_nn_uint32_t(__pyx_v_hash, PyBUF_WRITABLE); if (unlikely(!__pyx_t_11.memview)) __PYX_ERR(0, 1145, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_to_MemoryviewSlice_ds_nn_uint32_t(__pyx_v_hash, PyBUF_WRITABLE); if (unlikely(!__pyx_t_11.memview)) __PYX_ERR(0, 1153, __pyx_L1_error)
   __pyx_v_hash_u32 = __pyx_t_11;
   __pyx_t_11.memview = NULL;
   __pyx_t_11.data = NULL;
 
-  /* "pyjoulescope_driver/binding.pyx":1146
+  /* "pyjoulescope_driver/binding.pyx":1154
  *     hash = np.zeros(16, dtype=np.uint32)
  *     hash_u32 = hash
  *     rc = c_jsdrv.jsdrv_calibration_hash(&msg_u32[0], len(msg), &hash_u32[0])             # <<<<<<<<<<<<<<
@@ -33949,9 +33997,9 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6calibration_hash(CYTHO
   } else if (unlikely(__pyx_t_12 >= __pyx_v_msg_u32.shape[0])) __pyx_t_13 = 0;
   if (unlikely(__pyx_t_13 != -1)) {
     __Pyx_RaiseBufferIndexError(__pyx_t_13);
-    __PYX_ERR(0, 1146, __pyx_L1_error)
+    __PYX_ERR(0, 1154, __pyx_L1_error)
   }
-  __pyx_t_1 = PyObject_Length(__pyx_v_msg); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1146, __pyx_L1_error)
+  __pyx_t_1 = PyObject_Length(__pyx_v_msg); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1154, __pyx_L1_error)
   __pyx_t_14 = 0;
   __pyx_t_13 = -1;
   if (__pyx_t_14 < 0) {
@@ -33960,11 +34008,11 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6calibration_hash(CYTHO
   } else if (unlikely(__pyx_t_14 >= __pyx_v_hash_u32.shape[0])) __pyx_t_13 = 0;
   if (unlikely(__pyx_t_13 != -1)) {
     __Pyx_RaiseBufferIndexError(__pyx_t_13);
-    __PYX_ERR(0, 1146, __pyx_L1_error)
+    __PYX_ERR(0, 1154, __pyx_L1_error)
   }
   __pyx_v_rc = jsdrv_calibration_hash((&(*((uint32_t const  *) ( /* dim=0 */ (__pyx_v_msg_u32.data + __pyx_t_12 * __pyx_v_msg_u32.strides[0]) )))), __pyx_t_1, (&(*((uint32_t *) ( /* dim=0 */ (__pyx_v_hash_u32.data + __pyx_t_14 * __pyx_v_hash_u32.strides[0]) )))));
 
-  /* "pyjoulescope_driver/binding.pyx":1147
+  /* "pyjoulescope_driver/binding.pyx":1155
  *     hash_u32 = hash
  *     rc = c_jsdrv.jsdrv_calibration_hash(&msg_u32[0], len(msg), &hash_u32[0])
  *     if rc:             # <<<<<<<<<<<<<<
@@ -33974,16 +34022,16 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6calibration_hash(CYTHO
   __pyx_t_2 = (__pyx_v_rc != 0);
   if (unlikely(__pyx_t_2)) {
 
-    /* "pyjoulescope_driver/binding.pyx":1148
+    /* "pyjoulescope_driver/binding.pyx":1156
  *     rc = c_jsdrv.jsdrv_calibration_hash(&msg_u32[0], len(msg), &hash_u32[0])
  *     if rc:
  *         raise ValueError(f'jsdrv_calibration_hash failed: {rc}')             # <<<<<<<<<<<<<<
  *     return hash
 */
     __pyx_t_7 = NULL;
-    __pyx_t_9 = __Pyx_PyUnicode_From_int32_t(__pyx_v_rc, 0, ' ', 'd'); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1148, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyUnicode_From_int32_t(__pyx_v_rc, 0, ' ', 'd'); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1156, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __pyx_t_6 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_jsdrv_calibration_hash_failed, __pyx_t_9); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1148, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_jsdrv_calibration_hash_failed, __pyx_t_9); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1156, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __pyx_t_5 = 1;
@@ -33992,14 +34040,14 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6calibration_hash(CYTHO
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1148, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1156, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 1148, __pyx_L1_error)
+    __PYX_ERR(0, 1156, __pyx_L1_error)
 
-    /* "pyjoulescope_driver/binding.pyx":1147
+    /* "pyjoulescope_driver/binding.pyx":1155
  *     hash_u32 = hash
  *     rc = c_jsdrv.jsdrv_calibration_hash(&msg_u32[0], len(msg), &hash_u32[0])
  *     if rc:             # <<<<<<<<<<<<<<
@@ -34008,7 +34056,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6calibration_hash(CYTHO
 */
   }
 
-  /* "pyjoulescope_driver/binding.pyx":1149
+  /* "pyjoulescope_driver/binding.pyx":1157
  *     if rc:
  *         raise ValueError(f'jsdrv_calibration_hash failed: {rc}')
  *     return hash             # <<<<<<<<<<<<<<
@@ -34018,7 +34066,7 @@ static PyObject *__pyx_pf_19pyjoulescope_driver_7binding_6calibration_hash(CYTHO
   __pyx_r = __pyx_v_hash;
   goto __pyx_L0;
 
-  /* "pyjoulescope_driver/binding.pyx":1133
+  /* "pyjoulescope_driver/binding.pyx":1141
  * 
  * 
  * def calibration_hash(msg):             # <<<<<<<<<<<<<<
@@ -35510,15 +35558,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_TimeMap, (PyObject *) __pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding_TimeMap) < (0)) __PYX_ERR(0, 93, __pyx_L1_error)
   if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding_TimeMap) < (0)) __PYX_ERR(0, 93, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding_Driver = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_19pyjoulescope_driver_7binding_Driver_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding_Driver)) __PYX_ERR(0, 780, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_19pyjoulescope_driver_7binding_Driver_spec, __pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding_Driver) < (0)) __PYX_ERR(0, 780, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding_Driver = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_19pyjoulescope_driver_7binding_Driver_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding_Driver)) __PYX_ERR(0, 785, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_19pyjoulescope_driver_7binding_Driver_spec, __pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding_Driver) < (0)) __PYX_ERR(0, 785, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding_Driver = &__pyx_type_19pyjoulescope_driver_7binding_Driver;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding_Driver) < (0)) __PYX_ERR(0, 780, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding_Driver) < (0)) __PYX_ERR(0, 785, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding_Driver);
@@ -35528,18 +35576,18 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding_Driver->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_Driver, (PyObject *) __pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding_Driver) < (0)) __PYX_ERR(0, 780, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding_Driver) < (0)) __PYX_ERR(0, 780, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_Driver, (PyObject *) __pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding_Driver) < (0)) __PYX_ERR(0, 785, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding_Driver) < (0)) __PYX_ERR(0, 785, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding___pyx_scope_struct__publish_and_wait = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_19pyjoulescope_driver_7binding___pyx_scope_struct__publish_and_wait_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding___pyx_scope_struct__publish_and_wait)) __PYX_ERR(0, 924, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_19pyjoulescope_driver_7binding___pyx_scope_struct__publish_and_wait_spec, __pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding___pyx_scope_struct__publish_and_wait) < (0)) __PYX_ERR(0, 924, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding___pyx_scope_struct__publish_and_wait = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_19pyjoulescope_driver_7binding___pyx_scope_struct__publish_and_wait_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding___pyx_scope_struct__publish_and_wait)) __PYX_ERR(0, 929, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_19pyjoulescope_driver_7binding___pyx_scope_struct__publish_and_wait_spec, __pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding___pyx_scope_struct__publish_and_wait) < (0)) __PYX_ERR(0, 929, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding___pyx_scope_struct__publish_and_wait = &__pyx_type_19pyjoulescope_driver_7binding___pyx_scope_struct__publish_and_wait;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding___pyx_scope_struct__publish_and_wait) < (0)) __PYX_ERR(0, 924, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding___pyx_scope_struct__publish_and_wait) < (0)) __PYX_ERR(0, 929, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_19pyjoulescope_driver_7binding___pyx_scope_struct__publish_and_wait);
@@ -37520,1817 +37568,1817 @@ __Pyx_RefNannySetupContext("PyInit_binding", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_4) < (0)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":551
+  /* "pyjoulescope_driver/binding.pyx":556
  * 
  * 
  * class ErrorCode:             # <<<<<<<<<<<<<<
  *     """The error code enumeration."""
  *     # automatically maintained by error_code_update.py
 */
-  __pyx_t_4 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_ErrorCode, __pyx_mstate_global->__pyx_n_u_ErrorCode, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_kp_u_The_error_code_enumeration); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 551, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_ErrorCode, __pyx_mstate_global->__pyx_n_u_ErrorCode, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_kp_u_The_error_code_enumeration); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 556, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
 
-  /* "pyjoulescope_driver/binding.pyx":555
+  /* "pyjoulescope_driver/binding.pyx":560
  *     # automatically maintained by error_code_update.py
  *     # ENUM_ERROR_CODE_START
  *     SUCCESS                     = 0             # <<<<<<<<<<<<<<
  *     UNSPECIFIED                 = 1
  *     NOT_ENOUGH_MEMORY           = 2
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SUCCESS, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 555, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SUCCESS, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 560, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":556
+  /* "pyjoulescope_driver/binding.pyx":561
  *     # ENUM_ERROR_CODE_START
  *     SUCCESS                     = 0
  *     UNSPECIFIED                 = 1             # <<<<<<<<<<<<<<
  *     NOT_ENOUGH_MEMORY           = 2
  *     NOT_SUPPORTED               = 3
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_UNSPECIFIED, __pyx_mstate_global->__pyx_int_1) < (0)) __PYX_ERR(0, 556, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_UNSPECIFIED, __pyx_mstate_global->__pyx_int_1) < (0)) __PYX_ERR(0, 561, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":557
+  /* "pyjoulescope_driver/binding.pyx":562
  *     SUCCESS                     = 0
  *     UNSPECIFIED                 = 1
  *     NOT_ENOUGH_MEMORY           = 2             # <<<<<<<<<<<<<<
  *     NOT_SUPPORTED               = 3
  *     IO                          = 4
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_NOT_ENOUGH_MEMORY, __pyx_mstate_global->__pyx_int_2) < (0)) __PYX_ERR(0, 557, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_NOT_ENOUGH_MEMORY, __pyx_mstate_global->__pyx_int_2) < (0)) __PYX_ERR(0, 562, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":558
+  /* "pyjoulescope_driver/binding.pyx":563
  *     UNSPECIFIED                 = 1
  *     NOT_ENOUGH_MEMORY           = 2
  *     NOT_SUPPORTED               = 3             # <<<<<<<<<<<<<<
  *     IO                          = 4
  *     PARAMETER_INVALID           = 5
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_NOT_SUPPORTED, __pyx_mstate_global->__pyx_int_3) < (0)) __PYX_ERR(0, 558, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_NOT_SUPPORTED, __pyx_mstate_global->__pyx_int_3) < (0)) __PYX_ERR(0, 563, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":559
+  /* "pyjoulescope_driver/binding.pyx":564
  *     NOT_ENOUGH_MEMORY           = 2
  *     NOT_SUPPORTED               = 3
  *     IO                          = 4             # <<<<<<<<<<<<<<
  *     PARAMETER_INVALID           = 5
  *     INVALID_RETURN_CONDITION    = 6
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_IO, __pyx_mstate_global->__pyx_int_4) < (0)) __PYX_ERR(0, 559, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_IO, __pyx_mstate_global->__pyx_int_4) < (0)) __PYX_ERR(0, 564, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":560
+  /* "pyjoulescope_driver/binding.pyx":565
  *     NOT_SUPPORTED               = 3
  *     IO                          = 4
  *     PARAMETER_INVALID           = 5             # <<<<<<<<<<<<<<
  *     INVALID_RETURN_CONDITION    = 6
  *     INVALID_CONTEXT             = 7
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_PARAMETER_INVALID, __pyx_mstate_global->__pyx_int_5) < (0)) __PYX_ERR(0, 560, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_PARAMETER_INVALID, __pyx_mstate_global->__pyx_int_5) < (0)) __PYX_ERR(0, 565, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":561
+  /* "pyjoulescope_driver/binding.pyx":566
  *     IO                          = 4
  *     PARAMETER_INVALID           = 5
  *     INVALID_RETURN_CONDITION    = 6             # <<<<<<<<<<<<<<
  *     INVALID_CONTEXT             = 7
  *     INVALID_MESSAGE_LENGTH      = 8
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_INVALID_RETURN_CONDITION, __pyx_mstate_global->__pyx_int_6) < (0)) __PYX_ERR(0, 561, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_INVALID_RETURN_CONDITION, __pyx_mstate_global->__pyx_int_6) < (0)) __PYX_ERR(0, 566, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":562
+  /* "pyjoulescope_driver/binding.pyx":567
  *     PARAMETER_INVALID           = 5
  *     INVALID_RETURN_CONDITION    = 6
  *     INVALID_CONTEXT             = 7             # <<<<<<<<<<<<<<
  *     INVALID_MESSAGE_LENGTH      = 8
  *     MESSAGE_INTEGRITY           = 9
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_INVALID_CONTEXT, __pyx_mstate_global->__pyx_int_7) < (0)) __PYX_ERR(0, 562, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_INVALID_CONTEXT, __pyx_mstate_global->__pyx_int_7) < (0)) __PYX_ERR(0, 567, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":563
+  /* "pyjoulescope_driver/binding.pyx":568
  *     INVALID_RETURN_CONDITION    = 6
  *     INVALID_CONTEXT             = 7
  *     INVALID_MESSAGE_LENGTH      = 8             # <<<<<<<<<<<<<<
  *     MESSAGE_INTEGRITY           = 9
  *     SYNTAX_ERROR                = 10
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_INVALID_MESSAGE_LENGTH, __pyx_mstate_global->__pyx_int_8) < (0)) __PYX_ERR(0, 563, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_INVALID_MESSAGE_LENGTH, __pyx_mstate_global->__pyx_int_8) < (0)) __PYX_ERR(0, 568, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":564
+  /* "pyjoulescope_driver/binding.pyx":569
  *     INVALID_CONTEXT             = 7
  *     INVALID_MESSAGE_LENGTH      = 8
  *     MESSAGE_INTEGRITY           = 9             # <<<<<<<<<<<<<<
  *     SYNTAX_ERROR                = 10
  *     TIMED_OUT                   = 11
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_MESSAGE_INTEGRITY, __pyx_mstate_global->__pyx_int_9) < (0)) __PYX_ERR(0, 564, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_MESSAGE_INTEGRITY, __pyx_mstate_global->__pyx_int_9) < (0)) __PYX_ERR(0, 569, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":565
+  /* "pyjoulescope_driver/binding.pyx":570
  *     INVALID_MESSAGE_LENGTH      = 8
  *     MESSAGE_INTEGRITY           = 9
  *     SYNTAX_ERROR                = 10             # <<<<<<<<<<<<<<
  *     TIMED_OUT                   = 11
  *     FULL                        = 12
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SYNTAX_ERROR, __pyx_mstate_global->__pyx_int_10) < (0)) __PYX_ERR(0, 565, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SYNTAX_ERROR, __pyx_mstate_global->__pyx_int_10) < (0)) __PYX_ERR(0, 570, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":566
+  /* "pyjoulescope_driver/binding.pyx":571
  *     MESSAGE_INTEGRITY           = 9
  *     SYNTAX_ERROR                = 10
  *     TIMED_OUT                   = 11             # <<<<<<<<<<<<<<
  *     FULL                        = 12
  *     EMPTY                       = 13
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_TIMED_OUT, __pyx_mstate_global->__pyx_int_11) < (0)) __PYX_ERR(0, 566, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_TIMED_OUT, __pyx_mstate_global->__pyx_int_11) < (0)) __PYX_ERR(0, 571, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":567
+  /* "pyjoulescope_driver/binding.pyx":572
  *     SYNTAX_ERROR                = 10
  *     TIMED_OUT                   = 11
  *     FULL                        = 12             # <<<<<<<<<<<<<<
  *     EMPTY                       = 13
  *     TOO_SMALL                   = 14
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FULL, __pyx_mstate_global->__pyx_int_12) < (0)) __PYX_ERR(0, 567, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FULL, __pyx_mstate_global->__pyx_int_12) < (0)) __PYX_ERR(0, 572, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":568
+  /* "pyjoulescope_driver/binding.pyx":573
  *     TIMED_OUT                   = 11
  *     FULL                        = 12
  *     EMPTY                       = 13             # <<<<<<<<<<<<<<
  *     TOO_SMALL                   = 14
  *     TOO_BIG                     = 15
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_EMPTY, __pyx_mstate_global->__pyx_int_13) < (0)) __PYX_ERR(0, 568, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_EMPTY, __pyx_mstate_global->__pyx_int_13) < (0)) __PYX_ERR(0, 573, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":569
+  /* "pyjoulescope_driver/binding.pyx":574
  *     FULL                        = 12
  *     EMPTY                       = 13
  *     TOO_SMALL                   = 14             # <<<<<<<<<<<<<<
  *     TOO_BIG                     = 15
  *     NOT_FOUND                   = 16
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_TOO_SMALL, __pyx_mstate_global->__pyx_int_14) < (0)) __PYX_ERR(0, 569, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_TOO_SMALL, __pyx_mstate_global->__pyx_int_14) < (0)) __PYX_ERR(0, 574, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":570
+  /* "pyjoulescope_driver/binding.pyx":575
  *     EMPTY                       = 13
  *     TOO_SMALL                   = 14
  *     TOO_BIG                     = 15             # <<<<<<<<<<<<<<
  *     NOT_FOUND                   = 16
  *     ALREADY_EXISTS              = 17
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_TOO_BIG, __pyx_mstate_global->__pyx_int_15) < (0)) __PYX_ERR(0, 570, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_TOO_BIG, __pyx_mstate_global->__pyx_int_15) < (0)) __PYX_ERR(0, 575, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":571
+  /* "pyjoulescope_driver/binding.pyx":576
  *     TOO_SMALL                   = 14
  *     TOO_BIG                     = 15
  *     NOT_FOUND                   = 16             # <<<<<<<<<<<<<<
  *     ALREADY_EXISTS              = 17
  *     PERMISSIONS                 = 18
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_NOT_FOUND, __pyx_mstate_global->__pyx_int_16) < (0)) __PYX_ERR(0, 571, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_NOT_FOUND, __pyx_mstate_global->__pyx_int_16) < (0)) __PYX_ERR(0, 576, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":572
+  /* "pyjoulescope_driver/binding.pyx":577
  *     TOO_BIG                     = 15
  *     NOT_FOUND                   = 16
  *     ALREADY_EXISTS              = 17             # <<<<<<<<<<<<<<
  *     PERMISSIONS                 = 18
  *     BUSY                        = 19
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ALREADY_EXISTS, __pyx_mstate_global->__pyx_int_17) < (0)) __PYX_ERR(0, 572, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ALREADY_EXISTS, __pyx_mstate_global->__pyx_int_17) < (0)) __PYX_ERR(0, 577, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":573
+  /* "pyjoulescope_driver/binding.pyx":578
  *     NOT_FOUND                   = 16
  *     ALREADY_EXISTS              = 17
  *     PERMISSIONS                 = 18             # <<<<<<<<<<<<<<
  *     BUSY                        = 19
  *     UNAVAILABLE                 = 20
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_PERMISSIONS, __pyx_mstate_global->__pyx_int_18) < (0)) __PYX_ERR(0, 573, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_PERMISSIONS, __pyx_mstate_global->__pyx_int_18) < (0)) __PYX_ERR(0, 578, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":574
+  /* "pyjoulescope_driver/binding.pyx":579
  *     ALREADY_EXISTS              = 17
  *     PERMISSIONS                 = 18
  *     BUSY                        = 19             # <<<<<<<<<<<<<<
  *     UNAVAILABLE                 = 20
  *     IN_USE                      = 21
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_BUSY, __pyx_mstate_global->__pyx_int_19) < (0)) __PYX_ERR(0, 574, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_BUSY, __pyx_mstate_global->__pyx_int_19) < (0)) __PYX_ERR(0, 579, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":575
+  /* "pyjoulescope_driver/binding.pyx":580
  *     PERMISSIONS                 = 18
  *     BUSY                        = 19
  *     UNAVAILABLE                 = 20             # <<<<<<<<<<<<<<
  *     IN_USE                      = 21
  *     CLOSED                      = 22
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_UNAVAILABLE, __pyx_mstate_global->__pyx_int_20) < (0)) __PYX_ERR(0, 575, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_UNAVAILABLE, __pyx_mstate_global->__pyx_int_20) < (0)) __PYX_ERR(0, 580, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":576
+  /* "pyjoulescope_driver/binding.pyx":581
  *     BUSY                        = 19
  *     UNAVAILABLE                 = 20
  *     IN_USE                      = 21             # <<<<<<<<<<<<<<
  *     CLOSED                      = 22
  *     SEQUENCE                    = 23
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_IN_USE, __pyx_mstate_global->__pyx_int_21) < (0)) __PYX_ERR(0, 576, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_IN_USE, __pyx_mstate_global->__pyx_int_21) < (0)) __PYX_ERR(0, 581, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":577
+  /* "pyjoulescope_driver/binding.pyx":582
  *     UNAVAILABLE                 = 20
  *     IN_USE                      = 21
  *     CLOSED                      = 22             # <<<<<<<<<<<<<<
  *     SEQUENCE                    = 23
  *     ABORTED                     = 24
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_CLOSED, __pyx_mstate_global->__pyx_int_22) < (0)) __PYX_ERR(0, 577, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_CLOSED, __pyx_mstate_global->__pyx_int_22) < (0)) __PYX_ERR(0, 582, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":578
+  /* "pyjoulescope_driver/binding.pyx":583
  *     IN_USE                      = 21
  *     CLOSED                      = 22
  *     SEQUENCE                    = 23             # <<<<<<<<<<<<<<
  *     ABORTED                     = 24
  *     SYNCHRONIZATION             = 25
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SEQUENCE, __pyx_mstate_global->__pyx_int_23) < (0)) __PYX_ERR(0, 578, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SEQUENCE, __pyx_mstate_global->__pyx_int_23) < (0)) __PYX_ERR(0, 583, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":579
+  /* "pyjoulescope_driver/binding.pyx":584
  *     CLOSED                      = 22
  *     SEQUENCE                    = 23
  *     ABORTED                     = 24             # <<<<<<<<<<<<<<
  *     SYNCHRONIZATION             = 25
  *     # ENUM_ERROR_CODE_END
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ABORTED, __pyx_mstate_global->__pyx_int_24) < (0)) __PYX_ERR(0, 579, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ABORTED, __pyx_mstate_global->__pyx_int_24) < (0)) __PYX_ERR(0, 584, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":580
+  /* "pyjoulescope_driver/binding.pyx":585
  *     SEQUENCE                    = 23
  *     ABORTED                     = 24
  *     SYNCHRONIZATION             = 25             # <<<<<<<<<<<<<<
  *     # ENUM_ERROR_CODE_END
  * 
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SYNCHRONIZATION, __pyx_mstate_global->__pyx_int_25) < (0)) __PYX_ERR(0, 580, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SYNCHRONIZATION, __pyx_mstate_global->__pyx_int_25) < (0)) __PYX_ERR(0, 585, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":551
+  /* "pyjoulescope_driver/binding.pyx":556
  * 
  * 
  * class ErrorCode:             # <<<<<<<<<<<<<<
  *     """The error code enumeration."""
  *     # automatically maintained by error_code_update.py
 */
-  __pyx_t_10 = __Pyx_Py3ClassCreate(((PyObject*)&PyType_Type), __pyx_mstate_global->__pyx_n_u_ErrorCode, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_4, NULL, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 551, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_Py3ClassCreate(((PyObject*)&PyType_Type), __pyx_mstate_global->__pyx_n_u_ErrorCode, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_4, NULL, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 556, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_10);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_ErrorCode, __pyx_t_10) < (0)) __PYX_ERR(0, 551, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_ErrorCode, __pyx_t_10) < (0)) __PYX_ERR(0, 556, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":587
+  /* "pyjoulescope_driver/binding.pyx":592
  *     # automatically maintained by error_code_update.py
  *     # ENUM_ERROR_CODE_META_START
  *     0: (0, 'SUCCESS', 'Success (no error)'),             # <<<<<<<<<<<<<<
  *     1: (1, 'UNSPECIFIED', 'Unspecified error'),
  *     2: (2, 'NOT_ENOUGH_MEMORY', 'Insufficient memory to complete the operation'),
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(52); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 587, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(52); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 592, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_tuple[6]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_tuple[6]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":588
+  /* "pyjoulescope_driver/binding.pyx":593
  *     # ENUM_ERROR_CODE_META_START
  *     0: (0, 'SUCCESS', 'Success (no error)'),
  *     1: (1, 'UNSPECIFIED', 'Unspecified error'),             # <<<<<<<<<<<<<<
  *     2: (2, 'NOT_ENOUGH_MEMORY', 'Insufficient memory to complete the operation'),
  *     3: (3, 'NOT_SUPPORTED', 'Operation is not supported'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_1, __pyx_mstate_global->__pyx_tuple[7]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_1, __pyx_mstate_global->__pyx_tuple[7]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":589
+  /* "pyjoulescope_driver/binding.pyx":594
  *     0: (0, 'SUCCESS', 'Success (no error)'),
  *     1: (1, 'UNSPECIFIED', 'Unspecified error'),
  *     2: (2, 'NOT_ENOUGH_MEMORY', 'Insufficient memory to complete the operation'),             # <<<<<<<<<<<<<<
  *     3: (3, 'NOT_SUPPORTED', 'Operation is not supported'),
  *     4: (4, 'IO', 'Input/output error'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_2, __pyx_mstate_global->__pyx_tuple[8]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_2, __pyx_mstate_global->__pyx_tuple[8]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":590
+  /* "pyjoulescope_driver/binding.pyx":595
  *     1: (1, 'UNSPECIFIED', 'Unspecified error'),
  *     2: (2, 'NOT_ENOUGH_MEMORY', 'Insufficient memory to complete the operation'),
  *     3: (3, 'NOT_SUPPORTED', 'Operation is not supported'),             # <<<<<<<<<<<<<<
  *     4: (4, 'IO', 'Input/output error'),
  *     5: (5, 'PARAMETER_INVALID', 'The parameter value is invalid'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_3, __pyx_mstate_global->__pyx_tuple[9]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_3, __pyx_mstate_global->__pyx_tuple[9]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":591
+  /* "pyjoulescope_driver/binding.pyx":596
  *     2: (2, 'NOT_ENOUGH_MEMORY', 'Insufficient memory to complete the operation'),
  *     3: (3, 'NOT_SUPPORTED', 'Operation is not supported'),
  *     4: (4, 'IO', 'Input/output error'),             # <<<<<<<<<<<<<<
  *     5: (5, 'PARAMETER_INVALID', 'The parameter value is invalid'),
  *     6: (6, 'INVALID_RETURN_CONDITION', 'The function return condition is invalid'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_4, __pyx_mstate_global->__pyx_tuple[10]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_4, __pyx_mstate_global->__pyx_tuple[10]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":592
+  /* "pyjoulescope_driver/binding.pyx":597
  *     3: (3, 'NOT_SUPPORTED', 'Operation is not supported'),
  *     4: (4, 'IO', 'Input/output error'),
  *     5: (5, 'PARAMETER_INVALID', 'The parameter value is invalid'),             # <<<<<<<<<<<<<<
  *     6: (6, 'INVALID_RETURN_CONDITION', 'The function return condition is invalid'),
  *     7: (7, 'INVALID_CONTEXT', 'The context is invalid'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_5, __pyx_mstate_global->__pyx_tuple[11]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_5, __pyx_mstate_global->__pyx_tuple[11]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":593
+  /* "pyjoulescope_driver/binding.pyx":598
  *     4: (4, 'IO', 'Input/output error'),
  *     5: (5, 'PARAMETER_INVALID', 'The parameter value is invalid'),
  *     6: (6, 'INVALID_RETURN_CONDITION', 'The function return condition is invalid'),             # <<<<<<<<<<<<<<
  *     7: (7, 'INVALID_CONTEXT', 'The context is invalid'),
  *     8: (8, 'INVALID_MESSAGE_LENGTH', 'The message length is invalid'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_6, __pyx_mstate_global->__pyx_tuple[12]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_6, __pyx_mstate_global->__pyx_tuple[12]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":594
+  /* "pyjoulescope_driver/binding.pyx":599
  *     5: (5, 'PARAMETER_INVALID', 'The parameter value is invalid'),
  *     6: (6, 'INVALID_RETURN_CONDITION', 'The function return condition is invalid'),
  *     7: (7, 'INVALID_CONTEXT', 'The context is invalid'),             # <<<<<<<<<<<<<<
  *     8: (8, 'INVALID_MESSAGE_LENGTH', 'The message length is invalid'),
  *     9: (9, 'MESSAGE_INTEGRITY', 'The message integrity check failed'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_7, __pyx_mstate_global->__pyx_tuple[13]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_7, __pyx_mstate_global->__pyx_tuple[13]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":595
+  /* "pyjoulescope_driver/binding.pyx":600
  *     6: (6, 'INVALID_RETURN_CONDITION', 'The function return condition is invalid'),
  *     7: (7, 'INVALID_CONTEXT', 'The context is invalid'),
  *     8: (8, 'INVALID_MESSAGE_LENGTH', 'The message length is invalid'),             # <<<<<<<<<<<<<<
  *     9: (9, 'MESSAGE_INTEGRITY', 'The message integrity check failed'),
  *     10: (10, 'SYNTAX_ERROR', 'A syntax error was detected'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_8, __pyx_mstate_global->__pyx_tuple[14]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_8, __pyx_mstate_global->__pyx_tuple[14]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":596
+  /* "pyjoulescope_driver/binding.pyx":601
  *     7: (7, 'INVALID_CONTEXT', 'The context is invalid'),
  *     8: (8, 'INVALID_MESSAGE_LENGTH', 'The message length is invalid'),
  *     9: (9, 'MESSAGE_INTEGRITY', 'The message integrity check failed'),             # <<<<<<<<<<<<<<
  *     10: (10, 'SYNTAX_ERROR', 'A syntax error was detected'),
  *     11: (11, 'TIMED_OUT', 'The operation did not complete in time'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_9, __pyx_mstate_global->__pyx_tuple[15]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_9, __pyx_mstate_global->__pyx_tuple[15]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":597
+  /* "pyjoulescope_driver/binding.pyx":602
  *     8: (8, 'INVALID_MESSAGE_LENGTH', 'The message length is invalid'),
  *     9: (9, 'MESSAGE_INTEGRITY', 'The message integrity check failed'),
  *     10: (10, 'SYNTAX_ERROR', 'A syntax error was detected'),             # <<<<<<<<<<<<<<
  *     11: (11, 'TIMED_OUT', 'The operation did not complete in time'),
  *     12: (12, 'FULL', 'The target of the operation is full'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_10, __pyx_mstate_global->__pyx_tuple[16]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_10, __pyx_mstate_global->__pyx_tuple[16]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":598
+  /* "pyjoulescope_driver/binding.pyx":603
  *     9: (9, 'MESSAGE_INTEGRITY', 'The message integrity check failed'),
  *     10: (10, 'SYNTAX_ERROR', 'A syntax error was detected'),
  *     11: (11, 'TIMED_OUT', 'The operation did not complete in time'),             # <<<<<<<<<<<<<<
  *     12: (12, 'FULL', 'The target of the operation is full'),
  *     13: (13, 'EMPTY', 'The target of the operation is empty'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_11, __pyx_mstate_global->__pyx_tuple[17]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_11, __pyx_mstate_global->__pyx_tuple[17]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":599
+  /* "pyjoulescope_driver/binding.pyx":604
  *     10: (10, 'SYNTAX_ERROR', 'A syntax error was detected'),
  *     11: (11, 'TIMED_OUT', 'The operation did not complete in time'),
  *     12: (12, 'FULL', 'The target of the operation is full'),             # <<<<<<<<<<<<<<
  *     13: (13, 'EMPTY', 'The target of the operation is empty'),
  *     14: (14, 'TOO_SMALL', 'The target of the operation is too small'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_12, __pyx_mstate_global->__pyx_tuple[18]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_12, __pyx_mstate_global->__pyx_tuple[18]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":600
+  /* "pyjoulescope_driver/binding.pyx":605
  *     11: (11, 'TIMED_OUT', 'The operation did not complete in time'),
  *     12: (12, 'FULL', 'The target of the operation is full'),
  *     13: (13, 'EMPTY', 'The target of the operation is empty'),             # <<<<<<<<<<<<<<
  *     14: (14, 'TOO_SMALL', 'The target of the operation is too small'),
  *     15: (15, 'TOO_BIG', 'The target of the operation is too big'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_13, __pyx_mstate_global->__pyx_tuple[19]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_13, __pyx_mstate_global->__pyx_tuple[19]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":601
+  /* "pyjoulescope_driver/binding.pyx":606
  *     12: (12, 'FULL', 'The target of the operation is full'),
  *     13: (13, 'EMPTY', 'The target of the operation is empty'),
  *     14: (14, 'TOO_SMALL', 'The target of the operation is too small'),             # <<<<<<<<<<<<<<
  *     15: (15, 'TOO_BIG', 'The target of the operation is too big'),
  *     16: (16, 'NOT_FOUND', 'The requested resource was not found'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_14, __pyx_mstate_global->__pyx_tuple[20]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_14, __pyx_mstate_global->__pyx_tuple[20]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":602
+  /* "pyjoulescope_driver/binding.pyx":607
  *     13: (13, 'EMPTY', 'The target of the operation is empty'),
  *     14: (14, 'TOO_SMALL', 'The target of the operation is too small'),
  *     15: (15, 'TOO_BIG', 'The target of the operation is too big'),             # <<<<<<<<<<<<<<
  *     16: (16, 'NOT_FOUND', 'The requested resource was not found'),
  *     17: (17, 'ALREADY_EXISTS', 'The requested resource already exists'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_15, __pyx_mstate_global->__pyx_tuple[21]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_15, __pyx_mstate_global->__pyx_tuple[21]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":603
+  /* "pyjoulescope_driver/binding.pyx":608
  *     14: (14, 'TOO_SMALL', 'The target of the operation is too small'),
  *     15: (15, 'TOO_BIG', 'The target of the operation is too big'),
  *     16: (16, 'NOT_FOUND', 'The requested resource was not found'),             # <<<<<<<<<<<<<<
  *     17: (17, 'ALREADY_EXISTS', 'The requested resource already exists'),
  *     18: (18, 'PERMISSIONS', 'Insufficient permissions to perform the operation.'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_16, __pyx_mstate_global->__pyx_tuple[22]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_16, __pyx_mstate_global->__pyx_tuple[22]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":604
+  /* "pyjoulescope_driver/binding.pyx":609
  *     15: (15, 'TOO_BIG', 'The target of the operation is too big'),
  *     16: (16, 'NOT_FOUND', 'The requested resource was not found'),
  *     17: (17, 'ALREADY_EXISTS', 'The requested resource already exists'),             # <<<<<<<<<<<<<<
  *     18: (18, 'PERMISSIONS', 'Insufficient permissions to perform the operation.'),
  *     19: (19, 'BUSY', 'The requested resource is currently busy.'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_17, __pyx_mstate_global->__pyx_tuple[23]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_17, __pyx_mstate_global->__pyx_tuple[23]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":605
+  /* "pyjoulescope_driver/binding.pyx":610
  *     16: (16, 'NOT_FOUND', 'The requested resource was not found'),
  *     17: (17, 'ALREADY_EXISTS', 'The requested resource already exists'),
  *     18: (18, 'PERMISSIONS', 'Insufficient permissions to perform the operation.'),             # <<<<<<<<<<<<<<
  *     19: (19, 'BUSY', 'The requested resource is currently busy.'),
  *     20: (20, 'UNAVAILABLE', 'The requested resource is currently unavailable.'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_18, __pyx_mstate_global->__pyx_tuple[24]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_18, __pyx_mstate_global->__pyx_tuple[24]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":606
+  /* "pyjoulescope_driver/binding.pyx":611
  *     17: (17, 'ALREADY_EXISTS', 'The requested resource already exists'),
  *     18: (18, 'PERMISSIONS', 'Insufficient permissions to perform the operation.'),
  *     19: (19, 'BUSY', 'The requested resource is currently busy.'),             # <<<<<<<<<<<<<<
  *     20: (20, 'UNAVAILABLE', 'The requested resource is currently unavailable.'),
  *     21: (21, 'IN_USE', 'The requested resource is currently in use.'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_19, __pyx_mstate_global->__pyx_tuple[25]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_19, __pyx_mstate_global->__pyx_tuple[25]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":607
+  /* "pyjoulescope_driver/binding.pyx":612
  *     18: (18, 'PERMISSIONS', 'Insufficient permissions to perform the operation.'),
  *     19: (19, 'BUSY', 'The requested resource is currently busy.'),
  *     20: (20, 'UNAVAILABLE', 'The requested resource is currently unavailable.'),             # <<<<<<<<<<<<<<
  *     21: (21, 'IN_USE', 'The requested resource is currently in use.'),
  *     22: (22, 'CLOSED', 'The requested resource is currently closed.'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_20, __pyx_mstate_global->__pyx_tuple[26]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_20, __pyx_mstate_global->__pyx_tuple[26]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":608
+  /* "pyjoulescope_driver/binding.pyx":613
  *     19: (19, 'BUSY', 'The requested resource is currently busy.'),
  *     20: (20, 'UNAVAILABLE', 'The requested resource is currently unavailable.'),
  *     21: (21, 'IN_USE', 'The requested resource is currently in use.'),             # <<<<<<<<<<<<<<
  *     22: (22, 'CLOSED', 'The requested resource is currently closed.'),
  *     23: (23, 'SEQUENCE', 'The requested operation was out of sequence.'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_21, __pyx_mstate_global->__pyx_tuple[27]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_21, __pyx_mstate_global->__pyx_tuple[27]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":609
+  /* "pyjoulescope_driver/binding.pyx":614
  *     20: (20, 'UNAVAILABLE', 'The requested resource is currently unavailable.'),
  *     21: (21, 'IN_USE', 'The requested resource is currently in use.'),
  *     22: (22, 'CLOSED', 'The requested resource is currently closed.'),             # <<<<<<<<<<<<<<
  *     23: (23, 'SEQUENCE', 'The requested operation was out of sequence.'),
  *     24: (24, 'ABORTED', 'The requested operation was previously aborted.'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_22, __pyx_mstate_global->__pyx_tuple[28]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_22, __pyx_mstate_global->__pyx_tuple[28]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":610
+  /* "pyjoulescope_driver/binding.pyx":615
  *     21: (21, 'IN_USE', 'The requested resource is currently in use.'),
  *     22: (22, 'CLOSED', 'The requested resource is currently closed.'),
  *     23: (23, 'SEQUENCE', 'The requested operation was out of sequence.'),             # <<<<<<<<<<<<<<
  *     24: (24, 'ABORTED', 'The requested operation was previously aborted.'),
  *     25: (25, 'SYNCHRONIZATION', 'The target is not synchronized with the originator.'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_23, __pyx_mstate_global->__pyx_tuple[29]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_23, __pyx_mstate_global->__pyx_tuple[29]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":611
+  /* "pyjoulescope_driver/binding.pyx":616
  *     22: (22, 'CLOSED', 'The requested resource is currently closed.'),
  *     23: (23, 'SEQUENCE', 'The requested operation was out of sequence.'),
  *     24: (24, 'ABORTED', 'The requested operation was previously aborted.'),             # <<<<<<<<<<<<<<
  *     25: (25, 'SYNCHRONIZATION', 'The target is not synchronized with the originator.'),
  *     'SUCCESS': (0, 'SUCCESS', 'Success (no error)'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_24, __pyx_mstate_global->__pyx_tuple[30]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_24, __pyx_mstate_global->__pyx_tuple[30]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":612
+  /* "pyjoulescope_driver/binding.pyx":617
  *     23: (23, 'SEQUENCE', 'The requested operation was out of sequence.'),
  *     24: (24, 'ABORTED', 'The requested operation was previously aborted.'),
  *     25: (25, 'SYNCHRONIZATION', 'The target is not synchronized with the originator.'),             # <<<<<<<<<<<<<<
  *     'SUCCESS': (0, 'SUCCESS', 'Success (no error)'),
  *     'UNSPECIFIED': (1, 'UNSPECIFIED', 'Unspecified error'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_25, __pyx_mstate_global->__pyx_tuple[31]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_25, __pyx_mstate_global->__pyx_tuple[31]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":613
+  /* "pyjoulescope_driver/binding.pyx":618
  *     24: (24, 'ABORTED', 'The requested operation was previously aborted.'),
  *     25: (25, 'SYNCHRONIZATION', 'The target is not synchronized with the originator.'),
  *     'SUCCESS': (0, 'SUCCESS', 'Success (no error)'),             # <<<<<<<<<<<<<<
  *     'UNSPECIFIED': (1, 'UNSPECIFIED', 'Unspecified error'),
  *     'NOT_ENOUGH_MEMORY': (2, 'NOT_ENOUGH_MEMORY', 'Insufficient memory to complete the operation'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SUCCESS, __pyx_mstate_global->__pyx_tuple[6]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SUCCESS, __pyx_mstate_global->__pyx_tuple[6]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":614
+  /* "pyjoulescope_driver/binding.pyx":619
  *     25: (25, 'SYNCHRONIZATION', 'The target is not synchronized with the originator.'),
  *     'SUCCESS': (0, 'SUCCESS', 'Success (no error)'),
  *     'UNSPECIFIED': (1, 'UNSPECIFIED', 'Unspecified error'),             # <<<<<<<<<<<<<<
  *     'NOT_ENOUGH_MEMORY': (2, 'NOT_ENOUGH_MEMORY', 'Insufficient memory to complete the operation'),
  *     'NOT_SUPPORTED': (3, 'NOT_SUPPORTED', 'Operation is not supported'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_UNSPECIFIED, __pyx_mstate_global->__pyx_tuple[7]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_UNSPECIFIED, __pyx_mstate_global->__pyx_tuple[7]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":615
+  /* "pyjoulescope_driver/binding.pyx":620
  *     'SUCCESS': (0, 'SUCCESS', 'Success (no error)'),
  *     'UNSPECIFIED': (1, 'UNSPECIFIED', 'Unspecified error'),
  *     'NOT_ENOUGH_MEMORY': (2, 'NOT_ENOUGH_MEMORY', 'Insufficient memory to complete the operation'),             # <<<<<<<<<<<<<<
  *     'NOT_SUPPORTED': (3, 'NOT_SUPPORTED', 'Operation is not supported'),
  *     'IO': (4, 'IO', 'Input/output error'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_NOT_ENOUGH_MEMORY, __pyx_mstate_global->__pyx_tuple[8]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_NOT_ENOUGH_MEMORY, __pyx_mstate_global->__pyx_tuple[8]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":616
+  /* "pyjoulescope_driver/binding.pyx":621
  *     'UNSPECIFIED': (1, 'UNSPECIFIED', 'Unspecified error'),
  *     'NOT_ENOUGH_MEMORY': (2, 'NOT_ENOUGH_MEMORY', 'Insufficient memory to complete the operation'),
  *     'NOT_SUPPORTED': (3, 'NOT_SUPPORTED', 'Operation is not supported'),             # <<<<<<<<<<<<<<
  *     'IO': (4, 'IO', 'Input/output error'),
  *     'PARAMETER_INVALID': (5, 'PARAMETER_INVALID', 'The parameter value is invalid'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_NOT_SUPPORTED, __pyx_mstate_global->__pyx_tuple[9]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_NOT_SUPPORTED, __pyx_mstate_global->__pyx_tuple[9]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":617
+  /* "pyjoulescope_driver/binding.pyx":622
  *     'NOT_ENOUGH_MEMORY': (2, 'NOT_ENOUGH_MEMORY', 'Insufficient memory to complete the operation'),
  *     'NOT_SUPPORTED': (3, 'NOT_SUPPORTED', 'Operation is not supported'),
  *     'IO': (4, 'IO', 'Input/output error'),             # <<<<<<<<<<<<<<
  *     'PARAMETER_INVALID': (5, 'PARAMETER_INVALID', 'The parameter value is invalid'),
  *     'INVALID_RETURN_CONDITION': (6, 'INVALID_RETURN_CONDITION', 'The function return condition is invalid'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_IO, __pyx_mstate_global->__pyx_tuple[10]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_IO, __pyx_mstate_global->__pyx_tuple[10]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":618
+  /* "pyjoulescope_driver/binding.pyx":623
  *     'NOT_SUPPORTED': (3, 'NOT_SUPPORTED', 'Operation is not supported'),
  *     'IO': (4, 'IO', 'Input/output error'),
  *     'PARAMETER_INVALID': (5, 'PARAMETER_INVALID', 'The parameter value is invalid'),             # <<<<<<<<<<<<<<
  *     'INVALID_RETURN_CONDITION': (6, 'INVALID_RETURN_CONDITION', 'The function return condition is invalid'),
  *     'INVALID_CONTEXT': (7, 'INVALID_CONTEXT', 'The context is invalid'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_PARAMETER_INVALID, __pyx_mstate_global->__pyx_tuple[11]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_PARAMETER_INVALID, __pyx_mstate_global->__pyx_tuple[11]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":619
+  /* "pyjoulescope_driver/binding.pyx":624
  *     'IO': (4, 'IO', 'Input/output error'),
  *     'PARAMETER_INVALID': (5, 'PARAMETER_INVALID', 'The parameter value is invalid'),
  *     'INVALID_RETURN_CONDITION': (6, 'INVALID_RETURN_CONDITION', 'The function return condition is invalid'),             # <<<<<<<<<<<<<<
  *     'INVALID_CONTEXT': (7, 'INVALID_CONTEXT', 'The context is invalid'),
  *     'INVALID_MESSAGE_LENGTH': (8, 'INVALID_MESSAGE_LENGTH', 'The message length is invalid'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_INVALID_RETURN_CONDITION, __pyx_mstate_global->__pyx_tuple[12]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_INVALID_RETURN_CONDITION, __pyx_mstate_global->__pyx_tuple[12]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":620
+  /* "pyjoulescope_driver/binding.pyx":625
  *     'PARAMETER_INVALID': (5, 'PARAMETER_INVALID', 'The parameter value is invalid'),
  *     'INVALID_RETURN_CONDITION': (6, 'INVALID_RETURN_CONDITION', 'The function return condition is invalid'),
  *     'INVALID_CONTEXT': (7, 'INVALID_CONTEXT', 'The context is invalid'),             # <<<<<<<<<<<<<<
  *     'INVALID_MESSAGE_LENGTH': (8, 'INVALID_MESSAGE_LENGTH', 'The message length is invalid'),
  *     'MESSAGE_INTEGRITY': (9, 'MESSAGE_INTEGRITY', 'The message integrity check failed'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_INVALID_CONTEXT, __pyx_mstate_global->__pyx_tuple[13]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_INVALID_CONTEXT, __pyx_mstate_global->__pyx_tuple[13]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":621
+  /* "pyjoulescope_driver/binding.pyx":626
  *     'INVALID_RETURN_CONDITION': (6, 'INVALID_RETURN_CONDITION', 'The function return condition is invalid'),
  *     'INVALID_CONTEXT': (7, 'INVALID_CONTEXT', 'The context is invalid'),
  *     'INVALID_MESSAGE_LENGTH': (8, 'INVALID_MESSAGE_LENGTH', 'The message length is invalid'),             # <<<<<<<<<<<<<<
  *     'MESSAGE_INTEGRITY': (9, 'MESSAGE_INTEGRITY', 'The message integrity check failed'),
  *     'SYNTAX_ERROR': (10, 'SYNTAX_ERROR', 'A syntax error was detected'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_INVALID_MESSAGE_LENGTH, __pyx_mstate_global->__pyx_tuple[14]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_INVALID_MESSAGE_LENGTH, __pyx_mstate_global->__pyx_tuple[14]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":622
+  /* "pyjoulescope_driver/binding.pyx":627
  *     'INVALID_CONTEXT': (7, 'INVALID_CONTEXT', 'The context is invalid'),
  *     'INVALID_MESSAGE_LENGTH': (8, 'INVALID_MESSAGE_LENGTH', 'The message length is invalid'),
  *     'MESSAGE_INTEGRITY': (9, 'MESSAGE_INTEGRITY', 'The message integrity check failed'),             # <<<<<<<<<<<<<<
  *     'SYNTAX_ERROR': (10, 'SYNTAX_ERROR', 'A syntax error was detected'),
  *     'TIMED_OUT': (11, 'TIMED_OUT', 'The operation did not complete in time'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_MESSAGE_INTEGRITY, __pyx_mstate_global->__pyx_tuple[15]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_MESSAGE_INTEGRITY, __pyx_mstate_global->__pyx_tuple[15]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":623
+  /* "pyjoulescope_driver/binding.pyx":628
  *     'INVALID_MESSAGE_LENGTH': (8, 'INVALID_MESSAGE_LENGTH', 'The message length is invalid'),
  *     'MESSAGE_INTEGRITY': (9, 'MESSAGE_INTEGRITY', 'The message integrity check failed'),
  *     'SYNTAX_ERROR': (10, 'SYNTAX_ERROR', 'A syntax error was detected'),             # <<<<<<<<<<<<<<
  *     'TIMED_OUT': (11, 'TIMED_OUT', 'The operation did not complete in time'),
  *     'FULL': (12, 'FULL', 'The target of the operation is full'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SYNTAX_ERROR, __pyx_mstate_global->__pyx_tuple[16]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SYNTAX_ERROR, __pyx_mstate_global->__pyx_tuple[16]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":624
+  /* "pyjoulescope_driver/binding.pyx":629
  *     'MESSAGE_INTEGRITY': (9, 'MESSAGE_INTEGRITY', 'The message integrity check failed'),
  *     'SYNTAX_ERROR': (10, 'SYNTAX_ERROR', 'A syntax error was detected'),
  *     'TIMED_OUT': (11, 'TIMED_OUT', 'The operation did not complete in time'),             # <<<<<<<<<<<<<<
  *     'FULL': (12, 'FULL', 'The target of the operation is full'),
  *     'EMPTY': (13, 'EMPTY', 'The target of the operation is empty'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_TIMED_OUT, __pyx_mstate_global->__pyx_tuple[17]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_TIMED_OUT, __pyx_mstate_global->__pyx_tuple[17]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":625
+  /* "pyjoulescope_driver/binding.pyx":630
  *     'SYNTAX_ERROR': (10, 'SYNTAX_ERROR', 'A syntax error was detected'),
  *     'TIMED_OUT': (11, 'TIMED_OUT', 'The operation did not complete in time'),
  *     'FULL': (12, 'FULL', 'The target of the operation is full'),             # <<<<<<<<<<<<<<
  *     'EMPTY': (13, 'EMPTY', 'The target of the operation is empty'),
  *     'TOO_SMALL': (14, 'TOO_SMALL', 'The target of the operation is too small'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FULL, __pyx_mstate_global->__pyx_tuple[18]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FULL, __pyx_mstate_global->__pyx_tuple[18]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":626
+  /* "pyjoulescope_driver/binding.pyx":631
  *     'TIMED_OUT': (11, 'TIMED_OUT', 'The operation did not complete in time'),
  *     'FULL': (12, 'FULL', 'The target of the operation is full'),
  *     'EMPTY': (13, 'EMPTY', 'The target of the operation is empty'),             # <<<<<<<<<<<<<<
  *     'TOO_SMALL': (14, 'TOO_SMALL', 'The target of the operation is too small'),
  *     'TOO_BIG': (15, 'TOO_BIG', 'The target of the operation is too big'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_EMPTY, __pyx_mstate_global->__pyx_tuple[19]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_EMPTY, __pyx_mstate_global->__pyx_tuple[19]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":627
+  /* "pyjoulescope_driver/binding.pyx":632
  *     'FULL': (12, 'FULL', 'The target of the operation is full'),
  *     'EMPTY': (13, 'EMPTY', 'The target of the operation is empty'),
  *     'TOO_SMALL': (14, 'TOO_SMALL', 'The target of the operation is too small'),             # <<<<<<<<<<<<<<
  *     'TOO_BIG': (15, 'TOO_BIG', 'The target of the operation is too big'),
  *     'NOT_FOUND': (16, 'NOT_FOUND', 'The requested resource was not found'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_TOO_SMALL, __pyx_mstate_global->__pyx_tuple[20]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_TOO_SMALL, __pyx_mstate_global->__pyx_tuple[20]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":628
+  /* "pyjoulescope_driver/binding.pyx":633
  *     'EMPTY': (13, 'EMPTY', 'The target of the operation is empty'),
  *     'TOO_SMALL': (14, 'TOO_SMALL', 'The target of the operation is too small'),
  *     'TOO_BIG': (15, 'TOO_BIG', 'The target of the operation is too big'),             # <<<<<<<<<<<<<<
  *     'NOT_FOUND': (16, 'NOT_FOUND', 'The requested resource was not found'),
  *     'ALREADY_EXISTS': (17, 'ALREADY_EXISTS', 'The requested resource already exists'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_TOO_BIG, __pyx_mstate_global->__pyx_tuple[21]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_TOO_BIG, __pyx_mstate_global->__pyx_tuple[21]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":629
+  /* "pyjoulescope_driver/binding.pyx":634
  *     'TOO_SMALL': (14, 'TOO_SMALL', 'The target of the operation is too small'),
  *     'TOO_BIG': (15, 'TOO_BIG', 'The target of the operation is too big'),
  *     'NOT_FOUND': (16, 'NOT_FOUND', 'The requested resource was not found'),             # <<<<<<<<<<<<<<
  *     'ALREADY_EXISTS': (17, 'ALREADY_EXISTS', 'The requested resource already exists'),
  *     'PERMISSIONS': (18, 'PERMISSIONS', 'Insufficient permissions to perform the operation.'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_NOT_FOUND, __pyx_mstate_global->__pyx_tuple[22]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_NOT_FOUND, __pyx_mstate_global->__pyx_tuple[22]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":630
+  /* "pyjoulescope_driver/binding.pyx":635
  *     'TOO_BIG': (15, 'TOO_BIG', 'The target of the operation is too big'),
  *     'NOT_FOUND': (16, 'NOT_FOUND', 'The requested resource was not found'),
  *     'ALREADY_EXISTS': (17, 'ALREADY_EXISTS', 'The requested resource already exists'),             # <<<<<<<<<<<<<<
  *     'PERMISSIONS': (18, 'PERMISSIONS', 'Insufficient permissions to perform the operation.'),
  *     'BUSY': (19, 'BUSY', 'The requested resource is currently busy.'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ALREADY_EXISTS, __pyx_mstate_global->__pyx_tuple[23]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ALREADY_EXISTS, __pyx_mstate_global->__pyx_tuple[23]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":631
+  /* "pyjoulescope_driver/binding.pyx":636
  *     'NOT_FOUND': (16, 'NOT_FOUND', 'The requested resource was not found'),
  *     'ALREADY_EXISTS': (17, 'ALREADY_EXISTS', 'The requested resource already exists'),
  *     'PERMISSIONS': (18, 'PERMISSIONS', 'Insufficient permissions to perform the operation.'),             # <<<<<<<<<<<<<<
  *     'BUSY': (19, 'BUSY', 'The requested resource is currently busy.'),
  *     'UNAVAILABLE': (20, 'UNAVAILABLE', 'The requested resource is currently unavailable.'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_PERMISSIONS, __pyx_mstate_global->__pyx_tuple[24]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_PERMISSIONS, __pyx_mstate_global->__pyx_tuple[24]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":632
+  /* "pyjoulescope_driver/binding.pyx":637
  *     'ALREADY_EXISTS': (17, 'ALREADY_EXISTS', 'The requested resource already exists'),
  *     'PERMISSIONS': (18, 'PERMISSIONS', 'Insufficient permissions to perform the operation.'),
  *     'BUSY': (19, 'BUSY', 'The requested resource is currently busy.'),             # <<<<<<<<<<<<<<
  *     'UNAVAILABLE': (20, 'UNAVAILABLE', 'The requested resource is currently unavailable.'),
  *     'IN_USE': (21, 'IN_USE', 'The requested resource is currently in use.'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_BUSY, __pyx_mstate_global->__pyx_tuple[25]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_BUSY, __pyx_mstate_global->__pyx_tuple[25]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":633
+  /* "pyjoulescope_driver/binding.pyx":638
  *     'PERMISSIONS': (18, 'PERMISSIONS', 'Insufficient permissions to perform the operation.'),
  *     'BUSY': (19, 'BUSY', 'The requested resource is currently busy.'),
  *     'UNAVAILABLE': (20, 'UNAVAILABLE', 'The requested resource is currently unavailable.'),             # <<<<<<<<<<<<<<
  *     'IN_USE': (21, 'IN_USE', 'The requested resource is currently in use.'),
  *     'CLOSED': (22, 'CLOSED', 'The requested resource is currently closed.'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_UNAVAILABLE, __pyx_mstate_global->__pyx_tuple[26]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_UNAVAILABLE, __pyx_mstate_global->__pyx_tuple[26]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":634
+  /* "pyjoulescope_driver/binding.pyx":639
  *     'BUSY': (19, 'BUSY', 'The requested resource is currently busy.'),
  *     'UNAVAILABLE': (20, 'UNAVAILABLE', 'The requested resource is currently unavailable.'),
  *     'IN_USE': (21, 'IN_USE', 'The requested resource is currently in use.'),             # <<<<<<<<<<<<<<
  *     'CLOSED': (22, 'CLOSED', 'The requested resource is currently closed.'),
  *     'SEQUENCE': (23, 'SEQUENCE', 'The requested operation was out of sequence.'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_IN_USE, __pyx_mstate_global->__pyx_tuple[27]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_IN_USE, __pyx_mstate_global->__pyx_tuple[27]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":635
+  /* "pyjoulescope_driver/binding.pyx":640
  *     'UNAVAILABLE': (20, 'UNAVAILABLE', 'The requested resource is currently unavailable.'),
  *     'IN_USE': (21, 'IN_USE', 'The requested resource is currently in use.'),
  *     'CLOSED': (22, 'CLOSED', 'The requested resource is currently closed.'),             # <<<<<<<<<<<<<<
  *     'SEQUENCE': (23, 'SEQUENCE', 'The requested operation was out of sequence.'),
  *     'ABORTED': (24, 'ABORTED', 'The requested operation was previously aborted.'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_CLOSED, __pyx_mstate_global->__pyx_tuple[28]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_CLOSED, __pyx_mstate_global->__pyx_tuple[28]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":636
+  /* "pyjoulescope_driver/binding.pyx":641
  *     'IN_USE': (21, 'IN_USE', 'The requested resource is currently in use.'),
  *     'CLOSED': (22, 'CLOSED', 'The requested resource is currently closed.'),
  *     'SEQUENCE': (23, 'SEQUENCE', 'The requested operation was out of sequence.'),             # <<<<<<<<<<<<<<
  *     'ABORTED': (24, 'ABORTED', 'The requested operation was previously aborted.'),
  *     'SYNCHRONIZATION': (25, 'SYNCHRONIZATION', 'The target is not synchronized with the originator.'),
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SEQUENCE, __pyx_mstate_global->__pyx_tuple[29]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SEQUENCE, __pyx_mstate_global->__pyx_tuple[29]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":637
+  /* "pyjoulescope_driver/binding.pyx":642
  *     'CLOSED': (22, 'CLOSED', 'The requested resource is currently closed.'),
  *     'SEQUENCE': (23, 'SEQUENCE', 'The requested operation was out of sequence.'),
  *     'ABORTED': (24, 'ABORTED', 'The requested operation was previously aborted.'),             # <<<<<<<<<<<<<<
  *     'SYNCHRONIZATION': (25, 'SYNCHRONIZATION', 'The target is not synchronized with the originator.'),
  *     # ENUM_ERROR_CODE_META_END
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ABORTED, __pyx_mstate_global->__pyx_tuple[30]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ABORTED, __pyx_mstate_global->__pyx_tuple[30]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":638
+  /* "pyjoulescope_driver/binding.pyx":643
  *     'SEQUENCE': (23, 'SEQUENCE', 'The requested operation was out of sequence.'),
  *     'ABORTED': (24, 'ABORTED', 'The requested operation was previously aborted.'),
  *     'SYNCHRONIZATION': (25, 'SYNCHRONIZATION', 'The target is not synchronized with the originator.'),             # <<<<<<<<<<<<<<
  *     # ENUM_ERROR_CODE_META_END
  * }
 */
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SYNCHRONIZATION, __pyx_mstate_global->__pyx_tuple[31]) < (0)) __PYX_ERR(0, 587, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_error_code_to_meta, __pyx_t_4) < (0)) __PYX_ERR(0, 584, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_SYNCHRONIZATION, __pyx_mstate_global->__pyx_tuple[31]) < (0)) __PYX_ERR(0, 592, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_error_code_to_meta, __pyx_t_4) < (0)) __PYX_ERR(0, 589, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":643
+  /* "pyjoulescope_driver/binding.pyx":648
  * 
  * 
  * def error_code_to_str(ec):             # <<<<<<<<<<<<<<
  *     """Get the string representation for an error code.
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_1error_code_to_str, 0, __pyx_mstate_global->__pyx_n_u_error_code_to_str, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[11])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 643, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_1error_code_to_str, 0, __pyx_mstate_global->__pyx_n_u_error_code_to_str, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[11])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 648, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_error_code_to_str, __pyx_t_4) < (0)) __PYX_ERR(0, 643, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_error_code_to_str, __pyx_t_4) < (0)) __PYX_ERR(0, 648, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":653
+  /* "pyjoulescope_driver/binding.pyx":658
  * 
  * 
  * class LogLevel:             # <<<<<<<<<<<<<<
  *     """The log level enumeration."""
  *     OFF         = -1
 */
-  __pyx_t_4 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_LogLevel, __pyx_mstate_global->__pyx_n_u_LogLevel, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_kp_u_The_log_level_enumeration); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 653, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_LogLevel, __pyx_mstate_global->__pyx_n_u_LogLevel, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_kp_u_The_log_level_enumeration); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 658, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
 
-  /* "pyjoulescope_driver/binding.pyx":655
+  /* "pyjoulescope_driver/binding.pyx":660
  * class LogLevel:
  *     """The log level enumeration."""
  *     OFF         = -1             # <<<<<<<<<<<<<<
  *     EMERGENCY   = 0
  *     ALERT       = 1
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_OFF, __pyx_mstate_global->__pyx_int_neg_1) < (0)) __PYX_ERR(0, 655, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_OFF, __pyx_mstate_global->__pyx_int_neg_1) < (0)) __PYX_ERR(0, 660, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":656
+  /* "pyjoulescope_driver/binding.pyx":661
  *     """The log level enumeration."""
  *     OFF         = -1
  *     EMERGENCY   = 0             # <<<<<<<<<<<<<<
  *     ALERT       = 1
  *     CRITICAL    = 2
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_EMERGENCY, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 656, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_EMERGENCY, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 661, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":657
+  /* "pyjoulescope_driver/binding.pyx":662
  *     OFF         = -1
  *     EMERGENCY   = 0
  *     ALERT       = 1             # <<<<<<<<<<<<<<
  *     CRITICAL    = 2
  *     ERROR       = 3
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ALERT, __pyx_mstate_global->__pyx_int_1) < (0)) __PYX_ERR(0, 657, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ALERT, __pyx_mstate_global->__pyx_int_1) < (0)) __PYX_ERR(0, 662, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":658
+  /* "pyjoulescope_driver/binding.pyx":663
  *     EMERGENCY   = 0
  *     ALERT       = 1
  *     CRITICAL    = 2             # <<<<<<<<<<<<<<
  *     ERROR       = 3
  *     WARNING     = 4
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_CRITICAL, __pyx_mstate_global->__pyx_int_2) < (0)) __PYX_ERR(0, 658, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_CRITICAL, __pyx_mstate_global->__pyx_int_2) < (0)) __PYX_ERR(0, 663, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":659
+  /* "pyjoulescope_driver/binding.pyx":664
  *     ALERT       = 1
  *     CRITICAL    = 2
  *     ERROR       = 3             # <<<<<<<<<<<<<<
  *     WARNING     = 4
  *     NOTICE      = 5
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ERROR, __pyx_mstate_global->__pyx_int_3) < (0)) __PYX_ERR(0, 659, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ERROR, __pyx_mstate_global->__pyx_int_3) < (0)) __PYX_ERR(0, 664, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":660
+  /* "pyjoulescope_driver/binding.pyx":665
  *     CRITICAL    = 2
  *     ERROR       = 3
  *     WARNING     = 4             # <<<<<<<<<<<<<<
  *     NOTICE      = 5
  *     INFO        = 6
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_WARNING, __pyx_mstate_global->__pyx_int_4) < (0)) __PYX_ERR(0, 660, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_WARNING, __pyx_mstate_global->__pyx_int_4) < (0)) __PYX_ERR(0, 665, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":661
+  /* "pyjoulescope_driver/binding.pyx":666
  *     ERROR       = 3
  *     WARNING     = 4
  *     NOTICE      = 5             # <<<<<<<<<<<<<<
  *     INFO        = 6
  *     DEBUG1      = 7
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_NOTICE, __pyx_mstate_global->__pyx_int_5) < (0)) __PYX_ERR(0, 661, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_NOTICE, __pyx_mstate_global->__pyx_int_5) < (0)) __PYX_ERR(0, 666, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":662
+  /* "pyjoulescope_driver/binding.pyx":667
  *     WARNING     = 4
  *     NOTICE      = 5
  *     INFO        = 6             # <<<<<<<<<<<<<<
  *     DEBUG1      = 7
  *     DEBUG2      = 8
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_INFO, __pyx_mstate_global->__pyx_int_6) < (0)) __PYX_ERR(0, 662, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_INFO, __pyx_mstate_global->__pyx_int_6) < (0)) __PYX_ERR(0, 667, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":663
+  /* "pyjoulescope_driver/binding.pyx":668
  *     NOTICE      = 5
  *     INFO        = 6
  *     DEBUG1      = 7             # <<<<<<<<<<<<<<
  *     DEBUG2      = 8
  *     DEBUG3      = 9
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_DEBUG1, __pyx_mstate_global->__pyx_int_7) < (0)) __PYX_ERR(0, 663, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_DEBUG1, __pyx_mstate_global->__pyx_int_7) < (0)) __PYX_ERR(0, 668, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":664
+  /* "pyjoulescope_driver/binding.pyx":669
  *     INFO        = 6
  *     DEBUG1      = 7
  *     DEBUG2      = 8             # <<<<<<<<<<<<<<
  *     DEBUG3      = 9
  *     ALL         = 10
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_DEBUG2, __pyx_mstate_global->__pyx_int_8) < (0)) __PYX_ERR(0, 664, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_DEBUG2, __pyx_mstate_global->__pyx_int_8) < (0)) __PYX_ERR(0, 669, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":665
+  /* "pyjoulescope_driver/binding.pyx":670
  *     DEBUG1      = 7
  *     DEBUG2      = 8
  *     DEBUG3      = 9             # <<<<<<<<<<<<<<
  *     ALL         = 10
  * 
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_DEBUG3, __pyx_mstate_global->__pyx_int_9) < (0)) __PYX_ERR(0, 665, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_DEBUG3, __pyx_mstate_global->__pyx_int_9) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":666
+  /* "pyjoulescope_driver/binding.pyx":671
  *     DEBUG2      = 8
  *     DEBUG3      = 9
  *     ALL         = 10             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ALL, __pyx_mstate_global->__pyx_int_10) < (0)) __PYX_ERR(0, 666, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ALL, __pyx_mstate_global->__pyx_int_10) < (0)) __PYX_ERR(0, 671, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":653
+  /* "pyjoulescope_driver/binding.pyx":658
  * 
  * 
  * class LogLevel:             # <<<<<<<<<<<<<<
  *     """The log level enumeration."""
  *     OFF         = -1
 */
-  __pyx_t_10 = __Pyx_Py3ClassCreate(((PyObject*)&PyType_Type), __pyx_mstate_global->__pyx_n_u_LogLevel, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_4, NULL, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 653, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_Py3ClassCreate(((PyObject*)&PyType_Type), __pyx_mstate_global->__pyx_n_u_LogLevel, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_4, NULL, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 658, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_10);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_LogLevel, __pyx_t_10) < (0)) __PYX_ERR(0, 653, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_LogLevel, __pyx_t_10) < (0)) __PYX_ERR(0, 658, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":670
+  /* "pyjoulescope_driver/binding.pyx":675
  * 
  * _log_level_str_to_int = {
  *     'off': LogLevel.OFF,             # <<<<<<<<<<<<<<
  *     None: LogLevel.OFF,
  *     'emergency': LogLevel.EMERGENCY,
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(23); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 670, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(23); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 670, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_OFF); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 670, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_OFF); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_off, __pyx_t_5) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_off, __pyx_t_5) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":671
+  /* "pyjoulescope_driver/binding.pyx":676
  * _log_level_str_to_int = {
  *     'off': LogLevel.OFF,
  *     None: LogLevel.OFF,             # <<<<<<<<<<<<<<
  *     'emergency': LogLevel.EMERGENCY,
  *     'e': LogLevel.EMERGENCY,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 671, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 676, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_OFF); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 671, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_OFF); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 676, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_4, Py_None, __pyx_t_10) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, Py_None, __pyx_t_10) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":672
+  /* "pyjoulescope_driver/binding.pyx":677
  *     'off': LogLevel.OFF,
  *     None: LogLevel.OFF,
  *     'emergency': LogLevel.EMERGENCY,             # <<<<<<<<<<<<<<
  *     'e': LogLevel.EMERGENCY,
  *     'alert': LogLevel.ALERT,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 672, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 677, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_EMERGENCY); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 672, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_EMERGENCY); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 677, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_emergency, __pyx_t_5) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_emergency, __pyx_t_5) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":673
+  /* "pyjoulescope_driver/binding.pyx":678
  *     None: LogLevel.OFF,
  *     'emergency': LogLevel.EMERGENCY,
  *     'e': LogLevel.EMERGENCY,             # <<<<<<<<<<<<<<
  *     'alert': LogLevel.ALERT,
  *     'a': LogLevel.ALERT,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 673, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 678, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_EMERGENCY); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 673, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_EMERGENCY); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 678, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_e, __pyx_t_10) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_e, __pyx_t_10) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":674
+  /* "pyjoulescope_driver/binding.pyx":679
  *     'emergency': LogLevel.EMERGENCY,
  *     'e': LogLevel.EMERGENCY,
  *     'alert': LogLevel.ALERT,             # <<<<<<<<<<<<<<
  *     'a': LogLevel.ALERT,
  *     'critical': LogLevel.CRITICAL,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 674, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 679, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_ALERT); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 674, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_ALERT); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 679, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_alert, __pyx_t_5) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_alert, __pyx_t_5) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":675
+  /* "pyjoulescope_driver/binding.pyx":680
  *     'e': LogLevel.EMERGENCY,
  *     'alert': LogLevel.ALERT,
  *     'a': LogLevel.ALERT,             # <<<<<<<<<<<<<<
  *     'critical': LogLevel.CRITICAL,
  *     'c': LogLevel.CRITICAL,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 675, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 680, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ALERT); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 675, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ALERT); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 680, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_a, __pyx_t_10) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_a, __pyx_t_10) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":676
+  /* "pyjoulescope_driver/binding.pyx":681
  *     'alert': LogLevel.ALERT,
  *     'a': LogLevel.ALERT,
  *     'critical': LogLevel.CRITICAL,             # <<<<<<<<<<<<<<
  *     'c': LogLevel.CRITICAL,
  *     'error': LogLevel.ERROR,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 676, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 681, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_CRITICAL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 676, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_CRITICAL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 681, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_critical, __pyx_t_5) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_critical, __pyx_t_5) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":677
+  /* "pyjoulescope_driver/binding.pyx":682
  *     'a': LogLevel.ALERT,
  *     'critical': LogLevel.CRITICAL,
  *     'c': LogLevel.CRITICAL,             # <<<<<<<<<<<<<<
  *     'error': LogLevel.ERROR,
  *     'e': LogLevel.ERROR,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 677, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 682, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_CRITICAL); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 677, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_CRITICAL); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 682, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_c, __pyx_t_10) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_c, __pyx_t_10) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":678
+  /* "pyjoulescope_driver/binding.pyx":683
  *     'critical': LogLevel.CRITICAL,
  *     'c': LogLevel.CRITICAL,
  *     'error': LogLevel.ERROR,             # <<<<<<<<<<<<<<
  *     'e': LogLevel.ERROR,
  *     'warn': LogLevel.WARNING,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 678, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 683, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_ERROR); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 678, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_ERROR); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 683, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_error, __pyx_t_5) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_error, __pyx_t_5) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":679
+  /* "pyjoulescope_driver/binding.pyx":684
  *     'c': LogLevel.CRITICAL,
  *     'error': LogLevel.ERROR,
  *     'e': LogLevel.ERROR,             # <<<<<<<<<<<<<<
  *     'warn': LogLevel.WARNING,
  *     'warning': LogLevel.WARNING,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 679, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 684, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ERROR); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 679, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ERROR); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 684, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_e, __pyx_t_10) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_e, __pyx_t_10) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":680
+  /* "pyjoulescope_driver/binding.pyx":685
  *     'error': LogLevel.ERROR,
  *     'e': LogLevel.ERROR,
  *     'warn': LogLevel.WARNING,             # <<<<<<<<<<<<<<
  *     'warning': LogLevel.WARNING,
  *     'w': LogLevel.WARNING,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 680, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 685, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_WARNING); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 680, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_WARNING); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 685, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_warn, __pyx_t_5) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_warn, __pyx_t_5) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":681
+  /* "pyjoulescope_driver/binding.pyx":686
  *     'e': LogLevel.ERROR,
  *     'warn': LogLevel.WARNING,
  *     'warning': LogLevel.WARNING,             # <<<<<<<<<<<<<<
  *     'w': LogLevel.WARNING,
  *     'notice': LogLevel.NOTICE,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 681, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 686, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_WARNING); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 681, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_WARNING); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 686, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_warning, __pyx_t_10) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_warning, __pyx_t_10) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":682
+  /* "pyjoulescope_driver/binding.pyx":687
  *     'warn': LogLevel.WARNING,
  *     'warning': LogLevel.WARNING,
  *     'w': LogLevel.WARNING,             # <<<<<<<<<<<<<<
  *     'notice': LogLevel.NOTICE,
  *     'n': LogLevel.NOTICE,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 682, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 687, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_WARNING); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 682, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_WARNING); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 687, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_w, __pyx_t_5) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_w, __pyx_t_5) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":683
+  /* "pyjoulescope_driver/binding.pyx":688
  *     'warning': LogLevel.WARNING,
  *     'w': LogLevel.WARNING,
  *     'notice': LogLevel.NOTICE,             # <<<<<<<<<<<<<<
  *     'n': LogLevel.NOTICE,
  *     'info': LogLevel.INFO,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 683, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 688, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_NOTICE); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 683, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_NOTICE); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 688, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_notice, __pyx_t_10) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_notice, __pyx_t_10) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":684
+  /* "pyjoulescope_driver/binding.pyx":689
  *     'w': LogLevel.WARNING,
  *     'notice': LogLevel.NOTICE,
  *     'n': LogLevel.NOTICE,             # <<<<<<<<<<<<<<
  *     'info': LogLevel.INFO,
  *     'i': LogLevel.INFO,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 684, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 689, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_NOTICE); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 684, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_NOTICE); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 689, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_n, __pyx_t_5) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_n, __pyx_t_5) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":685
+  /* "pyjoulescope_driver/binding.pyx":690
  *     'notice': LogLevel.NOTICE,
  *     'n': LogLevel.NOTICE,
  *     'info': LogLevel.INFO,             # <<<<<<<<<<<<<<
  *     'i': LogLevel.INFO,
  *     'debug1': LogLevel.DEBUG1,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 685, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 690, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_INFO); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 685, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_INFO); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 690, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_info, __pyx_t_10) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_info, __pyx_t_10) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":686
+  /* "pyjoulescope_driver/binding.pyx":691
  *     'n': LogLevel.NOTICE,
  *     'info': LogLevel.INFO,
  *     'i': LogLevel.INFO,             # <<<<<<<<<<<<<<
  *     'debug1': LogLevel.DEBUG1,
  *     'd': LogLevel.DEBUG1,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 686, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 691, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_INFO); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 686, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_INFO); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 691, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_i, __pyx_t_5) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_i, __pyx_t_5) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":687
+  /* "pyjoulescope_driver/binding.pyx":692
  *     'info': LogLevel.INFO,
  *     'i': LogLevel.INFO,
  *     'debug1': LogLevel.DEBUG1,             # <<<<<<<<<<<<<<
  *     'd': LogLevel.DEBUG1,
  *     'debug': LogLevel.DEBUG1,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 687, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 692, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_DEBUG1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 687, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_DEBUG1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 692, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_debug1, __pyx_t_10) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_debug1, __pyx_t_10) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":688
+  /* "pyjoulescope_driver/binding.pyx":693
  *     'i': LogLevel.INFO,
  *     'debug1': LogLevel.DEBUG1,
  *     'd': LogLevel.DEBUG1,             # <<<<<<<<<<<<<<
  *     'debug': LogLevel.DEBUG1,
  *     'debug2': LogLevel.DEBUG2,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 688, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 693, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_DEBUG1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 688, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_DEBUG1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 693, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_d, __pyx_t_5) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_d, __pyx_t_5) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":689
+  /* "pyjoulescope_driver/binding.pyx":694
  *     'debug1': LogLevel.DEBUG1,
  *     'd': LogLevel.DEBUG1,
  *     'debug': LogLevel.DEBUG1,             # <<<<<<<<<<<<<<
  *     'debug2': LogLevel.DEBUG2,
  *     'debug3': LogLevel.DEBUG3,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 689, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 694, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_DEBUG1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 689, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_DEBUG1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 694, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_debug, __pyx_t_10) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_debug, __pyx_t_10) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":690
+  /* "pyjoulescope_driver/binding.pyx":695
  *     'd': LogLevel.DEBUG1,
  *     'debug': LogLevel.DEBUG1,
  *     'debug2': LogLevel.DEBUG2,             # <<<<<<<<<<<<<<
  *     'debug3': LogLevel.DEBUG3,
  *     'all': LogLevel.ALL,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 690, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 695, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_DEBUG2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 690, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_DEBUG2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 695, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_debug2, __pyx_t_5) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_debug2, __pyx_t_5) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":691
+  /* "pyjoulescope_driver/binding.pyx":696
  *     'debug': LogLevel.DEBUG1,
  *     'debug2': LogLevel.DEBUG2,
  *     'debug3': LogLevel.DEBUG3,             # <<<<<<<<<<<<<<
  *     'all': LogLevel.ALL,
  * }
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 691, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 696, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_DEBUG3); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 691, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_DEBUG3); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 696, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_debug3, __pyx_t_10) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_debug3, __pyx_t_10) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":692
+  /* "pyjoulescope_driver/binding.pyx":697
  *     'debug2': LogLevel.DEBUG2,
  *     'debug3': LogLevel.DEBUG3,
  *     'all': LogLevel.ALL,             # <<<<<<<<<<<<<<
  * }
  * 
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 692, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 697, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_ALL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 692, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_ALL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 697, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_all_2, __pyx_t_5) < (0)) __PYX_ERR(0, 670, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_all_2, __pyx_t_5) < (0)) __PYX_ERR(0, 675, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_log_level_str_to_int, __pyx_t_4) < (0)) __PYX_ERR(0, 669, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_log_level_str_to_int, __pyx_t_4) < (0)) __PYX_ERR(0, 674, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":697
+  /* "pyjoulescope_driver/binding.pyx":702
  * 
  * _log_level_c_to_py = {
  *     LogLevel.OFF: None,             # <<<<<<<<<<<<<<
  *     LogLevel.EMERGENCY: logging.CRITICAL,
  *     LogLevel.ALERT: logging.CRITICAL,
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(12); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 697, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(12); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 702, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 697, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 702, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_OFF); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 697, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_OFF); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 702, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_t_10, Py_None) < (0)) __PYX_ERR(0, 697, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_t_10, Py_None) < (0)) __PYX_ERR(0, 702, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":698
+  /* "pyjoulescope_driver/binding.pyx":703
  * _log_level_c_to_py = {
  *     LogLevel.OFF: None,
  *     LogLevel.EMERGENCY: logging.CRITICAL,             # <<<<<<<<<<<<<<
  *     LogLevel.ALERT: logging.CRITICAL,
  *     LogLevel.CRITICAL: logging.CRITICAL,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 698, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 703, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_EMERGENCY); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 698, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_EMERGENCY); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 703, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 698, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 703, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_CRITICAL); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 698, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_CRITICAL); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 703, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_11) < (0)) __PYX_ERR(0, 697, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_11) < (0)) __PYX_ERR(0, 702, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":699
+  /* "pyjoulescope_driver/binding.pyx":704
  *     LogLevel.OFF: None,
  *     LogLevel.EMERGENCY: logging.CRITICAL,
  *     LogLevel.ALERT: logging.CRITICAL,             # <<<<<<<<<<<<<<
  *     LogLevel.CRITICAL: logging.CRITICAL,
  *     LogLevel.ERROR: logging.ERROR,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 699, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 704, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_ALERT); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 699, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_ALERT); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 704, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 699, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 704, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_CRITICAL); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 699, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_CRITICAL); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 704, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_10) < (0)) __PYX_ERR(0, 697, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_10) < (0)) __PYX_ERR(0, 702, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":700
+  /* "pyjoulescope_driver/binding.pyx":705
  *     LogLevel.EMERGENCY: logging.CRITICAL,
  *     LogLevel.ALERT: logging.CRITICAL,
  *     LogLevel.CRITICAL: logging.CRITICAL,             # <<<<<<<<<<<<<<
  *     LogLevel.ERROR: logging.ERROR,
  *     LogLevel.WARNING: logging.WARNING,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 700, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 705, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_CRITICAL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 700, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_CRITICAL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 705, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 700, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 705, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_CRITICAL); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 700, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_CRITICAL); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 705, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_11) < (0)) __PYX_ERR(0, 697, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_11) < (0)) __PYX_ERR(0, 702, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":701
+  /* "pyjoulescope_driver/binding.pyx":706
  *     LogLevel.ALERT: logging.CRITICAL,
  *     LogLevel.CRITICAL: logging.CRITICAL,
  *     LogLevel.ERROR: logging.ERROR,             # <<<<<<<<<<<<<<
  *     LogLevel.WARNING: logging.WARNING,
  *     LogLevel.NOTICE: logging.INFO,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 701, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 706, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_ERROR); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 701, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_ERROR); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 706, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 701, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 706, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_ERROR); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 701, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_ERROR); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 706, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_10) < (0)) __PYX_ERR(0, 697, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_10) < (0)) __PYX_ERR(0, 702, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":702
+  /* "pyjoulescope_driver/binding.pyx":707
  *     LogLevel.CRITICAL: logging.CRITICAL,
  *     LogLevel.ERROR: logging.ERROR,
  *     LogLevel.WARNING: logging.WARNING,             # <<<<<<<<<<<<<<
  *     LogLevel.NOTICE: logging.INFO,
  *     LogLevel.INFO: logging.INFO,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 702, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 707, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_WARNING); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 702, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_WARNING); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 707, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 702, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 707, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_WARNING); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 702, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_WARNING); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 707, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_11) < (0)) __PYX_ERR(0, 697, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_11) < (0)) __PYX_ERR(0, 702, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":703
+  /* "pyjoulescope_driver/binding.pyx":708
  *     LogLevel.ERROR: logging.ERROR,
  *     LogLevel.WARNING: logging.WARNING,
  *     LogLevel.NOTICE: logging.INFO,             # <<<<<<<<<<<<<<
  *     LogLevel.INFO: logging.INFO,
  *     LogLevel.DEBUG1: logging.DEBUG,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 703, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 708, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_NOTICE); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 703, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_NOTICE); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 708, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 703, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 708, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_INFO); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 703, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_INFO); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 708, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_10) < (0)) __PYX_ERR(0, 697, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_10) < (0)) __PYX_ERR(0, 702, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":704
+  /* "pyjoulescope_driver/binding.pyx":709
  *     LogLevel.WARNING: logging.WARNING,
  *     LogLevel.NOTICE: logging.INFO,
  *     LogLevel.INFO: logging.INFO,             # <<<<<<<<<<<<<<
  *     LogLevel.DEBUG1: logging.DEBUG,
  *     LogLevel.DEBUG2: logging.DEBUG,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 704, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 709, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_INFO); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 704, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_INFO); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 709, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 704, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 709, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_INFO); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 704, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_INFO); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 709, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_11) < (0)) __PYX_ERR(0, 697, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_11) < (0)) __PYX_ERR(0, 702, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":705
+  /* "pyjoulescope_driver/binding.pyx":710
  *     LogLevel.NOTICE: logging.INFO,
  *     LogLevel.INFO: logging.INFO,
  *     LogLevel.DEBUG1: logging.DEBUG,             # <<<<<<<<<<<<<<
  *     LogLevel.DEBUG2: logging.DEBUG,
  *     LogLevel.DEBUG3: logging.DEBUG,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 705, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 710, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_DEBUG1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 705, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_DEBUG1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 710, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 705, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 710, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_DEBUG); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 705, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_DEBUG); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 710, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_10) < (0)) __PYX_ERR(0, 697, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_10) < (0)) __PYX_ERR(0, 702, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":706
+  /* "pyjoulescope_driver/binding.pyx":711
  *     LogLevel.INFO: logging.INFO,
  *     LogLevel.DEBUG1: logging.DEBUG,
  *     LogLevel.DEBUG2: logging.DEBUG,             # <<<<<<<<<<<<<<
  *     LogLevel.DEBUG3: logging.DEBUG,
  *     LogLevel.ALL: logging.NOTSET,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 706, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 711, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_DEBUG2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 706, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_DEBUG2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 711, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 706, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 711, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_DEBUG); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 706, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_DEBUG); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 711, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_11) < (0)) __PYX_ERR(0, 697, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_11) < (0)) __PYX_ERR(0, 702, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":707
+  /* "pyjoulescope_driver/binding.pyx":712
  *     LogLevel.DEBUG1: logging.DEBUG,
  *     LogLevel.DEBUG2: logging.DEBUG,
  *     LogLevel.DEBUG3: logging.DEBUG,             # <<<<<<<<<<<<<<
  *     LogLevel.ALL: logging.NOTSET,
  * }
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 707, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 712, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_DEBUG3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 707, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_DEBUG3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 712, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 707, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 712, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_DEBUG); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 707, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_DEBUG); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 712, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_10) < (0)) __PYX_ERR(0, 697, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_10) < (0)) __PYX_ERR(0, 702, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":708
+  /* "pyjoulescope_driver/binding.pyx":713
  *     LogLevel.DEBUG2: logging.DEBUG,
  *     LogLevel.DEBUG3: logging.DEBUG,
  *     LogLevel.ALL: logging.NOTSET,             # <<<<<<<<<<<<<<
  * }
  * 
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 708, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LogLevel); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 713, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_ALL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 708, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_ALL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 713, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 708, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_logging); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 713, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_NOTSET); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 708, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_NOTSET); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 713, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_11) < (0)) __PYX_ERR(0, 697, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_t_5, __pyx_t_11) < (0)) __PYX_ERR(0, 702, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_log_level_c_to_py, __pyx_t_4) < (0)) __PYX_ERR(0, 696, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_log_level_c_to_py, __pyx_t_4) < (0)) __PYX_ERR(0, 701, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":712
+  /* "pyjoulescope_driver/binding.pyx":717
  * 
  * 
  * def log_level_c_to_py(lvl):             # <<<<<<<<<<<<<<
  *     return _log_level_c_to_py.get(int(lvl))
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_3log_level_c_to_py, 0, __pyx_mstate_global->__pyx_n_u_log_level_c_to_py_2, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[12])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 712, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_3log_level_c_to_py, 0, __pyx_mstate_global->__pyx_n_u_log_level_c_to_py_2, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[12])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 717, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_log_level_c_to_py_2, __pyx_t_4) < (0)) __PYX_ERR(0, 712, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_log_level_c_to_py_2, __pyx_t_4) < (0)) __PYX_ERR(0, 717, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":716
+  /* "pyjoulescope_driver/binding.pyx":721
  * 
  * 
  * class SubscribeFlags:             # <<<<<<<<<<<<<<
  *     """The available subscribe flags."""
  *     NONE = 0                #: No flags (always 0).
 */
-  __pyx_t_4 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_SubscribeFlags, __pyx_mstate_global->__pyx_n_u_SubscribeFlags, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_kp_u_The_available_subscribe_flags); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 716, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_SubscribeFlags, __pyx_mstate_global->__pyx_n_u_SubscribeFlags, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_kp_u_The_available_subscribe_flags); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 721, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
 
-  /* "pyjoulescope_driver/binding.pyx":718
+  /* "pyjoulescope_driver/binding.pyx":723
  * class SubscribeFlags:
  *     """The available subscribe flags."""
  *     NONE = 0                #: No flags (always 0).             # <<<<<<<<<<<<<<
  *     RETAIN = (1 << 0)       #: Immediately forward retained PUB and/or METADATA, depending upon JSDRV_PUBSUB_SFLAG_PUB and JSDRV_PUBSUB_SFLAG_METADATA_RSP.
  *     PUB = (1 << 1)          #: Do not receive normal topic publish.
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_NONE, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 718, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_NONE, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 723, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":719
+  /* "pyjoulescope_driver/binding.pyx":724
  *     """The available subscribe flags."""
  *     NONE = 0                #: No flags (always 0).
  *     RETAIN = (1 << 0)       #: Immediately forward retained PUB and/or METADATA, depending upon JSDRV_PUBSUB_SFLAG_PUB and JSDRV_PUBSUB_SFLAG_METADATA_RSP.             # <<<<<<<<<<<<<<
  *     PUB = (1 << 1)          #: Do not receive normal topic publish.
  *     METADATA_REQ = (1 << 2) #: Subscribe to receive metadata requests like "%", "a/b/%", and "a/b/c%".
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_RETAIN, __pyx_mstate_global->__pyx_int_1) < (0)) __PYX_ERR(0, 719, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_RETAIN, __pyx_mstate_global->__pyx_int_1) < (0)) __PYX_ERR(0, 724, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":720
+  /* "pyjoulescope_driver/binding.pyx":725
  *     NONE = 0                #: No flags (always 0).
  *     RETAIN = (1 << 0)       #: Immediately forward retained PUB and/or METADATA, depending upon JSDRV_PUBSUB_SFLAG_PUB and JSDRV_PUBSUB_SFLAG_METADATA_RSP.
  *     PUB = (1 << 1)          #: Do not receive normal topic publish.             # <<<<<<<<<<<<<<
  *     METADATA_REQ = (1 << 2) #: Subscribe to receive metadata requests like "%", "a/b/%", and "a/b/c%".
  *     METADATA_RSP = (1 << 3) #: Subscribe to receive metadata responses like "a/b/c$.
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_PUB, __pyx_mstate_global->__pyx_int_2) < (0)) __PYX_ERR(0, 720, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_PUB, __pyx_mstate_global->__pyx_int_2) < (0)) __PYX_ERR(0, 725, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":721
+  /* "pyjoulescope_driver/binding.pyx":726
  *     RETAIN = (1 << 0)       #: Immediately forward retained PUB and/or METADATA, depending upon JSDRV_PUBSUB_SFLAG_PUB and JSDRV_PUBSUB_SFLAG_METADATA_RSP.
  *     PUB = (1 << 1)          #: Do not receive normal topic publish.
  *     METADATA_REQ = (1 << 2) #: Subscribe to receive metadata requests like "%", "a/b/%", and "a/b/c%".             # <<<<<<<<<<<<<<
  *     METADATA_RSP = (1 << 3) #: Subscribe to receive metadata responses like "a/b/c$.
  *     QUERY_REQ = (1 << 4)    #: Subscribe to receive query requests like "&", "a/b/&", and "a/b/c&".
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_METADATA_REQ, __pyx_mstate_global->__pyx_int_4) < (0)) __PYX_ERR(0, 721, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_METADATA_REQ, __pyx_mstate_global->__pyx_int_4) < (0)) __PYX_ERR(0, 726, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":722
+  /* "pyjoulescope_driver/binding.pyx":727
  *     PUB = (1 << 1)          #: Do not receive normal topic publish.
  *     METADATA_REQ = (1 << 2) #: Subscribe to receive metadata requests like "%", "a/b/%", and "a/b/c%".
  *     METADATA_RSP = (1 << 3) #: Subscribe to receive metadata responses like "a/b/c$.             # <<<<<<<<<<<<<<
  *     QUERY_REQ = (1 << 4)    #: Subscribe to receive query requests like "&", "a/b/&", and "a/b/c&".
  *     QUERY_RSP = (1 << 5)    #: Subscribe to receive query responses like "a/b/c?".
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_METADATA_RSP, __pyx_mstate_global->__pyx_int_8) < (0)) __PYX_ERR(0, 722, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_METADATA_RSP, __pyx_mstate_global->__pyx_int_8) < (0)) __PYX_ERR(0, 727, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":723
+  /* "pyjoulescope_driver/binding.pyx":728
  *     METADATA_REQ = (1 << 2) #: Subscribe to receive metadata requests like "%", "a/b/%", and "a/b/c%".
  *     METADATA_RSP = (1 << 3) #: Subscribe to receive metadata responses like "a/b/c$.
  *     QUERY_REQ = (1 << 4)    #: Subscribe to receive query requests like "&", "a/b/&", and "a/b/c&".             # <<<<<<<<<<<<<<
  *     QUERY_RSP = (1 << 5)    #: Subscribe to receive query responses like "a/b/c?".
  *     RETURN_CODE = (1 << 6)  #: Subscribe to receive return code messages like "a/b/c#".
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_QUERY_REQ, __pyx_mstate_global->__pyx_int_16) < (0)) __PYX_ERR(0, 723, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_QUERY_REQ, __pyx_mstate_global->__pyx_int_16) < (0)) __PYX_ERR(0, 728, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":724
+  /* "pyjoulescope_driver/binding.pyx":729
  *     METADATA_RSP = (1 << 3) #: Subscribe to receive metadata responses like "a/b/c$.
  *     QUERY_REQ = (1 << 4)    #: Subscribe to receive query requests like "&", "a/b/&", and "a/b/c&".
  *     QUERY_RSP = (1 << 5)    #: Subscribe to receive query responses like "a/b/c?".             # <<<<<<<<<<<<<<
  *     RETURN_CODE = (1 << 6)  #: Subscribe to receive return code messages like "a/b/c#".
  * 
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_QUERY_RSP, __pyx_mstate_global->__pyx_int_32) < (0)) __PYX_ERR(0, 724, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_QUERY_RSP, __pyx_mstate_global->__pyx_int_32) < (0)) __PYX_ERR(0, 729, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":725
+  /* "pyjoulescope_driver/binding.pyx":730
  *     QUERY_REQ = (1 << 4)    #: Subscribe to receive query requests like "&", "a/b/&", and "a/b/c&".
  *     QUERY_RSP = (1 << 5)    #: Subscribe to receive query responses like "a/b/c?".
  *     RETURN_CODE = (1 << 6)  #: Subscribe to receive return code messages like "a/b/c#".             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_RETURN_CODE, __pyx_mstate_global->__pyx_int_64) < (0)) __PYX_ERR(0, 725, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_RETURN_CODE, __pyx_mstate_global->__pyx_int_64) < (0)) __PYX_ERR(0, 730, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":716
+  /* "pyjoulescope_driver/binding.pyx":721
  * 
  * 
  * class SubscribeFlags:             # <<<<<<<<<<<<<<
  *     """The available subscribe flags."""
  *     NONE = 0                #: No flags (always 0).
 */
-  __pyx_t_11 = __Pyx_Py3ClassCreate(((PyObject*)&PyType_Type), __pyx_mstate_global->__pyx_n_u_SubscribeFlags, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_4, NULL, 0, 0); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 716, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_Py3ClassCreate(((PyObject*)&PyType_Type), __pyx_mstate_global->__pyx_n_u_SubscribeFlags, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_4, NULL, 0, 0); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 721, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_11);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_SubscribeFlags, __pyx_t_11) < (0)) __PYX_ERR(0, 716, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_SubscribeFlags, __pyx_t_11) < (0)) __PYX_ERR(0, 721, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":729
+  /* "pyjoulescope_driver/binding.pyx":734
  * 
  * _SUBSCRIBE_FLAG_LOOKUP = {
  *     None: SubscribeFlags.PUB | SubscribeFlags.RETAIN,             # <<<<<<<<<<<<<<
  *     'pub': SubscribeFlags.PUB,
  *     'pub_retain': SubscribeFlags.PUB | SubscribeFlags.RETAIN,
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(10); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 729, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(10); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 734, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 729, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 734, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_PUB); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 729, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_PUB); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 734, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 729, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 734, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_RETAIN); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 729, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_RETAIN); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 734, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  __pyx_t_11 = PyNumber_Or(__pyx_t_5, __pyx_t_10); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 729, __pyx_L1_error)
+  __pyx_t_11 = PyNumber_Or(__pyx_t_5, __pyx_t_10); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 734, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, Py_None, __pyx_t_11) < (0)) __PYX_ERR(0, 729, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, Py_None, __pyx_t_11) < (0)) __PYX_ERR(0, 734, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":730
+  /* "pyjoulescope_driver/binding.pyx":735
  * _SUBSCRIBE_FLAG_LOOKUP = {
  *     None: SubscribeFlags.PUB | SubscribeFlags.RETAIN,
  *     'pub': SubscribeFlags.PUB,             # <<<<<<<<<<<<<<
  *     'pub_retain': SubscribeFlags.PUB | SubscribeFlags.RETAIN,
  *     'metadata_req': SubscribeFlags.METADATA_REQ,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 730, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 735, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_PUB); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 730, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_PUB); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 735, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_pub, __pyx_t_10) < (0)) __PYX_ERR(0, 729, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_pub, __pyx_t_10) < (0)) __PYX_ERR(0, 734, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":731
+  /* "pyjoulescope_driver/binding.pyx":736
  *     None: SubscribeFlags.PUB | SubscribeFlags.RETAIN,
  *     'pub': SubscribeFlags.PUB,
  *     'pub_retain': SubscribeFlags.PUB | SubscribeFlags.RETAIN,             # <<<<<<<<<<<<<<
  *     'metadata_req': SubscribeFlags.METADATA_REQ,
  *     'metadata_rsp': SubscribeFlags.METADATA_RSP,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 731, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 736, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_PUB); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 731, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_PUB); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 736, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 731, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 736, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_RETAIN); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 731, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_RETAIN); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 736, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  __pyx_t_10 = PyNumber_Or(__pyx_t_11, __pyx_t_5); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 731, __pyx_L1_error)
+  __pyx_t_10 = PyNumber_Or(__pyx_t_11, __pyx_t_5); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 736, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_pub_retain, __pyx_t_10) < (0)) __PYX_ERR(0, 729, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_pub_retain, __pyx_t_10) < (0)) __PYX_ERR(0, 734, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":732
+  /* "pyjoulescope_driver/binding.pyx":737
  *     'pub': SubscribeFlags.PUB,
  *     'pub_retain': SubscribeFlags.PUB | SubscribeFlags.RETAIN,
  *     'metadata_req': SubscribeFlags.METADATA_REQ,             # <<<<<<<<<<<<<<
  *     'metadata_rsp': SubscribeFlags.METADATA_RSP,
  *     'metadata_rsp_retain': SubscribeFlags.METADATA_RSP | SubscribeFlags.RETAIN,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 732, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 737, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_METADATA_REQ); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 732, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_METADATA_REQ); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 737, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_metadata_req, __pyx_t_5) < (0)) __PYX_ERR(0, 729, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_metadata_req, __pyx_t_5) < (0)) __PYX_ERR(0, 734, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":733
+  /* "pyjoulescope_driver/binding.pyx":738
  *     'pub_retain': SubscribeFlags.PUB | SubscribeFlags.RETAIN,
  *     'metadata_req': SubscribeFlags.METADATA_REQ,
  *     'metadata_rsp': SubscribeFlags.METADATA_RSP,             # <<<<<<<<<<<<<<
  *     'metadata_rsp_retain': SubscribeFlags.METADATA_RSP | SubscribeFlags.RETAIN,
  *     'metadata': SubscribeFlags.METADATA_RSP | SubscribeFlags.RETAIN,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 733, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 738, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_METADATA_RSP); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 733, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_METADATA_RSP); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 738, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_metadata_rsp, __pyx_t_10) < (0)) __PYX_ERR(0, 729, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_metadata_rsp, __pyx_t_10) < (0)) __PYX_ERR(0, 734, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":734
+  /* "pyjoulescope_driver/binding.pyx":739
  *     'metadata_req': SubscribeFlags.METADATA_REQ,
  *     'metadata_rsp': SubscribeFlags.METADATA_RSP,
  *     'metadata_rsp_retain': SubscribeFlags.METADATA_RSP | SubscribeFlags.RETAIN,             # <<<<<<<<<<<<<<
  *     'metadata': SubscribeFlags.METADATA_RSP | SubscribeFlags.RETAIN,
  *     'query_req': SubscribeFlags.QUERY_REQ,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 734, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 739, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_METADATA_RSP); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 734, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_METADATA_RSP); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 739, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 734, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 739, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_RETAIN); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 734, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_RETAIN); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 739, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  __pyx_t_10 = PyNumber_Or(__pyx_t_5, __pyx_t_11); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 734, __pyx_L1_error)
+  __pyx_t_10 = PyNumber_Or(__pyx_t_5, __pyx_t_11); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 739, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_metadata_rsp_retain, __pyx_t_10) < (0)) __PYX_ERR(0, 729, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_metadata_rsp_retain, __pyx_t_10) < (0)) __PYX_ERR(0, 734, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":735
+  /* "pyjoulescope_driver/binding.pyx":740
  *     'metadata_rsp': SubscribeFlags.METADATA_RSP,
  *     'metadata_rsp_retain': SubscribeFlags.METADATA_RSP | SubscribeFlags.RETAIN,
  *     'metadata': SubscribeFlags.METADATA_RSP | SubscribeFlags.RETAIN,             # <<<<<<<<<<<<<<
  *     'query_req': SubscribeFlags.QUERY_REQ,
  *     'query_rsp': SubscribeFlags.QUERY_RSP,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 735, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 740, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_METADATA_RSP); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 735, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_METADATA_RSP); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 740, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 735, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 740, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_RETAIN); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 735, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_RETAIN); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 740, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  __pyx_t_10 = PyNumber_Or(__pyx_t_11, __pyx_t_5); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 735, __pyx_L1_error)
+  __pyx_t_10 = PyNumber_Or(__pyx_t_11, __pyx_t_5); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 740, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_metadata, __pyx_t_10) < (0)) __PYX_ERR(0, 729, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_metadata, __pyx_t_10) < (0)) __PYX_ERR(0, 734, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":736
+  /* "pyjoulescope_driver/binding.pyx":741
  *     'metadata_rsp_retain': SubscribeFlags.METADATA_RSP | SubscribeFlags.RETAIN,
  *     'metadata': SubscribeFlags.METADATA_RSP | SubscribeFlags.RETAIN,
  *     'query_req': SubscribeFlags.QUERY_REQ,             # <<<<<<<<<<<<<<
  *     'query_rsp': SubscribeFlags.QUERY_RSP,
  *     'return_code': SubscribeFlags.RETURN_CODE,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 736, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 741, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_QUERY_REQ); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 736, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_QUERY_REQ); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 741, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_query_req, __pyx_t_5) < (0)) __PYX_ERR(0, 729, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_query_req, __pyx_t_5) < (0)) __PYX_ERR(0, 734, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":737
+  /* "pyjoulescope_driver/binding.pyx":742
  *     'metadata': SubscribeFlags.METADATA_RSP | SubscribeFlags.RETAIN,
  *     'query_req': SubscribeFlags.QUERY_REQ,
  *     'query_rsp': SubscribeFlags.QUERY_RSP,             # <<<<<<<<<<<<<<
  *     'return_code': SubscribeFlags.RETURN_CODE,
  * }
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 737, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 742, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_QUERY_RSP); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 737, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_QUERY_RSP); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 742, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_query_rsp, __pyx_t_10) < (0)) __PYX_ERR(0, 729, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_query_rsp, __pyx_t_10) < (0)) __PYX_ERR(0, 734, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":738
+  /* "pyjoulescope_driver/binding.pyx":743
  *     'query_req': SubscribeFlags.QUERY_REQ,
  *     'query_rsp': SubscribeFlags.QUERY_RSP,
  *     'return_code': SubscribeFlags.RETURN_CODE,             # <<<<<<<<<<<<<<
  * }
  * 
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 738, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SubscribeFlags); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 743, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_RETURN_CODE); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 738, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_RETURN_CODE); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 743, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return_code, __pyx_t_5) < (0)) __PYX_ERR(0, 729, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return_code, __pyx_t_5) < (0)) __PYX_ERR(0, 734, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_SUBSCRIBE_FLAG_LOOKUP, __pyx_t_4) < (0)) __PYX_ERR(0, 728, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_SUBSCRIBE_FLAG_LOOKUP, __pyx_t_4) < (0)) __PYX_ERR(0, 733, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":743
+  /* "pyjoulescope_driver/binding.pyx":748
  * 
  * _DEVICE_OPEN_MODES = {
  *     0: 0,             # <<<<<<<<<<<<<<
  *     'defaults': 0,
  *     None: 0,
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(7); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 743, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(7); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 748, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 743, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_defaults, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 743, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 748, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_defaults, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 748, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":745
+  /* "pyjoulescope_driver/binding.pyx":750
  *     0: 0,
  *     'defaults': 0,
  *     None: 0,             # <<<<<<<<<<<<<<
  *     1: 1,
  *     'restore': 1,
 */
-  if (PyDict_SetItem(__pyx_t_4, Py_None, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 743, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_1, __pyx_mstate_global->__pyx_int_1) < (0)) __PYX_ERR(0, 743, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_restore, __pyx_mstate_global->__pyx_int_1) < (0)) __PYX_ERR(0, 743, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_255, __pyx_mstate_global->__pyx_int_255) < (0)) __PYX_ERR(0, 743, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_raw, __pyx_mstate_global->__pyx_int_255) < (0)) __PYX_ERR(0, 743, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_DEVICE_OPEN_MODES, __pyx_t_4) < (0)) __PYX_ERR(0, 742, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, Py_None, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 748, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_1, __pyx_mstate_global->__pyx_int_1) < (0)) __PYX_ERR(0, 748, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_restore, __pyx_mstate_global->__pyx_int_1) < (0)) __PYX_ERR(0, 748, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_int_255, __pyx_mstate_global->__pyx_int_255) < (0)) __PYX_ERR(0, 748, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_raw, __pyx_mstate_global->__pyx_int_255) < (0)) __PYX_ERR(0, 748, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_DEVICE_OPEN_MODES, __pyx_t_4) < (0)) __PYX_ERR(0, 747, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":753
+  /* "pyjoulescope_driver/binding.pyx":758
  * 
  * 
  * cdef int32_t _driver_count = 0             # <<<<<<<<<<<<<<
@@ -39339,97 +39387,97 @@ __Pyx_RefNannySetupContext("PyInit_binding", 0);
 */
   __pyx_v_19pyjoulescope_driver_7binding__driver_count = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":754
+  /* "pyjoulescope_driver/binding.pyx":759
  * 
  * cdef int32_t _driver_count = 0
  * _TIMEOUT_MS_DEFAULT = 1000             # <<<<<<<<<<<<<<
  * _TIMEOUT_MS_INIT = 5000
  * 
 */
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_TIMEOUT_MS_DEFAULT, __pyx_mstate_global->__pyx_int_1000) < (0)) __PYX_ERR(0, 754, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_TIMEOUT_MS_DEFAULT, __pyx_mstate_global->__pyx_int_1000) < (0)) __PYX_ERR(0, 759, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":755
+  /* "pyjoulescope_driver/binding.pyx":760
  * cdef int32_t _driver_count = 0
  * _TIMEOUT_MS_DEFAULT = 1000
  * _TIMEOUT_MS_INIT = 5000             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_TIMEOUT_MS_INIT, __pyx_mstate_global->__pyx_int_5000) < (0)) __PYX_ERR(0, 755, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_TIMEOUT_MS_INIT, __pyx_mstate_global->__pyx_int_5000) < (0)) __PYX_ERR(0, 760, __pyx_L1_error)
 
-  /* "pyjoulescope_driver/binding.pyx":766
+  /* "pyjoulescope_driver/binding.pyx":771
  * 
  * 
  * def _handle_rc(rc, src, cause=None):             # <<<<<<<<<<<<<<
  *     if rc:
  *         name = c_jsdrv.jsdrv_error_code_name(rc).decode('utf-8')
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_5_handle_rc, 0, __pyx_mstate_global->__pyx_n_u_handle_rc, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[13])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 766, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_5_handle_rc, 0, __pyx_mstate_global->__pyx_n_u_handle_rc, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[13])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 771, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_mstate_global->__pyx_tuple[5]);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_handle_rc, __pyx_t_4) < (0)) __PYX_ERR(0, 766, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_handle_rc, __pyx_t_4) < (0)) __PYX_ERR(0, 771, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":803
+  /* "pyjoulescope_driver/binding.pyx":808
  *         _driver_count += 1
  * 
  *     def __enter__(self):             # <<<<<<<<<<<<<<
  *         return self
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_3__enter__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver___enter, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[14])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 803, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_3__enter__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver___enter, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[14])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 808, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_enter, __pyx_t_4) < (0)) __PYX_ERR(0, 803, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_enter, __pyx_t_4) < (0)) __PYX_ERR(0, 808, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":806
+  /* "pyjoulescope_driver/binding.pyx":811
  *         return self
  * 
  *     def __exit__(self, type, value, traceback):             # <<<<<<<<<<<<<<
  *         self.finalize()
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_5__exit__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver___exit, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[15])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 806, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_5__exit__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver___exit, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[15])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 811, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_exit, __pyx_t_4) < (0)) __PYX_ERR(0, 806, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_exit, __pyx_t_4) < (0)) __PYX_ERR(0, 811, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":827
+  /* "pyjoulescope_driver/binding.pyx":832
  *         c_jsdrv.jsdrv_log_level_set(level)
  * 
  *     def finalize(self, timeout=None):             # <<<<<<<<<<<<<<
  *         """Finalize the driver.
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_7finalize, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver_finalize, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[16])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 827, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_7finalize, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver_finalize, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[16])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 832, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_mstate_global->__pyx_tuple[5]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_finalize, __pyx_t_4) < (0)) __PYX_ERR(0, 827, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_finalize, __pyx_t_4) < (0)) __PYX_ERR(0, 832, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":841
+  /* "pyjoulescope_driver/binding.pyx":846
  *         _driver_count -= 1
  * 
  *     def publish(self, topic: str, value, timeout=None):             # <<<<<<<<<<<<<<
  *         """Publish a value to a topic.
  * 
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 841, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 846, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_topic, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 841, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_9publish, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver_publish, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[17])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 841, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_topic, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 846, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_9publish, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver_publish, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[17])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 846, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
@@ -39437,20 +39485,20 @@ __Pyx_RefNannySetupContext("PyInit_binding", 0);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_mstate_global->__pyx_tuple[5]);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_publish, __pyx_t_5) < (0)) __PYX_ERR(0, 841, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_publish, __pyx_t_5) < (0)) __PYX_ERR(0, 846, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":902
+  /* "pyjoulescope_driver/binding.pyx":907
  *         _handle_rc(rc, 'jsdrv_publish', topic)
  * 
  *     def query(self, topic: str, timeout=None):             # <<<<<<<<<<<<<<
  *         """Query the value for a topic.
  * 
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 902, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 907, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_topic, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 902, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_11query, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver_query, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[18])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 902, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_topic, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 907, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_11query, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver_query, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[18])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 907, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
@@ -39458,52 +39506,52 @@ __Pyx_RefNannySetupContext("PyInit_binding", 0);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_mstate_global->__pyx_tuple[5]);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_query, __pyx_t_4) < (0)) __PYX_ERR(0, 902, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_query, __pyx_t_4) < (0)) __PYX_ERR(0, 907, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":924
+  /* "pyjoulescope_driver/binding.pyx":929
  *         return _jsdrv_union_to_py(&v)
  * 
  *     def publish_and_wait(self, publish_topic, publish_value,             # <<<<<<<<<<<<<<
  *                          response_topic, timeout=None):
  *         """Publish a value and wait for a response on another topic.
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_13publish_and_wait, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver_publish_and_wait, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[19])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 924, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_13publish_and_wait, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver_publish_and_wait, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[19])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 929, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_mstate_global->__pyx_tuple[5]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_publish_and_wait, __pyx_t_4) < (0)) __PYX_ERR(0, 924, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_publish_and_wait, __pyx_t_4) < (0)) __PYX_ERR(0, 929, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":959
+  /* "pyjoulescope_driver/binding.pyx":964
  *             self.unsubscribe(response_topic, on_response)
  * 
  *     def device_paths(self, timeout=None):             # <<<<<<<<<<<<<<
  *         """List the currently connected devices.
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_15device_paths, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver_device_paths, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[20])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 959, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_15device_paths, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver_device_paths, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[20])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 964, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_mstate_global->__pyx_tuple[5]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_device_paths, __pyx_t_4) < (0)) __PYX_ERR(0, 959, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_device_paths, __pyx_t_4) < (0)) __PYX_ERR(0, 964, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":971
+  /* "pyjoulescope_driver/binding.pyx":976
  *         return sorted(s.split(','))
  * 
  *     def subscribe(self, topic: str, flags, fn, timeout=None):             # <<<<<<<<<<<<<<
  *         """Subscribe to receive topic updates.
  * 
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 971, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 976, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_topic, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 971, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_17subscribe, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver_subscribe, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[21])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 971, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_topic, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 976, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_17subscribe, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver_subscribe, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[21])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 976, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
@@ -39511,71 +39559,71 @@ __Pyx_RefNannySetupContext("PyInit_binding", 0);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_mstate_global->__pyx_tuple[5]);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_subscribe, __pyx_t_5) < (0)) __PYX_ERR(0, 971, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_subscribe, __pyx_t_5) < (0)) __PYX_ERR(0, 976, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1018
+  /* "pyjoulescope_driver/binding.pyx":1023
  *         _handle_rc(rc, 'jsdrv_subscribe', topic)
  * 
  *     def unsubscribe(self, topic, fn, timeout=None):             # <<<<<<<<<<<<<<
  *         """Unsubscribe from a topic.
  * 
 */
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_19unsubscribe, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver_unsubscribe, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[22])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1018, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_19unsubscribe, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver_unsubscribe, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[22])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1023, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_mstate_global->__pyx_tuple[5]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_unsubscribe, __pyx_t_5) < (0)) __PYX_ERR(0, 1018, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_unsubscribe, __pyx_t_5) < (0)) __PYX_ERR(0, 1023, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1036
+  /* "pyjoulescope_driver/binding.pyx":1041
  *         _handle_rc(rc, 'jsdrv_unsubscribe', topic)
  * 
  *     def unsubscribe_all(self, fn, timeout=None):             # <<<<<<<<<<<<<<
  *         """Unsubscribe a callback from all topics.
  * 
 */
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_21unsubscribe_all, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver_unsubscribe_all, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[23])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1036, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_21unsubscribe_all, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver_unsubscribe_all, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[23])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1041, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_mstate_global->__pyx_tuple[5]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_unsubscribe_all, __pyx_t_5) < (0)) __PYX_ERR(0, 1036, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_unsubscribe_all, __pyx_t_5) < (0)) __PYX_ERR(0, 1041, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1053
+  /* "pyjoulescope_driver/binding.pyx":1058
  *         _handle_rc(rc, 'jsdrv_unsubscribe_all')
  * 
  *     def open(self, device_prefix, mode=None, timeout=None):             # <<<<<<<<<<<<<<
  *         """Open an attached device.
  * 
 */
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_23open, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver_open, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[24])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1053, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_23open, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver_open, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[24])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1058, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_mstate_global->__pyx_tuple[32]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_open_2, __pyx_t_5) < (0)) __PYX_ERR(0, 1053, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_open_2, __pyx_t_5) < (0)) __PYX_ERR(0, 1058, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1086
+  /* "pyjoulescope_driver/binding.pyx":1094
  *         _handle_rc(rc, 'jsdrv_open', device_prefix)
  * 
  *     def close(self, device_prefix, timeout=None):             # <<<<<<<<<<<<<<
  *         """Close an attached device.
  * 
 */
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_25close, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver_close, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[25])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1086, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_6Driver_25close, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Driver_close, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[25])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1094, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_mstate_global->__pyx_tuple[5]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_close_2, __pyx_t_5) < (0)) __PYX_ERR(0, 1086, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_19pyjoulescope_driver_7binding_Driver, __pyx_mstate_global->__pyx_n_u_close_2, __pyx_t_5) < (0)) __PYX_ERR(0, 1094, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
   /* "(tree fragment)":1
@@ -39605,19 +39653,19 @@ __Pyx_RefNannySetupContext("PyInit_binding", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_5) < (0)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "pyjoulescope_driver/binding.pyx":1133
+  /* "pyjoulescope_driver/binding.pyx":1141
  * 
  * 
  * def calibration_hash(msg):             # <<<<<<<<<<<<<<
  *     cdef const uint32_t[:] msg_u32
  *     cdef uint32_t[:] hash_u32
 */
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_7calibration_hash, 0, __pyx_mstate_global->__pyx_n_u_calibration_hash, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[28])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1133, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_19pyjoulescope_driver_7binding_7calibration_hash, 0, __pyx_mstate_global->__pyx_n_u_calibration_hash, NULL, __pyx_mstate_global->__pyx_n_u_pyjoulescope_driver_binding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[28])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1141, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_calibration_hash, __pyx_t_5) < (0)) __PYX_ERR(0, 1133, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_calibration_hash, __pyx_t_5) < (0)) __PYX_ERR(0, 1141, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
   /* "pyjoulescope_driver/binding.pyx":1
@@ -39741,25 +39789,25 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[2]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[2]);
 
-  /* "pyjoulescope_driver/binding.pyx":649
+  /* "pyjoulescope_driver/binding.pyx":654
  *     :return: The error code's name
  *     """
  *     v, name, rv = _error_code_to_meta.get(ec, (-1, "unknown", "unknown"))             # <<<<<<<<<<<<<<
  *     return f'{v} {name} : {rv}'
  * 
 */
-  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_neg_1, __pyx_mstate_global->__pyx_n_u_unknown, __pyx_mstate_global->__pyx_n_u_unknown); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 649, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_neg_1, __pyx_mstate_global->__pyx_n_u_unknown, __pyx_mstate_global->__pyx_n_u_unknown); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 654, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[3]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[3]);
 
-  /* "pyjoulescope_driver/binding.pyx":1075
+  /* "pyjoulescope_driver/binding.pyx":1083
  * 
  *         while device_prefix[-1] == '/':
  *             device_prefix = device_prefix[:-1]             # <<<<<<<<<<<<<<
  *         topic = device_prefix + "/@/!open"
  *         topic_str = topic.encode('utf-8')
 */
-  __pyx_mstate_global->__pyx_slice[1] = PySlice_New(Py_None, __pyx_mstate_global->__pyx_int_neg_1, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[1])) __PYX_ERR(0, 1075, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_slice[1] = PySlice_New(Py_None, __pyx_mstate_global->__pyx_int_neg_1, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[1])) __PYX_ERR(0, 1083, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_slice[1]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_slice[1]);
 
@@ -39785,300 +39833,300 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[5]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[5]);
 
-  /* "pyjoulescope_driver/binding.pyx":587
+  /* "pyjoulescope_driver/binding.pyx":592
  *     # automatically maintained by error_code_update.py
  *     # ENUM_ERROR_CODE_META_START
  *     0: (0, 'SUCCESS', 'Success (no error)'),             # <<<<<<<<<<<<<<
  *     1: (1, 'UNSPECIFIED', 'Unspecified error'),
  *     2: (2, 'NOT_ENOUGH_MEMORY', 'Insufficient memory to complete the operation'),
 */
-  __pyx_mstate_global->__pyx_tuple[6] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_n_u_SUCCESS, __pyx_mstate_global->__pyx_kp_u_Success_no_error); if (unlikely(!__pyx_mstate_global->__pyx_tuple[6])) __PYX_ERR(0, 587, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[6] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_n_u_SUCCESS, __pyx_mstate_global->__pyx_kp_u_Success_no_error); if (unlikely(!__pyx_mstate_global->__pyx_tuple[6])) __PYX_ERR(0, 592, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[6]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[6]);
 
-  /* "pyjoulescope_driver/binding.pyx":588
+  /* "pyjoulescope_driver/binding.pyx":593
  *     # ENUM_ERROR_CODE_META_START
  *     0: (0, 'SUCCESS', 'Success (no error)'),
  *     1: (1, 'UNSPECIFIED', 'Unspecified error'),             # <<<<<<<<<<<<<<
  *     2: (2, 'NOT_ENOUGH_MEMORY', 'Insufficient memory to complete the operation'),
  *     3: (3, 'NOT_SUPPORTED', 'Operation is not supported'),
 */
-  __pyx_mstate_global->__pyx_tuple[7] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_1, __pyx_mstate_global->__pyx_n_u_UNSPECIFIED, __pyx_mstate_global->__pyx_kp_u_Unspecified_error); if (unlikely(!__pyx_mstate_global->__pyx_tuple[7])) __PYX_ERR(0, 588, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[7] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_1, __pyx_mstate_global->__pyx_n_u_UNSPECIFIED, __pyx_mstate_global->__pyx_kp_u_Unspecified_error); if (unlikely(!__pyx_mstate_global->__pyx_tuple[7])) __PYX_ERR(0, 593, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[7]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[7]);
 
-  /* "pyjoulescope_driver/binding.pyx":589
+  /* "pyjoulescope_driver/binding.pyx":594
  *     0: (0, 'SUCCESS', 'Success (no error)'),
  *     1: (1, 'UNSPECIFIED', 'Unspecified error'),
  *     2: (2, 'NOT_ENOUGH_MEMORY', 'Insufficient memory to complete the operation'),             # <<<<<<<<<<<<<<
  *     3: (3, 'NOT_SUPPORTED', 'Operation is not supported'),
  *     4: (4, 'IO', 'Input/output error'),
 */
-  __pyx_mstate_global->__pyx_tuple[8] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_2, __pyx_mstate_global->__pyx_n_u_NOT_ENOUGH_MEMORY, __pyx_mstate_global->__pyx_kp_u_Insufficient_memory_to_complete); if (unlikely(!__pyx_mstate_global->__pyx_tuple[8])) __PYX_ERR(0, 589, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[8] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_2, __pyx_mstate_global->__pyx_n_u_NOT_ENOUGH_MEMORY, __pyx_mstate_global->__pyx_kp_u_Insufficient_memory_to_complete); if (unlikely(!__pyx_mstate_global->__pyx_tuple[8])) __PYX_ERR(0, 594, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[8]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[8]);
 
-  /* "pyjoulescope_driver/binding.pyx":590
+  /* "pyjoulescope_driver/binding.pyx":595
  *     1: (1, 'UNSPECIFIED', 'Unspecified error'),
  *     2: (2, 'NOT_ENOUGH_MEMORY', 'Insufficient memory to complete the operation'),
  *     3: (3, 'NOT_SUPPORTED', 'Operation is not supported'),             # <<<<<<<<<<<<<<
  *     4: (4, 'IO', 'Input/output error'),
  *     5: (5, 'PARAMETER_INVALID', 'The parameter value is invalid'),
 */
-  __pyx_mstate_global->__pyx_tuple[9] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_3, __pyx_mstate_global->__pyx_n_u_NOT_SUPPORTED, __pyx_mstate_global->__pyx_kp_u_Operation_is_not_supported); if (unlikely(!__pyx_mstate_global->__pyx_tuple[9])) __PYX_ERR(0, 590, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[9] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_3, __pyx_mstate_global->__pyx_n_u_NOT_SUPPORTED, __pyx_mstate_global->__pyx_kp_u_Operation_is_not_supported); if (unlikely(!__pyx_mstate_global->__pyx_tuple[9])) __PYX_ERR(0, 595, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[9]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[9]);
 
-  /* "pyjoulescope_driver/binding.pyx":591
+  /* "pyjoulescope_driver/binding.pyx":596
  *     2: (2, 'NOT_ENOUGH_MEMORY', 'Insufficient memory to complete the operation'),
  *     3: (3, 'NOT_SUPPORTED', 'Operation is not supported'),
  *     4: (4, 'IO', 'Input/output error'),             # <<<<<<<<<<<<<<
  *     5: (5, 'PARAMETER_INVALID', 'The parameter value is invalid'),
  *     6: (6, 'INVALID_RETURN_CONDITION', 'The function return condition is invalid'),
 */
-  __pyx_mstate_global->__pyx_tuple[10] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_4, __pyx_mstate_global->__pyx_n_u_IO, __pyx_mstate_global->__pyx_kp_u_Input_output_error); if (unlikely(!__pyx_mstate_global->__pyx_tuple[10])) __PYX_ERR(0, 591, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[10] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_4, __pyx_mstate_global->__pyx_n_u_IO, __pyx_mstate_global->__pyx_kp_u_Input_output_error); if (unlikely(!__pyx_mstate_global->__pyx_tuple[10])) __PYX_ERR(0, 596, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[10]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[10]);
 
-  /* "pyjoulescope_driver/binding.pyx":592
+  /* "pyjoulescope_driver/binding.pyx":597
  *     3: (3, 'NOT_SUPPORTED', 'Operation is not supported'),
  *     4: (4, 'IO', 'Input/output error'),
  *     5: (5, 'PARAMETER_INVALID', 'The parameter value is invalid'),             # <<<<<<<<<<<<<<
  *     6: (6, 'INVALID_RETURN_CONDITION', 'The function return condition is invalid'),
  *     7: (7, 'INVALID_CONTEXT', 'The context is invalid'),
 */
-  __pyx_mstate_global->__pyx_tuple[11] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_5, __pyx_mstate_global->__pyx_n_u_PARAMETER_INVALID, __pyx_mstate_global->__pyx_kp_u_The_parameter_value_is_invalid); if (unlikely(!__pyx_mstate_global->__pyx_tuple[11])) __PYX_ERR(0, 592, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[11] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_5, __pyx_mstate_global->__pyx_n_u_PARAMETER_INVALID, __pyx_mstate_global->__pyx_kp_u_The_parameter_value_is_invalid); if (unlikely(!__pyx_mstate_global->__pyx_tuple[11])) __PYX_ERR(0, 597, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[11]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[11]);
 
-  /* "pyjoulescope_driver/binding.pyx":593
+  /* "pyjoulescope_driver/binding.pyx":598
  *     4: (4, 'IO', 'Input/output error'),
  *     5: (5, 'PARAMETER_INVALID', 'The parameter value is invalid'),
  *     6: (6, 'INVALID_RETURN_CONDITION', 'The function return condition is invalid'),             # <<<<<<<<<<<<<<
  *     7: (7, 'INVALID_CONTEXT', 'The context is invalid'),
  *     8: (8, 'INVALID_MESSAGE_LENGTH', 'The message length is invalid'),
 */
-  __pyx_mstate_global->__pyx_tuple[12] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_6, __pyx_mstate_global->__pyx_n_u_INVALID_RETURN_CONDITION, __pyx_mstate_global->__pyx_kp_u_The_function_return_condition_is); if (unlikely(!__pyx_mstate_global->__pyx_tuple[12])) __PYX_ERR(0, 593, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[12] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_6, __pyx_mstate_global->__pyx_n_u_INVALID_RETURN_CONDITION, __pyx_mstate_global->__pyx_kp_u_The_function_return_condition_is); if (unlikely(!__pyx_mstate_global->__pyx_tuple[12])) __PYX_ERR(0, 598, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[12]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[12]);
 
-  /* "pyjoulescope_driver/binding.pyx":594
+  /* "pyjoulescope_driver/binding.pyx":599
  *     5: (5, 'PARAMETER_INVALID', 'The parameter value is invalid'),
  *     6: (6, 'INVALID_RETURN_CONDITION', 'The function return condition is invalid'),
  *     7: (7, 'INVALID_CONTEXT', 'The context is invalid'),             # <<<<<<<<<<<<<<
  *     8: (8, 'INVALID_MESSAGE_LENGTH', 'The message length is invalid'),
  *     9: (9, 'MESSAGE_INTEGRITY', 'The message integrity check failed'),
 */
-  __pyx_mstate_global->__pyx_tuple[13] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_7, __pyx_mstate_global->__pyx_n_u_INVALID_CONTEXT, __pyx_mstate_global->__pyx_kp_u_The_context_is_invalid); if (unlikely(!__pyx_mstate_global->__pyx_tuple[13])) __PYX_ERR(0, 594, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[13] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_7, __pyx_mstate_global->__pyx_n_u_INVALID_CONTEXT, __pyx_mstate_global->__pyx_kp_u_The_context_is_invalid); if (unlikely(!__pyx_mstate_global->__pyx_tuple[13])) __PYX_ERR(0, 599, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[13]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[13]);
 
-  /* "pyjoulescope_driver/binding.pyx":595
+  /* "pyjoulescope_driver/binding.pyx":600
  *     6: (6, 'INVALID_RETURN_CONDITION', 'The function return condition is invalid'),
  *     7: (7, 'INVALID_CONTEXT', 'The context is invalid'),
  *     8: (8, 'INVALID_MESSAGE_LENGTH', 'The message length is invalid'),             # <<<<<<<<<<<<<<
  *     9: (9, 'MESSAGE_INTEGRITY', 'The message integrity check failed'),
  *     10: (10, 'SYNTAX_ERROR', 'A syntax error was detected'),
 */
-  __pyx_mstate_global->__pyx_tuple[14] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_8, __pyx_mstate_global->__pyx_n_u_INVALID_MESSAGE_LENGTH, __pyx_mstate_global->__pyx_kp_u_The_message_length_is_invalid); if (unlikely(!__pyx_mstate_global->__pyx_tuple[14])) __PYX_ERR(0, 595, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[14] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_8, __pyx_mstate_global->__pyx_n_u_INVALID_MESSAGE_LENGTH, __pyx_mstate_global->__pyx_kp_u_The_message_length_is_invalid); if (unlikely(!__pyx_mstate_global->__pyx_tuple[14])) __PYX_ERR(0, 600, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[14]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[14]);
 
-  /* "pyjoulescope_driver/binding.pyx":596
+  /* "pyjoulescope_driver/binding.pyx":601
  *     7: (7, 'INVALID_CONTEXT', 'The context is invalid'),
  *     8: (8, 'INVALID_MESSAGE_LENGTH', 'The message length is invalid'),
  *     9: (9, 'MESSAGE_INTEGRITY', 'The message integrity check failed'),             # <<<<<<<<<<<<<<
  *     10: (10, 'SYNTAX_ERROR', 'A syntax error was detected'),
  *     11: (11, 'TIMED_OUT', 'The operation did not complete in time'),
 */
-  __pyx_mstate_global->__pyx_tuple[15] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_9, __pyx_mstate_global->__pyx_n_u_MESSAGE_INTEGRITY, __pyx_mstate_global->__pyx_kp_u_The_message_integrity_check_fail); if (unlikely(!__pyx_mstate_global->__pyx_tuple[15])) __PYX_ERR(0, 596, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[15] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_9, __pyx_mstate_global->__pyx_n_u_MESSAGE_INTEGRITY, __pyx_mstate_global->__pyx_kp_u_The_message_integrity_check_fail); if (unlikely(!__pyx_mstate_global->__pyx_tuple[15])) __PYX_ERR(0, 601, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[15]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[15]);
 
-  /* "pyjoulescope_driver/binding.pyx":597
+  /* "pyjoulescope_driver/binding.pyx":602
  *     8: (8, 'INVALID_MESSAGE_LENGTH', 'The message length is invalid'),
  *     9: (9, 'MESSAGE_INTEGRITY', 'The message integrity check failed'),
  *     10: (10, 'SYNTAX_ERROR', 'A syntax error was detected'),             # <<<<<<<<<<<<<<
  *     11: (11, 'TIMED_OUT', 'The operation did not complete in time'),
  *     12: (12, 'FULL', 'The target of the operation is full'),
 */
-  __pyx_mstate_global->__pyx_tuple[16] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_10, __pyx_mstate_global->__pyx_n_u_SYNTAX_ERROR, __pyx_mstate_global->__pyx_kp_u_A_syntax_error_was_detected); if (unlikely(!__pyx_mstate_global->__pyx_tuple[16])) __PYX_ERR(0, 597, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[16] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_10, __pyx_mstate_global->__pyx_n_u_SYNTAX_ERROR, __pyx_mstate_global->__pyx_kp_u_A_syntax_error_was_detected); if (unlikely(!__pyx_mstate_global->__pyx_tuple[16])) __PYX_ERR(0, 602, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[16]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[16]);
 
-  /* "pyjoulescope_driver/binding.pyx":598
+  /* "pyjoulescope_driver/binding.pyx":603
  *     9: (9, 'MESSAGE_INTEGRITY', 'The message integrity check failed'),
  *     10: (10, 'SYNTAX_ERROR', 'A syntax error was detected'),
  *     11: (11, 'TIMED_OUT', 'The operation did not complete in time'),             # <<<<<<<<<<<<<<
  *     12: (12, 'FULL', 'The target of the operation is full'),
  *     13: (13, 'EMPTY', 'The target of the operation is empty'),
 */
-  __pyx_mstate_global->__pyx_tuple[17] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_11, __pyx_mstate_global->__pyx_n_u_TIMED_OUT, __pyx_mstate_global->__pyx_kp_u_The_operation_did_not_complete_i); if (unlikely(!__pyx_mstate_global->__pyx_tuple[17])) __PYX_ERR(0, 598, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[17] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_11, __pyx_mstate_global->__pyx_n_u_TIMED_OUT, __pyx_mstate_global->__pyx_kp_u_The_operation_did_not_complete_i); if (unlikely(!__pyx_mstate_global->__pyx_tuple[17])) __PYX_ERR(0, 603, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[17]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[17]);
 
-  /* "pyjoulescope_driver/binding.pyx":599
+  /* "pyjoulescope_driver/binding.pyx":604
  *     10: (10, 'SYNTAX_ERROR', 'A syntax error was detected'),
  *     11: (11, 'TIMED_OUT', 'The operation did not complete in time'),
  *     12: (12, 'FULL', 'The target of the operation is full'),             # <<<<<<<<<<<<<<
  *     13: (13, 'EMPTY', 'The target of the operation is empty'),
  *     14: (14, 'TOO_SMALL', 'The target of the operation is too small'),
 */
-  __pyx_mstate_global->__pyx_tuple[18] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_12, __pyx_mstate_global->__pyx_n_u_FULL, __pyx_mstate_global->__pyx_kp_u_The_target_of_the_operation_is_f); if (unlikely(!__pyx_mstate_global->__pyx_tuple[18])) __PYX_ERR(0, 599, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[18] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_12, __pyx_mstate_global->__pyx_n_u_FULL, __pyx_mstate_global->__pyx_kp_u_The_target_of_the_operation_is_f); if (unlikely(!__pyx_mstate_global->__pyx_tuple[18])) __PYX_ERR(0, 604, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[18]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[18]);
 
-  /* "pyjoulescope_driver/binding.pyx":600
+  /* "pyjoulescope_driver/binding.pyx":605
  *     11: (11, 'TIMED_OUT', 'The operation did not complete in time'),
  *     12: (12, 'FULL', 'The target of the operation is full'),
  *     13: (13, 'EMPTY', 'The target of the operation is empty'),             # <<<<<<<<<<<<<<
  *     14: (14, 'TOO_SMALL', 'The target of the operation is too small'),
  *     15: (15, 'TOO_BIG', 'The target of the operation is too big'),
 */
-  __pyx_mstate_global->__pyx_tuple[19] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_13, __pyx_mstate_global->__pyx_n_u_EMPTY, __pyx_mstate_global->__pyx_kp_u_The_target_of_the_operation_is_e); if (unlikely(!__pyx_mstate_global->__pyx_tuple[19])) __PYX_ERR(0, 600, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[19] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_13, __pyx_mstate_global->__pyx_n_u_EMPTY, __pyx_mstate_global->__pyx_kp_u_The_target_of_the_operation_is_e); if (unlikely(!__pyx_mstate_global->__pyx_tuple[19])) __PYX_ERR(0, 605, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[19]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[19]);
 
-  /* "pyjoulescope_driver/binding.pyx":601
+  /* "pyjoulescope_driver/binding.pyx":606
  *     12: (12, 'FULL', 'The target of the operation is full'),
  *     13: (13, 'EMPTY', 'The target of the operation is empty'),
  *     14: (14, 'TOO_SMALL', 'The target of the operation is too small'),             # <<<<<<<<<<<<<<
  *     15: (15, 'TOO_BIG', 'The target of the operation is too big'),
  *     16: (16, 'NOT_FOUND', 'The requested resource was not found'),
 */
-  __pyx_mstate_global->__pyx_tuple[20] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_14, __pyx_mstate_global->__pyx_n_u_TOO_SMALL, __pyx_mstate_global->__pyx_kp_u_The_target_of_the_operation_is_t); if (unlikely(!__pyx_mstate_global->__pyx_tuple[20])) __PYX_ERR(0, 601, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[20] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_14, __pyx_mstate_global->__pyx_n_u_TOO_SMALL, __pyx_mstate_global->__pyx_kp_u_The_target_of_the_operation_is_t); if (unlikely(!__pyx_mstate_global->__pyx_tuple[20])) __PYX_ERR(0, 606, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[20]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[20]);
 
-  /* "pyjoulescope_driver/binding.pyx":602
+  /* "pyjoulescope_driver/binding.pyx":607
  *     13: (13, 'EMPTY', 'The target of the operation is empty'),
  *     14: (14, 'TOO_SMALL', 'The target of the operation is too small'),
  *     15: (15, 'TOO_BIG', 'The target of the operation is too big'),             # <<<<<<<<<<<<<<
  *     16: (16, 'NOT_FOUND', 'The requested resource was not found'),
  *     17: (17, 'ALREADY_EXISTS', 'The requested resource already exists'),
 */
-  __pyx_mstate_global->__pyx_tuple[21] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_15, __pyx_mstate_global->__pyx_n_u_TOO_BIG, __pyx_mstate_global->__pyx_kp_u_The_target_of_the_operation_is_t_2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[21])) __PYX_ERR(0, 602, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[21] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_15, __pyx_mstate_global->__pyx_n_u_TOO_BIG, __pyx_mstate_global->__pyx_kp_u_The_target_of_the_operation_is_t_2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[21])) __PYX_ERR(0, 607, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[21]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[21]);
 
-  /* "pyjoulescope_driver/binding.pyx":603
+  /* "pyjoulescope_driver/binding.pyx":608
  *     14: (14, 'TOO_SMALL', 'The target of the operation is too small'),
  *     15: (15, 'TOO_BIG', 'The target of the operation is too big'),
  *     16: (16, 'NOT_FOUND', 'The requested resource was not found'),             # <<<<<<<<<<<<<<
  *     17: (17, 'ALREADY_EXISTS', 'The requested resource already exists'),
  *     18: (18, 'PERMISSIONS', 'Insufficient permissions to perform the operation.'),
 */
-  __pyx_mstate_global->__pyx_tuple[22] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_16, __pyx_mstate_global->__pyx_n_u_NOT_FOUND, __pyx_mstate_global->__pyx_kp_u_The_requested_resource_was_not_f); if (unlikely(!__pyx_mstate_global->__pyx_tuple[22])) __PYX_ERR(0, 603, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[22] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_16, __pyx_mstate_global->__pyx_n_u_NOT_FOUND, __pyx_mstate_global->__pyx_kp_u_The_requested_resource_was_not_f); if (unlikely(!__pyx_mstate_global->__pyx_tuple[22])) __PYX_ERR(0, 608, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[22]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[22]);
 
-  /* "pyjoulescope_driver/binding.pyx":604
+  /* "pyjoulescope_driver/binding.pyx":609
  *     15: (15, 'TOO_BIG', 'The target of the operation is too big'),
  *     16: (16, 'NOT_FOUND', 'The requested resource was not found'),
  *     17: (17, 'ALREADY_EXISTS', 'The requested resource already exists'),             # <<<<<<<<<<<<<<
  *     18: (18, 'PERMISSIONS', 'Insufficient permissions to perform the operation.'),
  *     19: (19, 'BUSY', 'The requested resource is currently busy.'),
 */
-  __pyx_mstate_global->__pyx_tuple[23] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_17, __pyx_mstate_global->__pyx_n_u_ALREADY_EXISTS, __pyx_mstate_global->__pyx_kp_u_The_requested_resource_already_e); if (unlikely(!__pyx_mstate_global->__pyx_tuple[23])) __PYX_ERR(0, 604, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[23] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_17, __pyx_mstate_global->__pyx_n_u_ALREADY_EXISTS, __pyx_mstate_global->__pyx_kp_u_The_requested_resource_already_e); if (unlikely(!__pyx_mstate_global->__pyx_tuple[23])) __PYX_ERR(0, 609, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[23]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[23]);
 
-  /* "pyjoulescope_driver/binding.pyx":605
+  /* "pyjoulescope_driver/binding.pyx":610
  *     16: (16, 'NOT_FOUND', 'The requested resource was not found'),
  *     17: (17, 'ALREADY_EXISTS', 'The requested resource already exists'),
  *     18: (18, 'PERMISSIONS', 'Insufficient permissions to perform the operation.'),             # <<<<<<<<<<<<<<
  *     19: (19, 'BUSY', 'The requested resource is currently busy.'),
  *     20: (20, 'UNAVAILABLE', 'The requested resource is currently unavailable.'),
 */
-  __pyx_mstate_global->__pyx_tuple[24] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_18, __pyx_mstate_global->__pyx_n_u_PERMISSIONS, __pyx_mstate_global->__pyx_kp_u_Insufficient_permissions_to_perf); if (unlikely(!__pyx_mstate_global->__pyx_tuple[24])) __PYX_ERR(0, 605, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[24] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_18, __pyx_mstate_global->__pyx_n_u_PERMISSIONS, __pyx_mstate_global->__pyx_kp_u_Insufficient_permissions_to_perf); if (unlikely(!__pyx_mstate_global->__pyx_tuple[24])) __PYX_ERR(0, 610, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[24]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[24]);
 
-  /* "pyjoulescope_driver/binding.pyx":606
+  /* "pyjoulescope_driver/binding.pyx":611
  *     17: (17, 'ALREADY_EXISTS', 'The requested resource already exists'),
  *     18: (18, 'PERMISSIONS', 'Insufficient permissions to perform the operation.'),
  *     19: (19, 'BUSY', 'The requested resource is currently busy.'),             # <<<<<<<<<<<<<<
  *     20: (20, 'UNAVAILABLE', 'The requested resource is currently unavailable.'),
  *     21: (21, 'IN_USE', 'The requested resource is currently in use.'),
 */
-  __pyx_mstate_global->__pyx_tuple[25] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_19, __pyx_mstate_global->__pyx_n_u_BUSY, __pyx_mstate_global->__pyx_kp_u_The_requested_resource_is_curren); if (unlikely(!__pyx_mstate_global->__pyx_tuple[25])) __PYX_ERR(0, 606, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[25] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_19, __pyx_mstate_global->__pyx_n_u_BUSY, __pyx_mstate_global->__pyx_kp_u_The_requested_resource_is_curren); if (unlikely(!__pyx_mstate_global->__pyx_tuple[25])) __PYX_ERR(0, 611, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[25]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[25]);
 
-  /* "pyjoulescope_driver/binding.pyx":607
+  /* "pyjoulescope_driver/binding.pyx":612
  *     18: (18, 'PERMISSIONS', 'Insufficient permissions to perform the operation.'),
  *     19: (19, 'BUSY', 'The requested resource is currently busy.'),
  *     20: (20, 'UNAVAILABLE', 'The requested resource is currently unavailable.'),             # <<<<<<<<<<<<<<
  *     21: (21, 'IN_USE', 'The requested resource is currently in use.'),
  *     22: (22, 'CLOSED', 'The requested resource is currently closed.'),
 */
-  __pyx_mstate_global->__pyx_tuple[26] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_20, __pyx_mstate_global->__pyx_n_u_UNAVAILABLE, __pyx_mstate_global->__pyx_kp_u_The_requested_resource_is_curren_2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[26])) __PYX_ERR(0, 607, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[26] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_20, __pyx_mstate_global->__pyx_n_u_UNAVAILABLE, __pyx_mstate_global->__pyx_kp_u_The_requested_resource_is_curren_2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[26])) __PYX_ERR(0, 612, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[26]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[26]);
 
-  /* "pyjoulescope_driver/binding.pyx":608
+  /* "pyjoulescope_driver/binding.pyx":613
  *     19: (19, 'BUSY', 'The requested resource is currently busy.'),
  *     20: (20, 'UNAVAILABLE', 'The requested resource is currently unavailable.'),
  *     21: (21, 'IN_USE', 'The requested resource is currently in use.'),             # <<<<<<<<<<<<<<
  *     22: (22, 'CLOSED', 'The requested resource is currently closed.'),
  *     23: (23, 'SEQUENCE', 'The requested operation was out of sequence.'),
 */
-  __pyx_mstate_global->__pyx_tuple[27] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_21, __pyx_mstate_global->__pyx_n_u_IN_USE, __pyx_mstate_global->__pyx_kp_u_The_requested_resource_is_curren_3); if (unlikely(!__pyx_mstate_global->__pyx_tuple[27])) __PYX_ERR(0, 608, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[27] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_21, __pyx_mstate_global->__pyx_n_u_IN_USE, __pyx_mstate_global->__pyx_kp_u_The_requested_resource_is_curren_3); if (unlikely(!__pyx_mstate_global->__pyx_tuple[27])) __PYX_ERR(0, 613, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[27]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[27]);
 
-  /* "pyjoulescope_driver/binding.pyx":609
+  /* "pyjoulescope_driver/binding.pyx":614
  *     20: (20, 'UNAVAILABLE', 'The requested resource is currently unavailable.'),
  *     21: (21, 'IN_USE', 'The requested resource is currently in use.'),
  *     22: (22, 'CLOSED', 'The requested resource is currently closed.'),             # <<<<<<<<<<<<<<
  *     23: (23, 'SEQUENCE', 'The requested operation was out of sequence.'),
  *     24: (24, 'ABORTED', 'The requested operation was previously aborted.'),
 */
-  __pyx_mstate_global->__pyx_tuple[28] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_22, __pyx_mstate_global->__pyx_n_u_CLOSED, __pyx_mstate_global->__pyx_kp_u_The_requested_resource_is_curren_4); if (unlikely(!__pyx_mstate_global->__pyx_tuple[28])) __PYX_ERR(0, 609, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[28] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_22, __pyx_mstate_global->__pyx_n_u_CLOSED, __pyx_mstate_global->__pyx_kp_u_The_requested_resource_is_curren_4); if (unlikely(!__pyx_mstate_global->__pyx_tuple[28])) __PYX_ERR(0, 614, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[28]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[28]);
 
-  /* "pyjoulescope_driver/binding.pyx":610
+  /* "pyjoulescope_driver/binding.pyx":615
  *     21: (21, 'IN_USE', 'The requested resource is currently in use.'),
  *     22: (22, 'CLOSED', 'The requested resource is currently closed.'),
  *     23: (23, 'SEQUENCE', 'The requested operation was out of sequence.'),             # <<<<<<<<<<<<<<
  *     24: (24, 'ABORTED', 'The requested operation was previously aborted.'),
  *     25: (25, 'SYNCHRONIZATION', 'The target is not synchronized with the originator.'),
 */
-  __pyx_mstate_global->__pyx_tuple[29] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_23, __pyx_mstate_global->__pyx_n_u_SEQUENCE, __pyx_mstate_global->__pyx_kp_u_The_requested_operation_was_out); if (unlikely(!__pyx_mstate_global->__pyx_tuple[29])) __PYX_ERR(0, 610, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[29] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_23, __pyx_mstate_global->__pyx_n_u_SEQUENCE, __pyx_mstate_global->__pyx_kp_u_The_requested_operation_was_out); if (unlikely(!__pyx_mstate_global->__pyx_tuple[29])) __PYX_ERR(0, 615, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[29]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[29]);
 
-  /* "pyjoulescope_driver/binding.pyx":611
+  /* "pyjoulescope_driver/binding.pyx":616
  *     22: (22, 'CLOSED', 'The requested resource is currently closed.'),
  *     23: (23, 'SEQUENCE', 'The requested operation was out of sequence.'),
  *     24: (24, 'ABORTED', 'The requested operation was previously aborted.'),             # <<<<<<<<<<<<<<
  *     25: (25, 'SYNCHRONIZATION', 'The target is not synchronized with the originator.'),
  *     'SUCCESS': (0, 'SUCCESS', 'Success (no error)'),
 */
-  __pyx_mstate_global->__pyx_tuple[30] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_24, __pyx_mstate_global->__pyx_n_u_ABORTED, __pyx_mstate_global->__pyx_kp_u_The_requested_operation_was_prev); if (unlikely(!__pyx_mstate_global->__pyx_tuple[30])) __PYX_ERR(0, 611, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[30] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_24, __pyx_mstate_global->__pyx_n_u_ABORTED, __pyx_mstate_global->__pyx_kp_u_The_requested_operation_was_prev); if (unlikely(!__pyx_mstate_global->__pyx_tuple[30])) __PYX_ERR(0, 616, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[30]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[30]);
 
-  /* "pyjoulescope_driver/binding.pyx":612
+  /* "pyjoulescope_driver/binding.pyx":617
  *     23: (23, 'SEQUENCE', 'The requested operation was out of sequence.'),
  *     24: (24, 'ABORTED', 'The requested operation was previously aborted.'),
  *     25: (25, 'SYNCHRONIZATION', 'The target is not synchronized with the originator.'),             # <<<<<<<<<<<<<<
  *     'SUCCESS': (0, 'SUCCESS', 'Success (no error)'),
  *     'UNSPECIFIED': (1, 'UNSPECIFIED', 'Unspecified error'),
 */
-  __pyx_mstate_global->__pyx_tuple[31] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_25, __pyx_mstate_global->__pyx_n_u_SYNCHRONIZATION, __pyx_mstate_global->__pyx_kp_u_The_target_is_not_synchronized_w); if (unlikely(!__pyx_mstate_global->__pyx_tuple[31])) __PYX_ERR(0, 612, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[31] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_int_25, __pyx_mstate_global->__pyx_n_u_SYNCHRONIZATION, __pyx_mstate_global->__pyx_kp_u_The_target_is_not_synchronized_w); if (unlikely(!__pyx_mstate_global->__pyx_tuple[31])) __PYX_ERR(0, 617, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[31]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[31]);
 
-  /* "pyjoulescope_driver/binding.pyx":1053
+  /* "pyjoulescope_driver/binding.pyx":1058
  *         _handle_rc(rc, 'jsdrv_unsubscribe_all')
  * 
  *     def open(self, device_prefix, mode=None, timeout=None):             # <<<<<<<<<<<<<<
  *         """Open an attached device.
  * 
 */
-  __pyx_mstate_global->__pyx_tuple[32] = PyTuple_Pack(2, Py_None, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[32])) __PYX_ERR(0, 1053, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[32] = PyTuple_Pack(2, Py_None, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[32])) __PYX_ERR(0, 1058, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[32]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[32]);
   #if CYTHON_IMMORTAL_CONSTANTS
@@ -40140,7 +40188,7 @@ static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   {
     const struct { const unsigned int length: 9; } index[] = {{2},{27},{35},{54},{37},{60},{24},{52},{26},{34},{33},{18},{45},{50},{45},{22},{44},{49},{15},{179},{26},{37},{41},{18},{30},{22},{29},{27},{22},{40},{26},{34},{29},{38},{30},{44},{47},{37},{41},{48},{43},{43},{36},{51},{36},{35},{40},{38},{32},{17},{24},{3},{0},{1},{1},{1},{1},{1},{1},{1},{1},{1},{1},{1},{3},{8},{5},{6},{9},{15},{23},{25},{7},{6},{8},{2},{6},{35},{20},{19},{18},{9},{30},{47},{31},{6},{2},{39},{50},{39},{34},{8},{20},{52},{8},{36},{31},{26},{5},{11},{65},{61},{20},{32},{22},{14},{10},{30},{37},{26},{25},{5},{1},{7},{5},{3},{14},{5},{4},{1},{6},{8},{7},{1},{5},{6},{6},{6},{18},{6},{16},{15},{24},{26},{12},{19},{15},{11},{14},{23},{12},{16},{18},{22},{1},{9},{5},{5},{11},{8},{9},{5},{5},{4},{5},{3},{2},{1},{4},{3},{15},{22},{24},{6},{2},{8},{1},{13},{8},{17},{12},{12},{7},{1},{4},{6},{6},{17},{9},{13},{3},{17},{11},{5},{3},{20},{9},{9},{5},{3},{6},{11},{8},{22},{7},{15},{12},{8},{6},{14},{9},{19},{16},{19},{7},{9},{7},{16},{20},{17},{16},{25},{27},{19},{30},{20},{30},{4},{4},{11},{9},{11},{1},{7},{15},{1},{7},{1},{3},{13},{12},{3},{5},{7},{3},{15},{12},{9},{18},{3},{4},{8},{5},{1},{7},{16},{5},{6},{9},{17},{18},{5},{15},{10},{7},{4},{8},{5},{11},{12},{13},{8},{7},{13},{1},{4},{9},{5},{6},{6},{6},{15},{21},{12},{8},{8},{5},{11},{12},{13},{8},{7},{7},{5},{15},{1},{2},{17},{12},{17},{23},{9},{5},{6},{3},{6},{9},{9},{5},{19},{17},{5},{9},{8},{1},{3},{2},{11},{5},{8},{14},{8},{5},{2},{6},{6},{7},{7},{11},{6},{8},{3},{9},{12},{3},{6},{10},{4},{8},{1},{2},{2},{2},{2},{3},{10},{5},{4},{12},{5},{9},{9},{8},{12},{13},{4},{5},{8},{5},{11},{16},{10},{13},{11},{15},{17},{21},{4},{1},{6},{10},{5},{3},{6},{11},{18},{17},{21},{7},{5},{3},{8},{10},{3},{4},{7},{13},{8},{12},{12},{19},{3},{4},{10},{3},{6},{7},{1},{4},{8},{5},{4},{7},{6},{2},{5},{3},{3},{6},{14},{11},{11},{4},{9},{3},{1},{3},{4},{3},{5},{11},{5},{3},{10},{7},{16},{37},{13},{13},{11},{27},{14},{11},{10},{19},{14},{12},{5},{9},{9},{1},{5},{3},{2},{10},{17},{13},{8},{11},{14},{13},{7},{6},{11},{6},{9},{2},{1},{11},{9},{22},{11},{7},{4},{6},{3},{12},{10},{12},{19},{5},{7},{4},{15},{11},{6},{5},{3},{5},{12},{6},{3},{6},{11},{4},{4},{3},{6},{9},{7},{2},{1},{6},{8},{4},{9},{4},{6},{8},{12},{18},{14},{9},{7},{10},{9},{22},{4},{5},{9},{9},{14},{4},{1},{2},{2},{2},{4},{6},{6},{5},{5},{7},{6},{11},{15},{6},{3},{1},{5},{6},{7},{13},{13},{4},{7},{1},{4},{4},{7},{1},{1},{5},{153},{119},{49},{467},{98},{18},{187},{135},{24},{9},{122},{18},{9},{7},{288},{9},{164},{94},{18},{49},{118},{45},{107},{1}};
     #if (CYTHON_COMPRESS_STRINGS) == 3 && __PYX_LIMITED_VERSION_HEX >= 0x030e0000 /* compression: zstd (4472 bytes) */
-const char* const cstring = "(\265/\375`\360!u\213\000\332\254\374#G\340\262\272\0010\314c-\302\300l\254e\010\204A\030\230\035\263cv\314\346)w\353\034\021\231\222(%\247FZ\332\214,\0213\340\320U]\327\212Q\261>\337B\210\026\210\317\"\202D\330\271\273\023F\033O2\213\221\377\n\366\001)\002\"\002\346\275\241X\317\276\006\010k\242%\227#\376>\374;k\260`h\265\337\231\357\023-\240\013\207\274\026E\022\004\235\2448\251\001a?\266\372\346\214-\213\2652`l09\021Bq\342\001dqX\313\2227\250K\317[.r\324\277\353\030\347\255p\273\360\350-I~Q4_:\324\311\217\371\016w\317\234\3540\220\317\276\016;\376/O\212\2407\271\031\232y\323\325\273\351\277\2663\021\354&\351uwao\222;\246{\031\322 \367\244\327&\215\356\332\324#\356\270\314\260\037r-f\375\2623\240\206\205\372\207x\024uL\2136$\305\235y7?\310\315,\352\375\312\243\311\365\250E\275kt\310\207Xt\355\016zq\343\030fm \271\371\255h\320 \210}\346&\371M\324\266\250\220\366\"~\321\261m\022\362}M\276\366\226g\255\2715\311\231}y6\344\371\376\3426]^{\217E\320\345k\350n3\307VeE\345C\252KY\376A\355\332\242\316#\375\311\223}\2211\246\226\256a3\227EI1u&\025\025\333\242mloY\262\026\361h?\026g2\241F\027\3463\221X\337u1\325\340\320z01\261&\240\211\365\24039\332\274E\034\343^h\364{\374\270\353\222\264Z\377\221\374\237\353\rn\317\275o\222'\337,\271\327\311\2624\2757\303\275\343\020'a\177\006\276J\363c\230\267\263_\216\335\266\031\203%yNn\317\365\270\263\355\333s\334\277\211\325\345\354[\330\3372[\2433\337#\331_Zt\341\277\273\354C\266\344\267<\334\336\343\320\254\223\243\036-\337\326\233\244\031\356\317I\320\372m?\206}\227\305V\177\254;hg\"'-\307#\257\363\356\337[\355\311\262F\333Or\3535\231\255L\357\230\355\372\3652]\262\376\240\376:[\217e\266\223\275k[\203?\237y\313Y\226\330\213\246\037M\020\304\240\013c\230\025\327\242E\210UB\305\304\220:\357\305\033u-Rw\362N\255\256\344\302\225<.\206;\265Z\254\025\327\372:\274%\036o\336W\246\371\235u\362\203\370Uj\235\357\235\225$\250\307\3152}0\236\313E\241X]J\206E\272\254\016\346z\245\026\367\362\231.\253\205\272\244\316\344\261^\276\320\233\362\377""\276\353\202cq/V*F'\231o4j}\251\026\013\024\212+\275\334\316\345s\351F\247\356\344\255Zp\253\016\346\304\255dV]K\365\322\253\323\375\340&\325\314R\367\272\264R\253\256\005*\365}\237gZu\251\273\352\270\025\227zyA\245R\255\217tj\241^dV(\0250\255\313\352>\324\251;\241N\247\022\233R\237\212cq$\216\325\231d`\272RH\226R\234\351\226\272\030\030TiE\327\337Cy\335\327\272'\357\204\"\235V-V\267R\301\2029u\245\333\301p\337\327\231\\t\254\023\311+q1'\217u\362P/'\317\263\241\302K\301\274\224J\255\027\026\207*\275\304:\235\311Q\347\267/\267(v\254n\205Z\255:\031V\312\324\311\214N\035\314\2523u\335\345\346\254\333\340\373\345\313\374\277\366\177\327\334\333\365\275!\322\327\221P\246{\352R\250\333\215\274\230\216tSPD0-\227\216Db\235\272\325\2525*q#\217\345\255F\244\356C\225F#\231\257\345\342y\243\217\373X\237\347\242\2732$\256[\225\270R\211c\255\272\022G\352X+\224\013\307\215\330\337P\010$\315\023|\333\334\3427\354\2133)\213\301\033z\211\332\233\320\245\007\320I\376>T3+C!w\235\354\236/\350u\215Yi\302\262\344\277\261\354\362\225\017\257o\202\273$\277hj\230q\201\027\3462\313\233G\360\236\200}<\232\343\016\351N\20274+\357\375\233oP\304;\266\373\377\300Inf{\257\006\315\254\373\275\026\277t\266$\367\332e\2777\307\320\217'\243x\222\302\262\300<\206]\027\210?\316\246e\231\225\227\344\001*4\246:\027xF@n\"OS\241\035\260qb\022-$\265\340\261\342T\007\350T\340\271}\253\325\337\340\233\0137\237\233\217]+\241\376\024\247\010\320\006 7\004!7|\312h%\035\224\002\355\303s\373\244\235\224\001\332\235$\036\004\247\210\347\306\251#\252\t\215\000r\023\245\002\322\017EAGZ\202\017\000\004r\270\232\250\226Ra\265\360\001\000A\216H\355\340\261\212n\"\033\310\306\342`\245\331Q\300\343\366\271\351\334xlhl%\266\216\355\253\221\324:5\006jG\245IMDV\021\217\033\r-\201\307\255\223\272P\002(\351\024\23514\024\332\001\017\034LC\220\306\320\002\250\353$p\322\3200\320\014x\334T*\212\032\223ZH=\212\001\375\240\340\251:c\264\025-\304\003\347\203v\320\0324\004\236\033\010\365\247\312\251\340\354h\"\232\000\332\307\000\000""\236\234\316\016Ovm\303F\r\357X&\323!\376\"\031\343\273\2235\274\217\345\322\344&\227\221|\206on\256\230()\246\271b\252\230\"\323\304\236\177\025\021Xw\030,\3746\374\254\343\361\203f/\363\367\336\314z\004\273\377[,=\370\315\333I\317\265\367/\037\313;\366\375\016k4\330e\270\367\322\213\370\307xw57G\323\207Nx\261%\244;.oY\222eY\242\224\345\375\332\277^d\311\307\235\271\277\274\3447\364\242y\307_\372{\311Q\2175x\004\365J\317\360}\305\230\330\265\214\024C\016\336\220\024}\306\24483\303I_\343^\337\311\227\316\353\253\"\342\363-\342M\276\370\316;\357\225-\332 \366FI1/\3303\307\260]v\035\336\227\357\277\274\374\305_+/\224\224\327K\203\370\353\361\352\031'ga'\277\377\373\202Z_\277/H\346^\263_\272\227\332\2743,\352\354\307\r\352\234\202\"\nM\227\316\371\356\377{\346\372s\323\317\200\330\245A\334\377\345\373\336\033v\014\003\26571xA\320\367\357\257\366\330\025\306\370\016\221\033\337{\357\357Z\3049\007(Q\252J\255\237\307\r\215\315\266\251l^\r\002\227\2024\350\250&P\010\032\316\217\352\206m%j\002j4\037\225\225bP\260\266h\261\035\236\001\235\035\240\030*<\204\272\007\324\301\tr\235\215\312&\264\245\024\250}\035\264\001\200\365\203:\3100B\"\303\202u\201\310s3\360\001\000$G\365IY\250\204\003\353\201\021\rJr%\3035\\\255\371Fu\343m\260\335PUT\0059i\016\034\034P\232`U\341\320\327\203\034U-Gj\322\241\263\303s\241\026\240\346RIAi\205\221\333\202N\232\001\365\010:\310\rt\0068E\320\017\345t\321R\316N\224*HE\2400h\0054\000\332@du\306:8*3%\325\243SDg\024!\347\223\202<V\232\010\267Cd\373\"2\254\260\024\325\rw\003\301\306\304\226k\252Z\210\021\034\014\262}l$0\254\\\312\001}@r\343\004\3340\260a\265<X\037\210l@[ 5\200\232au.8\271sd\346\364`\"\233\021\312\212\342\271U\000\251\324\017 \037T\004N'\265\0240:\201\344\266\200\344\006J\305\263D\3446\340\323\022\330jj\tT\n\036\254\312R\023\006+>W|xp@\347\347\374\224\240\037\025T\016x\205\006\362\001\240A\016\212\350\306\355\220\305\326\030_\271\314*\223ZI7\242\233\r6\037\233\017\033\014\225D\275\255P\022\324T\343,\001\301\371\330D\324@5\010+\004\221""\233\352\034`\243b\003\262iq\250e\025\226\022H=\035[\206ZK-YKpp*\203J@)\264\344PX)x\254\252\223\344\374\240!@n\035\032\rNU\251\0134\204;U\320@lFl\272md\343\352\005\265\225ZH3\232\202\n(\361\3340\215\225F\2145\306\267~'\326\022\265\257b5\324`\305\021\311\001\251\034<\326\216\252\201\301\252B%\204\254*\033g\363\260\321\324FHX9\224\303\251\000\004\007\306\351b\206\352\341\301\252J\271\364\002\311J\002\"\243\016PI\351\253\303\251 \004G\204~\006\237\033Feg\t\205\363#r\373\250=-I;t\004\005EBn\\*JWP\020:\202C/-\344d\000r\243\221=\000aQ\241\341\231r\n\3008\025j\270&S1\250\035>\000\224\344|j\"\t\253\0044\204\005\2503\227\252\240\246A\350\020\215\310h\222\244\320\001C0P\200a\261P4\252\231\347\007C\225\353@\026S\n1\"4##\301(I\nR\324\032c\024\036\024\004,\344\335\241\252\325\367\371\343\360\263@-\353:\001\370\370W\246\001p\017N\205\310a\247\300\242\033\024\330\275\300\364J\022W\250z\037j\314\316\222\367\240Y\007\034Gr\325\"\226\343K,K\304G\264a|\337\247\206D\324R\276\025\rIA/\007\367\365\275]nr'\306\366Ap\272\265bvx\007\353=Bn\363%N\367\304\275\354l\013\023\212E\353:N\303\231\323\222\010'-<\001z\366{dp\260\\V\037\364\276\031\010\357\321A\316,\204B\347V\262\325\211\217D\374\262\201Y}\005\272\354\017\355BC\3709\2005\266|\232\314\"\353\013\212\206l\2428n\005\303\254\022\335Q\207\010\261}\370\177t<M3\006\300-\252^\225\240,PU\200w\264x\310\201\021\367\223\352\230#\316 y\204\375\307\200\363\243;i\034\307\007\303f\2336\2227\224\213\236vEs0\016%\306#\375\023&\233\014\3510\000\030H\354\354\034(\243\247\347\272\216\333\203\214\010b\342\n\326\303\031\302\300VE\037\303x\206\375\243\211\033\225f\036\326^\007S\030l\034xh\245L\223\327J\342\370\277W\013\317P0\013\233.\2674\256TFc(\010O,\211\336\302\261-\332\\\241\364\2439\025\300-R1E1\217\340%\270G\202UrTP<Zb\232\271\306\207\027\233q\352E\014R\362\311\376\374|\233\006\022\316\344\317j\334~\345\005\375ItW\034\177ZA\246Bi_\202\377Rgd\333\310\000\246\200L\025\30461\345\362o@\002\025\271&31\314H\311\217\242(\232\001G\213\271\252\311K\200b8+\226b7""\214\\\257\231\362\210\316s\302\360\200\351\035m\021\026B=\014\373sQ@\267\250T\364\360v\025\232\034\323W\327!\023(\262\177\235s\367\312\315\202q\010\371|:\3522!\317XeS\323y\202\222\241B\334\374S7\342(ulFI\031\021\265\272\013\033\250e\313\003\201'\245Ip\311\245\004\333\264\310\306\237\213\204\243\005\216\213\21304Q.\361FK\016\2102b\373\241?\375Z\334\3607j\\\035\n$\261\202\017vM\334}\024\331:\032\345\247\322\177\303\326\277A\024pV\016\252\361/\030S~@g\025\202\333L\233\374#%\242L\310\244\210\247\216\r\260\231\355\365x\275nY\323ap\0245\374\344\277\310\006\372S\224\177\340\364\242~\373\027(@.\022\367\342R\036\210\206\357\267\226\213%.\204k&\240Db\332`)\245\275\230\301\215\222OD\\;\036\200\251\241H\242\020'\023{1\242&\363\361\375\277\366\273+M\032\255\026\346-\375g\365\031!\363\202\347\242\334\245\271\006\316lz\303bf\314\364\004\344\304\217\326\026\332\211\255!\265\366\031ir\313.\243\036Q\205\214Q\232!h\002O\2318\243\230\014\341\213\361\272\357\335\275\\9w\254\300\311\274\276\001p|c\335\357\231l\201T\211h\252\342:\356N\"\213.\304;\001!\274ue\024\301d\021\"\327\257\313\032\236\371Cg\344\0020\275\024\273\207\220\214N#\250K<\010oLW\207\230\337\315\242\245\306\361\340B@87\250#|\235ZP\024!\2445\2173\206\207\340\035\004u5\305M\2734\364\344g\314\006\321\317\210\342\214{yH7\031\334n\267\004A0\244\021\277\327\240\334\221&\273|\002\300\205\356\260\021\330\025\034\325\3562\213,4\301\016\263A\277:]\327\007u\232\252\340[y\311\005\004\317+\275\315\216\377\034\020\212\017\220\352\255\277\324\353\345\242]\330#W\240\354x\245]\372\304Ao\350zy\355\360\233\343\247\000\034E\305_9\005o\275\340j\271\005\351\023\025!\017`\277\316Pd\025\324\"\247P\352#v\251-\301\267\232bL\036\272@;\374\204\224\210\310+\020c\272\217\r@\204\360\031\253\021\325\004\205\220\342J\200c\213O\314\372\275\273\255\351j\241\020\016\010O\267\267&#\027\035h=\345D\262\205a\236\201\241G\0146\331\262\020\251\334\335\363~\177U\263\330\337!\230 \212\207\231\216c/\245X0\231\346M\361\203\340\320\004)\000\317WA:\342\344!g9\020W<E""\311\264\201\324\342)\334\367?\326\252=\325\344}\000L\224\001\375\255\347-!OKVbjT\363E\320\310\302\362\004v\021'Jl\027\347\027M\346\200\346\326I\307e\206\370\335\025FY3\247\245^\344\303Q\036\305:D\037\270\237\203\035\252\253S9\260/X\270\353\310\t\023:w\205\314~a[+\255o\037*s_\376\232c\\`\024Bu\023\252F\316FK\303M\000\3370g\005\036\242\301l\323\375\03150#\013\365\3769\237\356KX\247S\270\213\255\0179\317\232\330^\371\377\356M\325\325\30291\230\205\331\327?\373T\336\317\345\325\206\357;'&\t\260\n\301\254\304MBVy\r\372\250a\007\355\276\023\370\221\007\276\363G\364G4\275\220\314\222\200\312g\224_w\267\221\260Bc\207\252\204\224\232\247\034l\037z\030\203\034<%\025}\236\nL\273\364\373\370\366\3312]\262\333\202\341\312\315nK\357\375'3e\351)2\006X\000D\221\016\210\345\344B\247E:d7\013\002\253\224i\375<\240\370w\236az\3155\217\301i\345\360H\230\346\005 s\204\346\000\361\375\377\211\371\336@LRi\254\370\377\265\200\341j\223\345\226\244\347\251\2649\360i\022q\214\206<o\375\000\372\264\207\321\271\"egg\274-f\347\251d\360L6\376l\275\244\312\007\300$\324<\216\216\nQ`\240\372\255\2631\006\246F,-\271\365\021o\233y\235\265P\031\212\372\217\006\020%x\222\235\336S\200\272\316\274yz\363\034S\375\266\325\344A\3312#I\255\276\352}\351+\246\244\000\244Fs\351!\215\036y\346;\2113\255\014\010\206\354\022\256Q3\262Ji\000\311e\032\265\323ku\242\364\035\032Y7\332I\005\317j\255\2158\013\006d\310\344\243\202\033\226\n\n\010\024]\314{\237\347\262\364\030\260\374\273dp]\004%\322\000\262\3053J\370\252\263\326\320\262\342 5\210\365T\224)\241,M&\037\212\242\373\260\223\276Mk}Q)]Z\017+\210\276\375r\223N\244\326\330P\374}\020\272\246a\250H\366\2772/\2074\241_\340\\Cx)\251\351\220\222\250\320_m\226\2532;\373\356K\r\274\361\241\275\254\201\014 O\020y\336\347\010^\034\264\006vi\340\311\330\230\032\n\255\271\270\306.O\314_\226p\r\003\200\016\001\317\372\276\231K\273\371[\236\211\221~H\361\276\277^p\361x\215\250\273\243\2044\315.\256`+\2355\324X\254\nT8\002\304\227\300\007\231\013q\347H\346\"\240$U\365\362#,""\376\032\307<:T\324\350\255\3678\302\334Q\217U\262\215G\374\271\200\366\n\363P\361\341\001S\234M)\227\363\2760t\366\207\242\023\323\272\314^\230b\376\231\222\273\r\341\313\000\226*\331\022\317y\203\227`\027'r9IA\204\220\334\276\313pF\"\2232\340d\372\225b\260\004Cy\253\307\343ZEZ\036r!\223Q\035Vs\307\374\222Lg\037\014\r\030^\353\337\230\032\034g`O\320\225\272\000A\203\004\371\311<5+q\273\271|\302\nR\246\267-\376\302B\207X\344\271?s\232\010\235\323\302\305\223\356\312 \330\245\313\013\271\232R4\371?\357^r5\266\341;\023\320aB3\030\330\245\372\202\254\252d~m\273\022C\023\215\024\223<R\2553G_\264\231\340\212\"\n\227>i\2744;\340\310\213\030\013\275!\rf\261\re=\220\326\242Z\240(\366\000\242\021#\220\363\327\006@X\021\324\230\254y\312\363\344\366[}\241\030\206J\206p\307(kS\026\257\227U\001\344\316=(g\323M\330j\251+";
+const char* const cstring = "(\265/\375`\360!u\213\000\332\254\374#G\340\262\272\0010\314c-\302\300l\254e\010\204A\030\230\035\263cv\314\346)w\353\034\021\231\222(%\247FZ\332\214,\0213\340\320U]\327\212Q\261>\337B\210\026\210\317\"\202D\330\271\273\023F\033O2\213\221\377\n\366\001)\002\"\002\346\275\241X\317\276\006\010k\242%\227#\376>\374;k\260`h\265\337\231\357\023-\240\013\207\274\026E\022\004\235\2448\251\001a?\266\372\346\214-\213\2652`l09\021Bq\342\001dqX\313\2227\250K\317[.r\324\277\353\030\347\255p\273\360\350-I~Q4_:\324\311\217\371\016w\317\234\3540\220\317\276\016;\376/O\212\2407\271\031\232y\323\325\273\351\277\2663\021\354&\351uwao\222;\246{\031\322 \367\244\327&\215\356\332\324#\356\270\314\260\037r-f\375\2623\240\206\205\372\207x\024uL\2136$\305\235y7?\310\315,\352\375\312\243\311\365\250E\275kt\310\207Xt\355\016zq\343\030fm \271\371\255h\320 \210}\346&\371M\324\266\250\220\366\"~\321\261m\022\362}M\276\366\226g\255\2715\311\231}y6\344\371\376\3426]^{\217E\320\345k\350n3\307VeE\345C\252KY\376A\355\332\242\316#\375\311\223}\2211\246\226\256a3\227EI1u&\025\025\333\242mloY\262\026\361h?\026g2\241F\027\3463\221X\337u1\325\340\320z01\261&\240\211\365\24039\332\274E\034\343^h\364{\374\270\353\222\264Z\377\221\374\237\353\rn\317\275o\222'\337,\271\327\311\2624\2757\303\275\343\020'a\177\006\276J\363c\230\267\263_\216\335\266\031\203%yNn\317\365\270\263\355\333s\334\277\211\325\345\354[\330\3372[\2433\337#\331_Zt\341\277\273\354C\266\344\267<\334\336\343\320\254\223\243\036-\337\326\233\244\031\356\317I\320\372m?\206}\227\305V\177\254;hg\"'-\307#\257\363\356\337[\355\311\262F\333Or\3535\231\255L\357\230\355\372\3652]\262\376\240\376:[\217e\266\223\275k[\203?\237y\313Y\226\330\213\246\037M\020\304\240\013c\230\025\327\242E\210UB\305\304\220:\357\305\033u-Rw\362N\255\256\344\302\225<.\206;\265Z\254\025\327\372:\274%\036o\336W\246\371\235u\362\203\370Uj\235\357\235\225$\250\307\3152}0\236\313E\241X]J\206E\272\254\016\346z\245\026\367\362\231.\253\205\272\244\316\344\261^\276\320\233\362\377""\276\353\202cq/V*F'\231o4j}\251\026\013\024\212+\275\334\316\345s\351F\247\356\344\255Zp\253\016\346\304\255dV]K\365\322\253\323\375\340&\325\314R\367\272\264R\253\256\005*\365}\237gZu\251\273\352\270\025\227zyA\245R\255\217tj\241^dV(\0250\255\313\352>\324\251;\241N\247\022\233R\237\212cq$\216\325\231d`\272RH\226R\234\351\226\272\030\030TiE\327\337Cy\335\327\272'\357\204\"\235V-V\267R\301\2029u\245\333\301p\337\327\231\\t\254\023\311+q1'\217u\362P/'\317\263\241\302K\301\274\224J\255\027\026\207*\275\304:\235\311Q\347\267/\267(v\254n\205Z\255:\031V\312\324\311\214N\035\314\2523u\335\345\346\254\333\340\373\345\313\374\277\366\177\327\334\333\365\275!\322\327\221P\246{\352R\250\333\215\274\230\216tSPD0-\227\216Db\235\272\325\2525*q#\217\345\255F\244\356C\225F#\231\257\345\342y\243\217\373X\237\347\242\2732$\256[\225\270R\211c\255\272\022G\352X+\224\013\307\215\330\337P\010$\315\023|\333\334\3427\354\2133)\213\301\033z\211\332\233\320\245\007\320I\376>T3+C!w\235\354\236/\350u\215Yi\302\262\344\277\261\354\362\225\017\257o\202\273$\277hj\230q\201\027\3462\313\233G\360\236\200}<\232\343\016\351N\20274+\357\375\233oP\304;\266\373\377\300Inf{\257\006\315\254\373\275\026\277t\266$\367\332e\2777\307\320\217'\243x\222\302\262\300<\206]\027\210?\316\246e\231\225\227\344\001*4\246:\027xF@n\"OS\241\035\260qb\022-$\265\340\261\342T\007\350T\340\271}\253\325\337\340\233\0137\237\233\217]+\241\376\024\247\010\320\006 7\004!7|\312h%\035\224\002\355\303s\373\244\235\224\001\332\235$\036\004\247\210\347\306\251#\252\t\215\000r\023\245\002\322\017EAGZ\202\017\000\004r\270\232\250\226Ra\265\360\001\000A\216H\355\340\261\212n\"\033\310\306\342`\245\331Q\300\343\366\271\351\334xlhl%\266\216\355\253\221\324:5\006jG\245IMDV\021\217\033\r-\201\307\255\223\272P\002(\351\024\23514\024\332\001\017\034LC\220\306\320\002\250\353$p\322\3200\320\014x\334T*\212\032\223ZH=\212\001\375\240\340\251:c\264\025-\304\003\347\203v\320\0324\004\236\033\010\365\247\312\251\340\354h\"\232\000\332\307\000\000""\236\234\316\016Ovm\303F\r\357X&\323!\376\"\031\343\273\2235\274\217\345\322\344&\227\221|\206on\256\230()\246\271b\252\230\"\323\304\236\177\025\021Xw\030,\3746\374\254\343\361\203f/\363\367\336\314z\004\273\377[,=\370\315\333I\317\265\367/\037\313;\366\375\016k4\330e\270\367\322\213\370\307xw57G\323\207Nx\261%\244;.oY\222eY\242\224\345\375\332\277^d\311\307\235\271\277\274\3447\364\242y\307_\372{\311Q\2175x\004\365J\317\360}\305\230\330\265\214\024C\016\336\220\024}\306\24483\303I_\343^\337\311\227\316\353\253\"\342\363-\342M\276\370\316;\357\225-\332 \366FI1/\3303\307\260]v\035\336\227\357\277\274\374\305_+/\224\224\327K\203\370\353\361\352\031'ga'\277\377\373\202Z_\277/H\346^\263_\272\227\332\2743,\352\354\307\r\352\234\202\"\nM\227\316\371\356\377{\346\372s\323\317\200\330\245A\334\377\345\373\336\033v\014\003\26571xA\320\367\357\257\366\330\025\306\370\016\221\033\337{\357\357Z\3049\007(Q\252J\255\237\307\r\215\315\266\251l^\r\002\227\2024\350\250&P\010\032\316\217\352\206m%j\002j4\037\225\225bP\260\266h\261\035\236\001\235\035\240\030*<\204\272\007\324\301\tr\235\215\312&\264\245\024\250}\035\264\001\200\365\203:\3100B\"\303\202u\201\310s3\360\001\000$G\365IY\250\204\003\353\201\021\rJr%\3035\\\255\371Fu\343m\260\335PUT\0059i\016\034\034P\232`U\341\320\227\315Q\325r\244&\035:;<\027j\001j.\225\024\224V\030\271-\350\244\031P\217\240\203\334@g\200S\004\375PN\027-\345\354D\251\202T\004\n\203V@\003\240\rDVg\254\203\2432SR=:EtF\021r>)\310c\245\211p;D\266/\"\303\nKQ\335p7\020lLl\271\246\252\205\030\301\301 \333\307F\002\303\312\245\034\320\007$7N\300\r\003\033V\313\203\365\201\310\006\264\005R\003\250\031V\347\202\223;GfN\017&\262\031\241\254(\236[\005\220J\375\000\362AE\340tRK\001\243\023Hn\013Hn\240T<KDn\003>-\201\255\246\226@\245\340\301\252,5a\260\342s\305\207\007\007t~\316O\t\372QA\345\200Wh \037\000\032\344\240\210n\334\016Yl\215\361\225\313\2542\251\225t#\272\331`\363\261\371\260\301PI\324\333\n%AM5\316\022\020\234\217MD\rT\203\260B\020\271\251\316\0016*6 ""\233\026\207ZVa)\201\324\323\261e\250\265\324\222\265\004\007\2472\250\004\224BK\016\205\225\202\307\252:I\316\017\032\002\344\326\241\321\340T\225\272@C\270S\005\r\304f\304\246\333F6\256^P[\251\2054\243)\250\200\022\317\r\323Xi\304Xc|\353wb-Q\373*VC\rV\034\221\034\220\312\301c\355\250\032\030\254*TB\310\252\262q6\017\033Mm\204\204\225C9\234\n@p`\234.f\250\036\036\254\252\224K/\220\254$ 2\352\000\225\224\276:\234\nBpD\350g\360\271aTv\226P8?\"\267\217\332\323\222\264CGPP$\344\306\245\242t\005\005\241#8\364\322BN\006 7\032\331\003\020\026\025\032\236)\247\000\214S\241\206k2\025\203\332\341\003@I\316\247&\222\260J@\003\204\005\2503\227\252\240\246A\350\020\215\310h\222\244\320\001C0P\200a\261P4\252\231\347\007C\225\353@\026S\n1\"4##\301(I\nR\324\032c\024\036\024\004,\344\335\241\252\325\367\371\343\360\263@-\353:\001\370\370W\246\001p\017N\205\310a\247\300\242\033\024\330\275\300\364J\022W\250z\037j\314\316\222\367\240Y\007\034Gr\325\"\226\343K,K\304G\264a|\337\247\206D\324R\276\025\rIA/\007\367\365\275]nr'\306\366Ap\272\265bvx\007\353=Bn\363%N\367\304\275\354l\013\023\212E\353:N\303\231\323\222\010'-<\001z\366{dp\260\\V\037\364\276\031\010\357\321A\316,\204B\347V\262\325\211\217D\374\262\201Y}\005\272\354\017\355BC\3709\2005\266|\232\314\"\353\013\212\206l\2428n\005\303\254\022\335Q\207\010\261}\370\177t<M3\006\300-\252^\225\240,PU\200w\264x\310\201\021\367\223\352\230#\316 y\204\375\307\200\363\243;i\034\307\007\303f\2336\2227\224\213\236vEs0\016%\306#\375\023&\233\014\3510\000\030H\354\354\034(\243\247\347\272\216\333\203\214\010b\342\n\326\303\031\302\300VE\037\303x\206\375\243\211\033\225f\036\326^\007S\030l\034xh\245L\223\327J\342\370\277W\013\317P0\013\233.\2674\256TFc(\010O,\211\336\302\261-\332\\\241\364\2439\025\300-R1E1\217\340%\270G\202UrTP<Zb\232\271\306\207\027\233q\352E\014R\362\311\376\374|\233\006\022\316\344\317j\334~\345\005\375ItW\034\177ZA\246Bi_\202\377Rgd\333\310\000\246\200L\025\30461\345\362o@\002\025\271&31\314H\311\217\242(\232\001G\213\271""\252\311K\200b8+\226b7\214\\\257\231\362\210\316s\302\360\200\351\035m\021\026B=\014\373sQ@\267\250T\364\360v\025\232\034\323W\327!\023(\262\177\235s\367\312\315\202q\010\371|:\3522!\317XeS\323y\202\222\241B\334\374S7\342(ulFI\031\021\265\272\013\033\250e\313\003\201'\245Ip\311\245\004\333\264\310\306\237\213\204\243\005\216\213\21304Q.\361FK\016\2102b\373\241?\375Z\334\3607j\\\035\n$\261\202\017vM\334}\024\331:\032\345\247\322\177\303\326\277A\024pV\016\252\361/\030S~@g\025\202\333L\233\374#%\242L\310\244\210\247\216\r\260\231\355\365x\275nY\323ap\0245\374\344\277\310\006\372S\224\177\340\364\242~\373\027(@.\022\367\342R\036\210\206\357\267\226\213%.\204k&\240Db\332`)\245\275\230\301\215\222OD\\;\036\200\251\241H\242\020'\023{1\242&\363\361\375\277\366\273+M\032\255\026\346-\375g\365\031!\363\202\347\242\334\245\271\006\316lz\303bf\314\364\004\344\304\217\326\026\332\211\255!\265\366\031ir\313.\243\036Q\205\214Q\232!h\002O\2318\243\230\014\341\213\361\272\357\335\275\\9w\254\300\311\274\276\001p|c\335\357\231l\201T\211h\252\342:\356N\"\213.\304;\001!\274ue\024\301d\021\"\327\257\313\032\236\371Cg\344\0020\275\024\273\207\220\214N#\250K<\010oLW\207\230\337\315\242\245\306\361\340B@87\250#|\235ZP\024!\2445\2173\206\207\340\035\004u5\305M\2734\364\344g\314\006\321\317\210\342\214{yH7\031\334n\267\004A0\244\021\277\327\240\334\221&\273|\002\300\205\356\260\021\330\025\034\325\3562\213,4\301\016\263A\277:]\327\007u\232\252\340[y\311\005\004\317+\275\315\216\377\034\020\212\017\220\352\255\277\324\353\345\242]\330#W\240\354x\245]\372\304Ao\350zy\355\360\233\343\247\000\034E\305_9\005o\275\340j\271\005\351\023\025!\017`\277\316Pd\025\324\"\247P\352#v\251-\301\267\232bL\036\272@;\374\204\224\210\310+\020c\272\217\r@\204\360\031\253\021\325\004\205\220\342J\200c\213O\314\372\275\273\255\351j\241\020\016\010O\267\267&#\027\035h=\345D\262\205a\236\201\241G\0146\331\262\020\251\334\335\363~\177U\263\330\337!\230 \212\207\231\216c/\245X0\231\346M\361\203\340\320\004)\000\317WA:""\342\344!g9\020W<E\311\264\201\324\342)\334\367?\326\252=\325\344}\000L\224\001\375\255\347-!OKVbjT\363E\320\310\302\362\004v\021'Jl\027\347\027M\346\200\346\326I\307e\206\370\335\025FY3\247\245^\344\303Q\036\305:D\037\270\237\203\035\252\253S9\260/X\270\353\310\t\023:w\205\314~a[+\255o\037*s_\376\232c\\`\024Bu\023\252F\316FK\303M\000\3370g\005\036\242\301l\323\375\03150#\013\365\3769\237\356KX\247S\270\213\255\0179\317\232\330^\371\377\356M\325\325\30291\230\205\331\327?\373T\336\317\345\325\206\357;'&\t\260\n\301\254\304MBVy\r\372\250a\007\355\276\023\370\221\007\276\363G\364G4\275\220\314\222\200\312g\224_w\267\221\260Bc\207\252\204\224\232\247\034l\037z\030\203\034<%\025}\236\nL\273\364\373\370\366\3312]\262\333\202\341\312\315nK\357\375'3e\351)2\006X\000D\221\016\210\345\344B\247E:d7\013\002\253\224i\375<\240\370w\236az\3155\217\301i\345\360H\230\346\005 s\204\346\000\361\375\377\211\371\336@LRi\254\370\377\265\200\341j\223\345\226\244\347\251\2649\360i\022q\214\206<o\375\000\372\264\207\321\271\"egg\274-f\347\251d\360L6\376l\275\244\312\007\300$\324<\216\216\nQ`\240\372\255\2631\006\246F,-\271\365\021o\233y\235\265P\031\212\372\217\006\020%x\222\235\336S\200\272\316\274yz\363\034S\375\266\325\344A\3312#I\255\276\352}\351+\246\244\000\244Fs\351!\215\036y\346;\2113\255\014\010\206\354\022\256Q3\262Ji\000\311e\032\265\323ku\242\364\035\032Y7\332I\005\317j\255\2158\013\006d\310\344\243\202\033\226\n\n\010\024]\314{\237\347\262\364\030\260\374\273dp]\004%\322\000\262\3053J\370\252\263\326\320\262\342 5\210\365T\224)\241,M&\037\212\242\373\260\223\276Mk}Q)]Z\017+\210\276\375r\223N\244\326\330P\374}\020\272\246a\250H\366\2772/\2074\241_\340\\Cx)\251\351\220\222\250\320_m\226\2532;\373\356K\r\274\361\241\275\254\201\014 O\020y\336\347\010^\034\264\006vi\340\311\330\230\032\n\255\271\270\306.O\314_\226p\r\003\200\016\001\317\372\276\231K\273\371[\236\211\221~H\361\276\277^p\361x\215\250\273\243\2044\315.\256`+\2355\324X\254\nT8\002\304\227\300\007\231\013q\347H\346""\"\240$U\365\362#,\376\032\307<:T\324\350\255\3678\302\334Q\217U\262\215G\374\271\200\366\n\363P\361\341\001S\234M)\227\363\2760t\366\207\242\023\323\272\314^\230b\376\231\222\273\r\341\313\000\226*\331\022\317y\203\227`\027'r9IA\204\220\334\276\313pF\"\2232\340d\372\225b\260\004Cy\253\307\343ZEZ\036r!\223Q\035Vs\307\374\222Lg\037\014\r\030^\353\337\230\032\034g`O\320\225\272\000A\203\004\371\311<5+q\273\271|\302\nR\246\267-\376\302B\207X\344\271?s\232\010\235\323\302\305\223\356\312 \330\245\313\013\271\232R4\371?\357^r5\266\341;\023\320aB3\030\330\245\372\202\254\252d~m\273\022C\023\215\024\223<R\2553G_\264\231\340\212\"\n\227>i\2744;\340\310\213\030\013\275!\rf\261\re=\220\326\242Z\240(\366\000\242\021#\220\363\327\006@X\021\324\230\254y\312\363\344\366[}\241\030\206J\206p\307(kS\026\257\227U\001\344\316=(g\323M\330j\251+";
     PyObject *data = __Pyx_DecompressString(cstring, 4472, 3);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
@@ -40148,7 +40196,7 @@ const char* const cstring = "(\265/\375`\360!u\213\000\332\254\374#G\340\262\272
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
     #elif (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (4592 bytes) */
-const char* const cstring = "BZh91AY&SY\253\0273;\000\002\271\177\377\377\377\377\377\377\377\377\377\377\377\377\377\377\377\377\375\300@@@@@@@@@@@@\000@\000`\022\016>\341x=G&\232\244\336\327\035\334\233{\235\333mXfV\233\223T\332\260h\322\262:\327]1!\036\240\003\200\320\210\010\000\231\244\332@\3012`\n\237\243F\222a\036\246\323&\nz\032M4\362\2314z\230\203\031Le1\036\232d\324\310%\010\002h\004&\246hM4\247\262SO\322\217S\324z'\224\007\250\032\000\000\000\001\352\000\000\000\000\000\323@H\024\t\345FzS!\352z\23224\332&\236\243j\0322\000\000\321\246\200\000\320h\000\0004\030\200$D \020\"6\211=\rF\t\232\243mM!\2402mA\240\365\003@h\000\000\000\323@=@\001\242\r10\t\200&\010\323L\000\t\200\023CC\023\000\000\000\000\214#\000\21512\030\002STi6\232\024\332)\221\352=\006P\310\000h2\032\000\000\001\240\000\000\000\000\320\r\000\004\027\r\347\342\256\001\315\220\274L8\243\243x\207\274r\217\200\346\034\375\n`s\006P\276(\003&\024\242?\213\245\021R\326\n\305\367P\245\205K\377\350\277\363mf#*o0X\031{\022\023\227)\002\316\253$f6\300cm&4\330\200\352\337`\3662\022\246\364\253\252\252L\216m\221,i\0173$\0136\223\032\032bl\002\325M5\016\2212\023\003\3533\360\006iT\304\303\2208\231\263\340<|\217e,E\207\024\250\\\240Nt\232\022QJDg\007\030\026,\232!~\231e\250Ee%UY=\245%l\362\262%\223\025*\2210L\336\203\313\254a\024\254P\250\262\224\254>1h\267]\344\023jg\004\223H+\206P\212\3142\021\203\250\221\206W\311/\335\205\002j\220\273\t\270\037\214\235\262\326|\244E\014;\327\024Z\353\034Q\360\2740o\275\371=\377\374\374\315\360C\262\376\236\265\223\365\304\312FC\332j\n\331|\010\24159D\1779%&\375U;\207\024=\013&1m%\305\222\262l\227\036_4\341g\032Ku\327\313;\016\2054\001CI\351\305\244\221\010|~\227\027\n\"wK\323\276\350\303\226\337\265t \3522sd)\322\311\257\276\030`\014\003~\244a\253p\235\330\260\022\300R)\246\226r?\245}0~o\263\237\017G E\306\376\226\233\214\202P\263\326\253A\010a\320H#\251\205\3170\032\3025\204kh\216\215\254\000!3\234L\253\266\245\222\312\317p8'\300\2501%\257\003\027\325\253c\\\346\222\010\300\2506Z\252\010\033\014""\270\2101\331r\"\325\022\034\003d\330`Hb:\342\344m\330M\342\351gX\000\254\ragD\230\344r\007uN,\241\345\213#\355\242/\224\033l\016f\024\234\244\334\234\264\323\rP72\036\r \205l\304\202\355\232Yx\360\200\352mH\227y\202{\262\315\0131\333}\240\246ZwN3\315M\001\211\360y\361\231\020\035\032\244\367\246\220\313\017w!\333\265\343\260\315\211\014\250\004p\303\t7<\031\231\231\231\301X\370\266\033\014\213f\321\271\224\205@\326a\324\014]Xs\032O\2249\235{\250\333\031\322\251\363\235\3740`\261\2073.\203 \273\3319\276\202\007a\343<\024\255*\365{\2079\275\177\234\361\347\233\223\235hL\241<<\373N\215\207\025\367\334\027\005\330\354\372H\232p\277\317\351\375\303\025\261a.\327{\200\362i\336Y\077\077\261\301\305u\366\316L\363\314\345\343\310\207\016\034\037\024[>\270J\r\254\2558\007\206<\262\222;n\201S\247k\\\362L`\330\323\217(\332\273$\014\303\035r\206(\372\265?\261\300z\301~\325pp\250\005m1\354\0104\275\336\347\\\024y\035\342\367@QO\265\230\0256\300\356\306\371\036;\r\276s\233#+\211@\351*L\240j\221$\200\177?W\\f\327\001o\005ZRr$\343\222\032\230\267@I\217\263>\207dm\330\241pb\223\373\261e\003\306\351\365\030\215\"5\000\210\321\033r\226\201\325\004;\362c2\005u\036\265\233\r,b\342bP\237NH\031\222[91\347\356\264!\036\310n^\236\357/M\273\274yeAX\264\336\376\313\245[\2141&YK-\256qj\022j\271\354Pq\320\334\271\217\270j\230S\0133\023\"b6\344\264\257\032\214\230U%\274\004w]\236Kf\023\020\333\210\323?<6n\236\317C\027D\345\3206S\265\310\337\357)\204i\216\330.\233ZG\361\216\327m^\037\327^e\220\233Bm:u\330\214\373\366\262\024\271oN\230\361\316E(\206)\261\376\2619n2\324\334\030\363\325\214\350\221\326\212\240a\212\212\313\367\304g\032+-\214rA\222\361\020\213\201\374y\242\240z\004cHG\021\016*\322*\320\345\345@\356\323WJ\263 \367\271D\240\346\327\213\326rn\341gsN\356\270\231>\365\035,\213\340v\373W\306\202[\"q\274\337\276\021\346\206\272l\357\357\215\313\305\354\031\263\325\361\312\341pOo\317\350\366s\250\234\350q\007c\306\340qdE\212\210\241\232\325\017$)\241\032u\226\367[Pqw\313\257=h\320\267\357""\006\325\345%\227\227\361\251\202\347\013\271\336\256\376\023\207\261\325\036=\214r\322+\326Wj\340\330\335\216\313\255z\352=w\255a<\352W^\277\006\272\2348s{\032&\2472\2668\357\025\221\303=_\303n\377\026\344\217\233[\257/\214p\306\373\033\357\355\315\2161\275U\376\035\356\363M\263\221\301\271\204?\007|\361t\202\300\224`\233\365\005X\022\361\016\261S\003\022\235\227\322b\361[\367\260+Iu\242\247\036\2359\024\344\346F\312\0028\267\"r\215\220NX\210\344\346\2022Se\342J\tD\322\022\205fDw\350\321\224KfT\016Xo\202\220\366Y\305k^;@\035[\265^\\\226\325(\340\212H\226\341Cpd\262\275\270\217\304Z${tCn\200\330L\n\rm\234\270\342\333!\335\304\240\355(1~\024\267jy{W\203K\231x}\374\010\271F\023h\302\264\205\245\337\234B\316\214\337\331\006\025p\272\305\247\005qs\016\304S\331\003\014c\221\254\372\0261\271N\006\241\345A\2332\234\340P&\236\273\241K\217\004\375wD\337\006\331\232\274\0349\310ve\0314\204\363\365q\246\233T<\243u\3709L\274\2305\265\213EV\3155\277\370zXY-\022\324 \364z\014\260-\203\016C\347_C/\364\361\361\251\254\235Z\010\273\256\333'Fk\256\024)\002\221\305n\231\210\347\233\231\320k\350b\256\330\260\246\312\210\324\211\252\233\300\340\240\341tt%\004\337\350\3238\276uC\272f\032,3,\r\336rn\247\240\270\tE\364\222_\023\202G\220t\313\221\307C\225\020|\223Q\323\225\005\300W\250\255n\262j\345\021q\243\233!\360\031\004\022T\304\202\273\014\213x\356\230\t\301\303\204}EG\372o:\221\014I\004\034\343t\326\025\023R\3557\2174\244C|\302\233\020\256\n\363h\034X\013`eK\211\004\030\240\367\200*\354\253\240\253\304\223\302s\332\237b\316\227\035\360\333\t\307\003\271\t\334\016J'%\035\304nO)\307L\304\224U\002\350\227<\234Gw\262\244\334u[H~.\2677h]B\360W\202wE\343H\202\330\203\002\266\327b\030\230&\230\327\247\243\036[\262\274\222\221nW,\260\031\223\241\343\264\322l^\023\002\\%\350\343Yx3\220u\313\013\250B3-\235\n\220\347\351\3006\177s\207{\246\021\006/\023:)z\3752\021\n{=\210\213\241gh+\332\254\345Q\336\n\320\366\331\004p\250\256\266oG\2626\270\021\351\2504\330\270N\007\001\364\370\350\240\3116""\030\234\312P(\300\230d%\230\300\243\305\320l\253\321\327_d\211*\024\320\2402\350\366)\306'\017y\360\037\346\302\311-K\362m\316[\357#!\241\305\010\252g8I^P\212!P\241\034h\311\323\034Q\344\245\257\001%n\306\232\352U\thi\330\033\034\016\007\220\235F\312\345\275.\\l\002\332\0279u\013\002\016\212\003\253X\234\352,\312\200\nvd\0146\231*\343\275[\347\013\230\326\354UbbNY\007\271n\262 \330\262\262\223\200\274\323\300\301\356ar^\363r\222L\201,\316\211\033\303:T\005!\022+\0020\247\242\265s5\2140,\026\336\357\222\304\236\2167\237\360hlwLfR&\364\367\326\r\006\"\014\243[\312\225S\014z\262\207\220\251\262i\222\246\220\254b\350D5\234'tt\027D+\212\034z\347\311@\211\212b'Sj\036\021S+\275\030#\370\264\276\333\tn\306\030\342\2232[\202\271\215\242\344\240\265G0b\343 \204\224\205\210\326\030\324#\322\200<\3336\362@knI{<\020\031\361mA\000\312\274\034\357\276\367\317z\346\206\235\275Y1LT\332\246\250tl-\023)[%d|0\2143\023j\210\243\n\016\2410\000S\310\314\371\220bA%)\022\002\310\301\340\213,\002P\311:B\224\363*F\250\274H\230(\242\325\346um\216E\034yU\272u\020\367o,v\272\367\327\253\342\\\203\322(CP\311K\003\307G\030\360\257\n\221\203k\276\255\000\332f\331\247\206\351\265\260\233^\242_\262\351]~\330#r\211s\272$R\272\267\333am\032{\342\021\263H\220I\002yl>\207\023\230\331\020\224\203='\240{)\352\014}\005yS\t\230R\3020\273\026\032\212A\313f0\231\220\315P\3427!&\031(\221\003\0333\017\026-\253\226\304\034\214g`\232'\324%C^\373\257t\335--\301Ds@R\363\335\265\264\310\370\215\261\262\263\334\303\204\324\264\354\371\ty8`X\343Hh7Q@\216=\255\014\263rdt<v#\006\311\036\014\362\272\014\324s\335\317\217M\243\207\251\027N\342\237\t\214\245f\026==\255\244\014\322\024\014g\024iv\261\033\216lP\025\277\"\305(\013f\222q<\321R\373\247lku\375i2o\256\333A\320\252\242\006\342\201\025H\263*\236%\331\301\032<|\300\236\026a\272\2344Yy\347k\036'\204d\341\215\205&\353\233YA/\260l\346e\257GR\3278a\227(\333\027\201\322N&'y\220U\262\373\374,-\220t\320d\303\254\265bFB\030\242R\366\207N\r\262|\034\322\"t\\)\210N?,S\032\033""\324\344\341\232\035\272\205\346\2706\305G\211l+S\215T\243q\326/z\326\001\205x\3254\3614\256\254>TZ\250p\315\\d\003\232\344\343R\340\244d\3230\322 <K;o\332r:\350f\373R\353\256\214`!D\002$\321\215\317&\234X\355z\361\213(\267\177B\235cL\364\215n\030\r\222\3539\262J0(\322\226\252\321\312\311m\272b|\215\223C\r\272\270\332\245\345\216A\303\320\010a\006U\\l\363XMKN\327s\301k\213145D\315\227Bw\322bZ\203\271`2\350\312\373kR6\233Mfa\315\2217\027j\2622b\2428&\341Tjh\254\014\227\014\036\311\231\032\200w\n`\033\340b\303\227\177k\"\341^\216\216\035\206\362f$E\2213D\245@\326\257B\233\027\356\014\033\273\205\020bE#\30660\253\006\030\354M\306'v\270\312\327\2133bc[Z m\r\354!\033\374\250Wa\327\303\347\225\027PV\0240\3325~8\373\334\020ip\260w\243\222\272m!\220U\213\235\305\223\212\272\245B\232\357\027;U:yp\"\341\252\235$c\332\260\233M\201\344^K\352\227Y\302^\007q7d\233/.\357\271\371\347\234s\177\250\020\202\2631a\302\272\267^\370\2104\335\203cGY5\207z\002R\364\332Q\200\354\324\230\320\200\322\231\343\246\326%\231\200\305\334\222\302s\244\357\323\272\361\026\233V\267\206:m\265\364\232M\250\267O\227+\333\236Ew\264b-\007Y\010\266\375?\013\242\250])\007\270Q\333\274\021\036\007\203\334>\370\322`{\236\1778\363\203\340X\371w\267P\276\032\213Z\204\337\003\252\202u\342\306@\231\014\t$\220\310HE\362E\3342\3762\335Mj1\361\274Hf\277\021 I\213p\n\327!0(\030Xw\013\243\017\014\003<E-\3434zG\026d\0036\226\307\215M\243&\205\364\213j\226'rE\005I\212\323k\340\363\303\276\322m7k\357i>\023\0224\340\330\nl]\245\301K\304\327\234\300\260\303fl\276h\307sP4K$\212\244H\365B\253\006\025\205\325\343:\234\274f\361\244\n%\210\305\225\005\357\277`\3318\232y\220\271\330.\202\271\240ET\227$-\270ho\340\207\345i\344\317\023\301\215\347\224\346\327*C\215\272\373\300\270\215\324\335-pL\204\270\224Y\246\334\305\353\205|\353\t$\330O\206!\267LW\241\201(3\343#'\314RR)q\322\303\004\360\272\350\230\342\335k\0348\300\265\362\346\251Hb\210\331&\260gC\205\2627XdL\2531\224\027\016;\333) T\\\333GLr\351\351\"\212\320\\\341\004\273DW""HXs\271\220\261;#s\356\362sv\327\223\341W\025\336\327K\236\003\214y\270\032\2652\315\246i\030\nzF\315,\355*\001\220\214Zh\253\007\024\314\314^\363y\263\2716\030\212\334\224\tw1\262.\026\324n\205\243\023f\032<\363!\370q\260c{\340)\023\020\221#\215xX\006(c\246\003\326,\255[\254/=\322T73\302\361\244\265\340)\220&\371\2764D+2f\213\223\254\227Mn\355yv]\234L_7:sic\206E\351\212\245\224\t\250\312\312\304.l\020\247.\314\021\022\360I2I\311YU\354\314Z\3274%T\344\253\313\326\345D\361\250R\346\264l\313z\027F|4\325W\234\227\0263T51\232\330\3346\310|\274\276Z\350<\316=.=\036N\367\243\253\2464&\272\355'\254\\<P\313\206\320\231\316|7p\321\326\366\231\3676\342\327? \362\214\274\3077q\220r\243\256\177\t\2247m\245\035!y\227\242\217Y\211\334M\226\250\217\001\213\304d\244\260t1\327\177\216\003)3\032M\342;\233\264\210\\h\004\211\221\352\356Q\310xU\302\004\251\233\005_\004\251\336L\346\365\327\304\330l\362z=GRver!0\253\267b\033\010\2626\214\342\241T*n:\303\212r<\333wt=\310+\226\002\202\251-\034\276^\363k-{\205/{g'\220\274SkAD`\310\nu+E4\213\223\351U\036\223\022\251\327\027\241\221\210\024Qx\274[\220\275\233\317\243\223~\270\343g?\212\357u+\324\207\321\374\217\255_\300\007\214\361\372\311\036\273\017^\033\301\250g\266\216\334@\227\357^\242z\242\016\023?>B\025\001\333@\254)\266i\346)4\210\311\303\006I\252\245\021z\362\377\2345V\020\374\206\206\n\260\353\372\300x\302HG\253\370\373\016G\357\371\212R\220\227CQd?_\277\020\274\246\r_M\017P\013\345\244+\373\031i\007\346T\325\355\251\224\236_\261\223%\255\2035\2305\022\035ZU\007\030 uV\265\241\232\224\214\000h]\313\247O\320U~\035\245\330R\354\031\005(\221`V\255[\203\375O\277\003\001\027\277\315q\263\266\243\270|\013\361\245\256\213\233\203\350\376\030\342\372y\307t\206\357\036\016Qv\351\235\375\245\030\343<\030\002\264\214x\376\037\340\277\200\031\226\r1\236\262j\376m\355R\nC\035\205\036~\200\277\355\320@a\26060\372\313D1Hnj\213\375\277\321\030\321\351a\315\252>\344\035\354\006\201\273\303`\307\026\312\016m\326V|\371\331\333@\263\233\327\371_\331""\246l\013T\254\225\233?0kc\210\\\343\266.\030\t\262z\232\347\302\356\325\333\0265\305p\251\303[Y\006\265O\250\207v\227d\272~c\027;\001\013\376\364u\351!\215N\303>z\003\257r\265\000`PgKJ\217Z\366A\203\233\215;B\310\001\371\330\021\302\003_\270\365\363x\tv\372\267~E\251Vp#=\347\246[=:p\037\357\211\323~s&\216\217U\277\007\243\303\\\007\247\342\350\371\013\311\341x\017\006\035\016\245g\232\325\225\202\270\357E\211{\265z7$r\312\210\005\330\227r\"\007\337\026J5bu\224\n\206\211\005i\277\337\2607\346\336\337\312(\023\013p\241]/\024\251;\306\017O\353\003`\227\325\322\257\237\251\270Y\252\351R\344\314\275\303\267F\\\363\240\372(\350\260\204k\013\t$\321\313K*|\261\304\264E\254\250\355\250\034\367\325B\370\233\013)X*\007?C\"Qt\023!A&\313\303\207\030\221\002\252\371\261r\254\345P\363\021\014\007\n^\226C\020\310-j33L\032\317\007\257u\021`\261N\310\310\367,4\0107,\336\253g\026\263\333]\226\177\361w$S\205\t\n\261s3\260";
+const char* const cstring = "BZh91AY&SY\311h\277y\000\002\271\177\377\377\377\377\377\377\377\377\377\377\377\377\377\377\377\377\375\300@@@@@@@@@@@@\000@\000`\022\016\372\270w\202\350\344\351\252M\355q\335\311\267\271\335\266\325\206eis\235Sj\301\243Jh\353]t\304\204z\200\016\003B  \002f\223i\003\004i\246\002\247\350\320I\204z\233L\230)\350i4\323\312d\321\352b\014e3\024\3640\230S \224 \002\001\t\251\247\251\243B\233\321M<\243M\036\211\345\001\352\006\200\000\000\000h\000\000\000\000\003M\001 Q\246\247\225\036\236\224\332\207\251\246\214\2150\232h\320\r\000\0004\032\000\003A\240\000\000\320b\000\221\020\200@\210\332\024\3653Q\264\232f\250\333SHh\006\233Ph=@\320\032\000\000\0004\320\r\000\000\203LL\002`\t\2024\323\000\002`\004\320\320\304\300\000\000\000#\010\300#LL\206\000\221I\241\246\205O\022i\036\223\323\032I\232#A\246\023\312<\232&F\000A\246\206@\030&F@0\230M\030\203M\005\303y\370\253\200xR\027}\233~:\266\310r\216a\362\034\343\243\251L\016p\312\027J\000\311\205(\217\245\322\210\251k\005b\373\250R\302\245\377\360_\365\266\263\021\2257\230,\014\277\364\204\345\230@WR\255E\303l\0066\322cM\210\014\331T\037\375\242Q\312J\272\252\244\310\347\331\022\306\220\3632@\263i1\241\246&\300-T\254\2724\264\306\202U)f\tV\354,\"\302%\213d\004\211S$\353\201\211\305*\026P':M\t(\245\"3\203\234\013\227MP\303\\\363\330\"\262\222\252\254\236\322\222\266\231\335\022\351\222\225H\230\246\217A\345\256c\024\254P\250\262\224\256>1h\267{\002\t\2754\202I\244\025\3078Ef\031\210\301\324H\307<$\230p\306\2015H[\026\007e\027n\275\337y\021C\0372\305\026\273G$|0\014Z\337{\362{\377\371\371\213\210\302\370\371=\247\261\313K|\305F\311\310!\236=\024u\310[\341_\026\032\016t\305\200\260\261\005\263\007\260\241me\305\222\262l\227\036W,\341g\032\313u\327\313;\016u4\001CY\351\305\244\221\010|n\207\027\n\"wK\321\276\350\303\224\337\265s\240\346d\345\310S\255\223_|0\300\030\006\374\321\206\305\302vE\200\226\002\221M4\263\221\375+\353\203\363}\234\330z9\002.7\3645\334d\022\205\236\266\032\010C\016\202A\035,.\231\200\326\021\234F}Q\317\265""\200\004&\223\211\225v\315d\262\263\334\016\t\360*\014Ik\300\305\366*\330\3271\244\2020*\r\226\252\202\006\303.\"\014\026\\\210\265D\207\000\3316\030\022\030\216\270\270[\025\323l\272\331U\300*\343\272,g\023\032\272\246\245q%\0025P\350Q\321J\034\222\215\020\346[Z\337\255:\257\300\255\304\032w\234\032\321J\265bAv\275,\\\030@v5\244K\270\301=\244\315\n\361\333}\240\246ZwB3\315M\001\211\360z0\031\020\035\033\004\367\266\220\305\017x!\331\261\347\254\315i\014\250\004p\303\t7,\031\231\231\231\301X\351l6\031\026M\243s\021\n\201\254\303\250\030\266\260\346\004\237Hs*\347a\2662\245S\350;\271\260`\261\233\217\213A\220^,<\2375\003\300x\217\r+J\275^\341\316o_\351\236-4rvV\204\312\023\307\323\336t\3569\260\302\301`\266[\276\222&\274\260\364\375/\270d\267.%\266\342\340<z\371\213'\351\36698\256\336\331\311\246\232\034\274\031\020\341\303\203\346\213_~\022\203k+\016\001\345\217,\244\217\275\3201\272\3665\017\014\305\355]\010\362\215\253r@\3071\333(b\217\273G\375\033\247\246\027\357V\356\362\200V\273\034A\006\177\303\340\353\202\217#\274\037\010\n)\3661\302\247\034\016\340m\243\307Y\307\3469\2622\270\224\016\222\244\312\006\251\022H\007\363\365v\206\215\240\026\360U\205'\"N9!\251\213t\004\230\3733\350wF\305j\026\205\371?\265\026P<\016\277a\210\322#P\010\215\021\267)h\035PC\273&3 d(\364\353\326ib\376\372\372\204\372r@\307\222\331\311\217?i\241\010\370!\301{\235\336\307r\375\336|\363\240\254^o\177\202\322\255\214r&]K\255\354\342\364$\325s\211A\307Cr\346>\341\252aL,{\354)\210\333\222\323\"5\0310\261\245\274\004w]\236Kf\023\020\333\210\323?Lwp\236\3577'D\354j\033\251\326\353\267\373\316a\032e\276\013\256\366\221\374c\275\333\327\227\365\333\241d&\320\233N\236C\021\237~\306\022\227-\351\323\0369\310\245\020\27768\330\234\267\031jm\354\031\352\300tH\355EP0\3062\261yb3\201\025\226\306\t \303x\210E\274\376\014\321\214\036\201\030\322\021\304C\212\264\212\2649x\220;\264\331\322\254\310=\356Q(9\266\346\365\235~\034\256\356\211\333\275\0237\340\243\245\231\204\016\327[\010\320K\346N8\034x\302=""\020\333]\335\3761\262\363{\006m6|s\260\270\247\267\354\372\036\016\312\211\331C\210:\3366\377\213\",TE\r\026\250y!M\010\327\254\267\231\363\016.\332\355OR5-\373\261\303\274\244\262\362\37650\\\341w;\325\337\302p\366\274q\343\332\307-\"\275\205v\256\r\215\330\350u\257eG\257\025\254'\245J\355\336\360\355\261\313\227G\261\242lt+e\227\021Y\0343\325\374\267\361\363\370$|\332\335y|c\2067\330\337\177\22568\306\365W\367\367\273\3156\316G\006\346\020\374\035\363\305\326\n\362Q\202o\343\n\220%\337\035R\246\005\365:\357\244\305\337\267\312\300\253%\326\212\234zt\344S\223\217\033\020\010\342\314\211\3126A9Z#\223\232\010\311M\227}(%\023HJ\025Y\021\337\243FQ-\231P9\241\276\nC\330\247\025\255H\355\000u-\324yr[T\243\202)\"Y\205\r\301\206\312\366\"?\021h\221\354\321\r\272\003a0(3\357r\344\013oC\273\211A\330Pb\374\031n\304\362\270w\203K\241x]\364\010\271F\023x\302\264\205\345\337\234B\356\214\337\340\203\n\270\332\345\347\005qf\035\220\247\262\006\030\313#Y\363\354cr\234\rC\312\2036e9\300\240M=wB\227\036\t\372\316\211\276\r\2635x8s\220\354\3122i\t\347\352cM6\250yF\353\360r\231y0kk\026\212\255\332k\207\360\364q\272^%\350A\350\364\031`_\026\034\207\316\302\206\177\351\343\343Si:\264\021x[|\235\031\256\330\320\244\nG%\264\314\207<\340\316\203aC%v\345\2056TFh\232\251\274\016\002\016\017?RPM\366\255s\213\351T;\246a\252\303B\300\331\322M\324\367k\200\224_I%\3618$y\007\\\271\034t9\221\007\3105\035yP\\\006\014%Yu5\200\272\036\365\026jJba6\335\360a\201\t\231zQ\260\013B#\204}EG\372O:\221\014\211\004\034\343\204\326\025\023b\332\361\036kH\207\031\2057!\\U\346\3609\261\026\340\312\226$\020b\203\336\000\253\272\256\202\2572O\t\323j}\313:\\v\307\034' \016\330'h9(\234\224w\021\332\317x\343\242bJ*\201tK\236N#\273\320\244\334x\355\244?\027c\237\266.R\360W\202wE\343H\202\330\203\002\266\367d\031\030\246\271W\271\323\227b\331\340IH\267a\313,Fd\351x\355u\233\027\204\300\227\tz8\316\274\t\310:\345\205\324!\031\226\316\205Hs\364\340\033O\271\302\275\323\010\203\027\211\235\024\275~\221\010\205=\035\250""\213\241gh+\333\254\345Q\336\n\320\366\331\004p\250\256\276\217G\2626\330\221\356T\032lXNG!\364\370\350\240\3116\030\234\312P(\300\230d%\230\300\243\305\320l\253\321\327_A\022T)\241@e\325\354S\234N^\363\340?\313\215\322[\030f\334\034\270`FCC\232\021T\322p\222\274\241\024B\241B8\321\223\2468\243\311K^\002J\335\2155\324\252\022\320\323\27077\373\377\035:M\352\345\274.\\n\002\332\227Iu\013\002\016\252\003\247X\235*,\312\200\nvd\0148l\225q\336-\363\205\314kdUbbNY\007\271n\262 \334\262\262\223\200\274\323\300\301\356ar^\363r\222L\201,\316\211\033\263:\324\005!\022+\0020\247\242\265s5\2140,\026\336\357\222\304\236\2067\237\354hlwLfR&\364\367\326\r\006\"\014\243[\312\225S\014z\262\207\220\251\262i\222\246\220\254b\350D6\234'h\352.\250W$9\366\323\257@\211\222d'Sl\036p\251\235\275\010#\371\265\302\373\211p\312\031d\2233[\005t\033U\315Aj\216`\311\306a\t)\013\221\2542\250G\243\000y\266m\344\200\326\334\222\366x 3\342\332\202\001\225x9\337}\357\237\025\321\r{[2d\231)\275M\220\351\334^&r\276j\310\370c\030h&\365\021F\024\035B`\000\247\221\241\364 \304\202JR$\005\221\203\301\026X\004\241\222t\205)\345T\215Qy\2211QE\253\315*\333\234\2128\362+w6\020\367o.u\273\334k\325\361,\203\322(C`\315K\203\307G(\362\257*\221\203m\306\255\000\336h\332'\235M3sM\221X\360t\325\266\024.tV-\235X#&\335\2470\234\212\035\225T\031\262\203\nf[^)]\022\323GRu\223RnL$\235\270CKi\202\266\206\220\353\235\001\237\r\233\205$^\250\206\223\022\302D\242,m\t\2702f\217\231>\266\343*\345\261\007#\031\332&\211\362\222\241\257{\331\272n\226\226\340\2429\340)y\356Z\332d|6\330\331Y\356a\302jZtx\311y\030`X\343Hh7Q@\216=\255\014\263rft\274vC\006\351\036\0353\264\031\250\347\273\263\227r\361\307\324\213\257mO\204\306r\273\013\036\276\326\322\006i\n\0063\2124\273X\215\307>(\n\337\221b\224\005\263Y8\236\210\251\205\247|\253l;\3112o\256\373\301\320\252\242\007\002\201\025H\263*\236z\350\301\032<|\300\236\026a\272\2344Yy\347o\036'\204d\341\215\205&\353\233YA/\264l\347e\257G-\256p\303.a\266/\003\244\234LN\363 \253e\367\370Xe\223""\215\223M\021\310U\024\2461\027Vd\335\033Ao%8\252Yk1\227\300N\177$S*\034T\353\362\321\016\325C\003l[r\243\304\2765\251\316\252Q\271\353\027\275k0\316\326,*\330*\343Q*\331\225\204\210\226\0010\"\261\332+\342\027\211\253\020\322 <K\273\177\332r:\320\321\367\245\255h\306\002\024@\"M\030\340\362i\315\226\367\257\030\262\213w\364)\3304\317H\326\341\200\331.\263\233$\243\002\215)j\255\034\314\226\333\246'\307\33140\333\253\215\252^X\344\034=\000\206\020eU\306\3175\204\324\264\355w<\026\270\263\023CTL\331t'}&%\250;\226\003.\254\257\266\265#i\264\326f\034\371\023qv\253#&*#\202n\025F\246\212\300\311p\301\354\231\221\250\007p\246\001\276\006,9\267\366\362.\025\350\352\341\366xV\"\226d\r(:\330,\254\220\277\026\302!\233\237\300p\r\010S!\032s\303\233=&&\343\023\273\\ek\305\231\2611\255\255\0206\206\366\020\215\376L+\260\354\341\363\212\213\224V\0240\3325~8\373\314\020ip\260w\243\222\272m!\220U\213\245\305\223\212\272\245B\232\357\027KU:\371p\"\341\252\235dc\333\260\233M\201\343^\276\025K]\302`\007m8f\233\260-\337s\364\323H\350\377P!\005fb\343\205un\275\361\020i\273\006\306\216\302k\016\364\004\245\3514\243\001\331\2511\241\001\2453\307M\254K3\001\213\271%\204\347I\337\247u\342-6\255o\014t\333k\3514\233Qp\237c<\033\263\"\274Z1\026\203\256\204[\216\277\205\321T-)\007\270Q\334<1\036\007\207\333>\370\322`{~\2378\363\203\337\330\371W\267P\276\032\213Z\204\337\003\252\202u\342\304\301\246 m\266\304\306\306u\2339\372\017\032N]\213|\227\315\343b[\001\224\205;\214`U\216v\003\231\235\263\306g\210\220f\036y\n\365\211Q\266\211\221H\031\264\266<jm\0314/\244[T\261;\222(*LV\233_\007\236\035\366\223i\273_{I\360\230\221\247\006\300Sb\355.\n^&\274\346\005\206\0333e\363F;\232\201\242Y$U\"G\252\025X0\254/\037\214\345\346\3437\215`Q,F,\250/}\363\006\311\304\323\314\205\322\301u\025\321\002*\244\271!m\303C\177\004?'O\"x\236\014o<\2476\271\222\034m\327\336\005\304n\246\351k\202d+\320\273\"\374\273\014\230\217]\034M\266\263\245=\003~\321\202\344\r\315J\202\202\335m\345\343\227\035l0O\013\256\211\216-""\326\261\303\214\013_6j\224\206(\215\222k\006u8[#\205\306D\316\263\031Aq\347\301\263\222\005E\321\265t\307.\276\212(\255\005\322\020Kj\212\351\013\016\2272\026'dn}\336N\177)y\036\025q]\355u\272`8\307\233\201\253S-\032\346\221\200\247\244m\022\316\322\240\031\010\305\246\212\260qL\314\305\3577\233;\223a\210\255\311@\227s\033\"\341mF\350Z16a\243\3172\037\207\033\0067\276\002\2211\t\0228\327\205\200b\206:`=b\312\325\272\302\363\335%C\203<0\032K^B\231\202q\233\343DB\263&j\271\272\351i\255\272\336M\326\322&O\233\2359\264\262\3073\004\311R\352\004\324eeb\026lP\247cv(\211\200$\231$\344\254\252\366f/{4%T\353\325\346\013eD\361(R\315x\335\227\004-\031\360\323U^r\\X\315P\324\306kcp\333!\363syk\250\3638\364\270\3649;\336\206\256\270\320\232\354\264\236\261p\361C.\033BgI\360\235\303Gc\331g\334\333\213]<\203\3122\364\035\035\266A\312\216\263\371L\241\303}(\351\013\320\2754z\314N\332n\275Dx\014`#%%\213\241\226\334|P\031I\231Ro\021\335\035dB\306\240H\231\036\256\335\034\207\234\256\020%M\030*\370%O14\233\327o=\261\335\343\364:\216\244\360gdBaWp\3107\021dmY\305B\250T\340w\203\232r<\273\370t\275\310+\226\002\202\251-\034\336^\363k-{\205/{g'\214\274SkAD`\310\nr\326\212i\027'\326\252=\026%S\262/w\221\210\024Qx\274[\220\275\213\317\253\223~\270\343gO\212\357q+\323\207\325\374O\253_\276\007\256z\376\252G\254\303\326\206\360j\031\355#\312\210\022\375\313\323OTA\274g\353\302B\240;\350\025\232\233\006\236\242\223H\214\2340d\232JQ\026\376/\367\233Qa\017\320h`\253\016\317\252\007\256\022B=O\305\332r?}\316R\224\204\272\232\213!\372\335\370\205\344\260i{h{\200_5!\221\304\313H?R\246\257~6\"z~\346L\226\266\014\326`\324Hu)c\016\020@\352-kC5)\030\000\320\274\026\316\237\260\252|\273\313\254\245\3262\nQ\"\300\253V\256\357\032~7\230\010\275\316{M\235\225\035\243\335_\235,uZ\331\037W\364\307\007\327\320<$6\270os\013v\314\356\353\250\307\t\336\274\025\236c\317\362\370\213\267\201\231^\320\031k&\256\344\334\322 \2441\334Q\345\346\013\276\374\304\006\033\003W7|\263\203\024\206\316\220\273\337\375\221""\214\356\266nMA\370 \361^4\r\334\032\24685\220s\3552\263\350\312\312\327\005\224\336\247\316\356\2653`X\245\\\253\327\372\003[\034\002\327\r\221h\300Mc\321\324=\347u\355\326\255\2502\002\247\r=4\032x\337a\017\r.\351u\375F-w\002\027\375\354\355\322C\032=\306}t\007n\325Z\000\300\240\316~}\036\325\314#\0077\002vep\003\363\257#\204\006\247\201\353\246\360\022\354\366m\374\313F\244\340F{oL\262z\024\340?\343\023\246\375&M\035^\353>Og\227 \007\247\337\347z\013\321\345x\017&ngb\253\315iJ\275\220<Qb\\\357\\\215\311\034\261\"\001n%\274(\201\367\305r\215T\235e\002\241\242AZnx\353\r\311\26771\n\004\302\331(V\313\315*N\331\203\320\373@\325%\366s\3622\364vK%]j\\\230\3677\266(\313\236t\037E\035\026\020\215aa$\2329ieO\2268\226\210\265\225\035\263\007=\355P\276&\302\312V\n\201\315\324\310\224]\004\310PI\262\360\241\306$@\252\276l\\\2539T>z!\200\341K\322\310b\031\005\255Ffi\203Y\340\365n\242,\026)\331\031\036\345\206\201\006\345\233\325l\342\326{m\026\237\374]\311\024\341BC%\242\375\344";
     PyObject *data = __Pyx_DecompressString(cstring, 4592, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
@@ -40156,7 +40204,7 @@ const char* const cstring = "BZh91AY&SY\253\0273;\000\002\271\177\377\377\377\37
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
     #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (4489 bytes) */
-const char* const cstring = "x\332\245YKw\333F\226\266b%\221:\262-\332\262\3548\3551\344\304\226\2238t(\251\035\267\343x\032\026!\231=\")\276\234h\222\0314\010\024)\330$@\341A\211\2369=^r\211%\226\\r\311%\227Zj\311%\227\372\t\372\t\363\335\002@Q\017'\2363\347\210\205\252B\275\356\275\337\375\356-\350\251 \nv\313p\224=\201Y\226i\t\273\212-h\314a\252\303\264\027n\245\302,\241\251\263]A3\231-\030\246#\260\275\206i3\301v,]c\366\252b\010\246Qk\t\252\305\024\207\t\212P\016&9\333\212#\350\266\240\232\206\243W]\323\265\005\335\020\352\254nZ\2558f\321R\212m\353UCpL\001\223\265\357\370:\301\010\3322\034\024.\274k\351\216R\256\261p@p\250\212e\326\177o\256nhlO\330\325\235m\301i5\230\260\030\366;\226b\330\\\214\343)\3010\314\320-\010/hz\235\031\266n\032v2\252\t\3674\222\210\026\010\006I\365\206\323\022\354m\005K;n\003\207\253@\203j\313\3316\215\270bYJ+uv9>\337v\033\r\323\202\212SF\303u\036\231\256\203G`\201\224aC\203\272\2523\303\211\204\205\206T\263\216\r\240\010g\233\tf\203Y\212\203\325N\014Fg]\267\203M0\003M\034\247~rB<e4\225\232\256\tuSc\017\311\230\334\322\302\242\272(\340\354\213\230A\312Y|(Tq\314hp \"\354\247\354A\001\351\027r\241\230L\027\326\345\325l:\215\272X,\010u\245F\2731\355\251`\353o\031\351\352\231\260\262r<6-\245\317\037\264\274$\224[\020l\033vd\326\2634\027\371\025Y\304\254\010\031\223\213\014,\255r\265\222\0014V\323\313$\017\203\315\t\207\220\200\003\316\0206\245\315\357V\236\254\010\212\241\001\027\257!\233\r]\227\325\032\240\006\374b\301\262\253\327\034HBx\260\343B\252\"\264LW0\030t@:\303\270\361\t\320\235!\330\314\341J\\\344\340\341j\2241]7\252\213!\020\364&\243\331kJ\315f\361l\244\353\010,#cgac:\202\351\032\032\016cD\276\242\250*\303\276\017\270v\003u\235\257\252'\343\232*\270\3414\303\014\220\363u\021\207T\232\212^\343\216\0021l\325\202\246\204JM\251\332qzK\336\310\366\270c\352\201m\251\227\325X\235\000\304}\204\031n=\002\013\177\311iA\005\\\316\274\252\350\254\246\235\355u\r\225\213o1\307\265\014\332S\323#}\214\355Z3\253B\2155Y\355\314\nu\210\245T\tp\016\253\302\357\301.\333L}#T ""\032\323\306G\324\230Q%\257=\261\360\010\354\260\216\306-0r\0362<<\221F5\024K\2513B\016&\272\354\324\032\026\333q\231M\236q\274\032Q\243\031\230\320\246\327\206\312\342\2777\266a\261\246\016\342\003J\2252\007\300\251\341\026\263M\327Ra\264\032\221X\013\356\250\333\216\375\236AD\246\256e\301PX\260\354\332\255\370\207\014t\215\021\">h<4\344\332\0376T\255\201A\337+\023i\200t_!\264\323\030G\261\252\314\0319E\313P\267-\323\000\266\265\220\241\311t\226^\325\r\3051\255\370\330\024(\374\004\211\321\032\214\270\367\017\306T\334Z\355\017\2068\246)\330\360\265\017\031W\326\253%\203\273\026\347c\243\311,\210\343\260:\265\3152\261M\ta\205\251:\034C\013\034\007\035\221\367\2078#'{*\010\377-,<|\364\257\361\347\213_\377\372\037\202\360TP4M6\210\354\210\272\004\360\335\367{\217\376\366h\201\353X5k5\306}\312\216+e\365\331XL\245\321\001\007=?\335\035\205\262\347\232n\323\251Yp\366\300\211\204\252*< \212\257\362hF4\004>\003\000\035\330\226\207\352Q\304\n\243h\210|\004\207*\316\037\272\n\367\246P\244\361.\333Q\352\r\350-\330S#%q\026{\366\223\360\375\231 \371\332\326\254f\\\346\017\33158\275\232r\243\365\024\340=\326\236\2468\n\337)\030\247b\257r`\037y[\261\267C\271\236\n\177{T\203\023\325\037\325\355jD\017u\327v\004\360`\335\005\365S\230\206\034a\324\261A\236\032\253(x#\310\262\3054We\262,h.7\262a\032\337!\2764u\245\206\267\252n\350\216,\203\254\032\255\270\254\232\026\213\363\025\271\020\221^1K\257\323\221\307\207\271u\305\331>3\"\304\314s\031\"\250uMn\270e\034}[V\313o\036\234\323\007\310\271\265\210\317\002\3609fCWiA\327\251|\367\204\360\002\320\032\321\034\200@\336Ut\207[D#\003>\025\302w?5Z\257\261\032\263UL\2205\210\310\254GeB\214Q\2157Z{\347\274\216\333\216\006\235>Z\200\257?$7o\000\216\354'\233\325*$e\020W\324 \277*\263\350\210\201\274\212\260\031D\357@b\216\000\234\374M\r\333\361\005\234mb\226\377\373\344gA\032\252\235\360\203\263}\224\332\214\334\341\304\373\223\2758\r'\257\347\307*sG\036\017\2220U\236\343r{\023\036\343\347\274\rr%Z;L\221\343\343(\216\364&\363X;\376\306V\352a""\006\t\260p{\212\342\213l\276(%\305\r)_\02476\304\215\274$&\267d\351\227T\241X\020\013\253\251\324\213Rakuu#[\220\222\253\371T1\265*n\254\226\362y)SL&\245\027\245u^$x\271\304\313e9)\275J\255JrvS\312\310\351lR*$\271y\2032.\313\360\177f\311\362q{\217@?j\206.\022\370\357X?\222$8\275s\346\r'\260\260\256!\036bn\003\316`\207]\025\260}\r\314\0206\t\276a5D\352\311\326\010\323a7\242\216\325\n\353\243|'l\223r\337\333#\303^\222\224\226\362\353RfuKJo\026\267\244|>\233\227\202T\250\010\353H\265\232\336\260u[\"\036_E\376#5\361fm#+\026\327J\033\033k\224\374\254o\246^\276M\2452k\331T\246\230\312\274\0227RId\305\231\242\364\313\250\231\226\n\005q]\2227\244\314z\361e\324\233\227\212\245|\206\306&a\267l&\225\221K\005)\225MA\373\204\251\277od\3271\345\225\264!\247\305\315\r\263\272A\251R\264\026v\223\326a\360\255\264T\024\223bQ\304z\271\343za3\2554(A\315d\262\031)\223\0050\250,HE\2242\252\245\365\227\224\220g\363[\324\261\226-e\222T)\224679\344\262kk\233b^\304\212R^\016\217\274)\345\323\251B\001g-lf\177\226\362\233\245\027\262\274\331\332\303/\211\024\\\316\200\000\362\254\222+I\371-:NX)l\346\305\314\272\224\027\177\206\310b*3\022\034\320\2230&\0030\026J/\n\300\357\013I^\333\020!v6\373o\245\315Biu\025\342\026\2662\253/\363P\320\277\213\244'4\213\342/27V!\314\302\n\216\226\266\253\205\310\266k\224\356\026Si))gKE\231j\364L\027\200\3755\261\264q\242+\225I\005mR\263\274.\025\345dqkS*f\263\362\213\324:=\ni\370^\021|\000\235\206\017\340\035\314\330\222\345\343\266\306X\343t_\350Jc\035\334\227\216\333\247\234\351\370\305\031o\212^U\024\025\311QK6\330n\324\025\020\207\254k\0245G\3017zK\035r]i\310\310l\306\373\370 \2321\232^\022\363\305\022\200U\312\210\257\304\324\206\370bC\002,\244\265TFJ\226`si5\265\226\222\222\257^e7\212\300 \335\320\342\307\227\265\237\177\026\363\000\361\272\202\004\005\367\031\267\036.l\363\206[\243\234\316F\222\243\324@\3542\271\037/\"\332\224\203\253\020\372\202;\026\2020\020,\363\034J\241\\Q7\343\010\245 d\335\300\232\315jY\261\031\005p\031,\313\003\271\252\312\374""\236s:1P\025\344\263\3526\245v\260\032\335\353d9\252@'\224\232P\023\313\312:\022\017KQYYQ\337\234\227x\341\032\001\261p:;\214w\201\301\243\3225\034^@\014fhQ\225\356\251Q\035s-\007\030ut\2342L\244\303\207\314\023+\215\242\n\375x|\320X\331\255\362\"\301\313%^.k\3100\353\244\242\000\014\243fhI\276\3318 \303\374\306\306\275Yi\311.=\261\t#gi\220l\343\264\034\325-V\321\3670\225\034\033%\264ji\250\230*\n~4*d\335\226\203\240\314\230\032^\"e\312\363\344\262\356\330Q\007\215\034\257\313t\335\223O\364P\272\307wD\037\354d\250-\236\336\243\002\332\205.\231\201\356\326\310\241\242\373\"\343\360\010@\"\323PZ\010w:\345d\017\020\302\210\272\331\236\312\270\300\221#V*\313K\225'c.\305/\264\274 w\n*\341\222Q\240\342\030\253\030\025Cn8V\020\254\203\322\016?\235T\350Z\031\234\211W\0017\272\021\313\0046\374\201\311\253$C5\362p\271\332\320\267\021\326`\271\360a\251\204[\372\311\356\362\222\256\177\257'\364':\356\2620H\2209\342I9\271nTL\312I\221\236r\265\343\276\374xE'\033\000^\324\222\371\225#\270F\343\364\266\024\244\343kP\016L7\362'\362\201 E\017\363t\236b\207y6\371AP\r\267\212\336\313\024\254\203Z\030\235\203\006\217\311Au\024n\243\334\376\375\035D\006\257m\323x\023\344\354\360\3077\201\022k\246\242\3315\263*\323O\rK\203t\314;)*\242\203_\030\316t\214\r\001\010\250\017\272@\037\356\230\325\232\271\313\254Z\0234TW\340\370(\337\260<<\325\322\352\312\036}w\303\217\276\013\312\334\374!qP\225\3343z\202\301w\216\353vc\274\216w\016V\256\343\217\200(\243DJ\215\247]\305\237l4\250\204\201\r.\214|\\\332\310I\301I\006\355\r2\204?\032\r~\233\200\257\231\225\n\376\020\036\202R\016\231%l\021\261\003\336Q\222I\006\032\335b\351\033cc\251\321\000\2675L$\235\273\204Bx]C\261\030U\240\031\230\021\177\341\271C\233\236N\274N\267\343\317\210\300k\366\363\370\330\306\321 ~?\211\032\034\213\260I\304\332\347\3351\302+\010\316\203\274\202\177\364\261\301\025\274\025z\013U9g\360\232k\360\233\000\223%#\032\327\344\237\211\211\343w\\\245\026h\225C\222\027d\260\260b7,\316\271\226\262k\251\307w\2773Qy\324\301\366\250Z""\305\355\022\300\004@\232\200\240N\344\022\245\364$\355\211\004\037\rP\013=\300\277\301\3470\316J\204\016]\2432\230\323\264C\356\256\340x\243\200|~`\017{\211\376\302\010K7(\334\264m\004X`\200r\207\020L\250\205\334?\226Q\310\347d\027\374\316B\337\342aH\362\177\316\341p\212h\203\260\351:jp?\262\0335\020\274\245\362xFK\351*\220\277mjTwm\334\024\203\313bPrU@i\r(\003?\013\177\256\352\214<\037\026\256+V\313~\353\004\337_d\031\222Q\211;\241\263M\037\306\200\010\022\237~\217W\242\204f<\261\341un\314\350\310c=85o\321)\270\203\270N\370\200+\216\324z~N\344\320Fd\"^\020jG\t\002\377\037\202\302\223\003\032\210\305]7\341\256\270O\\\350\304\2057-/\271\234\220\251|\342\202;m\327xc\230\273\006@\213\371c\334w\212\006\335\006(\204\341\330M\3562\274\260\341\035\3641&|@\360\327\2465j\350\006\032\340\252\246\211\310^e\273\344\230\273\212e\320\017\312\333{\373\026\024a\277\2338\232\272\360\361t\373b;\321\226\274\253\336\212g\373\013\303\251\313\355\327\376\204\037;\234\274\324\316\267\233^\316S\375\230\177\317\267;_v^u\227\272\271\341\344\237\332\367\332;\336'^\331\377\324ov\320q\271\255\034N~\326^j\277\362\022^\322\377\304/w&\206\223W\332;\303\311\331\301\354bg\247;\321\275\321\233\350\315\365\n\375\211\376|\177g\177\352`\342 6\234\374\364\335N\270\341\340\363\247\375\205~b\210e\022\203\311o\273\211\243\313\027\246\277\034\334]\356%z\342\321'\027\246\257\264\353\376\222_\350\\\354$\2063\177\366\323\335k]q85\353]\346\233M\315y\222\177\2433\321\211\r\247\246\333w\374\tz\314\267w=ex\351\362p\346\246\177\271\243t\234\356\217=\035\233O\037\304\016\276:P\016\354A\2760\234\272\352-@\364\377\351(\203\311/;|\333K\355$\244S\274\267\264\332g\355\225\266\215!\330\365\032\212\251\353\320\210\3425\375\234\217\t\267\007\267\023\275\330\321\374\205\351o\273\367\272\273=\245\007y\356\206\247>\204d\n\024u\321[\366\252~\216\226z\212\311T\235\271\005\215\356\342H;\303\231\033\036\212Km\331\027\351\361\312\373\301_\360\237t\022\035qx\t\257\240b\274\236\305yT\377\232/u\346;V76\234\215yw 5\036\363\336\256\257""\014c7\270\355\316\351v\374\304\351\356\303\323\303.]\365\276\205<\225N\262\373qw\213\013137\230\373\252#\302\270g\3177\270\365\260\313\353\377\211\265\361\370\305\373\225\254r\342\300\357\237\364\377\037}RW\2073W\275o|qp\373\207\336N\177\262/\366s\201\315\310\3643\227\006\227nC\335\037\004\201\301\215\007\335\211\301\3447\335\205\243\331c\350\035\362\271\203\233\361\256\322uz?\016\236\027\006\205\337\006\277\375c\360\017e85\017\027\270\350/\373\032|\243\324\375\252k\364W\373\326\376\265}\000s\246\375\322\023\311p\227\374_:\271\216\022\341l\247=1\234\241\352_\200\321\231\2307\347\345\006\223w\006wp\372\243g\347\302h8u\007RO\335\366\267:\312\3418\206\346\007\363\320R\267\324\273\337\237\010\3243\325\371\244\263\335\325z\337@\r\245\375\205\375\225}\216\235\217\275\334p\366\213\301\027\200jo\241\367\270\037;\234\231\367^\207z\305I\323\376\234\237'8\016Ca\241\210\356\\\367\327\376\364~l\377\353\203\304Ar\260\2715\3302\006Fs\320\334\035\251\013\232z'\016\023KG7/L\317\264\237\000\345\n?\3247\335\273\201kN\373\363t\362\230\027\363\026\016\247\246\3016p\255\277{\312\340\306bg\267\013\225L\323\351\246\3006w\272Wz{}\034\366J\333\201f>&\357\032\316\316{\265\316\302p\356\372p\356_|\005+\335\021:\023\207\360\302\307 $\330}\326\233!\273\177\327\315\341\030\013w\207SK\203\245\325\375\004i\177\336\333\246\031\357\270x)\017\003\"\315\275\201OC\355\327<\021J\231\271\356\345\271+k\235\373\335\217\272\013\201\262J\376\327\\3\263\267\006\267\236A\223\305\375\033\007\027\241\005q8w\313\377\246#\016\356\375\265\037\353/\320\371\024\356?D\014\207\327\376\322\313\365\264\376\342\376\027\007\342A\216\372\240\017\217\037\201N\263=\270\377\030vu\372\211w\")b\266\315_\201#\007\223\013\235\330\321\237I7\253`\213\t\202\357c: \234\320[\205g\034#\237\267\271vXg\031hva\376\334a\330=A\332kB\240\235\341\354M\377#\377\256\317WX\367\037w\256\2023\241\010\311\343|\266\334.{\034{W\275%/\367\273=\244\216\002V\2764\353}\344-\014#W\013q9\203\003[\264\346e\214&\302\264\375\373\304\305\264\323u\022~x\355ng""\241\263\002c\227{\037\365\276\n\230\005\"\323b0\363Tg\342\017\232\244\237w\023\024q\276%?Y\354\374\263\227;\2725\346\235')62r\205D\277\006ok\022\355^\031\\\201\206;\0134\370\303b\310\341\251\030r\370a1\344\237\035\234\021p<\272\372\036G\016|8t2\270Ow\245\373_\375\257\001\331\324A\356@\033\344\253\203\25290\033\201O\336\204\331~\000&#w\203\257\223*>\033|v\333/B\236/\211V\300\035\376\316\321\314\205\351?\r\247\022\210\257\020\367\372\340\372}\036Y\260\017\327\377_!\344\265\373DA\237\373\261\301\205\233\020,\010\274!\201\024z\237\202:!-\242\031\005\341\345~u?\267\257\020\014\022\204 )p\2679 \222#C\365>\3679\026\036\302\307,\234$\216\320\036;\034\353x\310\3112\321{\t\357\371\r\212Z@\2521s\341\343\251w\315vip\365^\247\330\215A=;\275\213\275\037\373\312\220g\0169,\033\363\036 \366!\374\177\341\377\324\235xoT\035\331\346\246\027;\035\346g\020\263\212\335/z\251~\256\257\357\357\034L\302\031\013\203\315\334X\230?\006D'\221\375_\016\314t\354";
+const char* const cstring = "x\332\245YKw\333F\226\266b%\221:\262-\371!;I{\0149\261\225\207C\207\222\332q;\216\247a\021\222\331#\221\022\037N4\311L5\010\024)\330$@\341A\211\2369=^r\211%\226\\r\311%\227Zj\311%\227\372\t\372\t\363\335\002@Q\017'\2363\347\210\205\252B\275\356\275\337\375\356-\350\211$KN\323t\325=\211\333\266eK\273\252#\351\334\345\232\313\365\347^\271\314m\251a\360]I\267\270#\231\226+\361\275\272\345p\311qmC\347\316\262jJ\226YmJ\232\315U\227K\252T\n'\271\333\252+\031\216\244Y\246kT<\313s$\303\224j\274f\331\315\004f\321R\252\343\030\025Sr-\t\223\365\357\304:\341\010\3322\032\024-\274k\033\256Z\252\362h@x\250\262m\325~o\256a\352|O\3325\334m\311m\326\2714\037\365\273\266j:B\214\343)\3410\3140l\010/\351F\215\233\216a\231N*\256I\367t\222\210\026\010\007)\265\272\333\224\234m\025K\273^\035\207+C\203Z\323\335\266\314\204j\333j3}v91\337\361\352u\313\206\212\323f\335s\037Z\236\213Gh\201\264\351@\203\206fp\323\215\205\205\2064\253\206\r\240\010w\233KV\235\333\252\213\325N\014Fg\315p\302M0\003M\034\247vrB\"m6\324\252\241K5K\347\017\310\230\302\322\322\2746/\341\354\363\230A\312\231\177 Up\314xp(\"\354\247\356A\001\353\317Y\276\220Z\317\257\262\345\354\372:\352r!/\325\324*\355\306\365'\222c\274\341\244\253\247\322\322\322\361\330ue\375\374A\213\013R\251\t\301\266aGn?]\027\"\277$\213Xe)c\t\221\201\245e\241V2\200\316\253F\211\344\341\2609\341\020\022\010\300\231\322\206\262\361\335\322\343%I5u\340\342\025ds\240\353\222V\005\324\200_,X\362\214\252\013I\010\017NBJ\227\245\246\345I&\207\016Hg\0307:\001\2723%\207\273B\211\363\002<B\215\014\323\r\2632\037\001\301hp\232\275\242V\035\236\310\306\272\216\30124v\0266\246#X\236\251\3430f\354+\252\246q\354\373\225\320n\250\256\363U\365xTSy/\232fZ!r\276.\340\220jC5\252\302Q \206\243\331\320\224T\256\252\025'Ao\311\033\371\236pL#\264-\365\362*\257\021\200\204\217p\323\253\305`\021/\005-h\200\313\231We\203W\365\263\275\236\251\t\361m\356z\266I{\352F\254\217\221]\253VE\252\362\006\257\236Y\241\006\261\324\n\001\316\345\025\370=\330e\233k\257\2452D\343\372""\350\210*7+\344\265'\026\036\202\035\326\321\205\005\206\316C\206\207'\322\250\272j\2535N\310\301D\217\237Z\303\346;\036w\3103\216W#j\264B\023:\364\332\324x\342\367\306\326m\3360@|@\251Z\022\00085\334\346\216\345\331\032\214V%\022k\302\035\r\307u\3361\210\310\324\263m\030\n\013\226<\247\231x\237\201\2369D\304{\215\207\206<\347\375\206jU0\350;e\"\r\220\356\313\204v\032\343\252v\205\273C\247h\232\332\266m\231\300\266\03614\231\3166*\206\251\272\226\235\030\231\002\205\237 1Z\203\023\367\376\301\230\262W\255\376\301\020\327\262$\007\276\366>\343JF\245h\n\327\022|l6\270\rq\\^\243\266U\"\266)\"\254p\315\200c\350\241\343\240#\366\376\010g\344dO$\351\277\245\271\007\017\3775\361l\376\353_\377C\222\236H\252\2563\223\310\216\250K\002\337}\277\367\360o\017\347\204\2165\253Z\345\302\247\234\204Z\322\236\216\304T\032\035r\320\263\323\335q({\246\033\016\235\232\207g\017\235H\252h\322WD\361\025\021\315\210\206\300g\000\240\013\333\212P=\214XQ\024\215\220\217\340P\301\371#W\021\336\024\2114\332\345\270j\255\016\275\205{\352\244$\301bO\177\222\276?\023$_9\272\335H0\361`\236)\350\325b\365\346\023\200\367X{\272\352\252b\247p\234\206\275J\241}\330\266\352lGr=\221\376\366\260\n'\252=\2549\225\230\036j\236\343J\340\301\232\007\352\2470\r9\242\250\343\200<u^V\361Fb\314\346\272\247q\306$\335\023F6-\363;\304\227\206\241V\361V3L\303e\014dUo&\230f\331<!V\024B\304z\305,\243FG\036\035\346\325Tw\373\314\210\0103\317\030D\320j:\253{%\034}\233i\245\327_\235\323\007\310y\325\230\317B\360\271V\335\320hA\317-\177\367\230\360\002\320\232\361\034\200\200\355\252\206+,\242\223\001\237H\321\273\237\352\315WX\215;\032&0\035\"r\373a\211\020cV\022\365\346\3369\257\023\216\253C\247\017\347\340\353\017\310\315\353\200#\377\311\341\3252I\031\306\025-\314\257J<>b(\257*m\204\321;\224X \000'\177]\305vb\001w\233\230\345\377>\371i\230\206\352'\374\340l\037\2456Cw8\361\376d/N#\310\353\331\261\312\274\241\307\203$,M\344\270\302\336\204\307\3049o\303\\\211\326\216R\344\304(\212c\2751\021kG\3378j-\312 \001\026aOY~""\236\315\025\224\224\274\246\344\n\362\332\232\274\226S\344\324\026S~I\347\013y9\277\234N?/\346\267\226\227\327\262y%\265\234K\027\322\313\362\332r1\227S2\205TJy^\\\025ER\224\013\242\\d)\345ezYa\331\r%\303\326\263)%\237\022\346\r\313\004c\360\177n3v\334\336#\320\017\233\221\213\204\376;\322\217$\tN\357\236y#\010,\252\353\210\207\230[\20738QW\031l_\0053DM\202oT\215\220z\2625\304t\324\215\250c7\243\3720\337\211\332\244\334w\3660\330KQ\326\225\334\252\222Y\336R\3267\n[J.\227\315)a*T\200u\224j\325\250;\206\243\020\217/#\377Q\032x\263\262\226\225\013+\305\265\265\025J~V7\322/\336\244\323\231\225l:SHg^\312k\351\024\262\342LA\371e\330\\W\362yyUakJf\265\360\"\356\315)\205b.CcS\260[6\223\316\260b^Ig\323\320>a\352\357k\331ULy\251\254\261uyc\315\252\254Q\252\024\257\205\335\224U\030|k])\310)\271 c\275\315\343z~c]\255S\202\232\311d3J&\013`P\231W\n(\031\252\305\325\027\224\220gs[\324\261\222-fRT\311\02776\004\344\262++\033rN\306\212J\216EG\336Pr\353\351|\036g\315od\177Vr\033\305\347\214m4\367\360K!\005g\031\020@\216\2277\213Jn\213\216\023U\362\03399\263\252\344\344\237!\262\234\316\014\005\007\364\024\214\311\000\214\371\342\363<\360\373\\a+k2\304\316f\377\255\270\221/./C\334\374Vf\371E\016\n\372w\231\364\204fA\376\205\tc\345\243,,\357\352\353N%\037\333v\205\322\335Bz]I\261l\261\300\250F\317\365<\260\277\"\027\327Nt\2453\351\260Mjf\253J\201\245\n[\033J!\233e\317\323\253\364\310\257\303\367\n\340\003\3504z\000\357`\306&c\307m\235\363\372\351\276\310\225F:\204/\035\267O9\323\361\2133\336\024\277*\253\032\222\243&3\371n\334\025\022\0073t\212\232\303\340\033\277\245\016VS\353\014\231\315h\237\030D3\206\323\213r\256P\004\260\212\031\371\245\234^\223\237\257)\200\205\262\222\316(\251\"l\256,\247W\322J\352\345\313\354Z\001\030\244\033Z\342\370\262\366\363\317r\016 ^U\221\240\340>\343\325\242\205\035\321\360\252\224\3239Hr\324*\210\235\221\373\211\"\246M\026^\205\320\027\336\261\020\204\201`&r(\225rE\303J \224\202\220\r\023k6*%\325\341\024\300\031XV\004rMc\342\236s:1\320T\344\263\3326""\245v\260\032\335\353\030\213+\320\t\245&\324\304\262\314@\342a\253\032/\251\332\353\363\022/\\# \026N\347D\361.4x\\z\246+\n\210\301M=\256\322=5\256c\256\355\002\243\256\201SF\211t\364`\"\261\322)\252\320O\304\007\235\227\274\212(\222\242\\\020\345\242\216\014\263F*\n\3010lF\226\024\233\215\0022\312o\034\334\233\325&\363\350\211M89K\235d\033\245\345\270n\363\262\261\207\251\344\330(\241U[G\305\322P\210\243Q\301\014\207\205A\231s-\272D2\312\363X\311p\235\270\203F\216\326\031]\367\330\211\036J\367\304\216\350\203\235L\255)\322{T@\273\320%7\321\335\034:T|_\344\002\036!H\030\r\245\205p\247SO\366\000!\234\250\233\357i\\\010\034;b\271\274\270P~<\342R\342B+\nr\247\260\022-\031\007*\201\261\262Y6Y\335\265\303`\035\226N\364\351\244L\327\312\360L\242\n\270\321\215\230\021\330\360\007&\257\220\014\225\330\303Y\245nl#\254\301r\321\303\326\010\267\364c\336\342\202a|o$\215\307\006\356\2620H\2309\342I9\271a\226-\312I\221\236\n\265\343\276\374h\311 \033\000^\324b\342\312\021^\243qzG\t\323\361\025(\007\246\033\372\023\371@\230\242Gy\272H\261\243<\233\374 \254F[\305\357\031\005\353\260\026E\347\260!brX\035\206\3338\267\177w\007\221\301+\3072_\2079;\374\361u\250\304\252\245\352N\325\2520\372iQi\222\216E'EEt\210\013\303\231\216\221!\000\001\365A\027\350\303\035\263R\265v\271]m\200\206j*\034\037\345k\236\203\247\332zM\335\243\357n\370\321wA&\314\037\021\007U\311=\343'\030|\347\270\356\324G\353x\347b\345\032\376\010\210\014%Rj<\235\n\376\230Y\247\022\0066\2050\354\270t\220\223\202\223L\332\033d\010\1774\353\3426\001_\263\312e\374!<\204%\213\230%j\021\261\003\336q\222I\006\032\336b\351\033c}\241^\007\267\325-$\235\273\204Bx]]\2659U\240\031\230\021\177\321\271#\233\236N\274N\267\023O\211\300\253\316\263\304\310\306\361 q?\211\033\002\213\260I\314\332\347\3351\242+\010\316\203\274B|\364q\300\025\242\025y\013U\005g\210\232g\212\233\000g\212\031\217k\210\317\304\304\361;\236Z\r\265* )\n2XTq\352\266\340\\[\335\265\265\343\273\337\231\250<\354\340{T\255\340v\t`\002 \r@\320 r\211Sz\222\366D\202""\217\006\250\205\036\340\337\360s\230`%B\207\241S\031\316i8\021w\227q\274a@>?\260G\275D\177Q\204\245\033\024n\332\016\002,0@\271C\004&\324\"\356\037\311(\3309\331\205\270\263\320\267x\030\222\374_p8\234\"\336 jz\256\026\336\217\234z\025\004ok\"\236\321R\206\006\344o[:\325=\0077\305\360\262\030\226B\025PZ\035\312\300\317\306\237\247\271C\317\207\205k\252\335t\336\270\341\367\027\306 \031\225\270\023\272\333\364a\014\210 \361\351\367h)NhF\023\033Q\027\306\214\217<\322\203S\213\026\235B8\210\347F\017\270\342P\255\347\347D.mD&\022\005\241v\230 \210\377!\250\"9\240\201X\334\363\222\336\222\367\330\203N<x\323\342\202'\010\231\312\307\036\270\323\361\314\327\246\265k\002\264\230?\302}\247h\320\253\203B8\216\335\020.#\n\007\336A\037c\242\007\004\177e\331\303\206a\242\001\256jX\210\354\025\276K\216\271\253\332&\375\240\274\2757o@\021\316\333\261\243\211\013\037N\266.\266\222-\305\277\352/\371N07\230\270\334z\025\214\0053\207\343\227Z\271V\303\337\364\265`&\270\0278\355/\332/;\013\235\315\301\370\237Z\367Z;\376G~)\3708h\264\321q\271\245\036\216\177\322Zh\275\364\223~*\370((\265\307\006\343WZ;\203\361\351\376\364|{\2473\326\271\331\035\353^\357\346{c\275\331\336\316\376\304\301\330\301\314`\374\343\267;\321\206\375O\237\364\346z\311\001\226I\366\307\277\355$\217._\230\374\242\177w\261\233\354\312G\037]\230\274\322\252\005\013A\276}\261\235\034L\3759X\357\\\353\310\203\211i\377\262\330l\342\272\257\0047\333c\355\231\301\304d\353N0F\217\331\326\256\257\016.]\036L\335\n.\267\325\266\333\371\261k`\363\311\203\231\203/\017\324\003\247\237\313\017&\256\372s\020\375\177\332j\177\374\213\266\330\366R+\005\351T\377\r\255\366Ik\251\345`\010v\275\206b\342\0064\242\372\215`3\300\204\333\375\333\311\356\314\321\354\205\311o;\367:\273]\265\013y\356F\247>\204d*\024u\321_\364+\301&-\365\004\223\251:\365\0314\272\213#\355\014\246n\372(.\265X \323\343\245\377C0\027<n'\333\362\340\022^A\305x=\215\363h\301\265@i\317\266\355\316\314`z\306\277\003\251\361\230\365w\003u0sS\330\356\234n7H\236\356><=""\354\322U\377[\310Sn\247:\037v\266\204\020S\327\373\327\277l\3130\356\331\363\365?{\320\021\365\377\304\332x\374\342\377JV9q\340wO\372\377\217>\251\253\303\251\253\3767\201\334\277\375Cw\2477\336\223{\233\241\315\310\364S\227\372\227nC\335\357\005\201\376\315\257:c\375\361o:sG\323\307\320;\024s\373\267\022\035\265\343v\177\354?\313\367\363\277\365\177\373G\377\037\352`b\026.p1X\014t\370F\261\363e\307\354-\367\354\375k\373\000\346T\353\205/\223\341.\005\277\2647\333j\214\263\235\326\330`\212\252\177\001F\247f\374\353\376f\177\374N\377\016N\177\364\364\\\030\r&\356@\352\211\333\301V[=\034\305\320l\177\026Z\352\024\273\367{c\241z&\332\037\265\267;z\367\033\250\241\270?\267\277\264/\260\363\241\2779\230\376\274\3779\240\332\235\353>\352\315\034N\315\372\257\"\275\342\244\353\301\365 Gp\034D\302B\021\235\353\235_{\223\3733\373_\037$\017R\375\215\255\376\226\3317\033\375\306\356P]\320\324[y\220\\8\272uar\252\365\030(W\305\241\276\351\334\r]s2\230\245\223\317\3703\376\334\341\304$\330\006\256\365w_\355\337\234o\357v\240\222I:\335\004\330\346N\347Jw\257\207\303^i\271\320\314\207\344]\203\351Y\277\332\236\033\\\2771\270\376/\201\212\225\356H\355\261Cx\341#\020\022\354>\355O\221\335\277\353l\342\030sw\007\023\013\375\205\345\375$i\177\326\337\246\031o\205xi\037\003b\315\275\206OC\355\327|\031J\231\272\341\347\204+\353\355\373\235\017:s\241\262\212\301\327B3\323\237\365?{\nM\026\366o\036\\\204\026\344\301\365\317\202o\332r\377\336_{3\2759:\237*\374\207\210\341\360\332_\272\233]\2757\277\377\371\201|\260I}\320\207/\216@\247\331\356\337\177\004\273\272\275\344[\231\0241\335\022\257\300\221\375\361\271\366\314\321\237I7\313`\2131\202\357#: \234\320_\206g\034#_\264\205vx{\021h\366`\376\315\303\250{\214\264\327\200@;\203\351[\301\007\301\335@\254\260\032<j_\005gB\021\212/\370l\261U\362\005\366\256\372\013\376\346\357\366\220:\362X\371\322\264\377\201?7\210]-\302\345\024\016l\323\232\2271\232\010\323\t\356\023\027\323N7H\370\301\265\273\355\271\366\022\214]\352~\320\3752d\026\210L""\213\301\314\023\355\261?h\222~\336\216Q\304\371\226\374d\276\375\317\356\346\2214\342\235')66r\231D\277\006ok\020\355^\351_\201\206\333s4\370\375b\310\341\251\030r\370~1\344\237m\234\021p<\272\372\016G\016}8r2\270Og\251\363_\275\257\001\331\364\301\346\201\336\317U\372\025\253o\325C\237\274\005\263\375\000L\306\356\006_'U|\322\377\344vP\200<_\020\255\200;\202\235\243\251\013\223\177\032L$\021_!\356\215\376\215\373\"\262`\037\241\377\277B\310k\367\211\202>\rf\372\027nA\2600\360F\004\222\357~\014\352\204\264\210f\024\204\027{\225\375\315}\225`\220$\004)\241\273]\007\"\00524\377\323@`\341\001|\314\306I\022\010\3553\207#\035\017\004Y&\273/\340=\277AQsH5\246.|8\361\266\321*\366\257\336k\027:3P\317N\367b\367\307\236:\020\231\303&\226\235\361\277B\354C\370\377<\370\2513\366\316\250:\264\315-\177\346t\230\237B\314*t>\357\246{\233=c\177\347`\034\316\230\357ol\216\204\371c@\264\223\331\377\005\034\224t\362";
     PyObject *data = __Pyx_DecompressString(cstring, 4489, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
@@ -40164,7 +40212,7 @@ const char* const cstring = "x\332\245YKw\333F\226\266b%\221:\262-\332\262\3548\
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
     #else /* compression: none (8944 bytes) */
-const char* const bytes = ": A syntax error was detectedBuffer view does not expose stridesCan only create a buffer that is contiguous in memory.Cannot assign to read-only memoryviewCannot create writable memory view from read-only memoryviewCannot index with type 'Cannot transpose memoryview with indirect dimensionsDimension %d is not directEmpty shape tuple for cython.arrayIndirect dimensions not supportedInput/output errorInsufficient memory to complete the operationInsufficient permissions to perform the operation.Invalid mode, expected 'c' or 'fortran', got Invalid shape in axis MB_STDMSG_COMM_STATS malformed: size %d < 44MB_STDMSG_MEM malformed: size %d < 32 byte header<MemoryView of Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Operation is not supportedOut of bounds on buffer access (axis STDMSG malformed: size %d < 8 byte headerSuccess (no error)The available subscribe flags.The context is invalidThe element type enumeration.The error code enumeration.The field enumeration.The function return condition is invalidThe log level enumeration.The message integrity check failedThe message length is invalidThe operation did not complete in timeThe parameter value is invalidThe requested operation was out of sequence.The requested operation was previously aborted.The requested resource already existsThe requested resource is currently busy.The requested resource is currently unavailable.The requested resource is currently in use.The requested resource is currently closed.The requested resource was not foundThe target is not synchronized with the originator.The target of the operation is emptyThe target of the operation is fullThe target of the operation is too smallThe target of the operation is too bigUnable to convert item to objectUnspecified errorUnsupported value type:  | !,/?.>')[]  : add_note and  at 0x/@/!closecollections.abc<contiguous and direct><cont""iguous and indirect>disableenable failed gc (got got differing extents in dimension index out of range: invalid time type: invalid timestamp isenableditemsize <= 0 for cython.arrayjsdrv._jsdrv_union_to_py: unsupported data typejsdrv_calibration_hash failed: @/listm/msg length must be multiple of 32 bytesno default __reduce__ due to non-trivial __cinit__numpy._core.multiarray failed to importnumpy._core.umath failed to import object>_on_cmd_publish_cbk(_on_cmd_publish_cbk could not convert topic to utf-8/@/!openpublish_and_wait timed out: publish=pyjoulescope_driver/binding.pyxpyjoulescope_driver.stdmsg/!req, response=self._context cannot be converted to a Python object for picklingself.this cannot be converted to a Python object for pickling<strided and direct><strided and direct or indirect><strided and indirect><stringsource> timed outunable to allocate array data.unable to allocate shape and strides.unsupported response_type unsupported sample formatutf-8AABORTEDALERTALLALREADY_EXISTSASCIIBUSYCCLOSEDCRITICALCURRENTDDEBUGDEBUG1DEBUG2DEBUG3_DEVICE_OPEN_MODESDriverDriver.__enter__Driver.__exit__Driver.__reduce_cython__Driver.__setstate_cython__Driver.closeDriver.device_pathsDriver.finalizeDriver.openDriver.publishDriver.publish_and_waitDriver.queryDriver.subscribeDriver.unsubscribeDriver.unsubscribe_allEEMERGENCYEMPTYERRORElementTypeEllipsisErrorCodeEventFLOATFULLFieldGPIHzIINFOINTINVALID_CONTEXTINVALID_MESSAGE_LENGTHINVALID_RETURN_CONDITIONIN_USEIOIterableJLOG_LEVEL_MAPLogLevelMESSAGE_INTEGRITYMETADATA_REQMETADATA_RSPMappingNNONENOTICENOTSETNOT_ENOUGH_MEMORYNOT_FOUNDNOT_SUPPORTEDOFFPARAMETER_INVALIDPERMISSIONSPOWERPUB__Pyx_PyDict_NextRefQUERY_REQQUERY_RSPRANGERAWRETAINRETURN_CODESEQUENCE_SUBSCRIBE_FLAG_LOOKUPSUCCESSSYNCHRONIZATIONSYNTAX_ERRORSequenceStdMsgSubscribeFlagsTIMED_OUT_TIMEOUT_MS_DEFAULT_TIMEOUT_MS_INIT_TIME_MAP_GET_DTYPETOO_BIGTOO_SMALLTimeMapTimeMap.__copy__TimeMap.__deepcopy__TimeMap.__enter__TimeMap.__exit__TimeMap.__reduce_cython__TimeMap.__setstate_""cython__TimeMap.factory_newTimeMap.sample_id_to_timestampTimeMap.time_map_getTimeMap.timestamp_to_sample_idUARTUINTUNAVAILABLEUNDEFINEDUNSPECIFIEDVVOLTAGEView.MemoryViewWWARNINGaabcaccum_samplesaccumulatorsaddalert__all__allallocate_buffer__annotate__app_errorasyncio.coroutinesavgbasebyte_strbytescc_flagscalibration_hashcausecharge__class____class_getitem__cline_in_tracebackclosecollections.abccomm_statscontextcopy__copy__countcounter_endcounter_ratecounter_startcriticalcurrentcurrent_rangeddatadata_typedebugdebug1debug2debug3decimate_factordecimate_sample_count__deepcopy__defaultsdelay_usdeltadescriptiondevice_pathsdevice_prefix__dict__discard__doc__dtypedtype_is_objecteecelement_size_bitselement_typeelement_type_enum_element_type_to_prefixemergencyemptyencodeendenergy__enter__enumerateerror_error_code_to_metaerror_code_to_streventexception__exit__ff32f8factory_newfieldfield_id_field_to_metafinalizeflagsfnfn_ptrformatformatsfortranframe_errorframes__func__getgetLogger__getstate__gpihandle_handle_rchashhash_u32ii0i1i8ididx__import__indexinfoinitial_sizeint64int_scaleint_valueintegralisEnabledFor_is_coroutineitemitemsitemsizejsdrvjsdrv_closejsdrv_initializejsdrv_openjsdrv_publishjsdrv_queryjsdrv_subscribejsdrv_unsubscribejsdrv_unsubscribe_alljsonklengthlink_errorloadslog_log_c_log_c_name_log_level_c_to_pylog_level_c_to_py_log_level_str_to_intlogginglowerlvl__main__makeRecordmaxmemomemview__metaclass__metadatametadata_reqmetadata_rspmetadata_rsp_retainminmode__module__msgmsg_npmsg_u32nname__name__namesndim__new__noticenpnumpyobjoffoffsetoffset_counteroffset_timeon_responseopenoperationoutpp2ppackpoppower__prepare__printpubpub_retainpublishpublish_and_waitpublish_and_wait.<locals>.on_responsepublish_topicpublish_valuepy_byte_strpyjoulescope_driver.binding__pyx_checksum__pyx_state__pyx_type__pyx_unpickle_Enum__pyx_vtable____qualname__queryquery_reqquery_rsprrangerawrc__reduce____reduce_cython____reduce_ex__registerremove_listresponse_topicresponse_typerestoreresultretur""n_codersp_idrsp_topicrvssample_freqsample_idsample_id_to_timestampsample_ratesamplesselfsensorset__set_name__setdefault__setstate____setstate_cython__shapesignalssizesize_in_samplessize_in_utcsourcesplitsrcstartstaticmethodstatusstdstdmsgstdmsg_typestepstopstrstructsubscribesummaryszttarget__test__thisthreadingtimetime64time_maptime_map_gettime_range_samplestime_range_utctime_typetimeouttimeout_mstimestamptimestamp_to_sample_idtmaptopictopic_strtracebacktransaction_idtypeuu1u4u8uartuint32uint64uint8unitsunknownunpackunsubscribeunsubscribe_allupdateutcvvaluevaluesversionversion_majorversion_minorviewvoltagewwaitwarnwarningxzzeros\200\001\360\010\000\005\t\210\003\2101\210E\220\022\2204\220s\230!\330\010\016\210j\230\001\230\021\340\004\r\210R\210v\220Q\220c\230\021\230%\230s\240#\240V\2502\250Q\330\004\n\210%\210q\220\006\220b\230\007\230v\240Q\330\004\016\210a\340\004\013\2102\210V\2201\220D\230\006\230b\240\001\330\004\017\210q\330\004\020\320\020'\240q\250\001\250\027\260\001\260\024\260S\270\001\270\026\270q\300\010\310\001\310\021\330\004\007\200q\330\010\016\210j\230\001\320\031:\270!\2701\330\004\013\2101\320\004+\2501\360\016\000\t#\320\"3\2601\260A\360\006\000\t\017\210m\2302\230S\240\003\2401\330\014\034\230M\250\023\250A\330\010\020\220\016\230b\240\001\330\010\024\220E\230\027\240\001\240\021\330\010\t\210\037\230\001\330\010\t\210\026\210w\220a\330\r\016\330\014\030\230\016\240a\240t\250;\260i\270q\300\t\310\021\310$\310a\310s\320RS\330\010\022\220!\2204\220\177\240a\320\004#\2401\360\016\000\t\r\210D\220\006\220a\220z\240\021\330\010\013\2104\210s\220!\2201\330\014\023\2201\330\010\025\220Q\220a\220v\230Q\230a\320\004\035\320\0351\260\021\360\026\000\t+\250%\250w\260a\260q\330\010\"\320\"3\2601\260A\340\010\016\210a\210q\220\003\2203\220g\230Q\330\010\013\210:\220Q\220g\230Q\330\014\032\230%\230w\240a\240q\330\014\027\220q\330\014\r\210_\230A\330\014\r\210V\2207\230!\2308\2401\240A\330\r\027\220q\230\007\230q\330\014\020\220\006\220c\230\023\230E\240""\026\240r\250\021\330\020\021\220\037\240\001\330\020\021\220\026\220w\230a\330\021\027\220s\230!\330\020\021\220\037\240\001\330\020\021\220\026\220w\230a\330\021\027\220t\2301\330\020\021\220\037\240\001\330\020\021\220\026\220w\230a\340\020\021\220\037\240\001\330\020\021\220\026\220w\230a\330\r\022\220+\230Q\230f\240D\250\005\250Y\260a\260q\330\014\024\320\024$\240A\240Q\330\014\027\220q\330\014\r\210_\230A\330\014\r\210V\2207\320\032,\250A\330\014\r\210^\2301\330\014\r\210X\220[\240\003\2401\240A\330\r\027\220q\230\007\230q\330\014\027\220q\330\014\r\210_\230A\330\014\r\210V\2207\320\032,\250A\330\014\r\210X\220[\240\003\2401\240A\330\r\027\220q\230\007\230q\330\014\027\220q\330\014\r\210_\230A\330\014\r\210V\2207\320\032,\250A\330\014\r\210X\220[\240\003\2401\240A\330\r\027\220q\230\007\230q\330\014\r\210_\230A\330\014\r\210V\2207\230!\340\014\022\220*\230A\320\0357\260q\270\004\270A\270Q\330\010\013\2104\210w\220a\330\014\r\320\r\035\230Q\330\r\016\330\014\030\230\016\240a\240t\250;\260i\270q\300\t\310\021\310$\310a\310s\320RS\330\010\022\220!\2204\320\027(\250\001\320\004*\250!\360\020\000\t#\320\"3\2601\260A\340\r\016\330\014\030\320\030.\250a\250t\260;\320>S\320S\\\320\\`\320`a\330\010\026\220b\230\003\2303\230d\240#\240U\250$\250n\270C\270r\300\023\300A\330\010\014\210H\220A\330\014\020\220\r\230X\240Q\240a\330\010\022\220!\2204\220q\210\001\330\014\022\220!\2205\230\001\330\014\021\220\024\220Q\320\004\037\320\0377\260q\360<\000\t+\250%\250w\260a\260q\330\010\"\320\"3\2601\260A\330\010\037\230q\330\010\035\230Y\240a\340\010\013\210:\220Q\220g\230Q\330\014\026\320\026,\250A\250U\260&\270\001\330\r\027\220q\230\010\240\006\240h\250d\260*\270A\270U\300!\3004\300q\330\014\020\220\005\220Q\330\020\033\320\0331\260\021\260!\2606\270\021\340\014\026\220j\240\003\2401\240A\330\010\014\210M\230\024\230R\230w\240a\330\r\016\330\014\030\320\030(\250\001\250\024\250[\270\t\300\021\300)\3101\310D\320PY\320Yn\320nv\320vw\330\010\022\220!\2204\320\027*\250!\200A\33012""\360\030\000\t\014\2108\2203\220a\330\014\026\320\026*\250\"\250A\330\010\020\220\t\230\026\230q\330\010\021\220\021\220!\340\010\t\360\010\000\t\r\210J\220a\320\027'\240w\250a\330\010\t\330\014\020\220\010\230\001\230\037\250\017\260x\270q\330\014\017\210t\2205\230\005\230Q\230a\330\020\026\220l\240!\330\024\025\330\024\036\230a\230q\330\037 \240\001\340\014\023\2206\230\021\230!\340\014\020\220\014\230A\320\035-\250Q\200A\330!\"\330\0102\3202C\3001\300A\330\010\026\220h\230a\230q\200A\330\010\014\210I\220Q\200A\340\010\013\210:\220Q\220k\240\021\330\014\021\220\023\220A\220Q\330\014\025\220R\220v\230Q\230d\240&\250\002\250!\330\014\020\220\005\220U\230)\2401\240A\330\020\032\320\032<\270A\270T\300\027\310\003\3101\310A\330\024\032\230*\240A\320%9\270\021\270!\330\020\026\220a\220w\230a\330\014\023\2201\340\0235\260Q\260d\270'\300\033\310A\310Q\330\014\023\2203\220a\220q\200A\330\010\026\220h\230h\320&6\260a\260t\2701\200A\360\010\000\t\020\210q\200A\330\010\017\210q\320\004!\240\021\360\034\000\t\r\210C\210q\220\001\330\010\013\2106\220\023\220A\330\014\024\220C\220q\330\r\027\220q\230\007\230q\330\014\024\220C\220q\230\005\230Q\230e\2403\240a\240u\250A\250Q\340\014\024\220C\220q\230\001\330\014\017\210v\220R\220q\330\020\030\230\002\230\"\230A\330\014\024\220G\2306\240\022\2401\330\010\014\210E\220\021\330\010\013\2103\210b\220\001\330\014\021\220\022\2202\220Q\330\010\013\2103\210b\220\001\330\014\021\220\022\2202\220Q\330\010\013\2103\210b\220\001\330\014\020\220\005\220S\230\001\330\r\020\220\002\220!\330\014\022\220*\230A\320\0353\2601\260A\330\010\014\210C\210r\220\021\330\010\016\210b\220\006\220a\220s\230&\240\001\330\010\014\210E\220\025\220a\220q\330\023\"\240!\2404\240w\250b\260\002\260$\260a\260q\330\014\017\210q\220\002\220!\2205\230\010\240\001\330\014\017\210q\220\002\220!\2205\230\010\240\001\330\014\017\210q\220\002\220!\2205\230\010\240\001\330\010\017\210q\200\001\330\004\n\210+\220Q\320\004'\240~\260Q\360\032\000\t#\320\"3\2601\260A\340\010""\016\210a\210q\220\003\2203\220g\230Q\340\010\013\210:\220Q\220f\230A\330\014\023\2204\220v\230Q\330\010\017\320\017!\240\021\240!\340\010\016\210m\2302\230S\240\003\2401\330\014\034\230M\250\023\250A\330\010\020\220\016\230b\240\001\330\010\024\220E\230\027\240\001\240\021\340\010\t\210\037\230\001\330\010\t\210\026\210w\220a\340\r\016\330\014\030\230\016\240a\240t\250;\260i\270q\300\t\310\021\310$\310a\310s\320RS\330\010\022\220!\2204\220~\240Q\320\004-\250Q\360\022\000\t+\250%\250w\260a\260q\330\010\"\320\"3\2601\260A\330\010\035\230Y\240a\340\r\016\330\014\030\320\030*\250!\2504\250{\270)\3001\300I\310Q\310d\320Rg\320go\320op\330\010\014\210M\230\030\240\022\2407\250!\330\010\022\220!\2204\320\027,\250A\200\001\330\004\013\320\013\035\230T\240\021\240#\240Q\240a\320\004\037\230q\360\014\000\t\n\330\0101\260\024\260Q\330\010\025\320\025&\240a\240q\330\r\016\330\023\"\240!\2409\250A\330\023&\240a\330\010\031\230\021\320\000\030\230\001\330\004\007\200q\330\010\026\320\026,\250A\250S\260\007\260q\270\001\330\010\035\320\035:\270!\2703\270g\300Q\300a\330\010\013\2101\330\014\024\220E\230\021\230!\340\014\024\220A\330\010\013\2103\210c\220\031\230!\330\014\022\220,\230a\230r\240\021\240.\260\001\260\021\340\014\022\220,\230a\230r\240\021\240,\250a\250t\2601\260H\270A\270\\\310\021\310!\200\001\360\014\000\005\010\200v\210U\320\022%\240T\250\021\250%\250q\260\003\260;\270a\330\004\013\2102\210Q\210c\220\021\220(\230!\2301\320\004\033\230=\250\001\360\026\000\t+\250%\250w\260a\260q\330\010\"\320\"3\2601\260A\340\010\t\210\037\230\001\330\010\t\210\030\220\021\330\010\t\210\026\210w\220a\330\r\016\330\014\030\230\014\240A\240T\250\033\260I\270Q\270i\300q\310\004\310A\310S\320PQ\330\010\022\220!\2204\220\177\240a\330\010\017\320\017!\240\021\240!\2401O";
+const char* const bytes = ": A syntax error was detectedBuffer view does not expose stridesCan only create a buffer that is contiguous in memory.Cannot assign to read-only memoryviewCannot create writable memory view from read-only memoryviewCannot index with type 'Cannot transpose memoryview with indirect dimensionsDimension %d is not directEmpty shape tuple for cython.arrayIndirect dimensions not supportedInput/output errorInsufficient memory to complete the operationInsufficient permissions to perform the operation.Invalid mode, expected 'c' or 'fortran', got Invalid shape in axis MB_STDMSG_COMM_STATS malformed: size %d < 44MB_STDMSG_MEM malformed: size %d < 32 byte header<MemoryView of Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Operation is not supportedOut of bounds on buffer access (axis STDMSG malformed: size %d < 8 byte headerSuccess (no error)The available subscribe flags.The context is invalidThe element type enumeration.The error code enumeration.The field enumeration.The function return condition is invalidThe log level enumeration.The message integrity check failedThe message length is invalidThe operation did not complete in timeThe parameter value is invalidThe requested operation was out of sequence.The requested operation was previously aborted.The requested resource already existsThe requested resource is currently busy.The requested resource is currently unavailable.The requested resource is currently in use.The requested resource is currently closed.The requested resource was not foundThe target is not synchronized with the originator.The target of the operation is emptyThe target of the operation is fullThe target of the operation is too smallThe target of the operation is too bigUnable to convert item to objectUnspecified errorUnsupported value type:  | !,/?.>')[]  : add_note and  at 0x/@/!closecollections.abc<contiguous and direct><cont""iguous and indirect>disableenable failed gc (got got differing extents in dimension index out of range: invalid time type: invalid timestamp isenableditemsize <= 0 for cython.arrayjsdrv._jsdrv_union_to_py: unsupported data typejsdrv_calibration_hash failed: @/listm/msg length must be multiple of 32 bytesno default __reduce__ due to non-trivial __cinit__numpy._core.multiarray failed to importnumpy._core.umath failed to import object>_on_cmd_publish_cbk(_on_cmd_publish_cbk could not convert topic to utf-8/@/!openpublish_and_wait timed out: publish=pyjoulescope_driver/binding.pyxpyjoulescope_driver.stdmsg/!req, response=self._context cannot be converted to a Python object for picklingself.this cannot be converted to a Python object for pickling<strided and direct><strided and direct or indirect><strided and indirect><stringsource> timed outunable to allocate array data.unable to allocate shape and strides.unsupported response_type unsupported sample formatutf-8AABORTEDALERTALLALREADY_EXISTSASCIIBUSYCCLOSEDCRITICALCURRENTDDEBUGDEBUG1DEBUG2DEBUG3_DEVICE_OPEN_MODESDriverDriver.__enter__Driver.__exit__Driver.__reduce_cython__Driver.__setstate_cython__Driver.closeDriver.device_pathsDriver.finalizeDriver.openDriver.publishDriver.publish_and_waitDriver.queryDriver.subscribeDriver.unsubscribeDriver.unsubscribe_allEEMERGENCYEMPTYERRORElementTypeEllipsisErrorCodeEventFLOATFULLFieldGPIHzIINFOINTINVALID_CONTEXTINVALID_MESSAGE_LENGTHINVALID_RETURN_CONDITIONIN_USEIOIterableJLOG_LEVEL_MAPLogLevelMESSAGE_INTEGRITYMETADATA_REQMETADATA_RSPMappingNNONENOTICENOTSETNOT_ENOUGH_MEMORYNOT_FOUNDNOT_SUPPORTEDOFFPARAMETER_INVALIDPERMISSIONSPOWERPUB__Pyx_PyDict_NextRefQUERY_REQQUERY_RSPRANGERAWRETAINRETURN_CODESEQUENCE_SUBSCRIBE_FLAG_LOOKUPSUCCESSSYNCHRONIZATIONSYNTAX_ERRORSequenceStdMsgSubscribeFlagsTIMED_OUT_TIMEOUT_MS_DEFAULT_TIMEOUT_MS_INIT_TIME_MAP_GET_DTYPETOO_BIGTOO_SMALLTimeMapTimeMap.__copy__TimeMap.__deepcopy__TimeMap.__enter__TimeMap.__exit__TimeMap.__reduce_cython__TimeMap.__setstate_""cython__TimeMap.factory_newTimeMap.sample_id_to_timestampTimeMap.time_map_getTimeMap.timestamp_to_sample_idUARTUINTUNAVAILABLEUNDEFINEDUNSPECIFIEDVVOLTAGEView.MemoryViewWWARNINGaabcaccum_samplesaccumulatorsaddalert__all__allallocate_buffer__annotate__app_errorasyncio.coroutinesavgbasebyte_strbytescc_flagscalibration_hashcausecharge__class____class_getitem__cline_in_tracebackclosecollections.abccomm_statscontextcopy__copy__countcounter_endcounter_ratecounter_startcriticalcurrentcurrent_rangeddatadata_typedebugdebug1debug2debug3decimate_factordecimate_sample_count__deepcopy__defaultsdelay_usdeltadescriptiondevice_pathsdevice_prefix__dict__discard__doc__dtypedtype_is_objecteecelement_size_bitselement_typeelement_type_enum_element_type_to_prefixemergencyemptyencodeendenergy__enter__enumerateerror_error_code_to_metaerror_code_to_streventexception__exit__ff32f8factory_newfieldfield_id_field_to_metafinalizeflagsfnfn_ptrformatformatsfortranframe_errorframes__func__getgetLogger__getstate__gpihandle_handle_rchashhash_u32ii0i1i8ididx__import__indexinfoinitial_sizeint64int_scaleint_valueintegralisEnabledFor_is_coroutineitemitemsitemsizejsdrvjsdrv_closejsdrv_initializejsdrv_openjsdrv_publishjsdrv_queryjsdrv_subscribejsdrv_unsubscribejsdrv_unsubscribe_alljsonklengthlink_errorloadslog_log_c_log_c_name_log_level_c_to_pylog_level_c_to_py_log_level_str_to_intlogginglowerlvl__main__makeRecordmaxmemomemview__metaclass__metadatametadata_reqmetadata_rspmetadata_rsp_retainminmode__module__msgmsg_npmsg_u32nname__name__namesndim__new__noticenpnumpyobjoffoffsetoffset_counteroffset_timeon_responseopenoperationoutpp2ppackpoppower__prepare__printpubpub_retainpublishpublish_and_waitpublish_and_wait.<locals>.on_responsepublish_topicpublish_valuepy_byte_strpyjoulescope_driver.binding__pyx_checksum__pyx_state__pyx_type__pyx_unpickle_Enum__pyx_vtable____qualname__queryquery_reqquery_rsprrangerawrc__reduce____reduce_cython____reduce_ex__registerremove_listresponse_topicresponse_typerestoreresultretur""n_codersp_idrsp_topicrvssample_freqsample_idsample_id_to_timestampsample_ratesamplesselfsensorset__set_name__setdefault__setstate____setstate_cython__shapesignalssizesize_in_samplessize_in_utcsourcesplitsrcstartstaticmethodstatusstdstdmsgstdmsg_typestepstopstrstructsubscribesummaryszttarget__test__thisthreadingtimetime64time_maptime_map_gettime_range_samplestime_range_utctime_typetimeouttimeout_mstimestamptimestamp_to_sample_idtmaptopictopic_strtracebacktransaction_idtypeuu1u4u8uartuint32uint64uint8unitsunknownunpackunsubscribeunsubscribe_allupdateutcvvaluevaluesversionversion_majorversion_minorviewvoltagewwaitwarnwarningxzzeros\200\001\360\010\000\005\t\210\003\2101\210E\220\022\2204\220s\230!\330\010\016\210j\230\001\230\021\340\004\r\210R\210v\220Q\220c\230\021\230%\230s\240#\240V\2502\250Q\330\004\n\210%\210q\220\006\220b\230\007\230v\240Q\330\004\016\210a\340\004\013\2102\210V\2201\220D\230\006\230b\240\001\330\004\017\210q\330\004\020\320\020'\240q\250\001\250\027\260\001\260\024\260S\270\001\270\026\270q\300\010\310\001\310\021\330\004\007\200q\330\010\016\210j\230\001\320\031:\270!\2701\330\004\013\2101\320\004+\2501\360\016\000\t#\320\"3\2601\260A\360\006\000\t\017\210m\2302\230S\240\003\2401\330\014\034\230M\250\023\250A\330\010\020\220\016\230b\240\001\330\010\024\220E\230\027\240\001\240\021\330\010\t\210\037\230\001\330\010\t\210\026\210w\220a\330\r\016\330\014\030\230\016\240a\240t\250;\260i\270q\300\t\310\021\310$\310a\310s\320RS\330\010\022\220!\2204\220\177\240a\320\004#\2401\360\016\000\t\r\210D\220\006\220a\220z\240\021\330\010\013\2104\210s\220!\2201\330\014\023\2201\330\010\025\220Q\220a\220v\230Q\230a\320\004\035\320\0351\260\021\360\026\000\t+\250%\250w\260a\260q\330\010\"\320\"3\2601\260A\340\010\016\210a\210q\220\003\2203\220g\230Q\330\010\013\210:\220Q\220g\230Q\330\014\032\230%\230w\240a\240q\330\014\027\220q\330\014\r\210_\230A\330\014\r\210V\2207\230!\2308\2401\240A\330\r\027\220q\230\007\230q\330\014\020\220\006\220c\230\023\230E\240""\026\240r\250\021\330\020\021\220\037\240\001\330\020\021\220\026\220w\230a\330\021\027\220s\230!\330\020\021\220\037\240\001\330\020\021\220\026\220w\230a\330\021\027\220t\2301\330\020\021\220\037\240\001\330\020\021\220\026\220w\230a\340\020\021\220\037\240\001\330\020\021\220\026\220w\230a\330\r\022\220+\230Q\230f\240D\250\005\250Y\260a\260q\330\014\024\320\024$\240A\240Q\330\014\027\220q\330\014\r\210_\230A\330\014\r\210V\2207\320\032,\250A\330\014\r\210^\2301\330\014\r\210X\220[\240\003\2401\240A\330\r\027\220q\230\007\230q\330\014\027\220q\330\014\r\210_\230A\330\014\r\210V\2207\320\032,\250A\330\014\r\210X\220[\240\003\2401\240A\330\r\027\220q\230\007\230q\330\014\027\220q\330\014\r\210_\230A\330\014\r\210V\2207\320\032,\250A\330\014\r\210X\220[\240\003\2401\240A\330\r\027\220q\230\007\230q\330\014\r\210_\230A\330\014\r\210V\2207\230!\340\014\022\220*\230A\320\0357\260q\270\004\270A\270Q\330\010\013\2104\210w\220a\330\014\r\320\r\035\230Q\330\r\016\330\014\030\230\016\240a\240t\250;\260i\270q\300\t\310\021\310$\310a\310s\320RS\330\010\022\220!\2204\320\027(\250\001\320\004*\250!\360\020\000\t#\320\"3\2601\260A\340\r\016\330\014\030\320\030.\250a\250t\260;\320>S\320S\\\320\\`\320`a\330\010\026\220b\230\003\2303\230d\240#\240U\250$\250n\270C\270r\300\023\300A\330\010\014\210H\220A\330\014\020\220\r\230X\240Q\240a\330\010\022\220!\2204\220q\210\001\330\014\022\220!\2205\230\001\330\014\021\220\024\220Q\320\004\037\320\0377\260q\360<\000\t+\250%\250w\260a\260q\330\010\"\320\"3\2601\260A\330\010\037\230q\330\010\035\230Y\240a\340\010\013\210:\220Q\220g\230Q\330\014\026\320\026,\250A\250U\260&\270\001\330\r\027\220q\230\010\240\006\240h\250d\260*\270A\270U\300!\3004\300q\330\014\020\220\005\220Q\330\020\033\320\0331\260\021\260!\2606\270\021\340\014\026\220j\240\003\2401\240A\330\010\014\210M\230\024\230R\230w\240a\330\r\016\330\014\030\320\030(\250\001\250\024\250[\270\t\300\021\300)\3101\310D\320PY\320Yn\320nv\320vw\330\010\022\220!\2204\320\027*\250!\200A\33012""\360\030\000\t\014\2108\2203\220a\330\014\026\320\026*\250\"\250A\330\010\020\220\t\230\026\230q\330\010\021\220\021\220!\340\010\t\360\010\000\t\r\210J\220a\320\027'\240w\250a\330\010\t\330\014\020\220\010\230\001\230\037\250\017\260x\270q\330\014\017\210t\2205\230\005\230Q\230a\330\020\026\220l\240!\330\024\025\330\024\036\230a\230q\330\037 \240\001\340\014\023\2206\230\021\230!\340\014\020\220\014\230A\320\035-\250Q\200A\330!\"\330\0102\3202C\3001\300A\330\010\026\220h\230a\230q\200A\330\010\014\210I\220Q\200A\340\010\013\210:\220Q\220k\240\021\330\014\021\220\023\220A\220Q\330\014\025\220R\220v\230Q\230d\240&\250\002\250!\330\014\020\220\005\220U\230)\2401\240A\330\020\032\320\032<\270A\270T\300\027\310\003\3101\310A\330\024\032\230*\240A\320%9\270\021\270!\330\020\026\220a\220w\230a\330\014\023\2201\340\0235\260Q\260d\270'\300\033\310A\310Q\330\014\023\2203\220a\220q\200A\330\010\026\220h\230h\320&6\260a\260t\2701\200A\360\010\000\t\020\210q\200A\330\010\017\210q\320\004!\240\021\360\034\000\t\r\210C\210q\220\001\330\010\013\2106\220\023\220A\330\014\024\220C\220q\330\r\027\220q\230\007\230q\330\014\024\220C\220q\230\005\230Q\230e\2403\240a\240u\250A\250Q\340\014\024\220C\220q\230\001\330\014\017\210v\220R\220q\330\020\030\230\002\230\"\230A\330\014\024\220G\2306\240\022\2401\330\010\014\210E\220\021\330\010\013\2103\210b\220\001\330\014\021\220\022\2202\220Q\330\010\013\2103\210b\220\001\330\014\021\220\022\2202\220Q\330\010\013\2103\210b\220\001\330\014\020\220\005\220S\230\001\330\r\020\220\002\220!\330\014\022\220*\230A\320\0353\2601\260A\330\010\014\210C\210r\220\021\330\010\016\210b\220\006\220a\220s\230&\240\001\330\010\014\210E\220\025\220a\220q\330\023\"\240!\2404\240w\250b\260\002\260$\260a\260q\330\014\017\210q\220\002\220!\2205\230\010\240\001\330\014\017\210q\220\002\220!\2205\230\010\240\001\330\014\017\210q\220\002\220!\2205\230\010\240\001\330\010\017\210q\200\001\330\004\n\210+\220Q\320\004'\240~\260Q\360 \000\t#\320\"3\2601\260A\340\010\016""\210a\210q\220\003\2203\220g\230Q\340\010\013\210:\220Q\220f\230A\330\014\023\2204\220v\230Q\330\010\017\320\017!\240\021\240!\340\010\016\210m\2302\230S\240\003\2401\330\014\034\230M\250\023\250A\330\010\020\220\016\230b\240\001\330\010\024\220E\230\027\240\001\240\021\340\010\t\210\037\230\001\330\010\t\210\026\210w\220a\340\r\016\330\014\030\230\016\240a\240t\250;\260i\270q\300\t\310\021\310$\310a\310s\320RS\330\010\022\220!\2204\220~\240Q\320\004-\250Q\360\022\000\t+\250%\250w\260a\260q\330\010\"\320\"3\2601\260A\330\010\035\230Y\240a\340\r\016\330\014\030\320\030*\250!\2504\250{\270)\3001\300I\310Q\310d\320Rg\320go\320op\330\010\014\210M\230\030\240\022\2407\250!\330\010\022\220!\2204\320\027,\250A\200\001\330\004\013\320\013\035\230T\240\021\240#\240Q\240a\320\004\037\230q\360\014\000\t\n\330\0101\260\024\260Q\330\010\025\320\025&\240a\240q\330\r\016\330\023\"\240!\2409\250A\330\023&\240a\330\010\031\230\021\320\000\030\230\001\330\004\007\200q\330\010\026\320\026,\250A\250S\260\007\260q\270\001\330\010\035\320\035:\270!\2703\270g\300Q\300a\330\010\013\2101\330\014\024\220E\230\021\230!\340\014\024\220A\330\010\013\2103\210c\220\031\230!\330\014\022\220,\230a\230r\240\021\240.\260\001\260\021\340\014\022\220,\230a\230r\240\021\240,\250a\250t\2601\260H\270A\270\\\310\021\310!\200\001\360\014\000\005\010\200v\210U\320\022%\240T\250\021\250%\250q\260\003\260;\270a\330\004\013\2102\210Q\210c\220\021\220(\230!\2301\320\004\033\230=\250\001\360\026\000\t+\250%\250w\260a\260q\330\010\"\320\"3\2601\260A\340\010\t\210\037\230\001\330\010\t\210\030\220\021\330\010\t\210\026\210w\220a\330\r\016\330\014\030\230\014\240A\240T\250\033\260I\270Q\270i\300q\310\004\310A\310S\320PQ\330\010\022\220!\2204\220\177\240a\330\010\017\320\017!\240\021\240!\2401O";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
@@ -40301,7 +40349,7 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 942};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 947};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_topic, __pyx_mstate->__pyx_n_u_value};
     __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_pyjoulescope_driver_binding_pyx, __pyx_mstate->__pyx_n_u_on_response, __pyx_mstate->__pyx_kp_b_iso88591_5_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
@@ -40356,77 +40404,77 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[10] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_mstate->__pyx_kp_b_iso88591_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[10])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 643};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 648};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_ec, __pyx_mstate->__pyx_n_u_v, __pyx_mstate->__pyx_n_u_name, __pyx_mstate->__pyx_n_u_rv};
     __pyx_mstate_global->__pyx_codeobj_tab[11] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_pyjoulescope_driver_binding_pyx, __pyx_mstate->__pyx_n_u_error_code_to_str, __pyx_mstate->__pyx_kp_b_iso88591_vU_T_q_a_2Qc_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[11])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 712};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 717};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_lvl};
     __pyx_mstate_global->__pyx_codeobj_tab[12] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_pyjoulescope_driver_binding_pyx, __pyx_mstate->__pyx_n_u_log_level_c_to_py_2, __pyx_mstate->__pyx_kp_b_iso88591_T_Qa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[12])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 766};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 771};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_rc, __pyx_mstate->__pyx_n_u_src, __pyx_mstate->__pyx_n_u_cause, __pyx_mstate->__pyx_n_u_name, __pyx_mstate->__pyx_n_u_description};
     __pyx_mstate_global->__pyx_codeobj_tab[13] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_pyjoulescope_driver_binding_pyx, __pyx_mstate->__pyx_n_u_handle_rc, __pyx_mstate->__pyx_kp_b_iso88591_q_AS_q_3gQa_1_E_A_3c_ar_ar_at1H, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[13])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 803};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 808};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[14] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_pyjoulescope_driver_binding_pyx, __pyx_mstate->__pyx_n_u_enter, __pyx_mstate->__pyx_kp_b_iso88591_A_q_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[14])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 806};
+    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 811};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_type, __pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_traceback};
     __pyx_mstate_global->__pyx_codeobj_tab[15] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_pyjoulescope_driver_binding_pyx, __pyx_mstate->__pyx_n_u_exit, __pyx_mstate->__pyx_kp_b_iso88591_A_IQ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[15])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 827};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 832};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_timeout, __pyx_mstate->__pyx_n_u_context, __pyx_mstate->__pyx_n_u_timeout_ms};
     __pyx_mstate_global->__pyx_codeobj_tab[16] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_pyjoulescope_driver_binding_pyx, __pyx_mstate->__pyx_n_u_finalize, __pyx_mstate->__pyx_kp_b_iso88591_q_1_Q_aq_9A_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[16])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 10, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 841};
+    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 10, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 846};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_topic, __pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_timeout, __pyx_mstate->__pyx_n_u_v, __pyx_mstate->__pyx_n_u_byte_str, __pyx_mstate->__pyx_n_u_topic_str, __pyx_mstate->__pyx_n_u_timeout_ms, __pyx_mstate->__pyx_n_u_py_byte_str, __pyx_mstate->__pyx_n_u_rc};
     __pyx_mstate_global->__pyx_codeobj_tab[17] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_pyjoulescope_driver_binding_pyx, __pyx_mstate->__pyx_n_u_publish, __pyx_mstate->__pyx_kp_b_iso88591_1_waq_31A_aq_3gQ_QgQ_waq_q__A_V, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[17])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 902};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 907};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_topic, __pyx_mstate->__pyx_n_u_timeout, __pyx_mstate->__pyx_n_u_v, __pyx_mstate->__pyx_n_u_byte_str, __pyx_mstate->__pyx_n_u_topic_str, __pyx_mstate->__pyx_n_u_timeout_ms, __pyx_mstate->__pyx_n_u_rc};
     __pyx_mstate_global->__pyx_codeobj_tab[18] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_pyjoulescope_driver_binding_pyx, __pyx_mstate->__pyx_n_u_query, __pyx_mstate->__pyx_kp_b_iso88591_waq_31A_wa_AT_IQiq_ASPQ_4_a_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[18])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {5, 0, 0, 9, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 924};
+    const __Pyx_PyCode_New_function_description descr = {5, 0, 0, 9, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 929};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_publish_topic, __pyx_mstate->__pyx_n_u_publish_value, __pyx_mstate->__pyx_n_u_response_topic, __pyx_mstate->__pyx_n_u_timeout, __pyx_mstate->__pyx_n_u_event, __pyx_mstate->__pyx_n_u_result, __pyx_mstate->__pyx_n_u_on_response, __pyx_mstate->__pyx_n_u_on_response};
     __pyx_mstate_global->__pyx_codeobj_tab[19] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_pyjoulescope_driver_binding_pyx, __pyx_mstate->__pyx_n_u_publish_and_wait, __pyx_mstate->__pyx_kp_b_iso88591_A12_83a_A_q_Ja_wa_xq_t5_Qa_l_aq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[19])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 959};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 964};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_timeout, __pyx_mstate->__pyx_n_u_s};
     __pyx_mstate_global->__pyx_codeobj_tab[20] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_pyjoulescope_driver_binding_pyx, __pyx_mstate->__pyx_n_u_device_paths, __pyx_mstate->__pyx_kp_b_iso88591_1_D_az_4s_1_1_QavQa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[20])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {5, 0, 0, 11, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 971};
+    const __Pyx_PyCode_New_function_description descr = {5, 0, 0, 11, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 976};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_topic, __pyx_mstate->__pyx_n_u_flags, __pyx_mstate->__pyx_n_u_fn, __pyx_mstate->__pyx_n_u_timeout, __pyx_mstate->__pyx_n_u_topic_str, __pyx_mstate->__pyx_n_u_timeout_ms, __pyx_mstate->__pyx_n_u_c_flags, __pyx_mstate->__pyx_n_u_fn_ptr, __pyx_mstate->__pyx_n_u_f, __pyx_mstate->__pyx_n_u_rc};
     __pyx_mstate_global->__pyx_codeobj_tab[21] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_pyjoulescope_driver_binding_pyx, __pyx_mstate->__pyx_n_u_subscribe, __pyx_mstate->__pyx_kp_b_iso88591_7q_waq_31A_q_Ya_QgQ_AU_q_hd_AU, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[21])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1018};
+    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1023};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_topic, __pyx_mstate->__pyx_n_u_fn, __pyx_mstate->__pyx_n_u_timeout, __pyx_mstate->__pyx_n_u_topic_str, __pyx_mstate->__pyx_n_u_timeout_ms, __pyx_mstate->__pyx_n_u_fn_ptr, __pyx_mstate->__pyx_n_u_rc};
     __pyx_mstate_global->__pyx_codeobj_tab[22] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_pyjoulescope_driver_binding_pyx, __pyx_mstate->__pyx_n_u_unsubscribe, __pyx_mstate->__pyx_kp_b_iso88591_Q_waq_31A_Ya_4_1IQdRggoop_M_7_4, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[22])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 9, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1036};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 9, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1041};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_fn, __pyx_mstate->__pyx_n_u_timeout, __pyx_mstate->__pyx_n_u_timeout_ms, __pyx_mstate->__pyx_n_u_rc, __pyx_mstate->__pyx_n_u_remove_list, __pyx_mstate->__pyx_n_u_item, __pyx_mstate->__pyx_n_u_t, __pyx_mstate->__pyx_n_u_f};
     __pyx_mstate_global->__pyx_codeobj_tab[23] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_pyjoulescope_driver_binding_pyx, __pyx_mstate->__pyx_n_u_unsubscribe_all, __pyx_mstate->__pyx_kp_b_iso88591_31A_at_SS_a_b_3d_U_nCr_A_HA_XQa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[23])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 9, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1053};
+    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 9, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1058};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_device_prefix, __pyx_mstate->__pyx_n_u_mode, __pyx_mstate->__pyx_n_u_timeout, __pyx_mstate->__pyx_n_u_topic_str, __pyx_mstate->__pyx_n_u_timeout_ms, __pyx_mstate->__pyx_n_u_v, __pyx_mstate->__pyx_n_u_topic, __pyx_mstate->__pyx_n_u_rc};
     __pyx_mstate_global->__pyx_codeobj_tab[24] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_pyjoulescope_driver_binding_pyx, __pyx_mstate->__pyx_n_u_open_2, __pyx_mstate->__pyx_kp_b_iso88591_Q_31A_aq_3gQ_QfA_4vQ_m2S_1_M_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[24])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1086};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1094};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_device_prefix, __pyx_mstate->__pyx_n_u_timeout, __pyx_mstate->__pyx_n_u_topic_str, __pyx_mstate->__pyx_n_u_timeout_ms, __pyx_mstate->__pyx_n_u_v, __pyx_mstate->__pyx_n_u_topic, __pyx_mstate->__pyx_n_u_rc};
     __pyx_mstate_global->__pyx_codeobj_tab[25] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_pyjoulescope_driver_binding_pyx, __pyx_mstate->__pyx_n_u_close_2, __pyx_mstate->__pyx_kp_b_iso88591_1_31A_m2S_1_M_A_b_E_wa_at_iq_as, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[25])) goto bad;
   }
@@ -40441,7 +40489,7 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[27] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_mstate->__pyx_kp_b_iso88591_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[27])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1133};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1141};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_msg, __pyx_mstate->__pyx_n_u_msg_u32, __pyx_mstate->__pyx_n_u_hash_u32, __pyx_mstate->__pyx_n_u_msg_np, __pyx_mstate->__pyx_n_u_hash, __pyx_mstate->__pyx_n_u_rc};
     __pyx_mstate_global->__pyx_codeobj_tab[28] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_pyjoulescope_driver_binding_pyx, __pyx_mstate->__pyx_n_u_calibration_hash, __pyx_mstate->__pyx_kp_b_iso88591_1E_4s_j_RvQc_s_V2Q_q_b_vQ_a_2V1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[28])) goto bad;
   }
@@ -43878,6 +43926,67 @@ static CYTHON_INLINE PyObject* __Pyx_decode_c_string(
     } else {
         return PyUnicode_Decode(cstring, length, encoding, errors);
     }
+}
+
+/* PyLongCompare */
+static CYTHON_INLINE int __Pyx_PyLong_BoolEqObjC(PyObject *op1, PyObject *op2, long intval, long inplace) {
+    CYTHON_MAYBE_UNUSED_VAR(intval);
+    CYTHON_UNUSED_VAR(inplace);
+    if (op1 == op2) {
+        return 1;
+    }
+    #if CYTHON_USE_PYLONG_INTERNALS
+    if (likely(PyLong_CheckExact(op1))) {
+        int unequal;
+        unsigned long uintval;
+        Py_ssize_t size = __Pyx_PyLong_DigitCount(op1);
+        const digit* digits = __Pyx_PyLong_Digits(op1);
+        if (intval == 0) {
+            return (__Pyx_PyLong_IsZero(op1) == 1);
+        } else if (intval < 0) {
+            if (__Pyx_PyLong_IsNonNeg(op1))
+                return 0;
+            intval = -intval;
+        } else {
+            if (__Pyx_PyLong_IsNeg(op1))
+                return 0;
+        }
+        uintval = (unsigned long) intval;
+#if PyLong_SHIFT * 4 < SIZEOF_LONG*8
+        if (uintval >> (PyLong_SHIFT * 4)) {
+            unequal = (size != 5) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
+                 | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[2] != ((uintval >> (2 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[3] != ((uintval >> (3 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[4] != ((uintval >> (4 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
+        } else
+#endif
+#if PyLong_SHIFT * 3 < SIZEOF_LONG*8
+        if (uintval >> (PyLong_SHIFT * 3)) {
+            unequal = (size != 4) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
+                 | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[2] != ((uintval >> (2 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[3] != ((uintval >> (3 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
+        } else
+#endif
+#if PyLong_SHIFT * 2 < SIZEOF_LONG*8
+        if (uintval >> (PyLong_SHIFT * 2)) {
+            unequal = (size != 3) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
+                 | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[2] != ((uintval >> (2 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
+        } else
+#endif
+#if PyLong_SHIFT * 1 < SIZEOF_LONG*8
+        if (uintval >> (PyLong_SHIFT * 1)) {
+            unequal = (size != 2) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
+                 | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
+        } else
+#endif
+            unequal = (size != 1) || (((unsigned long) digits[0]) != (uintval & (unsigned long) PyLong_MASK));
+        return (unequal == 0);
+    }
+    #endif
+    if (PyFloat_CheckExact(op1)) {
+        const long b = intval;
+        double a = __Pyx_PyFloat_AS_DOUBLE(op1);
+        return ((double)a == (double)b);
+    }
+    return __Pyx_PyObject_IsTrueAndDecref(
+        PyObject_RichCompare(op1, op2, Py_EQ));
 }
 
 /* PyLongBinop */

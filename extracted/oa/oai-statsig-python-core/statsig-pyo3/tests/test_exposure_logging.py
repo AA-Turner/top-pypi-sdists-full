@@ -419,6 +419,27 @@ def test_custom_event_with_number(statsig_setup):
     assert event["value"] == 1.23
 
 
+@pytest.mark.parametrize("value", ["custom value", 1.23])
+def test_custom_event_with_timestamp_override(statsig_setup, value):
+    statsig, mock_scrapi = statsig_setup
+    timestamp = 1_700_000_000_123
+
+    statsig.log_event(
+        StatsigUser("my_user"),
+        "my_custom_event_with_timestamp_override",
+        value,
+        timestamp_ms=timestamp,
+    )
+    statsig.flush_events().wait()
+
+    events = mock_scrapi.get_logged_events()
+    event = events[0]
+
+    assert len(events) == 1
+    assert event["eventName"] == "my_custom_event_with_timestamp_override"
+    assert event["time"] == timestamp
+
+
 def test_custom_event_with_number_and_metadata(statsig_setup):
     statsig, mock_scrapi = statsig_setup
 

@@ -6,9 +6,9 @@ use pyo3::{
 };
 use pyo3_stub_gen::derive::*;
 use statsig_rust::{
-    log_e, BulkEvaluationOptions, DynamicConfigEvaluationOptions, ExperimentEvaluationOptions,
+    BulkEvaluationOptions, DynamicConfigEvaluationOptions, ExperimentEvaluationOptions,
     FailureDetails, FeatureGateEvaluationOptions, InitializeDetails, LayerEvaluationOptions,
-    ParameterStoreEvaluationOptions, Statsig, StatsigUser,
+    ParameterStoreEvaluationOptions, Statsig, StatsigUser, log_e,
 };
 
 use crate::pyo_utils::{

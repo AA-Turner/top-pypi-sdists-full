@@ -231,6 +231,26 @@ _TRANSIENT_MASK_CPARAMS = blosc2.CParams(codec=blosc2.Codec.LZ4, clevel=5, filte
 _constructor_call_patterns = {name: re.compile(rf"\b{re.escape(name)}\s*\(") for name in constructors}
 
 
+def _restore_code_unit_shuffle(cparams: blosc2.CParams, dtype) -> None:
+    """Give SHUFFLE the code-unit width that constructing a CParams erases.
+
+    Left to itself, ``blosc2.uninit()`` shuffles a ``<U`` array by 4 bytes --
+    the UCS4 code unit -- which for text groups the (mostly zero) high bytes of
+    every codepoint together.  ``CParams`` defaults ``filters_meta`` to all
+    zeros, meaning "shuffle by the whole item", so merely passing a ``CParams``
+    to set something unrelated silently scatters characters across the slot
+    instead.  That cost 3.2x on the compressed result of every string
+    expression: 2.01 MB against 0.63 for the same bytes.
+
+    Only touches an entry the caller left at 0, and only for ``U``.
+    """
+    if getattr(dtype, "kind", None) != "U":
+        return
+    for i, filt in enumerate(cparams.filters):
+        if filt == blosc2.Filter.SHUFFLE and cparams.filters_meta[i] == 0:
+            cparams.filters_meta[i] = 4
+
+
 def _has_constructor_call(expression: str, constructor: str) -> bool:
     return _constructor_call_patterns[constructor].search(expression) is not None
 
@@ -1495,6 +1515,15 @@ def _js_dtypes_ok(operands, kwargs) -> bool:
     )
 
 
+def _trace_js_backend(expression):
+    """BLOSC_ME_JIT_TRACE counterpart for the JS bridge, which never reaches
+    miniexpr's trace point in `fast_eval` (see there for the message format)."""
+    if os.environ.get("BLOSC_ME_JIT_TRACE", "").lower() in ("1", "true", "on"):
+        source = getattr(expression, "dsl_source", None) or expression
+        expr_short = str(source)[:120].replace("\n", " ")
+        print(f"[blosc2] engine=js expr={expr_short}", flush=True)
+
+
 def _maybe_js_backend(expression, jit, jit_backend, reduce_args, operands, kwargs, shape=None):
     """Resolve the JS backend for a DSL kernel.
 
@@ -1524,7 +1553,9 @@ def _maybe_js_backend(expression, jit, jit_backend, reduce_args, operands, kwarg
                 'jit_backend="js" requires a floating-point output dtype '
                 f"(got {np.dtype(out_dtype)}); drop jit_backend to use miniexpr"
             )
-        return _as_js_udf(expression, shape), None, None
+        bridge = _as_js_udf(expression, shape)
+        _trace_js_backend(expression)
+        return bridge, None, None
     prefer_js = (
         jit is not False  # jit=True/None prefer the best JIT (js); only jit=False forces interpreter
         and jit_backend is None
@@ -1541,6 +1572,7 @@ def _maybe_js_backend(expression, jit, jit_backend, reduce_args, operands, kwarg
         bridge = _as_js_udf(expression, shape)  # transpiles; raises on any unsupported construct
     except Exception:
         return expression, jit, jit_backend  # fall back to miniexpr, no regression
+    _trace_js_backend(expression)
     return bridge, None, None
 
 
@@ -1735,22 +1767,36 @@ def fast_eval(  # noqa: C901
             expr_string_miniexpr = _apply_jit_backend_pragma(
                 expr_string_miniexpr, operands_miniexpr, jit_backend
             )
-        all_ndarray_miniexpr = all(
-            isinstance(value, blosc2.NDArray) and value.shape != () for value in operands_miniexpr.values()
-        )
-        # Require aligned NDArray operands with identical chunk/block grid.
-        same_shape = all(hasattr(op, "shape") and op.shape == shape for op in operands_miniexpr.values())
-        same_chunks = all(hasattr(op, "chunks") and op.chunks == chunks for op in operands_miniexpr.values())
-        same_blocks = all(hasattr(op, "blocks") and op.blocks == blocks for op in operands_miniexpr.values())
-        if not (same_shape and same_chunks and same_blocks):
-            use_miniexpr = False
-            if is_dsl and dsl_disable_reason is None:
-                dsl_disable_reason = "all DSL operands must share shape/chunks/blocks."
-        if not (all_ndarray_miniexpr and out is None):
+
+        def _miniexpr_eligible_operand(op):
+            if isinstance(op, blosc2.NDArray):
+                return op.shape != () and op.shape == shape and op.chunks == chunks and op.blocks == blocks
+            if isinstance(op, np.ndarray):
+                # Raw NumPy operands are only miniexpr-eligible for DSL kernels (the
+                # jit control-flow dispatch route). Plain string expressions and traced
+                # `jit` calls keep the old NDArray-only gate, so their numeric behavior
+                # (e.g. transcendentals matching numexpr bit-for-bit) is unchanged.
+                return (
+                    is_dsl
+                    and op.ndim > 0
+                    and op.shape == shape
+                    and op.dtype.isnative
+                    and op.dtype.kind in "biufcUS"
+                )
+            return False
+
+        all_eligible_miniexpr = all(_miniexpr_eligible_operand(op) for op in operands_miniexpr.values())
+        if not all_eligible_miniexpr:
             use_miniexpr = False
             if is_dsl and dsl_disable_reason is None:
                 dsl_disable_reason = (
-                    "DSL kernels require NDArray inputs and do not support the `out` argument."
+                    "all DSL operands must be NDArray or NumPy inputs sharing shape/chunks/blocks."
+                )
+        if not (all_eligible_miniexpr and out is None):
+            use_miniexpr = False
+            if is_dsl and dsl_disable_reason is None:
+                dsl_disable_reason = (
+                    "DSL kernels require NDArray or NumPy inputs and do not support the `out` argument."
                 )
         has_complex = any(
             isinstance(op, blosc2.NDArray) and blosc2.isdtype(op.dtype, "complex floating")
@@ -1779,14 +1825,30 @@ def fast_eval(  # noqa: C901
         print(f"[blosc2] engine={engine} {jit_info} expr={expr_short}", flush=True)
 
     if use_miniexpr:
-        cparams = kwargs.pop("cparams", blosc2.CParams())
+        cparams = kwargs.pop("cparams", None)
+        if cparams is None and getitem:
+            # getitem output is throwaway scratch (returned as a NumPy array and
+            # discarded), so compressing it buys nothing but a round trip.
+            cparams = blosc2.CParams(clevel=0)
+        # Otherwise leave cparams unset rather than passing CParams(): its
+        # filters_meta defaults to all zeros, which *overrides* the dtype-aware
+        # shuffle width uninit() would pick.  For <U that width is 4 (the UCS4
+        # code unit); shuffling by the full slot instead scatters characters
+        # across it and cost 3.2x on the compressed result.
+        if cparams is not None:
+            kwargs["cparams"] = cparams
         # All values will be overwritten, so we can use an uninitialized array
-        res_eval = blosc2.uninit(shape, dtype, chunks=chunks, blocks=blocks, cparams=cparams, **kwargs)
+        res_eval = blosc2.uninit(shape, dtype, chunks=chunks, blocks=blocks, **kwargs)
         prefilter_set = False
         try:
             # Fuse where(cond, x, y) into the expression for miniexpr
             _pref_expr = expr_string_miniexpr
             _pref_ops = operands_miniexpr
+            if any(isinstance(v, np.ndarray) for v in _pref_ops.values()):
+                _pref_ops = {
+                    k: (np.ascontiguousarray(v) if isinstance(v, np.ndarray) else v)
+                    for k, v in _pref_ops.items()
+                }
             if where is not None and len(where) == 2:
                 _pref_expr = f"where({_pref_expr}, _where_x, _where_y)"
             # _cb_anchor keeps the contiguous bitmap alive for the whole
@@ -1883,7 +1945,11 @@ def fast_eval(  # noqa: C901
         if callable(expression):
             if _is_dsl_kernel_expression(expression):
                 _raise_dsl_miniexpr_required(
-                    "internal fallback attempted to execute the DSL kernel directly in Python."
+                    "DSL kernels require the miniexpr fast path, and it was unavailable for this "
+                    "evaluation. Common causes: operands with mismatched chunks/blocks or "
+                    "non-contiguous/non-native-byte-order NumPy arrays, an explicit `out=` argument, "
+                    "or a `where(cond, x, y)` with cardinality-changing semantics (len(where) == 1) — "
+                    "all unsupported for DSL kernels."
                 )
             if _in_place:
                 expression(tuple(chunk_operands.values()), out, offset=offset)
@@ -2219,7 +2285,9 @@ def slices_eval(  # noqa: C901
         if callable(expression):
             if _is_dsl_kernel_expression(expression):
                 _raise_dsl_miniexpr_required(
-                    "internal sliced fallback attempted to execute the DSL kernel directly in Python."
+                    "DSL kernels only support evaluating the full array (compute() or [()]) through "
+                    "the miniexpr fast path; slicing a DSL computation (e.g. `lexpr[1:5]`) is not "
+                    "supported."
                 )
             if _in_place:  # presumably the user knows what they're doing
                 # edit out in-place
@@ -2373,7 +2441,8 @@ def slices_eval_getitem(
     if callable(expression):
         if _is_dsl_kernel_expression(expression):
             _raise_dsl_miniexpr_required(
-                "internal getitem fallback attempted to execute the DSL kernel directly in Python."
+                "DSL kernels only support evaluating the full array (compute() or [()]) through "
+                "the miniexpr fast path; sliced getitem (e.g. `lexpr[1:5]`) is not supported."
             )
         offset = tuple(0 if s is None else s.start for s in _slice_bcast)  # offset for the udf
         if _in_place:
@@ -2628,8 +2697,11 @@ def reduce_slices(  # noqa: C901
             use_miniexpr = False
 
     if use_miniexpr:
-        # Experiments say that not splitting is best (at least on Apple Silicon M4 Pro)
-        cparams = kwargs.pop("cparams", blosc2.CParams(splitmode=blosc2.SplitMode.NEVER_SPLIT))
+        cparams = kwargs.pop("cparams", None)
+        if cparams is None:
+            # Experiments say that not splitting is best (at least on Apple Silicon M4 Pro)
+            cparams = blosc2.CParams(splitmode=blosc2.SplitMode.NEVER_SPLIT)
+            _restore_code_unit_shuffle(cparams, dtype)
         # Create a fake NDArray just to drive the miniexpr evaluation (values won't be used)
         res_eval = blosc2.uninit(shape, dtype, chunks=chunks, blocks=blocks, cparams=cparams, **kwargs)
         # Compute the number of blocks in the result
@@ -2775,7 +2847,8 @@ def reduce_slices(  # noqa: C901
         if callable(expression):
             if _is_dsl_kernel_expression(expression):
                 _raise_dsl_miniexpr_required(
-                    "internal reduction fallback attempted to execute the DSL kernel directly in Python."
+                    "DSL kernels do not support reductions (e.g. sum()/mean() over an axis); write "
+                    "the reduction outside the kernel, over its computed result."
                 )
             # TODO: Implement the reductions for UDFs (and test them)
             result = np.empty(cslice_shape, dtype=out.dtype)
@@ -3018,7 +3091,7 @@ def _eval_zero_input_dsl_if_needed(
     return True, full_res
 
 
-def chunked_eval(
+def chunked_eval(  # noqa: C901
     expression: str | Callable[[tuple, np.ndarray, tuple[int]], None], operands: dict, item=(), **kwargs
 ):
     """
@@ -3120,6 +3193,19 @@ def chunked_eval(
             return slices_eval(expression, operands, getitem=getitem, _slice=item, shape=shape, **kwargs)
 
         fast_path = full_slice and fast_path
+        if not fast_path and full_slice and _is_dsl_kernel_expression(expression) and operands:
+            # All-NumPy DSL operands: validate_inputs only sees NDinputs, so it never
+            # sets fast_path for this case; reroute it here instead.  Scalar operands
+            # (e.g. a Python int/float parameter) don't participate in the shape/grid
+            # check, mirroring validate_inputs' own raw_inputs filtering.
+            raw_ops = [v for v in operands.values() if not _isscalar(v)]
+            if (
+                raw_ops
+                and all(isinstance(v, np.ndarray) and v.ndim > 0 for v in raw_ops)
+                and len({v.shape for v in raw_ops}) == 1
+            ):
+                fast_path = True
+
         if fast_path:  # necessarily item is ()
             if getitem:
                 # When using getitem, taking the fast path is always possible
@@ -3541,8 +3627,53 @@ class LazyExpr(LazyArray):
         finally:
             blosc2._disable_overloaded_equal = prev_flag
 
+    def _miniexpr_string_dtype(self):
+        """Width of a string-valued result, as inferred by miniexpr itself.
+
+        Only miniexpr knows the width its kernels produce: concat adds operand
+        widths, and case mapping can expand (numpy's ``result_type`` models
+        neither).  Allocating the output container from numpy's answer makes the
+        kernel silently truncate, so ask miniexpr whenever a string operand is
+        involved.  Returns None when no string is involved or miniexpr cannot
+        compile the expression, leaving the numpy path in charge.
+        """
+        try:
+            operands = self.operands
+            if not operands or any(v is None for v in operands.values()):
+                return None
+            dtypes = {}
+            for k, v in operands.items():
+                dt = getattr(v, "dtype", None)
+                if dt is None:
+                    return None
+                dtypes[k] = dt
+            if not any(np.dtype(dt).kind in "US" for dt in dtypes.values()):
+                return None
+            # The width follows the operand dtypes, not just the expression text, so
+            # both go in the key: rebinding the same expression to wider operands
+            # must not be answered from the narrower build's cache.  Collecting the
+            # dtypes is cheap; what the key protects is the miniexpr compile below.
+            key = (self.expression, tuple((k, str(dt)) for k, dt in dtypes.items()))
+            cached = getattr(self, "_me_str_dtype_", None)
+            if cached is not None and self._me_str_key_ == key:
+                return cached[0]
+            from blosc2 import blosc2_ext
+
+            out = blosc2_ext.me_output_dtype(self.expression, dtypes)
+        except Exception:
+            return None
+        if out is not None and np.dtype(out).kind not in "US":
+            out = None
+        self._me_str_dtype_ = (out,)
+        self._me_str_key_ = key
+        return out
+
     @property
     def dtype(self):
+        # miniexpr owns string widths; see _miniexpr_string_dtype.
+        string_dtype = self._miniexpr_string_dtype()
+        if string_dtype is not None:
+            return string_dtype
         # Honor self._dtype; it can be set during the building of the expression
         if hasattr(self, "_dtype"):
             # In some situations, we already know the dtype
@@ -4532,12 +4663,105 @@ class LazyExpr(LazyArray):
         return new_expr
 
 
+def _align_dsl_operand_grids(inputs):
+    """Put every NDArray operand of a DSL kernel on a single chunks/blocks grid.
+
+    Blocks are sized in bytes, so same-shaped operands of different itemsize get
+    different grids by default (float32 vs int64 over 1M elements: blocks of
+    31250 vs 15625 elements).  miniexpr needs one common grid, and a DSL kernel
+    has no slow path to fall back on, so evaluation would fail outright with a
+    confusing "slicing is not supported" error.  Copy the odd operands onto the
+    grid of the widest dtype: its blocks hold the fewest elements, so every
+    operand still fits within the cache budget the heuristic aimed at.
+
+    The copies happen once, at construction, and only when the grids actually
+    disagree -- whether they do depends on the array size and on the platform's
+    cache detection, which is why this used to fail only on some CI runners.
+    """
+    nd = [x for x in inputs if isinstance(x, blosc2.NDArray) and x.ndim > 0]
+    if len(nd) < 2 or len({(x.shape, x.chunks, x.blocks) for x in nd}) < 2:
+        return inputs
+    ref = max(nd, key=lambda x: x.dtype.itemsize)
+    aligned = []
+    for x in inputs:
+        misaligned = (
+            isinstance(x, blosc2.NDArray)
+            and x.ndim > 0
+            and x.shape == ref.shape
+            and (x.chunks, x.blocks) != (ref.chunks, ref.blocks)
+        )
+        aligned.append(x.copy(chunks=ref.chunks, blocks=ref.blocks) if misaligned else x)
+    return aligned
+
+
+def _dsl_kernel_string_dtype(func, inputs):
+    """Output dtype of a string-returning DSL kernel, per miniexpr.
+
+    Returns None when the kernel is not string-valued or miniexpr cannot type
+    it, leaving the existing dtype handling in charge.
+    """
+    try:
+        params = list(getattr(func, "input_names", None) or [])
+        if not params or len(params) != len(inputs):
+            return None
+        dtypes = {}
+        for name, arr in zip(params, inputs, strict=True):
+            dt = getattr(arr, "dtype", None)
+            if dt is None:
+                return None
+            dtypes[name] = dt
+        if not any(np.dtype(dt).kind in "US" for dt in dtypes.values()):
+            return None
+
+        from blosc2 import blosc2_ext
+
+        out = blosc2_ext.me_output_dtype(func.dsl_source, dtypes)
+    except Exception:
+        return None
+    if out is None or np.dtype(out).kind not in "US":
+        return None
+    return np.dtype(out)
+
+
+def _guard_utf8_udf_inputs(inputs) -> None:
+    """Reject variable-length utf8 operands in a UDF, naming the conversion."""
+    from blosc2._utf8_array import UTF8Array, utf8_compute_error
+
+    for operand in inputs or ():
+        raw = getattr(operand, "raw", operand)  # a CTable Column exposes its container here
+        if not isinstance(raw, UTF8Array):
+            continue
+        name = getattr(operand, "_col_name", None)
+        source = f"t[{name!r}]" if name else "arr"
+        raise NotImplementedError(
+            utf8_compute_error(
+                (
+                    f"Column {name!r} is a variable-length utf8 column and cannot be a UDF operand."
+                    if name
+                    else "A variable-length UTF8Array cannot be a UDF operand."
+                ),
+                source=source,
+                compute="blosc2.lazyudf(kernel, (fixed,)).compute()[:]",
+                assignable=name is not None,
+            )
+        )
+
+
 class LazyUDF(LazyArray):
     def __init__(
         self, func, inputs, dtype, shape=None, chunked_eval=True, jit=None, jit_backend=None, **kwargs
     ):
+        # A utf8 operand only duck-types as an array: convert_inputs() would wrap
+        # it in a SimpleProxy widened to a fixed <Un, and the output container is
+        # then allocated from a StringDType the NDArray dtype round-trip cannot
+        # parse -- an obscure "malformed node" ValueError, on every evaluation,
+        # whatever the kernel returns.  Refuse it here, where the operand is
+        # still recognizable, and name the conversion instead.
+        _guard_utf8_udf_inputs(inputs)
         # After this, all the inputs should be np.ndarray or NDArray objects
         self.inputs = convert_inputs(inputs)
+        if isinstance(func, DSLKernel):
+            self.inputs = _align_dsl_operand_grids(self.inputs)
         # Get res shape
         if shape is None:
             self._shape = compute_broadcast_shape(self.inputs)
@@ -4547,6 +4771,12 @@ class LazyUDF(LazyArray):
                 )
         else:
             self._shape = shape
+
+        if dtype is None and isinstance(func, DSLKernel) and func.dsl_source is not None:
+            # A string-returning DSL kernel needs miniexpr's own width inference:
+            # the output container is allocated before evaluation, and nothing on
+            # the Python side can predict a concat/case-mapping width.
+            dtype = _dsl_kernel_string_dtype(func, self.inputs) or dtype
 
         self.kwargs = kwargs
         self.kwargs["dtype"] = dtype
@@ -4576,7 +4806,16 @@ class LazyUDF(LazyArray):
             # DSL kernels are using input names that are extracted from params as a list,
             # and we need to use them for matching variables in miniexpr
             # (instead of the 'o{%d}' notation).
-            self.inputs_dict = dict(zip(self.func.input_names, self.inputs, strict=True))
+            names = self.func.input_names
+            if len(names) != len(self.inputs):
+                # Otherwise this surfaces as a bare "zip() argument 2 is longer
+                # than argument 1", which names neither the kernel nor the counts.
+                udf_name = getattr(self.func.func, "__name__", self.func.__name__)
+                raise ValueError(
+                    f"DSL kernel {udf_name!r} takes {len(names)} operand(s) "
+                    f"({', '.join(names)}), but {len(self.inputs)} were passed."
+                )
+            self.inputs_dict = dict(zip(names, self.inputs, strict=True))
         else:
             self.inputs_dict = {f"o{i}": obj for i, obj in enumerate(self.inputs)}
 
@@ -4709,7 +4948,12 @@ class LazyUDF(LazyArray):
             # Convert to dictionary
             cparams = asdict(cparams)
         aux_cparams.update(cparams)
-        aux_kwargs["cparams"] = aux_cparams
+        if aux_cparams:
+            # Only when something was actually asked for: passing an empty dict
+            # still materializes CParams' defaults, whose all-zero filters_meta
+            # overrides the dtype-aware shuffle width (4 for <U, the UCS4 code
+            # unit) that the container would otherwise pick for itself.
+            aux_kwargs["cparams"] = aux_cparams
 
         aux_dparams = aux_kwargs.get("dparams", {})
         if isinstance(aux_dparams, blosc2.DParams):
@@ -5007,6 +5251,9 @@ def lazyudf(
     if isinstance(func, DSLKernel) and func.dsl_error is not None:
         udf_name = getattr(func.func, "__name__", func.__name__)
         raise DSLSyntaxError(f"Invalid DSL kernel '{udf_name}'.\n{func.dsl_error}") from None
+    # Ahead of the dtype inference below, which a StringDType operand fails with
+    # a bare NumPy promotion error naming neither the column nor the way out.
+    _guard_utf8_udf_inputs(inputs)
     if dtype is None:
         if isinstance(func, DSLKernel):
             dep_dtypes = [arr.dtype for arr in (inputs or []) if hasattr(arr, "dtype")]
@@ -5014,7 +5261,9 @@ def lazyudf(
                 raise TypeError(
                     "Cannot infer dtype for DSL kernel with no array inputs; pass dtype= explicitly."
                 )
-            dtype = np.result_type(*dep_dtypes)
+            # A string-returning kernel is not a promotion of its inputs: only
+            # miniexpr knows the concat/case-mapping width bound.
+            dtype = _dsl_kernel_string_dtype(func, inputs) or np.result_type(*dep_dtypes)
         else:
             raise TypeError("dtype is required for non-DSL UDFs.")
     return LazyUDF(func, inputs, dtype, shape, chunked_eval, jit, jit_backend, **kwargs)
@@ -5126,6 +5375,23 @@ def lazyexpr(
     [ 5.515625  8.25     11.765625]
     [16.0625   21.140625 27.      ]]
     """
+    if operands is not None and isinstance(expression, str):
+        # A UTF8Array is variable-width, so it cannot be an expression operand.
+        # It only duck-types as one: LazyExpr would wrap it in a SimpleProxy,
+        # which converts it to a fixed-width <Un NumPy array, and evaluation
+        # would land in slices_eval -- correct-looking values down a path that
+        # never reaches miniexpr, ignores the span budget, and loses the utf8
+        # container.  Route it through the span driver instead.
+        from blosc2._utf8_array import UTF8Array, UTF8LazyExpr
+
+        if any(isinstance(v, UTF8Array) for v in operands.values()):
+            if out is not None or where is not None:
+                raise NotImplementedError(
+                    "'out' and 'where' are not supported for expressions over a bare "
+                    "UTF8Array; use a CTable column, which supports both."
+                )
+            return UTF8LazyExpr(expression, operands, ne_args=ne_args)
+
     if isinstance(expression, LazyExpr):
         if operands is not None:
             expression.operands.update(operands)

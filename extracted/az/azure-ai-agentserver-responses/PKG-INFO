@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-ai-agentserver-responses
-Version: 2.0.0b0
+Version: 2.0.0b1
 Summary: Python SDK for building servers implementing the Azure AI Responses protocol
 Author: Microsoft Corporation
 License-Expression: MIT
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: azure-ai-agentserver-core>=2.0.0b9
+Requires-Dist: azure-ai-agentserver-core>=2.0.0b10
 Requires-Dist: azure-core>=1.30.0
 Requires-Dist: isodate>=0.6.1
 Requires-Dist: aiohttp<4.0.0a0,>=3.10.0

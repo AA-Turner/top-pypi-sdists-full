@@ -3,10 +3,9 @@ use std::{fs::Metadata, path::Path, time::UNIX_EPOCH};
 use crate::StatsigErr;
 
 use super::{
-    legacy_mmap_v1_path_for_sdk_key,
-    mmap_manifest::{inspect_mmap_v2_publication, MmapV2Publication},
-    mmap_manifest_path_for_sdk_key, mmap_v2_path_for_sdk_key, InternedStore,
-    LEGACY_MMAP_FORMAT_VERSION,
+    InternedStore, LEGACY_MMAP_FORMAT_VERSION, legacy_mmap_v1_path_for_sdk_key,
+    mmap_manifest::{MmapV2Publication, inspect_mmap_v2_publication},
+    mmap_manifest_path_for_sdk_key, mmap_v2_path_for_sdk_key,
 };
 
 /// Describes the interned mmap artifacts linked at the SDK-owned location.

@@ -198,6 +198,7 @@ class ParserConfig(BaseModel):
     use_operation_id_as_name: bool = False
     use_unique_items_as_set: bool = False
     use_tuple_for_fixed_items: bool = False
+    use_total_false_for_typed_dict: bool = False
     use_closed_typed_dict: bool = True
     allof_merge_mode: AllOfMergeMode = AllOfMergeMode.Constraints
     allof_class_hierarchy: AllOfClassHierarchy = AllOfClassHierarchy.IfNoConflict
@@ -256,6 +257,7 @@ class ParserConfig(BaseModel):
     naming_strategy: NamingStrategy | None = None
     duplicate_name_suffix: dict[str, str] | None = None
     dataclass_arguments: DataclassArguments | None = None
+    import_overrides: dict[str, str] | None = None
     type_mappings: list[str] | None = None
     type_overrides: dict[str, str] | None = None
     read_only_write_only_model_type: ReadOnlyWriteOnlyModelType | None = None

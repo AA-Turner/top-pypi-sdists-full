@@ -16,8 +16,12 @@ they are given. That is the mechanism that keeps the two surfaces consistent.
 
 ## Extension seams
 
-The record-, schema-, state- and spec-level comparisons are not wired into the
-CLI yet. When they are, they surface in **both** places without touching
+The record-level comparison is wired in: `build_comparison_report_model` takes
+the `RecordComparisonSummary` of a read run, folds one `CheckResult` per
+comparison check into the verdict, and attaches per-stream detail blocks
+(missing/duplicate PKs, field-value diffs) to the stream sections. The schema-,
+state- and spec-level comparisons are not wired into the CLI yet. When they
+are, they surface in **both** places without touching
 `templates/report.html.j2`:
 
 - Append a `CheckResult` per new check -- it becomes a row of the per-check
@@ -35,11 +39,13 @@ no network, so it has to be a single self-contained file.
 from __future__ import annotations
 
 import datetime
+import difflib
 import json
 import os
 import re
-from collections.abc import Iterable
-from dataclasses import dataclass
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass, replace
+from itertools import zip_longest
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +61,14 @@ from airbyte_ops_mcp.regression_tests.ci_output import (
     github_artifact_name,
     github_artifacts_url,
     github_run_url,
+)
+from airbyte_ops_mcp.regression_tests.regression.comparators import (
+    EXCLUDE_PATHS,
+    ComparisonResult,
+    RecordComparisonSummary,
+    RecordDiff,
+    StreamComparisonResult,
+    json_safe,
 )
 
 TEMPLATE_NAME = "report.html.j2"
@@ -97,6 +111,20 @@ MAX_OUTPUT_TAIL_LINES = 60
 MAX_OUTPUT_TAIL_BYTES = 256_000
 # Empty streams named in the coverage check before it says "and N more".
 MAX_EMPTY_STREAMS_LISTED = 10
+# Failing streams named in a record-comparison check summary before it says
+# "and N more". The per-stream sections carry the full list either way.
+MAX_FAILING_STREAMS_NAMED = 5
+# Unchanged lines kept on each side of a change in a side-by-side record
+# diff; longer unchanged runs collapse into a "N unchanged lines" divider.
+SPLIT_DIFF_CONTEXT_LINES = 2
+# Per-line cap for the raw DeepDiff block: far past any value a reader
+# scrolls through, but a bound — 200 lines of connector-controlled blob
+# columns must not produce an unboundedly large report.html.
+MAX_DEEPDIFF_LINE_CHARS = 100_000
+# Findings a failing check lists in the step summary before pointing at the
+# report. A check's `summary` cell names the first few inline; this is the rest
+# of the answer to "what changed", for the reader who never opens the artifact.
+MAX_INLINE_FINDINGS = 15
 
 _TRUNCATION_SUFFIX = " …"
 
@@ -162,19 +190,41 @@ class DiffLine:
 
 
 @dataclass(frozen=True)
+class SplitDiffRow:
+    """One row of a side-by-side (control | target) diff table.
+
+    `left` is the control side and `right` the target side; `None` means the
+    row has no content on that side -- a record the target never produced has
+    an empty right column, which is the point of the layout. A row with
+    `header` set instead renders as a single full-width divider (an example
+    label, or a "N unchanged lines" gap marker).
+    """
+
+    left: DiffLine | None = None
+    right: DiffLine | None = None
+    header: str = ""
+
+
+@dataclass(frozen=True)
 class DiffBlock:
     """A labelled, collapsible code block inside a stream section.
 
-    Extension seam: nothing populates this yet. The record, schema, spec and
-    state comparisons each append blocks here and the template renders them
-    without modification.
+    Carries either `lines` (a single-column listing: output tails, connection
+    objects) or `split_rows` (a side-by-side control-versus-target table,
+    which is how the record comparison renders its detail). Extension seam:
+    the schema, spec and state comparisons each append blocks here too and
+    the template renders them without modification.
     """
 
     title: str
     language: str = "diff"
     lines: tuple[DiffLine, ...] = ()
+    split_rows: tuple[SplitDiffRow, ...] = ()
     truncated_line_count: int = 0
     empty_message: str | None = None
+    # One level of nesting: a check-level block summarizes its test in the
+    # title and carries one child block per version with findings.
+    children: tuple[DiffBlock, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -183,9 +233,9 @@ class StreamSection:
 
     `status` drives the section's colour and whether it starts expanded:
     `pass`, `fail`, or `info` for a section that carries data but asserts
-    nothing. Sections built here are `info` -- record counts are reported but
-    are not yet part of the verdict, since a directional count comparison is
-    the record-comparison work's job, not this report's.
+    nothing. Sections start as `info`; when the record comparison ran,
+    `_apply_record_comparison` re-marks every compared stream `pass` or
+    `fail` and attaches the failure detail as diff blocks.
     """
 
     stream: str
@@ -210,12 +260,18 @@ class CheckResult:
 
     `summary` may be connector-derived (a stream or field name), so the inline
     renderer passes it through `_inline_text`; do not pre-escape it here.
+
+    `details` is everything the check found, where `summary` has room for the
+    first few. A failing check lists them in the step summary, so the reader who
+    never downloads the artifact still learns what changed rather than only that
+    something did.
     """
 
     name: str
     passed: bool
     severity: str = "strict"
     summary: str = ""
+    details: tuple[str, ...] = ()
 
     @property
     def status(self) -> str:
@@ -338,12 +394,12 @@ def _image_name(image: str) -> str:
     return _split_image(image)[0]
 
 
-def _truncate(text: str) -> str:
-    """Clip one line to `MAX_LINE_CHARS`, marking it when clipped."""
-    if len(text) <= MAX_LINE_CHARS:
+def _truncate(text: str, limit: int = MAX_LINE_CHARS) -> str:
+    """Clip one line to `limit` characters, marking it when clipped."""
+    if len(text) <= limit:
         return text
 
-    return text[:MAX_LINE_CHARS] + _TRUNCATION_SUFFIX
+    return text[:limit] + _TRUNCATION_SUFFIX
 
 
 def build_diff_block(
@@ -351,6 +407,7 @@ def build_diff_block(
     lines: list[DiffLine],
     language: str = "diff",
     empty_message: str | None = None,
+    max_line_chars: int | None = MAX_LINE_CHARS,
 ) -> DiffBlock:
     """Build a `DiffBlock`, applying the shared per-block truncation caps.
 
@@ -363,13 +420,54 @@ def build_diff_block(
     any: the first producer of diff content should add a per-section and
     report-wide budget, since only it can decide which blocks to drop first.
     """
-    kept = [DiffLine(kind=line.kind, text=_truncate(line.text)) for line in lines]
+    kept = [
+        DiffLine(
+            kind=line.kind,
+            text=_truncate(line.text, max_line_chars)
+            if max_line_chars is not None
+            else line.text,
+        )
+        for line in lines
+    ]
     truncated = max(0, len(kept) - MAX_DIFF_LINES_PER_BLOCK)
 
     return DiffBlock(
         title=title,
         language=language,
         lines=tuple(kept[:MAX_DIFF_LINES_PER_BLOCK]),
+        truncated_line_count=truncated,
+        empty_message=empty_message,
+    )
+
+
+def build_split_diff_block(
+    title: str,
+    rows: list[SplitDiffRow],
+    empty_message: str | None = None,
+) -> DiffBlock:
+    """Build a side-by-side `DiffBlock`, applying the shared truncation caps.
+
+    The same caps as `build_diff_block`, applied per row and per cell, so a
+    split block and a single-column block truncate identically and state the
+    same "N omitted" numbers.
+    """
+    kept = [
+        SplitDiffRow(
+            left=DiffLine(row.left.kind, _truncate(row.left.text))
+            if row.left
+            else None,
+            right=DiffLine(row.right.kind, _truncate(row.right.text))
+            if row.right
+            else None,
+            header=_truncate(row.header),
+        )
+        for row in rows[:MAX_DIFF_LINES_PER_BLOCK]
+    ]
+    truncated = max(0, len(rows) - MAX_DIFF_LINES_PER_BLOCK)
+
+    return DiffBlock(
+        title=title,
+        split_rows=tuple(kept),
         truncated_line_count=truncated,
         empty_message=empty_message,
     )
@@ -522,6 +620,7 @@ def _build_stream_sections(
     control_counts: dict[str, int] | None,
     target_counts: dict[str, int],
     configured_streams: tuple[str, ...] = (),
+    failing_streams: frozenset[str] = frozenset(),
 ) -> tuple[tuple[StreamSection, ...], int]:
     """Build one section per stream, capped at `MAX_STREAM_SECTIONS`.
 
@@ -538,9 +637,17 @@ def _build_stream_sections(
             come from the records themselves, so a stream that emitted nothing
             has no entry -- without this it would be missing from the report
             entirely rather than shown as zero.
+        failing_streams: Streams the record comparison failed. Sorted to the
+            front so the section cap can never hide a failing stream behind
+            200 alphabetically-earlier passing ones -- the detail blocks are
+            attached per section, so a failing stream past the cap would
+            lose its detail entirely.
     """
-    all_streams = sorted(
+    every_stream = (
         set(control_counts or {}) | set(target_counts) | set(configured_streams or ())
+    )
+    all_streams = sorted(every_stream & failing_streams) + sorted(
+        every_stream - failing_streams
     )
     omitted = max(0, len(all_streams) - MAX_STREAM_SECTIONS)
 
@@ -736,6 +843,671 @@ def _http_metrics_table(
     return MetricTable(title=HTTP_TRAFFIC_TABLE, label_header="Metric", rows=rows)
 
 
+def _pk_text(pk: Any) -> str:
+    """Render one primary-key value for a diff line.
+
+    PKs are tuples of scalars (composite PKs have several components); JSON is
+    the one rendering that keeps the type visible -- `123` and `"123"` are
+    different PK values, and the missing-PK check treats them as such.
+    """
+    components = list(pk) if isinstance(pk, (tuple, list)) else [pk]
+
+    return json.dumps(components, default=str)
+
+
+def _comparison_check(
+    name: str, result: ComparisonResult, note: str = ""
+) -> CheckResult:
+    """One record-comparison check as a row of the per-check table.
+
+    A failing check names the failing streams (capped at
+    `MAX_FAILING_STREAMS_NAMED`); the full detail lives in that stream's
+    section, so the summary only has to say where to look. A failing check
+    with no per-stream results (the comparison errored before producing
+    any) has only its message to show.
+    """
+    if result.passed or not result.failed_streams:
+        summary = result.message
+    else:
+        failing = sorted(result.failed_streams)
+        shown = ", ".join(failing[:MAX_FAILING_STREAMS_NAMED])
+        if len(failing) > MAX_FAILING_STREAMS_NAMED:
+            shown += f" and {len(failing) - MAX_FAILING_STREAMS_NAMED} more"
+        plural = "s" if len(failing) > 1 else ""
+        summary = f"{result.message} — {len(failing)} stream{plural} failed: {shown}"
+
+    if note:
+        summary += f" ({note})"
+
+    return CheckResult(name=name, passed=result.passed, summary=summary)
+
+
+def _comparison_failing_streams(
+    summary: RecordComparisonSummary | None,
+) -> frozenset[str]:
+    """Every stream at least one record-comparison check failed on."""
+    if summary is None:
+        return frozenset()
+
+    checks = (
+        summary.count_comparison,
+        summary.pk_presence,
+        summary.control_pk_uniqueness,
+        summary.target_pk_uniqueness,
+        summary.field_comparison,
+    )
+
+    return frozenset(
+        name
+        for check in checks
+        if check is not None
+        for name, result in check.stream_results.items()
+        if not result.passed
+    )
+
+
+def build_record_comparison_checks(
+    summary: RecordComparisonSummary,
+) -> tuple[CheckResult, ...]:
+    """One `CheckResult` per record-comparison check that actually ran.
+
+    These are `strict` checks: folding them into the verdict is what makes a
+    dropped record or a mutated field value fail a run whose containers both
+    exited cleanly -- the same rule `record_comparison_passed` applies to the
+    CLI's GitHub outputs, so the two surfaces cannot disagree.
+
+    The PK-dependent checks are `None` on a catalog with no keyed streams and
+    are omitted rather than shown as trivially passing.
+    """
+    no_pk_note = ""
+    if summary.streams_without_pk:
+        no_pk_note = (
+            f"{len(summary.streams_without_pk)} stream(s) have no primary key: "
+            "count comparison only"
+        )
+
+    named_results: tuple[tuple[str, ComparisonResult | None, str], ...] = (
+        ("Record counts", summary.count_comparison, no_pk_note),
+        ("Primary key presence", summary.pk_presence, ""),
+        ("Primary key integrity (control)", summary.control_pk_uniqueness, ""),
+        ("Primary key integrity (target)", summary.target_pk_uniqueness, ""),
+        ("Field values", summary.field_comparison, ""),
+    )
+
+    return tuple(
+        _comparison_check(name, result, note)
+        for name, result, note in named_results
+        if result is not None
+    )
+
+
+def _missing_pk_block(result: StreamComparisonResult) -> DiffBlock:
+    """PK values present in control but missing from the target output."""
+    lines = [
+        DiffLine(
+            kind="meta",
+            text=(
+                "These records were dropped, or their PK value type changed "
+                'between versions (e.g. 123 vs "123"), which also counts as '
+                "missing. This direction FAILS the test."
+            ),
+        ),
+        *(DiffLine(kind="del", text=_pk_text(pk)) for pk in result.missing_pks),
+    ]
+
+    block = build_diff_block(
+        f"Missing in target \u2014 {result.missing_pk_count:,} PK value(s) "
+        "(present in control, not in target)",
+        lines,
+    )
+    # The stored list is itself capped (MAX_EXAMPLE_PKS); fold anything the
+    # cap dropped into the omitted count so the block never under-reports.
+    return replace(
+        block,
+        truncated_line_count=block.truncated_line_count
+        + (result.missing_pk_count - len(result.missing_pks)),
+    )
+
+
+def _extra_pk_block(result: StreamComparisonResult) -> DiffBlock:
+    """PK values present in target but not in control -- informational."""
+    lines = [
+        DiffLine(
+            kind="meta",
+            text=(
+                "Typically records created upstream between the two live "
+                "runs (the control version runs first). This direction does "
+                "NOT fail the test; it is listed for context."
+            ),
+        ),
+        *(DiffLine(kind="add", text=_pk_text(pk)) for pk in result.extra_pks),
+    ]
+
+    block = build_diff_block(
+        f"Missing in control \u2014 {result.extra_pk_count:,} PK value(s) "
+        "(present in target, not in control)",
+        lines,
+    )
+    return replace(
+        block,
+        truncated_line_count=block.truncated_line_count
+        + (result.extra_pk_count - len(result.extra_pks)),
+    )
+
+
+def _pk_presence_group(result: StreamComparisonResult) -> DiffBlock:
+    """The PK presence check, one child block per direction.
+
+    A single check-level block whose title summarizes both directions;
+    the failing direction (missing in target) always has a child, and the
+    informational one (missing in control) only when it has values.
+    """
+    children = [_missing_pk_block(result)]
+    parts = [f"{result.missing_pk_count:,} in target"]
+    if result.extra_pks:
+        children.append(_extra_pk_block(result))
+        parts.append(f"{result.extra_pk_count:,} in control")
+
+    return DiffBlock(
+        title=f"Missing primary keys \u2014 {', '.join(parts)}",
+        lines=(
+            DiffLine(
+                kind="meta",
+                text=(
+                    "PK values one version produced and the other did not, "
+                    "listed per direction below. Only \u201cmissing in "
+                    "target\u201d fails the test \u2014 the comparison is "
+                    "directional because both runs hit the live API and the "
+                    "control version runs first."
+                ),
+            ),
+        ),
+        children=tuple(children),
+    )
+
+
+def _duplicate_pk_block(version: str, result: StreamComparisonResult) -> DiffBlock:
+    """One version's duplicated PK values, with occurrence counts."""
+    counts = result.duplicate_pk_counts
+    lines = [
+        DiffLine(kind="del", text=f"{_pk_text(pk)} \u00d7{count:,}")
+        for pk, count in counts.items()
+    ]
+
+    block = build_diff_block(
+        f"In {version} \u2014 {result.duplicate_pk_count:,} PK value(s)", lines
+    )
+    return replace(
+        block,
+        truncated_line_count=block.truncated_line_count
+        + (result.duplicate_pk_count - len(counts)),
+    )
+
+
+def _duplicate_pk_group(
+    control_result: StreamComparisonResult | None,
+    target_result: StreamComparisonResult | None,
+) -> DiffBlock:
+    """The PK uniqueness findings, one child block per version.
+
+    A single check-level block; a version only gets a child when it actually
+    emitted duplicates, so nothing renders as an empty half. A PK seen 3
+    times reads `[777] \u00d73`, because "duplicated twice" and "duplicated
+    three hundred times" point at different bugs.
+    """
+    children: list[DiffBlock] = []
+    parts: list[str] = []
+    for version, result in (("control", control_result), ("target", target_result)):
+        if result is not None and result.duplicate_pks:
+            children.append(_duplicate_pk_block(version, result))
+            parts.append(f"{result.duplicate_pk_count:,} in {version}")
+
+    return DiffBlock(
+        title=f"Duplicate primary keys \u2014 {', '.join(parts)}",
+        lines=(
+            DiffLine(
+                kind="meta",
+                text=(
+                    "PK values emitted on more than one record within a "
+                    "single version's output (\u00d7N = how many records shared "
+                    "the value) \u2014 the same entity was read more than once "
+                    "(e.g. broken pagination or slicing), which breaks "
+                    "destination-side dedup. Each version's duplicates are "
+                    "its own finding; both fail the test."
+                ),
+            ),
+        ),
+        children=tuple(children),
+    )
+
+
+def _records_missing_pk_block(
+    version: str, result: StreamComparisonResult
+) -> DiffBlock:
+    """One version's records that carry no value for their declared PK."""
+    lines: list[DiffLine] = []
+    for index, record in enumerate(result.records_missing_pk_examples):
+        lines.append(DiffLine(kind="meta", text=f"record {index + 1}"))
+        # Name the missing fields before dumping the record: the record
+        # body cannot show a field it does not have.
+        lines.extend(
+            DiffLine(kind="del", text=_pk_field_text(record, pk_path))
+            for pk_path in result.pk_paths or []
+        )
+        lines.extend(DiffLine(kind="del", text=line) for line in _record_json(record))
+
+    omitted = result.records_missing_pk - len(result.records_missing_pk_examples)
+    if omitted:
+        lines.append(
+            DiffLine(
+                kind="meta",
+                text=(
+                    f"\u22ef truncated: {omitted:,} more such record(s) in "
+                    f"{version} \u2014 the full records are in the per-stream "
+                    "files in the run artifacts"
+                ),
+            )
+        )
+
+    return build_diff_block(
+        f"In {version} \u2014 {result.records_missing_pk:,} record(s)", lines
+    )
+
+
+def _records_missing_pk_group(
+    control_result: StreamComparisonResult | None,
+    target_result: StreamComparisonResult | None,
+) -> DiffBlock:
+    """The missing-PK-value findings, one child block per version.
+
+    Same shape as the duplicate-PK group: a check-level block whose children
+    are the versions that actually emitted such records. Each record opens
+    with its pinned PK fields saying which field is missing or null.
+    """
+    children: list[DiffBlock] = []
+    parts: list[str] = []
+    for version, result in (("control", control_result), ("target", target_result)):
+        if result is not None and result.records_missing_pk:
+            children.append(_records_missing_pk_block(version, result))
+            parts.append(f"{result.records_missing_pk:,} in {version}")
+
+    return DiffBlock(
+        title=(
+            f"Records with missing or null primary key values \u2014 {', '.join(parts)}"
+        ),
+        lines=(
+            DiffLine(
+                kind="meta",
+                text=(
+                    "Records emitted without a value for their declared "
+                    "primary key (field absent or null); they cannot be "
+                    "matched between versions and are excluded from the PK "
+                    "checks above. Each version's records are its own "
+                    "finding; both fail the test."
+                ),
+            ),
+        ),
+        children=tuple(children),
+    )
+
+
+def _pk_field_text(record: dict[str, Any], pk_path: list[str]) -> str:
+    """One pinned `pk <field> = <value>` line for a record.
+
+    Traverses the record's `data` along the PK path; an absent field reads
+    `<field missing>` so a record that is missing its PK says so explicitly
+    rather than looking like a null.
+    """
+    missing = object()
+    value: Any = record.get("data") or {}
+    for key in pk_path:
+        if isinstance(value, dict) and key in value:
+            value = value[key]
+        else:
+            value = missing
+            break
+
+    label = ".".join(pk_path)
+    if value is missing:
+        return f"pk {label} = <field missing>"
+
+    return f"pk {label} = {json.dumps(value, default=str)}"
+
+
+def _record_json(record: dict[str, Any]) -> list[str]:
+    """Pretty-print one record for a side of a split diff."""
+    return json.dumps(record, indent=2, sort_keys=True, default=str).splitlines()
+
+
+def _split_record_rows(
+    control_lines: list[str], target_lines: list[str]
+) -> list[SplitDiffRow]:
+    """Align two records' JSON lines into side-by-side rows.
+
+    Equal lines sit on both sides of the same row; a changed run pairs the
+    control lines with the target lines row by row; a line present on one
+    side only leaves the other cell empty. Unchanged runs longer than the
+    context window collapse into a "N unchanged lines" divider, so a wide
+    record does not bury its one changed field.
+    """
+    matcher = difflib.SequenceMatcher(a=control_lines, b=target_lines, autojunk=False)
+    rows: list[SplitDiffRow] = []
+    for (
+        tag,
+        control_start,
+        control_end,
+        target_start,
+        target_end,
+    ) in matcher.get_opcodes():
+        if tag == "equal":
+            indices = range(control_start, control_end)
+            hidden = len(indices) - 2 * SPLIT_DIFF_CONTEXT_LINES
+            if hidden > 1:
+                indices = [
+                    *range(control_start, control_start + SPLIT_DIFF_CONTEXT_LINES),
+                    None,
+                    *range(control_end - SPLIT_DIFF_CONTEXT_LINES, control_end),
+                ]
+            for index in indices:
+                if index is None:
+                    rows.append(SplitDiffRow(header=f"⋯ {hidden} unchanged line(s)"))
+                else:
+                    line = DiffLine(kind="ctx", text=control_lines[index])
+                    rows.append(SplitDiffRow(left=line, right=line))
+        else:
+            # replace, delete and insert are all "left changed into right";
+            # zip pads the shorter side with empty cells.
+            rows.extend(
+                SplitDiffRow(
+                    left=DiffLine(kind="del", text=control_line)
+                    if control_line is not None
+                    else None,
+                    right=DiffLine(kind="add", text=target_line)
+                    if target_line is not None
+                    else None,
+                )
+                for control_line, target_line in zip_longest(
+                    control_lines[control_start:control_end],
+                    target_lines[target_start:target_end],
+                )
+            )
+
+    return rows
+
+
+def _value_diff_rows(example: dict[str, Any]) -> list[SplitDiffRow]:
+    """Side-by-side rows for one PK-matched record pair.
+
+    Diffs the full records rather than reprinting the DeepDiff payload: the
+    reader gets the changed fields in context, with the surrounding fields
+    visible. `emitted_at` is dropped from both sides because the comparison
+    excluded it -- showing it would present a passing field as a diff.
+
+    Falls back to the raw DeepDiff dict when an example carries no record
+    copies, so a malformed example still shows *what* changed.
+    """
+    control = {
+        key: value
+        for key, value in (example.get("control") or {}).items()
+        if key not in EXCLUDE_PATHS
+    }
+    target = {
+        key: value
+        for key, value in (example.get("target") or {}).items()
+        if key not in EXCLUDE_PATHS
+    }
+    if not control and not target:
+        text = json.dumps(json_safe(example.get("diff") or {}), indent=2, default=str)
+
+        return [
+            SplitDiffRow(left=DiffLine(kind="ctx", text=line))
+            for line in text.splitlines()
+        ]
+
+    return _split_record_rows(_record_json(control), _record_json(target))
+
+
+def _value_diff_block(diff: RecordDiff) -> DiffBlock:
+    """Side-by-side control-versus-target diffs for the kept value-diff examples.
+
+    The examples are already capped at the comparison layer
+    (`MAX_EXAMPLE_DIFFS`); the title carries the true total so a reader knows
+    how much the cap hid. The full records of both runs stay in the
+    per-stream files in the run artifacts.
+    """
+    rows: list[SplitDiffRow] = []
+    for example in diff.records_with_value_diff:
+        pk = example.get("pk")
+        rows.append(
+            SplitDiffRow(
+                header=f"record pk = {_pk_text(pk)}" if pk is not None else "record",
+            )
+        )
+        # Pin the identifying fields above the diff: on a wide record the PK
+        # field itself can land past the row cap or inside a collapsed gap,
+        # and the reader must never have to hunt for which record this is.
+        for pk_path in diff.pk_paths or []:
+            rows.append(
+                SplitDiffRow(
+                    left=DiffLine(
+                        kind="ctx",
+                        text=_pk_field_text(example.get("control") or {}, pk_path),
+                    ),
+                    right=DiffLine(
+                        kind="ctx",
+                        text=_pk_field_text(example.get("target") or {}, pk_path),
+                    ),
+                )
+            )
+        rows.extend(_value_diff_rows(example))
+
+    return build_split_diff_block(
+        f"Field value diffs — {diff.records_with_value_diff_count:,} record(s) "
+        f"differ (showing {len(diff.records_with_value_diff)})",
+        rows,
+    )
+
+
+def _value_diff_deepdiff_block(diff: RecordDiff) -> DiffBlock:
+    """The raw DeepDiff payload of each kept example, verbatim.
+
+    The same payload the JSON output carries in `value_diff_examples`. It
+    complements the side-by-side view: DeepDiff names exactly which paths
+    changed (`values_changed`, `type_changes`, ...), which is greppable and
+    machine-ish where the record diff is visual.
+    """
+    lines: list[DiffLine] = []
+    for example in diff.records_with_value_diff:
+        pk = example.get("pk")
+        lines.append(
+            DiffLine(
+                kind="meta",
+                text=f"record pk = {_pk_text(pk)}" if pk is not None else "record",
+            )
+        )
+        # Through `json_safe` first: DeepDiff's own set containers are not
+        # JSON-serializable, and the `default=str` fallback alone would
+        # collapse each one into a single unreadable line.
+        text = json.dumps(
+            json_safe(example.get("diff") or {}),
+            indent=2,
+            sort_keys=True,
+            default=str,
+        )
+        lines.extend(DiffLine(kind="ctx", text=line) for line in text.splitlines())
+
+    return build_diff_block(
+        f"Field value diffs \u2014 raw DeepDiff payload "
+        f"(showing {len(diff.records_with_value_diff)})",
+        lines,
+        language="json",
+        # A huge field value is one JSON line, and the generic 2k clip would
+        # cut exactly the values this block exists to show — but the line
+        # COUNT cap does not bound line SIZE, and 200 lines of
+        # connector-controlled blobs would bloat the artifact. A generous
+        # cap keeps the intent while keeping report.html bounded.
+        max_line_chars=MAX_DEEPDIFF_LINE_CHARS,
+    )
+
+
+def _records_only_in_control_block(diff: RecordDiff) -> DiffBlock:
+    """Full example records that the target failed to produce.
+
+    A single-column list on purpose: every record here comes from the
+    control output (records only in the target are tolerated by the
+    directional comparison and never rendered), so a split view would
+    carry a permanently empty target column. Each record opens with its
+    pinned PK fields, like the value-diff examples.
+    """
+    lines: list[DiffLine] = []
+    for index, record in enumerate(diff.records_only_in_control):
+        lines.append(DiffLine(kind="meta", text=f"record {index + 1}"))
+        lines.extend(
+            DiffLine(kind="del", text=_pk_field_text(record, pk_path))
+            for pk_path in diff.pk_paths or []
+        )
+        lines.extend(DiffLine(kind="del", text=line) for line in _record_json(record))
+
+    return build_diff_block(
+        f"Records from control missing in target — showing "
+        f"{len(diff.records_only_in_control)} of "
+        f"{diff.records_only_in_control_count:,} full record(s)",
+        lines,
+    )
+
+
+def _stream_comparison_detail(
+    stream: str,
+    summary: RecordComparisonSummary,
+) -> tuple[bool, list[str], tuple[DiffBlock, ...]] | None:
+    """One stream's comparison verdict, headline fragments and detail blocks.
+
+    Returns `None` for a stream the comparison never saw -- a configured
+    stream that emitted nothing on either side, which the coverage check
+    reports instead.
+
+    Detail blocks are built only for the sub-checks that failed: a passing
+    stream's section stays a single line, and the report's weight goes where
+    the failures are.
+    """
+
+    def result_for(check: ComparisonResult | None) -> StreamComparisonResult | None:
+        return check.stream_results.get(stream) if check is not None else None
+
+    count_result = summary.count_comparison.stream_results.get(stream)
+    presence_result = result_for(summary.pk_presence)
+    control_uniqueness = result_for(summary.control_pk_uniqueness)
+    target_uniqueness = result_for(summary.target_pk_uniqueness)
+    field_result = result_for(summary.field_comparison)
+
+    results = [
+        result
+        for result in (
+            count_result,
+            presence_result,
+            control_uniqueness,
+            target_uniqueness,
+            field_result,
+        )
+        if result is not None
+    ]
+    if not results:
+        return None
+
+    fragments: list[str] = []
+    blocks: list[DiffBlock] = []
+
+    if count_result is not None and not count_result.passed:
+        fewer = count_result.control_count - count_result.target_count
+        fragments.append(f"{fewer:,} fewer record(s) in target")
+
+    if presence_result is not None and not presence_result.passed:
+        fragments.append(f"{presence_result.missing_pk_count:,} missing PK(s)")
+        blocks.append(_pk_presence_group(presence_result))
+
+    has_duplicates = False
+    has_records_missing_pk = False
+    for version, uniqueness in (
+        ("control", control_uniqueness),
+        ("target", target_uniqueness),
+    ):
+        if uniqueness is None or uniqueness.passed:
+            continue
+        if uniqueness.duplicate_pks:
+            fragments.append(
+                f"{uniqueness.duplicate_pk_count:,} duplicate PK(s) in {version}"
+            )
+            has_duplicates = True
+        if uniqueness.records_missing_pk:
+            fragments.append(
+                f"{uniqueness.records_missing_pk:,} record(s) without PK "
+                f"values in {version}"
+            )
+            has_records_missing_pk = True
+    if has_duplicates:
+        blocks.append(_duplicate_pk_group(control_uniqueness, target_uniqueness))
+    if has_records_missing_pk:
+        blocks.append(_records_missing_pk_group(control_uniqueness, target_uniqueness))
+
+    if (
+        field_result is not None
+        and not field_result.passed
+        and field_result.record_diff is not None
+    ):
+        record_diff = field_result.record_diff
+        if record_diff.records_with_value_diff_count:
+            fragments.append(
+                f"{record_diff.records_with_value_diff_count:,} record(s) "
+                "with value diffs"
+            )
+            blocks.append(_value_diff_block(record_diff))
+            blocks.append(_value_diff_deepdiff_block(record_diff))
+        if record_diff.records_only_in_control:
+            # The PK list above is exhaustive; these are the full records for
+            # the first few, which is what makes a drop diagnosable.
+            blocks.append(_records_only_in_control_block(record_diff))
+
+    return all(result.passed for result in results), fragments, tuple(blocks)
+
+
+def _apply_record_comparison(
+    sections: tuple[StreamSection, ...],
+    summary: RecordComparisonSummary,
+) -> tuple[StreamSection, ...]:
+    """Fold the record comparison into the per-stream sections.
+
+    Every compared stream is re-marked `pass` or `fail` -- the comparison is
+    part of the verdict now, so its sections assert rather than inform -- and
+    a failing stream's headline says in one line what went wrong, with the
+    detail attached as collapsible diff blocks. Streams the comparison never
+    saw stay `info`.
+    """
+    updated: list[StreamSection] = []
+    for section in sections:
+        detail = _stream_comparison_detail(section.stream, summary)
+        if detail is None:
+            updated.append(section)
+            continue
+
+        passed, fragments, blocks = detail
+        headline = section.headline
+        if section.stream in summary.streams_without_pk:
+            headline += " — no primary key: count comparison only"
+        if fragments:
+            headline += " — " + "; ".join(fragments)
+
+        updated.append(
+            replace(
+                section,
+                status="pass" if passed else "fail",
+                headline=headline,
+                diff_blocks=section.diff_blocks + blocks,
+            )
+        )
+
+    return tuple(updated)
+
+
 def build_comparison_report_model(
     *,
     target_image: str,
@@ -744,7 +1516,9 @@ def build_comparison_report_model(
     target_result: dict[str, Any],
     control_result: dict[str, Any],
     outcome: ComparisonOutcome | None = None,
+    record_comparison: RecordComparisonSummary | None = None,
     extra_checks: tuple[CheckResult, ...] = (),
+    extra_diff_blocks: tuple[DiffBlock, ...] = (),
     configured_streams: tuple[str, ...] = (),
     connection_objects: tuple[DiffBlock, ...] = (),
 ) -> RegressionReportModel:
@@ -764,9 +1538,17 @@ def build_comparison_report_model(
         control_result: Unannotated results dict from the control run.
         outcome: The already-evaluated outcome, so a run is only evaluated once.
             Recomputed from the results when omitted.
+        record_comparison: The record-comparison summary of a read run, when it
+            ran. Folded into the verdict as one check per comparison (the rule
+            that keeps this model consistent with the CLI's
+            `record_comparison_passed` output), and rendered as per-stream
+            detail blocks in the HTML report.
         extra_checks: Comparison checks to fold into the verdict and show on both
             surfaces. Supply them here rather than appending to the returned
             model, which would leave `passed` stale.
+        extra_diff_blocks: What a failing check found, shown above the failure
+            output. A check row has one line to say "this stream's schema
+            changed"; the reviewer's next question is always which field.
 
     Returns:
         The model to render as `report.html` and as the inline summary.
@@ -788,9 +1570,19 @@ def build_comparison_report_model(
         target_result.get("record_counts_per_stream", {}), configured_streams
     )
     stream_sections, omitted = _build_stream_sections(
-        control_counts, target_counts, configured_streams
+        control_counts,
+        target_counts,
+        configured_streams,
+        failing_streams=_comparison_failing_streams(record_comparison),
     )
+    if record_comparison is not None:
+        stream_sections = _apply_record_comparison(stream_sections, record_comparison)
     coverage = _stream_coverage_check(configured_streams, control_counts, target_counts)
+    comparison_checks = (
+        build_record_comparison_checks(record_comparison)
+        if record_comparison is not None
+        else ()
+    )
 
     metric_tables = tuple(
         table
@@ -820,15 +1612,24 @@ def build_comparison_report_model(
             summary=verdict_detail,
         ),
         *([coverage] if coverage is not None else []),
+        *comparison_checks,
         *extra_checks,
     )
     passed, verdict_label, verdict_detail = _fold_check_results(
-        extra_checks,
+        (*comparison_checks, *extra_checks),
         outcome.success,
         _comparison_verdict_label(outcome),
         verdict_detail,
-        failed_label="FAIL (regression)",
+        # An errored comparison fails the run as INCONCLUSIVE: a comparator
+        # crash is a tooling failure, not evidence the connector regressed.
+        failed_label="FAIL (inconclusive)"
+        if record_comparison is not None and record_comparison.errored
+        else "FAIL (regression)",
     )
+    if passed and outcome.both_succeeded:
+        # The claim belongs to the folded verdict, not the command outcome:
+        # every comparison check passed, so "no regression" is now earned.
+        verdict_detail += " (no regression)"
 
     return RegressionReportModel(
         mode="comparison",
@@ -843,7 +1644,7 @@ def build_comparison_report_model(
         stream_sections=stream_sections,
         omitted_stream_count=omitted,
         outcome=outcome,
-        diff_blocks=build_failure_output_blocks(sides),
+        diff_blocks=(*extra_diff_blocks, *build_failure_output_blocks(sides)),
         connection_objects=connection_objects,
     )
 
@@ -858,6 +1659,17 @@ def _comparison_verdict_label(outcome: ComparisonOutcome) -> str:
         return "FAIL (regression)"
 
     return "FAIL (inconclusive)"
+
+
+def failed_checks(checks: Sequence[CheckResult]) -> tuple[CheckResult, ...]:
+    """The checks that fail the run, by the one rule every surface uses.
+
+    A `diagnostic` check is a warning and is not in here. Callers that decide a
+    verdict before a report model exists -- the CLI's GitHub outputs, its logged
+    payload -- read this rather than testing `passed`, so they cannot disagree
+    with the banner the reviewer ends up reading.
+    """
+    return tuple(check for check in checks if check.status == "fail")
 
 
 def _fold_check_results(
@@ -888,7 +1700,7 @@ def _fold_check_results(
     Returns:
         The folded `(passed, verdict_label, verdict_detail)`.
     """
-    failed = [check for check in checks if check.status == "fail"]
+    failed = failed_checks(checks)
     if not failed or not passed:
         return passed, verdict_label, verdict_detail
 
@@ -913,6 +1725,7 @@ def _comparison_verdict_detail(
     the exit code as well as `connectionStatus`. The per-side clauses come from
     the same `_describe_run` the markdown report uses, so they are identical; the
     emphasis `report.md` puts on its verdict is carried by `verdict_label` here.
+
     """
     control, target = sides[0], sides[1]
     both = f"Target {target.description}, control {control.description}"
@@ -922,7 +1735,11 @@ def _comparison_verdict_detail(
     if outcome.regression_detected:
         return f"{both} — regression detected"
     if outcome.both_succeeded:
-        return "Both versions succeeded (no regression)"
+        # Just the facts: "(no regression)" is a claim about the comparison
+        # checks, so `build_comparison_report_model` appends it only after
+        # the fold confirms every check passed.
+        return "Both versions succeeded"
+
     if outcome.both_failed:
         return f"{both} — inconclusive, cannot rule out a regression"
 
@@ -1436,6 +2253,47 @@ def _inline_stream_rows(model: RegressionReportModel) -> list[str]:
     return lines
 
 
+def _inline_finding_lines(model: RegressionReportModel) -> list[str]:
+    """What each failing check found, for the reader who stops at the summary.
+
+    Collapsed, because the answer to "what changed" is a list and the summary is
+    read next to every other step of the run. The report holds the diff itself;
+    this holds the names, which is what a reviewer needs to decide whether the
+    diff is worth opening.
+    """
+    # Warnings list their findings too: an additive-only schema change does not
+    # gate the release, and "which streams were added" is exactly what the
+    # reviewer who sees the warning wants to know.
+    flagged = [check for check in model.checks if check.status in {"fail", "warn"}]
+    findings = [(check, check.details) for check in flagged if check.details]
+    if not findings:
+        return []
+
+    total = sum(len(details) for _check, details in findings)
+    lines = [
+        f"<details><summary>What the comparison found ({total})</summary>",
+        "",
+    ]
+
+    for check, details in findings:
+        shown = details[:MAX_INLINE_FINDINGS]
+        lines.extend(
+            [
+                f"**{_inline_label(check.name)}**",
+                "",
+                *(f"- {_inline_text(detail)}" for detail in shown),
+            ]
+        )
+        remaining = len(details) - len(shown)
+        if remaining:
+            lines.append(f"- … and {remaining} more, in the report")
+        lines.append("")
+
+    lines.extend(["</details>", ""])
+
+    return lines
+
+
 def _artifact_pointer(context: ReportContext) -> str:
     """One line telling the reader where the detailed report lives.
 
@@ -1482,6 +2340,7 @@ def render_inline_summary(model: RegressionReportModel) -> str:
         for check in model.checks
     )
     lines.append("")
+    lines.extend(_inline_finding_lines(model))
 
     stream_rows = _inline_stream_rows(model)
     if stream_rows:

@@ -15,16 +15,16 @@ use crate::initialize_v2_response::InitializeV2Response;
 use crate::interned_string::InternedString;
 use crate::specs_response::spec_types::{SessionReplayPrivacySetting, SessionReplayTrigger};
 use crate::{
+    StatsigErr,
     evaluation::evaluator::{Evaluator, SpecType},
     evaluation::evaluator_context::EvaluatorContext,
     initialize_evaluations_response::InitializeEvaluationsResponse,
     initialize_response::InitializeResponse,
     statsig_metadata::StatsigMetadata,
-    StatsigErr,
 };
 
 use crate::{
-    evaluation::dynamic_string::DynamicString, hashing, user::StatsigUserInternal, StatsigUser,
+    StatsigUser, evaluation::dynamic_string::DynamicString, hashing, user::StatsigUserInternal,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -545,6 +545,7 @@ mod tests {
     use std::collections::{HashMap, HashSet};
 
     use crate::{
+        ClientInitResponseOptions,
         dcs_str::DCS_STR,
         evaluation::{
             dynamic_value::DynamicValue,
@@ -554,11 +555,12 @@ mod tests {
         hashing::{HashAlgorithm, HashUtil},
         interned_string::InternedString,
         specs_response::{
-            spec_types::{SessionReplayInfo, SessionReplayTrigger, Spec, SpecsResponseFull},
+            spec_types::{
+                GCIRConfig, SessionReplayInfo, SessionReplayTrigger, Spec, SpecsResponseFull,
+            },
             specs_hash_map::SpecPointer,
         },
         user::{StatsigUser, StatsigUserInternal},
-        ClientInitResponseOptions,
     };
 
     fn planned_and_unplanned_response_values(
@@ -758,10 +760,12 @@ mod tests {
             });
 
         assert_eq!(unplanned, planned);
-        assert!(!planned["feature_gates"]
-            .as_object()
-            .unwrap()
-            .contains_key("targeted_gate"));
+        assert!(
+            !planned["feature_gates"]
+                .as_object()
+                .unwrap()
+                .contains_key("targeted_gate")
+        );
     }
 
     #[test]
@@ -793,10 +797,54 @@ mod tests {
             });
 
         assert_eq!(unplanned, planned);
-        assert!(!planned["feature_gates"]
-            .as_object()
-            .unwrap()
-            .contains_key("default_false_gate"));
+        assert!(
+            !planned["feature_gates"]
+                .as_object()
+                .unwrap()
+                .contains_key("default_false_gate")
+        );
+    }
+
+    #[test]
+    fn planned_v1_format_uses_project_default_gate_removal_policy() {
+        for remove_default_value_gates in [None, Some(false), Some(true)] {
+            let options = ClientInitResponseOptions {
+                hash_algorithm: Some(HashAlgorithm::None),
+                remove_default_value_gates,
+                ..Default::default()
+            };
+
+            let (unplanned, planned) =
+                planned_and_unplanned_response_values_with_specs(&options, None, |specs| {
+                    specs.gcir_config = Some(GCIRConfig {
+                        remove_default_value_gates: true,
+                    });
+
+                    let spec: Spec = serde_json::from_value(serde_json::json!({
+                        "type": "feature_gate",
+                        "salt": "default-gate-salt",
+                        "defaultValue": false,
+                        "enabled": true,
+                        "rules": [],
+                        "idType": "userID",
+                        "entity": "feature_gate"
+                    }))
+                    .unwrap();
+                    specs.feature_gates.insert(
+                        InternedString::from_str_ref("default_false_gate"),
+                        SpecPointer::from_spec(spec),
+                    );
+                });
+
+            assert_eq!(unplanned, planned);
+            assert_eq!(
+                planned["feature_gates"]
+                    .as_object()
+                    .unwrap()
+                    .contains_key("default_false_gate"),
+                remove_default_value_gates == Some(false)
+            );
+        }
     }
 
     #[test]
@@ -811,10 +859,12 @@ mod tests {
         let (unplanned, planned) = planned_and_unplanned_response_values(&options);
 
         assert_eq!(unplanned, planned);
-        assert!(!planned["dynamic_configs"]
-            .as_object()
-            .unwrap()
-            .contains_key("running_exp_in_layer_no_holdout"));
+        assert!(
+            !planned["dynamic_configs"]
+                .as_object()
+                .unwrap()
+                .contains_key("running_exp_in_layer_no_holdout")
+        );
     }
 
     #[test]
@@ -832,9 +882,11 @@ mod tests {
         let (unplanned, planned) = planned_and_unplanned_response_values(&options);
 
         assert_eq!(unplanned, planned);
-        assert!(planned["dynamic_configs"]
-            .as_object()
-            .unwrap()
-            .contains_key("running_exp_in_layer_no_holdout"));
+        assert!(
+            planned["dynamic_configs"]
+                .as_object()
+                .unwrap()
+                .contains_key("running_exp_in_layer_no_holdout")
+        );
     }
 }

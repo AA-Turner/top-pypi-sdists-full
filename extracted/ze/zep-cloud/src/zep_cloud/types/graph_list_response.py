@@ -9,6 +9,8 @@ from .graph import Graph
 
 class GraphListResponse(UniversalBaseModel):
     graphs: typing.Optional[typing.List[Graph]] = None
+    page_number: typing.Optional[int] = None
+    page_size: typing.Optional[int] = None
     row_count: typing.Optional[int] = None
     total_count: typing.Optional[int] = None
 

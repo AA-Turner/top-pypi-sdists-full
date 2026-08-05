@@ -1,20 +1,21 @@
 #[cfg(any(unix, windows))]
 use crate::interned_values::interned_store::open_committed_mmap_v2_for_test;
 use crate::{
+    StatsigErr,
     evaluation::rkyv_value::{ArchivedRkyvNumber, ArchivedRkyvValue},
     hashing,
     interned_values::{
+        InternedStore, MmapArtifactState, MmapPreloadOptions, MmapSyncCursor, MmapWriteOutcome,
         interned_store::{
-            acquire_mmap_write_lock_for_test, legacy_mmap_v1_path_for_sdk_key,
-            mmap_lock_path_for_sdk_key, mmap_manifest_path_for_sdk_key, mmap_v2_path_for_sdk_key,
-            validate_mmap_v2_for_test, write_mmap_manifest_for_test, write_mmap_v2_for_test,
-            write_mmap_v2_only_manifest_for_test, LEGACY_MMAP_FORMAT_VERSION,
+            LEGACY_MMAP_FORMAT_VERSION, acquire_mmap_write_lock_for_test,
+            legacy_mmap_v1_path_for_sdk_key, mmap_lock_path_for_sdk_key,
+            mmap_manifest_path_for_sdk_key, mmap_v2_path_for_sdk_key, validate_mmap_v2_for_test,
+            write_mmap_manifest_for_test, write_mmap_v2_for_test,
+            write_mmap_v2_only_manifest_for_test,
         },
         mmap_data_v2::{ArchivedMmapDataV2, MmapDataV2},
-        InternedStore, MmapArtifactState, MmapPreloadOptions, MmapSyncCursor, MmapWriteOutcome,
     },
     specs_response::spec_types::SpecsResponseFull,
-    StatsigErr,
 };
 use memmap2::Mmap;
 use rusty_fork::rusty_fork_test;
@@ -28,14 +29,14 @@ use std::{
     fs::File,
     io::Read,
     sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     },
     time::Duration,
 };
 use wiremock::{
-    matchers::{method, path},
     Mock, MockServer, Request, ResponseTemplate,
+    matchers::{method, path},
 };
 
 const MMAP_FETCH_SDK_KEY: &str = "interned-store-fetch-mmap";
@@ -1318,6 +1319,51 @@ rusty_fork_test! {
         assert!(specs.feature_gates.0.values().all(|spec| spec.is_mmap()));
         assert!(specs.dynamic_configs.0.values().all(|spec| spec.is_mmap()));
         assert!(specs.layer_configs.0.values().all(|spec| spec.is_mmap()));
+    }
+
+    #[test]
+    fn preload_mmap_multi_rejects_a_legacy_only_required_key() {
+        let required_key = "interned-store-multi-legacy-only-required";
+        let optional_key = "interned-store-multi-committed-optional";
+        remove_mmap_artifacts(required_key);
+        remove_mmap_artifacts(optional_key);
+
+        let required_v1_path = legacy_mmap_v1_path_for_sdk_key(required_key);
+        fs::create_dir_all(required_v1_path.parent().unwrap()).unwrap();
+        fs::write(&required_v1_path, b"legacy artifact must not be preloaded").unwrap();
+
+        let optional_v2_path = mmap_v2_path_for_sdk_key(optional_key);
+        let optional_manifest_path = mmap_manifest_path_for_sdk_key(optional_key);
+        write_mmap_v2_for_test(EVAL_PROJ_JSON.as_bytes(), &optional_v2_path).unwrap();
+        write_mmap_v2_only_manifest_for_test(&optional_manifest_path, &optional_v2_path)
+            .unwrap();
+
+        assert!(matches!(
+            InternedStore::preload_mmap_multi(&[required_key], &[optional_key]),
+            Err(StatsigErr::InvalidOperation(message))
+                if message == "No committed interned mmap V2 artifact was found"
+        ));
+    }
+
+    #[test]
+    fn preload_mmap_multi_reports_missing_optional_key() {
+        let required_key = "interned-store-multi-required";
+        let optional_key = "interned-store-multi-optional-missing";
+        let v2_path = mmap_v2_path_for_sdk_key(required_key);
+        let manifest_path = mmap_manifest_path_for_sdk_key(required_key);
+        fs::create_dir_all(v2_path.parent().unwrap()).unwrap();
+        write_mmap_v2_for_test(EVAL_PROJ_JSON.as_bytes(), &v2_path).unwrap();
+        write_mmap_v2_only_manifest_for_test(&manifest_path, &v2_path).unwrap();
+        let _ = fs::remove_file(mmap_manifest_path_for_sdk_key(optional_key));
+
+        let report =
+            InternedStore::preload_mmap_multi(&[required_key], &[optional_key]).unwrap();
+
+        assert_eq!(report.loaded, 1);
+        assert_eq!(report.skipped_optional.len(), 1);
+        assert_eq!(report.skipped_optional[0].index, 0);
+        let specs: SpecsResponseFull = serde_json::from_str(EVAL_PROJ_JSON).unwrap();
+        assert!(specs.feature_gates.0.values().all(|spec| spec.is_mmap()));
     }
 
     #[test]

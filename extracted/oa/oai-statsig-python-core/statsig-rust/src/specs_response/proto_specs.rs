@@ -4,6 +4,7 @@ use prost::Message;
 use serde_json::json;
 
 use crate::{
+    StatsigErr,
     evaluation::{
         dynamic_returnable::DynamicReturnable, dynamic_string::DynamicString,
         evaluator_value::EvaluatorValue,
@@ -17,18 +18,24 @@ use crate::{
     specs_response::{
         explicit_params::ExplicitParameters,
         param_store_types::ParameterStore,
+        parse_options::SpecsResponseParseOptions,
         proto_stream_reader::ProtoStreamReader,
         spec_types::{
             Condition, ConditionOperator, ConditionType, Rule, Spec, SpecsResponseFull,
             SpecsResponsePartial,
         },
-        specs_hash_map::{seed_spec_decode_stats, SpecDecodeStats, SpecPointer, SpecsHashMap},
+        specs_hash_map::{SpecDecodeStats, SpecPointer, SpecsHashMap, seed_spec_decode_stats},
         statsig_config_specs::{self as pb, any_value},
     },
-    StatsigErr,
 };
 
 const TAG: &str = "ProtoSpecs";
+
+#[derive(Clone, PartialEq, Message)]
+struct SessionUpdateModeField {
+    #[prost(string, optional, tag = "15")]
+    session_update_mode: Option<String>,
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum ProtobufUpdate {
@@ -88,12 +95,58 @@ pub fn deserialize_protobuf(
     Ok(())
 }
 
+pub fn deserialize_protobuf_with_options(
+    ops_stats: &OpsStatsForInstance,
+    current_specs: &SpecsResponseFull, /* Intentionally immutable so we can continue using it if parsing fails */
+    next_specs: &mut SpecsResponseFull,
+    data: &mut ResponseData,
+    options: SpecsResponseParseOptions,
+) -> Result<(), StatsigErr> {
+    if !options.should_preserve_session_update_mode() {
+        return deserialize_protobuf(ops_stats, current_specs, next_specs, data);
+    }
+
+    if matches!(
+        deserialize_protobuf_for_store_with_options(
+            ops_stats,
+            current_specs,
+            SpecDecodeStats::default(),
+            next_specs,
+            data,
+            true,
+        )?,
+        ProtobufUpdate::CursorOnly { .. }
+    ) {
+        next_specs.copy_previous_values_from(current_specs);
+    }
+
+    Ok(())
+}
+
 pub(crate) fn deserialize_protobuf_for_store(
     ops_stats: &OpsStatsForInstance,
     current_specs: &SpecsResponseFull, /* Intentionally immutable so we can continue using it if parsing fails */
     previous_spec_decode_stats: SpecDecodeStats,
     next_specs: &mut SpecsResponseFull,
     data: &mut ResponseData,
+) -> Result<ProtobufUpdate, StatsigErr> {
+    deserialize_protobuf_for_store_with_options(
+        ops_stats,
+        current_specs,
+        previous_spec_decode_stats,
+        next_specs,
+        data,
+        false,
+    )
+}
+
+fn deserialize_protobuf_for_store_with_options(
+    ops_stats: &OpsStatsForInstance,
+    current_specs: &SpecsResponseFull, /* Intentionally immutable so we can continue using it if parsing fails */
+    previous_spec_decode_stats: SpecDecodeStats,
+    next_specs: &mut SpecsResponseFull,
+    data: &mut ResponseData,
+    preserve_session_update_mode: bool,
 ) -> Result<ProtobufUpdate, StatsigErr> {
     let mut parsed_envelopes_count = 0;
     let mut state = ParseState::Initial;
@@ -154,7 +207,7 @@ pub(crate) fn deserialize_protobuf_for_store(
             pb::SpecsEnvelopeKind::Done => match state {
                 ParseState::Full => return Ok(ProtobufUpdate::Materialized { is_delta: false }),
                 ParseState::DeltaMaterializedValidated => {
-                    return Ok(ProtobufUpdate::Materialized { is_delta: true })
+                    return Ok(ProtobufUpdate::Materialized { is_delta: true });
                 }
                 ParseState::DeltaDeferredValidated => {
                     if next_specs.has_same_semantic_values_as(current_specs) && next_specs.time > 0
@@ -176,13 +229,13 @@ pub(crate) fn deserialize_protobuf_for_store(
                     return Ok(ProtobufUpdate::Materialized { is_delta: true });
                 }
                 ParseState::Initial | ParseState::DeltaAwaitingTopLevel => {
-                    return make_proto_parse_error("SpecsEnvelope", "Missing top-level envelope")
+                    return make_proto_parse_error("SpecsEnvelope", "Missing top-level envelope");
                 }
                 ParseState::DeltaDeferred | ParseState::DeltaMaterialized => {
                     return make_proto_parse_error(
                         "SpecsEnvelope",
                         "Missing checksums envelope for delta response",
-                    )
+                    );
                 }
             },
             pb::SpecsEnvelopeKind::TopLevel => match state {
@@ -200,7 +253,7 @@ pub(crate) fn deserialize_protobuf_for_store(
                     return make_proto_parse_error(
                         "SpecsEnvelope",
                         "Unexpected top-level envelope in delta response",
-                    )
+                    );
                 }
             },
             kind @ (pb::SpecsEnvelopeKind::FeatureGate
@@ -211,27 +264,39 @@ pub(crate) fn deserialize_protobuf_for_store(
                 ParseState::Full => {
                     let _ = log_parse_result(
                         ops_stats,
-                        apply_entity_update(kind, env, current_specs, next_specs),
+                        apply_entity_update(
+                            kind,
+                            env,
+                            current_specs,
+                            next_specs,
+                            preserve_session_update_mode,
+                        ),
                     );
                 }
                 ParseState::DeltaDeferred | ParseState::DeltaMaterialized => {
                     state.materialize(current_specs, next_specs, previous_spec_decode_stats);
                     log_parse_result(
                         ops_stats,
-                        apply_entity_update(kind, env, current_specs, next_specs),
+                        apply_entity_update(
+                            kind,
+                            env,
+                            current_specs,
+                            next_specs,
+                            preserve_session_update_mode,
+                        ),
                     )?;
                 }
                 ParseState::Initial | ParseState::DeltaAwaitingTopLevel => {
                     return make_proto_parse_error(
                         "SpecsEnvelope",
                         "Entity envelope before top-level envelope",
-                    )
+                    );
                 }
                 ParseState::DeltaDeferredValidated | ParseState::DeltaMaterializedValidated => {
                     return make_proto_parse_error(
                         "SpecsEnvelope",
                         "Unexpected entity envelope after delta checksums",
-                    )
+                    );
                 }
             },
             pb::SpecsEnvelopeKind::Deletions => match state {
@@ -249,7 +314,10 @@ pub(crate) fn deserialize_protobuf_for_store(
                     }
                 }
                 _ => {
-                    return make_proto_parse_error("SpecsEnvelope", "Unexpected deletions envelope")
+                    return make_proto_parse_error(
+                        "SpecsEnvelope",
+                        "Unexpected deletions envelope",
+                    );
                 }
             },
             pb::SpecsEnvelopeKind::Checksums => {
@@ -265,7 +333,7 @@ pub(crate) fn deserialize_protobuf_for_store(
                         return make_proto_parse_error(
                             "SpecsEnvelope",
                             "Unexpected checksums envelope",
-                        )
+                        );
                     }
                 };
 
@@ -303,17 +371,24 @@ fn apply_entity_update(
     envelope: pb::SpecsEnvelope,
     current_specs: &SpecsResponseFull,
     next_specs: &mut SpecsResponseFull,
+    preserve_session_update_mode: bool,
 ) -> Result<(), StatsigErr> {
     match kind {
-        pb::SpecsEnvelopeKind::FeatureGate => {
-            next_specs.handle_feature_gate_update(envelope, current_specs)
-        }
-        pb::SpecsEnvelopeKind::DynamicConfig => {
-            next_specs.handle_dynamic_config_update(envelope, current_specs)
-        }
-        pb::SpecsEnvelopeKind::LayerConfig => {
-            next_specs.handle_layer_config_update(envelope, current_specs)
-        }
+        pb::SpecsEnvelopeKind::FeatureGate => next_specs.handle_feature_gate_update(
+            envelope,
+            current_specs,
+            preserve_session_update_mode,
+        ),
+        pb::SpecsEnvelopeKind::DynamicConfig => next_specs.handle_dynamic_config_update(
+            envelope,
+            current_specs,
+            preserve_session_update_mode,
+        ),
+        pb::SpecsEnvelopeKind::LayerConfig => next_specs.handle_layer_config_update(
+            envelope,
+            current_specs,
+            preserve_session_update_mode,
+        ),
         pb::SpecsEnvelopeKind::ParamStore => {
             next_specs.handle_param_store_update(envelope, current_specs)
         }
@@ -350,6 +425,7 @@ impl SpecsResponseFull {
         &mut self,
         envelope: pb::SpecsEnvelope,
         existing: &SpecsResponseFull,
+        preserve_session_update_mode: bool,
     ) -> Result<(), StatsigErr> {
         Self::handle_individual_spec_update(
             "FeatureGate",
@@ -357,6 +433,7 @@ impl SpecsResponseFull {
             &existing.feature_gates,
             &mut self.feature_gates,
             InternedStore::try_get_preloaded_feature_gate,
+            preserve_session_update_mode,
         )
     }
 
@@ -364,6 +441,7 @@ impl SpecsResponseFull {
         &mut self,
         envelope: pb::SpecsEnvelope,
         existing: &SpecsResponseFull,
+        preserve_session_update_mode: bool,
     ) -> Result<(), StatsigErr> {
         Self::handle_individual_spec_update(
             "DynamicConfig",
@@ -371,6 +449,7 @@ impl SpecsResponseFull {
             &existing.dynamic_configs,
             &mut self.dynamic_configs,
             InternedStore::try_get_preloaded_dynamic_config,
+            preserve_session_update_mode,
         )
     }
 
@@ -378,6 +457,7 @@ impl SpecsResponseFull {
         &mut self,
         envelope: pb::SpecsEnvelope,
         existing: &SpecsResponseFull,
+        preserve_session_update_mode: bool,
     ) -> Result<(), StatsigErr> {
         Self::handle_individual_spec_update(
             "LayerConfig",
@@ -385,6 +465,7 @@ impl SpecsResponseFull {
             &existing.layer_configs,
             &mut self.layer_configs,
             InternedStore::try_get_preloaded_layer_config,
+            preserve_session_update_mode,
         )
     }
 
@@ -394,7 +475,18 @@ impl SpecsResponseFull {
         exiting_map: &SpecsHashMap,
         new_map: &mut SpecsHashMap,
         preload_fetcher: fn(&InternedString) -> Option<SpecPointer>,
+        preserve_session_update_mode: bool,
     ) -> Result<(), StatsigErr> {
+        if preserve_session_update_mode {
+            return Self::handle_individual_spec_update_preserving_session_update_mode(
+                tag,
+                envelope,
+                exiting_map,
+                new_map,
+                preload_fetcher,
+            );
+        }
+
         let name = InternedString::from_string(envelope.name);
 
         let mut preloaded = preload_fetcher(&name);
@@ -421,6 +513,50 @@ impl SpecsResponseFull {
         let pb_spec = pb::Spec::decode(envelope_data).map_err(|e| map_decode_err(tag, e))?;
         let spec = spec_from_pb(envelope.checksum, pb_spec)?;
         debug_assert!(preloaded.is_none());
+        new_map.insert(name, SpecPointer::from_spec(spec));
+
+        Ok(())
+    }
+
+    fn handle_individual_spec_update_preserving_session_update_mode(
+        tag: &str,
+        envelope: pb::SpecsEnvelope,
+        exiting_map: &SpecsHashMap,
+        new_map: &mut SpecsHashMap,
+        preload_fetcher: fn(&InternedString) -> Option<SpecPointer>,
+    ) -> Result<(), StatsigErr> {
+        let name = InternedString::from_string(envelope.name);
+        let checksum = envelope.checksum;
+        let envelope_data = validate_envelope_data(tag, envelope.data)?;
+        let preloaded = preload_fetcher(&name).filter(|spec| {
+            spec.view().checksum().map(|value| value.as_str()) == Some(checksum.as_str())
+        });
+        let existing = exiting_map.get(&name).filter(|spec| {
+            spec.view().checksum().map(|value| value.as_str()) == Some(checksum.as_str())
+        });
+
+        if preloaded.is_some() || existing.is_some() {
+            let session_update_mode = decode_session_update_mode(envelope_data.get_ref())
+                .map_err(|e| map_decode_err(tag, e))?;
+
+            if let Some(spec) = preloaded
+                .as_ref()
+                .and_then(|spec| spec.with_session_update_mode(session_update_mode.as_deref()))
+            {
+                new_map.insert(name, spec);
+                return Ok(());
+            }
+
+            if let Some(spec) = existing
+                .and_then(|spec| spec.with_session_update_mode(session_update_mode.as_deref()))
+            {
+                new_map.insert(name, spec);
+                return Ok(());
+            }
+        }
+
+        let pb_spec = pb::Spec::decode(envelope_data).map_err(|e| map_decode_err(tag, e))?;
+        let spec = spec_from_pb(checksum, pb_spec)?;
         new_map.insert(name, SpecPointer::from_spec(spec));
 
         Ok(())
@@ -688,6 +824,10 @@ fn validate_envelope_data(
             format!("No data in {} envelope", envelope_tag),
         )),
     }
+}
+
+fn decode_session_update_mode(data: &[u8]) -> Result<Option<String>, prost::DecodeError> {
+    SessionUpdateModeField::decode(data).map(|spec| spec.session_update_mode)
 }
 
 fn condition_from_pb(v: pb::Condition) -> Result<Condition, StatsigErr> {
@@ -973,13 +1113,13 @@ fn return_value_from_pb(
             return Err(StatsigErr::ProtobufParseError(
                 "proto::ReturnValue".to_string(),
                 "No return value".to_string(),
-            ))
+            ));
         }
     };
 
     let bytes = match return_value {
         pb::return_value::Value::BoolValue(value) => {
-            return Ok(DynamicReturnable::from_bool(value))
+            return Ok(DynamicReturnable::from_bool(value));
         }
         pb::return_value::Value::RawValue(value) => value,
     };
@@ -1001,7 +1141,7 @@ fn id_type_from_pb_to_dynamic_string(
                 value: InternedString::empty(),
                 lowercased_value: InternedString::empty(),
                 hash_value: 0,
-            })
+            });
         }
     };
 
@@ -1100,22 +1240,26 @@ fn make_proto_parse_error<T>(tag: &str, message: &str) -> Result<T, StatsigErr> 
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, io::Write};
+    use std::{collections::HashMap, io::Write, sync::Arc};
 
     use brotli::enc::BrotliEncoderParams;
     use prost::Message;
 
     use super::{
-        checksum_for_condition, checksum_for_param_store, checksum_for_spec, condition_from_pb,
-        deserialize_protobuf, deserialize_protobuf_for_store, pb, rules_from_pb, spec_from_pb,
-        sum_checksums, ProtobufUpdate, SpecDecodeStats, SpecsResponseFull,
+        ProtobufUpdate, SpecDecodeStats, SpecsResponseFull, checksum_for_condition,
+        checksum_for_param_store, checksum_for_spec, condition_from_pb, deserialize_protobuf,
+        deserialize_protobuf_for_store, deserialize_protobuf_with_options, pb, rules_from_pb,
+        spec_from_pb, sum_checksums,
     };
     use crate::{
+        interned_string::InternedString,
         networking::ResponseData,
         observability::ops_stats::OpsStatsForInstance,
         specs_response::{
+            parse_options::SpecsResponseParseOptions,
             proto_stream_reader::BUFFER_SIZE,
             spec_types::{ConditionOperator, ConditionType},
+            specs_hash_map::{SpecPointer, SpecsHashMap},
         },
     };
 
@@ -1181,6 +1325,7 @@ mod tests {
                         response_format: current.response_format.clone().unwrap_or_default(),
                         checksum: checksum.to_string(),
                         rest: serde_json::to_vec(&common_fields).unwrap(),
+                        may_have_remote_config_metadata: None,
                     }
                     .encode_to_vec(),
                 ),
@@ -1215,6 +1360,39 @@ mod tests {
         ResponseData::from_bytes(compressed)
     }
 
+    fn session_update_mode_envelope(mode: Option<&str>) -> pb::SpecsEnvelope {
+        pb::SpecsEnvelope {
+            name: "test_gate".to_string(),
+            checksum: "checksum".to_string(),
+            data: Some(
+                pb::Spec {
+                    entity: pb::EntityType::EntityFeatureGate as i32,
+                    session_update_mode: mode.map(str::to_string),
+                    ..pb::Spec::default()
+                }
+                .encode_to_vec(),
+            ),
+            ..pb::SpecsEnvelope::default()
+        }
+    }
+
+    fn matching_preloaded_spec(_: &InternedString) -> Option<SpecPointer> {
+        Some(SpecPointer::from_spec(
+            spec_from_pb(
+                "checksum".to_string(),
+                pb::Spec {
+                    entity: pb::EntityType::EntityFeatureGate as i32,
+                    ..pb::Spec::default()
+                },
+            )
+            .unwrap(),
+        ))
+    }
+
+    fn no_preloaded_spec(_: &InternedString) -> Option<SpecPointer> {
+        None
+    }
+
     #[test]
     fn spec_from_pb_preserves_session_update_mode() {
         let spec = spec_from_pb(
@@ -1228,6 +1406,136 @@ mod tests {
         .unwrap();
 
         assert_eq!(spec.session_update_mode.as_deref(), Some("live"));
+    }
+
+    #[test]
+    fn protobuf_session_update_mode_bypasses_matching_preloaded_spec() {
+        let existing = SpecsHashMap::default();
+        let mut next = SpecsHashMap::default();
+
+        SpecsResponseFull::handle_individual_spec_update(
+            "FeatureGate",
+            session_update_mode_envelope(Some("live")),
+            &existing,
+            &mut next,
+            matching_preloaded_spec,
+            true,
+        )
+        .unwrap();
+
+        let spec = next
+            .get(&InternedString::from_str_ref("test_gate"))
+            .unwrap();
+        assert_eq!(spec.session_update_mode(), Some("live"));
+    }
+
+    #[test]
+    fn protobuf_preserving_parser_reuses_matching_existing_session_update_mode_spec() {
+        let name = InternedString::from_str_ref("test_gate");
+        let existing_spec = SpecPointer::from_spec(
+            spec_from_pb(
+                "checksum".to_string(),
+                pb::Spec {
+                    entity: pb::EntityType::EntityFeatureGate as i32,
+                    session_update_mode: Some("live".to_string()),
+                    ..pb::Spec::default()
+                },
+            )
+            .unwrap(),
+        );
+        let existing_pointer = existing_spec.clone().into_pointer().unwrap();
+        let mut existing = SpecsHashMap::default();
+        existing.insert(name.clone(), existing_spec);
+        let mut next = SpecsHashMap::default();
+
+        SpecsResponseFull::handle_individual_spec_update(
+            "FeatureGate",
+            session_update_mode_envelope(Some("live")),
+            &existing,
+            &mut next,
+            no_preloaded_spec,
+            true,
+        )
+        .unwrap();
+
+        let next_pointer = next.get(&name).unwrap().clone().into_pointer().unwrap();
+        assert!(Arc::ptr_eq(&existing_pointer, &next_pointer));
+    }
+
+    #[test]
+    fn protobuf_default_parser_reuses_matching_preloaded_spec_with_session_update_mode() {
+        let existing = SpecsHashMap::default();
+        let mut next = SpecsHashMap::default();
+
+        SpecsResponseFull::handle_individual_spec_update(
+            "FeatureGate",
+            session_update_mode_envelope(Some("live")),
+            &existing,
+            &mut next,
+            matching_preloaded_spec,
+            false,
+        )
+        .unwrap();
+
+        let spec = next
+            .get(&InternedString::from_str_ref("test_gate"))
+            .unwrap();
+        assert_eq!(spec.session_update_mode(), None);
+    }
+
+    #[test]
+    fn protobuf_preserving_parser_reuses_matching_existing_spec_without_session_update_mode() {
+        let name = InternedString::from_str_ref("test_gate");
+        let existing_spec = matching_preloaded_spec(&name).unwrap();
+        let existing_pointer = existing_spec.clone().into_pointer().unwrap();
+        let mut existing = SpecsHashMap::default();
+        existing.insert(name.clone(), existing_spec);
+        let mut next = SpecsHashMap::default();
+
+        SpecsResponseFull::handle_individual_spec_update(
+            "FeatureGate",
+            session_update_mode_envelope(None),
+            &existing,
+            &mut next,
+            no_preloaded_spec,
+            true,
+        )
+        .unwrap();
+
+        let next_pointer = next.get(&name).unwrap().clone().into_pointer().unwrap();
+        assert!(Arc::ptr_eq(&existing_pointer, &next_pointer));
+    }
+
+    #[test]
+    fn copy_prev_preserves_owned_session_update_mode_spec() {
+        let mut payload: serde_json::Value =
+            serde_json::from_slice(include_bytes!("../../tests/data/eval_proj_dcs.json")).unwrap();
+        let gates = payload["feature_gates"].as_object_mut().unwrap();
+        let name = gates.keys().next().unwrap().clone();
+        gates[&name]["sessionUpdateMode"] = serde_json::Value::String("live".to_string());
+        let payload = serde_json::to_vec(&payload).unwrap();
+        let current = SpecsResponseFull::deserialize_json_with_options(
+            &payload,
+            SpecsResponseParseOptions::preserving_session_update_mode(),
+        )
+        .unwrap();
+        let mut data = checksum_only_delta(&current, current.time + 1, "next-checksum");
+        let mut next = SpecsResponseFull::default();
+
+        deserialize_protobuf_with_options(
+            &OpsStatsForInstance::new(),
+            &current,
+            &mut next,
+            &mut data,
+            SpecsResponseParseOptions::preserving_session_update_mode(),
+        )
+        .unwrap();
+
+        let spec = next
+            .feature_gates
+            .get(&InternedString::from_str_ref(&name))
+            .unwrap();
+        assert_eq!(spec.session_update_mode(), Some("live"));
     }
 
     #[test]
@@ -1293,6 +1601,7 @@ mod tests {
             is_control_group: None,
             sampling_rate: Some(201.0),
             pass_percentage_float: None,
+            remote_config_metadata: None,
         }])
         .expect("protobuf rule should parse");
 
@@ -1329,6 +1638,7 @@ mod tests {
             is_control_group: None,
             sampling_rate: None,
             pass_percentage_float: Some(0.5),
+            remote_config_metadata: None,
         }])
         .expect("protobuf rule should parse");
 
@@ -1351,6 +1661,7 @@ mod tests {
             is_control_group: None,
             sampling_rate: None,
             pass_percentage_float: Some(0.0),
+            remote_config_metadata: None,
         }])
         .expect("protobuf rule should parse");
 
@@ -1373,6 +1684,7 @@ mod tests {
             is_control_group: None,
             sampling_rate: None,
             pass_percentage_float: None,
+            remote_config_metadata: None,
         }])
         .expect("protobuf rule should parse");
 

@@ -2,6 +2,7 @@ use ahash::AHashMap;
 use std::collections::HashMap;
 
 use crate::{
+    ClientInitResponseOptions, SecondaryExposure, StatsigErr,
     evaluation::{
         dynamic_returnable::DynamicReturnable,
         evaluation_data::SpecView,
@@ -23,7 +24,6 @@ use crate::{
         target_app_id_utils::should_filter_config_for_app,
     },
     interned_string::InternedString,
-    ClientInitResponseOptions, SecondaryExposure, StatsigErr,
 };
 
 use super::{
@@ -163,6 +163,7 @@ pub(crate) fn get_dynamic_config_evaluations_with_plan(
                 )
             }
         });
+
         if should_filter {
             continue;
         }

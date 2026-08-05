@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import inspect
 import typing
 from collections.abc import Callable
@@ -151,6 +152,7 @@ def is_for_execution(access_context: AccessContext) -> bool:
 def build_server_runtime(
     access_context: AccessContext,
     store: BaseStore,
+    context: Any | None = None,
 ) -> ServerRuntime:
     """Construct the appropriate ServerRuntime variant for the access context."""
     from langgraph_api.utils import get_auth_ctx  # noqa: PLC0415
@@ -162,6 +164,8 @@ def build_server_runtime(
             access_context=access_context,
             user=user,
             store=store,
+            # copy.copy (not dict()) shallow-copies a dict yet preserves a dataclass/Pydantic context.
+            context=copy.copy(context) if context is not None else None,
         )
     return _ReadRuntime(
         access_context=access_context,

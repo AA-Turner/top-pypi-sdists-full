@@ -15,8 +15,8 @@ use statsig_rust::data_store_interface::DataStoreTrait;
 use statsig_rust::networking::proxy_config::ProxyConfig;
 use statsig_rust::output_logger::OutputLogProvider;
 use statsig_rust::statsig_options::DEFAULT_INIT_TIMEOUT_MS;
-use statsig_rust::{log_w, ConfigCompressionMode, PersistentStorage, SpecAdapterConfig};
-use statsig_rust::{output_logger::LogLevel, ObservabilityClient, StatsigOptions};
+use statsig_rust::{ConfigCompressionMode, PersistentStorage, SpecAdapterConfig, log_w};
+use statsig_rust::{ObservabilityClient, StatsigOptions, output_logger::LogLevel};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Weak};
 

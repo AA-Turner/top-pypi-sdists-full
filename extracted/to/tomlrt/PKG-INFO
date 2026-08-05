@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: tomlrt
-Version: 2.2.0
+Version: 2.2.1
 Summary: A format-preserving TOML reader and writer for Python.
-Project-URL: Repository, https://github.com/dimbleby/tomlrt
+Project-URL: Changelog, https://github.com/dimbleby/tomlrt/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://dimbleby.github.io/tomlrt/
 Project-URL: Issues, https://github.com/dimbleby/tomlrt/issues
-Project-URL: Changelog, https://github.com/dimbleby/tomlrt/blob/main/CHANGELOG.md
+Project-URL: Repository, https://github.com/dimbleby/tomlrt
 Author-email: David Hotham <david.hotham@blueyonder.co.uk>
 License-Expression: MIT
 License-File: LICENSE

@@ -215,7 +215,9 @@ use crate::value::ops::as_f64;
 use crate::value::serialize::transform;
 use crate::vm::State;
 
-pub use crate::value::argtypes::{from_args, ArgType, FunctionArgs, FunctionResult, Kwargs, Rest};
+pub use crate::value::argtypes::{
+    from_args, ArgType, FunctionArgs, FunctionResult, Kwargs, Rest, StringInput,
+};
 pub use crate::value::merge_object::merge_maps;
 pub use crate::value::object::{DynObject, Enumerator, Object, ObjectExt, ObjectRepr};
 
@@ -474,11 +476,11 @@ impl fmt::Debug for ValueRepr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             ValueRepr::Undefined(_) => f.write_str("undefined"),
-            ValueRepr::Bool(ref val) => fmt::Debug::fmt(val, f),
+            ValueRepr::Bool(val) => f.write_str(if val { "True" } else { "False" }),
             ValueRepr::U64(ref val) => fmt::Debug::fmt(val, f),
             ValueRepr::I64(ref val) => fmt::Debug::fmt(val, f),
             ValueRepr::F64(ref val) => fmt::Debug::fmt(val, f),
-            ValueRepr::None => f.write_str("none"),
+            ValueRepr::None => f.write_str("None"),
             ValueRepr::Invalid(ref val) => write!(f, "<invalid value: {val}>"),
             ValueRepr::U128(val) => fmt::Debug::fmt(&{ val.0 }, f),
             ValueRepr::I128(val) => fmt::Debug::fmt(&{ val.0 }, f),
@@ -689,7 +691,12 @@ fn cmp_f64_u128(left: f64, right: u128) -> Ordering {
     }
 }
 
-fn cmp_numbers(left: &Value, right: &Value) -> Ordering {
+// This is only needed when `coerce` cannot find a common lossless numeric
+// representation.  Keep it out of line so the rare fallback does not bloat the
+// hot comparison path.
+#[cold]
+#[inline(never)]
+fn cmp_uncoercible_numbers(left: &Value, right: &Value) -> Ordering {
     match (number(left).unwrap(), number(right).unwrap()) {
         (Number::F64(a), Number::F64(b)) => cmp_f64(a, b),
         (Number::F64(a), Number::I128(b)) => cmp_f64_i128(a, b),
@@ -717,12 +724,18 @@ impl Ord for Value {
                 a.as_str().cmp(b.as_str())
             }
             (&ValueRepr::Bytes(ref a), &ValueRepr::Bytes(ref b)) => a.cmp(b),
-            _ if self.is_number() && other.is_number() => cmp_numbers(self, other),
+            // `coerce` represents two u128 values as i128, which reverses the
+            // order if only one of them exceeds i128::MAX.
+            (&ValueRepr::U128(a), &ValueRepr::U128(b)) => { a.0 }.cmp(&{ b.0 }),
             _ => match ops::coerce(self, other, false) {
-                Some(ops::CoerceResult::F64(a, b)) => f64_total_cmp(a, b),
+                Some(ops::CoerceResult::F64(a, b)) => cmp_f64(a, b),
                 Some(ops::CoerceResult::I128(a, b)) => a.cmp(&b),
                 Some(ops::CoerceResult::Str(a, b)) => a.cmp(b),
                 None => {
+                    if self.is_number() && other.is_number() {
+                        return cmp_uncoercible_numbers(self, other);
+                    }
+
                     let a = self.as_object().unwrap();
                     let b = other.as_object().unwrap();
 
@@ -777,7 +790,7 @@ impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.0 {
             ValueRepr::Undefined(_) => Ok(()),
-            ValueRepr::Bool(val) => val.fmt(f),
+            ValueRepr::Bool(val) => f.write_str(if val { "True" } else { "False" }),
             ValueRepr::U64(val) => val.fmt(f),
             ValueRepr::I64(val) => val.fmt(f),
             ValueRepr::F64(val) => {
@@ -793,7 +806,7 @@ impl fmt::Display for Value {
                     write!(f, "{num}")
                 }
             }
-            ValueRepr::None => f.write_str("none"),
+            ValueRepr::None => f.write_str("None"),
             ValueRepr::Invalid(ref val) => write!(f, "<invalid value: {val}>"),
             ValueRepr::I128(val) => write!(f, "{}", { val.0 }),
             ValueRepr::String(ref val, _) => write!(f, "{val}"),
@@ -1738,7 +1751,9 @@ impl Value {
     /// Calls a method on the value.
     ///
     /// The name of the method is `name`, the arguments passed are in the `args`
-    /// slice.
+    /// slice.  Method lookup first tries methods implemented by the object, then
+    /// the environment's unknown method callback, and finally a callable value
+    /// stored under `name` on the object.
     pub fn call_method(&self, state: &State, name: &str, args: &[Value]) -> Result<Value, Error> {
         match self._call_method(state, name, args) {
             Ok(rv) => Ok(rv),
@@ -1759,6 +1774,17 @@ impl Value {
                             }
                         }
                     }
+                    // Calling values stored on objects by using method syntax is
+                    // supported as a fallback.  This must happen after the unknown
+                    // method callback so that type methods take precedence over
+                    // same-named items, as they do in Jinja2.
+                    if let Some(value) = self
+                        .as_object()
+                        .and_then(|object| object.get_value(&Value::from(name)))
+                    {
+                        return value.call(state, args);
+                    }
+
                     if err.detail().is_none() {
                         err.set_detail(format!("{} has no method named {}", self.kind(), name));
                     }

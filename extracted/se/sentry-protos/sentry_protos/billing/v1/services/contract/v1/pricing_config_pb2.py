@@ -24,12 +24,13 @@ _sym_db = _symbol_database.Default()
 
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
+from sentry_protos.billing.v1.common.v1 import pricing_tier_pb2 as sentry__protos_dot_billing_dot_v1_dot_common_dot_v1_dot_pricing__tier__pb2
 from sentry_protos.billing.v1.services.contract.v1 import billing_config_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v1_dot_billing__config__pb2
 from sentry_protos.billing.v1.services.contract.v1 import sku_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v1_dot_sku__pb2
 from sentry_protos.billing.v1 import sku_pb2 as sentry__protos_dot_billing_dot_v1_dot_sku__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nBsentry_protos/billing/v1/services/contract/v1/pricing_config.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x42sentry_protos/billing/v1/services/contract/v1/billing_config.proto\x1a\x37sentry_protos/billing/v1/services/contract/v1/sku.proto\x1a\"sentry_protos/billing/v1/sku.proto\"H\n\x0bPricingTier\x12\r\n\x05start\x18\x01 \x01(\x03\x12\x0b\n\x03\x65nd\x18\x02 \x01(\x03\x12\x19\n\x11rate_per_unit_cpe\x18\x03 \x01(\x03:\x02\x18\x01\"b\n\x11TieredPricingRate\x12I\n\x05tiers\x18\x01 \x03(\x0b\x32:.sentry_protos.billing.v1.services.contract.v1.PricingTier:\x02\x18\x01\"\xeb\x03\n\tSKUConfig\x12\x43\n\x03sku\x18\x01 \x01(\x0e\x32\x32.sentry_protos.billing.v1.services.contract.v1.SKUB\x02\x18\x01\x12\x18\n\x10\x62\x61se_price_cents\x18\x02 \x01(\x04\x12\x1e\n\x11payg_budget_cents\x18\x03 \x01(\x04H\x01\x88\x01\x01\x12\x1b\n\x0freserved_volume\x18\x04 \x01(\x04\x42\x02\x18\x01\x12S\n\tpayg_rate\x18\x05 \x01(\x0b\x32@.sentry_protos.billing.v1.services.contract.v1.TieredPricingRate\x12W\n\rreserved_rate\x18\x06 \x01(\x0b\x32@.sentry_protos.billing.v1.services.contract.v1.TieredPricingRate\x12\x16\n\x0cis_unlimited\x18\x07 \x01(\x08H\x00\x12\x1c\n\x12num_reserved_units\x18\x08 \x01(\x04H\x00\x12\x32\n\x0b\x62illing_sku\x18\t \x01(\x0e\x32\x1d.sentry_protos.billing.v1.SKU:\x02\x18\x01\x42\x10\n\x0ereserved_unitsB\x14\n\x12_payg_budget_cents\"\xca\x01\n\x0fSharedSKUBudget\x12\x44\n\x04skus\x18\x01 \x03(\x0e\x32\x32.sentry_protos.billing.v1.services.contract.v1.SKUB\x02\x18\x01\x12\x1d\n\x15reserved_budget_cents\x18\x02 \x01(\x04\x12\x19\n\x11payg_budget_cents\x18\x03 \x01(\x04\x12\x33\n\x0c\x62illing_skus\x18\x04 \x03(\x0e\x32\x1d.sentry_protos.billing.v1.SKU:\x02\x18\x01\"\"\n\nPAYGBudget\x12\x14\n\x0c\x62udget_cents\x18\x01 \x01(\x04\"s\n\x0bReservation\x12\x1c\n\x14reserved_price_cents\x18\x01 \x01(\x04\x12\x16\n\x0cis_unlimited\x18\x02 \x01(\x08H\x00\x12\x1c\n\x12num_reserved_units\x18\x03 \x01(\x04H\x00\x42\x10\n\x0ereserved_units\"\x1c\n\x0cLineItemUids\x12\x0c\n\x04uids\x18\x01 \x03(\t\"\x93\x01\n\nActivation\x12P\n\x06\x63hange\x18\x01 \x01(\x0e\x32@.sentry_protos.billing.v1.services.contract.v1.Activation.Change\"3\n\x06\x43hange\x12\x16\n\x12\x43HANGE_UNSPECIFIED\x10\x00\x12\x11\n\rCHANGE_REMOVE\x10\x01\"\x8e\x03\n\nUserConfig\x12N\n\x0bpayg_budget\x18\x01 \x01(\x0b\x32\x39.sentry_protos.billing.v1.services.contract.v1.PAYGBudget\x12O\n\x0breservation\x18\x02 \x01(\x0b\x32:.sentry_protos.billing.v1.services.contract.v1.Reservation\x12U\n\x0especific_items\x18\x03 \x01(\x0b\x32;.sentry_protos.billing.v1.services.contract.v1.LineItemUidsH\x00\x12+\n\tall_items\x18\x04 \x01(\x0b\x32\x16.google.protobuf.EmptyH\x00\x12M\n\nactivation\x18\x05 \x01(\x0b\x32\x39.sentry_protos.billing.v1.services.contract.v1.ActivationB\x0c\n\nline_items\"\xff\x05\n\rPricingConfig\x12V\n\x19\x62illing_period_start_date\x18\x03 \x01(\x0b\x32\x33.sentry_protos.billing.v1.services.contract.v1.Date\x12T\n\x17\x62illing_period_end_date\x18\x04 \x01(\x0b\x32\x33.sentry_protos.billing.v1.services.contract.v1.Date\x12W\n\x1aondemand_period_start_date\x18\x07 \x01(\x0b\x32\x33.sentry_protos.billing.v1.services.contract.v1.Date\x12U\n\x18ondemand_period_end_date\x18\x08 \x01(\x0b\x32\x33.sentry_protos.billing.v1.services.contract.v1.Date\x12;\n\x12usage_watermark_ts\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00\x88\x01\x01\x12N\n\x0buser_config\x18\n \x03(\x0b\x32\x39.sentry_protos.billing.v1.services.contract.v1.UserConfig\x12\x1c\n\x10\x62\x61se_price_cents\x18\x06 \x01(\x04\x42\x02\x18\x01\x12Q\n\x0bsku_configs\x18\x01 \x03(\x0b\x32\x38.sentry_protos.billing.v1.services.contract.v1.SKUConfigB\x02\x18\x01\x12^\n\x12shared_sku_budgets\x18\x02 \x03(\x0b\x32>.sentry_protos.billing.v1.services.contract.v1.SharedSKUBudgetB\x02\x18\x01\x12\x1b\n\x0fmax_spend_cents\x18\x05 \x01(\x04\x42\x02\x18\x01\x42\x15\n\x13_usage_watermark_tsb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nBsentry_protos/billing/v1/services/contract/v1/pricing_config.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x35sentry_protos/billing/v1/common/v1/pricing_tier.proto\x1a\x42sentry_protos/billing/v1/services/contract/v1/billing_config.proto\x1a\x37sentry_protos/billing/v1/services/contract/v1/sku.proto\x1a\"sentry_protos/billing/v1/sku.proto\"H\n\x0bPricingTier\x12\r\n\x05start\x18\x01 \x01(\x03\x12\x0b\n\x03\x65nd\x18\x02 \x01(\x03\x12\x19\n\x11rate_per_unit_cpe\x18\x03 \x01(\x03:\x02\x18\x01\"b\n\x11TieredPricingRate\x12I\n\x05tiers\x18\x01 \x03(\x0b\x32:.sentry_protos.billing.v1.services.contract.v1.PricingTier:\x02\x18\x01\"\xeb\x03\n\tSKUConfig\x12\x43\n\x03sku\x18\x01 \x01(\x0e\x32\x32.sentry_protos.billing.v1.services.contract.v1.SKUB\x02\x18\x01\x12\x18\n\x10\x62\x61se_price_cents\x18\x02 \x01(\x04\x12\x1e\n\x11payg_budget_cents\x18\x03 \x01(\x04H\x01\x88\x01\x01\x12\x1b\n\x0freserved_volume\x18\x04 \x01(\x04\x42\x02\x18\x01\x12S\n\tpayg_rate\x18\x05 \x01(\x0b\x32@.sentry_protos.billing.v1.services.contract.v1.TieredPricingRate\x12W\n\rreserved_rate\x18\x06 \x01(\x0b\x32@.sentry_protos.billing.v1.services.contract.v1.TieredPricingRate\x12\x16\n\x0cis_unlimited\x18\x07 \x01(\x08H\x00\x12\x1c\n\x12num_reserved_units\x18\x08 \x01(\x04H\x00\x12\x32\n\x0b\x62illing_sku\x18\t \x01(\x0e\x32\x1d.sentry_protos.billing.v1.SKU:\x02\x18\x01\x42\x10\n\x0ereserved_unitsB\x14\n\x12_payg_budget_cents\"\xca\x01\n\x0fSharedSKUBudget\x12\x44\n\x04skus\x18\x01 \x03(\x0e\x32\x32.sentry_protos.billing.v1.services.contract.v1.SKUB\x02\x18\x01\x12\x1d\n\x15reserved_budget_cents\x18\x02 \x01(\x04\x12\x19\n\x11payg_budget_cents\x18\x03 \x01(\x04\x12\x33\n\x0c\x62illing_skus\x18\x04 \x03(\x0e\x32\x1d.sentry_protos.billing.v1.SKU:\x02\x18\x01\"\x8d\x01\n\nPAYGBudget\x12\x14\n\x0c\x62udget_cents\x18\x01 \x01(\x04\x12T\n\x10\x63ustom_payg_rate\x18\x02 \x01(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.TieredPricingRateH\x00\x88\x01\x01\x42\x13\n\x11_custom_payg_rate\"s\n\x0bReservation\x12\x1c\n\x14reserved_price_cents\x18\x01 \x01(\x04\x12\x16\n\x0cis_unlimited\x18\x02 \x01(\x08H\x00\x12\x1c\n\x12num_reserved_units\x18\x03 \x01(\x04H\x00\x42\x10\n\x0ereserved_units\"\x1c\n\x0cLineItemUids\x12\x0c\n\x04uids\x18\x01 \x03(\t\"\x93\x01\n\nActivation\x12P\n\x06\x63hange\x18\x01 \x01(\x0e\x32@.sentry_protos.billing.v1.services.contract.v1.Activation.Change\"3\n\x06\x43hange\x12\x16\n\x12\x43HANGE_UNSPECIFIED\x10\x00\x12\x11\n\rCHANGE_REMOVE\x10\x01\"\x8e\x03\n\nUserConfig\x12N\n\x0bpayg_budget\x18\x01 \x01(\x0b\x32\x39.sentry_protos.billing.v1.services.contract.v1.PAYGBudget\x12O\n\x0breservation\x18\x02 \x01(\x0b\x32:.sentry_protos.billing.v1.services.contract.v1.Reservation\x12U\n\x0especific_items\x18\x03 \x01(\x0b\x32;.sentry_protos.billing.v1.services.contract.v1.LineItemUidsH\x00\x12+\n\tall_items\x18\x04 \x01(\x0b\x32\x16.google.protobuf.EmptyH\x00\x12M\n\nactivation\x18\x05 \x01(\x0b\x32\x39.sentry_protos.billing.v1.services.contract.v1.ActivationB\x0c\n\nline_items\"\xff\x05\n\rPricingConfig\x12V\n\x19\x62illing_period_start_date\x18\x03 \x01(\x0b\x32\x33.sentry_protos.billing.v1.services.contract.v1.Date\x12T\n\x17\x62illing_period_end_date\x18\x04 \x01(\x0b\x32\x33.sentry_protos.billing.v1.services.contract.v1.Date\x12W\n\x1aondemand_period_start_date\x18\x07 \x01(\x0b\x32\x33.sentry_protos.billing.v1.services.contract.v1.Date\x12U\n\x18ondemand_period_end_date\x18\x08 \x01(\x0b\x32\x33.sentry_protos.billing.v1.services.contract.v1.Date\x12;\n\x12usage_watermark_ts\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00\x88\x01\x01\x12N\n\x0buser_config\x18\n \x03(\x0b\x32\x39.sentry_protos.billing.v1.services.contract.v1.UserConfig\x12\x1c\n\x10\x62\x61se_price_cents\x18\x06 \x01(\x04\x42\x02\x18\x01\x12Q\n\x0bsku_configs\x18\x01 \x03(\x0b\x32\x38.sentry_protos.billing.v1.services.contract.v1.SKUConfigB\x02\x18\x01\x12^\n\x12shared_sku_budgets\x18\x02 \x03(\x0b\x32>.sentry_protos.billing.v1.services.contract.v1.SharedSKUBudgetB\x02\x18\x01\x12\x1b\n\x0fmax_spend_cents\x18\x05 \x01(\x04\x42\x02\x18\x01\x42\x15\n\x13_usage_watermark_tsb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -58,26 +59,26 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_PRICINGCONFIG'].fields_by_name['shared_sku_budgets']._serialized_options = b'\030\001'
   _globals['_PRICINGCONFIG'].fields_by_name['max_spend_cents']._loaded_options = None
   _globals['_PRICINGCONFIG'].fields_by_name['max_spend_cents']._serialized_options = b'\030\001'
-  _globals['_PRICINGTIER']._serialized_start=340
-  _globals['_PRICINGTIER']._serialized_end=412
-  _globals['_TIEREDPRICINGRATE']._serialized_start=414
-  _globals['_TIEREDPRICINGRATE']._serialized_end=512
-  _globals['_SKUCONFIG']._serialized_start=515
-  _globals['_SKUCONFIG']._serialized_end=1006
-  _globals['_SHAREDSKUBUDGET']._serialized_start=1009
-  _globals['_SHAREDSKUBUDGET']._serialized_end=1211
-  _globals['_PAYGBUDGET']._serialized_start=1213
-  _globals['_PAYGBUDGET']._serialized_end=1247
-  _globals['_RESERVATION']._serialized_start=1249
-  _globals['_RESERVATION']._serialized_end=1364
-  _globals['_LINEITEMUIDS']._serialized_start=1366
-  _globals['_LINEITEMUIDS']._serialized_end=1394
-  _globals['_ACTIVATION']._serialized_start=1397
-  _globals['_ACTIVATION']._serialized_end=1544
-  _globals['_ACTIVATION_CHANGE']._serialized_start=1493
-  _globals['_ACTIVATION_CHANGE']._serialized_end=1544
-  _globals['_USERCONFIG']._serialized_start=1547
-  _globals['_USERCONFIG']._serialized_end=1945
-  _globals['_PRICINGCONFIG']._serialized_start=1948
-  _globals['_PRICINGCONFIG']._serialized_end=2715
+  _globals['_PRICINGTIER']._serialized_start=395
+  _globals['_PRICINGTIER']._serialized_end=467
+  _globals['_TIEREDPRICINGRATE']._serialized_start=469
+  _globals['_TIEREDPRICINGRATE']._serialized_end=567
+  _globals['_SKUCONFIG']._serialized_start=570
+  _globals['_SKUCONFIG']._serialized_end=1061
+  _globals['_SHAREDSKUBUDGET']._serialized_start=1064
+  _globals['_SHAREDSKUBUDGET']._serialized_end=1266
+  _globals['_PAYGBUDGET']._serialized_start=1269
+  _globals['_PAYGBUDGET']._serialized_end=1410
+  _globals['_RESERVATION']._serialized_start=1412
+  _globals['_RESERVATION']._serialized_end=1527
+  _globals['_LINEITEMUIDS']._serialized_start=1529
+  _globals['_LINEITEMUIDS']._serialized_end=1557
+  _globals['_ACTIVATION']._serialized_start=1560
+  _globals['_ACTIVATION']._serialized_end=1707
+  _globals['_ACTIVATION_CHANGE']._serialized_start=1656
+  _globals['_ACTIVATION_CHANGE']._serialized_end=1707
+  _globals['_USERCONFIG']._serialized_start=1710
+  _globals['_USERCONFIG']._serialized_end=2108
+  _globals['_PRICINGCONFIG']._serialized_start=2111
+  _globals['_PRICINGCONFIG']._serialized_end=2878
 # @@protoc_insertion_point(module_scope)

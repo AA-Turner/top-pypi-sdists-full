@@ -500,6 +500,39 @@ class DenseVectorIndexOptionsRescoreVector(AttrDict[Any]):
         super().__init__(kwargs)
 
 
+class DocValuesConfig(AttrDict[Any]):
+    """
+    Configuration object for doc values when sub-parameters are needed.
+
+    :arg multi_value: If `false`, the field is treated as single-valued,
+        enabling optimized storage. Only has an effect when columnar index
+        mode is active. Defaults to `True` if omitted.
+    :arg nullability: If `false`, every document must provide a non-null
+        value for the field: a document that omits the field, sets it to
+        `null`, or supplies only null values (an empty array or an all-
+        null array) is rejected at index time. A field that defines
+        `null_value` is always exempt, since the configured default
+        removes the absence of a value. Only has an effect when columnar
+        index mode is active. Defaults to `True` if omitted.
+    """
+
+    multi_value: Union[bool, DefaultType]
+    nullability: Union[bool, DefaultType]
+
+    def __init__(
+        self,
+        *,
+        multi_value: Union[bool, DefaultType] = DEFAULT,
+        nullability: Union[bool, DefaultType] = DEFAULT,
+        **kwargs: Any,
+    ):
+        if multi_value is not DEFAULT:
+            kwargs["multi_value"] = multi_value
+        if nullability is not DEFAULT:
+            kwargs["nullability"] = nullability
+        super().__init__(kwargs)
+
+
 class Embedding(AttrDict[Any]):
     """
     :arg input: (required)
@@ -1693,14 +1726,16 @@ class InferenceString(AttrDict[Any]):
         for the given type is used.
     """
 
-    type: Union[Literal["text", "image"], DefaultType]
+    type: Union[Literal["text", "image", "audio", "video", "pdf"], DefaultType]
     value: Union[str, DefaultType]
     format: Union[Literal["text", "base64"], None, DefaultType]
 
     def __init__(
         self,
         *,
-        type: Union[Literal["text", "image"], DefaultType] = DEFAULT,
+        type: Union[
+            Literal["text", "image", "audio", "video", "pdf"], DefaultType
+        ] = DEFAULT,
         value: Union[str, DefaultType] = DEFAULT,
         format: Union[Literal["text", "base64"], None, DefaultType] = DEFAULT,
         **kwargs: Any,
@@ -4282,8 +4317,8 @@ class TextExpansionQuery(AttrDict[Any]):
 
 class TextIndexPrefixes(AttrDict[Any]):
     """
-    :arg max_chars: (required)
-    :arg min_chars: (required)
+    :arg max_chars:
+    :arg min_chars:
     """
 
     max_chars: Union[int, DefaultType]
@@ -6274,9 +6309,12 @@ class PhraseSuggestOption(AttrDict[Any]):
 class Profile(AttrDict[Any]):
     """
     :arg shards: (required)
+    :arg request: When profiling is enabled, the original query source and
+        target indices from the coordinating request.
     """
 
     shards: Sequence["ShardProfile"]
+    request: "SearchRequestCoordinatorMetadata"
 
 
 class QueryBreakdown(AttrDict[Any]):
@@ -6487,6 +6525,23 @@ class SearchProfile(AttrDict[Any]):
     collector: Sequence["Collector"]
     query: Sequence["QueryProfile"]
     rewrite_time: int
+
+
+class SearchRequestCoordinatorMetadata(AttrDict[Any]):
+    """
+    Coordinator snapshot of the original search request, serialized under
+    `profile.request` when profiling is enabled. Introduced in
+    Elasticsearch 9.5; omitted when the cluster contains mixed-version
+    nodes that do not serialize this metadata.
+
+    :arg source: Original query source from the search request
+        (`SearchSourceBuilder` as JSON).
+    :arg indices: Target index expressions from the request (before index
+        resolution).
+    """
+
+    source: Dict[str, Any]
+    indices: Sequence[str]
 
 
 class ShardFailure(AttrDict[Any]):

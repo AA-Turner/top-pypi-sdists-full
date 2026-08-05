@@ -37,6 +37,7 @@ class DisassemblyResult:
         # key: address of API in target DLL, value: {referencing_addr, api_name, dll_name}
         self.apis = {}
         self._api_ref_sources = {}
+        self._api_refs_initialized = False
         self.addr_to_api = {}
         # address:name
         self.function_symbols = {}
@@ -58,7 +59,7 @@ class DisassemblyResult:
     def _normalize_export_addresses(exported, base_addr):
         if not exported:
             return set()
-        addresses = set(exported.keys()) if isinstance(exported, dict) else set(exported)
+        addresses: set = set(exported.keys()) if isinstance(exported, dict) else set(exported)
         if not addresses or not base_addr:
             return addresses
         if max(addresses) >= base_addr:
@@ -66,21 +67,33 @@ class DisassemblyResult:
         return {address + base_addr for address in addresses}
 
     def getByte(self, addr):
+        binary_info = self.binary_info
+        if binary_info is None:
+            return None
         if self.isAddrWithinMemoryImage(addr):
-            return self.binary_info.binary[addr - self.binary_info.base_addr]
+            return binary_info.binary[addr - binary_info.base_addr]
         return None
 
     def getRawByte(self, offset):
-        return self.binary_info.binary[offset]
+        binary_info = self.binary_info
+        if binary_info is None:
+            return None
+        return binary_info.binary[offset]
 
     def getBytes(self, addr, num_bytes):
+        binary_info = self.binary_info
+        if binary_info is None:
+            return None
         if self.isAddrWithinMemoryImage(addr):
-            rel_start_addr = addr - self.binary_info.base_addr
-            return self.binary_info.binary[rel_start_addr : rel_start_addr + num_bytes]
+            rel_start_addr = addr - binary_info.base_addr
+            return binary_info.binary[rel_start_addr : rel_start_addr + num_bytes]
         return None
 
     def getRawBytes(self, offset, num_bytes):
-        return self.binary_info.binary[offset : offset + num_bytes]
+        binary_info = self.binary_info
+        if binary_info is None:
+            return None
+        return binary_info.binary[offset : offset + num_bytes]
 
     def setConfidenceThreshold(self, threshold):
         self._confidence_threshold = threshold
@@ -330,6 +343,7 @@ class DisassemblyResult:
         return len(out_refs.difference(ins_addrs)) == 0
 
     def _initApiRefs(self):
+        self._api_refs_initialized = True
         for api_offset in self.apis:
             api = self.apis[api_offset]
             for ref in api["referencing_addr"]:
@@ -350,6 +364,7 @@ class DisassemblyResult:
             ref_sources.add(referencing_addr)
             api_entry["referencing_addr"].append(referencing_addr)
         self.apis[api_addr] = api_entry
+        self._api_refs_initialized = False
 
     def getAllApiRefs(self):
         all_api_refs = {}
@@ -358,7 +373,9 @@ class DisassemblyResult:
         return all_api_refs
 
     def getApiRefs(self, func_addr):
-        if not self.addr_to_api:
+        # an explicit flag, not a truthiness test: the old guard re-walked every API on every
+        # call for a binary with zero APIs, and never refreshed once the map was non-empty
+        if not self._api_refs_initialized:
             self._initApiRefs()
         api_refs = {}
         for block in self.functions[func_addr]:

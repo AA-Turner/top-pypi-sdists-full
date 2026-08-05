@@ -6,7 +6,7 @@ use std::{
 
 use jsonschema::{
     canonical::{options, CanonicalKind, CanonicalSchema, CanonicalView, OperandMismatch},
-    canonicalize, CanonicalizationError, Draft, JsonType, PatternOptions, Registry,
+    canonicalize, validator_for, CanonicalizationError, Draft, JsonType, PatternOptions, Registry,
 };
 use serde_json::{json, Map, Number, Value};
 use test_case::test_case;
@@ -666,6 +666,8 @@ fn object_view_exposes_property_names() {
 #[test_case(&json!({"type": "array", "items": {"type": "string", "format": "only-ok"}}), &json!(["nope"]); "item schema")]
 #[test_case(&json!({"type": "array", "contains": {"type": "string", "format": "only-ok"}}), &json!(["nope"]); "contains schema")]
 #[test_case(&json!({"type": "object", "properties": {"a": {"type": "array", "contains": {"type": "string", "format": "only-ok"}}}}), &json!({"a": ["nope"]}); "contains under a property")]
+#[test_case(&json!({"type": "object", "properties": {"a": {"type": "object", "additionalProperties": {"format": "only-ok"}}}}), &json!({"a": {"b": "nope"}}); "additional properties shield")]
+#[test_case(&json!({"type": "object", "properties": {"a": {"type": "array", "contains": {"not": {"format": "only-ok"}}, "minContains": 0, "maxContains": 1}}}), &json!({"a": ["nope", "other"]}); "barred format under a contains ceiling")]
 fn uncheckable_format_keeps_the_value_beside_the_leaf(leaf: &Value, instance: &Value) {
     let schema = json!({"anyOf": [{"const": instance}, leaf]});
     let canonical = options()
@@ -1031,6 +1033,8 @@ fn negated_type_set_complement_converges_with_direct_spelling() {
 #[test_case(r#"{"type":"number","minimum":1e999999999999999999999}"#; "huge_exponent_bound")]
 #[test_case(r#"{"type":"number","multipleOf":1e999999999999999999999}"#; "huge_exponent_divisor")]
 #[test_case(&format!(r#"{{"const":1{}}}"#, "0".repeat((1 << 20) + 1)); "huge_digit_count")]
+#[test_case(&format!(r#"{{"const":0.{}1}}"#, "0".repeat(1 << 20)); "huge_fraction_digit_count")]
+#[test_case(&format!(r#"{{"enum":[0.{}1]}}"#, "0".repeat(1 << 20)); "huge_fraction_digit_count_enum")]
 fn numerals_without_exact_comparison_stay_raw(text: &str) {
     let schema: Value = serde_json::from_str(text).expect("valid schema JSON");
     let canonical = canonicalize(&schema).expect("canonicalizes");
@@ -1683,6 +1687,455 @@ fn intersect_rejects_operands_with_distinct_definition_maps() {
     );
 }
 
+// A shield governs every key the other side's patterns match, so the meet has to reach into those
+// pattern entries; leaving them alone admits values the conjunction rejects.
+#[test_case(
+    &json!({"patternProperties": {"^a": {"type": "integer"}}, "additionalProperties": false}),
+    &json!({"additionalProperties": {"type": "string"}});
+    "closed pattern map meets a shield"
+)]
+#[test_case(
+    &json!({"additionalProperties": {"type": "string"}}),
+    &json!({"patternProperties": {"^a": {"type": "integer"}}, "additionalProperties": false});
+    "shield meets a closed pattern map"
+)]
+#[test_case(
+    &json!({"patternProperties": {"^a": {"type": "integer"}}}),
+    &json!({"additionalProperties": {"type": "string"}});
+    "open pattern map meets a shield"
+)]
+#[test_case(
+    &json!({"additionalProperties": {"type": "string"}}),
+    &json!({"patternProperties": {"^a": {"type": "integer"}}});
+    "shield meets an open pattern map"
+)]
+#[test_case(
+    &json!({"patternProperties": {"^a": {"type": "integer"}}, "additionalProperties": false}),
+    &json!({"properties": {"a1": {"type": "string"}}, "additionalProperties": {"type": "string"}});
+    "closed pattern map meets a shield naming a matched key"
+)]
+#[test_case(
+    &json!({"patternProperties": {"^a": {"type": "integer"}}, "additionalProperties": false}),
+    &json!({"patternProperties": {"^a": {"minimum": 3}}, "additionalProperties": false});
+    "two closed pattern maps"
+)]
+fn intersect_object_shield_and_patterns_keeps_validation_parity(left: &Value, right: &Value) {
+    let merged = canonicalize(left)
+        .expect("canonicalizes")
+        .intersect(&canonicalize(right).expect("canonicalizes"))
+        .expect("intersects")
+        .to_json_schema();
+    let document = canonicalize(&json!({"allOf": [left, right]}))
+        .expect("canonicalizes")
+        .to_json_schema();
+
+    let left_validator = validator_for(left).expect("compiles");
+    let right_validator = validator_for(right).expect("compiles");
+    let merged_validator = validator_for(&merged).expect("compiles");
+    let document_validator = validator_for(&document).expect("compiles");
+    for instance in [
+        json!({"a1": 5}),
+        json!({"a1": "s"}),
+        json!({"b": "s"}),
+        json!({"b": 5}),
+        json!({}),
+        json!(1),
+    ] {
+        let conjunction = left_validator.is_valid(&instance) && right_validator.is_valid(&instance);
+        assert_eq!(
+            merged_validator.is_valid(&instance),
+            conjunction,
+            "{instance}"
+        );
+        assert_eq!(
+            document_validator.is_valid(&instance),
+            conjunction,
+            "{instance}"
+        );
+    }
+}
+
+#[test]
+fn intersect_object_shield_meets_the_pattern_entries_it_governs() {
+    let patterns = canonicalize(&json!({"patternProperties": {"^a": {"type": "integer"}}}))
+        .expect("canonicalizes");
+    let shield =
+        canonicalize(&json!({"additionalProperties": {"type": "string"}})).expect("canonicalizes");
+
+    assert_eq!(
+        patterns
+            .intersect(&shield)
+            .expect("intersects")
+            .to_json_schema(),
+        json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "anyOf": [
+                {"type": ["null", "boolean", "number", "string", "array"]},
+                {
+                    "type": "object",
+                    "patternProperties": {"^a": false},
+                    "additionalProperties": {"type": "string"}
+                }
+            ]
+        })
+    );
+}
+
+// A key only one pattern map matches answers to the other map's shield, and a key both match
+// answers to neither, so placing the shields needs to know which keys the two patterns share.
+#[test]
+fn intersect_declines_pattern_maps_on_both_sides_of_a_shield() {
+    let shield =
+        canonicalize(&json!({"additionalProperties": {"type": "string"}})).expect("canonicalizes");
+    let left =
+        canonicalize(&json!({"patternProperties": {"^a": {"type": "string", "minLength": 2}}}))
+            .expect("canonicalizes")
+            .intersect(&shield)
+            .expect("intersects");
+    let right =
+        canonicalize(&json!({"patternProperties": {"^b": {"type": "string", "maxLength": 5}}}))
+            .expect("canonicalizes")
+            .intersect(&shield)
+            .expect("intersects");
+
+    assert!(matches!(
+        left.intersect(&right),
+        Err(CanonicalizationError::UnmodeledOperand)
+    ));
+}
+
+// `a1` is outside the shield that names it, so meeting that shield into the `^a` entry would
+// demand of `a1` something neither side does.
+#[test]
+fn intersect_declines_a_shield_naming_a_key_its_own_entry_leaves_the_pattern() {
+    let patterns = canonicalize(&json!({"patternProperties": {"^a": {"type": "integer"}}}))
+        .expect("canonicalizes");
+    let shield = canonicalize(
+        &json!({"properties": {"a1": {"type": "number"}}, "additionalProperties": {"type": "string"}}),
+    )
+    .expect("canonicalizes");
+
+    assert!(matches!(
+        patterns.intersect(&shield),
+        Err(CanonicalizationError::UnmodeledOperand)
+    ));
+}
+
+// Containment is proved by meeting the two sides, so a meet `intersect` will not hand out cannot
+// carry a verdict either: it stands in for the real one and may be wider than it.
+#[test]
+fn is_subset_of_declines_what_only_an_unspellable_meet_would_prove() {
+    let shield =
+        canonicalize(&json!({"additionalProperties": {"type": "string"}})).expect("canonicalizes");
+    let wide = canonicalize(
+        &json!({"patternProperties": {"^a": {"type": "string"}, "^b": {"type": "string"}}}),
+    )
+    .expect("canonicalizes")
+    .intersect(&shield)
+    .expect("intersects");
+    let narrow = canonicalize(&json!({"patternProperties": {"^a": {"type": "string"}}}))
+        .expect("canonicalizes")
+        .intersect(&shield)
+        .expect("intersects");
+
+    assert!(matches!(
+        wide.intersect(&narrow),
+        Err(CanonicalizationError::UnmodeledOperand)
+    ));
+    assert_eq!(wide.is_subset_of(&narrow).expect("compares"), None);
+}
+
+// Matching pattern maps leave no key one side matches and the other does not, so neither shield
+// can reach past the entries and the meet needs no pattern-overlap reasoning.
+#[test]
+fn intersect_meets_pattern_maps_naming_the_same_patterns_beside_shields() {
+    let shield =
+        canonicalize(&json!({"additionalProperties": {"minLength": 2}})).expect("canonicalizes");
+    let left = canonicalize(&json!({"patternProperties": {"^a": {"type": "string"}}}))
+        .expect("canonicalizes")
+        .intersect(&shield)
+        .expect("intersects");
+    let right = canonicalize(&json!({"patternProperties": {"^a": {"maxLength": 4}}}))
+        .expect("canonicalizes")
+        .intersect(&shield)
+        .expect("intersects");
+    let merged = left.intersect(&right).expect("intersects").to_json_schema();
+
+    let left_validator = validator_for(&left.to_json_schema()).expect("compiles");
+    let right_validator = validator_for(&right.to_json_schema()).expect("compiles");
+    let merged_validator = validator_for(&merged).expect("compiles");
+    for instance in [
+        json!({"a1": "abc"}),
+        json!({"a1": "abcde"}),
+        json!({"a1": "a"}),
+        json!({"a1": 5}),
+        json!({"b": "abc"}),
+        json!({"b": "a"}),
+        json!({}),
+    ] {
+        assert_eq!(
+            merged_validator.is_valid(&instance),
+            left_validator.is_valid(&instance) && right_validator.is_valid(&instance),
+            "{instance}"
+        );
+    }
+}
+
+fn draft4(body: &Value) -> Value {
+    let mut map = body.as_object().expect("object").clone();
+    map.insert(
+        "$schema".into(),
+        json!("http://json-schema.org/draft-04/schema#"),
+    );
+    Value::Object(map)
+}
+
+fn draft4_closed_pattern_map(pattern: &str) -> Value {
+    draft4(&json!({
+        "patternProperties": {pattern: {"type": "integer"}},
+        "additionalProperties": false
+    }))
+}
+
+// Draft 4 has no `propertyNames`, so meeting two closed pattern maps must keep a spelling a Draft 4
+// validator reads - emitting one it ignores would admit every key the meet forbids.
+#[test_case(&json!({"c": 1}); "key outside both patterns")]
+#[test_case(&json!({"a1": 5}); "key inside one pattern only")]
+#[test_case(&json!({}); "no key at all")]
+fn intersect_draft4_closed_pattern_maps_keeps_validation_parity(instance: &Value) {
+    let left = draft4_closed_pattern_map("^a");
+    let right = draft4_closed_pattern_map("^b");
+    let merged = canonicalize(&left)
+        .expect("canonicalizes")
+        .intersect(&canonicalize(&right).expect("canonicalizes"))
+        .expect("intersects")
+        .to_json_schema();
+
+    let both = validator_for(&left).expect("compiles").is_valid(instance)
+        && validator_for(&right).expect("compiles").is_valid(instance);
+    assert_eq!(
+        validator_for(&merged).expect("compiles").is_valid(instance),
+        both
+    );
+}
+
+#[test]
+fn intersect_draft4_closed_pattern_maps_emits_a_closed_map_per_pattern() {
+    let merged = canonicalize(&draft4_closed_pattern_map("^a"))
+        .expect("canonicalizes")
+        .intersect(&canonicalize(&draft4_closed_pattern_map("^b")).expect("canonicalizes"))
+        .expect("intersects");
+    assert_eq!(
+        merged.to_json_schema(),
+        json!({
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "anyOf": [
+                {"type": ["null", "boolean", "number", "string", "array"]},
+                {
+                    "type": "object",
+                    "patternProperties": {"^a": {"type": "integer"}, "^b": {"type": "integer"}},
+                    "allOf": [
+                        {"patternProperties": {"^a": {}}, "additionalProperties": false},
+                        {"patternProperties": {"^b": {}}, "additionalProperties": false}
+                    ]
+                }
+            ]
+        })
+    );
+}
+
+// Meeting two documents reshapes a key constraint past the closed map either was parsed from.
+#[test_case(
+    &json!({"patternProperties": {"^a": {"type": "integer"}}, "additionalProperties": false}),
+    &json!({"patternProperties": {"^c": {"type": "string"}}});
+    "pattern entry outside the closed map"
+)]
+#[test_case(
+    &json!({"patternProperties": {"^a": {"type": "integer"}}, "additionalProperties": false}),
+    &json!({"properties": {"a1": {"type": "string"}}});
+    "named entry a pattern admits"
+)]
+#[test_case(
+    &json!({"properties": {"x": {"type": "integer"}}, "patternProperties": {"^a": {"type": "integer"}}, "additionalProperties": false}),
+    &json!({"properties": {"x": {"type": "integer"}}, "patternProperties": {"^b": {"type": "integer"}}, "additionalProperties": false});
+    "shared key beside disjoint patterns"
+)]
+#[test_case(
+    &json!({"patternProperties": {"^a": {"type": "integer"}}, "additionalProperties": false}),
+    &json!({"additionalProperties": {"type": "string"}});
+    "closed pattern map meets a shield"
+)]
+fn intersect_draft4_object_leaves_keeps_validation_parity(left: &Value, right: &Value) {
+    let left = draft4(left);
+    let right = draft4(right);
+    let merged = canonicalize(&left)
+        .expect("canonicalizes")
+        .intersect(&canonicalize(&right).expect("canonicalizes"))
+        .expect("intersects")
+        .to_json_schema();
+
+    let left_validator = validator_for(&left).expect("compiles");
+    let right_validator = validator_for(&right).expect("compiles");
+    let merged_validator = validator_for(&merged).expect("compiles");
+    for instance in [
+        json!({}),
+        json!({"a1": 5}),
+        json!({"a1": "s"}),
+        json!({"b1": 5}),
+        json!({"c": 1}),
+        json!({"x": 1}),
+    ] {
+        assert_eq!(
+            merged_validator.is_valid(&instance),
+            left_validator.is_valid(&instance) && right_validator.is_valid(&instance),
+            "{instance}"
+        );
+    }
+}
+
+#[test_case(&json!({"type": "integer"}), &json!({"type": "integer"}), Some(true); "identical forms")]
+#[test_case(&json!({"const": 1}), &json!({"type": "integer"}), Some(true); "constant inside a type")]
+#[test_case(&json!({"enum": [1, 2]}), &json!({"type": "integer"}), Some(true); "enum inside a type")]
+#[test_case(&json!({"type": "integer", "minimum": 5}), &json!({"type": "integer"}), Some(true); "bounded inside unbounded")]
+#[test_case(&json!({"const": "x"}), &json!({"type": "integer"}), Some(false); "constant witness refutes")]
+#[test_case(&json!({"enum": [1, "x"]}), &json!({"type": "integer"}), Some(false); "enum member witness refutes")]
+#[test_case(&json!({"type": "string"}), &json!({"type": "integer"}), None; "disjoint types without a witness")]
+#[test_case(&json!({"type": "integer"}), &json!({"type": "integer", "minimum": 5}), None; "unbounded against bounded")]
+fn is_subset_of_decides(left: &Value, right: &Value, expected: Option<bool>) {
+    let left = canonicalize(left).expect("canonicalizes");
+    let right = canonicalize(right).expect("canonicalizes");
+    assert_eq!(left.is_subset_of(&right).expect("compares"), expected);
+}
+
+#[test_case(&json!({
+    "anyOf": [
+        {"type": "array", "contains": {"type": "null"}},
+        {"type": "array", "items": {"$ref": "#/$defs/a"}}
+    ],
+    "$defs": {"a": {"type": "integer"}}
+}); "array union of a contains branch and a referencing items branch")]
+#[test_case(&json!({
+    "anyOf": [
+        {"type": "array", "contains": {"type": "null"}},
+        {"type": "array", "items": {"type": "integer"}}
+    ]
+}); "array union of a contains branch and an items branch")]
+#[test_case(&json!({
+    "anyOf": [
+        {"type": "array", "contains": {"type": "string"}},
+        {"type": "array", "prefixItems": [{"type": "integer"}]}
+    ]
+}); "array union of a contains branch and a prefix branch")]
+#[test_case(&json!({
+    "anyOf": [
+        {"type": "array", "contains": {"type": "null"}, "minItems": 2},
+        {"type": "array", "items": {"type": "string"}, "maxItems": 3}
+    ]
+}); "array union of sized contains and items branches")]
+#[test_case(&json!({
+    "anyOf": [
+        {"type": "array", "contains": {"type": "null"}},
+        {"type": "array", "contains": {"type": "boolean"}}
+    ]
+}); "array union of two contains branches")]
+#[test_case(&json!({"type": "array", "contains": {"type": "null"}}); "single array leaf with contains")]
+#[test_case(&json!({"type": "array", "items": {"$ref": "#/$defs/a"}, "$defs": {"a": {"type": "integer"}}}); "array items behind a reference")]
+#[test_case(&json!({"type": "array", "prefixItems": [{"type": "integer"}], "items": {"type": "string"}}); "array with a prefix and a tail")]
+#[test_case(&json!({
+    "anyOf": [
+        {"type": "object", "properties": {"a": {"type": "integer"}}, "required": ["a"]},
+        {"type": "object", "properties": {"b": {"type": "string"}}, "required": ["b"]}
+    ]
+}); "object union of two required-key branches")]
+#[test_case(&json!({
+    "anyOf": [
+        {"type": "object", "additionalProperties": {"$ref": "#/$defs/a"}},
+        {"type": "object", "required": ["b"]}
+    ],
+    "$defs": {"a": {"type": "integer"}}
+}); "object union of a referencing value branch and a required-key branch")]
+#[test_case(&json!({"anyOf": [{"type": "string", "minLength": 2}, {"type": "string", "pattern": "^a"}]}); "string union of a length branch and a pattern branch")]
+#[test_case(&json!({"anyOf": [{"type": "string", "format": "date"}, {"type": "string", "maxLength": 4}]}); "string union of a format branch and a length branch")]
+#[test_case(&json!({"anyOf": [{"type": "array", "contains": {"type": "null"}}, {"type": "string", "pattern": "^a"}, {"type": "integer", "minimum": 3}]}); "union across three types")]
+fn is_subset_of_proves_a_schema_a_subset_of_itself(schema: &Value) {
+    let canonical = canonicalize(schema).expect("canonicalizes");
+    assert_eq!(
+        canonical.is_subset_of(&canonical).expect("compares"),
+        Some(true)
+    );
+}
+
+// Two symbolic references are not compared through their targets.
+#[test]
+fn is_subset_of_declines_distinct_references() {
+    let root = canonicalize(&json!({
+        "type": "object",
+        "$defs": {"A": {"type": "string"}, "B": {"type": "string"}},
+        "properties": {"a": {"$ref": "#/$defs/A"}, "b": {"$ref": "#/$defs/B"}}
+    }))
+    .expect("canonicalizes");
+    let CanonicalView::Object(view) = root.view() else {
+        panic!("expected an Object view");
+    };
+    let left = view.properties.get("a").expect("property a").clone();
+    let right = view.properties.get("b").expect("property b").clone();
+    assert_eq!(left.is_subset_of(&right).expect("compares"), None);
+}
+
+#[test_case(false; "raw on the left")]
+#[test_case(true; "raw on the right")]
+fn is_subset_of_rejects_a_raw_operand(swap: bool) {
+    let raw = canonicalize(&unmodeled()).expect("canonicalizes");
+    let modeled = canonicalize(&json!({"type": "string"})).expect("canonicalizes");
+    let (left, right) = if swap {
+        (&modeled, &raw)
+    } else {
+        (&raw, &modeled)
+    };
+    assert!(matches!(
+        left.is_subset_of(right),
+        Err(CanonicalizationError::UnmodeledOperand)
+    ));
+}
+
+#[test]
+fn is_subset_of_rejects_operands_from_different_drafts() {
+    let draft7 = options()
+        .with_draft(Draft::Draft7)
+        .canonicalize(&json!({"type": "string"}))
+        .expect("canonicalizes");
+    let latest = canonicalize(&json!({"type": "string"})).expect("canonicalizes");
+    assert!(matches!(
+        draft7.is_subset_of(&latest),
+        Err(CanonicalizationError::IncompatibleOperands(
+            OperandMismatch::Drafts {
+                left: Draft::Draft7,
+                right: Draft::Draft202012
+            }
+        ))
+    ));
+}
+
+#[test]
+fn is_subset_of_rejects_operands_with_distinct_definition_maps() {
+    let left = canonicalize(&json!({
+        "$defs": {"A": {"type": "string"}},
+        "$ref": "#/$defs/A"
+    }))
+    .expect("canonicalizes");
+    let right = canonicalize(&json!({
+        "$defs": {"B": {"minLength": 4}},
+        "$ref": "#/$defs/B"
+    }))
+    .expect("canonicalizes");
+    assert!(matches!(
+        left.is_subset_of(&right),
+        Err(CanonicalizationError::IncompatibleOperands(
+            OperandMismatch::Definitions
+        ))
+    ));
+}
+
 #[test_case(
     &json!({"type": "string", "minLength": 5}),
     &json!({"anyOf": [
@@ -1739,6 +2192,18 @@ fn negate_spells_the_complement(schema: &Value, expected: &Value) {
     &json!({"type": "array", "items": {"type": "string"}, "contains": {"const": "a"}});
     "array existential demand beside an element schema"
 )]
+#[test_case(&json!({"type": "integer"}); "integer leaf")]
+#[test_case(&json!({"type": "integer", "minimum": 0}); "bounded integer leaf")]
+#[test_case(
+    &json!({"$schema": "http://json-schema.org/draft-04/schema#", "type": "integer"});
+    "draft 4 integer leaf"
+)]
+#[test_case(&json!({"type": "integer", "multipleOf": 3}); "integer leaf with a divisor")]
+#[test_case(&json!({"type": "number", "multipleOf": 0.5}); "number leaf with a divisor")]
+#[test_case(
+    &json!({"$schema": "http://json-schema.org/draft-04/schema#", "type": "integer", "enum": [1, 2]});
+    "draft 4 typed group"
+)]
 fn negate_admits_exactly_what_the_source_rejects(schema: &Value) {
     let complement = canonicalize(schema)
         .expect("canonicalizes")
@@ -1750,8 +2215,12 @@ fn negate_admits_exactly_what_the_source_rejects(schema: &Value) {
     for instance in [
         json!(null),
         json!(true),
+        json!(1),
+        json!(2),
         json!(4),
         json!(5),
+        json!(1.0),
+        json!(2.0),
         json!(1.5),
         json!("abcd"),
         json!("abcde"),
@@ -1772,12 +2241,6 @@ fn negate_admits_exactly_what_the_source_rejects(schema: &Value) {
 }
 
 // The decline set is contract: a caller sizes its fallback on it, so widening it is a visible change.
-#[test_case(&json!({"type": "integer"}); "integer leaf")]
-#[test_case(&json!({"type": "integer", "minimum": 0}); "bounded integer leaf")]
-#[test_case(
-    &json!({"$schema": "http://json-schema.org/draft-04/schema#", "type": "integer", "enum": [1, 2]});
-    "typed group"
-)]
 #[test_case(&json!({"if": {}, "unevaluatedProperties": false}); "raw document")]
 #[test_case(
     &json!({"$schema": "http://json-schema.org/draft-04/schema#", "type": "array", "items": {"type": "string"}});

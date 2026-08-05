@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use ahash::AHashMap;
+
+use crate::StatsigErr::StackOverflowError;
 use crate::evaluation::dynamic_value::DynamicValue;
 use crate::evaluation::evaluator_result::EvaluatorResult;
 use crate::hashing::HashUtil;
@@ -8,14 +11,13 @@ use crate::id_lists_adapter::IdList;
 use crate::interned_string::InternedString;
 use crate::specs_response::spec_types::{Rule, Spec, SpecsResponseFull};
 use crate::user::StatsigUserInternal;
-use crate::StatsigErr::StackOverflowError;
 use crate::{OverrideAdapter, SecondaryExposure, Statsig, StatsigErr};
 
 const MAX_RECURSIVE_DEPTH: u16 = 300;
 
 // (gate_name, (bool_value, rule_id, secondary_exposures))
 type NestedGateMemo =
-    HashMap<InternedString, (bool, Option<InternedString>, Vec<SecondaryExposure>)>;
+    AHashMap<InternedString, (bool, Option<InternedString>, Vec<SecondaryExposure>)>;
 
 pub enum IdListResolution<'a> {
     MapLookup(&'a HashMap<String, IdList>),
@@ -62,7 +64,7 @@ impl<'a> EvaluatorContext<'a> {
             result,
             override_adapter,
             nested_count: 0,
-            nested_gate_memo: HashMap::new(),
+            nested_gate_memo: AHashMap::new(),
             should_user_third_party_parser,
             statsig,
             disable_exposure_logging,

@@ -37,7 +37,49 @@ FIELDS = {
     'current_range': [(4, 0), ''],
     'current_lsb':   [(5, 0), ''],
     'voltage_lsb':   [(5, 1), ''],
+    'gpi0':          [(5, 0), ''],
+    'gpi1':          [(5, 1), ''],
+    'gpi2':          [(5, 2), ''],
+    'gpi3':          [(5, 3), ''],
+    'trigger_in':    [(5, 7), ''],
 }
+
+# Short signal names, matching pyjoulescope_driver.record.
+FIELD_ALIASES = {
+    'i': 'current',
+    'v': 'voltage',
+    'p': 'power',
+    'r': 'current_range',
+    'current range': 'current_range',
+    '0': 'gpi0',
+    '1': 'gpi1',
+    '2': 'gpi2',
+    '3': 'gpi3',
+    'T': 'trigger_in',
+    't': 'trigger_in',
+}
+
+# The extended signal buffers, which are only allocated when selected.
+_EXTENDED_BUFFERS = {
+    # (field_id, index): (dtype, name)
+    (5, 2): ('u1', 'gpi2'),
+    (5, 3): ('u1', 'gpi3'),
+    (5, 7): ('u1', 'trigger_in'),
+}
+EXTENDED_SIGNALS = [name for _, name in _EXTENDED_BUFFERS.values()]
+
+
+def field_name_resolve(name):
+    """Resolve a signal field name or alias to its canonical name.
+
+    :param name: The field name or alias.
+    :return: The canonical field name in FIELDS.
+    :raise KeyError: If name is not a valid field name or alias.
+    """
+    name = FIELD_ALIASES.get(name, name)
+    if name not in FIELDS:
+        raise KeyError(f'invalid field name {name}')
+    return name
 
 class StreamBuffer:
     """Efficient real-time Joulescope data buffering.
@@ -57,6 +99,8 @@ class StreamBuffer:
         self._log = logging.getLogger(__name__)
         self._length = 0
         self.buffers = {}
+        self._stats_buffers = []
+        self._extra_signals = []
         self._duration_max = 0
         self._contiguous_duration_max = 0
         self._sample_id_start = None
@@ -65,9 +109,8 @@ class StreamBuffer:
 
     def _update(self):
         self._length = int(self._buffer_duration * self._sampling_frequency)
-        self.buffers.clear()
         self._sample_id_start = None
-        self.buffers = {
+        buffers = {
             # (field_id, index): SampleBuffer
             (1, 0): SampleBuffer(self._length, dtype=np.float32, name='current'),
             (2, 0): SampleBuffer(self._length, dtype=np.float32, name='voltage'),
@@ -76,6 +119,35 @@ class StreamBuffer:
             (5, 0): SampleBuffer(self._length, dtype='u1', name='gpi0'),
             (5, 1): SampleBuffer(self._length, dtype='u1', name='gpi1'),
         }
+        for idx, (dtype, name) in _EXTENDED_BUFFERS.items():
+            if name in self._extra_signals:
+                buffers[idx] = SampleBuffer(self._length, dtype=dtype, name=name)
+        # single atomic store: a stale driver-thread callback may still be
+        # iterating the previous dict (stop unsubscribes with timeout=0)
+        self.buffers = buffers
+        # the legacy statistics format covers exactly the six base buffers
+        self._stats_buffers = [buffers[k] for k in
+                               [(1, 0), (2, 0), (3, 0), (4, 0), (5, 0), (5, 1)]]
+
+    @property
+    def extra_signals(self):
+        """The list of enabled extended signal names.
+
+        The extended signals are in EXTENDED_SIGNALS.  Assigning this
+        property reallocates the buffers, which discards all buffered data.
+        """
+        return list(self._extra_signals)
+
+    @extra_signals.setter
+    def extra_signals(self, value):
+        value = [] if value is None else [field_name_resolve(v) for v in value]
+        for name in value:
+            if name not in EXTENDED_SIGNALS:
+                raise ValueError(f'invalid extended signal {name}')
+        if sorted(value) == sorted(self._extra_signals):
+            return
+        self._extra_signals = value
+        self._update()
 
     def __len__(self):
         return self._length
@@ -223,8 +295,15 @@ class StreamBuffer:
             sample_rate = value.get('sample_rate')
             decimate_factor = value.get('decimate_factor')
             local_decimate = 1
-            if decimate_factor == 1 and self._sampling_frequency != sample_rate:
-                local_decimate = sample_rate // self._sampling_frequency
+            if sample_rate and decimate_factor:
+                # Decimate on the host when the stream's effective rate
+                # exceeds the requested output rate.  The JS110 streams
+                # everything at the full rate (decimate_factor 1).  The
+                # JS320 h/fs only decimates i, v, p on the instrument;
+                # the current range and GPI streams remain at 1 Msps.
+                effective_rate = sample_rate // decimate_factor
+                if effective_rate > self._sampling_frequency:
+                    local_decimate = effective_rate // self._sampling_frequency
             b.add(value['sample_id'], value['data'],
                   sample_rate=sample_rate,
                   decimate_factor=decimate_factor,
@@ -257,7 +336,7 @@ class StreamBuffer:
             out = np.zeros(_STATS_FIELDS, dtype=STATS_DTYPE)
         if stop >= self_start and start < self_stop:
             out[:]['length'] = stop - start
-            for i, b in enumerate(self.buffers.values()):
+            for i, b in enumerate(self._stats_buffers):
                 if not b.active:
                     out[i]['length'] = 0
                     out[i]['mean'] = np.nan
@@ -309,13 +388,14 @@ class StreamBuffer:
                 out[n, :]['min'] = np.nan
                 out[n, :]['max'] = np.nan
                 continue
-            for i, b in enumerate(self.buffers.values()):
+            for i, b in enumerate(self._stats_buffers):
                 if not b.active:
                     out[n, i]['length'] = increment
                     out[n, i]['mean'] = np.nan
                     out[n, i]['variance'] = np.nan
                     out[n, i]['min'] = np.nan
                     out[n, i]['max'] = np.nan
+                    continue
                 try:
                     d = b.get_range(k_start, k_end)
                     compute_stats(d, out[n, i])
@@ -333,18 +413,19 @@ class StreamBuffer:
             ['current', 'voltage', 'power', 'current_range', 'current_lsb', 'voltage_lsb'].
             The available fields are:
 
-            * raw: The raw u16 data from Joulescope.
-              Equivalent to self.raw_get(start, stop)
-            * raw_current: The raw 14-bit current data in LSBs.
-            * raw_voltage: The raw 14-bit voltage data in LSBs.
             * current: The calibrated float32 current data array in amperes.
             * voltage: The calibrated float32 voltage data array in volts.
-            * current_voltage: The calibrated float32 Nx2 array of current, voltage.
             * power: The calibrated float32 power data array in watts.
-            * bits: The (voltage_lsb << 5) | (current_lsb << 4) | current_range
             * current_range: The current range. 0 = 10A, 6 = 18 uA, 7=off.
-            * current_lsb: The current LSB, which can be assign to a general purpose input.
-            * voltage_lsb: The voltage LSB, which can be assign to a general purpose input.
+            * current_lsb: The general purpose input 0 (alias for gpi0).
+            * voltage_lsb: The general purpose input 1 (alias for gpi1).
+            * gpi0, gpi1, gpi2, gpi3: The general purpose inputs.
+            * trigger_in: The trigger input.
+
+            Short aliases are also supported: i, v, p, r, 0, 1, 2, 3, T.
+            The gpi2, gpi3, and trigger_in signals require JS220 or JS320
+            hardware with the signal selected (see the device 'signals'
+            parameter).
 
         :return: The dict containing top-level 'time' and 'signals' keys.
             The 'time' value is a dict contain the timing metadata for
@@ -392,15 +473,15 @@ class StreamBuffer:
         }
         for field in fields:
             try:
-                idx, units = FIELDS[field]
+                idx, units = FIELDS[FIELD_ALIASES.get(field, field)]
                 b = self.buffers.get(idx)
-                if b.active:
+                if b is not None and b.active:
                     out = b.get_range(start, stop)
                     result['signals'][field] = {'value': out, 'units': units}
                 else:
                     d = np.empty(stop - start, dtype=np.float32)
                     d[:] = np.nan
-                    result['signals'][field] = {'value': out, 'units': units}
+                    result['signals'][field] = {'value': d, 'units': units}
             except KeyError:
                 pass  # cannot include this signal
         if is_single_result:

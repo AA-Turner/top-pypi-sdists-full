@@ -88,6 +88,34 @@ mod unit_tests {
     }
 
     #[test]
+    fn test_default_and_explicit_dot_separator_match() {
+        // Regression guard for the `separator: Cow<'static, str>` change --
+        // the default separator (a `Cow::Borrowed(".")`) and an explicit
+        // `.separator(".")` call (which now special-cases back to the same
+        // `Cow::Borrowed(".")` in the setter) must produce byte-identical
+        // output to each other and to the pre-change `String`-based
+        // behavior.
+        let json = r#"{"user": {"name": "John", "age": 30}}"#;
+
+        let default_result = JSONTools::new().flatten().execute(json).unwrap();
+        let explicit_dot_result = JSONTools::new()
+            .flatten()
+            .separator(".")
+            .execute(json)
+            .unwrap();
+
+        assert_eq!(
+            extract_single(default_result),
+            extract_single(explicit_dot_result)
+        );
+
+        let flattened = extract_single(JSONTools::new().flatten().execute(json).unwrap());
+        let parsed: Value = serde_json::from_str(&flattened).unwrap();
+        assert_eq!(parsed["user.name"], "John");
+        assert_eq!(parsed["user.age"], 30);
+    }
+
+    #[test]
     fn test_lowercase_keys() {
         let json = r#"{"User": {"Name": "John", "Email": "john@example.com"}}"#;
         let result = JSONTools::new()

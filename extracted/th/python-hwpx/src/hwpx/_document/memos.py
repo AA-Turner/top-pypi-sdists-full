@@ -7,6 +7,8 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from ..errors import HwpxValueError
+
 from ..oxml.namespaces import HP
 
 if TYPE_CHECKING:
@@ -45,7 +47,11 @@ def add_memo(
         section = doc._root.sections[section_index]
     if section is None:
         if not doc._root.sections:
-            raise ValueError("document does not contain any sections")
+            raise HwpxValueError(
+            "document does not contain any sections",
+            code="section-missing",
+            suggestion="Call doc.add_section() first.",
+        )
         section = doc._root.sections[-1]
     return section.add_memo(
         text,
@@ -72,13 +78,27 @@ def attach_memo_field(
     created: "datetime | str | None" = None,
     number: int = 1,
     char_pr_id_ref: str | int | None = None,
-) -> str:
-    """Attach a MEMO field control to *paragraph* so Hangul shows *memo*."""
+) -> "HwpxOxmlMemo":
+    """Attach a MEMO field control to *paragraph* so Hangul shows *memo*.
+
+    Returns *memo* itself: once the field exists, ``memo.field_id`` and
+    ``memo.paragraph`` (``oxml/memo.py``) resolve it live by searching the
+    section, so there is nothing left for a separate return value to carry —
+    this replaces the ``str`` field id 5.x returned directly.
+    """
 
     if paragraph.section is None:
-        raise ValueError("paragraph must belong to a section before anchoring a memo")
+        raise HwpxValueError(
+            "paragraph must belong to a section before anchoring a memo",
+            code="note-anchor-detached",
+            suggestion="Pass a paragraph obtained from doc.paragraphs.",
+        )
     if memo.group.section is None:
-        raise ValueError("memo is not attached to a section")
+        raise HwpxValueError(
+            "memo is not attached to a section",
+            code="note-memo-detached",
+            suggestion="Pass a memo created by doc.notes.add_memo().",
+        )
 
     field_value = field_id or uuid.uuid4().hex
     author_value = author or memo.attributes.get("author") or ""
@@ -164,7 +184,7 @@ def attach_memo_field(
     paragraph.element.append(run_end)
     paragraph.section.mark_dirty()
 
-    return field_value
+    return memo
 
 
 def add_memo_with_anchor(
@@ -184,10 +204,21 @@ def add_memo_with_anchor(
     created: "datetime | str | None" = None,
     number: int = 1,
     anchor_char_pr_id_ref: str | int | None = None,
-) -> "tuple[HwpxOxmlMemo, HwpxOxmlParagraph, str]":
-    """Create a memo and ensure it is visible by anchoring a MEMO field."""
+) -> "HwpxOxmlMemo":
+    """Create a memo and ensure it is visible by anchoring a MEMO field.
 
-    memo = doc.add_memo(
+    Returns the anchored :class:`~hwpx.oxml.memo.HwpxOxmlMemo` — its
+    ``.paragraph``/``.field_id`` properties (``oxml/memo.py``) replace the
+    second and third elements of the 3-tuple 5.x returned.
+    """
+
+    # Call the local primitives directly rather than `doc.add_memo`/
+    # `doc.attach_memo_field` — both names moved in 6.0 (design table rows
+    # 35/43), and going through the facade would fire a DeprecationWarning on
+    # every call even when this function is reached via the new
+    # `doc.notes.add_memo(anchor=...)` namespace path.
+    memo = add_memo(
+        doc,
         text,
         section=section,
         section_index=section_index,
@@ -201,7 +232,11 @@ def add_memo_with_anchor(
     if target_paragraph is None:
         memo_section = memo.group.section
         if memo_section is None:
-            raise ValueError("memo must belong to a section")
+            raise HwpxValueError(
+            "memo is not attached to a section",
+            code="note-memo-detached",
+            suggestion="Pass a memo created by doc.notes.add_memo().",
+        )
         paragraph_value = "" if paragraph_text is None else paragraph_text
         anchor_char = anchor_char_pr_id_ref or char_pr_id_ref
         target_paragraph = doc.add_paragraph(
@@ -212,7 +247,8 @@ def add_memo_with_anchor(
     elif paragraph_text is not None:
         target_paragraph.text = paragraph_text
 
-    field_value = doc.attach_memo_field(
+    attach_memo_field(
+        doc,
         target_paragraph,
         memo,
         field_id=field_id,
@@ -222,4 +258,4 @@ def add_memo_with_anchor(
         char_pr_id_ref=anchor_char_pr_id_ref,
     )
 
-    return memo, target_paragraph, field_value
+    return memo

@@ -1,7 +1,7 @@
 use crate::console_capture::console_log_line_levels::StatsigLogLineLevel;
 use crate::evaluation::secondary_exposure_key::SecondaryExposureKey;
-use crate::event_logging::statsig_event::string_metadata_to_value_metadata;
 use crate::event_logging::statsig_event::StatsigEvent;
+use crate::event_logging::statsig_event::string_metadata_to_value_metadata;
 use crate::sdk_diagnostics::diagnostics::DIAGNOSTICS_EVENT;
 use crate::user::StatsigUserLoggable;
 use crate::{evaluation::evaluation_types::SecondaryExposure, statsig_metadata::StatsigMetadata};
@@ -9,7 +9,7 @@ use crate::{evaluation::evaluation_types::SecondaryExposure, statsig_metadata::S
 use ahash::AHashSet;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 
 pub const GATE_EXPOSURE_EVENT_NAME: &str = "statsig::gate_exposure";
@@ -69,8 +69,20 @@ impl StatsigEventInternal {
         value: Option<Value>,
         metadata: Option<HashMap<String, Value>>,
     ) -> Self {
+        StatsigEventInternal::new_custom_event_with_typed_metadata_and_timestamp(
+            user, event_name, value, metadata, None,
+        )
+    }
+
+    pub(crate) fn new_custom_event_with_typed_metadata_and_timestamp(
+        user: StatsigUserLoggable,
+        event_name: String,
+        value: Option<Value>,
+        metadata: Option<HashMap<String, Value>>,
+        timestamp_override: Option<u64>,
+    ) -> Self {
         StatsigEventInternal::new(
-            Utc::now().timestamp_millis() as u64,
+            timestamp_override.unwrap_or(Utc::now().timestamp_millis() as u64),
             user,
             StatsigEvent {
                 event_name,
@@ -171,16 +183,16 @@ fn dedupe_secondary_exposures(
 
 #[cfg(test)]
 mod statsig_event_internal_tests {
+    use crate::StatsigUser;
     use crate::evaluation::evaluation_types::SecondaryExposure;
     use crate::event_logging::statsig_event::StatsigEvent;
     use crate::event_logging::statsig_event_internal::{
-        dedupe_secondary_exposures, StatsigEventInternal,
+        StatsigEventInternal, dedupe_secondary_exposures,
     };
     use crate::interned_string::InternedString;
     use crate::user::StatsigUserInternal;
-    use crate::StatsigUser;
     use chrono::Utc;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
     use std::collections::HashMap;
 
     fn create_test_event() -> StatsigEventInternal {

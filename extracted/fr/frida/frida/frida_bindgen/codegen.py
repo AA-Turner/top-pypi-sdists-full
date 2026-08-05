@@ -426,11 +426,12 @@ def generate_custom_facade_method(
     method: Method, logic: Union[str, Tuple[str, str]], model: Model, awaitable: bool
 ) -> str:
     signature = ", ".join(["self"] + method.custom_facade_params)
+    args = facade_call_args(method, model)
     if method.is_async:
-        invoke = f"_invoke(self._impl.{method.name}, ({method.facade_call_args}))"
+        invoke = f"_invoke(self._impl.{method.name}, ({args}))"
         call = f"await {invoke}" if awaitable else invoke
     else:
-        call = f"self._impl.{method.name}({method.facade_call_args})"
+        call = f"self._impl.{method.name}({args})"
     if method.return_value is not None:
         call = wrap_result(call, method.return_value.type, model)
 
@@ -444,6 +445,20 @@ def generate_custom_facade_method(
     return f"""    {keyword} {method.name}({signature}) -> {ret}:
 {body}
         return {call}"""
+
+
+def facade_call_args(method: Method, model: Model) -> str:
+    takes_kwargs = any(param.split(":")[0].strip() == "**kwargs" for param in method.custom_facade_params)
+    args = []
+    for param in method.input_parameters:
+        if param.type.name == "Gio.Cancellable":
+            continue
+        options = resolve_options_type(param.type, model)
+        if options is not None and takes_kwargs:
+            args.append(make_options_expr(options))
+        else:
+            args.append(param.name)
+    return "".join(arg + ", " for arg in args)
 
 
 def generate_py_exception_reexports(model: Model) -> List[str]:
@@ -627,9 +642,7 @@ def generate_py_sync_method(method: Method, model: Model) -> Optional[str]:
     if any(build_sync_param(param) is None for param in method.input_parameters):
         return None
 
-    signature = ["self"]
-    for param in method.input_parameters:
-        signature.append(facade_param(param, model))
+    params = [facade_param(param, model) for param in method.input_parameters]
     names = ", ".join(param.name for param in method.input_parameters)
 
     call = f"self._impl.{method.name}({names})"
@@ -638,8 +651,12 @@ def generate_py_sync_method(method: Method, model: Model) -> Optional[str]:
 
     ret = "None" if method.return_value is None else pyi_type(method.return_value.type, model)
 
-    return f"""    def {method.name}({", ".join(signature)}) -> {ret}:
+    return f"""    def {method.name}({facade_signature(method, params)}) -> {ret}:
         return {call}"""
+
+
+def facade_signature(method: Method, params: List[str]) -> str:
+    return ", ".join(["self"] + (method.custom_facade_params or params))
 
 
 def facade_param(param, model: Model) -> str:
@@ -669,7 +686,7 @@ def generate_py_async_method(method: Method, model: Model) -> Optional[str]:
 
 
 def build_facade_async_parts(method: Method, model: Model) -> Optional[Tuple[str, str]]:
-    signature = ["self"]
+    params = []
     args = []
     for param in method.input_parameters:
         if param.type.name == "Gio.Cancellable":
@@ -678,20 +695,24 @@ def build_facade_async_parts(method: Method, model: Model) -> Optional[Tuple[str
             return None
         options = resolve_options_type(param.type, model)
         if options is not None:
-            signature.append("**kwargs")
-            args.append(f"_make_options(_frida.{options.py_name}, kwargs, {build_option_selectors(options)})")
+            params.append("**kwargs")
+            args.append(make_options_expr(options))
         elif resolve_input_object_type(param.type, model) is not None:
-            signature.append(f"{param.name}: Optional[{pyi_type(param.type, model)}] = None")
+            params.append(f"{param.name}: Optional[{pyi_type(param.type, model)}] = None")
             args.append(f"_unwrap({param.name})")
         else:
-            signature.append(facade_param(param, model))
+            params.append(facade_param(param, model))
             args.append(param.name)
 
     if method.return_value is not None:
         if build_return_marshal(method.return_value.type, model) is None:
             return None
 
-    return ", ".join(signature), "".join(arg + ", " for arg in args)
+    return facade_signature(method, params), "".join(arg + ", " for arg in args)
+
+
+def make_options_expr(options: ObjectType) -> str:
+    return f"_make_options(_frida.{options.py_name}, kwargs, {build_option_selectors(options)})"
 
 
 def build_option_selectors(options: ObjectType) -> str:
@@ -860,6 +881,8 @@ def pyi_type(type: Type, model: Model) -> str:
         return "dict"
     if name == "GLib.Variant":
         return "Any"
+    if name == "Gio.TlsCertificate":
+        return "str"
     if resolve_enumeration(type, model) is not None:
         return "str"
     obj = resolve_object_type(type, model)
@@ -1994,6 +2017,17 @@ def build_setter_body(param: Parameter, set_call) -> Optional[str]:
   g_hash_table_unref (dict);
 """
 
+    if type_name == "Gio.TlsCertificate":
+        return f"""  GTlsCertificate * certificate;
+
+  if (!PyGObject_unmarshal_certificate (value, &certificate))
+    return -1;
+
+  {set_call("certificate")}
+
+  g_clear_object (&certificate);
+"""
+
     if resolve_input_object_type(param.type, param.object_type.model) is not None:
         handle = f"({param.type.c}) ((value != Py_None) ? PY_GOBJECT_HANDLE (value) : NULL)"
         return f"  {set_call(handle)}\n"
@@ -2073,6 +2107,8 @@ def build_return_marshal(type: Type, model: Model) -> Optional[str]:
         return "PyGObject_marshal_vardict ({value})"
     if name == "GLib.Variant":
         return "PyGObject_marshal_variant ({value})"
+    if name == "Gio.TlsCertificate":
+        return "PyGObject_marshal_certificate ({value})"
 
     enum = resolve_enumeration(type, model)
     if enum is not None:

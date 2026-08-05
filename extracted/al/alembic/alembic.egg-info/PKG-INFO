@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: alembic
-Version: 1.18.5
+Version: 1.19.0
 Summary: A database migration tool for SQLAlchemy.
 Author-email: Mike Bayer <mike_mp@zzzcomputing.com>
 License-Expression: MIT
@@ -19,6 +19,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Database :: Front-Ends

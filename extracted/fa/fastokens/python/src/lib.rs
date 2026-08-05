@@ -382,6 +382,22 @@ struct TokenizerState {
     post_processor_json: Option<String>,
 }
 
+fn tokenizer_options(
+    pcre2_match_limit: Option<u32>,
+    pcre2_depth_limit: Option<u32>,
+    pcre2_heap_limit: Option<u32>,
+    pcre2_max_jit_stack_size: Option<usize>,
+) -> fastokens::TokenizerOptions {
+    fastokens::TokenizerOptions {
+        pcre2_limits: fastokens::Pcre2Limits {
+            match_limit: pcre2_match_limit,
+            depth_limit: pcre2_depth_limit,
+            heap_limit: pcre2_heap_limit,
+            max_jit_stack_size: pcre2_max_jit_stack_size,
+        },
+    }
+}
+
 impl TokenizerState {
     fn do_truncate(&self, ids: &mut Vec<u32>) {
         let Some(ref t) = self.trunc else { return };
@@ -402,6 +418,12 @@ impl TokenizerState {
             Some(m) if m > 0 => base.div_ceil(m) * m,
             _ => base,
         }
+    }
+
+    fn build_single_encoding(&self, mut ids: Vec<u32>) -> PyEncoding {
+        self.do_truncate(&mut ids);
+        let target = self.single_pad_target(ids.len());
+        build_encoding(ids, self.pad.as_ref(), target)
     }
 
     /// Parse `json`, update the Rust post-processor in place, and cache the JSON.
@@ -438,7 +460,11 @@ impl PyTokenizer {
 
     /// Build from a raw JSON string, extracting the post-processor field so
     /// the getter can return it without needing to re-serialize.
-    fn build_from_str(json: &str, py: Python<'_>) -> PyResult<Self> {
+    fn build_from_str(
+        json: &str,
+        py: Python<'_>,
+        options: fastokens::TokenizerOptions,
+    ) -> PyResult<Self> {
         let value: Value =
             serde_json::from_str(json).map_err(|e| PyValueError::new_err(e.to_string()))?;
         let post_processor_json = value
@@ -446,7 +472,10 @@ impl PyTokenizer {
             .filter(|v| !v.is_null())
             .map(|v| v.to_string());
         let inner = py
-            .allow_threads(|| fastokens::Tokenizer::from_json(value).map_err(|e| e.to_string()))
+            .allow_threads(|| {
+                fastokens::Tokenizer::from_json_with_options(value, options)
+                    .map_err(|e| e.to_string())
+            })
             .map_err(PyValueError::new_err)?;
         Ok(Self {
             state: RwLock::new(TokenizerState {
@@ -466,34 +495,139 @@ impl PyTokenizer {
     ///
     /// (This is an alias for Tokenizer.from_model)
     #[new]
-    fn new(model: &str, py: Python<'_>) -> PyResult<Self> {
-        Self::from_model(model, py)
+    #[pyo3(signature = (model, pcre2_match_limit = None, pcre2_depth_limit = None, pcre2_heap_limit = None, pcre2_max_jit_stack_size = None))]
+    fn new(
+        model: &str,
+        pcre2_match_limit: Option<u32>,
+        pcre2_depth_limit: Option<u32>,
+        pcre2_heap_limit: Option<u32>,
+        pcre2_max_jit_stack_size: Option<usize>,
+        py: Python<'_>,
+    ) -> PyResult<Self> {
+        Self::from_model(
+            model,
+            pcre2_match_limit,
+            pcre2_depth_limit,
+            pcre2_heap_limit,
+            pcre2_max_jit_stack_size,
+            py,
+        )
     }
 
     /// Create a tokenizer from a `tokenizer.json` file.
     #[staticmethod]
-    fn from_file(path: &str, py: Python<'_>) -> PyResult<Self> {
+    #[pyo3(signature = (path, pcre2_match_limit = None, pcre2_depth_limit = None, pcre2_heap_limit = None, pcre2_max_jit_stack_size = None))]
+    fn from_file(
+        path: &str,
+        pcre2_match_limit: Option<u32>,
+        pcre2_depth_limit: Option<u32>,
+        pcre2_heap_limit: Option<u32>,
+        pcre2_max_jit_stack_size: Option<usize>,
+        py: Python<'_>,
+    ) -> PyResult<Self> {
         let json = std::fs::read_to_string(path)
             .map_err(|e| PyValueError::new_err(format!("cannot read {path}: {e}")))?;
-        Self::build_from_str(&json, py)
+        Self::build_from_str(
+            &json,
+            py,
+            tokenizer_options(
+                pcre2_match_limit,
+                pcre2_depth_limit,
+                pcre2_heap_limit,
+                pcre2_max_jit_stack_size,
+            ),
+        )
     }
 
     /// Create a tokenizer from a raw JSON string for `tokenizer.json`.
     #[staticmethod]
-    fn from_json_str(json: &str, py: Python<'_>) -> PyResult<Self> {
-        Self::build_from_str(json, py)
+    #[pyo3(signature = (json, pcre2_match_limit = None, pcre2_depth_limit = None, pcre2_heap_limit = None, pcre2_max_jit_stack_size = None))]
+    fn from_json_str(
+        json: &str,
+        pcre2_match_limit: Option<u32>,
+        pcre2_depth_limit: Option<u32>,
+        pcre2_heap_limit: Option<u32>,
+        pcre2_max_jit_stack_size: Option<usize>,
+        py: Python<'_>,
+    ) -> PyResult<Self> {
+        Self::build_from_str(
+            json,
+            py,
+            tokenizer_options(
+                pcre2_match_limit,
+                pcre2_depth_limit,
+                pcre2_heap_limit,
+                pcre2_max_jit_stack_size,
+            ),
+        )
     }
 
-    /// Download `tokenizer.json` from HuggingFace Hub for the given model
-    /// (e.g. `"meta-llama/Llama-3.1-8B"`) and create a tokenizer with it.
+    /// Download a tokenizer from HuggingFace Hub for the given model (e.g.
+    /// `"meta-llama/Llama-3.1-8B"`) and create a tokenizer with it.
+    ///
+    /// Uses `tokenizer.json` when the repository has one. Repositories that
+    /// ship a bare `tiktoken.model` instead (e.g. Moonshot's Kimi) are resolved
+    /// through the tiktoken loader.
+    ///
+    /// The ``pcre2_*`` limits do not apply to a tiktoken model. Those patterns use
+    /// character-class intersection (``&&``), which PCRE2 cannot compile, so
+    /// pre-tokenization runs on ``fancy-regex`` and there is no PCRE2 matcher to
+    /// bound. They are accepted and ignored on that path rather than rejected.
     #[staticmethod]
-    fn from_model(model: &str, py: Python<'_>) -> PyResult<Self> {
+    #[pyo3(signature = (model, pcre2_match_limit = None, pcre2_depth_limit = None, pcre2_heap_limit = None, pcre2_max_jit_stack_size = None))]
+    fn from_model(
+        model: &str,
+        pcre2_match_limit: Option<u32>,
+        pcre2_depth_limit: Option<u32>,
+        pcre2_heap_limit: Option<u32>,
+        pcre2_max_jit_stack_size: Option<usize>,
+        py: Python<'_>,
+    ) -> PyResult<Self> {
+        let options = tokenizer_options(
+            pcre2_match_limit,
+            pcre2_depth_limit,
+            pcre2_heap_limit,
+            pcre2_max_jit_stack_size,
+        );
+
+        // `tokenizer.json` is fetched here rather than deferred to
+        // `Tokenizer::from_model_with_options` because the `post_processor`
+        // property needs the raw JSON *text* to round-trip through `str()`.
+        // `Tokenizer::post_processor()` does expose the parsed value, but not the
+        // source it was built from. Only a genuinely absent file falls through —
+        // a transport or auth failure must propagate.
         let json = py
-            .allow_threads(|| {
-                fastokens::Tokenizer::download_tokenizer_json(model).map_err(|e| e.to_string())
-            })
+            .allow_threads(
+                || match fastokens::Tokenizer::download_tokenizer_json(model) {
+                    Ok(json) => Ok(Some(json)),
+                    Err(e) if e.is_not_found() => Ok(None),
+                    Err(e) => Err(e.to_string()),
+                },
+            )
             .map_err(PyValueError::new_err)?;
-        Self::build_from_str(&json, py)
+
+        let Some(json) = json else {
+            // No `tokenizer.json`: let the Rust loader resolve the repository as
+            // a tiktoken model. It re-probes `tokenizer.json` (one extra 404 on
+            // this path only) in exchange for keeping the common path untouched.
+            // A tiktoken pipeline has no post-processor, so nothing is lost.
+            let inner = py
+                .allow_threads(|| {
+                    fastokens::Tokenizer::from_model_with_options(model, options)
+                        .map_err(|e| e.to_string())
+                })
+                .map_err(PyValueError::new_err)?;
+            return Ok(Self {
+                state: RwLock::new(TokenizerState {
+                    inner,
+                    trunc: None,
+                    pad: None,
+                    post_processor_json: None,
+                }),
+            });
+        };
+
+        Self::build_from_str(&json, py, options)
     }
 
     /// Create a tokenizer from a tiktoken model file (e.g. `tiktoken.model`,
@@ -699,14 +833,54 @@ impl PyTokenizer {
         py: Python<'_>,
     ) -> PyResult<Py<PyEncoding>> {
         let state = self.read();
-        let mut ids = state
+        let ids = state
             .inner
             .encode_with_special_tokens(input, add_special_tokens)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        state.do_truncate(&mut ids);
-        let target = state.single_pad_target(ids.len());
+        Py::new(py, state.build_single_encoding(ids))
+    }
 
-        Py::new(py, build_encoding(ids, state.pad.as_ref(), target))
+    /// Encode through the base tokenizer pipeline without recognizing added
+    /// vocabulary entries.
+    ///
+    /// Truncation and padding configured via `enable_truncation` /
+    /// `enable_padding` are applied before returning.
+    fn encode_ordinary(&self, input: &str, py: Python<'_>) -> PyResult<Py<PyEncoding>> {
+        let state = self.read();
+        let ids = state
+            .inner
+            .encode_ordinary(input)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Py::new(py, state.build_single_encoding(ids))
+    }
+
+    /// Encode a pre-segmented input, concatenating each segment's token ids.
+    ///
+    /// `segments` is a list of `(text, allow_special)` pairs. Each segment is
+    /// tokenized independently; special/added tokens are recognized only in
+    /// segments with `allow_special=True` (trusted chat-template output), so a
+    /// literal control token in an `allow_special=False` segment stays ordinary
+    /// content. Mirrors legacy tiktoken / Dynamo segmented encoding. No
+    /// post-processor special tokens are inserted. Truncation and padding (if
+    /// enabled) are applied to the concatenated result before returning.
+    fn encode_segments(
+        &self,
+        segments: Vec<(String, bool)>,
+        py: Python<'_>,
+    ) -> PyResult<Py<PyEncoding>> {
+        let state = self.read();
+        let segs: Vec<fastokens::EncodeSegment<'_>> = segments
+            .iter()
+            .map(|(text, allow_special)| fastokens::EncodeSegment {
+                text: text.as_str(),
+                allow_special: *allow_special,
+            })
+            .collect();
+        let ids = state
+            .inner
+            .encode_segments(&segs)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Py::new(py, state.build_single_encoding(ids))
     }
 
     /// Encode a batch of inputs in parallel.

@@ -1,11 +1,14 @@
-use super::tokenizer::{Token, Tokenizer};
+use super::tokenizer::{Token, Tokenizer, TokenizerResult};
 
 pub struct UaParser;
 
 impl UaParser {
     pub fn parse_os(agent: &str) -> ParserResult<'_> {
         let result = Tokenizer::run(agent);
+        Self::parse_os_result(&result)
+    }
 
+    fn parse_os_result<'a>(result: &TokenizerResult<'a>) -> ParserResult<'a> {
         if let Some(token) = &result.possible_os_token {
             return create_res(token.tag, token.get_version());
         }
@@ -77,7 +80,10 @@ impl UaParser {
 
     pub fn parse_browser(agent: &str) -> ParserResult<'_> {
         let result = Tokenizer::run(agent);
+        Self::parse_browser_result(&result)
+    }
 
+    fn parse_browser_result<'a>(result: &TokenizerResult<'a>) -> ParserResult<'a> {
         if let Some(token) = &result.possible_browser_token {
             return create_res(token.tag, token.get_version());
         }
@@ -205,6 +211,14 @@ impl UaParser {
             return create_res("crawler", None);
         }
         create_res("Other", None)
+    }
+
+    pub fn parse_os_and_browser(agent: &str) -> (ParserResult<'_>, ParserResult<'_>) {
+        let result = Tokenizer::run(agent);
+        (
+            Self::parse_os_result(&result),
+            Self::parse_browser_result(&result),
+        )
     }
 }
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tesserocr
-Version: 2.10.0
+Version: 2.11.0
 Summary: A simple, Pillow-friendly, Python wrapper around tesseract-ocr API using Cython
 Home-page: https://github.com/sirfz/tesserocr
 Author: Fayez Zouheiry
@@ -12,7 +12,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Multimedia :: Graphics :: Capture :: Scanners
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
 Classifier: Topic :: Scientific/Engineering :: Image Recognition
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9

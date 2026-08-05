@@ -892,12 +892,16 @@ async def patch_cron(request: ApiRequest):
             CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
         )
 
+    # An explicit `end_time: null` clears the end time; an absent key leaves it unchanged.
+    clear_end_time = "end_time" in payload and payload["end_time"] is None
+
     async with connect() as conn:
         cron = await Crons.update(
             conn,
             cron_id=cron_id,
             schedule=payload.get("schedule"),
             end_time=payload.get("end_time"),
+            clear_end_time=clear_end_time,
             enabled=payload.get("enabled"),
             on_run_completed=payload.get("on_run_completed"),
             payload=effective_payload,

@@ -42,9 +42,14 @@ void  nsUTF8Prober::Reset(void)
   mCodingSM->Reset(); 
   mNumOfMBChar = 0;
   mState = eDetecting;
+  currentCodePoint = 0;
 }
 
-nsProbingState nsUTF8Prober::HandleData(const char* aBuf, PRUint32 aLen)
+#define ENOUGH_CHAR_THRESHOLD 256
+
+nsProbingState nsUTF8Prober::HandleData(const char* aBuf, PRUint32 aLen,
+                                        int** codePointBuffer,
+                                        int*  codePointBufferIdx)
 {
   PRUint32 codingState;
 
@@ -59,29 +64,50 @@ nsProbingState nsUTF8Prober::HandleData(const char* aBuf, PRUint32 aLen)
     if (codingState == eStart)
     {
       if (mCodingSM->GetCurrentCharLen() >= 2)
+      {
         mNumOfMBChar++;
+
+        currentCodePoint = ((0xff & aBuf[i]) & 0x3fu) | (currentCodePoint << 6);
+        if (mCodingSM->GetCurrentCharLen() == 2)
+            currentCodePoint &= 0x7ff;
+        else if (mCodingSM->GetCurrentCharLen() == 3)
+            currentCodePoint &= 0xffff;
+        else
+            currentCodePoint &= 0x1fffff;
+      }
+      else
+      {
+        currentCodePoint = 0xff & (char) aBuf[i];
+      }
+
+      (*codePointBuffer)[(*codePointBufferIdx)++] = currentCodePoint;
+      currentCodePoint = 0;
+    }
+    else
+    {
+        currentCodePoint = ((0xff & aBuf[i]) & 0x3fu) | (currentCodePoint << 6);
     }
   }
 
   if (mState == eDetecting)
-    if (GetConfidence() > SHORTCUT_THRESHOLD)
+    if (mNumOfMBChar > ENOUGH_CHAR_THRESHOLD && GetConfidence(0) > SHORTCUT_THRESHOLD)
       mState = eFoundIt;
   return mState;
 }
 
 #define ONE_CHAR_PROB   (float)0.50
 
-float nsUTF8Prober::GetConfidence(void)
+float nsUTF8Prober::GetConfidence(int candidate)
 {
-  float unlike = (float)0.99;
-
   if (mNumOfMBChar < 6)
   {
+    float unlike = 0.5f;
+
     for (PRUint32 i = 0; i < mNumOfMBChar; i++)
       unlike *= ONE_CHAR_PROB;
+
     return (float)1.0 - unlike;
   }
   else
     return (float)0.99;
 }
-

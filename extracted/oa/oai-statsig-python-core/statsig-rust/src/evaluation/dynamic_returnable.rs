@@ -1,14 +1,14 @@
 use std::{borrow::Cow, collections::HashMap, num::NonZeroU64, sync::Arc};
 
 use rkyv::{collections::swiss_table::ArchivedHashMap, string::ArchivedString};
-use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeMap};
 use serde_json::{
-    value::{to_raw_value, RawValue},
     Value as JsonValue,
+    value::{RawValue, to_raw_value},
 };
 
 use crate::{
-    evaluation::rkyv_value::{stable_object_hash, ArchivedRkyvValue, RkyvValue},
+    evaluation::rkyv_value::{ArchivedRkyvValue, RkyvValue, stable_object_hash},
     hashing,
     interned_values::InternedStore,
     log_e,

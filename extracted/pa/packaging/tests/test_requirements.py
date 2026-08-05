@@ -30,6 +30,20 @@ EQUAL_DEPENDENCIES = [
 
 EQUIVALENT_DEPENDENCIES = [
     ("scikit-learn==1.0.1", "scikit_learn==1.0.1"),
+    # Trailing-zero-equivalent specifiers compare equal, so they must hash
+    # equal too (regression guard for the __hash__/__eq__ invariant).
+    ("foo==1.0.0", "foo==1.0.0.0"),
+    ("foo>=1.0", "foo>=1.0.0"),
+    # Canonical-specifier hashing must hold alongside extras + marker.
+    (
+        'foo[a]==1.0.0; python_version>="3.8"',
+        'foo[a]==1.0.0.0; python_version>="3.8"',
+    ),
+    # Extras that normalize to the same value are equivalent.
+    ("urllib3[secure]", "urllib3[SECURE]"),
+    ("fishtank[all-blue]", "fishtank[all_blue]"),
+    ("fishtank[all-blue]", "fishtank[all---blue]"),
+    ("fishtank[crazy-bunches]", "fishtank[cRazy_BUnches]"),
 ]
 
 DIFFERENT_DEPENDENCIES = [
@@ -165,6 +179,18 @@ def test_normalized_requirements(input_req: str, norm_req: str) -> None:
     assert str(req) == norm_req
 
 
+def test_requirement_marker_with_embedded_double_quote_round_trips() -> None:
+    req_string = 'demo; \'a" == os_name or python_version >= "0" or "b\' == os_name'
+    req = Requirement(req_string)
+
+    assert str(req) == req_string
+    assert req.marker is not None
+    assert req.marker.evaluate() is False
+    round_tripped_marker = Requirement(str(req)).marker
+    assert round_tripped_marker is not None
+    assert round_tripped_marker.evaluate() is False
+
+
 class TestRequirementParsing:
     @pytest.mark.parametrize(
         "marker",
@@ -203,6 +229,24 @@ class TestRequirementParsing:
         # THEN
         assert req.url == url
 
+    @pytest.mark.parametrize("line_break", ["\n", "\r", "\r\n"])
+    @pytest.mark.parametrize(
+        "requirement",
+        [
+            "name>=1",
+            'name; python_version >= "3"',
+        ],
+    )
+    def test_error_when_suffixed_with_line_break(
+        self, requirement: str, line_break: str
+    ) -> None:
+        with pytest.raises(InvalidRequirement):
+            Requirement(requirement + line_break)
+
+    @pytest.mark.parametrize("whitespace", [" ", "\t", " \t"])
+    def test_trailing_horizontal_whitespace(self, whitespace: str) -> None:
+        assert Requirement("name>=1" + whitespace) == Requirement("name>=1")
+
     def test_empty_extras(self) -> None:
         # GIVEN
         to_parse = "name[]"
@@ -230,6 +274,14 @@ class TestRequirementParsing:
     # ----------------------------------------------------------------------------------
     # Start all method names with with `test_error_`
     # to make it easier to run these tests with `-k error`
+
+    def test_error_when_specifier_set_rejects_parsed_specifier(self) -> None:
+        # GIVEN
+        to_parse = "demo===x,y"
+
+        # WHEN
+        with pytest.raises(InvalidRequirement, match="Invalid specifier: 'y'"):
+            Requirement(to_parse)
 
     def test_error_when_empty_string(self) -> None:
         # GIVEN
@@ -326,6 +378,44 @@ class TestRequirementParsing:
             ".* suffix can only be used with `==` or `!=` operators\n"
             "    black (>=20.*) ; extra == 'format'\n"
             "           ~~~~~^"
+        )
+
+    @pytest.mark.parametrize("operator", ["==", "!="])
+    def test_error_when_prefix_match_uses_post_release(self, operator: str) -> None:
+        # GIVEN
+        to_parse = f"name {operator} 1.2.3.post4.*"
+        op_tilde = len(operator) * "~"
+
+        # WHEN
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement(to_parse)
+
+        # THEN
+        assert ctx.exconly() == (
+            "packaging.requirements.InvalidRequirement: "
+            ".* suffix cannot be used with pre-release, post-release, "
+            "dev or local versions\n"
+            f"    name {operator} 1.2.3.post4.*\n"
+            f"         {op_tilde}~~~~~~~~~~~~~^"
+        )
+
+    def test_error_when_prefix_match_uses_post_release_without_spaces(
+        self,
+    ) -> None:
+        # GIVEN
+        to_parse = "name==1.2.3.post4.*"
+
+        # WHEN
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement(to_parse)
+
+        # THEN
+        assert ctx.exconly() == (
+            "packaging.requirements.InvalidRequirement: "
+            ".* suffix cannot be used with pre-release, post-release, "
+            "dev or local versions\n"
+            "    name==1.2.3.post4.*\n"
+            "        ~~~~~~~~~~~~~~^"
         )
 
     @pytest.mark.parametrize("operator", [">=", "<=", ">", "<", "~="])
@@ -462,6 +552,34 @@ class TestRequirementParsing:
             "    name; '3.7' <= invalid_name\n"
             "                   ^"
         )
+
+    @pytest.mark.parametrize(
+        ("to_parse", "expected"),
+        [
+            (
+                'name; os_name == "C:\\"',
+                "packaging.requirements.InvalidRequirement: Invalid quoted string\n"
+                '    name; os_name == "C:\\"\n'
+                "                     ~~~~~^",
+            ),
+            (
+                r'name; os_name == "\x"',
+                "packaging.requirements.InvalidRequirement: Invalid quoted string\n"
+                r'    name; os_name == "\x"'
+                "\n"
+                "                     ~~~~^",
+            ),
+        ],
+    )
+    def test_error_invalid_marker_malformed_quoted_string(
+        self, to_parse: str, expected: str
+    ) -> None:
+        # WHEN
+        with pytest.raises(InvalidRequirement) as ctx:
+            Requirement(to_parse)
+
+        # THEN
+        assert ctx.exconly() == expected
 
     def test_error_invalid_marker_notin_without_whitespace(self) -> None:
         # GIVEN
@@ -709,6 +827,15 @@ class TestRequirementBehaviour:
         assert Requirement("packaging>=21.3") != "packaging>=21.3"
 
 
+def test_requirement_slots() -> None:
+    # Requirement defines __slots__, so instances have no __dict__ and reject
+    # unknown attributes.
+    r = Requirement("requests>=2.0")
+    assert not hasattr(r, "__dict__")
+    with pytest.raises(AttributeError):
+        r.nonexistent = 1  # type: ignore[attr-defined]
+
+
 @pytest.mark.parametrize(
     "req_str",
     [
@@ -729,6 +856,18 @@ def test_pickle_requirement_roundtrip(req_str: str) -> None:
     assert str(loaded) == str(r)
 
 
+@pytest.mark.parametrize("prereleases", [None, True, False])
+def test_pickle_requirement_preserves_prereleases(prereleases: bool | None) -> None:
+    # The specifier's explicit prereleases override is not captured by the
+    # requirement string, so it must be preserved separately across a pickle
+    # round trip.  See https://github.com/pypa/packaging/issues/1204.
+    r = Requirement("foo>=1.0")
+    r.specifier.prereleases = prereleases
+    loaded = pickle.loads(pickle.dumps(r))
+    assert loaded.specifier._prereleases == prereleases
+    assert loaded == r
+
+
 def test_pickle_requirement_setstate_rejects_invalid_state() -> None:
     # Cover the TypeError branches in __setstate__ for invalid input.
     r = Requirement.__new__(Requirement)
@@ -738,11 +877,17 @@ def test_pickle_requirement_setstate_rejects_invalid_state() -> None:
         r.__setstate__((1, 2, 3))
 
 
-def test_pickle_requirement_setstate_rejects_invalid_string() -> None:
+@pytest.mark.parametrize(
+    "invalid_requirement",
+    ["this is not a valid requirement", "demo===x,y"],
+)
+def test_pickle_requirement_setstate_rejects_invalid_string(
+    invalid_requirement: str,
+) -> None:
     # Cover the string branch where Requirement() raises InvalidRequirement.
     r = Requirement.__new__(Requirement)
     with pytest.raises(TypeError, match="Cannot restore Requirement"):
-        r.__setstate__("this is not a valid requirement")
+        r.__setstate__(invalid_requirement)
 
 
 # Pickle bytes generated with packaging==26.1, Python 3.13.1, pickle protocol 2.
@@ -799,6 +944,73 @@ _PACKAGING_25_0_PICKLE_REQUESTS_GE_2_0 = (
     b"\x00\x002.0q\x17\x86q\x18X\x0c\x00\x00\x00_prereleasesq\x19Nuba\x85q\x1a"
     b"Rq\x1bh\x19NubX\x06\x00\x00\x00markerq\x1cNub."
 )
+
+
+# Pickle bytes generated with packaging==26.1, Python 3.13.1, pickle protocol 2,
+# for ``Requirement("requests>=2.0")`` after setting
+# ``r.specifier.prereleases = True``.  Format: plain __dict__ (no __getstate__),
+# with the override stored on the nested SpecifierSet.
+_PACKAGING_26_1_PICKLE_REQUESTS_GE_2_0_PRERELEASES = (
+    b"\x80\x02cpackaging.requirements\nRequirement\nq\x00)\x81q\x01}q\x02("
+    b"X\x04\x00\x00\x00nameq\x03X\x08\x00\x00\x00requestsq\x04X\x03\x00\x00\x00"
+    b"urlq\x05NX\x06\x00\x00\x00extrasq\x06c__builtin__\nset\nq\x07]q\x08\x85q"
+    b"\tRq\nX\t\x00\x00\x00specifierq\x0bcpackaging.specifiers\nSpecifierSet\n"
+    b"q\x0c)\x81q\rN}q\x0e(X\x0e\x00\x00\x00_canonicalizedq\x0f\x88X\x0e\x00"
+    b"\x00\x00_has_arbitraryq\x10\x89X\x11\x00\x00\x00_is_unsatisfiableq\x11N"
+    b"X\x0c\x00\x00\x00_prereleasesq\x12\x88X\r\x00\x00\x00_resolved_opsq\x13N"
+    b"X\x06\x00\x00\x00_specsq\x14cpackaging.specifiers\nSpecifier\nq\x15)\x81"
+    b"q\x16N}q\x17(h\x12NX\x07\x00\x00\x00_rangesq\x18NX\x05\x00\x00\x00_specq"
+    b"\x19X\x02\x00\x00\x00>=q\x1aX\x03\x00\x00\x002.0q\x1b\x86q\x1cX\r\x00\x00"
+    b"\x00_spec_versionq\x1dNX\x0f\x00\x00\x00_wildcard_splitq\x1eNu\x86q\x1f"
+    b'b\x85q u\x86q!bX\x06\x00\x00\x00markerq"Nub.'
+)
+
+
+# Pickle bytes generated with packaging==26.2, Python 3.13.1, pickle protocol 2,
+# for ``Requirement("requests>=2.0")`` after setting
+# ``r.specifier.prereleases = True``.  Format: just the requirement string, so
+# the override was already dropped at pickle time (the bug fixed in 26.3).
+_PACKAGING_26_2_PICKLE_REQUESTS_GE_2_0_PRERELEASES = (
+    b"\x80\x02cpackaging.requirements\nRequirement\nq\x00)\x81q\x01X\r\x00\x00"
+    b"\x00requests>=2.0q\x02b."
+)
+
+
+# Pickle bytes generated with packaging==26.3, Python 3.13.1, pickle protocol 2,
+# for ``Requirement("requests>=2.0")`` after setting
+# ``r.specifier.prereleases = True``.  Format: (requirement string, prereleases).
+_PACKAGING_26_3_PICKLE_REQUESTS_GE_2_0_PRERELEASES = (
+    b"\x80\x02cpackaging.requirements\nRequirement\nq\x00)\x81q\x01X\r\x00\x00"
+    b"\x00requests>=2.0q\x02\x88\x86q\x03b."
+)
+
+
+def test_pickle_requirement_old_format_preserves_prereleases() -> None:
+    # A specifier prereleases override stored in a packaging <= 26.1 pickle
+    # (plain __dict__) is preserved on load.
+    r = pickle.loads(_PACKAGING_26_1_PICKLE_REQUESTS_GE_2_0_PRERELEASES)
+    assert isinstance(r, Requirement)
+    assert r == Requirement("requests>=2.0")
+    assert r.specifier.prereleases is True
+
+
+def test_pickle_requirement_26_2_format_loads() -> None:
+    # A packaging 26.2 pickle uses the string-only format, which never stored
+    # the prereleases override (the bug fixed in 26.3).  It must still load,
+    # with prereleases defaulting back to None.
+    r = pickle.loads(_PACKAGING_26_2_PICKLE_REQUESTS_GE_2_0_PRERELEASES)
+    assert isinstance(r, Requirement)
+    assert r == Requirement("requests>=2.0")
+    assert r.specifier.prereleases is None
+
+
+def test_pickle_requirement_new_format_preserves_prereleases() -> None:
+    # A specifier prereleases override stored in a packaging 26.3+ pickle
+    # ((requirement string, prereleases) tuple) is preserved on load.
+    r = pickle.loads(_PACKAGING_26_3_PICKLE_REQUESTS_GE_2_0_PRERELEASES)
+    assert isinstance(r, Requirement)
+    assert r == Requirement("requests>=2.0")
+    assert r.specifier.prereleases is True
 
 
 def test_pickle_requirement_old_format_loads() -> None:

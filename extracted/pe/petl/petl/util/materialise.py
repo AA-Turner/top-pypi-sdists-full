@@ -143,29 +143,29 @@ class CacheView(Table):
     def __init__(self, inner, n=None):
         self.inner = inner
         self.n = n
-        self.cache = list()
+        self._cache = list()
         self.cachecomplete = False
 
     def clearcache(self):
-        self.cache = list()
+        self._cache = list()
         self.cachecomplete = False
 
     def __iter__(self):
 
         # serve whatever is in the cache first
-        for row in self.cache:
+        for row in self._cache:
             yield row
 
         if not self.cachecomplete:
 
             # serve the remainder from the inner iterator
             it = iter(self.inner)
-            for row in islice(it, len(self.cache), None):
+            for row in islice(it, len(self._cache), None):
                 # maybe there's more room in the cache?
-                if not self.n or len(self.cache) < self.n:
-                    self.cache.append(row)
+                if not self.n or len(self._cache) < self.n:
+                    self._cache.append(row)
                 yield row
 
             # does the cache contain a complete copy of the inner table?
-            if not self.n or len(self.cache) < self.n:
+            if not self.n or len(self._cache) < self.n:
                 self.cachecomplete = True

@@ -6,7 +6,7 @@ use crate::utils::mock_event_logging_adapter::MockEventLoggingAdapter;
 use crate::utils::mock_specs_adapter::MockSpecsAdapter;
 use assert_json_diff::assert_json_eq;
 use lazy_static::lazy_static;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use statsig_rust::{
     ClientInitResponseOptions, HashAlgorithm, Statsig, StatsigOptions, StatsigUser,
     StatsigUserBuilder,
@@ -229,6 +229,20 @@ fn eval_proj_dcs_with_pipeline_override() -> String {
     serde_json::to_string(&json).expect("Unable to serialize fixture")
 }
 
+fn eval_proj_dcs_with_default_gate_removal() -> String {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("tests/data/eval_proj_dcs.json");
+
+    let data = fs::read_to_string(path).expect("Unable to read fixture");
+    let mut json: Value = serde_json::from_str(&data).expect("Unable to parse fixture");
+    json.as_object_mut().unwrap().insert(
+        "gcir_config".to_string(),
+        json!({ "remove_default_value_gates": true }),
+    );
+
+    serde_json::to_string(&json).expect("Unable to serialize fixture")
+}
+
 #[tokio::test]
 async fn test_feature_gate_filter() {
     let response_options = ClientInitResponseOptions {
@@ -253,6 +267,53 @@ async fn test_feature_gate_filter() {
     let gates = json_obj.get("feature_gates").unwrap().as_object().unwrap();
     assert_eq!(gates.len(), 1);
     assert!(gates.contains_key("test_public"));
+}
+
+#[tokio::test]
+async fn test_project_default_gate_removal_policy_is_used_by_default() {
+    let mut statsig_options = StatsigOptions::new();
+    statsig_options.specs_adapter = Some(Arc::new(MockSpecsAdapter::with_json_data(
+        eval_proj_dcs_with_default_gate_removal(),
+    )));
+    statsig_options.event_logging_adapter = Some(Arc::new(MockEventLoggingAdapter::new()));
+
+    let statsig = Statsig::new("secret-key", Some(Arc::new(statsig_options)));
+    statsig.initialize().await.unwrap();
+
+    let filtered = statsig.get_client_init_response_with_options(
+        &USER,
+        &ClientInitResponseOptions {
+            hash_algorithm: Some(HashAlgorithm::None),
+            ..Default::default()
+        },
+    );
+    let unfiltered = statsig.get_client_init_response_with_options(
+        &USER,
+        &ClientInitResponseOptions {
+            hash_algorithm: Some(HashAlgorithm::None),
+            remove_default_value_gates: Some(false),
+            ..Default::default()
+        },
+    );
+
+    let expected_removed = unfiltered
+        .feature_gates
+        .iter()
+        .filter(|(_, gate)| {
+            gate.base.rule_id == "default"
+                && !gate.value
+                && gate.base.secondary_exposures.is_empty()
+        })
+        .collect::<Vec<_>>();
+
+    assert!(!expected_removed.is_empty());
+    assert_eq!(
+        filtered.feature_gates.len(),
+        unfiltered.feature_gates.len() - expected_removed.len()
+    );
+    for (name, _) in expected_removed {
+        assert!(!filtered.feature_gates.contains_key(name));
+    }
 }
 
 #[tokio::test]

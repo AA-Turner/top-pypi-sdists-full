@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import pickle
 import re
-import sys
 import unittest.mock
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -16,14 +16,17 @@ from packaging.dependency_groups import (
     resolve_dependency_groups,
 )
 from packaging.errors import ExceptionGroup
-from packaging.requirements import Requirement
+from packaging.requirements import InvalidRequirement, Requirement
 
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
+if TYPE_CHECKING:
+    import sys
 
-GroupsTable: TypeAlias = "dict[str, list[str | dict[str, str]]]"
+    if sys.version_info >= (3, 10):
+        from typing import TypeAlias
+    else:
+        from typing_extensions import TypeAlias
+
+    GroupsTable: TypeAlias = "dict[str, list[str | dict[str, str]]]"
 
 
 def _group_contains(
@@ -320,6 +323,15 @@ def test_cyclic_include_self() -> None:
     )
 
 
+def test_cyclic_include_pickle_roundtrip() -> None:
+    exc = CyclicDependencyGroup("group1", "group2", "group1")
+    copy = pickle.loads(pickle.dumps(exc))
+    assert copy.requested_group == exc.requested_group
+    assert copy.group == exc.group
+    assert copy.include_group == exc.include_group
+    assert str(copy) == str(exc)
+
+
 def test_cyclic_include_ring_under_root() -> None:
     groups: GroupsTable = {
         "root": [
@@ -423,6 +435,29 @@ def test_unknown_object_shape(item: dict[str, str] | object) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("item", "exc_type", "match"),
+    [
+        ({}, InvalidDependencyGroupObject, "Invalid dependency group item:"),
+        ({"include-group": 5}, TypeError, "include-group value is not a string"),
+    ],
+)
+def test_malformed_group_entries_are_not_cached_on_resolver_instance(
+    item: object,
+    exc_type: type[BaseException],
+    match: str,
+) -> None:
+    groups: Any = {"test": [item]}
+    resolver = DependencyGroupResolver(groups)
+
+    for _ in range(2):
+        with pytest.raises(
+            ExceptionGroup, match=r"\[dependency-groups\] data for 'test' was malformed"
+        ) as excinfo:
+            resolver.lookup("test")
+        assert _group_contains(excinfo, exc_type, match=match)
+
+
 def test_non_unexpected_item_type() -> None:
     groups: Any = {"test": [object()]}
     with pytest.raises(
@@ -436,6 +471,30 @@ def test_non_unexpected_item_type() -> None:
 def test_dependency_group_include_repr() -> None:
     include = DependencyGroupInclude("test")
     assert repr(include) == "DependencyGroupInclude('test')"
+
+
+def test_resolution_collects_invalid_requirement_with_sibling_errors() -> None:
+    # A malformed PEP 508 requirement string used to raise InvalidRequirement
+    # raw, which both escaped the aggregated "...was malformed" error group and
+    # dropped any sibling errors already collected from the same group. It should
+    # now be collected like every other failure so co-occurring errors are all
+    # reported together.
+    groups: Any = {
+        "all": [
+            {},  # invalid object -> collected before the bad requirement string
+            "this is not a valid requirement!!!",
+        ],
+    }
+
+    with pytest.raises(
+        ExceptionGroup, match=r"\[dependency-groups\] data for 'all' was malformed"
+    ) as excinfo:
+        resolve_dependency_groups(groups, "all")
+
+    # the malformed requirement is aggregated rather than raised raw...
+    assert _group_contains(excinfo, InvalidRequirement)
+    # ...and the sibling error collected earlier in the same group is not dropped
+    assert _group_contains(excinfo, InvalidDependencyGroupObject)
 
 
 def test_resolution_can_capture_multiple_errors_at_once() -> None:

@@ -40,7 +40,7 @@ impl Default for ClientInitResponseOptions {
             param_store_filter: None,
             response_format: None,
             remove_id_type: Some(false),
-            remove_default_value_gates: Some(false),
+            remove_default_value_gates: None,
             previous_response_hash: None,
             remove_experiments_in_layers: Some(false),
             experiments_in_layers_allowlist: None,

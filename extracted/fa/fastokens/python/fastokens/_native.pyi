@@ -1,7 +1,7 @@
 from typing import Optional
 
 class Encoding:
-    """Rust-backed encoding returned by ``Tokenizer.encode`` / ``encode_batch``."""
+    """Rust-backed encoding returned by tokenizer encoding methods."""
 
     ids: list[int]
     attention_mask: list[int]
@@ -72,16 +72,41 @@ class Encoding:
 class Tokenizer:
     """An LLM tokenizer backed by ``tokenizer.json``."""
 
-    def __new__(cls, model: str) -> "Tokenizer": ...
+    def __new__(
+        cls,
+        model: str,
+        pcre2_match_limit: Optional[int] = None,
+        pcre2_depth_limit: Optional[int] = None,
+        pcre2_heap_limit: Optional[int] = None,
+        pcre2_max_jit_stack_size: Optional[int] = None,
+    ) -> "Tokenizer": ...
 
     @staticmethod
-    def from_file(path: str) -> "Tokenizer": ...
+    def from_file(
+        path: str,
+        pcre2_match_limit: Optional[int] = None,
+        pcre2_depth_limit: Optional[int] = None,
+        pcre2_heap_limit: Optional[int] = None,
+        pcre2_max_jit_stack_size: Optional[int] = None,
+    ) -> "Tokenizer": ...
 
     @staticmethod
-    def from_json_str(json: str) -> "Tokenizer": ...
+    def from_json_str(
+        json: str,
+        pcre2_match_limit: Optional[int] = None,
+        pcre2_depth_limit: Optional[int] = None,
+        pcre2_heap_limit: Optional[int] = None,
+        pcre2_max_jit_stack_size: Optional[int] = None,
+    ) -> "Tokenizer": ...
 
     @staticmethod
-    def from_model(model: str) -> "Tokenizer": ...
+    def from_model(
+        model: str,
+        pcre2_match_limit: Optional[int] = None,
+        pcre2_depth_limit: Optional[int] = None,
+        pcre2_heap_limit: Optional[int] = None,
+        pcre2_max_jit_stack_size: Optional[int] = None,
+    ) -> "Tokenizer": ...
 
     @staticmethod
     def from_tiktoken(
@@ -132,6 +157,14 @@ class Tokenizer:
     def num_special_tokens_to_add(self, is_pair: bool) -> int: ...
 
     def encode(self, input: str, add_special_tokens: bool = False) -> Encoding: ...
+    def encode_ordinary(self, input: str) -> Encoding: ...
+    def encode_segments(self, segments: list[tuple[str, bool]]) -> Encoding:
+        """Encode a pre-segmented input, concatenating each segment's token ids.
+
+        ``segments`` is a list of ``(text, allow_special)`` pairs. Each segment is
+        tokenized independently; special/added tokens are recognized only in
+        segments with ``allow_special=True``. Mirrors legacy tiktoken / Dynamo
+        segmented encoding; no post-processor special tokens are inserted."""
 
     def encode_batch(
         self, inputs: list[str], add_special_tokens: bool = False

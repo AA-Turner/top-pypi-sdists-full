@@ -32,6 +32,8 @@ def init_machine_config(machine: MachineSpec,
     options["c_link_args"] = "linker_flags"
     options["cpp_link_args"] = "linker_flags + cxx_link_flags"
     options["b_lundef"] = str(not allow_undefined_symbols).lower()
+    if machine.config == "softfloat":
+        options["b_staticpic"] = "false"
 
     binaries = config["binaries"]
     cc = None
@@ -206,13 +208,43 @@ def init_machine_config(machine: MachineSpec,
         else:
             common_flags += ARCH_COMMON_FLAGS_UNIX.get(machine.arch, [])
         c_like_flags += ARCH_C_LIKE_FLAGS_UNIX.get(machine.arch, [])
+        bare_softfloat = machine.os == "none" and machine.config == "softfloat"
+        if machine.config == "softfloat":
+            common_flags += ARCH_SOFTFLOAT_FLAGS_UNIX.get(machine.arch, [])
+            if bare_softfloat:
+                common_flags += [f"--target={machine.cpu_family}-none-elf"]
+                # picolibc is a package like any other here, so the libc lives in the
+                # SDK rather than beside the compiler. While rolling there is no SDK
+                # yet, and the prefix being filled is what to compile against. Not
+                # -resource-dir: that is where the compiler keeps its own float.h, and
+                # aiming it at either of those loses it.
+                sysroot = sdk_prefix if sdk_prefix is not None else environ.get("FRIDA_HOST_SYSROOT")
+                if sysroot is not None:
+                    common_flags += [f"--sysroot={sysroot}"]
 
         c_like_flags += [
             "-ffunction-sections",
             "-fdata-sections",
         ]
 
-        if linker_flavor.startswith("gnu-"):
+        if bare_softfloat:
+            # The host's GNU ld cannot be told to target this. Name the runtime
+            # ourselves too: clang would look for its own copy beside the compiler,
+            # and the one that matches this ABI is the one in the sysroot.
+            linker_flags += [
+                "-fuse-ld=lld",
+                "-nostdlib",
+                "-lc",
+                "-lclang_rt.builtins",
+                # Nothing here ends up in an executable, but configure checks do, and
+                # the C library leaves its console and heap bounds to whatever
+                # environment it lands in. Lend them picolibc's own stub host and an
+                # empty heap, so those links fail only over the symbol being checked.
+                "-ldummyhost",
+                "-Wl,--defsym=__heap_start=0",
+                "-Wl,--defsym=__heap_end=0",
+            ]
+        elif linker_flavor.startswith("gnu-"):
             linker_flags += ["-static-libgcc"]
             if machine.os != "windows":
                 linker_flags += ["-Wl,-z,noexecstack"]
@@ -222,12 +254,15 @@ def init_machine_config(machine: MachineSpec,
 
         if linker_flavor == "apple":
             linker_flags += ["-Wl,-dead_strip"]
-        else:
+        elif not bare_softfloat:
+            # Would leave a link with no entry point holding on to nothing at all,
+            # and every configure check that links would then trivially pass.
             linker_flags += ["-Wl,--gc-sections"]
         if linker_flavor == "gnu-gold":
             linker_flags += ["-Wl,--icf=all"]
 
-        if machine.os == "none":
+        # newlib's syscall stubs; the soft-float flavour brings picolibc instead.
+        if machine.os == "none" and machine.config != "softfloat":
             linker_flags += ["-specs=nosys.specs"]
 
     constants = config["constants"]
@@ -361,6 +396,19 @@ ARCH_COMMON_FLAGS_QNX = {
     "armeabi": [
         "-march=armv7-a",
         "-mno-unaligned-access",
+    ],
+}
+
+# AAPCS64 mandates hardware FP, so only clang can pass doubles in general-purpose
+# registers. x18 and -fno-pic travel with it because the first host needing this is
+# the Linux arm64 kernel, which reserves the former and whose module loader rejects
+# GOT relocations.
+ARCH_SOFTFLOAT_FLAGS_UNIX = {
+    "arm64": [
+        "-mabi=aapcs-soft",
+        "-mgeneral-regs-only",
+        "-ffixed-x18",
+        "-fno-pic",
     ],
 }
 

@@ -2,15 +2,15 @@ use std::collections::HashMap;
 
 use rusty_fork::rusty_fork_test;
 use wiremock::{
-    matchers::{method, path},
     Mock, MockServer, ResponseTemplate,
+    matchers::{method, path},
 };
 
 use crate::{
+    DynamicReturnable, StatsigOptions,
     evaluation::dynamic_returnable::DynamicReturnableValue,
     interned_string::{InternedString, InternedStringValue},
     interned_values::{InternedStore, MmapPreloadOptions},
-    DynamicReturnable, StatsigOptions,
 };
 
 const EVAL_PROJ_JSON: &[u8] = include_bytes!("../../../tests/data/eval_proj_dcs.json");

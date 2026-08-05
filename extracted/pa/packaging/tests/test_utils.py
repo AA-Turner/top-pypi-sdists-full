@@ -70,6 +70,8 @@ def test_canonicalize_name_invalid(name: str, expected: str) -> None:
         ("foo___bar", "foo-bar"),
         ("foo-bar", "foo-bar"),
         ("foo----bar", "foo-bar"),
+        ("a--b", "a-b"),
+        ("1--1", "1-1"),
     ],
 )
 def test_is_normalized_name(name: str, expected: str) -> None:
@@ -148,6 +150,18 @@ def test_canonicalize_version_no_strip_trailing_zero(version: str) -> None:
             },
         ),
         (
+            "foo-2-py2.py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+            "foo",
+            Version("2"),
+            (),
+            {
+                Tag("py2", "none", "manylinux_2_17_x86_64"),
+                Tag("py2", "none", "manylinux2014_x86_64"),
+                Tag("py3", "none", "manylinux_2_17_x86_64"),
+                Tag("py3", "none", "manylinux2014_x86_64"),
+            },
+        ),
+        (
             "foo_bár-1.0-py3-none-any.whl",
             "foo-bár",
             Version("1.0"),
@@ -175,11 +189,18 @@ def test_parse_wheel_filename(
         ("foo-1.0.whl"),  # Missing tags
         ("foo-1.0-py3-none-any.wheel"),  # Incorrect file extension (`.wheel`)
         ("foo__bar-1.0-py3-none-any.whl"),  # Invalid name (`__`)
+        ("foo\n-1.0-py3-none-any.whl"),  # Invalid name (`\n`)
         ("foo#bar-1.0-py3-none-any.whl"),  # Invalid name (`#`)
+        ("-1.0-py3-none-any.whl"),  # Empty project name
+        ("-1.0-200-py3-none-any.whl"),  # Empty project name (with build number)
         ("foobar-1.x-py3-none-any.whl"),  # Invalid version (`1.x`)
         # Build number doesn't start with a digit (`abc`)
         ("foo-1.0-abc-py3-none-any.whl"),
         ("foo-1.0-200-py3-none-any-junk.whl"),  # Too many dashes (`-junk`)
+        ("foo-1.0--none-any.whl"),  # Empty interpreter component
+        ("foo-1.0-py3-none-.whl"),  # Empty platform component
+        ("foo-1.0-py3.-none-any.whl"),  # Empty member in a compressed tag set
+        ("playlyfe-0.1.1-2.7.6-none-any.whl"),  # Invalid interpreter components
     ],
 )
 def test_parse_wheel_invalid_filename(filename: str) -> None:
@@ -225,6 +246,8 @@ def test_parse_sdist_filename(filename: str, name: str, version: Version) -> Non
         ("foo-1.0.xz"),  # Incorrect extension
         ("foo1.0.tar.gz"),  # Missing separator
         ("foo-1.x.tar.gz"),  # Invalid version
+        ("-1.0.tar.gz"),  # Empty project name
+        ("-1.0.zip"),  # Empty project name (zip)
     ],
 )
 def test_parse_sdist_invalid_filename(filename: str) -> None:

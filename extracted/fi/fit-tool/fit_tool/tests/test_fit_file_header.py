@@ -2,7 +2,7 @@
 
 import unittest
 
-from fit_tool.fit_file_header import ProtocolVersion, ProfileVersion, FitFileHeader
+from fit_tool.fit_file_header import FitFileHeader, ProfileVersion, ProtocolVersion
 
 
 class TestFitFileHeader(unittest.TestCase):
@@ -32,6 +32,23 @@ class TestFitFileHeader(unittest.TestCase):
 
         self.assertEqual(bytes1, bytes2)
 
+    def test_current_profile_version_uses_three_digit_minor_version(self):
+        profile_version = ProfileVersion(21, 212)
+
+        self.assertEqual(21212, profile_version.version_code)
+        self.assertEqual('21.212', str(ProfileVersion.from_bytes(profile_version.to_bytes())))
+
+    def test_profile_versions_after_scale_transition_use_current_scale(self):
+        profile_version = ProfileVersion(22, 0)
+
+        self.assertEqual(22000, profile_version.version_code)
+        self.assertEqual('22.0', str(ProfileVersion.from_bytes(profile_version.to_bytes())))
+
+    def test_default_profile_version_matches_sdk_version(self):
+        header = FitFileHeader(records_size=0)
+
+        self.assertEqual('21.212', str(header.profile_version))
+
     def test_generate_crc(self):
         protocol_version = ProtocolVersion(2, 3)
         profile_version = ProfileVersion(21, 60)
@@ -59,3 +76,13 @@ class TestFitFileHeader(unittest.TestCase):
         bytes2 = header2.to_bytes()
 
         self.assertEqual(bytes1, bytes2)
+
+    def test_from_bytes_invalid_size_raises_value_error(self):
+        with self.assertRaises(ValueError):
+            FitFileHeader.from_bytes(b'\x0c' + b'\x00' * 10)
+
+    def test_from_bytes_missing_fit_tag_raises_value_error(self):
+        bad_header = bytearray(FitFileHeader(records_size=0).to_bytes())
+        bad_header[8:12] = b'ABCD'
+        with self.assertRaises(ValueError):
+            FitFileHeader.from_bytes(bytes(bad_header))

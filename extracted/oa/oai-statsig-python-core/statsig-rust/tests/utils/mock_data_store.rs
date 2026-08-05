@@ -1,15 +1,15 @@
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc, Mutex,
+    atomic::{AtomicUsize, Ordering},
 };
 
 use async_trait::async_trait;
 use statsig_rust::{
+    StatsigErr,
     data_store_interface::{
         DataStoreBytesResponse, DataStoreGetBytesRequest, DataStoreResponse, DataStoreTrait,
         RequestPath,
     },
-    StatsigErr,
 };
 
 #[derive(Default)]

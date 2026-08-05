@@ -4,11 +4,11 @@ use async_trait::async_trait;
 use serde::Serialize;
 
 use crate::{
+    OpsStatsEventObserver,
     sdk_diagnostics::{
         diagnostics::{ContextType, Diagnostics},
         marker::{KeyType, Marker},
     },
-    OpsStatsEventObserver,
 };
 
 use super::ops_stats::OpsStatsEvent;

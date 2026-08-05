@@ -3,7 +3,7 @@ mod utils;
 use crate::utils::mock_specs_adapter::MockSpecsAdapter;
 use lazy_static::lazy_static;
 use statsig_rust::{
-    dyn_value, Statsig, StatsigOptions, StatsigUser, StatsigUserBuilder, StatsigUserDataMap,
+    Statsig, StatsigOptions, StatsigUser, StatsigUserBuilder, StatsigUserDataMap, dyn_value,
 };
 use std::collections::HashMap;
 use std::sync::Arc;

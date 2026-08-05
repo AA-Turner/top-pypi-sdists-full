@@ -142,7 +142,7 @@ class ThreadTTLConfig(TypedDict, total=False):
     sweep_interval_minutes: int | None
     """How often to scan for expired threads, in minutes."""
     sweep_limit: int | None
-    """Maximum number of threads to process per sweep iteration. Defaults to 1000."""
+    """Maximum number of threads to process per sweep iteration. Defaults to 10000."""
 
 
 class IndexConfig(TypedDict, total=False):

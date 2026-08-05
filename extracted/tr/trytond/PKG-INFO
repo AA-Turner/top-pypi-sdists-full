@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trytond
-Version: 8.0.7
+Version: 8.0.8
 Summary: Tryton server
 Project-URL: homepage, https://www.tryton.org/
 Project-URL: documentation, https://docs.tryton.org/server/
@@ -65,7 +65,7 @@ Requires-Dist: html2text; extra == 'test'
 Requires-Dist: pillow; extra == 'test'
 Requires-Dist: pydot; extra == 'test'
 Provides-Extra: weasyprint
-Requires-Dist: weasyprint; extra == 'weasyprint'
+Requires-Dist: weasyprint>=68.0; extra == 'weasyprint'
 Description-Content-Type: text/x-rst
 
 trytond

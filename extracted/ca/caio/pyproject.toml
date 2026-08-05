@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "caio"
-version = "0.11.1"
+version = "0.12.2"
 license = "Apache-2.0"
 license-files = ["COPYING"]
 description = "Asynchronous file IO for Linux MacOS or Windows."
@@ -27,6 +27,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Free Threading :: 2 - Beta",
 ]
 
 [project.urls]
@@ -38,6 +39,7 @@ develop = [
   "coveralls",
   "pytest",
   "pytest-cov",
+  "pytest-rerunfailures",
   "setuptools",
 ]
 

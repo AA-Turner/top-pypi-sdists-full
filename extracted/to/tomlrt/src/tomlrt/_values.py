@@ -18,11 +18,7 @@ else:  # pragma: no cover -- backport for Python < 3.12
     from typing_extensions import override
 
 from tomlrt._trivia import (
-    Trivia,
-    WhitespaceNode,
-    has_comment,
-    has_newline,
-    retarget_trivia_newlines,
+    retarget_newlines,
     split_eol_section,
     split_item_above,
 )
@@ -93,21 +89,15 @@ class KeyPart:
         return self.raw
 
 
+_KEY_ESCAPES: dict[int, str] = {0x22: '\\"', 0x5C: "\\\\"}
+for _c in (*range(0x20), 0x7F):
+    _KEY_ESCAPES[_c] = f"\\u{_c:04X}"
+del _c
+
+
 def quote_basic_key(s: str) -> str:
     """Encode ``s`` as a basic-quoted TOML key (escaping where required)."""
-    out = ['"']
-    for ch in s:
-        c = ord(ch)
-        if ch == "\\":
-            out.append("\\\\")
-        elif ch == '"':
-            out.append('\\"')
-        elif c < 0x20 or c == 0x7F:
-            out.append(f"\\u{c:04X}")
-        else:
-            out.append(ch)
-    out.append('"')
-    return "".join(out)
+    return f'"{s.translate(_KEY_ESCAPES)}"'
 
 
 _RE_BARE_KEY_FULL = re.compile(r"\A[A-Za-z0-9_\-]+\Z")
@@ -116,8 +106,8 @@ _RE_BARE_KEY_FULL = re.compile(r"\A[A-Za-z0-9_\-]+\Z")
 def make_keypart(name: str) -> KeyPart:
     """Build a ``KeyPart`` for ``name``, choosing bare vs basic-quoted."""
     if _RE_BARE_KEY_FULL.match(name):
-        return KeyPart(raw=name, value=name)
-    return KeyPart(raw=quote_basic_key(name), value=name)
+        return KeyPart(name, name)
+    return KeyPart(quote_basic_key(name), name)
 
 
 def make_keyparts(path: tuple[str, ...]) -> list[KeyPart]:
@@ -155,16 +145,16 @@ class CommaItem:
     use `CommaItem` only at polymorphic call sites.
     """
 
-    leading: Trivia
+    leading: str
     value: Value
-    trailing: Trivia
+    trailing: str
     has_comma: bool
-    post_comma_trivia: Trivia
+    post_comma_trivia: str
 
     def render(self) -> str:
-        out = f"{self.leading.render()}{self.value.render()}{self.trailing.render()}"
+        out = f"{self.leading}{self.value.render()}{self.trailing}"
         if self.has_comma:
-            out += f",{self.post_comma_trivia.render()}"
+            out += f",{self.post_comma_trivia}"
         return out
 
 
@@ -198,12 +188,12 @@ class InlineTableEntry(CommaItem):
     @override
     def render(self) -> str:
         out = (
-            f"{self.leading.render()}{self.render_key()}"
+            f"{self.leading}{self.render_key()}"
             f"{self.pre_eq}={self.post_eq}"
-            f"{self.value.render()}{self.trailing.render()}"
+            f"{self.value.render()}{self.trailing}"
         )
         if self.has_comma:
-            out += f",{self.post_comma_trivia.render()}"
+            out += f",{self.post_comma_trivia}"
         return out
 
 
@@ -229,8 +219,8 @@ class CommaValue(Generic[_ItemT]):
     """
 
     items: list[_ItemT] = field(default_factory=list)
-    header_trivia: Trivia = field(default_factory=Trivia)
-    final_trivia: Trivia = field(default_factory=Trivia)
+    header_trivia: str = ""
+    final_trivia: str = ""
 
     # Memoised `is_multiline()` result; None means "not computed".
     # Append/insert/sort/reorder preserve multi-line shape, so the hot
@@ -248,10 +238,7 @@ class CommaValue(Generic[_ItemT]):
 
     def render(self) -> str:
         body = "".join([it.render() for it in self.items])
-        return (
-            f"{self._open}{self.header_trivia.render()}"
-            f"{body}{self.final_trivia.render()}{self._close}"
-        )
+        return f"{self._open}{self.header_trivia}{body}{self.final_trivia}{self._close}"
 
     def is_multiline(self) -> bool:
         """Whether this value renders across multiple physical lines.
@@ -307,25 +294,38 @@ Value = (
 
 def item_breaks_before_comma(item: CommaItem) -> bool:
     """Return whether the row break and any EOL comment precede the comma."""
-    return item.has_comma and has_newline(item.trailing.pieces)
+    return item.has_comma and "\n" in item.trailing
 
 
-def item_eol_channel(item: CommaItem) -> Trivia:
-    """The trivia run that owns the item's row-attached EOL section.
+def item_eol_on_trailing(item: CommaItem) -> bool:
+    """Whether ``trailing`` (rather than ``post_comma_trivia``) owns the EOL.
 
     A comma-first item normally uses ``trailing``. If its pre-comma break is
     structural while an EOL comment follows the comma, the post-comma channel
-    owns that EOL instead. Picking the channel here lets callers read, write,
-    and normalise the EOL without rediscovering that distinction.
+    owns that EOL instead. Deciding it here lets callers read, write, and
+    normalise the EOL without rediscovering the distinction.
     """
     if item_breaks_before_comma(item):
         trailing_eol, _rest = split_eol_section(item.trailing)
-        if trailing_eol.pieces or not has_comment(item.post_comma_trivia.pieces):
-            return item.trailing
-    return item.post_comma_trivia if item.has_comma else item.trailing
+        if trailing_eol or "#" not in item.post_comma_trivia:
+            return True
+    return not item.has_comma
 
 
-def inter_item_separator(items: Sequence[CommaItem]) -> Trivia:
+def item_eol_channel(item: CommaItem) -> str:
+    """The trivia run that owns the item's row-attached EOL section."""
+    return item.trailing if item_eol_on_trailing(item) else item.post_comma_trivia
+
+
+def set_item_eol_channel(item: CommaItem, text: str) -> None:
+    """Write back the run that :func:`item_eol_channel` reads."""
+    if item_eol_on_trailing(item):
+        item.trailing = text
+    else:
+        item.post_comma_trivia = text
+
+
+def inter_item_separator(items: Sequence[CommaItem]) -> str:
     """Structural-pad portion of ``items[1].leading``; ``" "`` if ``len < 2``.
 
     Excludes any above-item comment block, which belongs to the item's
@@ -333,20 +333,16 @@ def inter_item_separator(items: Sequence[CommaItem]) -> Trivia:
     """
     if len(items) >= 2:
         head, _above, tail = split_item_above(items[1].leading)
-        return Trivia([*head.pieces, *tail.pieces])
-    return Trivia([WhitespaceNode(text=" ")])
+        return head + tail
+    return " "
 
 
 def _scan_multiline(v: CommaValue[Any]) -> bool:
     """Uncached scan: inspect every trivia region that can carry a row break."""
-    if has_newline(v.header_trivia.pieces) or has_newline(v.final_trivia.pieces):
+    if "\n" in v.header_trivia or "\n" in v.final_trivia:
         return True
     for it in v.items:
-        if (
-            has_newline(it.leading.pieces)
-            or has_newline(it.post_comma_trivia.pieces)
-            or has_newline(it.trailing.pieces)
-        ):
+        if "\n" in it.leading or "\n" in it.post_comma_trivia or "\n" in it.trailing:
             return True
     return False
 
@@ -355,37 +351,33 @@ def value_has_any_comment(v: Value) -> bool:
     """Whether any comment appears anywhere within ``v`` (recursively)."""
     if not isinstance(v, CommaValue):
         return False
-    if has_comment(v.header_trivia.pieces) or has_comment(v.final_trivia.pieces):
+    if "#" in v.header_trivia or "#" in v.final_trivia:
         return True
     return any(item_has_any_comment(it) for it in v.items)
 
 
 def item_has_any_comment(item: CommaItem) -> bool:
     """Whether ``item`` carries a comment in its trivia or nested value."""
-    if (
-        has_comment(item.leading.pieces)
-        or has_comment(item.trailing.pieces)
-        or has_comment(item.post_comma_trivia.pieces)
-    ):
+    if "#" in item.leading or "#" in item.trailing or "#" in item.post_comma_trivia:
         return True
     return value_has_any_comment(item.value)
 
 
 def retarget_value_newlines(v: Value, target: str) -> None:
-    """Recursively rewrite every ``NewlineNode.text`` under ``v`` to ``target``.
+    """Recursively rewrite every line terminator under ``v`` to ``target``.
 
     Scalar values have no trivia. Multi-line string content lives in
-    ``StringValue.lexeme``, not ``NewlineNode``, so literal CR/LF bytes
+    ``StringValue.lexeme``, not trivia, so literal CR/LF bytes
     inside strings are preserved.
     """
     if not isinstance(v, CommaValue):
         return
-    retarget_trivia_newlines(v.header_trivia, target)
-    retarget_trivia_newlines(v.final_trivia, target)
+    v.header_trivia = retarget_newlines(v.header_trivia, target)
+    v.final_trivia = retarget_newlines(v.final_trivia, target)
     for it in v.items:
-        retarget_trivia_newlines(it.leading, target)
-        retarget_trivia_newlines(it.trailing, target)
-        retarget_trivia_newlines(it.post_comma_trivia, target)
+        it.leading = retarget_newlines(it.leading, target)
+        it.trailing = retarget_newlines(it.trailing, target)
+        it.post_comma_trivia = retarget_newlines(it.post_comma_trivia, target)
         retarget_value_newlines(it.value, target)
 
 
@@ -406,6 +398,8 @@ __all__ = [
     "inter_item_separator",
     "item_breaks_before_comma",
     "item_eol_channel",
+    "item_eol_on_trailing",
     "item_has_any_comment",
     "retarget_value_newlines",
+    "set_item_eol_channel",
 ]

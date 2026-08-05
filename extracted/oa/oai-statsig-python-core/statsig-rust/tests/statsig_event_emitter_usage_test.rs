@@ -1,9 +1,9 @@
 mod utils;
 
 use crate::utils::mock_specs_adapter::MockSpecsAdapter;
-use statsig_rust::{sdk_event_emitter::SdkEvent, Statsig, StatsigOptions, StatsigUser};
+use statsig_rust::{Statsig, StatsigOptions, StatsigUser, sdk_event_emitter::SdkEvent};
 use std::{
-    sync::{mpsc, Arc},
+    sync::{Arc, mpsc},
     time::Duration,
 };
 

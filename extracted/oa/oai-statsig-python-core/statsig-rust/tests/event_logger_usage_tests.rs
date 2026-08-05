@@ -2,10 +2,10 @@ mod utils;
 
 use crate::utils::mock_specs_adapter::MockSpecsAdapter;
 use more_asserts::{assert_gt, assert_lt};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use statsig_rust::{FeatureGateEvaluationOptions, Statsig, StatsigOptions, StatsigUser};
 use std::collections::HashSet;
-use std::sync::{atomic::Ordering, Arc};
+use std::sync::{Arc, atomic::Ordering};
 use utils::mock_event_logging_adapter::MockEventLoggingAdapter;
 
 const DCS_EVAL_PROJ: &str = "eval_proj_dcs";
@@ -15,6 +15,19 @@ const SEC_EXPO_AS_PRIMARY_FLAG: &str = "sec_expo_as_primary:abc123";
 
 async fn setup(dcs_file: &str) -> (Statsig, Arc<MockEventLoggingAdapter>) {
     setup_with_sdk_configs_and_flags(dcs_file, None, None).await
+}
+
+async fn setup_with_json_data(dcs: Value) -> (Statsig, Arc<MockEventLoggingAdapter>) {
+    let logging_adapter = Arc::new(MockEventLoggingAdapter::new());
+    let mut options = StatsigOptions::new();
+    options.specs_adapter = Some(Arc::new(MockSpecsAdapter::with_json_data(dcs.to_string())));
+    options.event_logging_adapter = Some(logging_adapter.clone());
+
+    let uuid = uuid::Uuid::new_v4();
+    let statsig = Statsig::new(&format!("secret-{uuid}"), Some(Arc::new(options)));
+    statsig.initialize().await.unwrap();
+
+    (statsig, logging_adapter)
 }
 
 async fn setup_with_sdk_configs_and_flags(
@@ -42,6 +55,110 @@ async fn setup_with_sdk_configs_and_flags(
     statsig.initialize().await.unwrap();
 
     (statsig, logging_adapter)
+}
+
+fn nested_sampling_dcs(
+    child_entity: &str,
+    child_forward_all_exposures: bool,
+    explicit_child_value: Option<bool>,
+    child_sampling_rate: Option<u64>,
+) -> Value {
+    let mut child_rules = explicit_child_value
+        .map(|value| {
+            vec![json!({
+                "name": "child_rule",
+                "passPercentage": 100,
+                "conditions": ["public"],
+                "returnValue": value,
+                "id": "child_rule",
+                "salt": "child_rule",
+                "idType": "userID"
+            })]
+        })
+        .unwrap_or_default();
+    if let (Some(rule), Some(sampling_rate)) = (child_rules.first_mut(), child_sampling_rate) {
+        rule["samplingRate"] = json!(sampling_rate);
+    }
+    let mut child = json!({
+        "type": "feature_gate",
+        "salt": "child_salt",
+        "enabled": true,
+        "defaultValue": false,
+        "rules": child_rules,
+        "idType": "userID",
+        "entity": child_entity,
+        "version": 1
+    });
+    if child_forward_all_exposures {
+        child["forwardAllExposures"] = json!(true);
+    }
+
+    json!({
+        "dynamic_configs": {},
+        "feature_gates": {
+            "child": child,
+            "parent": {
+                "type": "feature_gate",
+                "salt": "parent_salt",
+                "enabled": true,
+                "defaultValue": false,
+                "rules": [
+                    {
+                        "name": "child_path",
+                        "passPercentage": 100,
+                        "conditions": ["pass_child"],
+                        "returnValue": true,
+                        "id": "child_path",
+                        "salt": "child_path",
+                        "idType": "userID",
+                        "samplingRate": 201
+                    },
+                    {
+                        "name": "fallback_path",
+                        "passPercentage": 100,
+                        "conditions": ["public"],
+                        "returnValue": true,
+                        "id": "fallback_path",
+                        "salt": "fallback_path",
+                        "idType": "userID",
+                        "samplingRate": 201
+                    }
+                ],
+                "idType": "userID",
+                "entity": "feature_gate",
+                "version": 1
+            }
+        },
+        "layer_configs": {},
+        "experiment_to_layer": {},
+        "has_updates": true,
+        "time": 1000,
+        "company_id": null,
+        "condition_map": {
+            "public": {
+                "type": "public",
+                "targetValue": null,
+                "operator": null,
+                "field": null,
+                "additionalValues": {},
+                "idType": "userID"
+            },
+            "pass_child": {
+                "type": "pass_gate",
+                "targetValue": "child",
+                "operator": null,
+                "field": null,
+                "additionalValues": {},
+                "idType": "userID"
+            }
+        },
+        "sdk_configs": {
+            "event_queue_size": 5000,
+            "event_logging_interval_seconds": 1,
+            "special_case_sampling_rate": 101,
+            "sampling_mode": "on"
+        }
+    })
 }
 
 #[tokio::test]
@@ -270,6 +387,119 @@ async fn test_analytical_secondary_gate_forces_sampled_parent_exposures() {
         .load(Ordering::SeqCst);
 
     assert_eq!(event_count, user_count * 4);
+}
+
+#[tokio::test]
+async fn test_nested_gate_sampling_preserves_analytical_paths() {
+    let cases = [
+        ("ordinary_default", "feature_gate", false, None, None, false),
+        (
+            "forward_all_default",
+            "feature_gate",
+            true,
+            None,
+            None,
+            true,
+        ),
+        (
+            "two_arm_targeting_fail",
+            "holdout",
+            false,
+            Some(false),
+            Some(101),
+            false,
+        ),
+        (
+            "three_group_main_default",
+            "holdout",
+            false,
+            None,
+            None,
+            true,
+        ),
+        (
+            "three_group_third_default",
+            "segment",
+            false,
+            None,
+            None,
+            true,
+        ),
+        (
+            "three_group_explicit_true",
+            "holdout",
+            false,
+            Some(true),
+            None,
+            true,
+        ),
+        (
+            "three_group_explicit_false",
+            "holdout",
+            false,
+            Some(false),
+            None,
+            true,
+        ),
+    ];
+
+    for (name, entity, forward_all_exposures, explicit_value, child_sampling_rate, should_force) in
+        cases
+    {
+        let (statsig, logging_adapter) = setup_with_json_data(nested_sampling_dcs(
+            entity,
+            forward_all_exposures,
+            explicit_value,
+            child_sampling_rate,
+        ))
+        .await;
+        let user_count = if should_force { 40 } else { 2010 };
+
+        for i in 0..user_count {
+            let user = StatsigUser::with_user_id(format!("{name}_user_{i}"));
+            let _ = statsig.check_gate(&user, "parent");
+        }
+
+        statsig.shutdown().await.unwrap();
+
+        let event_count = logging_adapter
+            .no_diagnostics_logged_event_count
+            .load(Ordering::SeqCst);
+        if should_force {
+            assert_eq!(event_count, user_count, "{name}");
+            continue;
+        }
+
+        let first_event = logging_adapter.force_get_event_at(0);
+        assert_eq!(first_event["statsigMetadata"].get("samplingMode"), None);
+        assert_eq!(
+            first_event["secondaryExposures"],
+            json!([
+                {
+                    "gate": "child",
+                    "gateValue": "false",
+                    "ruleID": if explicit_value.is_some() {
+                        "child_rule"
+                    } else {
+                        "default"
+                    }
+                }
+            ])
+        );
+
+        let sampled_event = logging_adapter.force_get_event_at(1);
+        assert_eq!(
+            sampled_event["statsigMetadata"]["samplingMode"],
+            json!("on")
+        );
+        assert_eq!(sampled_event["statsigMetadata"]["samplingRate"], json!(201));
+        assert_eq!(
+            sampled_event["statsigMetadata"]["shadowLogged"],
+            json!("logged")
+        );
+        assert_gt!(event_count, 2, "{name}");
+        assert_lt!(event_count, 40, "{name}");
+    }
 }
 
 #[tokio::test]

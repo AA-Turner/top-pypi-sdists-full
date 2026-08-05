@@ -1,13 +1,13 @@
+use crate::StatsigErr;
 use crate::networking::proxy_config::ProxyConfig;
 use crate::sdk_diagnostics::marker::KeyType;
-use crate::StatsigErr;
 use async_trait::async_trait;
 use chrono::Utc;
 use serde::de::DeserializeOwned;
 use std::io::Cursor;
 use std::{
     collections::HashMap,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{Arc, atomic::AtomicBool},
 };
 
 #[derive(Clone)]
@@ -122,6 +122,7 @@ impl<T: std::io::Read + std::io::Seek + std::fmt::Debug + Send + Sync> ResponseD
 pub struct ResponseData {
     stream: Box<dyn ResponseDataStream>,
     headers: Option<HashMap<String, String>>,
+    prepared_protobuf_stream: Option<Arc<Vec<u8>>>,
 }
 
 const TAG: &str = "ResponseData";
@@ -138,6 +139,7 @@ impl ResponseData {
         Self {
             stream: Box::new(Cursor::new(bytes)),
             headers,
+            prepared_protobuf_stream: None,
         }
     }
 
@@ -149,7 +151,11 @@ impl ResponseData {
         stream: Box<dyn ResponseDataStream>,
         headers: Option<HashMap<String, String>>,
     ) -> Self {
-        Self { stream, headers }
+        Self {
+            stream,
+            headers,
+            prepared_protobuf_stream: None,
+        }
     }
 
     pub fn get_stream_ref(&self) -> &dyn ResponseDataStream {
@@ -162,6 +168,10 @@ impl ResponseData {
 
     pub fn get_header_ref(&self, key: &str) -> Option<&String> {
         self.headers.as_ref().and_then(|h| h.get(key))
+    }
+
+    pub(crate) fn get_prepared_protobuf_stream(&self) -> Option<Arc<Vec<u8>>> {
+        self.prepared_protobuf_stream.clone()
     }
 
     pub fn deserialize_into<T: DeserializeOwned>(&mut self) -> Result<T, StatsigErr> {

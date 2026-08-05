@@ -91,7 +91,7 @@ class SdistBuilder:
         srcdir = ini_path.parent
         module = common.Module(ini_info.module, srcdir)
         metadata = common.make_metadata(module, ini_info)
-        extra_files = [ini_path.name] + ini_info.referenced_files
+        extra_files = [ini_path.name, *map(osp.normpath, ini_info.referenced_files)]
         return cls(
             module, metadata, srcdir, ini_info.reqs_by_extra,
             ini_info.entrypoints, extra_files, ini_info.data_directory,
@@ -103,7 +103,7 @@ class SdistBuilder:
         res = defaultdict(list)
         for groupname, group in self.entrypoints.items():
             for name, ep in sorted(group.items()):
-                res[groupname].append('{} = {}'.format(name, ep))
+                res[groupname].append(f'{name} = {ep}')
 
         return dict(res)
 
@@ -141,9 +141,9 @@ class SdistBuilder:
                     osp.relpath(osp.join(dirpath, d), cfgdir_s)
                 )]
 
-        crucial_files = set(
-            self.extra_files + [str(self.module.file.relative_to(self.cfgdir))]
-        )
+        crucial_files = set(self.extra_files)
+        if not self.module.is_stub_pkg:
+            crucial_files.add(str(self.module.file.relative_to(self.cfgdir)))
         missing_crucial = crucial_files - files
         if missing_crucial:
             raise Exception("Crucial files were excluded from the sdist: {}"
@@ -151,17 +151,13 @@ class SdistBuilder:
 
         return sorted(files)
 
-    def add_setup_py(self, files_to_add, target_tarfile):
-        """No-op here; overridden in flit to generate setup.py"""
-        pass
-
     @property
     def dir_name(self):
         return common.normalize_dist_name(self.metadata.name, self.metadata.version)
 
-    def build(self, target_dir, gen_setup_py=True):
+    def build(self, target_dir):
         os.makedirs(str(target_dir), exist_ok=True)
-        target = target_dir / '{}.tar.gz'.format(self.dir_name)
+        target = target_dir / f'{self.dir_name}.tar.gz'
         source_date_epoch = os.environ.get('SOURCE_DATE_EPOCH', '')
         mtime = int(source_date_epoch) if source_date_epoch else None
         # For the gzip timestamp, default to 2016-1-1 00:00 (UTC)
@@ -184,9 +180,6 @@ class SdistBuilder:
                         tf.addfile(ti, f)
                 else:
                     tf.addfile(ti)  # Symlinks & ?
-
-            if gen_setup_py:
-                self.add_setup_py(files_to_add, tf)
 
             stream = io.StringIO()
             self.metadata.write_metadata_file(stream)

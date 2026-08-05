@@ -36,7 +36,7 @@ class TestContentToolResultHTML:
         assert "test_tool" in html
 
     def test_improved_html_structure(self):
-        """Test the improved HTML structure with nested details."""
+        """Test the tool result has one disclosure containing its details."""
 
         request = ContentToolRequest(
             id="test-id",
@@ -49,15 +49,14 @@ class TestContentToolResultHTML:
         html = result.tagify()
         html_str = str(html)
 
-        # Should contain the new structure with nested details
         assert 'class="chatlas-tool-result"' in html_str
-        assert "<details>" in html_str
+        assert html_str.count("<details") == 1
         assert (
             "<summary>Result from tool call: <code>test_tool</code></summary>"
             in html_str
         )
-        assert "<summary><strong>Result:</strong></summary>" in html_str
-        assert "<summary><strong>Input parameters:</strong></summary>" in html_str
+        assert "<strong>Result:</strong>" in html_str
+        assert "<strong>Input parameters:</strong>" in html_str
 
         # Should contain escaped content
         assert "test result" in html_str
@@ -137,6 +136,29 @@ class TestContentToolResultHTML:
         assert "&lt;img src=x" in html_str
         assert "<script>" not in html_str
         assert "<img" not in html_str
+
+    def test_html_escaping_of_tool_name_and_argument_keys(self):
+        """Tool names and argument keys are model-controlled, so escape them too."""
+
+        request = ContentToolRequest(
+            id="test-id",
+            name="<img src=x onerror=alert(1)>",
+            arguments={"<b>key</b>": "value"},
+        )
+
+        result = ContentToolResult(value="result", request=request)
+        html_str = result.to_html()
+        assert "<img" not in html_str
+        assert "&lt;img src=x" in html_str
+        assert "<b>" not in html_str
+        assert "&lt;b&gt;key&lt;/b&gt;" in html_str
+
+        error_result = ContentToolResult(
+            value=None, error=ValueError("boom"), request=request
+        )
+        html_str = error_result.to_html()
+        assert "<img" not in html_str
+        assert "&lt;img src=x" in html_str
 
     def test_get_display_value_always_returns_string(self):
         """Test that _get_display_value always returns a string."""

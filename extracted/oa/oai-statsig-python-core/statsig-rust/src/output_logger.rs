@@ -1,7 +1,7 @@
-use log::{debug, error, info, warn, Level};
+use log::{Level, debug, error, info, warn};
 use parking_lot::RwLock;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use crate::logging_utils::sanitize_secret_key;
@@ -285,13 +285,20 @@ mod tests {
 
     #[test]
     fn test_sanitize_url_for_logging() {
-        let test_cases = HashMap::from(
-            [
-                ("https://statsigcdn.openai.com/v2/download_config_specs/secret-jadkfjalkjnsdlvcnjsdfaf.json", "https://statsigcdn.openai.com/v2/download_config_specs/secret-jadkf*****.json"),
-                ("https://statsigcdn.openai.com/v1/log_event/","https://statsigcdn.openai.com/v1/log_event/"),
-                ("https://statsigcdn.openai.com/v2/download_config_specs/secret-jadkfjalkjnsdlvcnjsdfaf.json?sinceTime=1", "https://statsigcdn.openai.com/v2/download_config_specs/secret-jadkf*****.json?sinceTime=1"),
-            ]
-        );
+        let test_cases = HashMap::from([
+            (
+                "https://statsigcdn.openai.com/v2/download_config_specs/secret-jadkfjalkjnsdlvcnjsdfaf.json",
+                "https://statsigcdn.openai.com/v2/download_config_specs/secret-jadkf*****.json",
+            ),
+            (
+                "https://statsigcdn.openai.com/v1/log_event/",
+                "https://statsigcdn.openai.com/v1/log_event/",
+            ),
+            (
+                "https://statsigcdn.openai.com/v2/download_config_specs/secret-jadkfjalkjnsdlvcnjsdfaf.json?sinceTime=1",
+                "https://statsigcdn.openai.com/v2/download_config_specs/secret-jadkf*****.json?sinceTime=1",
+            ),
+        ]);
         for (before, expected) in test_cases {
             let sanitized = sanitize_secret_key(before);
             assert!(sanitized == expected);

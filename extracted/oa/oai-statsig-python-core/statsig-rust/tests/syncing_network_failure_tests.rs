@@ -1,7 +1,7 @@
 mod utils;
 
 use parking_lot::Mutex;
-use statsig_rust::{output_logger::LogLevel, Statsig, StatsigOptions};
+use statsig_rust::{Statsig, StatsigOptions, output_logger::LogLevel};
 use std::{sync::Arc, time::Duration};
 use utils::mock_scrapi::{self, Endpoint, EndpointStub, MockScrapi, StubData};
 

@@ -448,6 +448,55 @@ def test_fill_ink_cs_resets_color_to_black():
     assert _ink_of_first_xobject(b"0.8 0.2 0.2 rg /DeviceGray cs /Im0 Do") is Ink.mono
 
 
+def test_nondict_xobject_tolerated(outdir):
+    # A malformed PDF may store a non-dictionary object (here an Array) at
+    # /Resources /XObject. Scanning for images must tolerate this rather than
+    # crash on .items(); OCRmyPDF's domain is messy machine-generated PDFs.
+    # Same robustness class as the pdfa.py find_nonembedded_cid_fonts fix.
+    pdf = pikepdf.Pdf.new()
+    page = pdf.add_blank_page(page_size=(612, 792))
+    page.Resources = pikepdf.Dictionary(
+        Font=pikepdf.Array([]), XObject=pikepdf.Array([])
+    )
+    out = outdir / 'malformed_xobj.pdf'
+    pdf.save(out)
+
+    info = pdfinfo.PdfInfo(out)
+    assert len(info) == 1
+    assert len(info[0].images) == 0
+
+
+@pytest.mark.parametrize(
+    'resources',
+    [
+        pikepdf.Array([]),  # non-dict /Resources
+        pikepdf.Name.Foo,  # non-dict /Resources (name)
+        pikepdf.Dictionary(XObject=pikepdf.Array([])),  # non-dict /XObject
+        pikepdf.Dictionary(XObject=pikepdf.Name.Foo),  # non-dict /XObject (name)
+    ],
+)
+def test_image_scanners_tolerate_nondict_resources(resources):
+    # Exercise the image scanners directly on an in-memory container whose
+    # /Resources or /Resources /XObject is not a dictionary. (pikepdf
+    # normalizes a non-dict /Resources assigned to a page on save, so these
+    # cases must be built in memory to reach the scanner unmodified.)
+    from ocrmypdf.pdfinfo._contentstream import ContentsInfo
+    from ocrmypdf.pdfinfo._image import _find_form_xobject_images, _image_xobjects
+
+    container = pikepdf.Dictionary(Type=pikepdf.Name.Page, Resources=resources)
+    empty = ContentsInfo(
+        xobject_settings=[],
+        inline_images=[],
+        found_vector=False,
+        found_text=False,
+        name_index={},
+    )
+    pdf = pikepdf.Pdf.new()
+
+    assert list(_image_xobjects(container)) == []
+    assert list(_find_form_xobject_images(pdf, container, empty)) == []
+
+
 def test_imageinfo_ink_inherited_in_form_xobject(outdir):
     # A mask drawn inside a Form XObject inherits the fill color set before the
     # Do that paints the form; the gray classification must reach the mask.

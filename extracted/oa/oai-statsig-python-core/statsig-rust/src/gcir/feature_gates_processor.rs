@@ -2,6 +2,7 @@ use ahash::AHashMap;
 use std::collections::HashMap;
 
 use crate::{
+    ClientInitResponseOptions, SecondaryExposure, StatsigErr,
     evaluation::{
         evaluation_data::SpecView,
         evaluation_types::GateEvaluation,
@@ -16,7 +17,6 @@ use crate::{
         secondary_exposure_key::SecondaryExposureKey,
     },
     interned_string::InternedString,
-    ClientInitResponseOptions, SecondaryExposure, StatsigErr,
 };
 
 use super::{

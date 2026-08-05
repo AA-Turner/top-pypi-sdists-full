@@ -1,3 +1,5 @@
+use crate::Statsig;
+use crate::StatsigUser;
 use crate::evaluation::evaluation_details::EvaluationDetails;
 use crate::evaluation::evaluation_types::{
     DynamicConfigEvaluation, ExperimentEvaluation, ExtraExposureInfo, GateEvaluation,
@@ -9,13 +11,11 @@ use crate::interned_string::InternedString;
 use crate::specs_response::param_store_types::Parameter;
 use crate::statsig_core_api_options::ParameterStoreEvaluationOptions;
 use crate::user::StatsigUserLoggable;
-use crate::Statsig;
-use crate::StatsigUser;
 
 use chrono::Utc;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use serde_json::{from_value, Value};
+use serde_json::{Value, from_value};
 use std::collections::HashMap;
 use std::sync::Weak;
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: streamlit
-Version: 1.60.0
+Version: 1.61.0
 Summary: A faster way to build and share data apps
 Author-email: Snowflake Inc <hello@streamlit.io>
 License-Expression: Apache-2.0
@@ -28,22 +28,21 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Widget Sets
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: altair!=5.4.0,!=5.4.1,<7,>=4.0
+Requires-Dist: altair!=5.4.0,!=5.4.1,<7,>=5.0.0
 Requires-Dist: blinker<2,>=1.5.0
 Requires-Dist: click<9,>=7.0
-Requires-Dist: gitpython!=3.1.19,<4,>=3.0.7
 Requires-Dist: numpy<3,>=1.23
 Requires-Dist: packaging>=20
 Requires-Dist: pandas<4,>=1.4.0
 Requires-Dist: pillow<13,>=7.1.0
 Requires-Dist: pydeck<1,>=0.8.0b4
-Requires-Dist: protobuf<8,>=3.20
+Requires-Dist: protobuf<8,>=5.26.1
 Requires-Dist: pyarrow<25,>=7.0
 Requires-Dist: requests<3,>=2.27
 Requires-Dist: tenacity<10,>=8.1.0
 Requires-Dist: toml<2,>=0.10.1
 Requires-Dist: typing-extensions<5,>=4.10.0
-Requires-Dist: starlette<2,>=0.40.0
+Requires-Dist: starlette<2,>=0.46.0
 Requires-Dist: uvicorn<1,>=0.30.0
 Requires-Dist: httptools<1,>=0.6.3
 Requires-Dist: anyio<5,>=4.0.0
@@ -114,6 +113,7 @@ The app features a bunch of examples of what you can do with Streamlit. Jump to 
 Create a new file named `streamlit_app.py` in your project directory with the following code:
 ```python
 import streamlit as st
+
 x = st.slider("Select a value")
 st.write(x, "squared is", x * x)
 ```

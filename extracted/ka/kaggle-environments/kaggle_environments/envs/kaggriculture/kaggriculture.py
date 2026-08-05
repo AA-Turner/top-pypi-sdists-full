@@ -29,9 +29,10 @@ PRODUCTS = ["WHEAT", "CARROT", "TOMATO", "STRAWBERRY", "MELON", "EGG", "MILK", "
 #     sign = +1 below I0 (scarcity), -1 above I0 (glut)
 #     amp  = target * base / f(T)            (derived; selling T units moves
 #                                             price by `target` * base)
-#     T    = production capacity of one 5x5 field over a 24-day game at
+#     T    = production capacity of one 5x5 field over a 24-day window at
 #            optimal watering, no fertilizer (animal T pre-discounted 30% for
-#            wheat-feed overhead)
+#            wheat-feed overhead). Shorter than the 30-day season on purpose:
+#            the opening days are setup-heavy and yield little.
 #     f    in {linear, sq, sqrt, log, log10}; log uses ln(1+x) so f(0)=0
 # Floored at PRICE_FLOOR.
 MARKET_I0 = 10000
@@ -526,6 +527,7 @@ def _process_market(state, env):
     board_size = int(get(env.configuration, "boardSize", 10))
     max_orders = max(1, int(get(env.configuration, "maxMarketOrdersPerTurn", 10)))
     hire_mult = int(get(env.configuration, "farmHandCostMult", FARM_HAND_COST_MULT))
+    shed_capacity = int(get(env.configuration, "shedCapacity", 100))
 
     queues = []
     for s in state:
@@ -590,7 +592,7 @@ def _process_market(state, env):
                 if q is None:
                     continue
                 op, item, price, ostate = q
-                ok = _commit_unit(op, item, price, farms[player_id], privates[player_id], market)
+                ok = _commit_unit(op, item, price, farms[player_id], privates[player_id], market, shed_capacity)
                 if ok:
                     ostate["remaining"] -= 1
                     committed_any = True
@@ -624,7 +626,7 @@ def _parse_order(order):
     return None
 
 
-def _commit_unit(op, item, price, farm, private, market):
+def _commit_unit(op, item, price, farm, private, market, shed_capacity=100):
     if op == "SELL":
         if private["shed"].get(item, 0) <= 0:
             return False
@@ -636,6 +638,10 @@ def _commit_unit(op, item, price, farm, private, market):
         return True
     if op == "BUY_PRODUCT":
         if farm["money"] < price:
+            return False
+        # Bought goods land in the shed, which obeys shedCapacity like every
+        # other deposit path (pickup, shed-drop, end-of-day drop).
+        if sum(private["shed"].values()) >= shed_capacity:
             return False
         farm["money"] -= price
         private["shed"][item] = private["shed"].get(item, 0) + 1
@@ -649,6 +655,8 @@ def _commit_unit(op, item, price, farm, private, market):
         return True
     if op == "BUY_ANIMAL":
         if farm["money"] < price:
+            return False
+        if sum(private["shed"].values()) >= shed_capacity:
             return False
         farm["money"] -= price
         private["shed"][item] = private["shed"].get(item, 0) + 1

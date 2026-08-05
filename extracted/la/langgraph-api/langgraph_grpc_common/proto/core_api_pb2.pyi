@@ -3500,11 +3500,17 @@ class PatchCronRequest(_message.Message):
     METADATA_JSON_FIELD_NUMBER: _builtins.int
     ENCRYPTION_CONTEXT_FIELD_NUMBER: _builtins.int
     TIMEZONE_FIELD_NUMBER: _builtins.int
+    CLEAR_END_TIME_FIELD_NUMBER: _builtins.int
     schedule: _builtins.str
     enabled: _builtins.bool
     on_run_completed: _enum_cron_on_run_completed_pb2.CronOnRunCompleted.ValueType
     metadata_json: _builtins.bytes
     timezone: _builtins.str
+    clear_end_time: _builtins.bool
+    """Distinguishes "clear the end time" from "leave it unchanged": end_time
+    above cannot carry an explicit null, so when this is true the server sets
+    end_time to NULL instead of coalescing to the existing value.
+    """
     @_builtins.property
     def cron_id(self) -> Global___UUID: ...
     @_builtins.property
@@ -3528,10 +3534,11 @@ class PatchCronRequest(_message.Message):
         metadata_json: _builtins.bytes | None = ...,
         encryption_context: _encryption_pb2.EncryptionContext | None = ...,
         timezone: _builtins.str | None = ...,
+        clear_end_time: _builtins.bool = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["_enabled", b"_enabled", "_encryption_context", b"_encryption_context", "_end_time", b"_end_time", "_metadata_json", b"_metadata_json", "_on_run_completed", b"_on_run_completed", "_payload", b"_payload", "_schedule", b"_schedule", "_timezone", b"_timezone", "cron_id", b"cron_id", "enabled", b"enabled", "encryption_context", b"encryption_context", "end_time", b"end_time", "metadata_json", b"metadata_json", "on_run_completed", b"on_run_completed", "payload", b"payload", "schedule", b"schedule", "timezone", b"timezone"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_enabled", b"_enabled", "_encryption_context", b"_encryption_context", "_end_time", b"_end_time", "_metadata_json", b"_metadata_json", "_on_run_completed", b"_on_run_completed", "_payload", b"_payload", "_schedule", b"_schedule", "_timezone", b"_timezone", "cron_id", b"cron_id", "enabled", b"enabled", "encryption_context", b"encryption_context", "end_time", b"end_time", "filters", b"filters", "metadata_json", b"metadata_json", "on_run_completed", b"on_run_completed", "payload", b"payload", "schedule", b"schedule", "timezone", b"timezone"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_enabled", b"_enabled", "_encryption_context", b"_encryption_context", "_end_time", b"_end_time", "_metadata_json", b"_metadata_json", "_on_run_completed", b"_on_run_completed", "_payload", b"_payload", "_schedule", b"_schedule", "_timezone", b"_timezone", "clear_end_time", b"clear_end_time", "cron_id", b"cron_id", "enabled", b"enabled", "encryption_context", b"encryption_context", "end_time", b"end_time", "filters", b"filters", "metadata_json", b"metadata_json", "on_run_completed", b"on_run_completed", "payload", b"payload", "schedule", b"schedule", "timezone", b"timezone"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__enabled: _TypeAlias = _typing.Literal["enabled"]  # noqa: Y015
     _WhichOneofArgType__enabled: _TypeAlias = _typing.Literal["_enabled", b"_enabled"]  # noqa: Y015

@@ -604,6 +604,77 @@ def _get_int_attr(element: ET.Element, name: str, default: int = 0) -> int:
         return int(value)
     except ValueError:
         return default
+
+
+def _optional_int_attr(element: ET.Element, name: str) -> int | None:
+    """Return *name* as an int, or ``None`` if absent/unparseable.
+
+    Unlike :func:`_get_int_attr`, this distinguishes "attribute omitted"
+    (schema-legal for e.g. ``lineNumberShape``'s attributes, all optional
+    with no declared default) from "present and zero".
+    """
+
+    value = element.get(name)
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def _get_bool_attr(element: ET.Element, name: str, default: bool = False) -> bool:
+    """Return *name* attribute of *element* as a boolean.
+
+    OWPML xs:boolean allows both "0"/"1" and "true"/"false" lexical forms,
+    and this schema mixes them (``wonggojiFormat`` defaults "0",
+    ``hideFirstHeader`` defaults "false") — both are accepted here.
+    """
+
+    value = element.get(name)
+    if value is None:
+        return default
+    return value not in ("0", "false", "False", "FALSE")
+
+
+def _bool_str(value: bool) -> str:
+    """Serialize a boolean as the OWPML ``"true"``/``"false"`` literal."""
+
+    return "true" if value else "false"
+
+
+def _apply_optional_attrs(element: ET.Element, pairs: Iterable[tuple[str, str | None]]) -> bool:
+    """Set each non-``None`` ``(name, value)`` pair on *element* if it differs.
+
+    Shared "partial update" primitive: every ``set_*``/``ensure_*`` helper
+    that only touches attributes a caller actually passed (leaving the rest
+    of an existing element alone) can reuse this instead of repeating the
+    same ``for``/``if`` loop. Returns whether anything actually changed.
+    """
+
+    changed = False
+    for name, value in pairs:
+        if value is not None and element.get(name) != value:
+            element.set(name, value)
+            changed = True
+    return changed
+
+
+def _apply_optional_bool_attrs(element: ET.Element, pairs: Iterable[tuple[str, bool | None]]) -> bool:
+    """Boolean-valued sibling of :func:`_apply_optional_attrs`.
+
+    Compares via :func:`_get_bool_attr` (accepts "0"/"1" and "true"/"false")
+    rather than raw string equality, and serializes with :func:`_bool_str`.
+    """
+
+    changed = False
+    for name, value in pairs:
+        if value is not None and _get_bool_attr(element, name, False) != value:
+            element.set(name, _bool_str(value))
+            changed = True
+    return changed
+
+
 def _default_sublist_attributes() -> dict[str, str]:
     """Return standard attributes for a ``<hp:subList>`` element.
 

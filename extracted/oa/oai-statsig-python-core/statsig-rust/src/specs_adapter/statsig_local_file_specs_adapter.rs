@@ -4,7 +4,7 @@ use crate::specs_adapter::statsig_http_specs_adapter::SpecsSyncTrigger;
 use crate::specs_adapter::{SpecsAdapter, SpecsSource, SpecsUpdate, SpecsUpdateListener};
 use crate::specs_response::spec_types::SpecsResponseFull;
 use crate::statsig_err::StatsigErr;
-use crate::{log_e, log_w, StatsigOptions, StatsigRuntime};
+use crate::{StatsigOptions, StatsigRuntime, log_e, log_w};
 use async_trait::async_trait;
 use chrono::Utc;
 use parking_lot::RwLock;

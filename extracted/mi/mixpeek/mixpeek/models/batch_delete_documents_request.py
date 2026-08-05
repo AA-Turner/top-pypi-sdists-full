@@ -31,7 +31,8 @@ class BatchDeleteDocumentsRequest(BaseModel):
     """ # noqa: E501
     document_ids: Optional[Annotated[List[StrictStr], Field(min_length=1, max_length=1000)]] = Field(default=None, description="OPTIONAL. List of document IDs to delete. Use this mode when you know exact document IDs to delete. Mutually exclusive with filters mode. Maximum 1000 documents per batch request.")
     filters: Optional[LogicalOperatorInput] = Field(default=None, description="OPTIONAL. Filter conditions to match documents for deletion. Mutually exclusive with 'document_ids' array. If provided, deletes ALL documents matching the filters. Use with caution - can delete many documents at once. Uses the logical AND/OR/NOT shape (not MVS-native must/key).")
-    __properties: ClassVar[List[str]] = ["document_ids", "filters"]
+    reason: Optional[Annotated[str, Field(strict=True, max_length=500)]] = Field(default=None, description="OPTIONAL. Why this bulk delete is happening — recorded on the DOCUMENT_BULK_SOFT_DELETED audit event (BACKE-3150) so a document-level wipe carries the caller's own context, not just the actor and counts.")
+    __properties: ClassVar[List[str]] = ["document_ids", "filters", "reason"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -88,7 +89,8 @@ class BatchDeleteDocumentsRequest(BaseModel):
 
         _obj = cls.model_validate({
             "document_ids": obj.get("document_ids"),
-            "filters": LogicalOperatorInput.from_dict(obj["filters"]) if obj.get("filters") is not None else None
+            "filters": LogicalOperatorInput.from_dict(obj["filters"]) if obj.get("filters") is not None else None,
+            "reason": obj.get("reason")
         })
         return _obj
 

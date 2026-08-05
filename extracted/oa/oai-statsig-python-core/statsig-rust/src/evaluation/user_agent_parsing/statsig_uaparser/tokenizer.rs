@@ -1,6 +1,6 @@
 use crate::unwrap_or_return;
 
-use super::{window_iter::WindowIter, Version};
+use super::{Version, window_iter::WindowIter};
 
 pub struct Tokenizer;
 

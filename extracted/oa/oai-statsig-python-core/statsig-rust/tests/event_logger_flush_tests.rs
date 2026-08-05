@@ -7,7 +7,7 @@ use serial_test::serial;
 use statsig_rust::networking::NetworkError;
 use statsig_rust::output_logger::LogLevel;
 use statsig_rust::{ObservabilityClient, Statsig, StatsigErr, StatsigOptions, StatsigUser};
-use std::sync::{atomic::Ordering, Arc};
+use std::sync::{Arc, atomic::Ordering};
 use std::time::Duration;
 use utils::mock_event_logging_adapter::MockEventLoggingAdapter;
 

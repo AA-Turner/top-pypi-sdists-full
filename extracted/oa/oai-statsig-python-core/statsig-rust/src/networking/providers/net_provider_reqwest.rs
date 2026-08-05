@@ -6,13 +6,12 @@ use async_trait::async_trait;
 
 use crate::log_d;
 use crate::{
-    log_e, log_w,
+    StatsigErr, log_e, log_w,
     networking::{
-        http_types::{HttpMethod, RequestArgs, Response, ResponseData},
         NetworkProvider,
+        http_types::{HttpMethod, RequestArgs, Response, ResponseData},
+        url_path_has_suffix,
     },
-    utils::url_path_has_suffix,
-    StatsigErr,
 };
 
 use crate::networking::proxy_config::ProxyConfig;

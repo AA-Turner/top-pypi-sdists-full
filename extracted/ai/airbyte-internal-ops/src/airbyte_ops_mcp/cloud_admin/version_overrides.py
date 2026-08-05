@@ -22,18 +22,16 @@ import requests as _requests
 from airbyte import constants
 from airbyte.exceptions import PyAirbyteInputError
 
-from airbyte_ops_mcp.approval_resolution import (
-    ApprovalStatus,
-    check_approval_status,
-)
 from airbyte_ops_mcp.cloud_admin import api_client
 from airbyte_ops_mcp.cloud_admin.api_client import (
     _get_access_token,
     _ScopeType,
 )
-from airbyte_ops_mcp.cloud_admin.auth import (
-    CloudAuthError,
-    require_internal_admin_flag_only,
+from airbyte_ops_mcp.cloud_admin.auth import CloudAuthError
+from airbyte_ops_mcp.cloud_admin.guardrails import (
+    build_tier_warning,
+    validate_admin_and_authorization,
+    validate_tier_filter,
 )
 from airbyte_ops_mcp.cloud_admin.models import (
     ConnectorVersionInfo,
@@ -95,103 +93,6 @@ class VersionOverrideTarget:
     workspace_id: str | None = None
     actor_id: str | None = None
     connector_name: str | None = None
-
-
-def build_tier_warning(customer_tier: str) -> str | None:
-    """Return a warning message for sensitive customer tiers, or `None`."""
-    if customer_tier == "TIER_0":
-        return (
-            "WARNING: This is a TIER_0 (highest-value) customer. "
-            "Proceed with extreme caution."
-        )
-    if customer_tier == "TIER_1":
-        return "WARNING: This is a TIER_1 (high-value) customer. Proceed with caution."
-    return None
-
-
-def validate_tier_filter(
-    actual_tier: str,
-    requested_filter: TierFilter,
-    *,
-    source_health: TierSourceHealth | None = None,
-    organization_id: str | None = None,
-) -> tuple[bool, str | None]:
-    """Check whether `actual_tier` matches `requested_filter`.
-
-    Returns `(ok, error_message)`. When `ok` is `False` the caller should
-    reject the operation with `error_message`.
-    """
-    if source_health is not None and source_health.degraded:
-        if requested_filter == "UNKNOWN":
-            logger.warning(
-                "Proceeding with indeterminate customer tier for organization %s: %s",
-                organization_id or "<unknown>",
-                source_health.reason or "tier source degraded",
-            )
-            return True, None
-        return False, (
-            "Customer tier is indeterminable because the tier source is degraded "
-            f"({source_health.reason or 'source unavailable'}); acknowledge with "
-            "tier filter 'UNKNOWN'."
-        )
-    if requested_filter == "ALL":
-        return True, None
-    if actual_tier != requested_filter:
-        return False, (
-            f"Tier mismatch: the target entity is {actual_tier} but the requested "
-            f"tier filter is {requested_filter}. Either specify the correct tier "
-            f"or use 'ALL' to proceed with a warning."
-        )
-    return True, None
-
-
-def _validate_admin_and_authorization(
-    *,
-    issue_url: str | None,
-    approval_comment_url: str | None,
-    user_email: str | None = None,
-) -> tuple[str | None, str | None]:
-    """Run admin-flag and authorization-parameter checks.
-
-    Returns `(admin_user_email, error_message)`. Exactly one will be non-`None`:
-    on success the resolved admin email; on failure the error message to
-    propagate to the caller.
-
-    **Webapp bypass:** When `user_email` is provided and the process is
-    running inside the Ops Webapp (detected via env var), the
-    `issue_url` and `approval_comment_url` requirements are skipped.
-    The human operator is already authenticated via OAuth — the approval
-    is implicit in their button click.
-    """
-    try:
-        require_internal_admin_flag_only()
-    except CloudAuthError as e:
-        return None, f"Admin authentication failed: {e}"
-
-    # Webapp bypass: check_approval_status handles env var detection.
-    approval = check_approval_status(
-        approval_comment_url=approval_comment_url,
-        user_email=user_email,
-    )
-    if approval.status == ApprovalStatus.APPROVED:
-        return approval.admin_email, None
-
-    # For NEEDS_APPROVAL in agent mode, also validate issue_url.
-    if approval.status == ApprovalStatus.NEEDS_APPROVAL:
-        validation_errors: list[str] = []
-        if not issue_url:
-            validation_errors.append(
-                "issue_url is required for authorization (GitHub issue URL)"
-            )
-        elif not issue_url.startswith("https://github.com/"):
-            validation_errors.append(
-                f"issue_url must be a valid GitHub URL (https://github.com/...), got: {issue_url}"
-            )
-        validation_errors.append(approval.reason or "Approval URL is required")
-        return None, "Authorization validation failed: " + "; ".join(validation_errors)
-
-    # REJECTED
-    return None, approval.reason or "Approval check failed"
 
 
 def _build_audit_reason(
@@ -699,7 +600,7 @@ def set_version_override(
         auth=auth,
     )
 
-    admin_user_email, auth_error = _validate_admin_and_authorization(
+    admin_user_email, auth_error = validate_admin_and_authorization(
         issue_url=issue_url,
         approval_comment_url=approval_comment_url,
         user_email=user_email,

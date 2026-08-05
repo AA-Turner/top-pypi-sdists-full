@@ -25,15 +25,16 @@ _sym_db = _symbol_database.Default()
 from sentry_protos.billing.v1.services.contract.v1 import billing_config_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v1_dot_billing__config__pb2
 from sentry_protos.billing.v1.services.contract.v1 import contract_metadata_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v1_dot_contract__metadata__pb2
 from sentry_protos.billing.v1.services.contract.v1 import pricing_config_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v1_dot_pricing__config__pb2
+from sentry_protos.billing.v1.services.contract.v1 import retention_config_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v1_dot_retention__config__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n<sentry_protos/billing/v1/services/contract/v1/contract.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a\x42sentry_protos/billing/v1/services/contract/v1/billing_config.proto\x1a\x45sentry_protos/billing/v1/services/contract/v1/contract_metadata.proto\x1a\x42sentry_protos/billing/v1/services/contract/v1/pricing_config.proto\"\x89\x02\n\x08\x43ontract\x12Q\n\x08metadata\x18\x01 \x01(\x0b\x32?.sentry_protos.billing.v1.services.contract.v1.ContractMetadata\x12T\n\x0e\x62illing_config\x18\x02 \x01(\x0b\x32<.sentry_protos.billing.v1.services.contract.v1.BillingConfig\x12T\n\x0epricing_config\x18\x03 \x01(\x0b\x32<.sentry_protos.billing.v1.services.contract.v1.PricingConfigb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n<sentry_protos/billing/v1/services/contract/v1/contract.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a\x42sentry_protos/billing/v1/services/contract/v1/billing_config.proto\x1a\x45sentry_protos/billing/v1/services/contract/v1/contract_metadata.proto\x1a\x42sentry_protos/billing/v1/services/contract/v1/pricing_config.proto\x1a\x44sentry_protos/billing/v1/services/contract/v1/retention_config.proto\"\xe3\x02\n\x08\x43ontract\x12Q\n\x08metadata\x18\x01 \x01(\x0b\x32?.sentry_protos.billing.v1.services.contract.v1.ContractMetadata\x12T\n\x0e\x62illing_config\x18\x02 \x01(\x0b\x32<.sentry_protos.billing.v1.services.contract.v1.BillingConfig\x12T\n\x0epricing_config\x18\x03 \x01(\x0b\x32<.sentry_protos.billing.v1.services.contract.v1.PricingConfig\x12X\n\x10retention_config\x18\x04 \x01(\x0b\x32>.sentry_protos.billing.v1.services.contract.v1.RetentionConfigb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.contract.v1.contract_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_CONTRACT']._serialized_start=319
-  _globals['_CONTRACT']._serialized_end=584
+  _globals['_CONTRACT']._serialized_start=389
+  _globals['_CONTRACT']._serialized_end=744
 # @@protoc_insertion_point(module_scope)

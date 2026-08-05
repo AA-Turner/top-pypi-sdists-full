@@ -467,7 +467,7 @@ class TestHelperConvertFatsToDict(BaseTestCase):
             ship=ship,
             character=character,
             fatlink=fatlink,
-            id=42,
+            pk=42,
         )
 
         result = convert_fats_to_dict(request=request, fat=fat)

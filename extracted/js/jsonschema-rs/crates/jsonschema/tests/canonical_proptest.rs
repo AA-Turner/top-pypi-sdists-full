@@ -1,6 +1,9 @@
 #![cfg(not(target_arch = "wasm32"))]
 use hegel::{extras::serde_json as json_gs, generators as gs, TestCase};
-use jsonschema::{canonical::CanonicalView, Draft};
+use jsonschema::{
+    canonical::{CanonicalSchema, CanonicalView},
+    Draft, JsonType,
+};
 use serde_json::{json, Value};
 
 fn draw_draft(tc: &TestCase) -> Draft {
@@ -585,24 +588,168 @@ fn canonical_form_preserves_validation(tc: TestCase) {
     );
 }
 
-// `not not s` accepts exactly what `s` accepts, so when the double complement is modeled both
-// spellings land on one canonical form. A raw result round-trips the document verbatim and
-// carries no claim to check.
+// The complement of a complement accepts what the schema accepts. Taking it through the algebra
+// runs both steps: spelling the pair as nested `not` keywords cancels them before either one runs,
+// leaving nothing to check.
 #[hegel::test(test_cases = 5_000)]
-fn double_negation_converges(tc: TestCase) {
+fn negating_a_complement_restores_the_accepted_values(tc: TestCase) {
     let draft = draw_draft(&tc);
+    let validate_formats = tc.draw(gs::booleans());
     let schema = draw_schema(&tc, 2);
-    let (schema_body, definitions) = split_root_definitions(&schema);
-    let doubled = attach_root_definitions(json!({ "not": { "not": schema_body } }), definitions);
-    let Some(via_double) = canonicalize(&doubled, draft) else {
+    let instance = tc.draw(arbitrary_instance());
+    let Ok(canonical) = jsonschema::canonical::options()
+        .with_draft(draft)
+        .should_validate_formats(validate_formats)
+        .canonicalize(&schema)
+    else {
         return;
     };
-    if via_double == doubled {
+    let Some(complement) = canonical.negate() else {
         return;
+    };
+    let Some(restored) = complement.negate() else {
+        return;
+    };
+    let build = |value: &Value| {
+        jsonschema::options()
+            .with_draft(draft)
+            .should_validate_formats(validate_formats)
+            .build(value)
+    };
+    let emitted = restored.to_json_schema();
+    let (Ok(raw), Ok(twice)) = (build(&schema), build(&emitted)) else {
+        return;
+    };
+    assert_eq!(
+        raw.is_valid(&instance),
+        twice.is_valid(&instance),
+        "schema = {schema}\n  restored = {emitted}\n  instance = {instance}"
+    );
+}
+
+// A pool in normal form keeps no leaf a sibling of its own kind already holds: an intersection that
+// leaves the leaf untouched proves every value it admits lies in the sibling, so the fold that
+// drops it was left undone. Leaves of different kinds sit in different pools, which the union
+// assembles side by side without weighing one against the other.
+#[hegel::test(test_cases = 5_000)]
+fn a_union_keeps_no_leaf_a_sibling_of_its_kind_already_holds(tc: TestCase) {
+    let draft = draw_draft(&tc);
+    let validate_formats = tc.draw(gs::booleans());
+    let seed = draw_schema(&tc, 2);
+    let (body, definitions) = split_root_definitions(&seed);
+    // A branch beside a narrowing of itself: the narrowing adds nothing, so the union must shed it.
+    let mut branches = vec![body.clone(), json!({ "allOf": [body, draw_leaf(&tc)] })];
+    let count = tc.draw(gs::integers::<usize>().min_value(0).max_value(2));
+    for _ in 0..count {
+        branches.push(draw_schema_node(&tc, 2));
     }
-    let direct =
-        canonicalize(&schema, draft).expect("a modeled double complement implies a modeled child");
-    assert_eq!(direct, via_double, "{schema}");
+    let schema = attach_root_definitions(json!({ "anyOf": branches }), definitions);
+    let Ok(canonical) = jsonschema::canonical::options()
+        .with_draft(draft)
+        .should_validate_formats(validate_formats)
+        .canonicalize(&schema)
+    else {
+        return;
+    };
+    let mut nodes = Vec::new();
+    collect_nodes(&canonical, &mut nodes);
+    for node in &nodes {
+        let CanonicalView::AnyOf(branches) = node.view() else {
+            continue;
+        };
+        for branch in &branches {
+            let Some(pool) = leaf_pool(branch) else {
+                continue;
+            };
+            for sibling in &branches {
+                if leaf_pool(sibling) != Some(pool) || sibling == branch {
+                    continue;
+                }
+                // One divisor standing for another is decided by the arithmetic their spellings
+                // share, which is a wider question than the facets a pool weighs.
+                if divisors(branch) != divisors(sibling) {
+                    continue;
+                }
+                assert!(
+                    !matches!(branch.is_subset_of(sibling), Ok(Some(true))),
+                    "schema = {schema}\n  branch = {}\n  sibling = {}",
+                    branch.to_json_schema(),
+                    sibling.to_json_schema()
+                );
+            }
+        }
+    }
+}
+
+/// The divisors a numeric leaf carries, required and barred.
+fn divisors(schema: &CanonicalSchema) -> (Vec<serde_json::Number>, Vec<serde_json::Number>) {
+    match schema.view() {
+        CanonicalView::Integer(leaf) => (leaf.multiple_of, leaf.not_multiple_of),
+        CanonicalView::Number(leaf) => (leaf.multiple_of, leaf.not_multiple_of),
+        _ => (Vec::new(), Vec::new()),
+    }
+}
+
+/// The pool a union collects this branch into, or `None` for a leaf whose pool weighs nested
+/// schemas rather than facets alone - the algebra compares a nested schema only against itself.
+fn leaf_pool(schema: &CanonicalSchema) -> Option<JsonType> {
+    match schema.view() {
+        CanonicalView::String(_) => Some(JsonType::String),
+        CanonicalView::Integer(_) => Some(JsonType::Integer),
+        CanonicalView::Number(_) => Some(JsonType::Number),
+        _ => None,
+    }
+}
+
+// Every node of a canonical form, the root included.
+fn collect_nodes(schema: &CanonicalSchema, into: &mut Vec<CanonicalSchema>) {
+    into.push(schema.clone());
+    match schema.view() {
+        CanonicalView::TypedGroup(group) => collect_nodes(&group.body, into),
+        CanonicalView::Not(operand) => collect_nodes(&operand, into),
+        CanonicalView::AllOf(branches)
+        | CanonicalView::AnyOf(branches)
+        | CanonicalView::OneOf(branches) => {
+            for branch in &branches {
+                collect_nodes(branch, into);
+            }
+        }
+        CanonicalView::Array(array) => {
+            for item in &array.prefix_items {
+                collect_nodes(item, into);
+            }
+            if let Some(items) = &array.items {
+                collect_nodes(items, into);
+            }
+            for facet in &array.contains {
+                collect_nodes(&facet.schema, into);
+            }
+        }
+        CanonicalView::Object(object) => {
+            if let Some(names) = &object.property_names {
+                collect_nodes(names, into);
+            }
+            for entry in object.properties.values() {
+                collect_nodes(entry, into);
+            }
+            for entry in object.pattern_properties.values() {
+                collect_nodes(entry, into);
+            }
+            if let Some(additional) = &object.additional_properties {
+                collect_nodes(additional, into);
+            }
+        }
+        CanonicalView::MultiType(_)
+        | CanonicalView::String(_)
+        | CanonicalView::Integer(_)
+        | CanonicalView::Number(_)
+        | CanonicalView::Const(_)
+        | CanonicalView::Enum(_)
+        | CanonicalView::Reference(_)
+        | CanonicalView::True
+        | CanonicalView::False
+        | CanonicalView::Raw(_) => {}
+    }
 }
 
 // A value set intersected with an integer bound preserves validation on its own members and their
@@ -943,6 +1090,12 @@ enum Link {
     ContainsMixed,
     /// Terminates the ring.
     Base,
+    /// A bare reference, carrying no assertion at all.
+    Bare,
+    /// Two bare references conjoined, carrying no assertion at all.
+    BareConjunction,
+    /// Two bare references in a branch, carrying no assertion at all.
+    BareBranch,
 }
 
 /// Links that always consume structure, so every cycle they build is well founded.
@@ -956,6 +1109,20 @@ const WELL_FOUNDED_LINKS: &[Link] = &[
     Link::PrefixPair,
     Link::Base,
 ];
+
+/// Links that consume a *demanded* piece of the instance: satisfying one needs a strictly smaller
+/// value satisfying its target. A ring built from these alone descends forever.
+const DEMANDING_LINKS: &[Link] = &[
+    Link::RequiredProperty,
+    Link::Item,
+    Link::Contains,
+    Link::PropertyName,
+    Link::TwoRequired,
+    Link::PrefixPair,
+];
+
+/// Links carrying no assertion whatsoever, so a ring built from these alone constrains nothing.
+const BARE_LINKS: &[Link] = &[Link::Bare, Link::BareConjunction, Link::BareBranch];
 
 const ALL_LINKS: &[Link] = &[
     Link::RequiredProperty,
@@ -972,16 +1139,10 @@ const ALL_LINKS: &[Link] = &[
     Link::AnyOfMixed,
     Link::ContainsMixed,
     Link::Base,
+    Link::Bare,
+    Link::BareConjunction,
+    Link::BareBranch,
 ];
-
-fn draw_link(tc: &TestCase, well_founded: bool) -> Link {
-    let links = if well_founded {
-        WELL_FOUNDED_LINKS
-    } else {
-        ALL_LINKS
-    };
-    tc.draw(gs::sampled_from(links.to_vec()))
-}
 
 /// A definition body reaching `next`, or `second` too when the arm takes two targets.
 fn definition_body(link: Link, next: &str, second: &str) -> Value {
@@ -995,6 +1156,9 @@ fn definition_body(link: Link, next: &str, second: &str) -> Value {
         Link::PropertyName => {
             json!({"type": "object", "minProperties": 1, "propertyNames": {"$ref": next}})
         }
+        Link::Bare => json!({"$ref": next}),
+        Link::BareConjunction => json!({"allOf": [{"$ref": next}, {"$ref": second}]}),
+        Link::BareBranch => json!({"anyOf": [{"$ref": next}, {"$ref": second}]}),
         Link::InPlace => json!({"allOf": [{"$ref": next}, {"type": "integer"}]}),
         Link::InPlaceBranch => json!({"anyOf": [{"$ref": next}, {"type": "integer"}]}),
         // Two outgoing references, which one target per body can never produce - and which every
@@ -1025,11 +1189,13 @@ fn definition_body(link: Link, next: &str, second: &str) -> Value {
 
 /// A graph of definitions, each reaching one or two others by index.
 ///
-/// `well_founded` restricts the links to ones that consume structure. The validator's own recursion
-/// guard is spelling-sensitive on an ill-founded cycle - reordering two `oneOf` branches flips its
-/// verdict with no canonicalization involved - so it is only a usable oracle for these.
+/// Every target lands on the root or a definition, so the whole document is closed under the
+/// reference edges and `links` alone decides what the ring carries. [`WELL_FOUNDED_LINKS`] is the
+/// set the validator can serve as an oracle for: its own recursion guard is spelling-sensitive on
+/// an ill-founded cycle - reordering two `oneOf` branches flips its verdict with no
+/// canonicalization involved.
 #[hegel::composite]
-fn definition_graph(tc: TestCase, well_founded: bool) -> Value {
+fn definition_graph(tc: TestCase, links: &'static [Link]) -> Value {
     let size = tc.draw(gs::integers::<usize>().min_value(1).max_value(5));
     let target = |tc: &TestCase| {
         let index = tc.draw(gs::integers::<usize>().min_value(0).max_value(size));
@@ -1039,8 +1205,10 @@ fn definition_graph(tc: TestCase, well_founded: bool) -> Value {
             format!("#/$defs/d{index}")
         }
     };
-    let body =
-        |tc: &TestCase| definition_body(draw_link(tc, well_founded), &target(tc), &target(tc));
+    let body = |tc: &TestCase| {
+        let link = tc.draw(gs::sampled_from(links.to_vec()));
+        definition_body(link, &target(tc), &target(tc))
+    };
     let mut definitions = serde_json::Map::new();
     for index in 0..size {
         definitions.insert(format!("d{index}"), body(&tc));
@@ -1074,7 +1242,7 @@ fn emptiness_candidates() -> Vec<Value> {
 // Canonicalizing a recursive definition ring preserves the accepted set.
 #[hegel::test(test_cases = 5_000)]
 fn recursive_reference_form_preserves_validation(tc: TestCase) {
-    let schema = tc.draw(definition_graph(true));
+    let schema = tc.draw(definition_graph(WELL_FOUNDED_LINKS));
     let emitted = canonicalize(&schema, Draft::Draft202012)
         .unwrap_or_else(|| panic!("a definition ring canonicalizes: {schema}"));
     let build = |value: &Value| {
@@ -1095,7 +1263,7 @@ fn recursive_reference_form_preserves_validation(tc: TestCase) {
 
 #[hegel::test(test_cases = 5_000)]
 fn unsatisfiable_recursive_reference_rejects_every_candidate(tc: TestCase) {
-    let schema = tc.draw(definition_graph(true));
+    let schema = tc.draw(definition_graph(WELL_FOUNDED_LINKS));
     let canonical = jsonschema::canonical::options()
         .with_draft(Draft::Draft202012)
         .canonicalize(&schema)
@@ -1115,9 +1283,43 @@ fn unsatisfiable_recursive_reference_rejects_every_candidate(tc: TestCase) {
     }
 }
 
+// Satisfying a demanding link needs a strictly smaller value satisfying its target, and every
+// target lands back inside the ring, so a value satisfying any member would carry an infinite
+// descending chain of sub-values. JSON values are finite, so no member admits anything - the
+// unsatisfiability is a theorem of the construction rather than a verdict to be read off.
+#[hegel::test(test_cases = 5_000)]
+fn a_demanding_reference_ring_admits_nothing(tc: TestCase) {
+    let schema = tc.draw(definition_graph(DEMANDING_LINKS));
+    let canonical = jsonschema::canonical::options()
+        .with_draft(Draft::Draft202012)
+        .canonicalize(&schema)
+        .unwrap_or_else(|error| panic!("a definition ring canonicalizes: {error}\n  {schema}"));
+    assert!(
+        !canonical.is_satisfiable(),
+        "a ring of demanded sub-values admits nothing, but the canonical form is {}\n  schema = {schema}",
+        canonical.to_json_schema()
+    );
+}
+
+// A ring of bare references asserts nothing anywhere, so every value walks it forever without ever
+// meeting a constraint that could reject it. Its canonical form is `true`.
+#[hegel::test(test_cases = 5_000)]
+fn a_bare_reference_ring_admits_everything(tc: TestCase) {
+    let schema = tc.draw(definition_graph(BARE_LINKS));
+    let canonical = jsonschema::canonical::options()
+        .with_draft(Draft::Draft202012)
+        .canonicalize(&schema)
+        .unwrap_or_else(|error| panic!("a definition ring canonicalizes: {error}\n  {schema}"));
+    assert_eq!(
+        canonical.view(),
+        CanonicalView::True,
+        "a ring carrying no assertion admits every value\n  schema = {schema}"
+    );
+}
+
 #[hegel::test(test_cases = 30_000)]
 fn recursive_reference_form_is_idempotent(tc: TestCase) {
-    let schema = tc.draw(definition_graph(false));
+    let schema = tc.draw(definition_graph(ALL_LINKS));
     let once = canonicalize(&schema, Draft::Draft202012)
         .unwrap_or_else(|| panic!("a definition ring canonicalizes: {schema}"));
     let twice = canonicalize(&once, Draft::Draft202012)

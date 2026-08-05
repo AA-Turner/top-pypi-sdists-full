@@ -15,7 +15,7 @@ from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from itertools import starmap
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from .. import cliparse
 from ..core import (
@@ -39,7 +39,7 @@ from ..core import (
 )
 from ..core import output as out
 from ..errors import BoostError
-from ._common import _iter_installed, _s
+from ._common import _iter_installed, _iter_installed_all, _s
 
 # --- conflict: normative-rule extraction -----------------------------------
 
@@ -87,7 +87,7 @@ def _resolve_as_far_as_it_exists(path: Path) -> Path:
     foreign and `heal` declined to repair anything.
     """
     path = Path(os.path.abspath(str(path)))
-    tail: List[str] = []
+    tail: list[str] = []
     cur = path
     while cur != cur.parent and not cur.exists():
         tail.append(cur.name)
@@ -165,7 +165,7 @@ def _owned_link(link: Path) -> bool:
     return _within(_link_key(target), _link_key(store))
 
 
-def _broken_links() -> Tuple[List[Path], List[Path]]:
+def _broken_links() -> tuple[list[Path], list[Path]]:
     """``(ours, theirs)`` — dangling symlinks in the dirs boost links into.
 
     Two things this deliberately does NOT do.
@@ -181,8 +181,8 @@ def _broken_links() -> Tuple[List[Path], List[Path]]:
     a link the user made themselves is not a repair, it is data loss with a
     reassuring name, so those are reported and left alone.
     """
-    ours: List[Path] = []
-    theirs: List[Path] = []
+    ours: list[Path] = []
+    theirs: list[Path] = []
     for adir in agents.linking_agents().values():
         if not adir.is_dir():
             continue
@@ -192,7 +192,7 @@ def _broken_links() -> Tuple[List[Path], List[Path]]:
     return ours, theirs
 
 
-def _read_skill(skill_dir: Path) -> Tuple[dict, str]:
+def _read_skill(skill_dir: Path) -> tuple[dict, str]:
     """(frontmatter, body) for a skill dir's SKILL.md; ({}, "") if unreadable."""
     md = Path(skill_dir) / "SKILL.md"
     if not md.exists():
@@ -223,12 +223,43 @@ def _drift_status(name: str, entry: dict) -> str:
     return staleness.drift_state(store_sha, lock_sha, is_local, source_sha)
 
 
+def _drift_status_materialized(kind: str, name: str, entry: dict) -> str:
+    """The rule/workflow analogue of `_drift_status`, over the same vocabulary.
+
+    "Local edits" means the materialized artifact — the CLAUDE.md block or
+    rendered command file — no longer hashes to what install wrote; "upstream
+    moved" means the tap's source text no longer hashes to the lock's sha256.
+    Quarantine removes the artifacts on purpose, which would otherwise read as
+    the most alarming status on the board.
+    """
+    if entry.get("quarantined"):
+        return "quarantined"
+    st = integrity.materialized_status(name, entry)
+    if st == integrity.STATUS_MISSING:
+        return "store-missing"
+    if st == integrity.STATUS_MODIFIED:
+        return "local-edits"
+    if entry.get("tap") == "local":
+        return "n/a"
+    try:
+        raw = (registry.get(entry["tap"]).path / entry.get("source_file", "")
+               ).read_text(encoding="utf-8", errors="replace")
+    except (OSError, BoostError):
+        return "source-missing"
+    if hashlib.sha256(raw.encode("utf-8")).hexdigest() != entry.get("sha256"):
+        return "upstream-moved"
+    return "in-sync"
+
+
 _DRIFT_ROLE = {"in-sync": "success", "local-edits": "warn",
                "upstream-moved": "accent", "source-missing": "danger",
-               "store-missing": "danger", "n/a": "muted"}
+               "store-missing": "danger", "n/a": "muted",
+               "quarantined": "muted"}
 
 
 def _drift_hint(name: str, status: str) -> str:
+    if status == "quarantined":
+        return "boost quarantine --release %s to restore" % name
     if status == "upstream-moved":
         return "boost update"
     if status == "local-edits":
@@ -240,18 +271,24 @@ def _drift_hint(name: str, status: str) -> str:
     return ""
 
 
-def _parse_ts(iso: str) -> Optional[datetime]:
+def _parse_ts(iso: str) -> datetime | None:
     try:
         return datetime.strptime(iso, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
     except (ValueError, TypeError):
         return None
 
 
-def _fingerprint() -> Tuple[str, List[str]]:
+def _fingerprint() -> tuple[str, list[str]]:
     """(sha256 hexdigest, component lines). Deterministic: the same lock file
     and tap commits always produce the same hash."""
     comps = sorted("%s:%s" % (n, e.get("sha256", ""))
                    for n, e in lockfile.installed().items())
+    # Rules and workflows are part of the environment the agent runs on —
+    # a poisoned CLAUDE.md rule must change the fingerprint. Kind-prefixed so
+    # a skill-only environment's fingerprint is unchanged by this addition.
+    comps += sorted("%s/%s:%s" % (kind, n, e.get("sha256", ""))
+                    for kind, section in lockfile.all_installed().items()
+                    if kind != "skill" for n, e in section.items())
     comps += sorted("%s:%s" % (t.name,
                                gitutil.head_commit(t.path)
                                if t.is_cloned and gitutil.has_git() else "")
@@ -271,7 +308,7 @@ def _stack_keywords(cwd: Path) -> set:
     """Tech-stack keywords for the working directory: the discovery module's
     detect_stack keywords, enriched with coarse filesystem markers (so tags
     like `testing` or `git` can match even when detect_stack is language-only)."""
-    kws: List[str] = []
+    kws: list[str] = []
     with suppress(Exception):
         from ..core.stackprobe import detect_stack
         stack = detect_stack(cwd)
@@ -283,7 +320,7 @@ def _stack_keywords(cwd: Path) -> set:
     return {_norm_token(k) for k in kws if _norm_token(k)}
 
 
-def _decay_rows(cwd: Path) -> List[dict]:
+def _decay_rows(cwd: Path) -> list[dict]:
     """Relevance/recency verdict per installed skill (shared by decay/health)."""
     kws = _stack_keywords(cwd)
     last_by: dict = {}
@@ -432,8 +469,13 @@ def cmd_doctor(argv):
     # Rules and workflows don't live in the store — they materialize into agent
     # dirs (a file drop, or a CLAUDE.md managed block). Health = every recorded
     # materialization is still on disk; a deleted file means the install rotted.
-    rules = lockfile.installed_rules()
-    workflows = lockfile.installed_workflows()
+    # Quarantined = materializations removed on purpose; reporting them as rot
+    # would send the user to `boost reinstall`, which re-arms the rule — and
+    # counting them "fully materialized" would be the opposite lie.
+    rules = {n: e for n, e in lockfile.installed_rules().items()
+             if not e.get("quarantined")}
+    workflows = {n: e for n, e in lockfile.installed_workflows().items()
+                 if not e.get("quarantined")}
     mat_issues = 0
     for name, entry in sorted(rules.items()):
         for m in entry.get("materializations") or []:
@@ -573,7 +615,7 @@ def _report_search_engine(bad) -> None:
              "engine (%s)" % fix)
 
 
-def _print_skipped(skipped: List[dict]) -> None:
+def _print_skipped(skipped: list[dict]) -> None:
     """Note the rule/workflow entries `lint` passed over (they have no SKILL.md)."""
     if not skipped:
         return
@@ -592,8 +634,8 @@ def cmd_lint(argv):
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
-    targets: List[Tuple[str, Path]] = []
-    skipped: List[dict] = []
+    targets: list[tuple[str, Path]] = []
+    skipped: list[dict] = []
     if args.tap:
         tap = registry.get(args.tap)
         if not tap.is_cloned:
@@ -613,7 +655,7 @@ def cmd_lint(argv):
             out.info("nothing to lint")
         return 0
 
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
     for name, sdir in targets:
         score, notes = util.score_skill(sdir)
         meta, _ = _read_skill(sdir)
@@ -666,9 +708,10 @@ def cmd_drift(argv):
     args = ap.parse_args(argv)
 
     rows = []
-    for name, entry in _iter_installed(args.names or None):
-        status = _drift_status(name, entry)
-        rows.append({"name": name, "status": status,
+    for kind, name, entry in _iter_installed_all(args.names or None):
+        status = (_drift_status(name, entry) if kind == "skill"
+                  else _drift_status_materialized(kind, name, entry))
+        rows.append({"name": name, "kind": kind, "status": status,
                      "hint": _drift_hint(name, status)})
     if args.json:
         print(json.dumps({"skills": rows}))
@@ -676,9 +719,11 @@ def cmd_drift(argv):
     if not rows:
         out.info("no skills installed")
         return 0
-    out.table([(r["name"], out.role(r["status"], _DRIFT_ROLE[r["status"]]),
+    out.table([(r["name"] if r["kind"] == "skill"
+                else "%s (%s)" % (r["name"], r["kind"]),
+                out.role(r["status"], _DRIFT_ROLE[r["status"]]),
                 out.role(r["hint"], "muted")) for r in rows],
-              headers=("SKILL", "STATUS", "HINT"))
+              headers=("NAME", "STATUS", "HINT"))
     counts: dict = {}
     for r in rows:
         counts[r["status"]] = counts.get(r["status"], 0) + 1
@@ -785,7 +830,7 @@ def cmd_heal(argv):
                     help="show repairs without applying them")
     args = ap.parse_args(argv)
     dry = args.dry_run
-    actions: List[str] = []
+    actions: list[str] = []
 
     # linking_agents, matching agents.ensure_agent_dirs below: a native-store
     # agent's skills dir is never written to, so it is not a missing directory.
@@ -872,8 +917,8 @@ def cmd_conflict(argv):
     args = ap.parse_args(argv)
 
     installed = _iter_installed()
-    rules: List[Tuple[str, str, str, set]] = []   # skill, line, polarity, stems
-    declared: List[Tuple[str, str]] = []           # skill, conflicting skill
+    rules: list[tuple[str, str, str, set]] = []   # skill, line, polarity, stems
+    declared: list[tuple[str, str]] = []           # skill, conflicting skill
     installed_names = {n for n, _e in installed}
     for name, _entry in installed:
         meta, body = _read_skill(store.skill_store_dir(name))
@@ -898,7 +943,7 @@ def cmd_conflict(argv):
             if stem:
                 rules.append((name, raw.strip(), polarity, stem))
 
-    pairs: List[Dict[str, str]] = []
+    pairs: list[dict[str, str]] = []
     seen: set = set()   # holds both key shapes below, declared and heuristic
     for da, db in declared:
         # Two different key SHAPES share `seen` — a flat triple here, a pair of

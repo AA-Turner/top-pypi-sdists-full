@@ -32,16 +32,10 @@ export interface BenchmarkProfileEnv {
   BURST_SIZE?: string;
 }
 
-export interface CapacityProfileSettings {
-  runMode: 'stateless' | 'stateful';
-  rampEndBase: number;
-  runExecutionTimeoutSeconds: number;
-}
-
 export interface BenchmarkProfile {
   context: BenchmarkContext;
   resumable: boolean;
-  capacity: CapacityProfileSettings;
+  runMode: 'stateless' | 'stateful';
 }
 
 export interface ParsedBenchmarkProfile {
@@ -50,7 +44,6 @@ export interface ParsedBenchmarkProfile {
   runMode: 'stateless' | 'stateful';
   resumable: boolean;
   context: BenchmarkContext;
-  capacity: CapacityProfileSettings;
 }
 
 const DEFAULT_PROFILE_NAME = 'default';
@@ -58,6 +51,7 @@ const DEFAULT_PROFILE_NAME = 'default';
 export const BENCHMARK_PROFILES: Record<string, BenchmarkProfile> = {
   default: {
     resumable: false,
+    runMode: 'stateless',
     context: {
       delay: 0,
       delay_jitter_ratio: 0.2,
@@ -71,14 +65,10 @@ export const BENCHMARK_PROFILES: Record<string, BenchmarkProfile> = {
       burst_probability: 0,
       burst_size: 0,
     },
-    capacity: {
-      runMode: 'stateless',
-      rampEndBase: 200,
-      runExecutionTimeoutSeconds: 60,
-    },
   },
   'streaming-long': {
     resumable: true,
+    runMode: 'stateful',
     context: {
       delay: 0.5,
       delay_jitter_ratio: 0.2,
@@ -92,14 +82,10 @@ export const BENCHMARK_PROFILES: Record<string, BenchmarkProfile> = {
       burst_probability: 0.05,
       burst_size: 2 * 1024 * 1024,
     },
-    capacity: {
-      runMode: 'stateful',
-      rampEndBase: 20,
-      runExecutionTimeoutSeconds: 1000,
-    },
   },
   'stateless-parallel-small': {
     resumable: false,
+    runMode: 'stateless',
     context: {
       delay: 0,
       delay_jitter_ratio: 0.2,
@@ -112,15 +98,11 @@ export const BENCHMARK_PROFILES: Record<string, BenchmarkProfile> = {
       burst_mode: false,
       burst_probability: 0,
       burst_size: 0,
-    },
-    capacity: {
-      runMode: 'stateless',
-      rampEndBase: 200,
-      runExecutionTimeoutSeconds: 60,
     },
   },
   'stateless-parallel-medium': {
     resumable: false,
+    runMode: 'stateless',
     context: {
       delay: 0,
       delay_jitter_ratio: 0.2,
@@ -134,14 +116,10 @@ export const BENCHMARK_PROFILES: Record<string, BenchmarkProfile> = {
       burst_probability: 0,
       burst_size: 0,
     },
-    capacity: {
-      runMode: 'stateless',
-      rampEndBase: 200,
-      runExecutionTimeoutSeconds: 60,
-    },
   },
   'parallel-small': {
     resumable: false,
+    runMode: 'stateful',
     context: {
       delay: 0,
       delay_jitter_ratio: 0.2,
@@ -155,14 +133,10 @@ export const BENCHMARK_PROFILES: Record<string, BenchmarkProfile> = {
       burst_probability: 0,
       burst_size: 0,
     },
-    capacity: {
-      runMode: 'stateful',
-      rampEndBase: 200,
-      runExecutionTimeoutSeconds: 60,
-    },
   },
   'parallel-medium': {
     resumable: false,
+    runMode: 'stateful',
     context: {
       delay: 0,
       delay_jitter_ratio: 0.2,
@@ -175,11 +149,6 @@ export const BENCHMARK_PROFILES: Record<string, BenchmarkProfile> = {
       burst_mode: false,
       burst_probability: 0,
       burst_size: 0,
-    },
-    capacity: {
-      runMode: 'stateful',
-      rampEndBase: 200,
-      runExecutionTimeoutSeconds: 60,
     },
   },
 };
@@ -254,13 +223,10 @@ export function get_profile(env: BenchmarkProfileEnv): ParsedBenchmarkProfile {
   return {
     name,
     benchmarkType: env.BENCHMARK_TYPE || 'wait_write',
-    runMode: env.RUN_MODE ? (env.RUN_MODE === 'stateful' ? 'stateful' : 'stateless') : profile.capacity.runMode,
+    runMode: env.RUN_MODE ? (env.RUN_MODE === 'stateful' ? 'stateful' : 'stateless') : profile.runMode,
     resumable: env.STREAM_RESUMABLE != null && env.STREAM_RESUMABLE !== ''
       ? parseOptionalBool(env.STREAM_RESUMABLE) ?? profile.resumable
       : profile.resumable,
     context,
-    capacity: profile.capacity,
   };
 }
-
-

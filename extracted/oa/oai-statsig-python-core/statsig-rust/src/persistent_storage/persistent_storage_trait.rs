@@ -2,10 +2,11 @@ use crate::evaluation::dynamic_string::DynamicString;
 use crate::evaluation::evaluation_types::BaseEvaluation;
 use crate::interned_string::InternedString;
 use crate::specs_response::explicit_params::ExplicitParameters;
-use crate::{log_e, DynamicReturnable, StatsigUser};
+use crate::{DynamicReturnable, StatsigUser, log_e};
 use crate::{
+    SecondaryExposure,
     statsig_types::{Experiment, Layer},
-    unwrap_or_return, SecondaryExposure,
+    unwrap_or_return,
 };
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;

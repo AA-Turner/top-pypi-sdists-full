@@ -5,9 +5,9 @@ use utils::mock_event_logging_adapter::MockEventLoggingAdapter;
 use utils::mock_specs_adapter::MockSpecsAdapter;
 
 use statsig_rust::{
-    evaluation::evaluation_types::AnyConfigEvaluation, hashing::djb2,
-    interned_string::InternedString, output_logger::LogLevel, SpecsSource, Statsig,
-    StatsigHttpIdListsAdapter, StatsigOptions, StatsigUser, StatsigUserBuilder,
+    SpecsSource, Statsig, StatsigHttpIdListsAdapter, StatsigOptions, StatsigUser,
+    StatsigUserBuilder, evaluation::evaluation_types::AnyConfigEvaluation, hashing::djb2,
+    interned_string::InternedString, output_logger::LogLevel,
 };
 
 fn get_sdk_key() -> String {

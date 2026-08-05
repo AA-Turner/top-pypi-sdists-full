@@ -334,7 +334,7 @@ def convert_fats_to_dict(request: WSGIRequest, fat: Fat) -> dict:
     actions_parts = []
     if has_manage:
         button_delete_fat = reverse(
-            "afat:fatlinks_delete_fat", args=[fat.fatlink.hash, fat.id]
+            "afat:fatlinks_delete_fat", args=[fat.fatlink.hash, fat.pk]
         )
         modal_body_text = _(
             "<p>Are you sure you want to remove {character_name} from this FAT link?</p>"

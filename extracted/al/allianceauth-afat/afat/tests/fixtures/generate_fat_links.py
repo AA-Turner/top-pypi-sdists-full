@@ -80,7 +80,7 @@ for _ in range(LINKS_NUMBER):
         population=characters, k=random.randint(a=1, b=MAX_PILOTS_IN_FLEET)
     ):
         Fat.objects.create(
-            character_id=character.id,
+            character_id=character.pk,
             fatlink=fat_link,
             system="Jita",
             shiptype="Ibis",

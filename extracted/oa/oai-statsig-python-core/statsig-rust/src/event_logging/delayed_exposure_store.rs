@@ -1,6 +1,6 @@
 use super::{
     event_logger::{EventLogger, ExposureTrigger, PreparedDelayedExposure},
-    event_queue::queued_expo::EnqueueExposureOp,
+    event_queue::queued_expo::BorrowedLayerParamExposureOp,
 };
 use crate::{
     interned_string::InternedString,
@@ -139,10 +139,11 @@ impl DelayedExposureStore {
                 return true;
             }
 
-            let operation = EnqueueExposureOp::layer_param_exposure_from_partial_raw(
+            let operation = BorrowedLayerParamExposureOp::new(
                 InternedString::from_str_ref(parameter_name),
                 ExposureTrigger::Auto,
-                layer.partial_raw.clone(),
+                &layer.partial_raw,
+                None,
             );
 
             event_logger.prepare_event(operation)

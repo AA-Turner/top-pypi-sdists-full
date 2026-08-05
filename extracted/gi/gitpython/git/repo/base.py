@@ -142,6 +142,14 @@ class Repo:
     re_author_committer_start = re.compile(r"^(author|committer)")
     re_tab_full_line = re.compile(r"^\t(.*)$")
 
+    unsafe_git_init_options = [
+        # Can install hooks that execute during later Git commands:
+        "--template",
+        # Redirects the repository metadata to a caller-controlled path:
+        "--separate-git-dir",
+    ]
+    """Options to :manpage:`git-init(1)` that permit unsafe code execution or I/O."""
+
     unsafe_git_clone_options = [
         # Executes arbitrary commands:
         "--upload-pack",
@@ -933,13 +941,17 @@ class Repo:
             return False
 
     def _get_daemon_export(self) -> bool:
-        if self.git_dir:
-            filename = osp.join(self.git_dir, self.DAEMON_EXPORT_FILE)
+        git_dir = getattr(self, "git_dir", None)
+        if git_dir is None:
+            return False
+        filename = osp.join(git_dir, self.DAEMON_EXPORT_FILE)
         return osp.exists(filename)
 
     def _set_daemon_export(self, value: object) -> None:
-        if self.git_dir:
-            filename = osp.join(self.git_dir, self.DAEMON_EXPORT_FILE)
+        git_dir = getattr(self, "git_dir", None)
+        if git_dir is None:
+            return
+        filename = osp.join(git_dir, self.DAEMON_EXPORT_FILE)
         fileexists = osp.exists(filename)
         if value and not fileexists:
             touch(filename)
@@ -961,8 +973,7 @@ class Repo:
         :return:
             List of strings being pathnames of alternates
         """
-        if self.git_dir:
-            alternates_path = osp.join(self.git_dir, "objects", "info", "alternates")
+        alternates_path = osp.join(self.common_dir, "objects", "info", "alternates")
 
         if osp.exists(alternates_path):
             with open(alternates_path, "rb") as f:
@@ -1280,6 +1291,7 @@ class Repo:
 
         keepends = True
         for line_bytes in data.splitlines(keepends):
+            line_str = ""
             try:
                 line_str = line_bytes.rstrip().decode(defenc)
             except UnicodeDecodeError:
@@ -1394,6 +1406,7 @@ class Repo:
         mkdir: bool = True,
         odbt: Type[GitCmdObjectDB] = GitCmdObjectDB,
         expand_vars: bool = True,
+        allow_unsafe_options: bool = False,
         **kwargs: Any,
     ) -> "Repo":
         """Initialize a git repository at the given path if specified.
@@ -1418,6 +1431,10 @@ class Repo:
             information disclosure, allowing attackers to access the contents of
             environment variables.
 
+        :param allow_unsafe_options:
+            Allow unsafe options to be used, such as ``--template`` and
+            ``--separate-git-dir``.
+
         :param kwargs:
             Keyword arguments serving as additional options to the
             :manpage:`git-init(1)` command.
@@ -1425,6 +1442,11 @@ class Repo:
         :return:
             :class:`Repo` (the newly created repo)
         """
+        if not allow_unsafe_options:
+            Git.check_unsafe_options(
+                options=Git._option_candidates([], kwargs),
+                unsafe_options=cls.unsafe_git_init_options,
+            )
         if path:
             path = expand_path(path, expand_vars)
         if mkdir and path and not osp.exists(path):
@@ -1738,8 +1760,9 @@ class Repo:
 
             ``None`` if we are not currently rebasing.
         """
-        if self.git_dir:
-            rebase_head_file = osp.join(self.git_dir, "REBASE_HEAD")
+        if not self.git_dir:
+            return None
+        rebase_head_file = osp.join(self.git_dir, "REBASE_HEAD")
         if not osp.isfile(rebase_head_file):
             return None
         with open(rebase_head_file, "rt") as f:

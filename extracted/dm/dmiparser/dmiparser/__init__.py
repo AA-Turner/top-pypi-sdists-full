@@ -1,6 +1,6 @@
 from dmiparser.dmiparser import DmiParser
 
-__version__ = "5.1"
+__version__ = "6.0"
 __all__ = ["DmiParser", "main"]
 
 
@@ -11,7 +11,7 @@ def main() -> None:
     parser = ArgumentParser(description="This parse dmidecode output to JSON text")
     parser.add_argument("-f", "--format", action="store_true", required=False, help="format JSON text")
     args = parser.parse_args()
-    fmtOpts = {"sort_keys": True, "indent": 2}
-    dmiparser = DmiParser(stdin.read(), **(fmtOpts if args.format is True else {}))
+    fmt_opts = {"sort_keys": True, "indent": 2}
+    dmiparser = DmiParser(stdin.read(), **(fmt_opts if args.format is True else {}))
 
     print(str(dmiparser))

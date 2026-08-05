@@ -3,9 +3,7 @@
 import typing
 
 import pydantic
-import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
-from ..core.serialization import FieldMetadata
 
 
 class AddNodeItem(UniversalBaseModel):
@@ -40,14 +38,6 @@ class AddNodeItem(UniversalBaseModel):
     summary: typing.Optional[str] = pydantic.Field(default=None)
     """
     A regional summary of the node.
-    """
-
-    uuid_: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="uuid")] = pydantic.Field(default=None)
-    """
-    Optional caller-supplied node UUID. When it matches an existing node the
-    node is upserted; when well-formed but unknown the node is created with
-    this UUID; when absent the server assigns one. This is the node's only
-    identity/dedup key -- there is no name-based resolution.
     """
 
     if IS_PYDANTIC_V2:

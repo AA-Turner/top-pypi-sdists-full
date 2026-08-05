@@ -18,6 +18,7 @@ from packaging.version import (
     InvalidVersion,
     Version,
     _BaseVersion,
+    _TrimmedRelease,
     _VersionReplace,
     parse,
 )
@@ -214,6 +215,11 @@ class TestVersion:
     def test_invalid_versions(self, version: str) -> None:
         with pytest.raises(InvalidVersion):
             Version(version)
+
+    @pytest.mark.parametrize("version", [None, 1, ["1", ".", "0"], ("1",), b"1.0"])
+    def test_non_string_versions_raise_invalid_version(self, version: object) -> None:
+        with pytest.raises(InvalidVersion):
+            Version(version)  # type: ignore[arg-type]
 
     @pytest.mark.skipif(
         not hasattr(sys, "get_int_max_str_digits"),
@@ -644,7 +650,7 @@ class TestVersion:
             ("1!1.0.post5+deadbeef", None),
         ],
     )
-    def test_version_pre(self, version: str, pre: None | tuple[str, int]) -> None:
+    def test_version_pre(self, version: str, pre: tuple[str, int] | None) -> None:
         assert Version(version).pre == pre
 
     @pytest.mark.parametrize(
@@ -805,39 +811,41 @@ class TestVersion:
         ("left", "right", "op"),
         # Below we'll generate every possible combination of VERSIONS that
         # should be True for the given operator
-        itertools.chain.from_iterable(
-            # Verify that the less than (<) operator works correctly
-            [
-                [(x, y, operator.lt) for y in VERSIONS[i + 1 :]]
-                for i, x in enumerate(VERSIONS)
-            ]
-            +
-            # Verify that the less than equal (<=) operator works correctly
-            [
-                [(x, y, operator.le) for y in VERSIONS[i:]]
-                for i, x in enumerate(VERSIONS)
-            ]
-            +
-            # Verify that the equal (==) operator works correctly
-            [[(x, x, operator.eq) for x in VERSIONS]]
-            +
-            # Verify that the not equal (!=) operator works correctly
-            [
-                [(x, y, operator.ne) for j, y in enumerate(VERSIONS) if i != j]
-                for i, x in enumerate(VERSIONS)
-            ]
-            +
-            # Verify that the greater than equal (>=) operator works correctly
-            [
-                [(x, y, operator.ge) for y in VERSIONS[: i + 1]]
-                for i, x in enumerate(VERSIONS)
-            ]
-            +
-            # Verify that the greater than (>) operator works correctly
-            [
-                [(x, y, operator.gt) for y in VERSIONS[:i]]
-                for i, x in enumerate(VERSIONS)
-            ]
+        list(
+            itertools.chain.from_iterable(
+                # Verify that the less than (<) operator works correctly
+                [
+                    [(x, y, operator.lt) for y in VERSIONS[i + 1 :]]
+                    for i, x in enumerate(VERSIONS)
+                ]
+                +
+                # Verify that the less than equal (<=) operator works correctly
+                [
+                    [(x, y, operator.le) for y in VERSIONS[i:]]
+                    for i, x in enumerate(VERSIONS)
+                ]
+                +
+                # Verify that the equal (==) operator works correctly
+                [[(x, x, operator.eq) for x in VERSIONS]]
+                +
+                # Verify that the not equal (!=) operator works correctly
+                [
+                    [(x, y, operator.ne) for j, y in enumerate(VERSIONS) if i != j]
+                    for i, x in enumerate(VERSIONS)
+                ]
+                +
+                # Verify that the greater than equal (>=) operator works correctly
+                [
+                    [(x, y, operator.ge) for y in VERSIONS[: i + 1]]
+                    for i, x in enumerate(VERSIONS)
+                ]
+                +
+                # Verify that the greater than (>) operator works correctly
+                [
+                    [(x, y, operator.gt) for y in VERSIONS[:i]]
+                    for i, x in enumerate(VERSIONS)
+                ]
+            )
         ),
     )
     def test_comparison_true(
@@ -849,39 +857,41 @@ class TestVersion:
         ("left", "right", "op"),
         # Below we'll generate every possible combination of VERSIONS that
         # should be False for the given operator
-        itertools.chain.from_iterable(
-            # Verify that the less than (<) operator works correctly
-            [
-                [(x, y, operator.lt) for y in VERSIONS[: i + 1]]
-                for i, x in enumerate(VERSIONS)
-            ]
-            +
-            # Verify that the less than equal (<=) operator works correctly
-            [
-                [(x, y, operator.le) for y in VERSIONS[:i]]
-                for i, x in enumerate(VERSIONS)
-            ]
-            +
-            # Verify that the equal (==) operator works correctly
-            [
-                [(x, y, operator.eq) for j, y in enumerate(VERSIONS) if i != j]
-                for i, x in enumerate(VERSIONS)
-            ]
-            +
-            # Verify that the not equal (!=) operator works correctly
-            [[(x, x, operator.ne) for x in VERSIONS]]
-            +
-            # Verify that the greater than equal (>=) operator works correctly
-            [
-                [(x, y, operator.ge) for y in VERSIONS[i + 1 :]]
-                for i, x in enumerate(VERSIONS)
-            ]
-            +
-            # Verify that the greater than (>) operator works correctly
-            [
-                [(x, y, operator.gt) for y in VERSIONS[i:]]
-                for i, x in enumerate(VERSIONS)
-            ]
+        list(
+            itertools.chain.from_iterable(
+                # Verify that the less than (<) operator works correctly
+                [
+                    [(x, y, operator.lt) for y in VERSIONS[: i + 1]]
+                    for i, x in enumerate(VERSIONS)
+                ]
+                +
+                # Verify that the less than equal (<=) operator works correctly
+                [
+                    [(x, y, operator.le) for y in VERSIONS[:i]]
+                    for i, x in enumerate(VERSIONS)
+                ]
+                +
+                # Verify that the equal (==) operator works correctly
+                [
+                    [(x, y, operator.eq) for j, y in enumerate(VERSIONS) if i != j]
+                    for i, x in enumerate(VERSIONS)
+                ]
+                +
+                # Verify that the not equal (!=) operator works correctly
+                [[(x, x, operator.ne) for x in VERSIONS]]
+                +
+                # Verify that the greater than equal (>=) operator works correctly
+                [
+                    [(x, y, operator.ge) for y in VERSIONS[i + 1 :]]
+                    for i, x in enumerate(VERSIONS)
+                ]
+                +
+                # Verify that the greater than (>) operator works correctly
+                [
+                    [(x, y, operator.gt) for y in VERSIONS[i:]]
+                    for i, x in enumerate(VERSIONS)
+                ]
+            )
         ),
     )
     def test_comparison_false(
@@ -918,6 +928,14 @@ class TestVersion:
         v1 = SimpleVersion("1.0")
         v2 = SimpleVersion("2.0")
         assert v1 != v2
+
+    def test_gt_with_cached_other(self) -> None:
+        """__gt__ fast path when other already has a cached key."""
+        other = Version("1.0")
+        # Warm other's key cache.
+        _ = other < Version("2.0")
+        # Fresh version on the left, cached one on the right.
+        assert Version("2.0") > other
 
     def test_version_compare_with_base_version_subclass(self) -> None:
         """Test Version comparison with another _BaseVersion subclass"""
@@ -1261,6 +1279,13 @@ def test_from_parts(args: dict[str, typing.Any], string: str) -> None:
     assert v == Version(string)
 
 
+def test_from_parts_rejects_non_str_pre_letter() -> None:
+    # A non-string pre letter must raise InvalidVersion rather than escaping
+    # as an AttributeError from the normalization step.
+    with pytest.raises(InvalidVersion, match="pre must be a tuple"):
+        Version.from_parts(release=(1,), pre=(1, 1))  # type: ignore[arg-type]
+
+
 @pytest.mark.parametrize(
     "version",
     [
@@ -1405,3 +1430,20 @@ def test_structures_shim_repr() -> None:
     # Cover the __repr__ methods on the backward-compatibility shim classes.
     assert repr(Infinity) == "Infinity"
     assert repr(NegativeInfinity) == "-Infinity"
+
+
+def test_trimmed_release_hash_from_unhashed_version() -> None:
+    # Regression test for GH-1239: hashing a _TrimmedRelease built from a fresh
+    # Version must not raise AttributeError from the uncopied _hash_cache slot.
+    v = Version("1.0")
+    tr = _TrimmedRelease(v)
+    assert hash(tr) == hash(v)
+
+
+def test_trimmed_release_hash_from_prehashed_version() -> None:
+    # Hashing a _TrimmedRelease built from a Version whose hash has already
+    # been computed and cached must also work correctly.
+    v = Version("1.0")
+    _ = hash(v)  # Populate the hash cache on the source Version.
+    tr = _TrimmedRelease(v)
+    assert hash(tr) == hash(v)

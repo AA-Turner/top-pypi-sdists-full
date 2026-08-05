@@ -93,11 +93,11 @@ class RowSelectView(Table):
         self.source = source
         self.where = where
         self.missing = missing
-        self.complement = complement
+        self._complement = complement
 
     def __iter__(self):
         return iterrowselect(self.source, self.where, self.missing,
-                             self.complement)
+                             self._complement)
 
 
 class FieldSelectView(Table):
@@ -106,12 +106,12 @@ class FieldSelectView(Table):
         self.source = source
         self.field = field
         self.where = where
-        self.complement = complement
+        self._complement = complement
         self.missing = missing
 
     def __iter__(self):
         return iterfieldselect(self.source, self.field, self.where,
-                               self.complement, self.missing)
+                               self._complement, self.missing)
 
 
 def iterfieldselect(source, field, where, complement, missing):

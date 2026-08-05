@@ -1399,3 +1399,186 @@ def test_append_aot_entry_from_overwritten_noncontiguous_section() -> None:
         "other": {"y": 1},
         "dst": [{"id": "KEEP-ME"}],
     }
+
+
+def test_inline_overwrite_detaches_nested_dotted_view() -> None:
+    """Replacing an inline value detaches views nested inside it.
+
+    Only the displaced root used to be reset, stranding any dotted-key
+    navigator held beneath it: it still claimed to be attached while its
+    backing inline value was gone, so mutating it tripped an internal
+    assertion. It must instead fall back to detached dict-only mode and
+    stay reusable.
+    """
+    doc = tomlrt.loads("x = { a.c = 1, a.b = 2 }\n")
+    inner = doc["x"]["a"]
+    doc["x"] = 5
+    assert tomlrt.dumps(doc) == "x = 5\n"
+
+    inner.sort()
+    inner["d"] = 3
+    assert list(inner) == ["b", "c", "d"]
+
+    doc["y"] = inner
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        x = 5
+        y = { b = 2, c = 1, d = 3 }
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_inline_overwrite_detaches_nested_array_view() -> None:
+    """The same subtree walk covers arrays nested in a displaced value."""
+    doc = tomlrt.loads("x = { arr = [1, 2] }\n")
+    arr = doc["x"]["arr"]
+    doc["x"] = 5
+    assert not arr._attached  # noqa: SLF001
+
+    arr.append(3)
+    doc["y"] = arr
+    # Live-attach, not clone: the detached view becomes the one in the doc.
+    assert doc["y"] is arr
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        x = 5
+        y = [1, 2, 3]
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_inline_overwrite_with_inline_detaches_nested_view() -> None:
+    """Detaching happens when the replacement is itself an inline table."""
+    doc = tomlrt.loads("x = { a.c = 1, a.b = 2 }\n")
+    inner = doc["x"]["a"]
+    doc["x"] = {"p": 1}
+    inner.sort()
+
+    doc["y"] = inner
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        x = { p = 1 }
+        y = { b = 2, c = 1 }
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_array_setitem_detaches_the_displaced_item_view() -> None:
+    """Overwriting an array item detaches the view it displaced."""
+    doc = tomlrt.loads("x = [ { c = 1 }, 2 ]\n")
+    item = doc["x"][0]
+    doc["x"][0] = 9
+    assert tomlrt.dumps(doc) == "x = [ 9, 2 ]\n"
+
+    item["d"] = 4
+    doc["y"] = item
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        x = [ 9, 2 ]
+        y = { c = 1, d = 4 }
+        """)
+    assert doc["y"] is item
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_array_clear_detaches_every_item_view() -> None:
+    """Clearing an array detaches all of its item views at once."""
+    doc = tomlrt.loads("x = [ { c = 1 }, { d = 2 } ]\n")
+    first, second = doc["x"][0], doc["x"][1]
+    doc["x"].clear()
+    assert tomlrt.dumps(doc) == "x = [ ]\n"
+
+    doc["y"] = first
+    doc["z"] = second
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        x = [ ]
+        y = { c = 1 }
+        z = { d = 2 }
+        """)
+    assert doc["y"] is first
+    assert doc["z"] is second
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_inline_overwrite_detaches_dotted_navigator() -> None:
+    """A displaced dotted navigator must not write back into the table.
+
+    The navigator kept resolving against the inline table it no longer
+    belonged to, so a later write re-added its key alongside the value
+    that replaced it — emitting a table with the key defined twice.
+    """
+    doc = tomlrt.loads("x = { n.a = 1, n.b = 2, z = 9 }\n")
+    inner = doc["x"]["n"]
+    doc["x"]["n"] = 5
+    inner["c"] = 3
+    out = tomlrt.dumps(doc)
+    assert out == "x = { z = 9, n = 5 }\n"
+    assert _reparses(out) == doc.to_dict()
+    assert inner.to_dict() == {"a": 1, "b": 2, "c": 3}
+
+
+def test_inline_delete_detaches_dotted_navigator() -> None:
+    """Deleting a dotted prefix detaches its navigator too."""
+    doc = tomlrt.loads("x = { n.a = 1, n.b = 2, z = 9 }\n")
+    inner = doc["x"]["n"]
+    del doc["x"]["n"]
+    inner["c"] = 3
+    out = tomlrt.dumps(doc)
+    assert out == "x = { z = 9 }\n"
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_inline_overwrite_detaches_displaced_array() -> None:
+    """Replacing an inline entry detaches a displaced array too.
+
+    The reset used to be reachable only when the displaced value was a
+    table, so an array took the other replacement branch and stayed
+    attached to an entry it no longer owned.
+    """
+    doc = tomlrt.loads("x = { n = [ { a = 1 } ], z = 9 }\n")
+    held = doc["x"]["n"]
+    nested = held[0]
+    doc["x"]["n"] = 5
+    assert tomlrt.dumps(doc) == "x = { n = 5, z = 9 }\n"
+
+    held.append(2)
+    doc["y"] = held
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        x = { n = 5, z = 9 }
+        y = [ { a = 1 }, 2 ]
+        """)
+    assert doc["y"] is held
+    assert doc["y"][0] is nested
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_array_item_assigned_to_itself_stays_attached() -> None:
+    """``arr[i] = arr[i]`` re-uses the item view rather than displacing it.
+
+    ``Array.__setitem__`` has no identity short-circuit, so the
+    synthesised replacement for an unattached view is that same view.
+    Detaching it would leave the caller holding a dead reference to a
+    value the array still renders.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [root]
+        arr = [ { c = 1 }, 2 ]
+        """)
+    )
+    orphan = doc.pop("root")
+    arr = orphan["arr"]
+    item = arr[0]
+    arr[0] = item
+
+    assert arr[0] is item
+    item["d"] = 3
+    doc["dest"] = orphan
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [dest]
+        arr = [ { c = 1, d = 3 }, 2 ]
+        """)
+    assert _reparses(out) == doc.to_dict()

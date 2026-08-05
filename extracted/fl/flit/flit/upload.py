@@ -107,7 +107,7 @@ def get_repository(pypirc_path="~/.pypirc", name=None, project_name=None):
     if name is not None:
         repo = repos_cfg[name]
         if 'FLIT_INDEX_URL' in os.environ:
-            raise EnvironmentError(
+            raise OSError(
                 "Use either FLIT_INDEX_URL or --repository, not both"
             )
     elif 'FLIT_INDEX_URL' in os.environ:
@@ -158,7 +158,7 @@ def write_pypirc(repo, file="~/.pypirc"):
 
     with open(file, 'w', encoding='utf-8') as f:
         f.write("[pypi]\n"
-                "username = %s\n" % repo.username)
+                f"username = {repo.username}\n")
 
 def get_password(repo: RepoDetails):
     try:
@@ -297,8 +297,7 @@ def do_upload(file:Path, metadata:Metadata, repo: RepoDetails):
         log.info("Package is at %s/%s", repo.url, metadata.name)
 
 
-def main(ini_path, repo_name, pypirc_path=None, formats=None, gen_setup_py=True,
-         use_vcs=True):
+def main(ini_path, repo_name, pypirc_path=None, formats=None, use_vcs=True):
     """Build and upload wheel and sdist."""
     if pypirc_path is None:
         pypirc_path = PYPIRC_DEFAULT
@@ -313,7 +312,7 @@ def main(ini_path, repo_name, pypirc_path=None, formats=None, gen_setup_py=True,
 
     from . import build
     built = build.main(
-        ini_path, formats=formats, gen_setup_py=gen_setup_py, use_vcs=use_vcs
+        ini_path, formats=formats, use_vcs=use_vcs
     )
 
     if built.wheel is not None:

@@ -6,16 +6,24 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from airbyte_protocol.models import AirbyteMessage, AirbyteRecordMessage
+from airbyte_protocol.models import Type as AirbyteMessageType
 
 from airbyte_ops_mcp.regression_tests.ci_output import (
     ARTIFACT_NAME_PREFIX,
     evaluate_comparison_outcome,
     github_artifact_name,
 )
+from airbyte_ops_mcp.regression_tests.regression import (
+    ComparisonResult,
+    RecordComparisonSummary,
+    run_record_comparisons,
+)
 from airbyte_ops_mcp.regression_tests.report import (
     HTML_REPORT_FILENAME,
     INLINE_STREAM_TABLE_COLLAPSE_THRESHOLD,
     MAX_DIFF_LINES_PER_BLOCK,
+    MAX_INLINE_FINDINGS,
     MAX_INLINE_STREAM_ROWS,
     MAX_LABEL_CHARS,
     MAX_LINE_CHARS,
@@ -25,10 +33,12 @@ from airbyte_ops_mcp.regression_tests.report import (
     RECORD_COUNTS_TABLE,
     CheckResult,
     DiffLine,
+    SplitDiffRow,
     build_comparison_report_model,
     build_diff_block,
     build_json_block,
     build_single_version_report_model,
+    build_split_diff_block,
     consolidate_reports,
     extract_report_part,
     render_html_report,
@@ -258,6 +268,122 @@ def test_a_failing_check_does_not_overwrite_a_command_failure_verdict():
     assert model.passed is False
     assert model.verdict_label == "FAIL (regression)"
     assert "check failed" not in model.verdict_detail
+
+
+def test_a_folded_failure_stops_claiming_there_was_no_regression():
+    """No surface may report a clean run and a failed check in one breath.
+
+    The wording is written from the command outcome, which for two clean runs
+    says "no regression" -- exactly what the failing check denies. Both the
+    banner and the check table are pinned here: fixing only the banner left the
+    contradiction on the row a reviewer actually scans.
+    """
+    model = _comparison(
+        "spec",
+        _run_result(True),
+        _run_result(True),
+        extra_checks=(CheckResult(name="Spec compatibility", passed=False),),
+    )
+    html = render_html_report(model)
+    summary = render_inline_summary(model)
+
+    assert model.passed is False
+    assert model.verdict_detail == (
+        "Both versions succeeded, but 1 check failed: spec compatibility"
+    )
+    assert "no regression" not in html
+    assert "no regression" not in summary
+
+
+def test_a_passing_run_still_says_there_was_no_regression():
+    """The parenthetical is dropped because a check denied it, not by default."""
+    model = _comparison("spec", _run_result(True), _run_result(True))
+
+    assert model.verdict_detail == "Both versions succeeded (no regression)"
+
+
+def test_the_step_summary_lists_what_a_failing_check_found():
+    """Most readers never download the artifact, so the names ship with the run.
+
+    The diff itself stays in the report; this is the list that tells a reviewer
+    whether opening it is worth the click.
+    """
+    model = _comparison(
+        "discover",
+        _run_result(True),
+        _run_result(True),
+        extra_checks=(
+            CheckResult(
+                name="Catalog schema",
+                passed=False,
+                summary="Discovered catalog changed in 2 streams",
+                details=(
+                    "Stream users has schema differences",
+                    "Stream gone is missing",
+                ),
+            ),
+        ),
+    )
+    summary = render_inline_summary(model)
+
+    assert "<details><summary>What the comparison found (2)</summary>" in summary
+    assert "- Stream users has schema differences" in summary
+    assert "- Stream gone is missing" in summary
+    # The HTML report carries the same list, under the check row, so the
+    # summary's "and N more, in the report" pointer is true.
+    html = render_html_report(model)
+    assert "All 2 findings" in html
+    assert "Stream users has schema differences" in html
+    assert "Stream gone is missing" in html
+
+
+def test_the_step_summary_caps_the_findings_it_lists():
+    """A 200-stream catalog change must not push the run's other steps off screen."""
+    model = _comparison(
+        "discover",
+        _run_result(True),
+        _run_result(True),
+        extra_checks=(
+            CheckResult(
+                name="Catalog schema",
+                passed=False,
+                details=tuple(f"Stream s{index} changed" for index in range(40)),
+            ),
+        ),
+    )
+    summary = render_inline_summary(model)
+
+    assert summary.count("\n- Stream ") == MAX_INLINE_FINDINGS
+    assert f"… and {40 - MAX_INLINE_FINDINGS} more, in the report" in summary
+
+
+def test_a_passing_check_does_not_list_findings():
+    """A green run stays short: there is nothing for a reviewer to decide."""
+    model = _comparison(
+        "spec",
+        _run_result(True),
+        _run_result(True),
+        extra_checks=(CheckResult(name="Spec compatibility", passed=True),),
+    )
+
+    assert "What the comparison found" not in render_inline_summary(model)
+
+
+def test_comparison_diff_blocks_are_rendered_above_the_failure_output():
+    """A check row has one line; the reviewer's next question is always "what?"."""
+    model = _comparison(
+        "discover",
+        _run_result(True),
+        _run_result(True),
+        extra_checks=(CheckResult(name="Catalog schema", passed=False),),
+        extra_diff_blocks=(
+            build_json_block("Schema diff — users", '{"type_changes": {"id": 1}}'),
+        ),
+    )
+    html = render_html_report(model)
+
+    assert "Schema diff — users" in html
+    assert "type_changes" in html
 
 
 def test_both_surfaces_classify_a_check_the_same_way():
@@ -1233,7 +1359,15 @@ def test_a_hostile_verdict_string_cannot_escape_the_metadata_comment(tmp_path):
         "read",
         _run_result(True),
         _run_result(True),
-        extra_checks=(CheckResult(name="--> <script>alert(1)</script>", passed=False),),
+        extra_checks=(
+            CheckResult(
+                name="--> <script>alert(1)</script>",
+                passed=False,
+                # Findings name connector-derived streams and fields, and are
+                # rendered as list items in the check table.
+                details=("Stream <script>alert(2)</script> changed",),
+            ),
+        ),
     )
     (tmp_path / "read").mkdir()
     html = write_html_report(model, tmp_path / "read").read_text()
@@ -1267,3 +1401,656 @@ def test_artifact_name_omits_the_run_id_outside_github_actions(monkeypatch):
     monkeypatch.delenv("GITHUB_RUN_ID", raising=False)
 
     assert github_artifact_name("read") == f"{ARTIFACT_NAME_PREFIX}-read"
+
+
+# --------------------------------------------------------------------------
+# Record comparison: the read-run checks folded into the verdict, and the
+# per-stream detail blocks the HTML report renders for them
+# --------------------------------------------------------------------------
+
+
+def _msg(stream: str, data: dict) -> AirbyteMessage:
+    return AirbyteMessage(
+        type=AirbyteMessageType.RECORD,
+        record=AirbyteRecordMessage(stream=stream, data=data, emitted_at=1),
+    )
+
+
+def _comparison_with_records(
+    control: dict[str, list[dict]],
+    target: dict[str, list[dict]],
+    primary_keys: dict[str, list | None],
+):
+    """A read comparison model built from actual records, end to end.
+
+    Runs the real comparison rather than hand-building a summary, so these
+    tests exercise the same objects the CLI hands the report builder.
+    """
+    summary = run_record_comparisons(
+        control_records={
+            stream: [_msg(stream, data) for data in rows]
+            for stream, rows in control.items()
+        },
+        target_records={
+            stream: [_msg(stream, data) for data in rows]
+            for stream, rows in target.items()
+        },
+        primary_keys_per_stream=primary_keys,
+    )
+
+    return _comparison(
+        "read",
+        _run_result(
+            True,
+            record_counts_per_stream={s: len(r) for s, r in target.items()},
+        ),
+        _run_result(
+            True,
+            record_counts_per_stream={s: len(r) for s, r in control.items()},
+        ),
+        record_comparison=summary,
+    )
+
+
+def _flat_blocks(section):
+    """A section's diff blocks with their children, one flat iterable."""
+    for block in section.diff_blocks:
+        yield block
+        yield from block.children
+
+
+def test_a_passing_comparison_adds_passing_checks_and_green_streams():
+    rows = [{"id": 1, "name": "a"}, {"id": 2, "name": "b"}]
+    model = _comparison_with_records(
+        {"users": rows}, {"users": rows}, {"users": [["id"]]}
+    )
+
+    assert model.passed is True
+    check_names = [check.name for check in model.checks]
+    assert "Record counts" in check_names
+    assert "Primary key presence" in check_names
+    assert "Primary key integrity (control)" in check_names
+    assert "Primary key integrity (target)" in check_names
+    assert "Field values" in check_names
+    assert all(check.status == "pass" for check in model.checks)
+
+    (section,) = model.stream_sections
+    assert section.status == "pass"
+    assert section.diff_blocks == ()
+
+
+def test_a_dropped_record_fails_the_verdict_as_a_regression():
+    """Both commands succeeded, so only the folded comparison can fail this."""
+    model = _comparison_with_records(
+        {"users": [{"id": 1}, {"id": 2}]},
+        {"users": [{"id": 1}]},
+        {"users": [["id"]]},
+    )
+
+    assert model.passed is False
+    assert model.verdict_label == "FAIL (regression)"
+    assert model.outcome is not None and model.outcome.success is True
+    failed = {check.name for check in model.checks if check.status == "fail"}
+    assert "Record counts" in failed
+    assert "Primary key presence" in failed
+
+
+def test_a_failing_check_summary_names_the_failing_streams():
+    model = _comparison_with_records(
+        {"users": [{"id": 1}, {"id": 2}]},
+        {"users": [{"id": 1}]},
+        {"users": [["id"]]},
+    )
+
+    presence = next(c for c in model.checks if c.name == "Primary key presence")
+    assert "users" in presence.summary
+
+    summary = render_inline_summary(model)
+    assert "| Primary key presence | ❌" in summary
+
+
+def test_a_missing_pk_renders_the_pk_list_and_the_dropped_records():
+    model = _comparison_with_records(
+        {"users": [{"id": 1, "name": "kept"}, {"id": 7, "name": "dropped"}]},
+        {"users": [{"id": 1, "name": "kept"}]},
+        {"users": [["id"]]},
+    )
+
+    (section,) = model.stream_sections
+    assert section.status == "fail"
+    assert "1 missing PK(s)" in section.headline
+    titles = [block.title for block in _flat_blocks(section)]
+    assert any(
+        title.startswith("Missing primary keys — 1 in target") for title in titles
+    )
+    assert any(
+        title.startswith("Missing in target — 1 PK value(s)") for title in titles
+    )
+    assert any(
+        title.startswith("Records from control missing in target") for title in titles
+    )
+
+    html = render_html_report(model)
+    # The missing PK value and the full dropped record are both on the page.
+    assert "[7]" in html
+    assert "dropped" in html
+
+
+def test_a_mutated_field_renders_a_side_by_side_record_diff():
+    model = _comparison_with_records(
+        {"users": [{"id": 1, "name": "before"}]},
+        {"users": [{"id": 1, "name": "after"}]},
+        {"users": [["id"]]},
+    )
+
+    (section,) = model.stream_sections
+    assert "1 record(s) with value diffs" in section.headline
+    block = next(
+        b for b in section.diff_blocks if b.title.startswith("Field value diffs")
+    )
+    assert "1 record(s) differ (showing 1)" in block.title
+    assert not block.lines
+    assert any("pk = [1]" in row.header for row in block.split_rows)
+    # The changed field sits on ONE row: control on the left, target on the
+    # right — that alignment is the point of the split layout.
+    changed = next(
+        row
+        for row in block.split_rows
+        if row.left is not None and "before" in row.left.text
+    )
+    assert changed.left is not None and changed.left.kind == "del"
+    assert changed.right is not None and changed.right.kind == "add"
+    assert "after" in changed.right.text
+    # Unchanged lines sit on both sides of their row as context.
+    assert any(
+        row.left is not None
+        and row.right is not None
+        and row.left.kind == row.right.kind == "ctx"
+        and row.left.text == row.right.text
+        for row in block.split_rows
+    )
+    # The comparison excluded emitted_at, so the diff must not present it.
+    assert not any(
+        "emitted_at" in cell.text
+        for row in block.split_rows
+        for cell in (row.left, row.right)
+        if cell is not None
+    )
+
+
+def test_a_long_unchanged_run_collapses_into_a_gap_divider():
+    wide = {f"field_{i:02d}": i for i in range(30)}
+    model = _comparison_with_records(
+        {"users": [{"id": 1, **wide, "name": "before"}]},
+        {"users": [{"id": 1, **wide, "name": "after"}]},
+        {"users": [["id"]]},
+    )
+
+    (section,) = model.stream_sections
+    block = next(
+        b for b in section.diff_blocks if b.title.startswith("Field value diffs")
+    )
+    assert any("unchanged line(s)" in row.header for row in block.split_rows)
+
+
+def test_duplicate_pks_are_listed_per_version():
+    model = _comparison_with_records(
+        {"users": [{"id": 1, "n": "a"}]},
+        {"users": [{"id": 1, "n": "a"}, {"id": 1, "n": "a"}]},
+        {"users": [["id"]]},
+    )
+
+    (section,) = model.stream_sections
+    assert section.status == "fail"
+    assert "1 duplicate PK(s) in target" in section.headline
+    # One check-level block whose title summarizes the test, with one child
+    # per version that actually has duplicates: no control child exists.
+    group = next(
+        b
+        for b in section.diff_blocks
+        if b.title == "Duplicate primary keys — 1 in target"
+    )
+    assert not group.split_rows
+    (child,) = group.children
+    assert child.title == "In target — 1 PK value(s)"
+    assert [line.text for line in child.lines] == ["[1] \u00d72"]
+
+
+def test_records_without_their_declared_pk_are_reported():
+    model = _comparison_with_records(
+        {"users": [{"id": 1, "n": "a"}, {"n": "no-pk-value"}]},
+        {"users": [{"id": 1, "n": "a"}, {"n": "no-pk-value"}]},
+        {"users": [["id"]]},
+    )
+
+    (section,) = model.stream_sections
+    assert section.status == "fail"
+    assert "record(s) without PK values in control" in section.headline
+    assert "record(s) without PK values in target" in section.headline
+    # One check-level block with one single-column child per version, each
+    # showing that version's own offending records.
+    group = next(
+        b
+        for b in section.diff_blocks
+        if b.title
+        == "Records with missing or null primary key values — 1 in control, 1 in target"
+    )
+    assert [child.title for child in group.children] == [
+        "In control — 1 record(s)",
+        "In target — 1 record(s)",
+    ]
+    for child in group.children:
+        assert not child.split_rows
+        assert any("no-pk-value" in line.text for line in child.lines)
+        # Nothing was cut, so no truncation note.
+        assert not any("truncated" in line.text for line in child.lines)
+
+
+def test_missing_pk_value_records_beyond_the_cap_get_a_truncation_note():
+    """The example copies are capped; the report must say so, not just stop."""
+    bad_records = [{"n": f"no-pk-{i}"} for i in range(8)]
+    model = _comparison_with_records(
+        {"users": [{"id": 1, "n": "a"}, *bad_records]},
+        {"users": [{"id": 1, "n": "a"}, *bad_records]},
+        {"users": [["id"]]},
+    )
+
+    (section,) = model.stream_sections
+    group = next(
+        b
+        for b in section.diff_blocks
+        if b.title
+        == "Records with missing or null primary key values — 8 in control, 8 in target"
+    )
+    for version, child in zip(("control", "target"), group.children):
+        assert child.title == f"In {version} — 8 record(s)"
+        meta = [line.text for line in child.lines if line.kind == "meta"]
+        shown = sum(1 for t in meta if t.startswith("record "))
+        assert shown == 5  # MAX_EXAMPLE_DIFFS at the comparison layer
+        note = next(t for t in meta if "truncated" in t)
+        assert f"3 more such record(s) in {version}" in note
+        assert "run artifacts" in note
+
+
+def test_a_stream_without_pk_is_count_only_and_says_so():
+    model = _comparison_with_records(
+        {"events": [{"a": 1}, {"a": 2}]},
+        {"events": [{"a": 1}]},
+        {"events": None},
+    )
+
+    (section,) = model.stream_sections
+    assert section.status == "fail"
+    assert "no primary key: count comparison only" in section.headline
+    assert "1 fewer record(s) in target" in section.headline
+    # No PK detail can exist without a PK.
+    assert section.diff_blocks == ()
+
+
+def test_a_stream_the_comparison_never_saw_stays_info():
+    """A configured stream with no records on either side is coverage's job."""
+    model = build_comparison_report_model(
+        target_image=TARGET_IMAGE,
+        control_image=CONTROL_IMAGE,
+        command="read",
+        target_result=_run_result(True, record_counts_per_stream={"users": 1}),
+        control_result=_run_result(True, record_counts_per_stream={"users": 1}),
+        record_comparison=run_record_comparisons(
+            control_records={"users": [_msg("users", {"id": 1})]},
+            target_records={"users": [_msg("users", {"id": 1})]},
+            primary_keys_per_stream={"users": [["id"]]},
+        ),
+        configured_streams=("users", "silent"),
+    )
+
+    by_name = {section.stream: section for section in model.stream_sections}
+    assert by_name["users"].status == "pass"
+    assert by_name["silent"].status == "info"
+
+
+def test_connector_controlled_pk_values_cannot_inject_html():
+    hostile = "<script>alert(1)</script>"
+    model = _comparison_with_records(
+        {"users": [{"id": hostile, "n": "a"}, {"id": "2", "n": "b"}]},
+        {"users": [{"id": "2", "n": "b"}]},
+        {"users": [["id"]]},
+    )
+
+    html = render_html_report(model)
+    assert "<script>alert(1)</script>" not in html
+    assert "alert(1)" in html  # escaped, not swallowed
+
+
+def test_check_summaries_cap_the_failing_stream_names():
+    streams = {f"s{i:02d}": [{"id": 1}, {"id": 2}] for i in range(8)}
+    model = _comparison_with_records(
+        streams,
+        {name: [{"id": 1}] for name in streams},
+        {name: [["id"]] for name in streams},
+    )
+
+    counts = next(c for c in model.checks if c.name == "Record counts")
+    assert "8 streams failed" in counts.summary
+    assert "and 3 more" in counts.summary
+
+
+def test_both_surfaces_state_the_comparison_verdict_identically():
+    model = _comparison_with_records(
+        {"users": [{"id": 1, "v": "x"}]},
+        {"users": [{"id": 1, "v": "y"}]},
+        {"users": [["id"]]},
+    )
+
+    html = render_html_report(model)
+    summary = render_inline_summary(model)
+    assert model.passed is False
+    assert "FAIL (regression)" in html
+    assert "FAIL (regression)" in summary
+    assert "field values" in model.verdict_detail
+
+
+def test_the_split_diff_renders_as_a_two_column_table():
+    model = _comparison_with_records(
+        {"users": [{"id": 1, "name": "before"}]},
+        {"users": [{"id": 1, "name": "after"}]},
+        {"users": [["id"]]},
+    )
+
+    html = render_html_report(model)
+    assert '<table class="splitdiff">' in html
+    assert "<th>Control</th>" in html
+    assert "<th>Target</th>" in html
+    assert 'class="cell--del"' in html
+    assert 'class="cell--add"' in html
+
+
+def test_dropped_records_render_as_a_single_column_list():
+    """One-sided by construction: a split view here would carry a permanently
+    empty target column, which reads as if there were something to compare."""
+    model = _comparison_with_records(
+        {"users": [{"id": 1, "n": "kept"}, {"id": 7, "n": "dropped"}]},
+        {"users": [{"id": 1, "n": "kept"}]},
+        {"users": [["id"]]},
+    )
+
+    (section,) = model.stream_sections
+    block = next(
+        b
+        for b in section.diff_blocks
+        if b.title.startswith("Records from control missing in target")
+    )
+    assert not block.split_rows
+    assert "showing 1 of 1" in block.title
+    # Each record opens with its pinned PK fields, like the value diffs.
+    texts = [line.text for line in block.lines]
+    assert "pk id = 7" in texts
+    assert any("dropped" in t for t in texts)
+
+
+def test_split_diff_blocks_truncate_rows_and_cells_like_line_blocks():
+    rows = [
+        SplitDiffRow(
+            left=DiffLine(kind="del", text="x" * (MAX_LINE_CHARS + 50)),
+            right=DiffLine(kind="add", text="y"),
+        )
+        for _ in range(MAX_DIFF_LINES_PER_BLOCK + 7)
+    ]
+
+    block = build_split_diff_block("Example", rows)
+
+    assert len(block.split_rows) == MAX_DIFF_LINES_PER_BLOCK
+    assert block.truncated_line_count == 7
+    first_left = block.split_rows[0].left
+    assert first_left is not None
+    assert len(first_left.text) == MAX_LINE_CHARS + len(" …")
+    html_block = render_html_report(
+        replace(
+            _comparison_with_records(
+                {"users": [{"id": 1}]}, {"users": [{"id": 1}]}, {"users": [["id"]]}
+            ),
+            diff_blocks=(block,),
+        )
+    )
+    assert "more row(s) omitted" in html_block
+
+
+def test_the_raw_deepdiff_payload_is_on_the_page_next_to_the_visual_diff():
+    """The same payload the JSON output carries, but untruncated."""
+    model = _comparison_with_records(
+        {"users": [{"id": 1, "name": "before"}]},
+        {"users": [{"id": 1, "name": "after"}]},
+        {"users": [["id"]]},
+    )
+
+    (section,) = model.stream_sections
+    block = next(b for b in section.diff_blocks if "raw DeepDiff payload" in b.title)
+    assert block.language == "json"
+    assert any("pk = [1]" in line.text for line in block.lines if line.kind == "meta")
+    payload = "\n".join(line.text for line in block.lines)
+    assert "values_changed" in payload
+    assert "before" in payload
+    assert "after" in payload
+
+    html = render_html_report(model)
+    assert "values_changed" in html
+
+
+def test_the_raw_deepdiff_payload_is_not_clipped_at_the_generic_limit():
+    """A huge field value is one JSON line; the generic 2k clip must not cut
+    it (the block has its own far-larger bound, MAX_DEEPDIFF_LINE_CHARS)."""
+    model = _comparison_with_records(
+        {"users": [{"id": 1, "blob": "x" * (MAX_LINE_CHARS + 500)}]},
+        {"users": [{"id": 1, "blob": "y" * (MAX_LINE_CHARS + 500)}]},
+        {"users": [["id"]]},
+    )
+
+    (section,) = model.stream_sections
+    block = next(b for b in section.diff_blocks if "raw DeepDiff payload" in b.title)
+    assert any("y" * (MAX_LINE_CHARS + 500) in line.text for line in block.lines), (
+        "the full new value must survive into the block"
+    )
+
+
+def test_value_diff_examples_pin_the_pk_fields_above_the_diff():
+    """On a wide record the PK field can fall past the row cap or inside a
+    collapsed gap; the pinned row keeps the record identifiable regardless."""
+    model = _comparison_with_records(
+        {"users": [{"id": 132, "name": "before"}]},
+        {"users": [{"id": 132, "name": "after"}]},
+        {"users": [["id"]]},
+    )
+
+    (section,) = model.stream_sections
+    block = next(
+        b for b in section.diff_blocks if b.title.startswith("Field value diffs")
+    )
+    divider = next(
+        i for i, row in enumerate(block.split_rows) if "pk = [132]" in row.header
+    )
+    pinned = block.split_rows[divider + 1]
+    assert pinned.left is not None and pinned.left.text == "pk id = 132"
+    assert pinned.right is not None and pinned.right.text == "pk id = 132"
+
+
+def test_missing_pk_records_name_the_missing_fields():
+    model = _comparison_with_records(
+        {"users": [{"id": 1, "n": "a"}]},
+        {"users": [{"id": 1, "n": "a"}, {"n": "absent"}, {"id": None, "n": "null"}]},
+        {"users": [["id"]]},
+    )
+
+    (section,) = model.stream_sections
+    group = next(
+        b
+        for b in section.diff_blocks
+        if b.title == "Records with missing or null primary key values — 2 in target"
+    )
+    # Control emitted none, so the group has a target child only.
+    (child,) = group.children
+    assert child.title == "In target — 2 record(s)"
+    texts = [line.text for line in child.lines]
+    # An absent field and a null field are different bugs; say which it is.
+    assert "pk id = <field missing>" in texts
+    assert "pk id = null" in texts
+
+
+def test_composite_pk_fields_are_each_pinned():
+    model = _comparison_with_records(
+        {"orders": [{"location": {"id": 7}, "date": "2026-01-01", "v": "x"}]},
+        {"orders": [{"location": {"id": 7}, "date": "2026-01-01", "v": "y"}]},
+        {"orders": [["location", "id"], ["date"]]},
+    )
+
+    (section,) = model.stream_sections
+    block = next(
+        b for b in section.diff_blocks if b.title.startswith("Field value diffs")
+    )
+    texts = [row.left.text for row in block.split_rows if row.left is not None]
+    assert "pk location.id = 7" in texts
+    assert 'pk date = "2026-01-01"' in texts
+
+
+def test_extra_target_pks_are_listed_as_context_when_presence_fails():
+    """PKs only in target don't fail (directional), but when the presence
+    check already failed, the other direction is listed for context."""
+    model = _comparison_with_records(
+        {"users": [{"id": 1, "n": "a"}, {"id": 2, "n": "b"}]},
+        {"users": [{"id": 2, "n": "b"}, {"id": 3, "n": "new"}]},
+        {"users": [["id"]]},
+    )
+
+    (section,) = model.stream_sections
+    group = next(
+        b
+        for b in section.diff_blocks
+        if b.title == "Missing primary keys — 1 in target, 1 in control"
+    )
+    missing, extra = group.children
+    assert missing.title.startswith("Missing in target — 1 PK value(s)")
+    assert "(present in control, not in target)" in missing.title
+    assert any(line.kind == "del" and line.text == "[1]" for line in missing.lines)
+    assert extra.title.startswith("Missing in control — 1 PK value(s)")
+    assert "(present in target, not in control)" in extra.title
+    assert any(line.kind == "add" and line.text == "[3]" for line in extra.lines)
+    assert "NOT fail" in extra.lines[0].text
+
+
+def test_deepdiff_set_containers_render_as_arrays_not_one_line_strings():
+    """`dictionary_item_added/_removed` are DeepDiff's own set classes; they
+    must pretty-print as JSON arrays with one path per line, not collapse
+    into a single stringified line."""
+    model = _comparison_with_records(
+        {"users": [{"id": 1, "old_field": "x", "kept": "same"}]},
+        {"users": [{"id": 1, "new_field": "y", "kept": "same"}]},
+        {"users": [["id"]]},
+    )
+
+    (section,) = model.stream_sections
+    block = next(b for b in section.diff_blocks if "raw DeepDiff payload" in b.title)
+    texts = [line.text for line in block.lines]
+    # One path per line inside a JSON array...
+    assert any(t.strip() == "\"root['data']['new_field']\"" for t in texts)
+    assert any(t.strip() == "\"root['data']['old_field']\"" for t in texts)
+    # ...never the whole container collapsed into one quoted string.
+    assert not any("[root[" in t for t in texts)
+
+
+def test_an_errored_comparison_fails_the_verdict_with_its_message():
+    """The CLI degrades an unexpected comparison error to a FAILED summary
+    with no per-stream results; the check row must carry the message alone,
+    not claim "0 streams failed"."""
+    errored = RecordComparisonSummary(
+        passed=False,
+        count_comparison=ComparisonResult(
+            passed=False, message="Record comparison errored"
+        ),
+        errors=["Record comparison errored: OSError('Too many open files')"],
+    )
+    model = _comparison(
+        "read",
+        _run_result(True),
+        _run_result(True),
+        record_comparison=errored,
+    )
+
+    assert model.passed is False
+    assert model.verdict_label == "FAIL (regression)"
+    counts_check = next(c for c in model.checks if c.name == "Record counts")
+    assert counts_check.status == "fail"
+    assert counts_check.summary == "Record comparison errored"
+    assert "stream" not in counts_check.summary
+
+    html = render_html_report(model)
+    assert "FAIL (regression)" in html
+    assert "Record comparison errored" in html
+
+
+def test_the_run_check_row_never_claims_no_regression():
+    """The command-execution row states facts about the commands; the
+    "(no regression)" claim belongs to the folded verdict and must appear
+    only when every comparison check passed."""
+    failing = _comparison(
+        "read",
+        _run_result(True),
+        _run_result(True),
+        extra_checks=(
+            CheckResult(name="Record counts", passed=False, summary="51 fewer"),
+        ),
+    )
+    run_check = next(c for c in failing.checks if c.name == "Command execution")
+    assert run_check.summary == "Both versions succeeded"
+    assert "(no regression)" not in failing.verdict_detail
+
+    passing = _comparison("read", _run_result(True), _run_result(True))
+    assert passing.verdict_detail == "Both versions succeeded (no regression)"
+
+
+def test_failing_streams_are_never_pushed_past_the_section_cap(monkeypatch):
+    """Sections sort failing streams first: detail blocks attach per section,
+    so a failing stream past the cap would lose its detail entirely behind
+    alphabetically-earlier passing streams."""
+    monkeypatch.setattr(
+        "airbyte_ops_mcp.regression_tests.report.MAX_STREAM_SECTIONS", 2
+    )
+    rows = [{"id": 1, "n": "a"}, {"id": 2, "n": "b"}]
+    model = _comparison_with_records(
+        {"aaa": rows, "bbb": rows, "zzz": rows},
+        {"aaa": rows, "bbb": rows, "zzz": rows[:1]},
+        {"aaa": [["id"]], "bbb": [["id"]], "zzz": [["id"]]},
+    )
+
+    sections = model.stream_sections
+    assert len(sections) == 2
+    assert model.omitted_stream_count == 1
+    # The failing stream leads despite sorting last alphabetically.
+    assert sections[0].stream == "zzz"
+    assert sections[0].status == "fail"
+    assert sections[0].diff_blocks
+
+
+def test_an_errored_comparison_reports_fail_inconclusive():
+    """A comparator crash is a tooling failure: the banner must not claim a
+    regression the way a real comparison failure does."""
+    from airbyte_ops_mcp.regression_tests.regression import (
+        ComparisonResult,
+        RecordComparisonSummary,
+    )
+
+    errored = RecordComparisonSummary(
+        passed=False,
+        errored=True,
+        count_comparison=ComparisonResult(
+            passed=False, message="Record comparison errored"
+        ),
+        errors=["Record comparison errored: OSError('boom')"],
+    )
+    model = _comparison(
+        "read",
+        _run_result(True),
+        _run_result(True),
+        record_comparison=errored,
+    )
+
+    assert model.passed is False
+    assert model.verdict_label == "FAIL (inconclusive)"
+    assert "FAIL (inconclusive)" in render_inline_summary(model)

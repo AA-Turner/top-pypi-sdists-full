@@ -1,10 +1,11 @@
 Metadata-Version: 2.4
 Name: trame-client
-Version: 3.13.2
+Version: 3.13.3
 Summary: Internal client of trame
 Author: Kitware Inc.
 License: MIT
-Keywords: Python,Interactive,Web,Application,Framework
+License-File: LICENSE
+Keywords: Application,Framework,Interactive,Python,Web
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: License :: OSI Approved :: MIT License
@@ -13,23 +14,21 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
-Description-Content-Type: text/x-rst
-License-File: LICENSE
+Requires-Python: >=3.10
 Requires-Dist: trame-common>=0.2.0
-Provides-Extra: test
-Requires-Dist: numpy; extra == "test"
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: pytest-asyncio; extra == "test"
-Requires-Dist: pytest-playwright; extra == "test"
-Requires-Dist: pytest-xprocess; extra == "test"
-Requires-Dist: Pillow; extra == "test"
-Requires-Dist: pixelmatch; extra == "test"
-Requires-Dist: trame>=3.13; extra == "test"
 Provides-Extra: dev
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: ruff; extra == "dev"
-Dynamic: license-file
+Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
+Provides-Extra: test
+Requires-Dist: numpy; extra == 'test'
+Requires-Dist: pillow; extra == 'test'
+Requires-Dist: pixelmatch; extra == 'test'
+Requires-Dist: pytest; extra == 'test'
+Requires-Dist: pytest-asyncio; extra == 'test'
+Requires-Dist: pytest-playwright; extra == 'test'
+Requires-Dist: pytest-xprocess; extra == 'test'
+Requires-Dist: trame>=3.13; extra == 'test'
+Description-Content-Type: text/x-rst
 
 .. |pypi_download| image:: https://img.shields.io/pypi/dm/trame-client
 

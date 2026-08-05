@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clingo
-Version: 5.8.0
+Version: 5.8.1
 Summary: CFFI-based bindings to the clingo solver.
 Home-page: https://github.com/potassco/clingo
 Author: Roland Kaminski

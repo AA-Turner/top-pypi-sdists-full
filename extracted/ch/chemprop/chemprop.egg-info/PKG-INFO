@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chemprop
-Version: 2.3.0
+Version: 2.3.1
 Summary: Molecular Property Prediction with Message Passing Neural Networks
 Author-email: "The Chemprop Development Team (see LICENSE.txt)" <chemprop@mit.edu>
 License: MIT

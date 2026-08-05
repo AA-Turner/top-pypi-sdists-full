@@ -4,6 +4,7 @@ import lief
 
 from smda.common.ExceptionHandling import reraise_non_operational_exception
 from smda.synthesis.BinarySynthesizer import BinarySynthesizer, align_down, align_up
+from smda.utility.lief_helper import safe_lief_parse
 
 IMAGE_SCN_CNT_CODE = 0x00000020
 IMAGE_SCN_CNT_INITIALIZED_DATA = 0x00000040
@@ -251,7 +252,7 @@ class PeSynthesizer(BinarySynthesizer):
 
     def _synthesizeFromHeader(self, offsets, with_imports, with_strings):
         base = self.report.base_addr
-        pe_src = lief.parse(bytes(self.report.xheader))
+        pe_src = safe_lief_parse(bytes(self.report.xheader))
         if not isinstance(pe_src, lief.PE.Binary):
             raise ValueError("xheader does not parse as PE")
         optional = pe_src.optional_header
@@ -260,7 +261,7 @@ class PeSynthesizer(BinarySynthesizer):
         is_pe32_plus = optional.magic == lief.PE.PE_TYPE.PE32_PLUS
         ptr_size = 8 if is_pe32_plus else 4
 
-        regions = []
+        regions: list[dict] = []
         for section in pe_src.sections:
             raw_size = section.sizeof_raw_data
             if raw_size == 0 and section.virtual_size > 0:
@@ -368,7 +369,7 @@ class PeSynthesizer(BinarySynthesizer):
         section_alignment = 0x1000
         file_alignment = 0x200
 
-        regions = []
+        regions: list[dict] = []
         min_rva = min(offset - base for offset in offsets)
         max_rva = max(self._functionExtentEnd(self.report.xcfg[offset]) - base for offset in offsets)
         text_vaddr = max(align_down(min_rva, section_alignment), section_alignment)

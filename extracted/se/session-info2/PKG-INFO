@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: session-info2
-Version: 0.4.1
+Version: 0.4.2
 Summary: Print versions of imported packages.
 Project-URL: Documentation, https://session-info2.readthedocs.io/
 Project-URL: Issues, https://github.com/flying-sheep/session-info2/issues
@@ -12,15 +12,13 @@ Keywords: jupyter,session-info
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.12
 Provides-Extra: jupyter
 Requires-Dist: ipywidgets; extra == 'jupyter'
 Description-Content-Type: text/markdown

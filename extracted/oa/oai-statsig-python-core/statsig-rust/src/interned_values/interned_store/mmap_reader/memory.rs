@@ -21,8 +21,7 @@ pub struct MmapReaderMemorySnapshot {
     pub proportional_set_bytes: Option<u64>,
     pub private_dirty_bytes: Option<u64>,
     pub deleted_mapped_bytes: Option<u64>,
-    /// Number of reader generations retained by this process. The current
-    /// single-generation reader reports one when a snapshot is present.
+    /// Number of reader artifact mappings retained by this process.
     pub loaded_generation_count: u64,
     pub vma_segment_count: Option<u64>,
 }
@@ -64,6 +63,52 @@ pub(super) fn snapshot(
             loaded_generation_count: 1,
             vma_segment_count: None,
         })
+    }
+}
+
+pub(super) fn aggregate<'a>(
+    mappings: impl IntoIterator<Item = (&'a File, &'a Mmap)>,
+    format_version: u32,
+) -> Result<Option<MmapReaderMemorySnapshot>, StatsigErr> {
+    let mut mappings = mappings.into_iter();
+    let Some((file, mmap)) = mappings.next() else {
+        return Ok(None);
+    };
+    let mut total = snapshot(file, mmap, format_version)?;
+
+    for (file, mmap) in mappings {
+        let next = snapshot(file, mmap, format_version)?;
+        total.mapped_bytes = add_snapshot_value(total.mapped_bytes, next.mapped_bytes)?;
+        total.resident_bytes =
+            add_optional_snapshot_value(total.resident_bytes, next.resident_bytes)?;
+        total.proportional_set_bytes =
+            add_optional_snapshot_value(total.proportional_set_bytes, next.proportional_set_bytes)?;
+        total.private_dirty_bytes =
+            add_optional_snapshot_value(total.private_dirty_bytes, next.private_dirty_bytes)?;
+        total.deleted_mapped_bytes =
+            add_optional_snapshot_value(total.deleted_mapped_bytes, next.deleted_mapped_bytes)?;
+        total.loaded_generation_count =
+            add_snapshot_value(total.loaded_generation_count, next.loaded_generation_count)?;
+        total.vma_segment_count =
+            add_optional_snapshot_value(total.vma_segment_count, next.vma_segment_count)?;
+    }
+
+    Ok(Some(total))
+}
+
+fn add_snapshot_value(left: u64, right: u64) -> Result<u64, StatsigErr> {
+    left.checked_add(right).ok_or_else(|| {
+        StatsigErr::InvalidOperation("Loaded mmap memory snapshot overflowed".to_string())
+    })
+}
+
+fn add_optional_snapshot_value(
+    left: Option<u64>,
+    right: Option<u64>,
+) -> Result<Option<u64>, StatsigErr> {
+    match (left, right) {
+        (Some(left), Some(right)) => add_snapshot_value(left, right).map(Some),
+        _ => Ok(None),
     }
 }
 

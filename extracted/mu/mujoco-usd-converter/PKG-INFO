@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mujoco-usd-converter
-Version: 0.4.1
+Version: 0.4.2
 Summary: A MuJoCo to OpenUSD Data Converter
 Project-URL: Documentation, https://github.com/newton-physics/mujoco-usd-converter/#readme
 Project-URL: Repository, https://github.com/newton-physics/mujoco-usd-converter

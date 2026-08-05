@@ -103,6 +103,8 @@ async def wait_if_not_done(coro: Coroutine[Any, Any, T], done: ValueEvent) -> T:
                     await logger.ainfo("Done awaiting.", task=str(fut))
                 if e.args and isinstance(e.args[0], Exception):
                     raise e.args[0] from None
+                if isinstance(done._value, Exception):
+                    raise done._value from None
                 raise
     except ExceptionGroup as e:
         raise e.exceptions[0] from None

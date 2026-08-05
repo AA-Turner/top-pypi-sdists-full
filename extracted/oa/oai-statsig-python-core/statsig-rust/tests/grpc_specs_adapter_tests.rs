@@ -3,9 +3,9 @@ mod utils;
 #[cfg(all(test, feature = "with_grpc"))]
 pub mod specs_adapter_tests {
     use crate::utils::mock_specs_listener::MockSpecsListener;
-    use mock_forward_proxy::{api::ConfigSpecResponse, wait_one_ms, MockForwardProxy};
+    use mock_forward_proxy::{MockForwardProxy, api::ConfigSpecResponse, wait_one_ms};
     use oai_statsig_grpc::*;
-    use statsig_rust::output_logger::{initialize_output_logger, LogLevel};
+    use statsig_rust::output_logger::{LogLevel, initialize_output_logger};
     use statsig_rust::{
         SpecAdapterConfig, SpecsAdapter, SpecsAdapterType, SpecsSource, StatsigGrpcSpecsAdapter,
         StatsigRuntime,

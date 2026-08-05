@@ -13,10 +13,9 @@ import typing
 from dataclasses import dataclass, field
 from functools import partial
 from multiprocessing import Event, get_context
-from typing import Generic, TypeVar
+from typing import Generic, ParamSpec, TypeVar
 
 import torch.distributed as dist
-from typing_extensions import ParamSpec, Self
 
 from .utils.comm import (
     LauncherAgentGroup,
@@ -34,7 +33,7 @@ from .utils.log_streaming import LoggingServerArgs, start_logging_server
 
 DEFAULT_ENV_VARS_FOR_COPY = (
     "PATH",
-    "LD_LIBRARY",
+    "LD_LIBRARY*",
     "LIBRARY_PATH",
     "PYTHON*",
     "CUDA*",
@@ -80,7 +79,7 @@ class Launcher:
     def set_logging_handlers(
         self,
         handler_factory: typing.Callable[[], list[logging.Handler]] | typing.Literal["auto"] | None,
-    ) -> Self:
+    ) -> Launcher:
         """Provide a ``handler_factory`` function to customize processing of agent/worker logs.
 
         Parameters:
@@ -224,7 +223,7 @@ class Launcher:
             # Sync initial payloads between launcher and agents
 
             logger.debug("Synchronizing launcher and agents.")
-            launcher_payload, agent_payloads = launcher_agent_group.sync_payloads(payload=payload)
+            _, agent_payloads = launcher_agent_group.sync_payloads(payload=payload)
 
             # Monitor agent statuses (until failed or done)
 
@@ -249,7 +248,7 @@ class Launcher:
         finally:
             # cleanup: SIGTERM all agents
             if agent_payloads is not None:
-                for agent_payload, agent_hostname in zip(agent_payloads, hostnames):
+                for agent_payload, agent_hostname in zip(agent_payloads, hostnames, strict=True):
                     logger.debug("Killing PID %s on %s.", agent_payload.process_id, agent_hostname)
 
                     execute_command(
@@ -277,8 +276,10 @@ class LaunchResult(Generic[FunctionR]):
     results: dict[str, list[FunctionR]]  # [hostname][local_rank] -> FunctionR
 
     @classmethod
-    def from_returns(cls, hostnames: list[str], return_values: list[list[FunctionR]]) -> Self:  # noqa: D102
-        return cls(results=dict(zip(hostnames, return_values)))
+    def from_returns(  # noqa: D102
+        cls, hostnames: list[str], return_values: list[list[FunctionR]]
+    ) -> LaunchResult[FunctionR]:
+        return cls(results=dict(zip(hostnames, return_values, strict=True)))
 
     def index(self, hostname: str, locak_rank: int) -> FunctionR:
         """Get return value from worker by host and local rank."""

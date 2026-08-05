@@ -49,6 +49,9 @@ STATS_INTERVAL_SECS = env("STATS_INTERVAL_SECS", cast=int, default=60)
 DATABASE_URI: str | None = env(
     "DATABASE_URI", cast=str, default=getenv("POSTGRES_URI", None)
 )
+AGENT_POSTGRES_IAM_AUTH_PROVIDER = env(
+    "AGENT_POSTGRES_IAM_AUTH_PROVIDER", cast=str, default=""
+)
 # Not in public docs: infrastructure, set by platform
 MIGRATIONS_PATH = env("MIGRATIONS_PATH", cast=str, default="/storage/migrations")
 POSTGRES_POOL_MAX_SIZE = env("LANGGRAPH_POSTGRES_POOL_MAX_SIZE", cast=int, default=150)
@@ -155,6 +158,9 @@ LANGGRAPH_AES_JSON_KEYS: frozenset[str] | None = env(
 # Not in public docs: infrastructure, set by platform
 REDIS_URI = env("REDIS_URI_CUSTOM", cast=str, default="") or env("REDIS_URI", cast=str)
 REDIS_CLUSTER = env("REDIS_CLUSTER", cast=bool, default=False)
+AGENT_REDIS_IAM_AUTH_PROVIDER = env(
+    "AGENT_REDIS_IAM_AUTH_PROVIDER", cast=str, default=""
+)
 REDIS_MAX_CONNECTIONS = env("REDIS_MAX_CONNECTIONS", cast=int, default=2000)
 REDIS_CONNECT_TIMEOUT = env("REDIS_CONNECT_TIMEOUT", cast=float, default=10.0)
 REDIS_HEALTH_CHECK_INTERVAL = env(

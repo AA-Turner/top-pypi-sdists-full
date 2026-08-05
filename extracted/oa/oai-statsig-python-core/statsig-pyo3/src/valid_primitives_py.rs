@@ -1,7 +1,7 @@
 use pyo3::prelude::*;
 use pyo3_stub_gen::{PyStubType, TypeInfo};
 use serde_json::Value;
-use statsig_rust::{dyn_value, log_w, DynamicValue, StatsigUserValue};
+use statsig_rust::{DynamicValue, StatsigUserValue, dyn_value, log_w};
 use std::{
     collections::{HashMap, HashSet},
     str,

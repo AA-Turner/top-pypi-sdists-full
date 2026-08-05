@@ -3,8 +3,8 @@ use std::{borrow::Cow, cell::Cell, sync::Arc};
 use ahash::{HashMap, HashMapExt};
 use rkyv::{primitive::ArchivedU64, vec::ArchivedVec};
 use serde::{
-    ser::{SerializeSeq, SerializeStruct},
     Deserialize, Deserializer, Serialize, Serializer,
+    ser::{SerializeSeq, SerializeStruct},
 };
 use serde_json::value::RawValue;
 
@@ -12,13 +12,13 @@ use crate::{
     evaluation::evaluation_data::SpecView,
     interned_string::InternedString,
     interned_values::{
+        InternedStore,
         mmap_data_v2::{
             ArchivedMmapDynamicString, ArchivedMmapReturnable, ArchivedMmapRule, ArchivedMmapSpec,
         },
-        InternedStore,
     },
     log_e,
-    specs_response::spec_types::Spec,
+    specs_response::{parse_options::should_preserve_session_update_mode, spec_types::Spec},
 };
 
 const TAG: &str = "SpecsHashMap";
@@ -99,7 +99,7 @@ fn record_spec_change(previous_is_mmap: Option<bool>, next_is_mmap: Option<bool>
 
 #[cfg(test)]
 mod decode_stats_tests {
-    use super::{record_spec_change, seed_spec_decode_stats, track_spec_decodes, SpecDecodeStats};
+    use super::{SpecDecodeStats, record_spec_change, seed_spec_decode_stats, track_spec_decodes};
 
     #[test]
     fn seeded_stats_track_replacements_and_deletions() {
@@ -121,13 +121,37 @@ impl<'de> Deserialize<'de> for SpecsHashMap {
         let raw_values: HashMap<InternedString, Box<RawValue>> =
             Deserialize::deserialize(_deserializer)?;
 
+        let preserve_session_update_mode = should_preserve_session_update_mode();
         let mut result = SpecsHashMap(HashMap::with_capacity(raw_values.len()));
         for (key, raw_value) in raw_values.into_iter() {
             let json_string = raw_value.get();
 
             let mut preloaded = None;
             if InternedStore::has_preloaded_mmap_v2() {
-                if let Ok(identity) = serde_json::from_str::<SpecIdentity<'_>>(json_string) {
+                if preserve_session_update_mode {
+                    if let Ok(identity) =
+                        serde_json::from_str::<SpecIdentityWithSessionUpdateMode<'_>>(json_string)
+                    {
+                        preloaded =
+                            InternedStore::try_get_preloaded_spec(&key, identity.entity.as_ref());
+                        if let Some(spec) = &preloaded {
+                            let existing_checksum =
+                                spec.view().checksum().map(|value| value.as_str());
+                            match (identity.checksum.as_deref(), existing_checksum) {
+                                (Some(checksum), Some(existing)) if existing == checksum => {
+                                    if let Some(spec) = spec.with_session_update_mode(
+                                        identity.session_update_mode.as_deref(),
+                                    ) {
+                                        result.insert(key, spec);
+                                        continue;
+                                    }
+                                }
+                                (None, None) => {}
+                                _ => preloaded = None,
+                            }
+                        }
+                    }
+                } else if let Ok(identity) = serde_json::from_str::<SpecIdentity<'_>>(json_string) {
                     preloaded =
                         InternedStore::try_get_preloaded_spec(&key, identity.entity.as_ref());
                     if let Some(spec) = &preloaded {
@@ -156,10 +180,21 @@ impl<'de> Deserialize<'de> for SpecsHashMap {
                 .as_ref()
                 .is_some_and(|preloaded| preloaded.matches_owned_spec(&spec))
             {
-                result.insert(key, preloaded.take().expect("preloaded spec must exist"));
-            } else {
-                result.insert(key, SpecPointer::Pointer(Arc::new(spec)));
+                let preloaded = preloaded.take().expect("preloaded spec must exist");
+                if !preserve_session_update_mode {
+                    result.insert(key, preloaded);
+                    continue;
+                }
+
+                if let Some(preloaded) =
+                    preloaded.with_session_update_mode(spec.session_update_mode.as_deref())
+                {
+                    result.insert(key, preloaded);
+                    continue;
+                }
             }
+
+            result.insert(key, SpecPointer::Pointer(Arc::new(spec)));
         }
 
         Ok(result)
@@ -172,6 +207,16 @@ struct SpecIdentity<'a> {
     checksum: Option<Cow<'a, str>>,
     #[serde(borrow)]
     entity: Cow<'a, str>,
+}
+
+#[derive(Deserialize)]
+struct SpecIdentityWithSessionUpdateMode<'a> {
+    #[serde(borrow)]
+    checksum: Option<Cow<'a, str>>,
+    #[serde(borrow)]
+    entity: Cow<'a, str>,
+    #[serde(rename = "sessionUpdateMode", borrow)]
+    session_update_mode: Option<Cow<'a, str>>,
 }
 
 impl Serialize for SpecsHashMap {
@@ -251,6 +296,7 @@ enum SpecPointerInner {
     Pointer(Arc<Spec>),
     Static(&'static Spec),
     Mmap(MmapSpecHandle),
+    MmapLive(MmapSpecHandle),
 }
 
 impl SpecPointer {
@@ -275,6 +321,19 @@ impl SpecPointer {
             SpecPointerInner::Mmap(handle) => {
                 InternedStore::materialize_mmap_spec(handle.archived())
             }
+            SpecPointerInner::MmapLive(handle) => {
+                InternedStore::materialize_mmap_live_spec(handle.archived())
+            }
+        }
+    }
+
+    /// Reads session update mode without materializing mmap-backed specs.
+    pub fn session_update_mode(&self) -> Option<&str> {
+        match &self.inner {
+            SpecPointerInner::Pointer(spec) => spec.session_update_mode.as_deref(),
+            SpecPointerInner::Static(spec) => spec.session_update_mode.as_deref(),
+            SpecPointerInner::Mmap(_) => None,
+            SpecPointerInner::MmapLive(_) => Some("live"),
         }
     }
 
@@ -283,6 +342,7 @@ impl SpecPointer {
             SpecPointerInner::Pointer(spec) => SpecView::Owned(spec),
             SpecPointerInner::Static(spec) => SpecView::Owned(spec),
             SpecPointerInner::Mmap(handle) => SpecView::Archived(handle.archived()),
+            SpecPointerInner::MmapLive(handle) => SpecView::Archived(handle.archived()),
         }
     }
 
@@ -292,11 +352,42 @@ impl SpecPointer {
         }
     }
 
+    pub(crate) fn with_session_update_mode(&self, mode: Option<&str>) -> Option<Self> {
+        match (&self.inner, mode) {
+            (SpecPointerInner::Mmap(handle) | SpecPointerInner::MmapLive(handle), None) => {
+                Some(Self {
+                    inner: SpecPointerInner::Mmap(*handle),
+                })
+            }
+            (SpecPointerInner::Mmap(handle) | SpecPointerInner::MmapLive(handle), Some("live")) => {
+                Some(Self {
+                    inner: SpecPointerInner::MmapLive(*handle),
+                })
+            }
+            (SpecPointerInner::Pointer(spec), mode)
+                if spec.session_update_mode.as_deref() == mode =>
+            {
+                Some(Self::Pointer(Arc::clone(spec)))
+            }
+            (SpecPointerInner::Static(spec), mode)
+                if spec.session_update_mode.as_deref() == mode =>
+            {
+                Some(Self::Static(spec))
+            }
+            _ => None,
+        }
+    }
+
     pub(crate) fn matches_owned_spec(&self, spec: &Spec) -> bool {
         match &self.inner {
             SpecPointerInner::Mmap(handle) => {
                 handle.archived().content_hash.to_native()
                     == crate::interned_values::mmap_data_v2::spec_content_hash(spec)
+            }
+            SpecPointerInner::MmapLive(handle) => {
+                spec.session_update_mode.as_deref() == Some("live")
+                    && handle.archived().content_hash.to_native()
+                        == crate::interned_values::mmap_data_v2::spec_content_hash(spec)
             }
             SpecPointerInner::Pointer(existing) => existing.as_ref() == spec,
             SpecPointerInner::Static(existing) => *existing == spec,
@@ -306,12 +397,17 @@ impl SpecPointer {
     pub(crate) fn into_pointer(self) -> Option<Arc<Spec>> {
         match self.inner {
             SpecPointerInner::Pointer(spec) => Some(spec),
-            SpecPointerInner::Static(_) | SpecPointerInner::Mmap(_) => None,
+            SpecPointerInner::Static(_)
+            | SpecPointerInner::Mmap(_)
+            | SpecPointerInner::MmapLive(_) => None,
         }
     }
 
     pub(crate) fn is_mmap(&self) -> bool {
-        matches!(self.inner, SpecPointerInner::Mmap(_))
+        matches!(
+            self.inner,
+            SpecPointerInner::Mmap(_) | SpecPointerInner::MmapLive(_)
+        )
     }
 }
 
@@ -324,12 +420,28 @@ impl Serialize for SpecPointer {
             SpecPointerInner::Pointer(spec) => spec.serialize(serializer),
             SpecPointerInner::Static(spec) => spec.serialize(serializer),
             SpecPointerInner::Mmap(handle) => handle.serialize(serializer),
+            SpecPointerInner::MmapLive(handle) => {
+                handle.serialize_with_session_update_mode(serializer, Some("live"))
+            }
         }
     }
 }
 
 impl Serialize for MmapSpecHandle {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.serialize_with_session_update_mode(serializer, None)
+    }
+}
+
+impl MmapSpecHandle {
+    fn serialize_with_session_update_mode<S>(
+        &self,
+        serializer: S,
+        session_update_mode: Option<&str>,
+    ) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -343,7 +455,8 @@ impl Serialize for MmapSpecHandle {
             + usize::from(spec.target_app_ids.is_some())
             + usize::from(spec.forward_all_exposures.is_some())
             + usize::from(spec.fields_used.is_some())
-            + usize::from(spec.use_new_layer_eval.is_some());
+            + usize::from(spec.use_new_layer_eval.is_some())
+            + usize::from(session_update_mode.is_some());
         let mut state = serializer.serialize_struct("Spec", field_count)?;
         if let Some(checksum) = spec.checksum.as_ref() {
             state.serialize_field("checksum", &MmapString(checksum))?;
@@ -378,6 +491,9 @@ impl Serialize for MmapSpecHandle {
         }
         if let Some(value) = spec.use_new_layer_eval.as_ref() {
             state.serialize_field("useNewLayerEval", value)?;
+        }
+        if let Some(value) = session_update_mode {
+            state.serialize_field("sessionUpdateMode", value)?;
         }
         state.end()
     }
@@ -505,9 +621,16 @@ impl PartialEq for SpecPointer {
     fn eq(&self, other: &Self) -> bool {
         match (&self.inner, &other.inner) {
             (SpecPointerInner::Mmap(left), SpecPointerInner::Mmap(right))
+            | (SpecPointerInner::MmapLive(left), SpecPointerInner::MmapLive(right))
                 if std::ptr::eq(left.archived(), right.archived()) =>
             {
                 true
+            }
+            (SpecPointerInner::Mmap(left), SpecPointerInner::MmapLive(right))
+            | (SpecPointerInner::MmapLive(left), SpecPointerInner::Mmap(right))
+                if std::ptr::eq(left.archived(), right.archived()) =>
+            {
+                false
             }
             _ => self.as_spec_ref() == other.as_spec_ref(),
         }
@@ -522,6 +645,7 @@ impl std::fmt::Debug for SpecPointer {
             }
             SpecPointerInner::Static(spec) => formatter.debug_tuple("Static").field(spec).finish(),
             SpecPointerInner::Mmap(_) => formatter.write_str("Mmap"),
+            SpecPointerInner::MmapLive(_) => formatter.write_str("MmapLive"),
         }
     }
 }

@@ -1417,6 +1417,7 @@ def test_main_invalid_dotted_unsafe_retry_preserves_legacy(
                 asyncapi_version=mocker.ANY,
                 xmlschema_version=mocker.ANY,
                 protobuf_version=mocker.ANY,
+                python_type_expressions=mocker.ANY,
             )
             expected_calls = [expected_call, expected_call]
         case "source_mismatch":
@@ -5937,6 +5938,24 @@ def test_main_openapi_discriminator(input_: str, output: str, output_file: Path)
     )
 
 
+def test_main_openapi_discriminator_import_override_removes_original(output_file: Path) -> None:
+    """Remove original discriminator imports after applying a module override."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "discriminator.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        assert_func=assert_file_content,
+        expected_file=EXPECTED_OPENAPI_PATH / "discriminator" / "import_override.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.dataclass",
+            "--import-overrides",
+            '{"Field": "pydantic.v1"}',
+        ],
+        force_exec_validation=True,
+    )
+
+
 @freeze_time("2023-07-27")
 @pytest.mark.parametrize(
     ("kind", "option", "output_model", "expected"),
@@ -8726,6 +8745,59 @@ def test_main_openapi_dot_notation_deep_inheritance(output_dir: Path) -> None:
         output_path=output_dir,
         expected_directory=EXPECTED_OPENAPI_PATH / "dot_notation_deep_inheritance",
         input_file_type="openapi",
+    )
+
+
+def test_main_openapi_dot_notation_root_package_inheritance(output_dir: Path) -> None:
+    """Test dot notation with inheritance from a model declared in the root package.
+
+    The root package is an ancestor of every nested module, so the base class must be
+    imported as ``from ... import Animal`` rather than ``from ...Animal import Animal``.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "dot_notation_root_package_inheritance.yaml",
+        output_path=output_dir,
+        expected_directory=EXPECTED_OPENAPI_PATH / "dot_notation_root_package_inheritance",
+        input_file_type="openapi",
+        extra_args=["--disable-timestamp"],
+        force_exec_validation=True,
+        runtime_validation_module="v0.mammal.canine",
+        runtime_validation_model_name="Puppy",
+        runtime_validation_data={"species": "dog", "age_weeks": 8},
+    )
+
+
+def test_main_openapi_exact_imports_ancestor_package(output_dir: Path) -> None:
+    """Test --use-exact-imports on fields typed by a model in an ancestor package.
+
+    A model whose module path is a prefix of the current one lives in that package's
+    ``__init__.py``, so it must stay ``from .. import Animal``. Turning it into
+    ``from ..Animal import Animal`` points at a module that does not exist.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "exact_imports_ancestor_package.yaml",
+        output_path=output_dir,
+        expected_directory=EXPECTED_OPENAPI_PATH / "exact_imports_ancestor_package",
+        input_file_type="openapi",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--target-python-version",
+            "3.10",
+            "--use-exact-imports",
+            "--collapse-root-models",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+        runtime_validation_module="v0.mammal.canine",
+        runtime_validation_model_name="Puppy",
+        runtime_validation_data={
+            "animal": {"species": "dog"},
+            "parent": {"animal": {"species": "dog"}, "tag": {"label": "pet"}},
+            "friend": {"wingspan": 120},
+            "tag": {"label": "pet"},
+            "tags": [{"label": "friend"}],
+        },
     )
 
 

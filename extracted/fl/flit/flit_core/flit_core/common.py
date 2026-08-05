@@ -12,14 +12,15 @@ log = logging.getLogger(__name__)
 
 from .versionno import normalise_version
 
-class Module(object):
+class Module:
     """This represents the module/package that we are going to distribute
     """
     in_namespace_package = False
     namespace_package_name = None
 
-    def __init__(self, name, directory=Path()):
+    def __init__(self, name: str, directory=Path()):
         self.name = name
+        self.is_stub_pkg = name.endswith('-stubs')
 
         # It must exist either as a .py file or a directory, but not both
         name_as_path = name.replace('.', os.sep)
@@ -51,12 +52,12 @@ class Module(object):
             existing.add(src_py_file)
 
         if len(existing) > 1:
+            existing_str = ", ".join(map(str, sorted(existing)))
             raise ValueError(
-                "Multiple files or folders could be module {}: {}"
-                .format(name, ", ".join([str(p) for p in sorted(existing)]))
+                f"Multiple files or folders could be module {name}: {existing_str}"
             )
         elif not existing:
-            raise ValueError("No file/folder found for module {}".format(name))
+            raise ValueError(f"No file/folder found for module {name}")
 
         self.source_dir = directory / self.prefix
 
@@ -94,9 +95,7 @@ class Module(object):
         """
         def _include(path):
             name = os.path.basename(path)
-            if (name == '__pycache__') or name.endswith('.pyc'):
-                return False
-            return True
+            return name != '__pycache__' and not name.endswith('.pyc')
 
         if self.is_package:
             # Ensure we sort all files and directories so the order is stable
@@ -122,7 +121,7 @@ class VCSError(Exception):
         self.directory = directory
 
     def __str__(self):
-        return self.msg + ' ({})'.format(self.directory)
+        return f'{self.msg} ({self.directory})'
 
 
 @contextmanager
@@ -149,10 +148,7 @@ def get_docstring_and_version_via_ast(target):
             node = ast.parse(f.read())
         for child in node.body:
             if is_version_str_assignment(child):
-                if sys.version_info >= (3, 8):
-                    version = child.value.value
-                else:
-                    version = child.value.s
+                version = child.value.value
                 break
     return ast.get_docstring(node), version
 
@@ -161,8 +157,7 @@ def is_version_str_assignment(node):
     """Check if *node* is a simple string assignment to __version__"""
     if not isinstance(node, (ast.Assign, ast.AnnAssign)):
         return False
-    constant_type = ast.Constant if sys.version_info >= (3, 8) else ast.Str
-    if not isinstance(node.value, constant_type):
+    if not isinstance(node.value, ast.Constant):
         return False
     targets = (node.target,) if isinstance(node, ast.AnnAssign) else node.targets
     for target in targets:
@@ -188,7 +183,7 @@ def get_docstring_and_version_via_import(target):
 
     log.debug("Loading module %s", target.file)
     from importlib.util import spec_from_file_location, module_from_spec
-    mod_name = 'flit_core.dummy.import%d' % _import_i
+    mod_name = f'flit_core.dummy.import{_import_i}'
     spec = spec_from_file_location(mod_name, target.file)
     with _module_load_ctx():
         m = module_from_spec(spec)
@@ -233,7 +228,7 @@ def get_info_from_module(target, for_fields=('version', 'description')):
         if (not docstring) or not docstring.strip():
             raise NoDocstringError(
                 'Flit cannot package module without docstring, or empty docstring. '
-                'Please add a docstring to your module ({}).'.format(target.file)
+                f'Please add a docstring to your module ({target.file}).'
             )
         res['summary'] = docstring.lstrip().splitlines()[0]
 
@@ -257,8 +252,7 @@ def check_version(version):
         raise NoVersionError('Cannot package module without a version string. '
                              'Please define a `__version__ = "x.y.z"` in your module.')
     if not isinstance(version, str):
-        raise InvalidVersion('__version__ must be a string, not {}.'
-                                .format(type(version)))
+        raise InvalidVersion(f'__version__ must be a string, not {type(version)}.')
 
     # Import here to avoid circular import
     version = normalise_version(version)
@@ -283,15 +277,15 @@ def parse_entry_point(ep):
     Returns (modulename, funcname)
     """
     if ':' not in ep:
-        raise ValueError("Invalid entry point (no ':'): %r" % ep)
+        raise ValueError(f"Invalid entry point (no ':'): {ep!r}")
     mod, func = ep.split(':')
 
     for piece in func.split('.'):
         if not piece.isidentifier():
-            raise ValueError("Invalid entry point: %r is not an identifier" % piece)
+            raise ValueError(f"Invalid entry point: {piece!r} is not an identifier")
     for piece in mod.split('.'):
         if not piece.isidentifier():
-            raise ValueError("Invalid entry point: %r is not a module path" % piece)
+            raise ValueError(f"Invalid entry point: {piece!r} is not a module path")
 
     return mod, func
 
@@ -301,12 +295,12 @@ def write_entry_points(d, fp):
     Sorts on keys to ensure results are reproducible.
     """
     for group_name in sorted(d):
-        fp.write(u'[{}]\n'.format(group_name))
+        fp.write(f'[{group_name}]\n')
         group = d[group_name]
         for name in sorted(group):
             val = group[name]
-            fp.write(u'{}={}\n'.format(name, val))
-        fp.write(u'\n')
+            fp.write(f'{name}={val}\n')
+        fp.write('\n')
 
 def hash_file(path, algorithm='sha256'):
     with open(path, 'rb') as f:
@@ -326,7 +320,7 @@ def normalize_file_permissions(st_mode):
         new_mode |= 0o111  # Executable: 644 -> 755
     return new_mode
 
-class Metadata(object):
+class Metadata:
 
     summary = None
     home_page = None
@@ -356,8 +350,10 @@ class Metadata(object):
     provides_extra = ()
     license_files = ()
     dynamic = ()
+    import_name = ()
+    import_namespace = ()
 
-    metadata_version = "2.4"
+    metadata_version = "2.5"
 
     def __init__(self, data):
         data = data.copy()
@@ -365,7 +361,7 @@ class Metadata(object):
         self.version = data.pop('version')
 
         for k, v in data.items():
-            assert hasattr(self, k), "data does not have attribute '{}'".format(k)
+            assert hasattr(self, k), f"data does not have attribute '{k}'"
             setattr(self, k, v)
 
     def _normalise_field_name(self, n):
@@ -410,7 +406,7 @@ class Metadata(object):
 
         for field in fields:
             value = getattr(self, self._normalise_field_name(field))
-            fp.write(u"{}: {}\n".format(field, value))
+            fp.write(f"{field}: {value}\n")
 
         for field in optional_fields:
             value = getattr(self, self._normalise_field_name(field))
@@ -420,35 +416,41 @@ class Metadata(object):
                 # License (& Description, but we put that in the body)
                 # Indent following lines with 8 spaces:
                 value = '\n        '.join(value.splitlines())
-                fp.write(u"{}: {}\n".format(field, value))
+                fp.write(f"{field}: {value}\n")
 
 
         license_expr = getattr(self, self._normalise_field_name("License-Expression"))
         license = getattr(self, self._normalise_field_name("License"))
         if license_expr:
-            fp.write(u'License-Expression: {}\n'.format(license_expr))
+            fp.write(f'License-Expression: {license_expr}\n')
         elif license:  # Deprecated, superseded by License-Expression
-            fp.write(u'License: {}\n'.format(license))
+            fp.write(f'License: {license}\n')
 
         for clsfr in self.classifiers:
-            fp.write(u'Classifier: {}\n'.format(clsfr))
+            fp.write(f'Classifier: {clsfr}\n')
 
         for file in self.license_files:
-            fp.write(u'License-File: {}\n'.format(file))
+            fp.write(f'License-File: {file}\n')
 
         for req in self.requires_dist:
             normalised_req = self._normalise_requires_dist(req)
-            fp.write(u'Requires-Dist: {}\n'.format(normalised_req))
+            fp.write(f'Requires-Dist: {normalised_req}\n')
 
         for url in self.project_urls:
-            fp.write(u'Project-URL: {}\n'.format(url))
+            fp.write(f'Project-URL: {url}\n')
 
         for extra in self.provides_extra:
             normalised_extra = normalise_core_metadata_name(extra)
-            fp.write(u'Provides-Extra: {}\n'.format(normalised_extra))
+            fp.write(f'Provides-Extra: {normalised_extra}\n')
+
+        for name in self.import_name:
+            fp.write(f'Import-Name: {name}\n')
+
+        for name in self.import_namespace:
+            fp.write(f'Import-Namespace: {name}\n')
 
         if self.description is not None:
-            fp.write(u'\n' + self.description + u'\n')
+            fp.write(f'\n{self.description}\n')
 
     @property
     def supports_py2(self):
@@ -482,12 +484,12 @@ def normalize_dist_name(name: str, version: str) -> str:
     normalized_name = re.sub(r'[-_.]+', '_', name, flags=re.UNICODE).lower()
     assert check_version(version) == version
     assert '-' not in version, 'Normalized versions can’t have dashes'
-    return '{}-{}'.format(normalized_name, version)
+    return f'{normalized_name}-{version}'
 
 
 def dist_info_name(distribution, version):
     """Get the correct name of the .dist-info folder"""
-    return normalize_dist_name(distribution, version) + '.dist-info'
+    return f'{normalize_dist_name(distribution, version)}.dist-info'
 
 
 def walk_data_dir(data_directory):

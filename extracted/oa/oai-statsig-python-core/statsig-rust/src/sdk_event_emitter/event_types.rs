@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
-use crate::{specs_response::spec_types::SpecsResponseFull, DynamicValue, SpecsSource};
+use crate::{DynamicValue, SpecsSource, specs_response::spec_types::SpecsResponseFull};
 
 const TAG: &str = "SdkEvent";
 

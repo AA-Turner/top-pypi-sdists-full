@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hier-config"
-version = "3.6.2"
+version = "3.7.0"
 description = "A network configuration query and comparison library, used to build remediation configurations."
 packages = [
     { include="hier_config", from="."},
@@ -35,6 +35,7 @@ pydantic = "^2.9"
 flynt = "*"
 mkdocs = "*"
 mkdocs-include-markdown-plugin = "*"
+mkdocs-redirects = "*"
 mkdocstrings = {extras = ["python"], version = "*"}
 mypy = "*"
 pylint = "*"

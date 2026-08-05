@@ -138,7 +138,7 @@ class AFatLinkTypeAdmin(admin.ModelAdmin):
     Config for the FAT link type model
     """
 
-    list_display = ("id", "_name", "_is_enabled")
+    list_display = ("_name", "_is_enabled")
     list_filter = ("is_enabled",)
     ordering = ("name",)
 

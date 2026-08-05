@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: microsoft-teams-apps
-Version: 2.0.14
+Version: 2.0.15
 Summary: The app package for a Microsoft Teams agent
 Author-email: Microsoft <TeamsAISDKFeedback@microsoft.com>
 License-Expression: MIT
@@ -9,15 +9,15 @@ Requires-Python: <4.0,>=3.11
 Requires-Dist: cryptography>=3.4.0
 Requires-Dist: dependency-injector>=4.48.1
 Requires-Dist: fastapi>=0.115.13
-Requires-Dist: microsoft-teams-api>=2.0.14
-Requires-Dist: microsoft-teams-common>=2.0.14
+Requires-Dist: microsoft-teams-api>=2.0.15
+Requires-Dist: microsoft-teams-common>=2.0.15
 Requires-Dist: msal>=1.33.0
 Requires-Dist: pydantic-settings>=2.11.0
 Requires-Dist: pyjwt[crypto]>=2.12.0
 Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: uvicorn>=0.34.3
 Provides-Extra: graph
-Requires-Dist: microsoft-teams-graph>=2.0.14; extra == 'graph'
+Requires-Dist: microsoft-teams-graph>=2.0.15; extra == 'graph'
 Description-Content-Type: text/markdown
 
 # Microsoft Teams Apps Framework
@@ -60,6 +60,17 @@ async def handle_message(ctx: ActivityContext[MessageActivity]):
 # Start the app
 await app.start()
 ```
+
+## Unauthenticated Requests
+
+For local development only, JWT validation can be disabled explicitly:
+
+```python
+app = App(dangerously_allow_unauthenticated_requests=True)
+```
+
+It can also be enabled with the `DANGEROUSLY_ALLOW_UNAUTHENTICATED_REQUESTS=true` environment variable.
+The previous `skip_auth` option is deprecated and remains supported for compatibility.
 
 ## OAuth and Graph Integration
 

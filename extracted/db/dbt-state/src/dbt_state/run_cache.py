@@ -1968,6 +1968,10 @@ class RunCache:
 
     @property
     def clone_chain_depth_limit(self) -> t.Optional[int]:
+        # if cloning is disabled by config; send clone_chain_depth_limit=0 to exclude clone candidates
+        if not self._run_cache_config.allow_clones:
+            return 0
+
         default_limit = self._adapter_ext.CLONE_CHAIN_DEPTH_LIMIT
 
         # in prod, we set 1 less than the actual limit (which may force an execute instead of a clone)

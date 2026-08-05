@@ -1,5 +1,3 @@
-#![cfg_attr(not(test), allow(dead_code))]
-
 mod evaluator_value;
 mod spec;
 mod spec_content_hash;
@@ -7,8 +5,8 @@ mod spec_content_hash;
 use std::{collections::HashMap, sync::Arc};
 
 use rkyv::{
-    with::{Identity, Unshare},
     Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize,
+    with::{Identity, Unshare},
 };
 
 use crate::evaluation::rkyv_value::RkyvValue;

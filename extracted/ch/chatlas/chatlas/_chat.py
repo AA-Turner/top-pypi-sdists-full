@@ -32,8 +32,10 @@ from pydantic import BaseModel
 
 from ._callbacks import CallbackManager
 from ._content import (
+    PROVIDER_ANNOTATION_TYPES,
     Content,
     ContentCitation,
+    ContentImageInline,
     ContentJson,
     ContentText,
     ContentThinking,
@@ -47,6 +49,11 @@ from ._content import (
     ToolInfo,
 )
 from ._display import (
+    DEFAULT_IMAGE_MAX_LINES,
+    DEFAULT_THINKING_MAX_LINES,
+    DEFAULT_TOOL_RESULT_MAX_HEIGHT,
+    DEFAULT_TOOL_RESULT_MAX_LINES,
+    DEFAULT_WEB_ACTIVITY_MAX_SOURCES,
     EchoDisplayOptions,
     IPyMarkdownDisplay,
     LiveMarkdownDisplay,
@@ -78,7 +85,13 @@ from ._turn import (
 )
 from ._turn_accumulator import TurnAccumulator
 from ._typing_extensions import TypedDict, TypeGuard
-from ._utils import MISSING, MISSING_TYPE, html_escape, wrap_async
+from ._utils import (
+    MISSING,
+    MISSING_TYPE,
+    default_if_missing,
+    html_escape,
+    wrap_async,
+)
 
 if TYPE_CHECKING:
     from inspect_ai.model import ChatMessage as InspectChatMessage
@@ -186,11 +199,7 @@ class Chat(Generic[SubmitInputArgsT, CompletionT]):
         self._on_tool_request_callbacks = CallbackManager()
         self._on_tool_result_callbacks = CallbackManager()
         self._current_display: Optional[MarkdownDisplay] = None
-        self._echo_options: EchoDisplayOptions = {
-            "rich_markdown": {},
-            "rich_console": {},
-            "css_styles": {},
-        }
+        self.set_echo_options()
         self._mcp_manager = MCPSessionManager()
 
         # Chat input parameters from `set_model_params()`
@@ -2185,7 +2194,10 @@ class Chat(Generic[SubmitInputArgsT, CompletionT]):
         Parameters
         ----------
         func
-            The function to be invoked when the tool is called.
+            The function to be invoked when the tool is called. A generator
+            function may yield more than once to report progress: each result
+            is surfaced for display as it arrives, and they are combined into
+            the single result the model receives.
         force
             If `True`, overwrite any existing tool with the same name. If `False`
             (the default), raise an error if a tool with the same name already exists.
@@ -2204,7 +2216,9 @@ class Chat(Generic[SubmitInputArgsT, CompletionT]):
         Raises
         ------
         ValueError
-            If a tool with the same name already exists and `force` is `False`.
+            If a tool with the same name already exists and `force` is `False`,
+            or if `func` is a built-in tool (e.g. `tool_web_search()`) that this
+            chat's provider can't run.
         """
         if isinstance(func, Tool):
             name = name or func.name
@@ -2217,6 +2231,7 @@ class Chat(Generic[SubmitInputArgsT, CompletionT]):
             tool = Tool.from_func(func, name=name, model=model, annotations=annotations)
         else:
             if isinstance(func, ToolBuiltIn):
+                self.provider.check_builtin_tool_support(func)
                 tool = func
             else:
                 tool = Tool.from_func(
@@ -2242,7 +2257,10 @@ class Chat(Generic[SubmitInputArgsT, CompletionT]):
         return list(self._tools.values())
 
     def set_tools(
-        self, tools: list[Callable[..., Any] | Callable[..., Awaitable[Any]] | Tool]
+        self,
+        tools: list[
+            Callable[..., Any] | Callable[..., Awaitable[Any]] | Tool | ToolBuiltIn
+        ],
     ):
         """
         Set the tools for the chat.
@@ -2322,7 +2340,9 @@ class Chat(Generic[SubmitInputArgsT, CompletionT]):
 
         This is primarily useful if you want to add custom content to the
         display while the chat is running, but currently blocked by something
-        like a tool call.
+        like a tool call. Its `.echo()` method takes a markdown string, or a
+        [](`~chatlas.types.Content`) object to have it rendered the way the chat
+        itself would render it.
 
         Example
         -------
@@ -2362,7 +2382,7 @@ class Chat(Generic[SubmitInputArgsT, CompletionT]):
         """
         return self._current_display
 
-    def _echo_content(self, x: str):
+    def _echo_content(self, x: str | Content):
         if self._current_display:
             self._current_display.echo(x)
 
@@ -2693,13 +2713,13 @@ class Chat(Generic[SubmitInputArgsT, CompletionT]):
                         if tool is not None:
                             x.tool = ToolInfo.from_tool(tool)
                         if echo == "output":
-                            self._echo_content(f"\n\n{x}\n\n")
+                            self._echo_content(x)
                         if content == "all":
                             yield x
                         results = self._invoke_tool(x, _otel_parent=agent_span)
                         for res in results:
                             if echo == "output":
-                                self._echo_content(f"\n\n{res}\n\n")
+                                self._echo_content(res)
                             if content == "all":
                                 yield res
                             all_results.append(res)
@@ -2784,13 +2804,13 @@ class Chat(Generic[SubmitInputArgsT, CompletionT]):
                         if tool is not None:
                             x.tool = ToolInfo.from_tool(tool)
                         if echo == "output":
-                            self._echo_content(f"\n\n{x}\n\n")
+                            self._echo_content(x)
                         if content == "all":
                             yield x
                         results = self._invoke_tool_async(x, _otel_parent=agent_span)
                         async for res in results:
                             if echo == "output":
-                                self._echo_content(f"\n\n{res}\n\n")
+                                self._echo_content(res)
                             if content == "all":
                                 yield res
                             else:
@@ -2853,8 +2873,20 @@ class Chat(Generic[SubmitInputArgsT, CompletionT]):
         )
         try:
 
-            def emit(text: str | Content):
-                self._echo_content(str(text))
+            def emit(x: str | Content):
+                # `echo="text"` means just the assistant's answer, so reasoning
+                # and web activity are held back the same way tool content is.
+                if echo == "text" and isinstance(
+                    x,
+                    (
+                        ContentThinking,
+                        ContentThinkingDelta,
+                        ContentImageInline,
+                        *PROVIDER_ANNOTATION_TYPES,
+                    ),
+                ):
+                    return
+                self._echo_content(x)
 
             emit("<br>\n\n")
 
@@ -2906,6 +2938,7 @@ class Chat(Generic[SubmitInputArgsT, CompletionT]):
                             result,
                             has_data_model=data_model is not None,
                         )
+                        emit_image_contents(turn, emit)
                         if echo == "all":
                             emit_other_contents(turn, emit)
                         turn = finalize_assistant_turn(self.provider, turn)
@@ -2928,10 +2961,14 @@ class Chat(Generic[SubmitInputArgsT, CompletionT]):
                 turn = self.provider.value_turn(
                     response, has_data_model=data_model is not None
                 )
+                emit_thinking_contents(turn, emit)
+                emit_web_contents(turn, emit)
+
                 if turn.text:
                     emit(turn.text)
                     yield turn.text
 
+                emit_image_contents(turn, emit)
                 if echo == "all":
                     emit_other_contents(turn, emit)
 
@@ -2989,8 +3026,20 @@ class Chat(Generic[SubmitInputArgsT, CompletionT]):
         )
         try:
 
-            def emit(text: str | Content):
-                self._echo_content(str(text))
+            def emit(x: str | Content):
+                # `echo="text"` means just the assistant's answer, so reasoning
+                # and web activity are held back the same way tool content is.
+                if echo == "text" and isinstance(
+                    x,
+                    (
+                        ContentThinking,
+                        ContentThinkingDelta,
+                        ContentImageInline,
+                        *PROVIDER_ANNOTATION_TYPES,
+                    ),
+                ):
+                    return
+                self._echo_content(x)
 
             emit("<br>\n\n")
 
@@ -3044,6 +3093,7 @@ class Chat(Generic[SubmitInputArgsT, CompletionT]):
                             result,
                             has_data_model=data_model is not None,
                         )
+                        emit_image_contents(turn, emit)
                         if echo == "all":
                             emit_other_contents(turn, emit)
                         turn = finalize_assistant_turn(self.provider, turn)
@@ -3066,10 +3116,14 @@ class Chat(Generic[SubmitInputArgsT, CompletionT]):
                 turn = self.provider.value_turn(
                     response, has_data_model=data_model is not None
                 )
+                emit_thinking_contents(turn, emit)
+                emit_web_contents(turn, emit)
+
                 if turn.text:
                     emit(turn.text)
                     yield turn.text
 
+                emit_image_contents(turn, emit)
                 if echo == "all":
                     emit_other_contents(turn, emit)
 
@@ -3271,7 +3325,7 @@ class Chat(Generic[SubmitInputArgsT, CompletionT]):
         screen sizes.
         """
         if echo == "none":
-            return ChatMarkdownDisplay(MockMarkdownDisplay(), self)
+            return ChatMarkdownDisplay(MockMarkdownDisplay(self._echo_options), self)
 
         # rich does a lot to detect a notebook environment, but it doesn't
         # detect Quarto, or a Positron notebook
@@ -3293,9 +3347,17 @@ class Chat(Generic[SubmitInputArgsT, CompletionT]):
         rich_markdown: Optional[dict[str, Any]] = None,
         rich_console: Optional[dict[str, Any]] = None,
         css_styles: Optional[dict[str, str]] = None,
+        tool_result_max_lines: int | None | MISSING_TYPE = MISSING,
+        tool_result_max_height: str | None | MISSING_TYPE = MISSING,
+        thinking_max_lines: int | None | MISSING_TYPE = MISSING,
+        web_activity_max_sources: int | None | MISSING_TYPE = MISSING,
+        image_max_lines: int | None | MISSING_TYPE = MISSING,
     ):
         """
         Set echo styling options for the chat.
+
+        Note that each call replaces *all* of the options: anything not passed
+        reverts to its default rather than keeping a previously set value.
 
         Parameters
         ----------
@@ -3308,11 +3370,50 @@ class Chat(Generic[SubmitInputArgsT, CompletionT]):
         css_styles
             A dictionary of CSS styles to apply to `IPython.display.Markdown()`.
             This is only relevant when outputing to the browser.
+        tool_result_max_lines
+            Truncate an echoed tool result to this many lines, noting how many
+            were dropped. The full value remains available on the turn. Pass
+            `None` to echo it in full. This is only relevant when outputting to
+            the console.
+        tool_result_max_height
+            A CSS length (e.g. `"400px"`) bounding the height of an echoed tool
+            result, which scrolls internally beyond it. Pass `None` to let it
+            grow. This is only relevant when outputting to the browser.
+        thinking_max_lines
+            Cap echoed reasoning at this many lines, keeping the most recent and
+            noting how many earlier ones were dropped. Pass `None` to echo it in
+            full. This is only relevant when outputting to the console; in the
+            browser, reasoning collapses on its own once it's complete.
+        web_activity_max_sources
+            Cap the source list of an echoed web-activity panel at this many
+            entries, noting how many were dropped. Pass `None` to echo them all.
+            This is only relevant when outputting to the console; in the browser
+            the panel is collapsed and scrolls internally, so every source is
+            listed.
+        image_max_lines
+            Cap a console image thumbnail at this many rows. Pass `None` to
+            remove the height cap. This is only relevant when outputting to the
+            console; browser output uses the original image.
         """
         self._echo_options: EchoDisplayOptions = {
             "rich_markdown": rich_markdown or {},
             "rich_console": rich_console or {},
             "css_styles": css_styles or {},
+            "tool_result_max_lines": default_if_missing(
+                tool_result_max_lines, DEFAULT_TOOL_RESULT_MAX_LINES
+            ),
+            "tool_result_max_height": default_if_missing(
+                tool_result_max_height, DEFAULT_TOOL_RESULT_MAX_HEIGHT
+            ),
+            "thinking_max_lines": default_if_missing(
+                thinking_max_lines, DEFAULT_THINKING_MAX_LINES
+            ),
+            "web_activity_max_sources": default_if_missing(
+                web_activity_max_sources, DEFAULT_WEB_ACTIVITY_MAX_SOURCES
+            ),
+            "image_max_lines": default_if_missing(
+                image_max_lines, DEFAULT_IMAGE_MAX_LINES
+            ),
         }
 
     def __str__(self):
@@ -3487,17 +3588,68 @@ def emit_user_contents(
 ):
     if x.role != "user":
         raise ValueError("Expected a user turn")
-    emit(f"## 👤 User turn:\n\n{str(x)}\n\n")
+    # Only the text: `emit_other_contents()` handles the rest, and routing those
+    # as objects rather than through `str(x)` is what lets the display bound them.
+    emit(f"## 👤 User turn:\n\n{x.text}\n\n")
     emit_other_contents(x, emit)
     emit("\n\n## 🤖 Assistant turn:\n\n")
+
+
+def emit_thinking_contents(
+    x: Turn,
+    emit: Callable[[Content | str], None],
+):
+    """
+    Emit a non-streamed turn's reasoning, ahead of its text.
+
+    The streaming path displays reasoning as it arrives; this is the non-streaming
+    equivalent. `emit()` decides whether the current echo mode wants it.
+    """
+    for content in x.contents:
+        if isinstance(content, ContentThinking):
+            emit(content)
+
+
+def emit_web_contents(
+    x: Turn,
+    emit: Callable[[Content | str], None],
+):
+    """
+    Emit a non-streamed turn's web activity, ahead of its text.
+
+    The streaming path builds the panel as the activity arrives; this is the
+    non-streaming equivalent. It goes before the text because the search precedes
+    the answer -- including the citations, which the display folds into the same
+    panel regardless of the order they're emitted in.
+    """
+    for content in x.contents:
+        if isinstance(content, PROVIDER_ANNOTATION_TYPES):
+            emit(content)
+
+
+def emit_image_contents(
+    x: Turn,
+    emit: Callable[[Content | str], None],
+):
+    """Emit a turn's inline images after its text."""
+    for content in x.contents:
+        if isinstance(content, ContentImageInline):
+            emit(content)
 
 
 def emit_other_contents(
     x: Turn,
     emit: Callable[[Content | str], None],
 ):
+    """
+    Emit everything in the turn other than its text.
+
+    Reasoning and web activity are excluded: both are displayed as they arrive
+    (streaming) or explicitly before the text (non-streaming), so emitting them
+    from the turn's contents too would show them twice.
+    """
     # Gather other content to emit in _reverse_ order
-    to_emit: list[str] = []
+    to_emit: list[Content | str] = []
 
     if isinstance(x, AssistantTurn) and x.finish_reason:
         to_emit.append(f"\n\n<< 🤖 finish reason: {x.finish_reason} \\>\\>\n\n")
@@ -3507,9 +3659,19 @@ def emit_other_contents(
     for content in reversed(x.contents):
         if isinstance(content, ContentText):
             has_text = True
+        elif isinstance(content, (ContentThinking, ContentThinkingDelta)):
+            continue
+        elif isinstance(content, PROVIDER_ANNOTATION_TYPES):
+            # Displayed as a web-activity panel while streaming, or by
+            # `emit_web_contents` when not; emitting it here would show it twice.
+            continue
+        elif isinstance(content, ContentImageInline) and isinstance(x, AssistantTurn):
+            # Assistant images were emitted after the text. User images only reach
+            # the display through this path.
+            continue
         else:
             has_other = True
-            to_emit.append(str(content))
+            to_emit.append(content)
 
     if has_text and has_other:
         if isinstance(x, UserTurn):
@@ -3519,7 +3681,10 @@ def emit_other_contents(
 
     to_emit.reverse()
 
-    emit("\n\n".join(to_emit))
+    for i, content in enumerate(to_emit):
+        if i > 0:
+            emit("\n\n")
+        emit(content)
 
 
 # Helper/wrapper class to let Chat know about the currently active display

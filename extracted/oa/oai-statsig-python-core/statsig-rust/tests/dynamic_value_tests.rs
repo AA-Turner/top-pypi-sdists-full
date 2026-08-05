@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use more_asserts::assert_gt;
-use serde_json::{json, Number, Value};
+use serde_json::{Number, Value, json};
 use statsig_rust::{dyn_value, evaluation::dynamic_string::DynamicString};
 
 macro_rules! assert_dynamic_value {

@@ -101,10 +101,10 @@ def ajax_get_recent_fatlinks(request: WSGIRequest) -> JsonResponse:
     fatlink_ids = list(
         FatLink.objects.select_related_default()
         .order_by("-created")[:10]
-        .values_list("id", flat=True)
+        .values_list("pk", flat=True)
     )
 
-    fatlinks = FatLink.objects.filter(id__in=fatlink_ids).order_by("-created")
+    fatlinks = FatLink.objects.filter(pk__in=fatlink_ids).order_by("-created")
 
     fatlink_rows = [
         convert_fatlinks_to_dict(

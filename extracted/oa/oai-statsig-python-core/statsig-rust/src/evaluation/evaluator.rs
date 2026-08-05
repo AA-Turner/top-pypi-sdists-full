@@ -22,7 +22,7 @@ use crate::interned_string::InternedString;
 use crate::specs_response::explicit_params::ExplicitParameters;
 use crate::specs_response::spec_types::{Condition, ConditionOperator, ConditionType};
 use crate::user::user_value::UserValueRef;
-use crate::{dyn_value, log_w, unwrap_or_return, ExperimentEvaluationOptions, StatsigErr};
+use crate::{ExperimentEvaluationOptions, StatsigErr, dyn_value, log_w, unwrap_or_return};
 
 use super::country_lookup::CountryLookup;
 
@@ -754,7 +754,18 @@ fn evaluate_nested_gate<'a>(
             rule_id: res.rule_id.clone().unwrap_or_default(),
         };
 
-        if res.sampling_rate.is_none() {
+        let nested_spec = gate_name
+            .get_from(&ctx.specs_data.feature_gates.0)
+            .map(|spec| spec.view());
+        let uses_special_case_sampling_rate = nested_spec.is_some_and(|spec| {
+            spec.entity().as_str() == "feature_gate"
+                && spec.forward_all_exposures() != Some(true)
+                && res
+                    .rule_id
+                    .as_ref()
+                    .is_some_and(|id| matches!(id.as_str(), "default" | "disabled"))
+        });
+        if res.sampling_rate.is_none() && !uses_special_case_sampling_rate {
             ctx.result.has_seen_analytical_gates = Option::from(true);
         }
 

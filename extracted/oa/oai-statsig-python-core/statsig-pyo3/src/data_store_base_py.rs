@@ -1,14 +1,15 @@
 use async_trait::async_trait;
 use pyo3::exceptions::PyTypeError;
 use pyo3::types::{PyAny, PyAnyMethods, PyBytes, PyDict, PyModule};
-use pyo3::{prelude::Bound, pyclass, pymethods, FromPyObject, Py, PyResult};
+use pyo3::{FromPyObject, Py, PyResult, prelude::Bound, pyclass, pymethods};
 use pyo3_stub_gen::derive::*;
 use statsig_rust::{
+    StatsigErr,
     data_store_interface::{
         DataStoreBytesResponse, DataStoreGetBytesRequest, DataStoreResponse, DataStoreTrait,
         RequestPath,
     },
-    log_e, log_w, StatsigErr,
+    log_e, log_w,
 };
 
 use crate::safe_gil::SafeGil;
@@ -88,7 +89,7 @@ impl DataStoreTrait for DataStoreBasePy {
                 None => {
                     return Err(StatsigErr::DataStoreFailure(
                         "Python interpreter has been shutdown".to_string(),
-                    ))
+                    ));
                 }
             };
 
@@ -97,7 +98,7 @@ impl DataStoreTrait for DataStoreBasePy {
                 None => {
                     return Err(StatsigErr::DataStoreFailure(
                         "No 'get' function provided".to_string(),
-                    ))
+                    ));
                 }
             };
 
@@ -177,7 +178,7 @@ impl DataStoreTrait for DataStoreBasePy {
                 None => {
                     return Err(StatsigErr::DataStoreFailure(
                         "Python interpreter has been shutdown".to_string(),
-                    ))
+                    ));
                 }
             };
 
@@ -186,7 +187,7 @@ impl DataStoreTrait for DataStoreBasePy {
                 None => {
                     return Err(StatsigErr::DataStoreFailure(
                         "No 'set' function provided".to_string(),
-                    ))
+                    ));
                 }
             };
 
@@ -223,7 +224,7 @@ impl DataStoreTrait for DataStoreBasePy {
                 None => {
                     return Err(StatsigErr::DataStoreFailure(
                         "Python interpreter has been shutdown".to_string(),
-                    ))
+                    ));
                 }
             };
 
@@ -232,7 +233,7 @@ impl DataStoreTrait for DataStoreBasePy {
                 None => {
                     return Err(StatsigErr::DataStoreFailure(
                         "No 'get_bytes' function provided".to_string(),
-                    ))
+                    ));
                 }
             };
 
@@ -372,7 +373,7 @@ impl DataStoreTrait for DataStoreBasePy {
                 None => {
                     return Err(StatsigErr::DataStoreFailure(
                         "Python interpreter has been shutdown".to_string(),
-                    ))
+                    ));
                 }
             };
 
@@ -381,7 +382,7 @@ impl DataStoreTrait for DataStoreBasePy {
                 None => {
                     return Err(StatsigErr::DataStoreFailure(
                         "No 'set_bytes' function provided".to_string(),
-                    ))
+                    ));
                 }
             };
 

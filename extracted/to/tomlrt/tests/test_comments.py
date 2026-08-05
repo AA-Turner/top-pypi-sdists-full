@@ -161,6 +161,15 @@ def test_del_eol_comment_removes_it() -> None:
         del doc.comments["name"]
 
 
+def test_del_eol_comment_with_no_preceding_whitespace_removes_it() -> None:
+    """No gap-whitespace piece to drop when the comment abuts the value directly."""
+    src = 'name = "ada"# old\n'
+    doc = tomlrt.loads(src)
+    del doc.comments["name"]
+    assert tomlrt.dumps(doc) == 'name = "ada"\n'
+    assert "name" not in doc.comments
+
+
 def test_set_eol_comment_round_trips_text_with_hash_prefix() -> None:
     # The API takes comment *content*, never the '#' marker. A user
     # whose content genuinely starts with '#' (e.g. "#hashtag") gets
@@ -611,10 +620,20 @@ def test_inline_table_promote_array_raises() -> None:
         t.promote_array("a")
 
 
-def test_inline_table_install_section_raises() -> None:
+def test_inline_table_install_promotes_inline_ancestor() -> None:
+    """``install`` promotes an inline-table ancestor to a section, even
+    for a scalar leaf: ``t`` needs an explicit ``[t.x]`` header either
+    way to hold the new ``y``, so there's nothing left to forbid.
+    """
     doc = tomlrt.loads("t = { a = 1 }\n")
-    with pytest.raises(tomlrt.TOMLError, match="not section-backed"):
-        doc.install("t.x.y", 99)
+    doc.install("t.x.y", 99)
+    assert tomlrt.dumps(doc) == td("""
+        [t]
+        a = 1
+
+        [t.x]
+        y = 99
+        """)
 
 
 # ---------------------------------------------------------------------------
@@ -697,6 +716,14 @@ def test_header_comment_set_none_no_comment_preserves_trailing_whitespace() -> N
     doc = tomlrt.loads(src)
     doc.table("server").header_comment = None
     assert tomlrt.dumps(doc) == src
+
+
+def test_header_comment_del_with_no_preceding_whitespace_removes_it() -> None:
+    """No gap-whitespace piece to drop when the comment abuts the header directly."""
+    src = "[server]# old\nhost = 'a'\n"
+    doc = tomlrt.loads(src)
+    del doc.table("server").header_comment
+    assert tomlrt.dumps(doc) == "[server]\nhost = 'a'\n"
 
 
 def test_header_leading_comments_extract_block_only() -> None:

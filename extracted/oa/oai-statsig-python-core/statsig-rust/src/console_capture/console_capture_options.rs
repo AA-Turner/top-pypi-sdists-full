@@ -1,4 +1,4 @@
-use crate::{console_capture::console_log_line_levels::StatsigLogLineLevel, StatsigUser};
+use crate::{StatsigUser, console_capture::console_log_line_levels::StatsigLogLineLevel};
 
 #[derive(Clone, Default)]
 pub struct ConsoleCaptureOptions {

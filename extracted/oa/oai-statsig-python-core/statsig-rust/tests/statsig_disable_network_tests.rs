@@ -1,6 +1,6 @@
 mod utils;
 
-use statsig_rust::{statsig_options::StatsigOptionsBuilder, user::StatsigUserBuilder, Statsig};
+use statsig_rust::{Statsig, statsig_options::StatsigOptionsBuilder, user::StatsigUserBuilder};
 use std::sync::Arc;
 use utils::mock_scrapi::{self, Endpoint, EndpointStub, MockScrapi, StubData};
 

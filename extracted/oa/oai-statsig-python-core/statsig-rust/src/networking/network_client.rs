@@ -2,16 +2,17 @@ use chrono::Utc;
 
 use super::network_error::NetworkError;
 use super::providers::get_network_provider;
-use super::{HttpMethod, NetworkProvider, RequestArgs, Response};
-use crate::networking::proxy_config::ProxyConfig;
-use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
-use crate::observability::ops_stats::{OpsStatsForInstance, OPS_STATS};
-use crate::observability::ErrorBoundaryEvent;
-use crate::sdk_diagnostics::marker::{ActionType, Marker, StepType};
-use crate::utils::{
-    get_loggable_sdk_key, is_version_segment, split_host_and_path, strip_query_and_fragment,
+use super::{
+    HttpMethod, NetworkProvider, RequestArgs, Response, get_source_service_and_request_path,
+    should_log_network_request_latency,
 };
-use crate::{log_d, log_i, log_w, StatsigOptions};
+use crate::networking::proxy_config::ProxyConfig;
+use crate::observability::ErrorBoundaryEvent;
+use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
+use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
+use crate::sdk_diagnostics::marker::{ActionType, Marker, StepType};
+use crate::utils::get_loggable_sdk_key;
+use crate::{StatsigOptions, log_d, log_i, log_w};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
@@ -27,11 +28,6 @@ const NON_RETRY_CODES: [u16; 6] = [
 ];
 const SHUTDOWN_ERROR: &str = "Request was aborted because the client is shutting down";
 
-const MAX_REQUEST_PATH_LENGTH: usize = 64;
-const DOWNLOAD_CONFIG_SPECS_ENDPOINT: &str = "download_config_specs";
-const GET_ID_LISTS_ENDPOINT: &str = "get_id_lists";
-const DOWNLOAD_ID_LIST_FILE_ENDPOINT: &str = "download_id_list_file";
-const LOG_EVENT_ENDPOINT: &str = "log_event";
 const NETWORK_REQUEST_LATENCY_METRIC: &str = "network_request.latency";
 const REQUEST_PATH_TAG: &str = "request_path";
 const STATUS_CODE_TAG: &str = "status_code";
@@ -297,7 +293,8 @@ impl NetworkClient {
             let backoff_ms = 2_u64.pow(attempt) * 100;
 
             log_i!(
-                TAG, "Network request failed with status code {} (attempt {}/{}), will retry after {}ms...\n{}",
+                TAG,
+                "Network request failed with status code {} (attempt {}/{}), will retry after {}ms...\n{}",
                 status.map_or("unknown".to_string(), |s| s.to_string()),
                 attempt,
                 request_args.retries + 1,
@@ -412,89 +409,9 @@ fn get_network_request_latency_tags(
     tags
 }
 
-fn is_latency_loggable_endpoint(endpoint: &str) -> bool {
-    endpoint == DOWNLOAD_CONFIG_SPECS_ENDPOINT
-        || endpoint == GET_ID_LISTS_ENDPOINT
-        || endpoint == DOWNLOAD_ID_LIST_FILE_ENDPOINT
-        || endpoint == LOG_EVENT_ENDPOINT
-}
-
-fn get_version_and_endpoint_for_latency<'a>(
-    segments: &'a [&'a str],
-) -> Option<(usize, &'a str, &'a str)> {
-    // Find a known endpoint pattern, then verify the segment right before it is `/v{number}`.
-    segments
-        .iter()
-        .enumerate()
-        .find_map(|(endpoint_index, endpoint_segment)| {
-            if !is_latency_loggable_endpoint(endpoint_segment) || endpoint_index == 0 {
-                return None;
-            }
-
-            let version_index = endpoint_index - 1;
-            let version_segment = segments[version_index];
-            is_version_segment(version_segment).then_some((
-                version_index,
-                version_segment,
-                *endpoint_segment,
-            ))
-        })
-}
-
-fn should_log_network_request_latency(url: &str) -> bool {
-    let (_, raw_path) = split_host_and_path(url);
-    let normalized_path = strip_query_and_fragment(raw_path).trim_start_matches('/');
-    let segments: Vec<&str> = normalized_path
-        .split('/')
-        .filter(|segment| !segment.is_empty())
-        .collect();
-
-    get_version_and_endpoint_for_latency(&segments).is_some()
-}
-
-fn with_host_prefix(host_prefix: &str, path: &str) -> String {
-    if host_prefix.is_empty() {
-        path.to_string()
-    } else {
-        format!("{host_prefix}{path}")
-    }
-}
-
-fn get_source_service_and_request_path(url: &str) -> (String, String) {
-    let (host_prefix, raw_path) = split_host_and_path(url);
-    let normalized_path = strip_query_and_fragment(raw_path).trim_start_matches('/');
-    let segments: Vec<&str> = normalized_path
-        .split('/')
-        .filter(|segment| !segment.is_empty())
-        .collect();
-
-    if let Some((version_index, version_segment, endpoint_segment)) =
-        get_version_and_endpoint_for_latency(&segments)
-    {
-        let request_path = format!("/{version_segment}/{endpoint_segment}");
-        let source_service_suffix = segments[..version_index].join("/");
-        let source_service = with_host_prefix(&host_prefix, &source_service_suffix)
-            .trim_end_matches('/')
-            .to_string();
-        return (source_service, request_path);
-    }
-
-    let fallback_request_path: String = normalized_path
-        .chars()
-        .take(MAX_REQUEST_PATH_LENGTH)
-        .collect();
-    let request_path = if fallback_request_path.is_empty() {
-        "/".to_string()
-    } else {
-        format!("/{fallback_request_path}")
-    };
-    let source_service = host_prefix.trim_end_matches('/').to_string();
-    (source_service, request_path)
-}
-
 #[cfg(test)]
 fn get_request_path(url: &str) -> String {
-    get_source_service_and_request_path(url).1
+    crate::networking::get_source_service_and_request_path(url).1
 }
 
 // ------------------------------------------------------------
@@ -548,12 +465,14 @@ fn get_error_message_for_status(
 #[cfg(test)]
 mod tests {
     use super::{
+        DELTAS_USED_TAG, ID_LIST_FILE_ID_TAG, NetworkClient, REQUEST_PATH_TAG, STATUS_CODE_TAG,
         get_network_error_extra_tags, get_network_request_latency_tags, get_request_path,
-        get_source_service_and_request_path, should_log_network_request_latency, NetworkClient,
-        DELTAS_USED_TAG, ID_LIST_FILE_ID_TAG, REQUEST_PATH_TAG, STATUS_CODE_TAG,
     };
-    use crate::networking::{NetworkError, RequestArgs};
     use crate::StatsigOptions;
+    use crate::networking::{
+        NetworkError, RequestArgs, get_source_service_and_request_path,
+        should_log_network_request_latency,
+    };
 
     #[test]
     fn test_log_event_connection_reuse_defaults_to_true() {
@@ -581,7 +500,9 @@ mod tests {
             "/v1/download_id_list_file"
         );
         assert_eq!(
-            get_request_path("https://statsigcdn.openai.com/v1/download_id_list_file/Q9mXcz7L1P43tRb8kV2dHyw%2FM6nJf0Ae5uTqsrC4Gp9KZ?foo=bar"),
+            get_request_path(
+                "https://statsigcdn.openai.com/v1/download_id_list_file/Q9mXcz7L1P43tRb8kV2dHyw%2FM6nJf0Ae5uTqsrC4Gp9KZ?foo=bar"
+            ),
             "/v1/download_id_list_file"
         );
         assert_eq!(

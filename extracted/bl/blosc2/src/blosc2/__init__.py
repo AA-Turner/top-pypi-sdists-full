@@ -567,6 +567,7 @@ from .dict_store import DictStore
 from .tree_store import TreeStore
 from .batch_array import Batch, BatchArray
 from .list_array import ListArray
+from ._utf8_array import UTF8Array, from_utf8, to_utf8, utf8_array
 from .objectarray import ObjectArray, objectarray_from_cframe
 from .ref import Ref
 from .b2objects import open_b2object
@@ -595,6 +596,7 @@ from . import linalg
 from .linalg import tensordot, vecdot, permute_dims, matrix_transpose, matmul, transpose, diagonal, outer
 from .utils import linalg_funcs as linalg_funcs_list
 from . import fft
+from . import random
 
 # Registry for postfilters
 postfilter_funcs = {}
@@ -831,8 +833,12 @@ __all__ = [  # noqa : RUF022
     "uint32",
     "uint64",
     "utf8",
+    "utf8_array",
     "vlbytes",
     "vlstring",
+    # utf8 <-> fixed-width conversion
+    "from_utf8",
+    "to_utf8",
     # Grouped reductions
     "group_reduce",
     # Classes
@@ -878,6 +884,7 @@ __all__ = [  # noqa : RUF022
     "Tuner",
     "URLPath",
     "ObjectArray",
+    "UTF8Array",
     # Version
     "__version__",
     # Utils

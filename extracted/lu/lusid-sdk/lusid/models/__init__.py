@@ -219,6 +219,7 @@ from lusid.models.close_period_diary_entry_request import ClosePeriodDiaryEntryR
 from lusid.models.closed_period import ClosedPeriod
 from lusid.models.collateral import Collateral
 from lusid.models.collateral_instrument import CollateralInstrument
+from lusid.models.commodity_forward import CommodityForward
 from lusid.models.comparison_attribute_value_pair import ComparisonAttributeValuePair
 from lusid.models.complete_portfolio import CompletePortfolio
 from lusid.models.complete_relation import CompleteRelation
@@ -431,8 +432,6 @@ from lusid.models.equity_curve_by_prices_data import EquityCurveByPricesData
 from lusid.models.equity_curve_dependency import EquityCurveDependency
 from lusid.models.equity_model_options import EquityModelOptions
 from lusid.models.equity_option import EquityOption
-from lusid.models.equity_shift_definition import EquityShiftDefinition
-from lusid.models.equity_shift_mode import EquityShiftMode
 from lusid.models.equity_swap import EquitySwap
 from lusid.models.equity_vol_dependency import EquityVolDependency
 from lusid.models.equity_vol_surface_data import EquityVolSurfaceData
@@ -636,6 +635,7 @@ from lusid.models.informational_event import InformationalEvent
 from lusid.models.inline_valuation_request import InlineValuationRequest
 from lusid.models.inline_valuations_reconciliation_request import InlineValuationsReconciliationRequest
 from lusid.models.input_transition import InputTransition
+from lusid.models.instantiate_rec_request import InstantiateRecRequest
 from lusid.models.instrument import Instrument
 from lusid.models.instrument_activity import InstrumentActivity
 from lusid.models.instrument_activity_adjustment import InstrumentActivityAdjustment
@@ -884,6 +884,7 @@ from lusid.models.paged_resource_list_of_posting_module_response import PagedRes
 from lusid.models.paged_resource_list_of_posting_module_rule import PagedResourceListOfPostingModuleRule
 from lusid.models.paged_resource_list_of_property_definition import PagedResourceListOfPropertyDefinition
 from lusid.models.paged_resource_list_of_property_definition_search_result import PagedResourceListOfPropertyDefinitionSearchResult
+from lusid.models.paged_resource_list_of_rec_instance import PagedResourceListOfRecInstance
 from lusid.models.paged_resource_list_of_rec_result_set import PagedResourceListOfRecResultSet
 from lusid.models.paged_resource_list_of_reconciliation import PagedResourceListOfReconciliation
 from lusid.models.paged_resource_list_of_reference_list_response import PagedResourceListOfReferenceListResponse
@@ -986,6 +987,8 @@ from lusid.models.previous_fund_valuation_point_data import PreviousFundValuatio
 from lusid.models.previous_nav import PreviousNAV
 from lusid.models.previous_share_class_breakdown import PreviousShareClassBreakdown
 from lusid.models.previous_valuation_point import PreviousValuationPoint
+from lusid.models.price_shift_definition import PriceShiftDefinition
+from lusid.models.price_shift_mode import PriceShiftMode
 from lusid.models.pricing_context import PricingContext
 from lusid.models.pricing_model import PricingModel
 from lusid.models.pricing_options import PricingOptions
@@ -1040,10 +1043,13 @@ from lusid.models.re_open_period_diary_entry_request import ReOpenPeriodDiaryEnt
 from lusid.models.realised_gain_loss import RealisedGainLoss
 from lusid.models.rec_approval_decision import RecApprovalDecision
 from lusid.models.rec_closed_exception_counts import RecClosedExceptionCounts
+from lusid.models.rec_closed_period_reference import RecClosedPeriodReference
+from lusid.models.rec_closed_periods import RecClosedPeriods
 from lusid.models.rec_dates_reconciled import RecDatesReconciled
 from lusid.models.rec_exception_count_by_closure_type import RecExceptionCountByClosureType
 from lusid.models.rec_exception_count_by_result_type import RecExceptionCountByResultType
 from lusid.models.rec_execution import RecExecution
+from lusid.models.rec_instance import RecInstance
 from lusid.models.rec_instance_id import RecInstanceId
 from lusid.models.rec_instance_summary import RecInstanceSummary
 from lusid.models.rec_match_count_by_result_type import RecMatchCountByResultType
@@ -1056,6 +1062,7 @@ from lusid.models.rec_result_counts import RecResultCounts
 from lusid.models.rec_result_set import RecResultSet
 from lusid.models.rec_result_set_approval_decision_request import RecResultSetApprovalDecisionRequest
 from lusid.models.rec_review import RecReview
+from lusid.models.rec_run_log_entry import RecRunLogEntry
 from lusid.models.rec_submission import RecSubmission
 from lusid.models.rec_superseded_run import RecSupersededRun
 from lusid.models.rec_workflow_task import RecWorkflowTask
@@ -1379,6 +1386,7 @@ from lusid.models.transfer_agency_dates import TransferAgencyDates
 from lusid.models.transfer_agency_order_result import TransferAgencyOrderResult
 from lusid.models.transfer_agency_orders_response import TransferAgencyOrdersResponse
 from lusid.models.transition_event import TransitionEvent
+from lusid.models.transition_rec_instance_request import TransitionRecInstanceRequest
 from lusid.models.translate_entities_inlined_request import TranslateEntitiesInlinedRequest
 from lusid.models.translate_entities_request import TranslateEntitiesRequest
 from lusid.models.translate_entities_response import TranslateEntitiesResponse
@@ -1764,6 +1772,7 @@ __all__ = [
     "ClosedPeriod",
     "Collateral",
     "CollateralInstrument",
+    "CommodityForward",
     "ComparisonAttributeValuePair",
     "CompletePortfolio",
     "CompleteRelation",
@@ -1976,8 +1985,6 @@ __all__ = [
     "EquityCurveDependency",
     "EquityModelOptions",
     "EquityOption",
-    "EquityShiftDefinition",
-    "EquityShiftMode",
     "EquitySwap",
     "EquityVolDependency",
     "EquityVolSurfaceData",
@@ -2181,6 +2188,7 @@ __all__ = [
     "InlineValuationRequest",
     "InlineValuationsReconciliationRequest",
     "InputTransition",
+    "InstantiateRecRequest",
     "Instrument",
     "InstrumentActivity",
     "InstrumentActivityAdjustment",
@@ -2429,6 +2437,7 @@ __all__ = [
     "PagedResourceListOfPostingModuleRule",
     "PagedResourceListOfPropertyDefinition",
     "PagedResourceListOfPropertyDefinitionSearchResult",
+    "PagedResourceListOfRecInstance",
     "PagedResourceListOfRecResultSet",
     "PagedResourceListOfReconciliation",
     "PagedResourceListOfReferenceListResponse",
@@ -2531,6 +2540,8 @@ __all__ = [
     "PreviousNAV",
     "PreviousShareClassBreakdown",
     "PreviousValuationPoint",
+    "PriceShiftDefinition",
+    "PriceShiftMode",
     "PricingContext",
     "PricingModel",
     "PricingOptions",
@@ -2585,10 +2596,13 @@ __all__ = [
     "RealisedGainLoss",
     "RecApprovalDecision",
     "RecClosedExceptionCounts",
+    "RecClosedPeriodReference",
+    "RecClosedPeriods",
     "RecDatesReconciled",
     "RecExceptionCountByClosureType",
     "RecExceptionCountByResultType",
     "RecExecution",
+    "RecInstance",
     "RecInstanceId",
     "RecInstanceSummary",
     "RecMatchCountByResultType",
@@ -2601,6 +2615,7 @@ __all__ = [
     "RecResultSet",
     "RecResultSetApprovalDecisionRequest",
     "RecReview",
+    "RecRunLogEntry",
     "RecSubmission",
     "RecSupersededRun",
     "RecWorkflowTask",
@@ -2924,6 +2939,7 @@ __all__ = [
     "TransferAgencyOrderResult",
     "TransferAgencyOrdersResponse",
     "TransitionEvent",
+    "TransitionRecInstanceRequest",
     "TranslateEntitiesInlinedRequest",
     "TranslateEntitiesRequest",
     "TranslateEntitiesResponse",

@@ -4,7 +4,7 @@ mod utils;
 pub mod specs_adapter_tests {
     use crate::utils::mock_data_store::MockDataStore;
     use crate::utils::mock_specs_listener::MockSpecsListener;
-    use oai_statsig_grpc::mock_forward_proxy::{api::ConfigSpecResponse, MockForwardProxy};
+    use oai_statsig_grpc::mock_forward_proxy::{MockForwardProxy, api::ConfigSpecResponse};
     use statsig_rust::data_store_interface::DataStoreResponse;
     use statsig_rust::{
         SpecAdapterConfig, SpecsAdapter, SpecsAdapterType, SpecsSource, Statsig,

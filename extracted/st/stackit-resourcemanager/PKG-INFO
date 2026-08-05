@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stackit-resourcemanager
-Version: 0.9.0
+Version: 0.9.1
 Summary: Resource Manager API
 Project-URL: Homepage, https://github.com/stackitcloud/stackit-sdk-python
 Project-URL: Issues, https://github.com/stackitcloud/stackit-sdk-python/issues

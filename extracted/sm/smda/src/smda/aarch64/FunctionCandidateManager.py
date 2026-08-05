@@ -83,6 +83,8 @@ class FunctionCandidateManager(_CommonFunctionCandidateManager):
         super().init(disassembly, cbAnalysisTimeout)
 
     def hasCommonPrologue(self, addr):
+        if self.disassembly.binary_info is None:
+            return False
         return FunctionCandidate(self.disassembly.binary_info, addr).hasCommonFunctionStart()
 
     def locateCandidates(self):
@@ -506,6 +508,8 @@ class FunctionCandidateManager(_CommonFunctionCandidateManager):
             return any(start <= addr < end for start, end in exec_ranges)
 
         def seed(target, source):
+            if target is None:
+                return
             target &= bit_mask
             if target % INSTRUCTION_SIZE != 0 or not in_exec(target):
                 return
@@ -521,7 +525,7 @@ class FunctionCandidateManager(_CommonFunctionCandidateManager):
                 self.addReferenceCandidate(target, source)
 
         for low, high in exec_ranges:
-            pages = {}  # Xd -> adrp page base currently held in that register
+            pages: dict[int, int] = {}  # Xd -> adrp page base currently held in that register
             addr = low
             match_count = 0
             while addr + INSTRUCTION_SIZE <= high:
@@ -747,8 +751,10 @@ class FunctionCandidateManager(_CommonFunctionCandidateManager):
         # real argument, not "unset", so a truthiness check would wrongly drop it.
         if start_gap_pointer is not None:
             self.gap_pointer = start_gap_pointer
+        if self.gap_pointer is None:
+            return None
         base = self.disassembly.binary_info.base_addr
-        size = self.disassembly.binary_info.binary_size
+        size = self.disassembly.binary_info.binary_size or 0
         exec_ranges = self._cachedExecutableSectionRanges()
         words = self._wordsView()
 

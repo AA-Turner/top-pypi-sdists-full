@@ -1,7 +1,14 @@
-use super::config_spec_background_sync_metrics::log_config_sync_overall_latency;
-use super::response_format::{get_specs_response_format, SpecsResponseFormat};
-use crate::networking::{NetworkClient, NetworkError, RequestArgs, ResponseData};
-use crate::observability::ops_stats::{OpsStatsForInstance, OPS_STATS};
+use super::config_spec_background_sync_metrics::{
+    DeltaFallbackReason, DeltaFallbackSource, log_config_sync_full_fallback_count,
+    log_config_sync_overall_latency,
+};
+use super::response_format::{SpecsResponseFormat, get_specs_response_format};
+use crate::DEFAULT_INIT_TIMEOUT_MS;
+use crate::networking::{
+    DEFAULT_CDN_SPECS_URL, NetworkClient, NetworkError, RequestArgs, ResponseData, api_from_url,
+    config_specs_url,
+};
+use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
 use crate::observability::sdk_errors_observer::ErrorBoundaryEvent;
 use crate::sdk_diagnostics::diagnostics::ContextType;
 use crate::sdk_diagnostics::marker::{ActionType, KeyType, Marker, StepType};
@@ -9,10 +16,8 @@ use crate::specs_adapter::{SpecsAdapter, SpecsUpdate, SpecsUpdateListener};
 use crate::specs_response::spec_types::SpecsResponseNoUpdates;
 use crate::statsig_err::StatsigErr;
 use crate::statsig_metadata::StatsigMetadata;
-use crate::utils::get_api_from_url;
-use crate::DEFAULT_INIT_TIMEOUT_MS;
 use crate::{
-    log_d, log_e, log_error_to_statsig_and_console, SpecsSource, StatsigOptions, StatsigRuntime,
+    SpecsSource, StatsigOptions, StatsigRuntime, log_d, log_e, log_error_to_statsig_and_console,
 };
 use async_trait::async_trait;
 use chrono::Utc;
@@ -33,14 +38,14 @@ pub struct NetworkResponse {
     pub requested_deltas: bool,
 }
 
-pub const DEFAULT_SPECS_URL: &str = "https://statsigcdn.openai.com/v2/download_config_specs";
 pub const DEFAULT_SYNC_INTERVAL_MS: u32 = 10_000;
-
-#[allow(unused)]
-pub const INIT_DICT_ID: &str = "null";
 
 const TAG: &str = stringify!(StatsigHttpSpecsAdapter);
 const STATSIG_NETWORK_FALLBACK_THRESHOLD: u32 = 5;
+const DELTA_FALLBACK_REASON_HEADER: &str = "x-statsig-delta-fallback-reason";
+const DELTA_FALLBACK_SOURCE_HEADER: &str = "x-statsig-delta-fallback-source";
+const INITIAL_DELTA_CURSOR_STATE: &str = "initial";
+const INCREMENTAL_DELTA_CURSOR_STATE: &str = "incremental";
 
 pub struct StatsigHttpSpecsAdapter {
     listener: RwLock<Option<Arc<dyn SpecsUpdateListener>>>,
@@ -114,6 +119,20 @@ fn is_true_header(data: &ResponseData, key: &str) -> bool {
 fn is_process_success(result: &Result<(), StatsigErr>) -> bool {
     result.is_ok()
 }
+
+fn get_delta_fallback_reason(data: &ResponseData) -> DeltaFallbackReason {
+    DeltaFallbackReason::from_header(
+        data.get_header_ref(DELTA_FALLBACK_REASON_HEADER)
+            .map(String::as_str),
+    )
+}
+
+fn get_delta_fallback_source(data: &ResponseData) -> DeltaFallbackSource {
+    DeltaFallbackSource::from_header(
+        data.get_header_ref(DELTA_FALLBACK_SOURCE_HEADER)
+            .map(String::as_str),
+    )
+}
 // OB client -- END
 
 impl StatsigHttpSpecsAdapter {
@@ -136,14 +155,14 @@ impl StatsigHttpSpecsAdapter {
                 .specs_url
                 .as_ref()
                 .map(|u| u.to_string())
-                .unwrap_or(DEFAULT_SPECS_URL.to_string()),
+                .unwrap_or(DEFAULT_CDN_SPECS_URL.to_string()),
         };
 
-        // only fallback when the spec_url is not the DEFAULT_SPECS_URL
+        // only fallback when the spec_url is not the default CDN specs URL
         let fallback_url = if options_ref.fallback_to_statsig_api.unwrap_or(false)
-            && specs_url != DEFAULT_SPECS_URL
+            && specs_url != DEFAULT_CDN_SPECS_URL
         {
-            Some(DEFAULT_SPECS_URL.to_string())
+            Some(DEFAULT_CDN_SPECS_URL.to_string())
         } else {
             None
         };
@@ -191,7 +210,7 @@ impl StatsigHttpSpecsAdapter {
         match self.handle_specs_request(request_args).await {
             Ok(response) => Ok(NetworkResponse {
                 data: response,
-                loggable_api: get_api_from_url(&url),
+                loggable_api: api_from_url(&url),
                 requested_deltas,
             }),
             Err(e) => Err(e),
@@ -241,7 +260,7 @@ impl StatsigHttpSpecsAdapter {
         }
 
         RequestArgs {
-            url: construct_specs_url(self.specs_url.as_str(), self.sdk_key.as_str()),
+            url: config_specs_url(self.specs_url.as_str(), self.sdk_key.as_str()),
             retries: match trigger {
                 SpecsSyncTrigger::Initial | SpecsSyncTrigger::Manual => 0,
                 SpecsSyncTrigger::Background => 3,
@@ -262,13 +281,13 @@ impl StatsigHttpSpecsAdapter {
     ) -> Result<NetworkResponse, NetworkError> {
         let requested_deltas = request_args.deltas_enabled;
         let fallback_url = match &self.fallback_url {
-            Some(url) => construct_specs_url(url.as_str(), &self.sdk_key),
+            Some(url) => config_specs_url(url.as_str(), &self.sdk_key),
             None => {
                 return Err(NetworkError::RequestFailed(
                     request_args.url.clone(),
                     None,
                     "No fallback URL".to_string(),
-                ))
+                ));
             }
         };
 
@@ -279,7 +298,7 @@ impl StatsigHttpSpecsAdapter {
         let response = self.handle_specs_request(request_args).await?;
         Ok(NetworkResponse {
             data: response,
-            loggable_api: get_api_from_url(&fallback_url),
+            loggable_api: api_from_url(&fallback_url),
             requested_deltas,
         })
     }
@@ -376,6 +395,11 @@ impl StatsigHttpSpecsAdapter {
         }
 
         let sync_start_ms = Utc::now().timestamp_millis() as u64;
+        let delta_cursor_state = if current_specs_info.lcut.unwrap_or(0) > 0 {
+            INCREMENTAL_DELTA_CURSOR_STATE
+        } else {
+            INITIAL_DELTA_CURSOR_STATE
+        };
         let mut deltas_used = self.use_deltas_next_request.load(Ordering::SeqCst);
         let mut response = self
             .fetch_specs_from_network(current_specs_info.clone(), trigger)
@@ -385,6 +409,16 @@ impl StatsigHttpSpecsAdapter {
             .map_or(ConfigSyncResponseType::NetworkError, |response| {
                 ConfigSyncResponseType::from_response_data(&mut response.data)
             });
+        let mut delta_fallback_reason = response
+            .as_ref()
+            .map_or(DeltaFallbackReason::MissingHeader, |response| {
+                get_delta_fallback_reason(&response.data)
+            });
+        let mut delta_fallback_source = response
+            .as_ref()
+            .map_or(DeltaFallbackSource::MissingHeader, |response| {
+                get_delta_fallback_source(&response.data)
+            });
         let (mut source_api, mut response_format, mut network_success) = match &response {
             Ok(response) => (
                 response.loggable_api.clone(),
@@ -392,7 +426,7 @@ impl StatsigHttpSpecsAdapter {
                 NetworkSyncOutcome::Success,
             ),
             Err(_) => (
-                get_api_from_url(&construct_specs_url(
+                api_from_url(&config_specs_url(
                     self.specs_url.as_str(),
                     self.sdk_key.as_str(),
                 )),
@@ -416,6 +450,16 @@ impl StatsigHttpSpecsAdapter {
                 .map_or(ConfigSyncResponseType::NetworkError, |response| {
                     ConfigSyncResponseType::from_response_data(&mut response.data)
                 });
+            delta_fallback_reason = response
+                .as_ref()
+                .map_or(DeltaFallbackReason::MissingHeader, |response| {
+                    get_delta_fallback_reason(&response.data)
+                });
+            delta_fallback_source = response
+                .as_ref()
+                .map_or(DeltaFallbackSource::MissingHeader, |response| {
+                    get_delta_fallback_source(&response.data)
+                });
             match &response {
                 Ok(response) => {
                     source_api = response.loggable_api.clone();
@@ -426,7 +470,7 @@ impl StatsigHttpSpecsAdapter {
                 Err(_) => {
                     // Backup request failed, so no successful network payload was returned.
                     if let Some(fallback_url) = self.fallback_url.as_ref() {
-                        source_api = get_api_from_url(&construct_specs_url(
+                        source_api = api_from_url(&config_specs_url(
                             fallback_url.as_str(),
                             self.sdk_key.as_str(),
                         ));
@@ -451,6 +495,15 @@ impl StatsigHttpSpecsAdapter {
                 .map_or_else(String::new, |e| e.to_string()),
             deltas_used,
             response_type.as_str(),
+        );
+        log_config_sync_full_fallback_count(
+            &self.ops_stats,
+            source_api.as_str(),
+            deltas_used,
+            response_type.as_str(),
+            delta_fallback_reason,
+            delta_fallback_source,
+            delta_cursor_state,
         );
 
         result
@@ -605,11 +658,6 @@ impl SpecsAdapter for StatsigHttpSpecsAdapter {
     }
 }
 
-#[allow(unused)]
-fn construct_specs_url(spec_url: &str, sdk_key: &str) -> String {
-    format!("{spec_url}/{sdk_key}.json")
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SpecsSyncTrigger {
     Initial,
@@ -620,7 +668,7 @@ pub enum SpecsSyncTrigger {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{networking::ResponseData, specs_adapter::SpecsUpdate, StatsigOptions};
+    use crate::{StatsigOptions, networking::ResponseData, specs_adapter::SpecsUpdate};
     use std::collections::HashMap;
     use std::sync::atomic::AtomicUsize;
 
@@ -694,10 +742,12 @@ mod tests {
         assert!(matches!(result, Err(StatsigErr::ChecksumFailure(_))));
 
         let request_after = adapter.get_request_args(&specs_info, SpecsSyncTrigger::Manual);
-        assert!(request_after
-            .query_params
-            .as_ref()
-            .is_none_or(|p| !p.contains_key("accept_deltas")));
+        assert!(
+            request_after
+                .query_params
+                .as_ref()
+                .is_none_or(|p| !p.contains_key("accept_deltas"))
+        );
     }
 
     #[tokio::test]
@@ -728,10 +778,12 @@ mod tests {
         assert!(matches!(first_result, Err(StatsigErr::ChecksumFailure(_))));
 
         let request_after_failure = adapter.get_request_args(&specs_info, SpecsSyncTrigger::Manual);
-        assert!(request_after_failure
-            .query_params
-            .as_ref()
-            .is_none_or(|p| !p.contains_key("accept_deltas")));
+        assert!(
+            request_after_failure
+                .query_params
+                .as_ref()
+                .is_none_or(|p| !p.contains_key("accept_deltas"))
+        );
 
         let second_result = adapter
             .process_spec_data(Ok(NetworkResponse {
@@ -776,7 +828,7 @@ mod tests {
             Some("https://example.com/v2/download_config_specs".to_string()),
         );
 
-        assert_eq!(adapter.fallback_url.as_deref(), Some(DEFAULT_SPECS_URL));
+        assert_eq!(adapter.fallback_url.as_deref(), Some(DEFAULT_CDN_SPECS_URL));
     }
 
     #[test]
@@ -838,6 +890,67 @@ mod tests {
         let mut first_byte = [1];
         data.get_stream_mut().read_exact(&mut first_byte).unwrap();
         assert_eq!(first_byte, [0]);
+    }
+
+    #[test]
+    fn test_delta_fallback_headers_parse_to_typed_values() {
+        let data = ResponseData::from_bytes_with_headers(
+            vec![],
+            Some(HashMap::from([
+                (
+                    DELTA_FALLBACK_REASON_HEADER.to_string(),
+                    "before_earliest_lcut".to_string(),
+                ),
+                (
+                    DELTA_FALLBACK_SOURCE_HEADER.to_string(),
+                    "local_compute".to_string(),
+                ),
+            ])),
+        );
+
+        assert_eq!(
+            get_delta_fallback_reason(&data),
+            DeltaFallbackReason::BeforeEarliestLcut
+        );
+        assert_eq!(
+            get_delta_fallback_source(&data),
+            DeltaFallbackSource::LocalCompute
+        );
+    }
+
+    #[test]
+    fn test_delta_fallback_headers_preserve_missing_and_invalid() {
+        let missing = ResponseData::from_bytes(vec![]);
+        assert_eq!(
+            get_delta_fallback_reason(&missing),
+            DeltaFallbackReason::MissingHeader
+        );
+        assert_eq!(
+            get_delta_fallback_source(&missing),
+            DeltaFallbackSource::MissingHeader
+        );
+
+        let invalid = ResponseData::from_bytes_with_headers(
+            vec![],
+            Some(HashMap::from([
+                (
+                    DELTA_FALLBACK_REASON_HEADER.to_string(),
+                    "free_form_reason".to_string(),
+                ),
+                (
+                    DELTA_FALLBACK_SOURCE_HEADER.to_string(),
+                    "raw-unbounded-source".to_string(),
+                ),
+            ])),
+        );
+        assert_eq!(
+            get_delta_fallback_reason(&invalid),
+            DeltaFallbackReason::InvalidHeader
+        );
+        assert_eq!(
+            get_delta_fallback_source(&invalid),
+            DeltaFallbackSource::InvalidHeader
+        );
     }
 
     #[test]

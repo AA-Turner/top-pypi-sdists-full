@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Literal
 
 from tomlrt._scanner import _Scanner
 from tomlrt._slots import KVSlot, StructuralHeaderSlot
-from tomlrt._trivia import Trivia, leading_has_blank_line, split_eol_section
+from tomlrt._trivia import leading_has_blank_line, split_eol_section
 from tomlrt._validator import _Validator
 from tomlrt._values import ArrayItem, ArrayValue, InlineTableEntry, InlineTableValue
 
@@ -20,7 +20,7 @@ _HeaderKind = Literal["table", "aot-entry"]
 
 if TYPE_CHECKING:
     from tomlrt._slots import Slot
-    from tomlrt._values import KeyPart, Value
+    from tomlrt._values import Value
 
 
 @dataclass
@@ -32,7 +32,7 @@ class ParseResult:
     """
 
     slots: list[Slot] = field(default_factory=list)
-    trailing: Trivia = field(default_factory=Trivia)
+    trailing: str = ""
     newline: str = "\n"
     prelude: str = ""
     section_blank_separated: bool = True
@@ -66,7 +66,7 @@ class _Parser:
             leading = sc.scan_doc_trivia()
             pos = sc.pos
             if pos >= end:
-                result.trailing.pieces.extend(leading.pieces)
+                result.trailing += leading
                 break
 
             ch = src[pos]
@@ -93,74 +93,55 @@ class _Parser:
         result.newline = sc.detected_newline()
         return result
 
-    def _parse_header(self, leading: Trivia) -> StructuralHeaderSlot:
+    def _parse_header(self, leading: str) -> StructuralHeaderSlot:
         """Parse a ``[a.b]`` / ``[[a.b]]`` header.
 
         Precondition: cursor is at ``[``.
         """
         sc = self._sc
+        src = sc.src
         kind: _HeaderKind
-        if sc.starts_with("[["):
-            sc.advance(2)
+        if src.startswith("[[", sc.pos):
+            sc.pos += 2
             kind = "aot-entry"
+            closer, what = "]]", "array-of-tables"
         else:
-            sc.advance(1)
+            sc.pos += 1
             kind = "table"
+            closer, what = "]", "table"
 
         inner_pre = sc.scan_inline_ws_text()
-        key_parts, key_seps, inner_post = self._parse_key()
+        key_parts, key_seps, inner_post = sc.scan_key()
 
-        if kind == "aot-entry":
-            if not sc.starts_with("]]"):
-                msg = "expected ']]' to close array-of-tables header"
-                raise sc.error(msg)
-            sc.advance(2)
-        else:
-            if sc.peek() != "]":
-                msg = "expected ']' to close table header"
-                raise sc.error(msg)
-            sc.advance(1)
+        if not src.startswith(closer, sc.pos):
+            msg = f"expected {closer!r} to close {what} header"
+            raise sc.error(msg)
+        sc.pos += len(closer)
 
         eol = sc.scan_eol()
         path = tuple([p.value for p in key_parts])
         new_entry = self._validator.enter_header(path, kind, at=sc.pos)
-        owner = self._validator.current_owner_aot_entry()
+        owner = self._validator.current_owner_aot_entry
 
         slot = StructuralHeaderSlot(
-            leading=leading,
-            path=path,
-            key_parts=key_parts,
-            key_seps=key_seps,
-            inner_pre=inner_pre,
-            inner_post=inner_post,
-            eol=eol,
-            owner_aot_entry=owner,
-            entry=new_entry,
+            leading,
+            owner,
+            path,
+            key_parts,
+            key_seps,
+            inner_pre,
+            inner_post,
+            eol,
+            new_entry,
             synthetic=False,
         )
         if owner is not None:
             owner.entry_slots.append(slot)
         return slot
 
-    def _parse_key(self) -> tuple[list[KeyPart], list[str], str]:
-        """Parse a dotted key.
-
-        ``trailing_ws`` is consumed after the last key part and can be
-        used directly as ``pre_eq`` / ``inner_post``.
-        """
+    def _parse_key_value(self, leading: str) -> KVSlot:
         sc = self._sc
-        parts: list[KeyPart] = [sc.scan_key_part()]
-        seps: list[str] = []
-        while True:
-            text, is_sep = sc.scan_key_separator()
-            if not is_sep:
-                return parts, seps, text
-            seps.append(text)
-            parts.append(sc.scan_key_part())
-
-    def _parse_key_value(self, leading: Trivia) -> KVSlot:
-        sc = self._sc
-        key_parts, key_seps, pre_eq = self._parse_key()
+        key_parts, key_seps, pre_eq = sc.scan_key()
         src = sc.src
         pos = sc.pos
         if pos >= sc.end or src[pos] != "=":
@@ -174,18 +155,18 @@ class _Parser:
 
         key_path = tuple([p.value for p in key_parts])
         self._validator.record_keyvalue(key_path, value, at=sc.pos)
-        host_path = self._validator.current_section()
-        owner = self._validator.current_owner_aot_entry()
+        host_path = self._validator.current_section
+        owner = self._validator.current_owner_aot_entry
         slot = KVSlot(
-            leading=leading,
-            host_path=host_path,
-            key_parts=key_parts,
-            key_seps=key_seps,
-            pre_eq=pre_eq,
-            post_eq=post_eq,
-            value=value,
-            eol=eol,
-            owner_aot_entry=owner,
+            leading,
+            owner,
+            host_path,
+            key_parts,
+            key_seps,
+            pre_eq,
+            post_eq,
+            value,
+            eol,
         )
         if owner is not None:
             owner.entry_slots.append(slot)
@@ -228,7 +209,7 @@ class _Parser:
             return node
         node.header_trivia = head
         items = node.items
-        leading = Trivia()  # items[0].leading is always empty
+        leading = ""  # items[0].leading is always empty
         while True:
             value = self._parse_value()
             trailing = sc.scan_array_trivia()
@@ -245,7 +226,7 @@ class _Parser:
                     return node
                 leading = next_leading
             elif ch == "]":
-                items.append(ArrayItem(leading, value, trailing, False, Trivia()))  # noqa: FBT003
+                items.append(ArrayItem(leading, value, trailing, False, ""))  # noqa: FBT003
                 # No trailing comma: split item EOL from bracket pad.
                 eol, rest = split_eol_section(items[-1].trailing)
                 items[-1].trailing = eol
@@ -262,36 +243,39 @@ class _Parser:
         Precondition: cursor is at ``{``.
         """
         sc = self._sc
-        sc.advance(1)
+        src = sc.src
+        end = sc.end
+        sc.pos += 1
         node = InlineTableValue()
         head = sc.scan_array_trivia()
-        if sc.peek() == "}":
+        if sc.pos < end and src[sc.pos] == "}":
             node.final_trivia = head
-            sc.advance(1)
+            sc.pos += 1
             return node
         node.header_trivia = head
-        leading = Trivia()  # entries[0].leading is always empty
+        leading = ""  # entries[0].leading is always empty
         seen_values: set[tuple[str, ...]] = set()
         seen_prefixes: set[tuple[str, ...]] = set()
         entries = node.items
         while True:
             key_at = sc.pos
-            key_parts, key_seps, pre_eq = self._parse_key()
+            key_parts, key_seps, pre_eq = sc.scan_key()
             key_path = tuple([p.value for p in key_parts])
             self._validator.check_inline_key_conflict(
                 key_path, seen_values, seen_prefixes, at=key_at
             )
             seen_values.add(key_path)
-            if sc.peek() != "=":
-                msg = f"expected '=' in inline table, got {sc.peek()!r}"
+            ch = src[sc.pos] if sc.pos < end else ""
+            if ch != "=":
+                msg = f"expected '=' in inline table, got {ch!r}"
                 raise sc.error(msg)
-            sc.advance(1)
+            sc.pos += 1
             post_eq = sc.scan_inline_ws_text()
             value = self._parse_value()
             trailing = sc.scan_array_trivia()
-            ch = sc.peek()
+            ch = src[sc.pos] if sc.pos < end else ""
             if ch == ",":
-                sc.advance(1)
+                sc.pos += 1
                 scanned = sc.scan_array_trivia()
                 post_comma, next_leading = split_eol_section(scanned)
                 entries.append(
@@ -308,9 +292,9 @@ class _Parser:
                         key_path=key_path,
                     )
                 )
-                if sc.peek() == "}":
+                if sc.pos < end and src[sc.pos] == "}":
                     node.final_trivia = next_leading
-                    sc.advance(1)
+                    sc.pos += 1
                     return node
                 leading = next_leading
             elif ch == "}":
@@ -324,14 +308,14 @@ class _Parser:
                         value=value,
                         trailing=trailing,
                         has_comma=False,
-                        post_comma_trivia=Trivia(),
+                        post_comma_trivia="",
                         key_path=key_path,
                     )
                 )
                 eol, rest = split_eol_section(entries[-1].trailing)
                 entries[-1].trailing = eol
                 node.final_trivia = rest
-                sc.advance(1)
+                sc.pos += 1
                 return node
             else:
                 msg = f"expected ',' or '}}' in inline table, got {ch!r}"

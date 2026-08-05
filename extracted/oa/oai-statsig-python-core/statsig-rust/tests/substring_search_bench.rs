@@ -105,7 +105,14 @@ const SCENARIOS: &[Scenario] = &[
     Scenario {
         name: "user_agent_miss_many",
         haystack: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-        needles: &["Googlebot", "Firefox/", "Edg/", "curl/", "PostmanRuntime", "okhttp"],
+        needles: &[
+            "Googlebot",
+            "Firefox/",
+            "Edg/",
+            "curl/",
+            "PostmanRuntime",
+            "okhttp",
+        ],
         expected: false,
     },
     Scenario {

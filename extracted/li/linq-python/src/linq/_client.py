@@ -21,6 +21,7 @@ from ._types import (
 )
 from ._utils import (
     is_given,
+    is_mapping,
     is_mapping_t,
     get_async_library,
 )
@@ -39,27 +40,35 @@ if TYPE_CHECKING:
     from .resources import (
         chats,
         messages,
+        payments,
         capability,
         attachments,
+        experiences,
         contact_card,
         phonenumbers,
         phone_numbers,
         webhook_events,
+        payment_handles,
         available_number,
         payment_requests,
+        payment_providers,
         webhook_subscriptions,
     )
-    from .resources.messages import MessagesResource, AsyncMessagesResource
+    from .resources.payments import PaymentsResource, AsyncPaymentsResource
     from .resources.webhooks import WebhooksResource, AsyncWebhooksResource
     from .resources.capability import CapabilityResource, AsyncCapabilityResource
     from .resources.attachments import AttachmentsResource, AsyncAttachmentsResource
     from .resources.chats.chats import ChatsResource, AsyncChatsResource
+    from .resources.experiences import ExperiencesResource, AsyncExperiencesResource
     from .resources.contact_card import ContactCardResource, AsyncContactCardResource
     from .resources.phonenumbers import PhonenumbersResource, AsyncPhonenumbersResource
     from .resources.phone_numbers import PhoneNumbersResource, AsyncPhoneNumbersResource
     from .resources.webhook_events import WebhookEventsResource, AsyncWebhookEventsResource
+    from .resources.payment_handles import PaymentHandlesResource, AsyncPaymentHandlesResource
     from .resources.available_number import AvailableNumberResource, AsyncAvailableNumberResource
     from .resources.payment_requests import PaymentRequestsResource, AsyncPaymentRequestsResource
+    from .resources.messages.messages import MessagesResource, AsyncMessagesResource
+    from .resources.payment_providers import PaymentProvidersResource, AsyncPaymentProvidersResource
     from .resources.webhook_subscriptions import WebhookSubscriptionsResource, AsyncWebhookSubscriptionsResource
 
 __all__ = [
@@ -467,7 +476,7 @@ class LinqAPIV3(SyncAPIClient):
 
         ## Connected accounts (Stripe Standard, direct charges)
 
-        Agent Pay runs on **Stripe Connect Standard accounts** using **direct
+        Payments run on **Stripe Connect Standard accounts** using **direct
         charges**: the charge is created on *your* connected account and **you are
         the merchant of record**. That means the money, the payout schedule, the
         customer relationship, and the compliance surface are all yours — Linq
@@ -550,7 +559,7 @@ class LinqAPIV3(SyncAPIClient):
         no-install checkout sheet. Everywhere else (Android, desktop, iPhones
         without the App Clip yet) the same URL opens the web checkout, so the link
         always works. The App Clip experience for your payment links is registered
-        automatically by Linq and refreshed whenever you update your Agent Pay
+        automatically by Linq and refreshed whenever you update your payments
         branding; a newly registered experience can take up to ~24 hours to
         activate on Apple's side, during which links open the web checkout.
 
@@ -564,6 +573,50 @@ class LinqAPIV3(SyncAPIClient):
         from .resources.payment_requests import PaymentRequestsResource
 
         return PaymentRequestsResource(self)
+
+    @cached_property
+    def payment_providers(self) -> PaymentProvidersResource:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.payment_providers import PaymentProvidersResource
+
+        return PaymentProvidersResource(self)
+
+    @cached_property
+    def payment_handles(self) -> PaymentHandlesResource:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.payment_handles import PaymentHandlesResource
+
+        return PaymentHandlesResource(self)
+
+    @cached_property
+    def payments(self) -> PaymentsResource:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.payments import PaymentsResource
+
+        return PaymentsResource(self)
+
+    @cached_property
+    def experiences(self) -> ExperiencesResource:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.experiences import ExperiencesResource
+
+        return ExperiencesResource(self)
 
     @cached_property
     def webhook_events(self) -> WebhookEventsResource:
@@ -957,30 +1010,31 @@ class LinqAPIV3(SyncAPIClient):
         body: object,
         response: httpx.Response,
     ) -> APIStatusError:
+        data = body.get("error", body) if is_mapping(body) else body
         if response.status_code == 400:
-            return _exceptions.BadRequestError(err_msg, response=response, body=body)
+            return _exceptions.BadRequestError(err_msg, response=response, body=data)
 
         if response.status_code == 401:
-            return _exceptions.AuthenticationError(err_msg, response=response, body=body)
+            return _exceptions.AuthenticationError(err_msg, response=response, body=data)
 
         if response.status_code == 403:
-            return _exceptions.PermissionDeniedError(err_msg, response=response, body=body)
+            return _exceptions.PermissionDeniedError(err_msg, response=response, body=data)
 
         if response.status_code == 404:
-            return _exceptions.NotFoundError(err_msg, response=response, body=body)
+            return _exceptions.NotFoundError(err_msg, response=response, body=data)
 
         if response.status_code == 409:
-            return _exceptions.ConflictError(err_msg, response=response, body=body)
+            return _exceptions.ConflictError(err_msg, response=response, body=data)
 
         if response.status_code == 422:
-            return _exceptions.UnprocessableEntityError(err_msg, response=response, body=body)
+            return _exceptions.UnprocessableEntityError(err_msg, response=response, body=data)
 
         if response.status_code == 429:
-            return _exceptions.RateLimitError(err_msg, response=response, body=body)
+            return _exceptions.RateLimitError(err_msg, response=response, body=data)
 
         if response.status_code >= 500:
-            return _exceptions.InternalServerError(err_msg, response=response, body=body)
-        return APIStatusError(err_msg, response=response, body=body)
+            return _exceptions.InternalServerError(err_msg, response=response, body=data)
+        return APIStatusError(err_msg, response=response, body=data)
 
 
 class AsyncLinqAPIV3(AsyncAPIClient):
@@ -1376,7 +1430,7 @@ class AsyncLinqAPIV3(AsyncAPIClient):
 
         ## Connected accounts (Stripe Standard, direct charges)
 
-        Agent Pay runs on **Stripe Connect Standard accounts** using **direct
+        Payments run on **Stripe Connect Standard accounts** using **direct
         charges**: the charge is created on *your* connected account and **you are
         the merchant of record**. That means the money, the payout schedule, the
         customer relationship, and the compliance surface are all yours — Linq
@@ -1459,7 +1513,7 @@ class AsyncLinqAPIV3(AsyncAPIClient):
         no-install checkout sheet. Everywhere else (Android, desktop, iPhones
         without the App Clip yet) the same URL opens the web checkout, so the link
         always works. The App Clip experience for your payment links is registered
-        automatically by Linq and refreshed whenever you update your Agent Pay
+        automatically by Linq and refreshed whenever you update your payments
         branding; a newly registered experience can take up to ~24 hours to
         activate on Apple's side, during which links open the web checkout.
 
@@ -1473,6 +1527,50 @@ class AsyncLinqAPIV3(AsyncAPIClient):
         from .resources.payment_requests import AsyncPaymentRequestsResource
 
         return AsyncPaymentRequestsResource(self)
+
+    @cached_property
+    def payment_providers(self) -> AsyncPaymentProvidersResource:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.payment_providers import AsyncPaymentProvidersResource
+
+        return AsyncPaymentProvidersResource(self)
+
+    @cached_property
+    def payment_handles(self) -> AsyncPaymentHandlesResource:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.payment_handles import AsyncPaymentHandlesResource
+
+        return AsyncPaymentHandlesResource(self)
+
+    @cached_property
+    def payments(self) -> AsyncPaymentsResource:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.payments import AsyncPaymentsResource
+
+        return AsyncPaymentsResource(self)
+
+    @cached_property
+    def experiences(self) -> AsyncExperiencesResource:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.experiences import AsyncExperiencesResource
+
+        return AsyncExperiencesResource(self)
 
     @cached_property
     def webhook_events(self) -> AsyncWebhookEventsResource:
@@ -1866,30 +1964,31 @@ class AsyncLinqAPIV3(AsyncAPIClient):
         body: object,
         response: httpx.Response,
     ) -> APIStatusError:
+        data = body.get("error", body) if is_mapping(body) else body
         if response.status_code == 400:
-            return _exceptions.BadRequestError(err_msg, response=response, body=body)
+            return _exceptions.BadRequestError(err_msg, response=response, body=data)
 
         if response.status_code == 401:
-            return _exceptions.AuthenticationError(err_msg, response=response, body=body)
+            return _exceptions.AuthenticationError(err_msg, response=response, body=data)
 
         if response.status_code == 403:
-            return _exceptions.PermissionDeniedError(err_msg, response=response, body=body)
+            return _exceptions.PermissionDeniedError(err_msg, response=response, body=data)
 
         if response.status_code == 404:
-            return _exceptions.NotFoundError(err_msg, response=response, body=body)
+            return _exceptions.NotFoundError(err_msg, response=response, body=data)
 
         if response.status_code == 409:
-            return _exceptions.ConflictError(err_msg, response=response, body=body)
+            return _exceptions.ConflictError(err_msg, response=response, body=data)
 
         if response.status_code == 422:
-            return _exceptions.UnprocessableEntityError(err_msg, response=response, body=body)
+            return _exceptions.UnprocessableEntityError(err_msg, response=response, body=data)
 
         if response.status_code == 429:
-            return _exceptions.RateLimitError(err_msg, response=response, body=body)
+            return _exceptions.RateLimitError(err_msg, response=response, body=data)
 
         if response.status_code >= 500:
-            return _exceptions.InternalServerError(err_msg, response=response, body=body)
-        return APIStatusError(err_msg, response=response, body=body)
+            return _exceptions.InternalServerError(err_msg, response=response, body=data)
+        return APIStatusError(err_msg, response=response, body=data)
 
 
 class LinqAPIV3WithRawResponse:
@@ -2219,7 +2318,7 @@ class LinqAPIV3WithRawResponse:
 
         ## Connected accounts (Stripe Standard, direct charges)
 
-        Agent Pay runs on **Stripe Connect Standard accounts** using **direct
+        Payments run on **Stripe Connect Standard accounts** using **direct
         charges**: the charge is created on *your* connected account and **you are
         the merchant of record**. That means the money, the payout schedule, the
         customer relationship, and the compliance surface are all yours — Linq
@@ -2302,7 +2401,7 @@ class LinqAPIV3WithRawResponse:
         no-install checkout sheet. Everywhere else (Android, desktop, iPhones
         without the App Clip yet) the same URL opens the web checkout, so the link
         always works. The App Clip experience for your payment links is registered
-        automatically by Linq and refreshed whenever you update your Agent Pay
+        automatically by Linq and refreshed whenever you update your payments
         branding; a newly registered experience can take up to ~24 hours to
         activate on Apple's side, during which links open the web checkout.
 
@@ -2316,6 +2415,50 @@ class LinqAPIV3WithRawResponse:
         from .resources.payment_requests import PaymentRequestsResourceWithRawResponse
 
         return PaymentRequestsResourceWithRawResponse(self._client.payment_requests)
+
+    @cached_property
+    def payment_providers(self) -> payment_providers.PaymentProvidersResourceWithRawResponse:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.payment_providers import PaymentProvidersResourceWithRawResponse
+
+        return PaymentProvidersResourceWithRawResponse(self._client.payment_providers)
+
+    @cached_property
+    def payment_handles(self) -> payment_handles.PaymentHandlesResourceWithRawResponse:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.payment_handles import PaymentHandlesResourceWithRawResponse
+
+        return PaymentHandlesResourceWithRawResponse(self._client.payment_handles)
+
+    @cached_property
+    def payments(self) -> payments.PaymentsResourceWithRawResponse:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.payments import PaymentsResourceWithRawResponse
+
+        return PaymentsResourceWithRawResponse(self._client.payments)
+
+    @cached_property
+    def experiences(self) -> experiences.ExperiencesResourceWithRawResponse:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.experiences import ExperiencesResourceWithRawResponse
+
+        return ExperiencesResourceWithRawResponse(self._client.experiences)
 
     @cached_property
     def webhook_events(self) -> webhook_events.WebhookEventsResourceWithRawResponse:
@@ -2935,7 +3078,7 @@ class AsyncLinqAPIV3WithRawResponse:
 
         ## Connected accounts (Stripe Standard, direct charges)
 
-        Agent Pay runs on **Stripe Connect Standard accounts** using **direct
+        Payments run on **Stripe Connect Standard accounts** using **direct
         charges**: the charge is created on *your* connected account and **you are
         the merchant of record**. That means the money, the payout schedule, the
         customer relationship, and the compliance surface are all yours — Linq
@@ -3018,7 +3161,7 @@ class AsyncLinqAPIV3WithRawResponse:
         no-install checkout sheet. Everywhere else (Android, desktop, iPhones
         without the App Clip yet) the same URL opens the web checkout, so the link
         always works. The App Clip experience for your payment links is registered
-        automatically by Linq and refreshed whenever you update your Agent Pay
+        automatically by Linq and refreshed whenever you update your payments
         branding; a newly registered experience can take up to ~24 hours to
         activate on Apple's side, during which links open the web checkout.
 
@@ -3032,6 +3175,50 @@ class AsyncLinqAPIV3WithRawResponse:
         from .resources.payment_requests import AsyncPaymentRequestsResourceWithRawResponse
 
         return AsyncPaymentRequestsResourceWithRawResponse(self._client.payment_requests)
+
+    @cached_property
+    def payment_providers(self) -> payment_providers.AsyncPaymentProvidersResourceWithRawResponse:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.payment_providers import AsyncPaymentProvidersResourceWithRawResponse
+
+        return AsyncPaymentProvidersResourceWithRawResponse(self._client.payment_providers)
+
+    @cached_property
+    def payment_handles(self) -> payment_handles.AsyncPaymentHandlesResourceWithRawResponse:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.payment_handles import AsyncPaymentHandlesResourceWithRawResponse
+
+        return AsyncPaymentHandlesResourceWithRawResponse(self._client.payment_handles)
+
+    @cached_property
+    def payments(self) -> payments.AsyncPaymentsResourceWithRawResponse:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.payments import AsyncPaymentsResourceWithRawResponse
+
+        return AsyncPaymentsResourceWithRawResponse(self._client.payments)
+
+    @cached_property
+    def experiences(self) -> experiences.AsyncExperiencesResourceWithRawResponse:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.experiences import AsyncExperiencesResourceWithRawResponse
+
+        return AsyncExperiencesResourceWithRawResponse(self._client.experiences)
 
     @cached_property
     def webhook_events(self) -> webhook_events.AsyncWebhookEventsResourceWithRawResponse:
@@ -3651,7 +3838,7 @@ class LinqAPIV3WithStreamedResponse:
 
         ## Connected accounts (Stripe Standard, direct charges)
 
-        Agent Pay runs on **Stripe Connect Standard accounts** using **direct
+        Payments run on **Stripe Connect Standard accounts** using **direct
         charges**: the charge is created on *your* connected account and **you are
         the merchant of record**. That means the money, the payout schedule, the
         customer relationship, and the compliance surface are all yours — Linq
@@ -3734,7 +3921,7 @@ class LinqAPIV3WithStreamedResponse:
         no-install checkout sheet. Everywhere else (Android, desktop, iPhones
         without the App Clip yet) the same URL opens the web checkout, so the link
         always works. The App Clip experience for your payment links is registered
-        automatically by Linq and refreshed whenever you update your Agent Pay
+        automatically by Linq and refreshed whenever you update your payments
         branding; a newly registered experience can take up to ~24 hours to
         activate on Apple's side, during which links open the web checkout.
 
@@ -3748,6 +3935,50 @@ class LinqAPIV3WithStreamedResponse:
         from .resources.payment_requests import PaymentRequestsResourceWithStreamingResponse
 
         return PaymentRequestsResourceWithStreamingResponse(self._client.payment_requests)
+
+    @cached_property
+    def payment_providers(self) -> payment_providers.PaymentProvidersResourceWithStreamingResponse:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.payment_providers import PaymentProvidersResourceWithStreamingResponse
+
+        return PaymentProvidersResourceWithStreamingResponse(self._client.payment_providers)
+
+    @cached_property
+    def payment_handles(self) -> payment_handles.PaymentHandlesResourceWithStreamingResponse:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.payment_handles import PaymentHandlesResourceWithStreamingResponse
+
+        return PaymentHandlesResourceWithStreamingResponse(self._client.payment_handles)
+
+    @cached_property
+    def payments(self) -> payments.PaymentsResourceWithStreamingResponse:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.payments import PaymentsResourceWithStreamingResponse
+
+        return PaymentsResourceWithStreamingResponse(self._client.payments)
+
+    @cached_property
+    def experiences(self) -> experiences.ExperiencesResourceWithStreamingResponse:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.experiences import ExperiencesResourceWithStreamingResponse
+
+        return ExperiencesResourceWithStreamingResponse(self._client.experiences)
 
     @cached_property
     def webhook_events(self) -> webhook_events.WebhookEventsResourceWithStreamingResponse:
@@ -4367,7 +4598,7 @@ class AsyncLinqAPIV3WithStreamedResponse:
 
         ## Connected accounts (Stripe Standard, direct charges)
 
-        Agent Pay runs on **Stripe Connect Standard accounts** using **direct
+        Payments run on **Stripe Connect Standard accounts** using **direct
         charges**: the charge is created on *your* connected account and **you are
         the merchant of record**. That means the money, the payout schedule, the
         customer relationship, and the compliance surface are all yours — Linq
@@ -4450,7 +4681,7 @@ class AsyncLinqAPIV3WithStreamedResponse:
         no-install checkout sheet. Everywhere else (Android, desktop, iPhones
         without the App Clip yet) the same URL opens the web checkout, so the link
         always works. The App Clip experience for your payment links is registered
-        automatically by Linq and refreshed whenever you update your Agent Pay
+        automatically by Linq and refreshed whenever you update your payments
         branding; a newly registered experience can take up to ~24 hours to
         activate on Apple's side, during which links open the web checkout.
 
@@ -4464,6 +4695,50 @@ class AsyncLinqAPIV3WithStreamedResponse:
         from .resources.payment_requests import AsyncPaymentRequestsResourceWithStreamingResponse
 
         return AsyncPaymentRequestsResourceWithStreamingResponse(self._client.payment_requests)
+
+    @cached_property
+    def payment_providers(self) -> payment_providers.AsyncPaymentProvidersResourceWithStreamingResponse:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.payment_providers import AsyncPaymentProvidersResourceWithStreamingResponse
+
+        return AsyncPaymentProvidersResourceWithStreamingResponse(self._client.payment_providers)
+
+    @cached_property
+    def payment_handles(self) -> payment_handles.AsyncPaymentHandlesResourceWithStreamingResponse:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.payment_handles import AsyncPaymentHandlesResourceWithStreamingResponse
+
+        return AsyncPaymentHandlesResourceWithStreamingResponse(self._client.payment_handles)
+
+    @cached_property
+    def payments(self) -> payments.AsyncPaymentsResourceWithStreamingResponse:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.payments import AsyncPaymentsResourceWithStreamingResponse
+
+        return AsyncPaymentsResourceWithStreamingResponse(self._client.payments)
+
+    @cached_property
+    def experiences(self) -> experiences.AsyncExperiencesResourceWithStreamingResponse:
+        """
+        Let an agent pay on a customer's behalf with a single-use virtual card.
+        Connect a customer once, then create a payment — a virtual card is minted
+        scoped to that purchase and the card details are handed back for checkout.
+        """
+        from .resources.experiences import AsyncExperiencesResourceWithStreamingResponse
+
+        return AsyncExperiencesResourceWithStreamingResponse(self._client.experiences)
 
     @cached_property
     def webhook_events(self) -> webhook_events.AsyncWebhookEventsResourceWithStreamingResponse:

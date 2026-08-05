@@ -1,10 +1,10 @@
 use super::{
+    DiagnosticsEvent,
     observability_client_adapter::{MetricType, ObservabilityEvent},
     sdk_errors_observer::ErrorBoundaryEvent,
-    DiagnosticsEvent,
 };
 use crate::user::StatsigUserLoggable;
-use crate::{log_e, log_w, StatsigRuntime};
+use crate::{StatsigRuntime, log_e, log_w};
 use crate::{
     observability::console_capture_observer::ConsoleCaptureEvent,
     sdk_diagnostics::{
@@ -19,8 +19,8 @@ use std::{
     collections::HashMap,
     sync::{Arc, Weak},
 };
-use tokio::sync::broadcast::{self, Sender};
 use tokio::sync::Notify;
+use tokio::sync::broadcast::{self, Sender};
 
 const TAG: &str = stringify!(OpsStats);
 

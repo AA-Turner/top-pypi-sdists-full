@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{hashing::HashUtil, HashAlgorithm, SecondaryExposure};
+use crate::{HashAlgorithm, SecondaryExposure, hashing::HashUtil};
 
 pub(crate) fn stringify_sec_exposures(
     secondary_exposures: &Vec<SecondaryExposure>,

@@ -55,7 +55,7 @@ def parse_thread_ttl(value: str | None) -> ThreadTTLConfig | None:
         # We permit float values mainly for testing purposes
         "default_ttl": float(value),
         "sweep_interval_minutes": 5.1,
-        "sweep_limit": 1000,  # Default max threads per sweep iteration
+        "sweep_limit": 10000,  # Default max threads per sweep iteration
     }
 
 

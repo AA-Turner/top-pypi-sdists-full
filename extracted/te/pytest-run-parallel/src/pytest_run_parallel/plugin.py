@@ -61,19 +61,22 @@ def wrap_function_parallel(fn, n_workers, n_iterations):
                 if n_workers > 1:
                     if "thread_index" in kwargs:
                         kwargs["thread_index"] = thread_index
-                    if "tmp_path" in kwargs:
-                        kwargs["tmp_path"] = (
-                            kwargs["tmp_path"] / f"thread_{thread_index!s}"
-                        )
-                        kwargs["tmp_path"].mkdir(exist_ok=True)
-                    if "tmpdir" in kwargs:
-                        kwargs["tmpdir"] = kwargs["tmpdir"].ensure(
-                            f"thread_{thread_index!s}", dir=True
-                        )
+
+                base_tmp_path = kwargs.get("tmp_path", None)
+                base_tmpdir = kwargs.get("tmpdir", None)
 
                 for i in range(n_iterations):
                     if "iteration_index" in kwargs:
                         kwargs["iteration_index"] = i
+                    if base_tmp_path is not None:
+                        kwargs["tmp_path"] = (
+                            base_tmp_path / f"thread_{thread_index!s}_iter_{i}"
+                        )
+                        kwargs["tmp_path"].mkdir()
+                    if base_tmpdir is not None:
+                        kwargs["tmpdir"] = base_tmpdir.ensure(
+                            f"thread_{thread_index!s}_iter_{i}", dir=True
+                        )
 
                     barrier.wait()
                     try:
@@ -128,7 +131,10 @@ def wrap_function_parallel(fn, n_workers, n_iterations):
 
 class RunParallelPlugin:
     def __init__(self, config):
-        self.verbose = bool(int(os.environ.get("PYTEST_RUN_PARALLEL_VERBOSE", "0")))
+        self.verbose = (
+            bool(int(os.environ.get("PYTEST_RUN_PARALLEL_VERBOSE", "0")))
+            or config.option.verbose >= 1
+        )
         self.skip_thread_unsafe = config.option.skip_thread_unsafe
         self.mark_warnings_as_unsafe = config.option.mark_warnings_as_unsafe
         self.mark_ctypes_as_unsafe = config.option.mark_ctypes_as_unsafe
@@ -343,7 +349,7 @@ class RunParallelPlugin:
         for nodeid, reason in self.thread_unsafe.items():
             if reason is not None:
                 terminalreporter.line(
-                    f"{nodeid} {self.skipped_or_not_parallel(plural=False)} because it {reason}"
+                    f"{nodeid} {self.skipped_or_not_parallel(plural=False)}: {reason}"
                 )
             else:
                 terminalreporter.line(nodeid)
@@ -354,7 +360,10 @@ class RunParallelPlugin:
         if not enabled:
             return
 
-        terminalreporter.section("pytest-run-parallel report", "*")
+        if config.option.verbose < 0:
+            return
+
+        terminalreporter.section("pytest-run-parallel report", "=")
 
         if self.verbose and self.thread_unsafe:
             self._write_reasons_summary(terminalreporter)
@@ -368,7 +377,7 @@ class RunParallelPlugin:
                 f"{num} {test} {self.skipped_or_not_parallel(plural=num > 1)}"
                 " because of use of thread-unsafe functionality, "
                 f"to list the tests that {self.skipped_or_not_parallel(plural=True)}, re-run "
-                "while setting PYTEST_RUN_PARALLEL_VERBOSE=1 "
+                "with -v or while setting PYTEST_RUN_PARALLEL_VERBOSE=1 "
                 "in your shell environment"
             )
         else:

@@ -99,6 +99,33 @@ def test_pylock_unexpected_type() -> None:
     )
 
 
+def test_pylock_bool_rejected_for_int() -> None:
+    # TOML distinguishes booleans from integers, so a boolean must be rejected
+    # where an integer is expected even though bool is a subclass of int.
+    data = {
+        "lock-version": "1.0",
+        "created-by": "pip",
+        "packages": [
+            {
+                "name": "example",
+                "wheels": [
+                    {
+                        "name": "example-1.0-py3-none-any.whl",
+                        "path": "./example-1.0-py3-none-any.whl",
+                        "hashes": {"sha256": "f" * 40},
+                        "size": True,
+                    }
+                ],
+            }
+        ],
+    }
+    with pytest.raises(PylockValidationError) as exc_info:
+        Pylock.from_dict(data)
+    assert str(exc_info.value) == (
+        "Unexpected type bool (expected int) in 'packages[0].wheels[0].size'"
+    )
+
+
 def test_pylock_missing_version() -> None:
     data = {
         "created-by": "pip",
@@ -382,6 +409,14 @@ def test_pylock_invalid_vcs() -> None:
                 hashes={},
             ),
             "example-1.0-py3-none-any.whl",
+        ),
+        (
+            # percent-encoded url file name is decoded
+            PackageWheel(
+                url="https://example.com/example-2.12.1%2Bcu130-py3-none-any.whl",
+                hashes={},
+            ),
+            "example-2.12.1+cu130-py3-none-any.whl",
         ),
         (
             # name preferred over path

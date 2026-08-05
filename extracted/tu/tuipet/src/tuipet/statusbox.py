@@ -121,6 +121,27 @@ def status_line(status, deco, width=26):
     return f"[b]{status}[/]   " + "  ".join(shown)
 
 
+def cell_len_(text):
+    """Terminal CELLS of `text` -- the card budget's only honest ruler."""
+    from rich.cells import cell_len
+    return cell_len(text)
+
+
+def _fit_cells(text, budget):
+    """`text` clipped to `budget` TERMINAL CELLS, ellipsised when it does not
+    fit.  Cells, never len(): a 2-cell glyph passes a char budget and blows
+    the render (THE CELL LAW, bug report #32)."""
+    from rich.cells import cell_len
+    if cell_len(text) <= budget:
+        return text
+    out = ""
+    for ch in text:
+        if cell_len(out + ch) > budget - 1:
+            break
+        out += ch
+    return out.rstrip() + "…"
+
+
 def wrap(text, max_lines, width=CARD_W):
     """Word-wrap PLAIN text into card rows on WORD boundaries (card audit
     2026-07-24, Joel "words are getting cut off").  The Options card used a
@@ -490,6 +511,95 @@ def shop(app):
     card(app, ttl, lines, subtitle=gen_subtitle(p))
 
 
+def album(app):
+    """THE ALBUM: the collection at a glance, and the browsed form's dossier.
+
+    ⭐Joel's named order 2026-08-04 ("build the album and hall cards"), off the
+    all-cards audit that found this screen falling through to bare vitals --
+    you opened the bestiary and the box on the right still read out your pet's
+    hunger.  The panel's own LCD is the book (list, then the 16x16 rip); the
+    card is what a book has and a scoreboard doesn't: WHERE YOU ARE in it, and
+    the route to the entry under the cursor.
+
+    Everything here is LIVE off the panel's own data -- `roster`/`seen` are
+    `data.album_roster()` and `persistence.get_album()` -- so the card cannot
+    disagree with the page it sits beside (status-box liveness law)."""
+    m, T = app.mode, theme
+    total = max(1, m.n)
+    seen = len(m.seen)
+    pct = seen * 100 // total
+    num = m.roster[m.i] if m.n else None
+    found = num in m.seen if num is not None else False
+    rec = data.record_for(num) if num is not None else {}
+    # the MASK is the panel's own language: a discovered form wears its name,
+    # one still out there stays "???" (the digicore hidden-evo reveal rule)
+    name = _fit_cells(rec.get("name", "?"), CARD_W - 9) if found else "???"
+    stage = rec.get("stage", "") if found else "—"
+    # and for an undiscovered one, the card carries the ROUTE -- the panel
+    # computes it already (albumscreen.route_hint), it just had nowhere on
+    # the right to live
+    tail = []
+    if not found and num is not None:
+        from .albumscreen import route_hint
+        try:
+            hint = route_hint(num)
+        except Exception:
+            hint = ""
+        tail = [f"[dim]{ln}[/]" for ln in wrap(hint, 3)] if hint else []
+    # the gauge wears the raid/road card's grammar -- label, bar, percent on
+    # ONE row -- rather than floating an unlabelled bar of its own
+    card(app, "Album", [
+        f"[dim]{m.i + 1} of {m.n}[/]", "",
+        f"Found  {bar(pct, 11, T.POS)} {pct}%",
+        f"[dim]{seen} of {total} forms[/]", "",
+        f"Name    [b]{name}[/]",
+        f"Stage   {stage}"]
+        # the route only earns its separator when there IS a route (a found
+        # form has none, and two blank rows in a row is wasted budget --
+        # the all-cards audit's own trailing-blank finding)
+        + ([""] + tail if tail else [])
+        + ["", "[dim]ENTER view  ↑↓ browse[/]"],
+        subtitle=gen_subtitle(app.pet) if app.pet else "")
+
+
+def hall(app):
+    """THE HALL OF MEMORY: the lineage's ledger, and the elder under the
+    cursor.
+
+    ⭐Joel's named order 2026-08-04 ("build the album and hall cards").  The
+    album remembers SPECIES, the hall remembers INDIVIDUALS -- so this card
+    reads the LINE (how many have come before, how deep the generations run)
+    beside the one life the page is showing.  Rows are
+    `progress.legacy`, newest first, exactly as the panel reads them."""
+    m, T = app.mode, theme
+    if not m.n:
+        card(app, "Hall", ["", "[dim]no elders yet[/]", "",
+                           "[dim]a generation is written[/]",
+                           "[dim]here when it ends[/]"])
+        return
+    r = m.elders[min(m.i, m.n - 1)] if m.n else {}
+    gens = max((int(x.get("gen", 1)) for x in m.elders), default=0)
+    fell = sum(1 for x in m.elders if x.get("dead"))
+    age = age_compact(float(r.get("age", 0.0)))
+    wins = int(r.get("wins", 0))
+    lines = [
+        f"[dim]{m.i + 1} of {m.n}[/]", "",
+        f"Line    [b]{m.n}[/] elder" + ("s" if m.n != 1 else ""),
+        f"Deepest [b]gen {gens}[/]",
+        f"Fell    {fell}", "",
+        f"[b]{_fit_cells(str(r.get('name', '?')), CARD_W - 1)}[/]",
+        f"[dim]gen {int(r.get('gen', 1))} · {str(r.get('stage', '?'))[:12]}[/]",
+        f"Lived   {age}",
+        f"Won     {wins}W · [{T.COIN}]★{int(r.get('cups', 0))}[/]",
+    ]
+    if r.get("dead"):
+        cause = str(r.get("cause", "") or "old age")
+        lines.append(f"[{T.NEG}]† {_fit_cells(cause, CARD_W - 2)}[/]")
+    lines += ["", "[dim]ENTER page  ↑↓ browse[/]"]
+    card(app, "Hall", lines,
+         subtitle=gen_subtitle(app.pet) if app.pet else "")
+
+
 def eggguide(app):
     """DIGITAMA GUIDE: the browsed egg's dossier."""
     m = app.mode
@@ -669,6 +779,69 @@ class _SubView:
 
     def __getattr__(self, k):
         return getattr(self._app, k)
+
+
+def zonepick(app):
+    """THE ZONE PICKER: what you are about to walk into.
+
+    ⭐Joel's named order 2026-08-04 ("do the zone picker one too"), the last of
+    the three the all-cards audit found on bare vitals.
+
+    The panel's own list already carries the NAME, the conquered mark and the
+    standing best, so the card does not repeat them (a screen shows a fact
+    ONCE).  It carries what the list cannot: the GATE BOSS you have to fell to
+    win, how long the road is, whether there is a town on it -- and the
+    device's own verdict on the body, read from the SAME call the gate will
+    make when you arrive (`battle_condition(check_energy=False)`, the road's
+    energy law).  The road card learned that lesson the hard way: a refusal
+    that only speaks after forty legs is a refusal that speaks too late."""
+    from . import adventure
+    p, m, T = app.pet, app.mode, theme
+    app.stats_w.border_subtitle = gen_subtitle(p)
+    if not m.indices:
+        card(app, "Adventure", ["", "[dim]no roads open yet[/]"])
+        return
+    zi = m.indices[min(m.cursor, len(m.indices) - 1)]
+    z = adventure.ZONES[zi]
+    boss = (z.get("bosses") or [None])[0]
+    conquered = adventure.is_conquered(p, zi)
+    best = m.bests.get(zi)
+    towns = len(z.get("town_legs") or ())
+    # the title, WITHOUT restating the Gate row: `_zone_display` shortens a
+    # long zone name to its BOSS ("MasterTyrannomon's Factory Night" ->
+    # "MasterTyrannomon"), which is right on the home card and wrong here --
+    # the boss already has its own row two lines down.  Keep the BIOME half
+    # instead; it is the part the Gate row cannot tell you.
+    title = z["name"]
+    if cell_len_(title) > CARD_W:
+        title = title.split("'s ", 1)[-1] if "'s " in title else title
+    lines = [
+        f"[b]{_fit_cells(title, CARD_W)}[/]",
+        f"[dim]zone {m.indices.index(zi) + 1} of {len(m.indices)} open[/]", DIV,
+        f"Gate    [{T.NEG}]{_fit_cells(boss.get('name', '?') if boss else 'no boss', CARD_W - 8)}[/]",
+        f"Road    {z['steps']} legs",
+        f"Rest    {towns} town" + ("s" if towns != 1 else ""),
+        f"Best    {best if best else '[dim]—[/]'}",
+        DIV,
+    ]
+    # the festival and the veteran road are the picker's OWN two notes; the
+    # card echoes only the one the list is not already showing
+    if m.holiday:
+        lines.append(f"[{T.COIN}]★ {_fit_cells(m.holiday, CARD_W - 2)}[/]")
+    elif conquered:
+        lines.append("[dim]veteran road[/]")
+    else:
+        lines.append("")
+    # THE BODY'S VERDICT, before the walk instead of after it
+    cond = p.battle_condition(check_energy=False)
+    if cond:
+        lines.append(f"[{T.NEG}]{_fit_cells(cond, CARD_W)}[/]")
+    elif p.asleep:
+        lines.append(f"[{T.NEG}]fast asleep[/]")
+    else:
+        lines.append(f"Energy  [b]{p.energy}[/]")
+    lines += ["", "[dim]ENTER go  ↑↓ pick[/]"]
+    app.stats_w.update("\n".join(lines))
 
 
 def road(app):
@@ -938,7 +1111,17 @@ def dna(app):
         f"[b]{p.name[:max(4, CARD_W - 9 - len(screen))]}[/]"
         f" [dim]· DNA · {screen}[/]", DIV,
         f"Bits     [{T.COIN}]{p.bits}[/]",
-        f"Field    {data.pretty_field(f)}" + ("  [dim](own)[/]" if same else ""),
+        # ⭐THE (own) MARKER WAS A THIRD COPY, AND IT CLIPPED (card audit
+        # 2026-08-04).  Measured: "Field    Virus Buster  (own)" is 28 cells
+        # against the 26-wide box, and 7 of the 10 DNA fields overflowed the
+        # same way whenever the card showed the pet's OWN field -- which is
+        # the commonest case there is.  Textual wrapped the tail onto the
+        # box's invisible next row (the CELL LAW, bug #32's family).
+        # It was also redundant: the cost row below already says "(own Field)"
+        # or "(off Field)", and the static hint says "own Field charges
+        # cheap".  A screen shows a fact ONCE -- so the marker goes, and the
+        # NAME is clipped to the budget so no future field can overflow here.
+        f"Field    {_fit_cells(data.pretty_field(f), CARD_W - 9)}",
         f"Banked   {own}     Charged {chg}",
         f"Share    {p.dna_percent(f)}%    [dim]x{m.amount}[/]",
         f"Unlocks  [b]{unlocked}[/]/{len(dna_t)} form(s)",
@@ -956,8 +1139,8 @@ def dna(app):
 def _registry():
     """Panel class -> painter.  Built lazily: importing every screen at
     module import would be a cycle magnet."""
-    from . import (adventurescreen, assistscreen, backgroundscreen,
-                   battlescreen, bugscreen,
+    from . import (adventurescreen, albumscreen, assistscreen,
+                   backgroundscreen, battlescreen, bugscreen, hallscreen,
                    deathscreen, digicorescreen, disciplinescreen, dnascreen,
                    eggguidescreen, eggselectscreen, feedscreen, helpscreen,
                    lobbyscreen, optionsscreen, raidscreen, shopscreen,
@@ -974,9 +1157,12 @@ def _registry():
         (feedscreen.FeedPanel, feed),
         (shopscreen.ShopPanel, shop),
         (eggguidescreen.EggGuidePanel, eggguide),
+        (albumscreen.AlbumPanel, album),
+        (hallscreen.HallPanel, hall),
         (digicorescreen.DigiCorePanel, digicore),
         (raidscreen.RaidPanel, raid),
         (adventurescreen.AdventurePanel, road),
+        (adventurescreen.ZonePickPanel, zonepick),
         (lobbyscreen.LobbyPanel, lobby),
         (helpscreen.HelpPanel, help_),
         (optionsscreen.OptionsPanel, options),

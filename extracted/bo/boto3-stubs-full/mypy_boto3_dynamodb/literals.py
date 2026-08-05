@@ -73,6 +73,7 @@ __all__ = (
     "SSETypeType",
     "ScalarAttributeTypeType",
     "ScanPaginatorName",
+    "SearchSchemaElementTypeType",
     "SelectType",
     "ServiceName",
     "StreamViewTypeType",
@@ -81,6 +82,7 @@ __all__ = (
     "TableNotExistsWaiterName",
     "TableStatusType",
     "TimeToLiveStatusType",
+    "VectorDistanceFunctionType",
     "WaiterName",
     "WitnessStatusType",
 )
@@ -171,6 +173,7 @@ SSEStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING", "UPDATIN
 SSETypeType = Literal["AES256", "KMS"]
 ScalarAttributeTypeType = Literal["B", "N", "S"]
 ScanPaginatorName = Literal["scan"]
+SearchSchemaElementTypeType = Literal["HASH", "INLINE_FILTER"]
 SelectType = Literal["ALL_ATTRIBUTES", "ALL_PROJECTED_ATTRIBUTES", "COUNT", "SPECIFIC_ATTRIBUTES"]
 StreamViewTypeType = Literal["KEYS_ONLY", "NEW_AND_OLD_IMAGES", "NEW_IMAGE", "OLD_IMAGE"]
 TableClassType = Literal["STANDARD", "STANDARD_INFREQUENT_ACCESS"]
@@ -187,6 +190,7 @@ TableStatusType = Literal[
     "UPDATING",
 ]
 TimeToLiveStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING"]
+VectorDistanceFunctionType = Literal["COSINE", "DOT_PRODUCT", "EUCLIDEAN"]
 WitnessStatusType = Literal["ACTIVE", "CREATING", "DELETING"]
 DynamoDBServiceName = Literal["dynamodb"]
 ServiceName = Literal[

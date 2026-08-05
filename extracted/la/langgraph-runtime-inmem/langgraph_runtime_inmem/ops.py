@@ -2555,7 +2555,7 @@ class Runs(Authenticated):
                 ),
                 created_at=datetime.now(UTC),
                 updated_at=datetime.now(UTC),
-                values=b"",
+                values=None,
             )
 
             await logger.ainfo("Creating thread", thread_id=thread_id)
@@ -3400,6 +3400,7 @@ class Crons(Authenticated):
         cron_id: UUID,
         schedule: str | None = None,
         end_time: datetime | None = None,
+        clear_end_time: bool = False,
         enabled: bool | None = None,
         on_run_completed: Literal["delete", "keep"] | None = None,
         payload: dict | None = None,
@@ -3423,7 +3424,7 @@ class Crons(Authenticated):
         filters = await Crons.handle_event(ctx, "update", request_data)
 
         # Check if anything to update
-        has_updates = any(
+        has_updates = clear_end_time or any(
             v is not None
             for v in [
                 schedule,
@@ -3468,7 +3469,9 @@ class Crons(Authenticated):
                 cron["schedule"], datetime.now(UTC), timezone=timezone
             )
 
-        if end_time is not None:
+        if clear_end_time:
+            cron["end_time"] = None
+        elif end_time is not None:
             cron["end_time"] = end_time
 
         if enabled is not None:

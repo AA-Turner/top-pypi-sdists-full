@@ -1,6 +1,6 @@
+use crate::StatsigRuntime;
 use crate::networking::ResponseData;
 use crate::statsig_err::StatsigErr;
-use crate::StatsigRuntime;
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde::Serialize;

@@ -76,14 +76,7 @@ class TestMessages:
     def test_method_send(self, client: LinqAPIV3) -> None:
         message = client.chats.messages.send(
             chat_id="550e8400-e29b-41d4-a716-446655440000",
-            message={
-                "parts": [
-                    {
-                        "type": "text",
-                        "value": "Hello, world!",
-                    }
-                ]
-            },
+            message={},
         )
         assert_matches_type(MessageSendResponse, message, path=["response"])
 
@@ -93,10 +86,22 @@ class TestMessages:
         message = client.chats.messages.send(
             chat_id="550e8400-e29b-41d4-a716-446655440000",
             message={
+                "action": {
+                    "action": "attach_card",
+                    "experience": "agentcard",
+                    "params": {"foo": "bar"},
+                },
+                "effect": {
+                    "name": "confetti",
+                    "type": "screen",
+                },
+                "idempotency_key": "msg-abc123xyz",
                 "parts": [
                     {
                         "type": "text",
                         "value": "Hello, world!",
+                        "mention": "+14155551234",
+                        "mention_range": [4, 9],
                         "text_decorations": [
                             {
                                 "range": [0, 5],
@@ -111,17 +116,13 @@ class TestMessages:
                         ],
                     }
                 ],
-                "effect": {
-                    "name": "confetti",
-                    "type": "screen",
-                },
-                "idempotency_key": "msg-abc123xyz",
                 "preferred_service": "iMessage",
                 "reply_to": {
                     "message_id": "550e8400-e29b-41d4-a716-446655440000",
                     "part_index": 0,
                 },
             },
+            override_optout=False,
         )
         assert_matches_type(MessageSendResponse, message, path=["response"])
 
@@ -130,14 +131,7 @@ class TestMessages:
     def test_raw_response_send(self, client: LinqAPIV3) -> None:
         response = client.chats.messages.with_raw_response.send(
             chat_id="550e8400-e29b-41d4-a716-446655440000",
-            message={
-                "parts": [
-                    {
-                        "type": "text",
-                        "value": "Hello, world!",
-                    }
-                ]
-            },
+            message={},
         )
 
         assert response.is_closed is True
@@ -150,14 +144,7 @@ class TestMessages:
     def test_streaming_response_send(self, client: LinqAPIV3) -> None:
         with client.chats.messages.with_streaming_response.send(
             chat_id="550e8400-e29b-41d4-a716-446655440000",
-            message={
-                "parts": [
-                    {
-                        "type": "text",
-                        "value": "Hello, world!",
-                    }
-                ]
-            },
+            message={},
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -173,14 +160,7 @@ class TestMessages:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `chat_id` but received ''"):
             client.chats.messages.with_raw_response.send(
                 chat_id="",
-                message={
-                    "parts": [
-                        {
-                            "type": "text",
-                            "value": "Hello, world!",
-                        }
-                    ]
-                },
+                message={},
             )
 
 
@@ -246,14 +226,7 @@ class TestAsyncMessages:
     async def test_method_send(self, async_client: AsyncLinqAPIV3) -> None:
         message = await async_client.chats.messages.send(
             chat_id="550e8400-e29b-41d4-a716-446655440000",
-            message={
-                "parts": [
-                    {
-                        "type": "text",
-                        "value": "Hello, world!",
-                    }
-                ]
-            },
+            message={},
         )
         assert_matches_type(MessageSendResponse, message, path=["response"])
 
@@ -263,10 +236,22 @@ class TestAsyncMessages:
         message = await async_client.chats.messages.send(
             chat_id="550e8400-e29b-41d4-a716-446655440000",
             message={
+                "action": {
+                    "action": "attach_card",
+                    "experience": "agentcard",
+                    "params": {"foo": "bar"},
+                },
+                "effect": {
+                    "name": "confetti",
+                    "type": "screen",
+                },
+                "idempotency_key": "msg-abc123xyz",
                 "parts": [
                     {
                         "type": "text",
                         "value": "Hello, world!",
+                        "mention": "+14155551234",
+                        "mention_range": [4, 9],
                         "text_decorations": [
                             {
                                 "range": [0, 5],
@@ -281,17 +266,13 @@ class TestAsyncMessages:
                         ],
                     }
                 ],
-                "effect": {
-                    "name": "confetti",
-                    "type": "screen",
-                },
-                "idempotency_key": "msg-abc123xyz",
                 "preferred_service": "iMessage",
                 "reply_to": {
                     "message_id": "550e8400-e29b-41d4-a716-446655440000",
                     "part_index": 0,
                 },
             },
+            override_optout=False,
         )
         assert_matches_type(MessageSendResponse, message, path=["response"])
 
@@ -300,14 +281,7 @@ class TestAsyncMessages:
     async def test_raw_response_send(self, async_client: AsyncLinqAPIV3) -> None:
         response = await async_client.chats.messages.with_raw_response.send(
             chat_id="550e8400-e29b-41d4-a716-446655440000",
-            message={
-                "parts": [
-                    {
-                        "type": "text",
-                        "value": "Hello, world!",
-                    }
-                ]
-            },
+            message={},
         )
 
         assert response.is_closed is True
@@ -320,14 +294,7 @@ class TestAsyncMessages:
     async def test_streaming_response_send(self, async_client: AsyncLinqAPIV3) -> None:
         async with async_client.chats.messages.with_streaming_response.send(
             chat_id="550e8400-e29b-41d4-a716-446655440000",
-            message={
-                "parts": [
-                    {
-                        "type": "text",
-                        "value": "Hello, world!",
-                    }
-                ]
-            },
+            message={},
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -343,12 +310,5 @@ class TestAsyncMessages:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `chat_id` but received ''"):
             await async_client.chats.messages.with_raw_response.send(
                 chat_id="",
-                message={
-                    "parts": [
-                        {
-                            "type": "text",
-                            "value": "Hello, world!",
-                        }
-                    ]
-                },
+                message={},
             )

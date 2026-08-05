@@ -17,9 +17,10 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt
-from typing import Any, ClassVar, Dict, List, Union
+from typing import Any, ClassVar, Dict, List, Optional, Union
 from wandelbots_api_client.v2.models.motion_command import MotionCommand
 from wandelbots_api_client.v2.models.motion_group_setup import MotionGroupSetup
+from wandelbots_api_client.v2.models.singularity_handling import SingularityHandling
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
@@ -39,7 +40,11 @@ class PlanTrajectoryRequest(BaseModel):
     motion_commands: List[MotionCommand] = Field(
         description="List of motion commands. A command consists of a path definition (line, circle, joint_ptp, cartesian_ptp, cubic_spline), blending, and limits override. "
     )
-    __properties: ClassVar[List[str]] = ["motion_group_setup", "start_joint_position", "motion_commands"]
+    singularity_handling: Optional[SingularityHandling] = Field(
+        default=None,
+        description="<!-- theme: danger --> > > **Experimental**  Strategy used to deal with wrist singularities along a cartesian path. ",
+    )
+    __properties: ClassVar[List[str]] = ["motion_group_setup", "start_joint_position", "motion_commands", "singularity_handling"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -108,6 +113,7 @@ class PlanTrajectoryRequest(BaseModel):
                 "motion_commands": [MotionCommand.from_dict(_item) for _item in obj["motion_commands"]]
                 if obj.get("motion_commands") is not None
                 else None,
+                "singularity_handling": obj.get("singularity_handling"),
             }
         )
         return _obj

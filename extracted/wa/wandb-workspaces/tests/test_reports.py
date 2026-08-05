@@ -666,6 +666,22 @@ def test_metric_to_backend_groupby():
         # Pass-through when ".value" is already present (flat-key format)
         ("pbt.workspace.value", "pbt.workspace.value"),
         ("config.pbt.workspace.value", "pbt.workspace.value"),
+        # Run-level attributes map to their backend name with NO ".value"
+        # (regression: "Group" used to serialize as "Group.value" and render
+        # as a single collapsed "Group: -" bar).
+        ("Group", "group"),
+        ("Sweep", "sweep"),
+        ("State", "state"),
+        # Explicit Config() of a name that collides with a run attribute is
+        # still treated as a config key.
+        (wr.Config("Group"), "Group.value"),
+        ("config.Group", "Group.value"),
+        # A bare string already resolves a run attribute (above); wr.Metric is
+        # the explicit form — same result, and the counterpart to wr.Config for
+        # a colliding name. Names are FE-to-BE mapped like everywhere else.
+        (wr.Metric("Group"), "group"),
+        (wr.Metric("State"), "state"),
+        (wr.Metric("CreatedTimestamp"), "createdAt"),
         # Edge cases
         (None, None),
         ("", ".value"),
@@ -687,8 +703,14 @@ def test_metric_to_frontend_groupby():
         ("keys.value.key1", wr.Config("keys.key1")),
         # Flat-key format (.value at end)
         ("pbt.workspace.value", wr.Config("pbt.workspace")),
-        # Non-config paths pass through unchanged
-        ("non_config_path", "non_config_path"),
+        # Known run-level attributes map back to their plain frontend name.
+        ("group", "Group"),
+        ("sweep", "Sweep"),
+        ("state", "State"),
+        ("createdAt", "CreatedTimestamp"),
+        # Unrecognized run-section paths stay a Metric (a bare string there
+        # would re-serialize down the config ".value" path and not round-trip).
+        ("non_config_path", wr.Metric("non_config_path")),
         (None, None),
         ("None", "None"),
     ]
@@ -776,6 +798,21 @@ def test_groupby_aggregate_behavior():
         model = panel._to_model()
         assert model.config.group_by in (None, "None")
         assert model.config.aggregate is False
+
+
+def test_groupby_metric_field_round_trip():
+    """wr.Metric is a valid groupby and survives a panel round-trip."""
+
+    for cls in (wr.LinePlot, wr.BarPlot):
+        # wr.Metric is accepted on the field and serializes to its backend name.
+        model = cls(groupby=wr.Metric("Group"))._to_model()
+        assert model.config.group_by == "group"
+
+        # Run attribute round-trips to its plain frontend name; a logged
+        # metric stays a Metric.
+        assert cls._from_model(model).groupby == "Group"
+        loss = cls._from_model(cls(groupby=wr.Metric("loss"))._to_model())
+        assert loss.groupby == wr.Metric("loss")
 
 
 def test_strip_refs():
@@ -2221,27 +2258,94 @@ class TestReportSharing:
         url = report.enable_share_link()
         assert "accessToken=tok_abc123" in url
         assert captured["variables"]["viewId"] == "dummy-id"
-        assert captured["variables"]["entityName"] == "ent"
-        assert captured["variables"]["projectName"] == "proj"
+        assert captured["variables"]["projects"] == [
+            {"entityName": "ent", "projectName": "proj"}
+        ]
 
-    def test_enable_share_link_returns_existing(self, monkeypatch):
-        """enable_share_link returns existing link if one is already active."""
+    def test_enable_share_link_includes_cross_project_runsets(self, monkeypatch):
+        """Share links include deduplicated runset projects, including nested grids."""
+        captured = {}
 
         class _Client:
             app_url = "https://wandb.ai/"
 
             def execute(self, query, *, variable_values):
-                return {
-                    "view": {
-                        "accessTokens": [
-                            {
-                                "token": "existing_tok",
-                                "type": "PUBLIC",
-                                "revokedAt": None,
-                            }
-                        ]
+                if TestReportSharing._query_name(query) == "ViewAccessTokens":
+                    return {"view": {"accessTokens": []}}
+                if TestReportSharing._query_name(query) == "createAccessToken":
+                    captured["variables"] = variable_values
+                    return {
+                        "createAccessToken": {
+                            "accessToken": {"token": "tok_xproj", "type": "PUBLIC"}
+                        }
                     }
-                }
+                raise AssertionError(f"Unexpected query: {query}")
+
+        class _Api:
+            client = _Client()
+            default_entity = "ent"
+
+        self._api = _Api()
+        report = self._make_report(monkeypatch)
+        report.blocks = [
+            wr.PanelGrid(
+                runsets=[
+                    wr.Runset(entity="ent", project="proj"),
+                    wr.Runset(entity="other-ent", project="other-proj"),
+                    wr.Runset(entity="other-ent", project="other-proj"),
+                    wr.Runset(),
+                ]
+            ),
+            wr.H1(
+                text="Collapsed",
+                collapsed_blocks=[
+                    wr.PanelGrid(
+                        runsets=[wr.Runset(entity="nested-ent", project="nested-proj")]
+                    )
+                ],
+            ),
+        ]
+
+        report.enable_share_link()
+
+        assert captured["variables"]["projects"] == [
+            {"entityName": "ent", "projectName": "proj"},
+            {"entityName": "other-ent", "projectName": "other-proj"},
+            {"entityName": "nested-ent", "projectName": "nested-proj"},
+        ]
+
+    def test_enable_share_link_refreshes_existing_token_scope(self, monkeypatch):
+        """enable_share_link refreshes the returned token when its scope changed."""
+        updated = []
+
+        class _Client:
+            app_url = "https://wandb.ai/"
+
+            def execute(self, query, *, variable_values):
+                query_name = TestReportSharing._query_name(query)
+                if query_name == "ViewAccessTokens":
+                    return {
+                        "view": {
+                            "accessTokens": [
+                                {
+                                    "token": "existing_tok",
+                                    "type": "PUBLIC",
+                                    "revokedAt": None,
+                                    "projects": [],
+                                },
+                                {
+                                    "token": "another_tok",
+                                    "type": "PUBLIC",
+                                    "revokedAt": None,
+                                    "projects": [],
+                                },
+                            ]
+                        }
+                    }
+                if query_name == "updateAccessTokenProjects":
+                    updated.append(variable_values)
+                    return {"updateAccessTokenProjects": {"success": True}}
+                raise AssertionError(f"Unexpected query: {query}")
 
         class _Api:
             client = _Client()
@@ -2252,6 +2356,97 @@ class TestReportSharing:
 
         url = report.enable_share_link()
         assert "accessToken=existing_tok" in url
+        assert updated == [
+            {
+                "token": "existing_tok",
+                "projects": [{"entityName": "ent", "projectName": "proj"}],
+            }
+        ]
+
+    def test_enable_share_link_skips_update_when_scope_matches(self, monkeypatch):
+        """enable_share_link avoids a mutation when the existing scope is current."""
+
+        class _Client:
+            app_url = "https://wandb.ai/"
+
+            def execute(self, query, *, variable_values):
+                if TestReportSharing._query_name(query) == "ViewAccessTokens":
+                    return {
+                        "view": {
+                            "accessTokens": [
+                                {
+                                    "token": "existing_tok",
+                                    "type": "PUBLIC",
+                                    "revokedAt": None,
+                                    "projects": [
+                                        {
+                                            "entityName": "other-ent",
+                                            "name": "other-proj",
+                                        },
+                                        {"entityName": "ent", "name": "proj"},
+                                    ],
+                                }
+                            ]
+                        }
+                    }
+                raise AssertionError(f"Unexpected query: {query}")
+
+        class _Api:
+            client = _Client()
+            default_entity = "ent"
+
+        self._api = _Api()
+        report = self._make_report(monkeypatch)
+        report.blocks = [
+            wr.PanelGrid(
+                runsets=[
+                    wr.Runset(entity="other-ent", project="other-proj")
+                ]
+            )
+        ]
+
+        url = report.enable_share_link()
+
+        assert "accessToken=existing_tok" in url
+
+    def test_enable_share_link_raises_when_existing_token_refresh_fails(
+        self, monkeypatch
+    ):
+        """enable_share_link reports a failed existing-token scope update."""
+
+        class _Client:
+            app_url = "https://wandb.ai/"
+
+            def execute(self, query, *, variable_values):
+                query_name = TestReportSharing._query_name(query)
+                if query_name == "ViewAccessTokens":
+                    return {
+                        "view": {
+                            "accessTokens": [
+                                {
+                                    "token": "existing_tok",
+                                    "type": "PUBLIC",
+                                    "revokedAt": None,
+                                    "projects": [],
+                                }
+                            ]
+                        }
+                    }
+                if query_name == "updateAccessTokenProjects":
+                    return {"updateAccessTokenProjects": {"success": False}}
+                raise AssertionError(f"Unexpected query: {query}")
+
+        class _Api:
+            client = _Client()
+            default_entity = "ent"
+
+        self._api = _Api()
+        report = self._make_report(monkeypatch)
+
+        with pytest.raises(
+            RuntimeError, match="failed to update access token projects"
+        ):
+            report.enable_share_link()
 
     def test_enable_share_link_raises_without_id(self, monkeypatch):
         """enable_share_link raises ValueError if report has no id."""

@@ -44,16 +44,31 @@ import re
 
 name = 'Slovene'
 code = 'sl'
-use_ascii = True
+# ASCII is used except q and w, x and y according to Wikipedia.
+use_ascii = False
 charsets = ['ISO-8859-2', 'ISO-8859-16',
-            'Windows-1250', 'IBM852', 'MacCentralEurope']
+            'Windows-1250', 'IBM852', 'MAC-CENTRALEUROPE']
 
 ## Optional Properties ##
 
 # Alphabet characters.
-alphabet = 'čšž'
-# The starred page which was rewarded on the main page when I created
-# the data.
-start_pages = ['XCOM: Enemy Unknown']
+# XXX According to Wikipedia there are 2 incompatible diacritics
+# systems, but both seem barely used on Wikipedia (even though I can see
+# some usage here or there, on some titles), so I assume these don't
+# exist. Maybe this would have to be separate models for variants of
+# the language.
+alphabet = 'abcčdefghijklmnoprsštuvzž'
+#alphabet = 'abcčdefghijklmnoprsštuvzž' + 'áȃȁéêèẹ́ȇẹ̑ȅə̀ə̏íìȋȉóôòóọ́ȏọ̑ȍúùȗȕŕȓ'
+# Equivalent letters. This is because Slovene use some diacritics but
+# they are so rarely used (in title mostly for Wikipedia) that counting
+# them in the stats would be counter-productive. Moreover they are not
+# letter of their own, but really replace the non-diatrical letter to
+# help with disambiguition. For instance "gol" both means "naked" and
+# "goal" and could sometimes be written "gòl" for the former meaning or
+# "gól" for the latter.
+alphabet_mapping = {'a': 'áȃȁ', 'e': 'éêèẹ́ȇ ẹ̑ȅə̀ə̏', 'i': 'íìȋȉ',
+                    'o': 'óôòóọ́ȏ ọ̑ȍ', 'u': 'úùȗȕ', 'r': 'ŕȓ'}
+
+start_pages = ['Ljubljana']
 wikipedia_code = code
 case_mapping = True

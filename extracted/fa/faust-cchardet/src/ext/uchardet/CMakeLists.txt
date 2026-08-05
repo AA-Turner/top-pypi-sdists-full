@@ -1,5 +1,5 @@
 ######## Project settings
-cmake_minimum_required(VERSION 2.8.5)
+cmake_minimum_required(VERSION 3.5)
 include(CheckCCompilerFlag)
 set (PACKAGE_NAME uchardet)
 project (${PACKAGE_NAME} CXX C)
@@ -7,13 +7,15 @@ enable_testing()
 
 ######## Package information
 set (PACKAGE_URL https://www.freedesktop.org/wiki/Software/uchardet/)
-set (PACKAGE_BUGREPORT https://bugs.freedesktop.org/enter_bug.cgi?product=uchardet)
+set (PACKAGE_BUGREPORT https://gitlab.freedesktop.org/uchardet/uchardet/-/issues)
 set (UCHARDET_VERSION_MAJOR 0)
 set (UCHARDET_VERSION_MINOR 0)
-set (UCHARDET_VERSION_REVISION 6)
+set (UCHARDET_VERSION_REVISION 8)
 
 if (CMAKE_BUILD_TYPE MATCHES Debug)
-	set (version_suffix .debug)
+    set(version_suffix .debug)
+    add_compile_options("-fsanitize=address")
+    add_link_options("-fsanitize=address")
 endif (CMAKE_BUILD_TYPE MATCHES Debug)
 
 set (
@@ -39,10 +41,10 @@ if (BUILD_SHARED_LIBS)
 endif (BUILD_SHARED_LIBS)
 
 if (TARGET_ARCHITECTURE STREQUAL "")
-    string(TOLOWER ${CMAKE_SYSTEM_PROCESSOR} TARGET_ARCHITECTURE)
+    string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" TARGET_ARCHITECTURE)
 endif (TARGET_ARCHITECTURE STREQUAL "")
 
-if (TARGET_ARCHITECTURE MATCHES ".*(x86)|(amd).*")
+if (TARGET_ARCHITECTURE MATCHES ".*(x86|amd|i686).*")
     CHECK_C_COMPILER_FLAG(-msse2 SUPPORTS_CFLAG_SSE2)
     CHECK_C_COMPILER_FLAG(-mfpmath=sse SUPPORTS_CFLAG_SSE_MATH)
     if (CHECK_SSE2 AND SUPPORTS_CFLAG_SSE2 AND SUPPORTS_CFLAG_SSE_MATH)
@@ -52,7 +54,7 @@ if (TARGET_ARCHITECTURE MATCHES ".*(x86)|(amd).*")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffloat-store")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffloat-store")
     endif (CHECK_SSE2 AND SUPPORTS_CFLAG_SSE2 AND SUPPORTS_CFLAG_SSE_MATH)
-endif (TARGET_ARCHITECTURE MATCHES ".*(x86)|(amd).*")
+endif (TARGET_ARCHITECTURE MATCHES ".*(x86|amd|i686).*")
 
 configure_file(
 	uchardet.pc.in
@@ -62,7 +64,7 @@ configure_file(
 
 install(
 	FILES
-		${CMAKE_BINARY_DIR}/uchardet.pc
+		${CMAKE_CURRENT_BINARY_DIR}/uchardet.pc
 	DESTINATION
 		${CMAKE_INSTALL_LIBDIR}/pkgconfig
 )
@@ -72,3 +74,39 @@ install(
 add_subdirectory(src)
 add_subdirectory(doc)
 add_subdirectory(test)
+
+######## Exported targets
+
+install(
+	EXPORT UchardetTargets
+	FILE ${PACKAGE_NAME}-targets.cmake
+	NAMESPACE ${PACKAGE_NAME}::
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PACKAGE_NAME}
+)
+
+export(
+	EXPORT UchardetTargets
+	FILE "${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}-targets.cmake"
+	NAMESPACE ${PACKAGE_NAME}::
+)
+
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+	${PACKAGE_NAME}-config-version.cmake
+	VERSION ${UCHARDET_VERSION}
+	COMPATIBILITY AnyNewerVersion
+)
+
+configure_file(
+	${PACKAGE_NAME}-config.cmake.in
+	${PACKAGE_NAME}-config.cmake
+	@ONLY
+)
+
+install (
+	FILES
+		"${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}-config.cmake"
+		"${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}-config-version.cmake"
+	DESTINATION
+		${CMAKE_INSTALL_LIBDIR}/cmake/${PACKAGE_NAME}
+)

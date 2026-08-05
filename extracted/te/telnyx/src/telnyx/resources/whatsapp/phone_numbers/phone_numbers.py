@@ -35,11 +35,21 @@ from .calling_settings import (
     AsyncCallingSettingsResourceWithStreamingResponse,
 )
 from ....types.whatsapp import (
+    phone_number_get_params,
     phone_number_list_params,
     phone_number_verify_params,
     phone_number_resend_verification_params,
     phone_number_retrieve_conversation_window_params,
 )
+from .conversational_components import (
+    ConversationalComponentsResource,
+    AsyncConversationalComponentsResource,
+    ConversationalComponentsResourceWithRawResponse,
+    AsyncConversationalComponentsResourceWithRawResponse,
+    ConversationalComponentsResourceWithStreamingResponse,
+    AsyncConversationalComponentsResourceWithStreamingResponse,
+)
+from ....types.whatsapp.phone_number_get_response import PhoneNumberGetResponse
 from ....types.whatsapp.phone_number_list_response import PhoneNumberListResponse
 from ....types.whatsapp.phone_number_retrieve_conversation_window_response import (
     PhoneNumberRetrieveConversationWindowResponse,
@@ -60,6 +70,11 @@ class PhoneNumbersResource(SyncAPIResource):
     def profile(self) -> ProfileResource:
         """Manage Whatsapp phone numbers"""
         return ProfileResource(self._client)
+
+    @cached_property
+    def conversational_components(self) -> ConversationalComponentsResource:
+        """Manage Whatsapp phone numbers"""
+        return ConversationalComponentsResource(self._client)
 
     @cached_property
     def with_raw_response(self) -> PhoneNumbersResourceWithRawResponse:
@@ -155,6 +170,48 @@ class PhoneNumbersResource(SyncAPIResource):
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
             cast_to=NoneType,
+        )
+
+    def get(
+        self,
+        *,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> PhoneNumberGetResponse:
+        """
+        List Whatsapp phone numbers
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get(
+            "/whatsapp/phone_numbers",
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "page_number": page_number,
+                        "page_size": page_size,
+                    },
+                    phone_number_get_params.PhoneNumberGetParams,
+                ),
+            ),
+            cast_to=PhoneNumberGetResponse,
         )
 
     def resend_verification(
@@ -292,6 +349,11 @@ class AsyncPhoneNumbersResource(AsyncAPIResource):
         return AsyncProfileResource(self._client)
 
     @cached_property
+    def conversational_components(self) -> AsyncConversationalComponentsResource:
+        """Manage Whatsapp phone numbers"""
+        return AsyncConversationalComponentsResource(self._client)
+
+    @cached_property
     def with_raw_response(self) -> AsyncPhoneNumbersResourceWithRawResponse:
         """
         This property can be used as a prefix for any HTTP method call to return
@@ -385,6 +447,48 @@ class AsyncPhoneNumbersResource(AsyncAPIResource):
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
             cast_to=NoneType,
+        )
+
+    async def get(
+        self,
+        *,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> PhoneNumberGetResponse:
+        """
+        List Whatsapp phone numbers
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return await self._get(
+            "/whatsapp/phone_numbers",
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=await async_maybe_transform(
+                    {
+                        "page_number": page_number,
+                        "page_size": page_size,
+                    },
+                    phone_number_get_params.PhoneNumberGetParams,
+                ),
+            ),
+            cast_to=PhoneNumberGetResponse,
         )
 
     async def resend_verification(
@@ -518,6 +622,9 @@ class PhoneNumbersResourceWithRawResponse:
         self.delete = to_raw_response_wrapper(
             phone_numbers.delete,
         )
+        self.get = to_raw_response_wrapper(
+            phone_numbers.get,
+        )
         self.resend_verification = to_raw_response_wrapper(
             phone_numbers.resend_verification,
         )
@@ -538,6 +645,11 @@ class PhoneNumbersResourceWithRawResponse:
         """Manage Whatsapp phone numbers"""
         return ProfileResourceWithRawResponse(self._phone_numbers.profile)
 
+    @cached_property
+    def conversational_components(self) -> ConversationalComponentsResourceWithRawResponse:
+        """Manage Whatsapp phone numbers"""
+        return ConversationalComponentsResourceWithRawResponse(self._phone_numbers.conversational_components)
+
 
 class AsyncPhoneNumbersResourceWithRawResponse:
     def __init__(self, phone_numbers: AsyncPhoneNumbersResource) -> None:
@@ -548,6 +660,9 @@ class AsyncPhoneNumbersResourceWithRawResponse:
         )
         self.delete = async_to_raw_response_wrapper(
             phone_numbers.delete,
+        )
+        self.get = async_to_raw_response_wrapper(
+            phone_numbers.get,
         )
         self.resend_verification = async_to_raw_response_wrapper(
             phone_numbers.resend_verification,
@@ -569,6 +684,11 @@ class AsyncPhoneNumbersResourceWithRawResponse:
         """Manage Whatsapp phone numbers"""
         return AsyncProfileResourceWithRawResponse(self._phone_numbers.profile)
 
+    @cached_property
+    def conversational_components(self) -> AsyncConversationalComponentsResourceWithRawResponse:
+        """Manage Whatsapp phone numbers"""
+        return AsyncConversationalComponentsResourceWithRawResponse(self._phone_numbers.conversational_components)
+
 
 class PhoneNumbersResourceWithStreamingResponse:
     def __init__(self, phone_numbers: PhoneNumbersResource) -> None:
@@ -579,6 +699,9 @@ class PhoneNumbersResourceWithStreamingResponse:
         )
         self.delete = to_streamed_response_wrapper(
             phone_numbers.delete,
+        )
+        self.get = to_streamed_response_wrapper(
+            phone_numbers.get,
         )
         self.resend_verification = to_streamed_response_wrapper(
             phone_numbers.resend_verification,
@@ -600,6 +723,11 @@ class PhoneNumbersResourceWithStreamingResponse:
         """Manage Whatsapp phone numbers"""
         return ProfileResourceWithStreamingResponse(self._phone_numbers.profile)
 
+    @cached_property
+    def conversational_components(self) -> ConversationalComponentsResourceWithStreamingResponse:
+        """Manage Whatsapp phone numbers"""
+        return ConversationalComponentsResourceWithStreamingResponse(self._phone_numbers.conversational_components)
+
 
 class AsyncPhoneNumbersResourceWithStreamingResponse:
     def __init__(self, phone_numbers: AsyncPhoneNumbersResource) -> None:
@@ -610,6 +738,9 @@ class AsyncPhoneNumbersResourceWithStreamingResponse:
         )
         self.delete = async_to_streamed_response_wrapper(
             phone_numbers.delete,
+        )
+        self.get = async_to_streamed_response_wrapper(
+            phone_numbers.get,
         )
         self.resend_verification = async_to_streamed_response_wrapper(
             phone_numbers.resend_verification,
@@ -630,3 +761,8 @@ class AsyncPhoneNumbersResourceWithStreamingResponse:
     def profile(self) -> AsyncProfileResourceWithStreamingResponse:
         """Manage Whatsapp phone numbers"""
         return AsyncProfileResourceWithStreamingResponse(self._phone_numbers.profile)
+
+    @cached_property
+    def conversational_components(self) -> AsyncConversationalComponentsResourceWithStreamingResponse:
+        """Manage Whatsapp phone numbers"""
+        return AsyncConversationalComponentsResourceWithStreamingResponse(self._phone_numbers.conversational_components)

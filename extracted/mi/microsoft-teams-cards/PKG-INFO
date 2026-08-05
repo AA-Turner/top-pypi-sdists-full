@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: microsoft-teams-cards
-Version: 2.0.14
+Version: 2.0.15
 Summary: Cards package for Microsoft Teams
 Project-URL: Homepage, https://github.com/microsoft/teams.py/tree/main/packages/cards/src/microsoft/teams/cards
 Author-email: Microsoft <TeamsAISDKFeedback@microsoft.com>

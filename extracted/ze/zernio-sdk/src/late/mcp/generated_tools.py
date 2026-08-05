@@ -2647,6 +2647,13 @@ def register_generated_tools(mcp, _get_client):
         `excluded_geo_locations` (built sub-keys win; raw-only sub-keys such as
         `location_types` survive). Array values (`flexible_spec`, ...) are replaced
         as a whole key, never element-merged.
+
+        When `rawTargeting` is present the `advantage_audience: 0` default that
+        Zernio normally applies is no longer emitted, so it cannot clobber a
+        `targeting_automation` sent in the raw spec. Meta requires
+        `targeting_automation` on ad set creation, so include it in the raw spec,
+        or send `targeting.advantage_audience` (0 or 1), which is merged over raw
+        as `targeting_automation`.
                 bid_strategy: Meta bid strategy applied to the ad set. On TikTok, mapped to
         `bid_type` / `bid_price` / `deep_bid_type` automatically.
                 bid_amount: Bid cap in WHOLE currency units (USD: 5 = $5.00; JPY: 100 = ¥100). Required when
@@ -13557,6 +13564,27 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             return f"Error: {e}"
 
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Look up a tweet",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def twitter_engagement_get_tweet(account_id: str, id: str) -> str:
+        """Look up a tweet
+
+        Args:
+            account_id: The social account ID whose X token is used for the lookup (required)
+            id: Numeric tweet ID or a tweet URL (e.g. https://x.com/user/status/123...) (required)"""
+        client = _get_client()
+        try:
+            response = client.twitter_engagement.get_tweet(account_id=account_id, id=id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
     # USAGE
 
     @mcp.tool(
@@ -14538,6 +14566,7 @@ def register_generated_tools(mcp, _get_client):
         name: str,
         category: str,
         language: str,
+        parameter_format: str | None = None,
         components: list[dict[str, Any]] | None = None,
         library_template_name: str | None = None,
         library_template_body_inputs: dict[str, Any] | None = None,
@@ -14550,6 +14579,7 @@ def register_generated_tools(mcp, _get_client):
                 name: Template name (lowercase, letters/numbers/underscores, must start with a letter) (required)
                 category: Template category (required)
                 language: Template language code (e.g., en_US) (required)
+                parameter_format: Variable style: POSITIONAL ({{1}}, the default) or NAMED ({{customer_name}}). Named templates provide examples via body_text_named_params / header_text_named_params. Inferred as NAMED when omitted but a named-params example is present.
                 components: Template components (header, body, footer, buttons, carousel, limited_time_offer). Required for custom templates, omit when using library_template_name.
                 library_template_name: Name of a pre-built template from Meta's template library (e.g., "appointment_reminder",
         "auto_pay_reminder_1", "address_update"). When provided, the template is pre-approved
@@ -14566,6 +14596,7 @@ def register_generated_tools(mcp, _get_client):
                 name=name,
                 category=category,
                 language=language,
+                parameter_format=parameter_format,
                 components=components,
                 library_template_name=library_template_name,
                 library_template_body_inputs=library_template_body_inputs,

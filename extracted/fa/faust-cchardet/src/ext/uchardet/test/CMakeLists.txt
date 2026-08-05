@@ -3,19 +3,6 @@ set(
 	uchardet-tests.c
 )
 
-if (CMAKE_BUILD_TYPE MATCHES Debug)
-	add_definitions(
-		-O0
-		-g3
-		-fsanitize=address
-	)
-	set(CMAKE_CXX_FLAGS "-fsanitize=address")
-	set(CMAKE_C_FLAGS "-fsanitize=address")
-	set(CMAKE_EXE_LINKER_FLAGS "-fsanitize=address")
-	set(CMAKE_MODULE_LINKER_FLAGS "-fsanitize=address")
-	set(CMAKE_SHARED_LINKER_FLAGS "-fsanitize=address")
-endif (CMAKE_BUILD_TYPE MATCHES Debug)
-
 add_executable(
 	uchardet-tests
 	${UCHARDET_TEST_SOURCES}
@@ -43,6 +30,7 @@ foreach(dir ${dirs})
 	# Iterate through all files.
 	foreach(file ${files})
 		get_filename_component(charset ${file} NAME_WE)
+		get_filename_component(testname ${file} NAME_WLE)
 		# These are tests known to fail (not supported or not efficient
 		# enough). We will have to take a closer look and fix these, but
 		# there is no need to break the whole `make test` right now,
@@ -54,7 +42,7 @@ foreach(dir ${dirs})
 			"${lang}:${charset}" STREQUAL "he:iso-8859-8")
 			message(STATUS "Skipping test ${lang}:${charset} (known broken)")
 		else()
-			add_test(NAME "${lang}:${charset}" COMMAND uchardet-tests ${file})
+			add_test(NAME "${lang}:${testname}" COMMAND uchardet-tests ${file})
 		endif()
 	endforeach()
 endforeach()

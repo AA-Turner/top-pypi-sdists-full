@@ -430,7 +430,6 @@ class GraphClient:
         created_at: typing.Optional[str] = OMIT,
         edge_attributes: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
         expired_at: typing.Optional[str] = OMIT,
-        fact_uuid: typing.Optional[str] = OMIT,
         graph_id: typing.Optional[str] = OMIT,
         invalid_at: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
@@ -468,9 +467,6 @@ class GraphClient:
 
         expired_at : typing.Optional[str]
             The time (if any) at which the edge expires
-
-        fact_uuid : typing.Optional[str]
-            The uuid of the edge to add
 
         graph_id : typing.Optional[str]
 
@@ -552,7 +548,6 @@ class GraphClient:
             created_at=created_at,
             edge_attributes=edge_attributes,
             expired_at=expired_at,
-            fact_uuid=fact_uuid,
             graph_id=graph_id,
             invalid_at=invalid_at,
             metadata=metadata,
@@ -690,13 +685,13 @@ class GraphClient:
             Page number for pagination, starting from 1.
 
         page_size : typing.Optional[int]
-            Number of graphs to retrieve per page.
+            Number of graphs to retrieve per page (default 50, range 1-100; explicit 0 is invalid).
 
         search : typing.Optional[str]
-            Search term for filtering graphs by graph_id.
+            Search term for filtering graphs by graph_id, name, or description. Queries longer than 200 Unicode code points after whitespace normalization are invalid.
 
         order_by : typing.Optional[str]
-            Column to sort by (created_at, group_id, name).
+            Column to sort by (created_at, graph_id, name).
 
         asc : typing.Optional[bool]
             Sort in ascending order.
@@ -1564,7 +1559,6 @@ class AsyncGraphClient:
         created_at: typing.Optional[str] = OMIT,
         edge_attributes: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
         expired_at: typing.Optional[str] = OMIT,
-        fact_uuid: typing.Optional[str] = OMIT,
         graph_id: typing.Optional[str] = OMIT,
         invalid_at: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
@@ -1602,9 +1596,6 @@ class AsyncGraphClient:
 
         expired_at : typing.Optional[str]
             The time (if any) at which the edge expires
-
-        fact_uuid : typing.Optional[str]
-            The uuid of the edge to add
 
         graph_id : typing.Optional[str]
 
@@ -1694,7 +1685,6 @@ class AsyncGraphClient:
             created_at=created_at,
             edge_attributes=edge_attributes,
             expired_at=expired_at,
-            fact_uuid=fact_uuid,
             graph_id=graph_id,
             invalid_at=invalid_at,
             metadata=metadata,
@@ -1848,13 +1838,13 @@ class AsyncGraphClient:
             Page number for pagination, starting from 1.
 
         page_size : typing.Optional[int]
-            Number of graphs to retrieve per page.
+            Number of graphs to retrieve per page (default 50, range 1-100; explicit 0 is invalid).
 
         search : typing.Optional[str]
-            Search term for filtering graphs by graph_id.
+            Search term for filtering graphs by graph_id, name, or description. Queries longer than 200 Unicode code points after whitespace normalization are invalid.
 
         order_by : typing.Optional[str]
-            Column to sort by (created_at, group_id, name).
+            Column to sort by (created_at, graph_id, name).
 
         asc : typing.Optional[bool]
             Sort in ascending order.

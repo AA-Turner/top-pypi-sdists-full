@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
+    ClientInitResponseOptions, HashAlgorithm,
     evaluation::evaluator_context::EvaluatorContext,
     gcir::gcir_formatter::GCIRHashable,
     hashing,
@@ -8,7 +9,6 @@ use crate::{
         DynamicConfigParameter, ExperimentParameter, GateParameter, LayerParameter, Parameter,
         ParameterStore, StaticValueParameter,
     },
-    ClientInitResponseOptions, HashAlgorithm,
 };
 
 use super::target_app_id_utils::should_filter_config_for_app;

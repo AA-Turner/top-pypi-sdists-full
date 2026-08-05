@@ -25,6 +25,13 @@ deploys from the MR pipeline) or when it opts out of the column via
 ``.pysae-ai-tools.yaml`` ``board.to_deploy: false``. Same rule as the live
 merge path, shared through ``glab/deploy_branches.py``.
 
+**Job oracle** — a repo whose shipment is not a branch movement declares
+``board.shipped_when_job: <job>``: a merged MR has shipped once that job
+succeeded on one of its own pipelines. That is the only way to express a
+Terraform repo whose ``apply_prod`` is a *manual* job on the MR pipeline, where
+merging means "shipped" only if someone pressed it — the branch oracle sees no
+branch to compare and would call every merged ticket shipped.
+
 Dry-run by default; pass ``--apply`` to perform the changes. Status bumps reuse
 ``glab workflow-transition`` so other labels (``review::release``,
 ``version::*`` …) are preserved.
@@ -45,7 +52,7 @@ from ...common.glab.fetch_issues import get_current_username, resolve_username
 from ...common.glab.models import GitLabIssue
 from ...common.glab.runner import glab_api, glab_api_paginated, run_glab
 from ...common.references.gitlab_labels import BoardLabel
-from ..deploy_branches import deploy_branches_for, resolve_deploy_pairs, uses_to_deploy_column
+from ..deploy_branches import deploy_branches_for, resolve_deploy_pairs, shipped_when_job_for, uses_to_deploy_column
 from ..workflow_transition import transition
 from .core import (
     Action,
@@ -317,8 +324,32 @@ def _dedupe_mrs(mrs: list[RelatedMR]) -> list[RelatedMR]:
     return out
 
 
+def _mr_job_succeeded(mr_project_id: str, mr_iid: int, job_name: str) -> bool:
+    """Whether ``job_name`` succeeded on any pipeline of this MR.
+
+    The job oracle for a repo that ships from the MR pipeline behind a manual job
+    (``board.shipped_when_job``): merging is not the shipment, pressing that button is.
+    Scans the MR's pipelines newest-first and stops on the first success.
+    """
+    pipelines = glab_api(f"projects/{mr_project_id}/merge_requests/{mr_iid}/pipelines")
+    if not isinstance(pipelines, list):
+        return False
+    for pipeline in pipelines:
+        if not isinstance(pipeline, dict) or not pipeline.get("id"):
+            continue
+        jobs = glab_api_paginated(f"projects/{mr_project_id}/pipelines/{pipeline['id']}/jobs")
+        if any(isinstance(j, dict) and j.get("name") == job_name and j.get("status") == "success" for j in jobs):
+            return True
+    return False
+
+
 def _mr_summary(
-    project_id: str, iid: int, unshipped: dict[str, frozenset[str]], *, comprehensive: bool = False
+    project_id: str,
+    iid: int,
+    unshipped: dict[str, frozenset[str]],
+    *,
+    comprehensive: bool = False,
+    shipped_when_job: str | None = None,
 ) -> MrSummary:
     # Priority: the native closed_by link (MRs whose `Closes #N` ties them to the
     # issue). Fall back to related_merge_requests only when closed_by is empty.
@@ -334,8 +365,15 @@ def _mr_summary(
     mrs: list[tuple[str, bool, bool]] = []
     for mr in selected:
         approved = mr.state == "opened" and _mr_is_approved(mr.project_id, mr.iid)
-        in_prod = mr.state == "merged" and _commit_deployed(mr.merge_commit, mr.target_branch, unshipped)
-        mrs.append((mr.state, approved, in_prod))
+        # Only a merged MR can have shipped, and the job oracle costs API calls per MR —
+        # so never ask the question for an open or closed-unmerged one.
+        if mr.state != "merged":
+            shipped = False
+        elif shipped_when_job:
+            shipped = _mr_job_succeeded(mr.project_id, mr.iid, shipped_when_job)
+        else:
+            shipped = _commit_deployed(mr.merge_commit, mr.target_branch, unshipped)
+        mrs.append((mr.state, approved, shipped))
     return MrSummary.from_mrs(mrs)
 
 
@@ -468,7 +506,8 @@ def _process_project(
     """Audit one project; return its report (and apply changes when asked)."""
     mapping = deploy_branches_for(label, deploy_branch_override)
     pairs = resolve_deploy_pairs(project_id, mapping)
-    has_deploy = uses_to_deploy_column(label) and bool(pairs)
+    shipped_when_job = shipped_when_job_for(label)
+    has_deploy = uses_to_deploy_column(label) and bool(pairs or shipped_when_job)
     unshipped = _unshipped_by_source(project_id, pairs)
     deploy_branches = sorted({dep for _, dep in pairs})
     deployed_version = _deployed_version(project_id, deploy_branches)
@@ -492,7 +531,12 @@ def _process_project(
     mr_map: dict[int, MrSummary] = {}
     if tasks:
         with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
-            summaries = pool.map(lambda t: _mr_summary(project_id, t[0], unshipped, comprehensive=t[1]), tasks)
+            summaries = pool.map(
+                lambda t: _mr_summary(
+                    project_id, t[0], unshipped, comprehensive=t[1], shipped_when_job=shipped_when_job
+                ),
+                tasks,
+            )
             for (iid, _), summary in zip(tasks, summaries, strict=True):
                 mr_map[iid] = summary
 

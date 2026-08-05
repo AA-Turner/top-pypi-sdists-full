@@ -2,8 +2,8 @@ mod utils;
 
 use parking_lot::Mutex;
 use serial_test::serial;
-use statsig_rust::output_logger::{initialize_output_logger, shutdown_output_logger, LogLevel};
-use statsig_rust::{log_d, log_e, log_i, log_w, Statsig, StatsigOptions};
+use statsig_rust::output_logger::{LogLevel, initialize_output_logger, shutdown_output_logger};
+use statsig_rust::{Statsig, StatsigOptions, log_d, log_e, log_i, log_w};
 use std::sync::Arc;
 use std::time::Duration;
 use utils::mock_log_provider::{MockLogProvider, RecordedLog};

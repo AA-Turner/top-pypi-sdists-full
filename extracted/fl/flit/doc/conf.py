@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-#
 # Flit documentation build configuration file, created by
 # sphinx-quickstart on Sun Mar 15 19:16:41 2015.
 #
@@ -11,9 +9,6 @@
 #
 # All configuration values have a default; values that are commented out
 # serve to show the default.
-
-import sys
-import os
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -40,7 +35,7 @@ github_project_url = "https://github.com/pypa/flit"
 templates_path = ['_templates']
 
 # The suffix of source filenames.
-source_suffix = '.rst'
+source_suffix = {".rst": "restructuredtext"}
 
 # The encoding of source files.
 #source_encoding = 'utf-8-sig'
@@ -49,15 +44,15 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Flit'
-copyright = u'2015, Thomas Kluyver'
+project = 'Flit'
+copyright = '2015, Thomas Kluyver'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
 # The short X.Y version.
-version = '3.12.0'
+version = '4.0.2'
 # The full version, including alpha/beta/rc tags.
 release = version #+ '.1'
 
@@ -202,8 +197,8 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  ('index', 'Flit.tex', u'Flit Documentation',
-   u'Thomas Kluyver', 'manual'),
+  ('index', 'Flit.tex', 'Flit Documentation',
+   'Thomas Kluyver', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -232,8 +227,8 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'flit', u'Flit Documentation',
-     [u'Thomas Kluyver'], 1)
+    ('index', 'flit', 'Flit Documentation',
+     ['Thomas Kluyver'], 1)
 ]
 
 # If true, show URL addresses after external links.
@@ -246,8 +241,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'Flit', u'Flit Documentation',
-   u'Thomas Kluyver', 'Flit', 'One line description of project.',
+  ('index', 'Flit', 'Flit Documentation',
+   'Thomas Kluyver', 'Flit', 'One line description of project.',
    'Miscellaneous'),
 ]
 

@@ -73,6 +73,7 @@ __all__ = (
     "SSETypeType",
     "ScalarAttributeTypeType",
     "ScanPaginatorName",
+    "SearchSchemaElementTypeType",
     "SelectType",
     "ServiceName",
     "StreamViewTypeType",
@@ -81,6 +82,7 @@ __all__ = (
     "TableNotExistsWaiterName",
     "TableStatusType",
     "TimeToLiveStatusType",
+    "VectorDistanceFunctionType",
     "WaiterName",
     "WitnessStatusType",
 )
@@ -171,6 +173,7 @@ SSEStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING", "UPDATIN
 SSETypeType = Literal["AES256", "KMS"]
 ScalarAttributeTypeType = Literal["B", "N", "S"]
 ScanPaginatorName = Literal["scan"]
+SearchSchemaElementTypeType = Literal["HASH", "INLINE_FILTER"]
 SelectType = Literal["ALL_ATTRIBUTES", "ALL_PROJECTED_ATTRIBUTES", "COUNT", "SPECIFIC_ATTRIBUTES"]
 StreamViewTypeType = Literal["KEYS_ONLY", "NEW_AND_OLD_IMAGES", "NEW_IMAGE", "OLD_IMAGE"]
 TableClassType = Literal["STANDARD", "STANDARD_INFREQUENT_ACCESS"]
@@ -187,6 +190,7 @@ TableStatusType = Literal[
     "UPDATING",
 ]
 TimeToLiveStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING"]
+VectorDistanceFunctionType = Literal["COSINE", "DOT_PRODUCT", "EUCLIDEAN"]
 WitnessStatusType = Literal["ACTIVE", "CREATING", "DELETING"]
 DynamoDBServiceName = Literal["dynamodb"]
 ServiceName = Literal[
@@ -382,8 +386,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -410,6 +412,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -477,10 +481,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -498,6 +502,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -513,6 +518,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -540,6 +546,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -561,7 +568,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -582,6 +588,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

@@ -1,4 +1,4 @@
-pub mod batch;
+pub(crate) mod batch;
 pub mod queue;
 pub mod queued_config_expo;
 pub mod queued_event;

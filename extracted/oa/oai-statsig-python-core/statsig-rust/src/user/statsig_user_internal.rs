@@ -4,15 +4,15 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use chrono::Utc;
 
 use super::{
+    StatsigUserLoggable,
     fast_statsig_user::FastStatsigUser,
     user_data::UserDataMap,
     user_value::{UserValue, UserValueRef},
-    StatsigUserLoggable,
 };
 use crate::evaluation::{dynamic_value::DynamicValue, evaluation_data::DynamicStringRef};
 use crate::hashing::djb2_number;
-use crate::{evaluation::dynamic_string::DynamicString, Statsig};
-use crate::{log_w, statsig_metadata, StatsigUser};
+use crate::{Statsig, evaluation::dynamic_string::DynamicString};
+use crate::{StatsigUser, log_w, statsig_metadata};
 
 pub type FullUserKey = (
     u64,      // app_version

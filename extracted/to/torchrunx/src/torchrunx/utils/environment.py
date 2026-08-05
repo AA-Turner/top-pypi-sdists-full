@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
-
-from typing_extensions import TypeAlias
+from typing import Literal, TypeAlias
 
 __all__ = [
     "auto_hosts",
@@ -48,7 +46,9 @@ def resolve_environment(
     elif workers_per_host == "gpu":
         gpus_per_host: list[int] = get_gpus_per_host(hostnames, ssh_config_file=ssh_config_file)
         if any(g == 0 for g in gpus_per_host):
-            hosts_without_gpus = [h for h, g in zip(hostnames, gpus_per_host) if g == 0]
+            hosts_without_gpus = [
+                h for h, g in zip(hostnames, gpus_per_host, strict=True) if g == 0
+            ]
             msg = f'workers_per_host="gpu", but no GPUs detected on: {hosts_without_gpus}.'
             raise RuntimeError(msg)
         workers_per_host = gpus_per_host
@@ -74,7 +74,7 @@ def slurm_hosts() -> list[str]:
         msg = "Not in a SLURM job"
         raise RuntimeError(msg)
 
-    return subprocess.check_output(["scontrol", "show", "hostnames"]).decode().strip().split("\n")
+    return subprocess.check_output(["scontrol", "show", "hostnames"]).decode().strip().split("\n")  # noqa: S603, S607
 
 
 def get_cpus_per_host(
@@ -176,14 +176,15 @@ def execute_command(
         is_localhost = len(set(_host_addrs) & set(_localhost_addrs)) > 0
 
     if is_localhost:
-        # S602: subprocess.Popen is called with shell=True (https://docs.python.org/3.9/library/subprocess.html#security-considerations)
+        # S602: subprocess.Popen is called with shell=True (https://docs.python.org/3.10/library/subprocess.html#security-considerations)
         # Made sure to shlex.quote arguments in build_command to prevent shell injection
+        output_target = subprocess.PIPE if return_stdout_stderr else None
         process = subprocess.Popen(  # noqa: S602
             command,
             shell=True,
             text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=output_target,
+            stderr=output_target,
         )
 
         if return_stdout_stderr:

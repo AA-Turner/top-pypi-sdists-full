@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.3
 Name: lamindb
-Version: 2.9.0
+Version: 2.9.1
 Summary: Full/meta-package module for the `lamindb` distribution.
 Author-email: Lamin Labs <open-source@lamin.ai>
 Requires-Python: >=3.10
@@ -10,8 +10,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-License-File: LICENSE
-Requires-Dist: lamindb-core[full]==2.9.0
+Requires-Dist: lamindb-core[full]==2.9.1
 Requires-Dist: lamindb-core[full, dev] ; extra == "dev"
 Requires-Dist: readfcs>=2.0.1 ; extra == "fcs"
 Requires-Dist: lamindb_setup[gcp] ; extra == "gcp"

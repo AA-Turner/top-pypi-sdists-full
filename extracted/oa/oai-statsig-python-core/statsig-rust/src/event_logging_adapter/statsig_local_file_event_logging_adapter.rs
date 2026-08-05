@@ -9,7 +9,7 @@ use crate::hashing::djb2;
 use crate::log_event_payload::LogEventPayload;
 use crate::statsig_metadata::StatsigMetadata;
 use crate::{
-    log_d, log_e, StatsigErr, StatsigHttpEventLoggingAdapter, StatsigOptions, StatsigRuntime,
+    StatsigErr, StatsigHttpEventLoggingAdapter, StatsigOptions, StatsigRuntime, log_d, log_e,
 };
 use async_trait::async_trait;
 use file_guard::Lock;

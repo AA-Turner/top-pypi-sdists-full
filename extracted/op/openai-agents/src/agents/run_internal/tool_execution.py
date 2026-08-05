@@ -602,7 +602,7 @@ async def initialize_computer_tools(
         tool for tool in computer_tools if _computer_tool_uses_run_scoped_initializer(tool)
     }
 
-    resolved_computers = await asyncio.gather(
+    resolved_computers = await gather_with_cancel(
         *(resolve_computer(tool=tool, run_context=context_wrapper) for tool in computer_tools)
     )
     resolved_by_tool = dict(zip(computer_tools, resolved_computers, strict=True))
@@ -664,12 +664,31 @@ def coerce_shell_call(tool_call: Any) -> ShellCallData:
     if not commands:
         raise ModelBehaviorError("Shell call action must include at least one command.")
 
-    timeout_value = (
-        get_mapping_or_attr(action_payload, "timeout_ms")
-        or get_mapping_or_attr(action_payload, "timeoutMs")
-        or get_mapping_or_attr(action_payload, "timeout")
-    )
-    timeout_ms = int(timeout_value) if isinstance(timeout_value, int | float) else None
+    # Zero intentionally follows the same alias fallback as None because it has no portable
+    # meaning across application-provided shell executors.
+    timeout_value = None
+    for candidate in (
+        get_mapping_or_attr(action_payload, "timeout_ms"),
+        get_mapping_or_attr(action_payload, "timeoutMs"),
+        get_mapping_or_attr(action_payload, "timeout"),
+    ):
+        if candidate is None or (
+            isinstance(candidate, int | float)
+            and not isinstance(candidate, bool)
+            and candidate == 0
+        ):
+            continue
+        timeout_value = candidate
+        break
+
+    if timeout_value is None:
+        timeout_ms = None
+    elif isinstance(timeout_value, bool) or not isinstance(timeout_value, int) or timeout_value < 0:
+        raise ModelBehaviorError(
+            "Shell call action timeout must be a positive integer in milliseconds, zero, or None."
+        )
+    else:
+        timeout_ms = timeout_value
 
     max_length_value = get_mapping_or_attr(action_payload, "max_output_length")
     if max_length_value is None:
@@ -1437,6 +1456,7 @@ class _FunctionToolBatchExecutor:
         context_wrapper: RunContextWrapper[Any],
         config: RunConfig,
         isolate_parallel_failures: bool | None,
+        sibling_category_failure: asyncio.Event | None,
     ) -> None:
         self.execution_agent = bindings.execution_agent
         self.public_agent = bindings.public_agent
@@ -1447,6 +1467,7 @@ class _FunctionToolBatchExecutor:
         self.isolate_parallel_failures = (
             len(tool_runs) > 1 if isolate_parallel_failures is None else isolate_parallel_failures
         )
+        self.sibling_category_failure = sibling_category_failure
         self.tool_input_guardrail_results: list[ToolInputGuardrailResult] = []
         self.tool_output_guardrail_results: list[ToolOutputGuardrailResult] = []
         self.tool_state_scope_id = get_agent_tool_state_scope(context_wrapper)
@@ -1497,7 +1518,10 @@ class _FunctionToolBatchExecutor:
         except asyncio.CancelledError as exc:
             if self.propagating_failure is exc:
                 raise
-            self._cancel_pending_tasks_for_parent_cancellation()
+            if self.sibling_category_failure is not None and self.sibling_category_failure.is_set():
+                await self._drain_pending_tasks_for_sibling_category_failure()
+            else:
+                self._cancel_pending_tasks_for_parent_cancellation()
             raise
 
         return (
@@ -1616,6 +1640,30 @@ class _FunctionToolBatchExecutor:
             timeout_seconds=_FUNCTION_TOOL_POST_INVOKE_WAIT_SECONDS,
         )
 
+    async def _drain_pending_tasks_for_sibling_category_failure(self) -> None:
+        """Settle nested function tasks after another tool category fails."""
+        cancellable_tasks, post_invoke_tasks = self._partition_pending_tasks()
+        self.teardown_cancelled_tasks.update(cancellable_tasks)
+        _cancel_function_tool_tasks(cancellable_tasks)
+
+        try:
+            _, remaining_cancelled_tasks = await self._drain_cancelled_tasks(cancellable_tasks)
+            _, remaining_post_invoke_tasks = await self._wait_post_invoke_tasks(post_invoke_tasks)
+        except BaseException:
+            self._cancel_pending_tasks_for_parent_cancellation()
+            self.pending_tasks = set()
+            raise
+
+        _attach_function_tool_task_result_callbacks(
+            remaining_cancelled_tasks,
+            message_for_exception=_background_cleanup_task_exception_message,
+        )
+        _attach_function_tool_task_result_callbacks(
+            remaining_post_invoke_tasks,
+            message_for_exception=_background_post_invoke_task_exception_message,
+        )
+        self.pending_tasks = set()
+
     def _cancel_pending_tasks_for_parent_cancellation(self) -> None:
         self.teardown_cancelled_tasks.update(self.pending_tasks)
         _cancel_function_tool_tasks(self.pending_tasks)
@@ -1705,14 +1753,6 @@ class _FunctionToolBatchExecutor:
         raw_tool_call: ResponseFunctionToolCall,
         span_fn: Span[Any],
     ) -> Any | None:
-        needs_approval_result = await function_needs_approval(
-            func_tool,
-            self.context_wrapper,
-            tool_call,
-        )
-        if not needs_approval_result:
-            return None
-
         tool_namespace = get_tool_call_namespace(raw_tool_call)
         if tool_namespace is None and is_deferred_top_level_function_tool(func_tool):
             tool_namespace = func_tool.name
@@ -1725,6 +1765,21 @@ class _FunctionToolBatchExecutor:
             tool_namespace=tool_namespace,
             tool_lookup_key=tool_lookup_key,
         )
+        if approval_status is None:
+            needs_approval_result = await function_needs_approval(
+                func_tool,
+                self.context_wrapper,
+                tool_call,
+            )
+            approval_status = self.context_wrapper.get_approval_status(
+                func_tool.name,
+                tool_call.call_id,
+                tool_namespace=tool_namespace,
+                tool_lookup_key=tool_lookup_key,
+            )
+            if approval_status is None and not needs_approval_result:
+                return None
+
         if approval_status is None:
             if self._should_run_pre_approval_tool_input_guardrails():
                 tool_context_namespace = get_tool_call_namespace(raw_tool_call)
@@ -1744,7 +1799,13 @@ class _FunctionToolBatchExecutor:
                     agent=self.public_agent,
                     tool_input_guardrail_results=self.tool_input_guardrail_results,
                 )
-                if rejected_message is not None:
+                approval_status = self.context_wrapper.get_approval_status(
+                    func_tool.name,
+                    tool_call.call_id,
+                    tool_namespace=tool_namespace,
+                    tool_lookup_key=tool_lookup_key,
+                )
+                if approval_status is None and rejected_message is not None:
                     return FunctionToolResult(
                         tool=func_tool,
                         output=rejected_message,
@@ -1757,6 +1818,8 @@ class _FunctionToolBatchExecutor:
                             tool_origin=get_function_tool_origin(func_tool),
                         ),
                     )
+
+        if approval_status is None:
             approval_item = ToolApprovalItem(
                 agent=self.public_agent,
                 raw_item=raw_tool_call,
@@ -1828,7 +1891,7 @@ class _FunctionToolBatchExecutor:
             self.schema_bypassed_tool_runs.add(id(task_state.tool_run))
             return rejected_message
 
-        await asyncio.gather(
+        await gather_with_cancel(
             self.hooks.on_tool_start(tool_context, self.public_agent, func_tool),
             (
                 agent_hooks.on_tool_start(tool_context, self.public_agent, func_tool)
@@ -1944,7 +2007,7 @@ class _FunctionToolBatchExecutor:
         if custom_data:
             self.custom_data_by_tool_run[id(task_state.tool_run)] = custom_data
 
-        await asyncio.gather(
+        await gather_with_cancel(
             self.hooks.on_tool_end(tool_context, self.public_agent, func_tool, final_result),
             (
                 agent_hooks.on_tool_end(tool_context, self.public_agent, func_tool, final_result)
@@ -2100,6 +2163,7 @@ async def execute_function_tool_calls(
     context_wrapper: RunContextWrapper[Any],
     config: RunConfig,
     isolate_parallel_failures: bool | None = None,
+    sibling_category_failure: asyncio.Event | None = None,
 ) -> tuple[
     list[FunctionToolResult], list[ToolInputGuardrailResult], list[ToolOutputGuardrailResult]
 ]:
@@ -2111,6 +2175,7 @@ async def execute_function_tool_calls(
         context_wrapper=context_wrapper,
         config=config,
         isolate_parallel_failures=isolate_parallel_failures,
+        sibling_category_failure=sibling_category_failure,
     ).execute()
 
 

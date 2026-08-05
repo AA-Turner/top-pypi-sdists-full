@@ -1,13 +1,13 @@
 mod utils;
 
 use std::sync::atomic::Ordering;
-use std::sync::{atomic::AtomicBool, Arc};
+use std::sync::{Arc, atomic::AtomicBool};
 use std::time::Duration;
 
 use crate::utils::mock_specs_adapter::MockSpecsAdapter;
 use statsig_rust::{
-    networking::ResponseData, sdk_event_emitter::SdkEvent, SpecsSource, SpecsUpdate, Statsig,
-    StatsigOptions, StatsigUser,
+    SpecsSource, SpecsUpdate, Statsig, StatsigOptions, StatsigUser, networking::ResponseData,
+    sdk_event_emitter::SdkEvent,
 };
 use utils::mock_event_logging_adapter::MockEventLoggingAdapter;
 

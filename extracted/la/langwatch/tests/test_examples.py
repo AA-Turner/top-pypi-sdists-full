@@ -56,6 +56,11 @@ def build_example_input(example_file: str) -> str:
         return "who is the oldest person?"
     if "rag" in example_file:
         return "what is LangWatch?"
+    if "function_call" in example_file:
+        # The function-call example offers a get_weather tool with
+        # tool_choice="auto"; a weather question is what makes the model
+        # actually pick it.
+        return "what is the weather in Amsterdam?"
     return "what makes a good daily routine?"
 
 
@@ -96,6 +101,9 @@ def get_example_files():
 def test_example_input_is_local():
     assert build_example_input("span_evaluation.py") == "who is the oldest person?"
     assert build_example_input("langchain_rag_bot.py") == "what is LangWatch?"
+    assert build_example_input("openai_bot_function_call.py") == (
+        "what is the weather in Amsterdam?"
+    )
     assert build_example_input("distributed_tracing.py") == (
         "what makes a good daily routine?"
     )
@@ -140,6 +148,17 @@ async def test_example(example_file: str):
     if example_file == "litellm_bot.py":
         pytest.skip(
             "litellm_bot.py skipped — Cerebras API is unreliable (frequent rate limiting)"
+        )
+    if example_file in (
+        "streamlit_openai_assistants_api_bot.py",
+        "opentelemetry/openinference_openai_assistants_api_bot.py",
+    ):
+        pytest.skip(
+            "Assistants API examples: CI routes OpenAI traffic through the"
+            " LangWatch gateway, which does not proxy /v1/assistants or"
+            " /v1/threads (the Assistants API is deprecated upstream). Both"
+            " examples fire Assistants calls at import or on_chat_start, so"
+            " they must be skipped before import."
         )
     if (
         example_file == "langgraph_rag_bot_with_threads.py"

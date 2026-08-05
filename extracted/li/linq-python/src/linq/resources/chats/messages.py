@@ -159,6 +159,7 @@ class MessagesResource(SyncAPIResource):
         chat_id: str,
         *,
         message: MessageContentParam,
+        override_optout: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -216,6 +217,16 @@ class MessagesResource(SyncAPIResource):
               separating the "what" (message content) from the "where" (routing fields like
               from/to).
 
+              A message carries EITHER `parts` — text and attachments, which compose into one
+              bubble — or a single `action`, which invokes an experience inside Linq's
+              iMessage app. Never both: an app card is the whole message (Apple's `MSMessage`
+              cannot coexist with text), so copy and a card are two sends, not one.
+
+          override_optout: Send even though the recipient asked you to stop (`403`, error code `2024`).
+              Applies to this request only: the opt-out stays in place, so the next send
+              without this flag is rejected again. Every override is recorded against your API
+              key.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -228,7 +239,13 @@ class MessagesResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `chat_id` but received {chat_id!r}")
         return self._post(
             path_template("/v3/chats/{chat_id}/messages", chat_id=chat_id),
-            body=maybe_transform({"message": message}, message_send_params.MessageSendParams),
+            body=maybe_transform(
+                {
+                    "message": message,
+                    "override_optout": override_optout,
+                },
+                message_send_params.MessageSendParams,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -371,6 +388,7 @@ class AsyncMessagesResource(AsyncAPIResource):
         chat_id: str,
         *,
         message: MessageContentParam,
+        override_optout: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -428,6 +446,16 @@ class AsyncMessagesResource(AsyncAPIResource):
               separating the "what" (message content) from the "where" (routing fields like
               from/to).
 
+              A message carries EITHER `parts` — text and attachments, which compose into one
+              bubble — or a single `action`, which invokes an experience inside Linq's
+              iMessage app. Never both: an app card is the whole message (Apple's `MSMessage`
+              cannot coexist with text), so copy and a card are two sends, not one.
+
+          override_optout: Send even though the recipient asked you to stop (`403`, error code `2024`).
+              Applies to this request only: the opt-out stays in place, so the next send
+              without this flag is rejected again. Every override is recorded against your API
+              key.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -440,7 +468,13 @@ class AsyncMessagesResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `chat_id` but received {chat_id!r}")
         return await self._post(
             path_template("/v3/chats/{chat_id}/messages", chat_id=chat_id),
-            body=await async_maybe_transform({"message": message}, message_send_params.MessageSendParams),
+            body=await async_maybe_transform(
+                {
+                    "message": message,
+                    "override_optout": override_optout,
+                },
+                message_send_params.MessageSendParams,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

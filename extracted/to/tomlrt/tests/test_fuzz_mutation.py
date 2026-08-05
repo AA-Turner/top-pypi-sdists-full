@@ -1,15 +1,17 @@
-"""Mutation fuzzer over the ``toml-test`` valid corpus.
+"""Mutation fuzzer over the ``toml-test`` valid corpus, and from empty.
 
 The deterministic regression tests pin specific mutation outcomes; the
-property tests in ``test_hypothesis.py`` exercise the editing API but
-mostly from an empty document. Neither broadly mutates *parsed*
-documents with the structural shapes (nested AoTs, dotted keys,
-sub-sections, out-of-order headers) that the corpus provides.
-
-This module fills that gap. For each corpus document it runs a grid of
-seeded random edit programs (set / delete / overwrite / sort across
-containers, plus append / insert / pop / sort / reverse across arrays
-and arrays-of-tables) and asserts the model stayed self-consistent:
+property tests in ``test_fuzz_roundtrip.py`` exercise round-trip and
+synthesis invariants, not broad mutation-API fuzzing. This module fills
+that gap: it runs the same random edit-program fuzzer against every
+corpus document (rich structural shapes: nested AoTs, dotted keys,
+sub-sections, out-of-order headers) *and* against a single starting
+empty document (reaching the from-scratch section/AoT creation path a
+parsed starting point doesn't exercise as its first step). Programs
+draw from one shared operation vocabulary -- set / delete / overwrite
+/ sort / clone-or-graft across containers, plus append / insert / pop
+/ sort / reverse across arrays and arrays-of-tables -- and assert the
+model stayed self-consistent:
 
 * the rendered output is valid TOML (``tomli`` accepts it);
 * dump -> load -> dump is a fixed point (byte-exact idempotence);
@@ -23,9 +25,15 @@ idempotence check alone cannot see.
 
 Each run draws **fresh random seeds**, so the fuzzer explores new
 programs every time rather than re-checking a frozen grid — it keeps
-finding regressions instead of going stale. A failing example reports
-its 64-bit seed, so it can be reproduced exactly with
-``random.Random(<seed>)``. Raise ``_PROGRAMS`` to fuzz harder per run.
+finding regressions instead of going stale. Every failure — an oracle
+that disagrees or an exception raised from inside the library — reports
+the 64-bit seed of the program that produced it, and re-running the same
+test id with ``TOMLRT_FUZZ_SEED=<seed>`` set replays that one program::
+
+    TOMLRT_FUZZ_SEED=<seed> uv run pytest -m slow \\
+        "tests/test_fuzz_mutation.py::test_mutation_keeps_model_consistent[<id>]"
+
+Raise ``_PROGRAMS`` to fuzz harder per run.
 
 Per file the search runs many short uniform-random programs over the
 parsed document; that is what reaches the precise multi-step states
@@ -36,9 +44,7 @@ of attempts cheaply, while the trivial ones cost almost nothing.
 
 from __future__ import annotations
 
-import math
 import random
-import secrets
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +52,7 @@ import pytest
 import tomli
 
 import tomlrt
+from _helpers import deep_equal, fuzz_context, fuzz_seeds
 from tomlrt import AoT, Array
 from tomlrt._container import Container, Table
 
@@ -63,21 +70,7 @@ if not _VALID_ROOT.is_dir():
     )
 
 _CORPUS = sorted(_VALID_ROOT.rglob("*.toml"))
-_PROGRAMS = 150  # random mutation programs per corpus file, per run
-
-
-def _deep_eq(a: object, b: object) -> bool:
-    if isinstance(a, float) and isinstance(b, float):
-        return (math.isnan(a) and math.isnan(b)) or a == b
-    if isinstance(a, dict) and isinstance(b, dict):
-        am: dict[Any, Any] = a
-        bm: dict[Any, Any] = b
-        return am.keys() == bm.keys() and all(_deep_eq(v, bm[k]) for k, v in am.items())
-    if isinstance(a, list) and isinstance(b, list):
-        return len(a) == len(b) and all(
-            _deep_eq(x, y) for x, y in zip(a, b, strict=True)
-        )
-    return type(a) is type(b) and a == b
+_PROGRAMS = 100  # random mutation programs per corpus file, per run
 
 
 def _rand_value(rng: random.Random) -> Any:
@@ -138,10 +131,14 @@ def _mutate_container(
     keys = list(node.keys())
     # "clone_table" / "clone_aot" assign an already-attached Table / AoT
     # (same- or foreign-document) rather than a fresh dict, exercising
-    # `_attach_section` / `_attach_aot`'s clone paths.
+    # `_attach_section` / `_attach_aot`'s clone paths. "set_new_structural"
+    # builds a header-bearing ``[key]`` / ``[[key]]`` value from scratch
+    # (not the plain-dict/-list inline forms `_rand_value` produces),
+    # exercising the same structural-creation path whether ``node``
+    # started out empty or already had content.
     tables = [t for kind, t in pool if kind == "container" and isinstance(t, Table)]
     aots = [t for kind, t in pool if kind == "aot"]
-    ops = ["set_new", "del", "overwrite", "sort"]
+    ops = ["set_new", "del", "overwrite", "sort", "set_new_structural"]
     if tables:
         ops.append("clone_table")
     if aots:
@@ -159,6 +156,12 @@ def _mutate_container(
         node[clone_key] = rng.choice(tables)
     elif op == "clone_aot":
         node[clone_key] = rng.choice(aots)
+    elif op == "set_new_structural":
+        node[new_key] = (
+            Table.section({"v": _rand_value(rng)})
+            if rng.random() < 0.5
+            else AoT([{"v": _rand_value(rng)} for _ in range(rng.randint(0, 3))])
+        )
     elif op == "sort":
         node.sort()
 
@@ -215,6 +218,30 @@ def _mutate_aot(node: AoT, rng: random.Random, pool: list[tuple[str, Any]]) -> N
         node.sort(key=lambda t: repr(dict(t)))
 
 
+def _run_fuzz_programs(
+    src: str, foreign_pool: list[tuple[str, Any]], ctx_label: str
+) -> None:
+    """Run one random mutation program per seed from :func:`fuzz_seeds`
+    against ``src``, asserting the model stays self-consistent throughout
+    (see module docstring).
+    """
+    for seed in fuzz_seeds(_PROGRAMS):
+        rng = random.Random(seed)  # noqa: S311
+        with fuzz_context(f"{ctx_label} seed={seed}"):
+            doc = tomlrt.loads(src)
+            for _ in range(rng.randint(1, 15)):
+                _mutate(doc, rng, foreign_pool)
+            out = tomlrt.dumps(doc)
+            # Valid TOML and a fixed point of dump -> load -> dump.
+            tomli.loads(out)
+            assert tomlrt.dumps(tomlrt.loads(out)) == out, f"non-idempotent\n{out!r}"
+            # The rendered output reflects the in-memory logical model.
+            assert deep_equal(tomli.loads(out), doc.to_dict()), (
+                f"render/model mismatch\n{out!r}\n"
+                f"logical={doc.to_dict()!r}\nreparsed={tomli.loads(out)!r}"
+            )
+
+
 @pytest.mark.parametrize(
     "path", _CORPUS, ids=lambda p: p.relative_to(_VALID_ROOT).as_posix()
 )
@@ -237,23 +264,22 @@ def test_mutation_keeps_model_consistent(path: Path) -> None:
     foreign_pool: list[tuple[str, Any]] = []
     _targets(foreign_doc, foreign_pool)
 
-    for _ in range(_PROGRAMS):
-        # A fresh random seed every run, so the fuzzer explores new
-        # programs instead of re-checking a frozen grid. The seed is
-        # captured and reported on failure so any bug it finds is
-        # reproducible (``random.Random(<seed>)``).
-        seed = secrets.randbits(64)
-        rng = random.Random(seed)  # noqa: S311
-        doc = tomlrt.loads(src)
-        for _ in range(rng.randint(1, 15)):
-            _mutate(doc, rng, foreign_pool)
-        out = tomlrt.dumps(doc)
-        ctx = f"{path.relative_to(_VALID_ROOT).as_posix()} seed={seed}"
-        # Valid TOML and a fixed point of dump -> load -> dump.
-        tomli.loads(out)
-        assert tomlrt.dumps(tomlrt.loads(out)) == out, f"non-idempotent: {ctx}\n{out!r}"
-        # The rendered output reflects the in-memory logical model.
-        assert _deep_eq(tomli.loads(out), doc.to_dict()), (
-            f"render/model mismatch: {ctx}\n{out!r}\n"
-            f"logical={doc.to_dict()!r}\nreparsed={tomli.loads(out)!r}"
-        )
+    _run_fuzz_programs(src, foreign_pool, path.relative_to(_VALID_ROOT).as_posix())
+
+
+def test_mutation_keeps_model_consistent_from_empty_document() -> None:
+    """Same fuzzer and oracle, seeded from an empty document.
+
+    Growing every structure from nothing -- rather than mutating what
+    a parser already produced -- reaches the from-scratch section/AoT
+    creation path (``Container.__setitem__`` assigning a fresh
+    ``Table.section(...)`` / ``AoT(...)``, via `_mutate_container`'s
+    "set_new_structural" op) as its *starting* state, not just as one
+    mutation among many applied to an already-rich corpus document.
+    Uses the first corpus file as a foreign pool so clone/graft ops
+    still have something to draw from.
+    """
+    foreign_doc = tomlrt.loads(_CORPUS[0].read_text(encoding="utf-8"))
+    foreign_pool: list[tuple[str, Any]] = []
+    _targets(foreign_doc, foreign_pool)
+    _run_fuzz_programs("", foreign_pool, "<empty>")

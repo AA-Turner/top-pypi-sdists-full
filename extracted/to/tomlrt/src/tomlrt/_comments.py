@@ -22,32 +22,18 @@ else:  # pragma: no cover -- backport for Python < 3.12
 from tomlrt._errors import TOMLError
 from tomlrt._kind import _Kind
 from tomlrt._slots import KVSlot, StructuralHeaderSlot
-from tomlrt._trivia import (
-    CommentNode,
-    NewlineNode,
-    WhitespaceNode,
-    has_comment,
-    has_newline,
-    split_lines,
-)
+from tomlrt._trivia import split_line, split_lines
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Iterator
 
     from tomlrt._container import Container, Document
     from tomlrt._slots import Slot
-    from tomlrt._trivia import (
-        EolTrivia,
-        Trivia,
-        TriviaPiece,
-    )
+    from tomlrt._trivia import EolTrivia
 
 
-def _validate_comment_text(text: str) -> None:
-    """Reject a comment value that would not round-trip via the parser."""
-    if "\n" in text or "\r" in text:
-        msg = "comment must be single-line"
-        raise ValueError(msg)
+def _validate_comment_controls(text: str) -> None:
+    """Reject ASCII control characters (other than TAB) and DEL."""
     for ch in text:
         cp = ord(ch)
         # TOML comments allow TAB plus printable Unicode; reject other
@@ -59,12 +45,23 @@ def _validate_comment_text(text: str) -> None:
             raise ValueError(msg)
 
 
+def _validate_comment_content(text: str, newline_msg: str) -> None:
+    """Reject a comment value that would not round-trip via the parser.
+
+    ``newline_msg`` lets callers phrase the line-terminator error for
+    their context (a lone scalar vs. one entry of a sequence).
+    """
+    if "\n" in text or "\r" in text:
+        raise ValueError(newline_msg)
+    _validate_comment_controls(text)
+
+
 def _validate_comment_str(value: object, name: str) -> str:
     """Type-check ``value`` is a str and validate its content; return it."""
     if not isinstance(value, str):
         msg = f"{name} must be str, got {type(value).__name__}"
         raise TypeError(msg)
-    _validate_comment_text(value)
+    _validate_comment_content(value, "comment must be single-line")
     return value
 
 
@@ -169,14 +166,14 @@ class EolCommentView(_SlotKeyedView[str]):
 
     @override
     def _present(self, slot: KVSlot) -> bool:
-        return slot.eol.comment is not None
+        return bool(slot.eol.comment)
 
     @override
     def __getitem__(self, key: str) -> str:
         slot = self._require_slot(key)
-        if slot.eol.comment is None:
+        if not slot.eol.comment:
             raise KeyError(key)
-        return _decode_comment(slot.eol.comment.text)
+        return _decode_comment(slot.eol.comment)
 
     @override
     def __setitem__(self, key: str, value: str) -> None:
@@ -189,18 +186,15 @@ class EolCommentView(_SlotKeyedView[str]):
     def __delitem__(self, key: str) -> None:
         _require_attached(self._c)
         slot = self._require_slot(key)
-        if slot.eol.comment is None:
+        if not slot.eol.comment:
             raise KeyError(key)
-        slot.eol.comment = None
+        slot.eol.comment = ""
         # Also drop the gap-whitespace that preceded the comment so we
         # don't leave a dangling tail like `key = 1   \n`.
-        if slot.eol.trailing_ws is not None:
-            slot.eol.trailing_ws = None
+        slot.eol.trailing_ws = ""
 
 
-def _split_preamble(
-    leading: Trivia,
-) -> tuple[list[TriviaPiece], list[TriviaPiece]]:
+def _split_preamble(leading: str) -> tuple[str, str]:
     """Split the head slot's leading at the first blank line into (preamble, rest).
 
     The dual of :func:`_split_attached_block` (which cuts at the *last* blank).
@@ -209,22 +203,18 @@ def _split_preamble(
     the first construct, or the leading starts with a blank, there is no
     preamble. ``rest`` keeps the construct's own leading block, blanks and all.
     """
-    lines = split_lines(leading.pieces)
+    lines = split_lines(leading)
     i = 0
-    while i < len(lines) and has_comment(lines[i]):
+    while i < len(lines) and "#" in lines[i]:
         i += 1
     # A separating blank line is a newline with no comment — not the slot's
     # trailing indent (whitespace, no newline).
-    if i == 0 or i >= len(lines) or not has_newline(lines[i]):
-        return [], list(leading.pieces)
-    preamble = [p for line in lines[: i + 1] for p in line]
-    rest = [p for line in lines[i + 1 :] for p in line]
-    return preamble, rest
+    if i == 0 or i >= len(lines) or "\n" not in lines[i]:
+        return "", leading
+    return "".join(lines[: i + 1]), "".join(lines[i + 1 :])
 
 
-def _split_attached_block(
-    leading: Trivia,
-) -> tuple[list[list[TriviaPiece]], list[list[TriviaPiece]], list[TriviaPiece]]:
+def _split_attached_block(leading: str) -> tuple[str, str, str]:
     """Split the leading into (above_blank, attached_comment_lines, slot_indent).
 
     The attached group is the contiguous comment run immediately before
@@ -232,19 +222,14 @@ def _split_attached_block(
     is the trailing whitespace-only, newline-less column offset that
     rebuilders must reapply.
     """
-    lines = split_lines(leading.pieces)
-    indent: list[TriviaPiece] = []
-    if lines and not any(isinstance(p, NewlineNode) for p in lines[-1]):
-        last = lines[-1]
-        if not any(isinstance(p, CommentNode) for p in last):
-            indent = last
-            lines = lines[:-1]
+    lines = split_lines(leading)
+    indent = ""
+    if lines and "\n" not in lines[-1] and "#" not in lines[-1]:
+        indent = lines.pop()
     i = len(lines)
-    while i > 0 and has_comment(lines[i - 1]):
+    while i > 0 and "#" in lines[i - 1]:
         i -= 1
-    above = lines[:i]
-    attached = lines[i:]
-    return above, attached, indent
+    return "".join(lines[:i]), "".join(lines[i:]), indent
 
 
 def _read_leading_block(c: Container, slot: Slot) -> tuple[str | None, ...]:
@@ -255,7 +240,7 @@ def _read_leading_block(c: Container, slot: Slot) -> tuple[str | None, ...]:
     """
     del c
     above, attached, _indent = _split_attached_block(slot.leading)
-    lines = (*above, *attached)
+    lines = split_lines(above + attached)
     return tuple(_line_to_comment(line) for line in lines)
 
 
@@ -269,17 +254,7 @@ def _write_leading_block(
     """
     _above, _attached, indent = _split_attached_block(slot.leading)
     nl = c._doc_newline  # noqa: SLF001
-    new_pieces = _render_comment_lines(block, nl, indent)
-    new_pieces.extend(indent)
-    slot.leading.pieces = new_pieces
-
-
-def _validate_comment_entry(c: str, name: str) -> None:
-    """Validate a single non-``None`` comment-sequence entry's content."""
-    if "\n" in c or "\r" in c:
-        msg = f"{name} entries must not contain a line terminator"
-        raise ValueError(msg)
-    _validate_comment_text(c)
+    slot.leading = _render_comment_lines(block, nl, indent) + indent
 
 
 def _validate_comment_entries(
@@ -298,12 +273,14 @@ def _validate_comment_entries(
         if not isinstance(c, str):
             msg = f"{name} entries must be strings{' or None' if allow_none else ''}"
             raise TypeError(msg)
-        _validate_comment_entry(c, name)
+        _validate_comment_content(
+            c, f"{name} entries must not contain a line terminator"
+        )
         out.append(c)
     return tuple(out)
 
 
-def _extract_leading_comments(leading: Trivia) -> tuple[str, ...]:
+def _extract_leading_comments(leading: str) -> tuple[str, ...]:
     """Return only the *attached* run of comment-bearing lines.
 
     Comments separated by a blank line are preamble or archived blocks
@@ -316,7 +293,7 @@ def _extract_leading_comments(leading: Trivia) -> tuple[str, ...]:
 def _slot_has_attached_comments(slot: Slot) -> bool:
     leading = slot.leading
     _above, attached, _indent = _split_attached_block(leading)
-    return any(has_comment(line) for line in attached)
+    return "#" in attached
 
 
 class LeadingCommentView(_SlotKeyedView[tuple[str, ...]]):
@@ -338,7 +315,8 @@ class LeadingCommentView(_SlotKeyedView[tuple[str, ...]]):
         _require_attached(self._c)
         slot = self._require_slot(key, missing_msg=f"key {key!r} not in container")
         comments = _validate_comment_seq(value, "leading_comments")
-        _set_attached_block(slot.leading, comments, self._c._doc_newline)  # noqa: SLF001
+        nl = self._c._doc_newline  # noqa: SLF001
+        slot.leading = _set_attached_block(slot.leading, comments, nl)
 
     @override
     def __delitem__(self, key: str) -> None:
@@ -347,11 +325,7 @@ class LeadingCommentView(_SlotKeyedView[tuple[str, ...]]):
         if not _slot_has_attached_comments(slot):
             raise KeyError(key)
         above, _attached, indent = _split_attached_block(slot.leading)
-        kept: list[TriviaPiece] = []
-        for line in above:
-            kept.extend(line)
-        kept.extend(indent)
-        slot.leading.pieces = kept
+        slot.leading = above + indent
 
 
 class LeadingBlockView(_SlotKeyedView[tuple[str | None, ...]]):
@@ -428,19 +402,18 @@ def _header_comment_get(c: Container) -> str | None:
         # dropping a write would be a footgun.
         return None
     eol = h.eol
-    if eol.comment is None:
+    if not eol.comment:
         return None
-    return _decode_comment(eol.comment.text)
+    return _decode_comment(eol.comment)
 
 
 def _header_comment_set(c: Container, value: str | None) -> None:
     h = _require_header_slot(c, "container has no header to attach a comment to")
     eol = h.eol
     if value is None:
-        if eol.comment is not None:
-            eol.comment = None
-            if eol.trailing_ws is not None and eol.trailing_ws.text.strip(" \t") == "":
-                eol.trailing_ws = None
+        if eol.comment:
+            eol.comment = ""
+            eol.trailing_ws = ""
         return
     _validate_comment_str(value, "header_comment")
     _write_eol_comment(eol, value, c._doc_newline)  # noqa: SLF001
@@ -456,7 +429,7 @@ def _header_leading_get(c: Container) -> tuple[str, ...]:
 def _header_leading_set(c: Container, value: tuple[str, ...]) -> None:
     h = _require_header_slot(c, "container has no header to attach leading comments to")
     comments = _validate_comment_seq(value, "header_leading_comments")
-    _set_attached_block(h.leading, comments, c._doc_newline)  # noqa: SLF001
+    h.leading = _set_attached_block(h.leading, comments, c._doc_newline)  # noqa: SLF001
 
 
 def _header_leading_block_get(c: Container) -> tuple[str | None, ...]:
@@ -480,84 +453,71 @@ def _validate_comment_seq(value: object, name: str) -> tuple[str, ...]:
     )
 
 
-def _line_to_comment(line: Iterable[TriviaPiece]) -> str | None:
+def _line_to_comment(line: str) -> str | None:
     """Decoded comment text for a line, or ``None`` if it has no comment."""
-    for p in line:
-        if isinstance(p, CommentNode):
-            return _decode_comment(p.text)
-    return None
+    comment = split_line(line)[1]
+    return _decode_comment(comment) if comment else None
 
 
-def _lines_to_comments(lines: Iterable[Iterable[TriviaPiece]]) -> tuple[str, ...]:
-    """Extract one decoded comment per line that contains a CommentNode."""
-    return tuple(c for line in lines if (c := _line_to_comment(line)) is not None)
+def _lines_to_comments(t: str) -> tuple[str, ...]:
+    """Extract one decoded comment per line of ``t`` that carries one."""
+    return tuple(
+        c for line in split_lines(t) if (c := _line_to_comment(line)) is not None
+    )
 
 
-def _set_attached_block(leading: Trivia, comments: tuple[str, ...], nl: str) -> None:
+def _set_attached_block(leading: str, comments: tuple[str, ...], nl: str) -> str:
     """Replace the attached comment block on ``leading`` with ``comments``.
 
     Preserve preamble/archived blocks and reapply the slot's indent to
     each new comment line and the slot itself.
     """
     above, _attached, indent = _split_attached_block(leading)
-    kept: list[TriviaPiece] = []
-    for line in above:
-        kept.extend(line)
-    new_pieces = _render_comment_lines(comments, nl, indent)
-    new_pieces.extend(indent)
-    leading.pieces = [*kept, *new_pieces]
+    return above + _render_comment_lines(comments, nl, indent) + indent
 
 
 def _write_eol_comment(eol: EolTrivia, text: str, nl: str) -> None:
     """Set the EOL comment on ``eol``, ensuring a separator and newline."""
-    if eol.trailing_ws is None:
-        eol.trailing_ws = WhitespaceNode(" ")
-    eol.comment = CommentNode(_encode_comment(text))
-    if eol.newline is None:
-        eol.newline = NewlineNode(nl)
+    if not eol.trailing_ws:
+        eol.trailing_ws = " "
+    eol.comment = _encode_comment(text)
+    if not eol.newline:
+        eol.newline = nl
 
 
 def _render_comment_lines(
-    block: tuple[str | None, ...],
-    nl: str,
-    indent: Sequence[TriviaPiece] = (),
-) -> list[TriviaPiece]:
+    block: tuple[str | None, ...], nl: str, indent: str = ""
+) -> str:
     """Render logical comment lines, using ``None`` for blanks."""
-    pieces: list[TriviaPiece] = []
-    for entry in block:
-        if entry is None:
-            pieces.append(NewlineNode(nl))
-        else:
-            pieces.extend(indent)
-            pieces.extend((CommentNode(_encode_comment(entry)), NewlineNode(nl)))
-    return pieces
+    return "".join(
+        nl if entry is None else f"{indent}{_encode_comment(entry)}{nl}"
+        for entry in block
+    )
 
 
 def _doc_preamble_get(doc: Document) -> tuple[str, ...]:
-    lines = split_lines(doc._preamble.pieces)  # noqa: SLF001
-    # Drop the trailing blank-line separator before the first slot.
-    while lines and not has_comment(lines[-1]):
-        lines.pop()
-    return _lines_to_comments(lines)
+    # Lines without a comment -- including the trailing blank-line
+    # separator before the first slot -- drop out on their own.
+    return _lines_to_comments(doc._preamble)  # noqa: SLF001
 
 
 def _doc_preamble_set(doc: Document, value: tuple[str, ...]) -> None:
     comments = _validate_comment_seq(value, "preamble")
     nl = doc._newline  # noqa: SLF001
     if not comments:
-        doc._preamble.pieces = []  # noqa: SLF001
+        doc._preamble = ""  # noqa: SLF001
         return
-    pieces = _render_comment_lines(comments, nl)
+    rendered = _render_comment_lines(comments, nl)
     # Append a blank-line separator before the first slot.
     if doc._head is not None:  # noqa: SLF001
-        pieces.append(NewlineNode(nl))
-    doc._preamble.pieces = pieces  # noqa: SLF001
+        rendered += nl
+    doc._preamble = rendered  # noqa: SLF001
 
 
 def _doc_epilogue_get(doc: Document) -> tuple[str | None, ...]:
     # Full fidelity: comment lines decode to text, blank lines become None
     # (including a blank that separates the epilogue from the last slot).
-    lines = split_lines(doc._trailing.pieces)  # noqa: SLF001
+    lines = split_lines(doc._trailing)  # noqa: SLF001
     return tuple(_line_to_comment(line) for line in lines)
 
 
@@ -567,7 +527,7 @@ def _doc_epilogue_set(doc: Document, value: tuple[str | None, ...]) -> None:
         msg = "cannot set epilogue: document has no structural content"
         raise TOMLError(msg)
     nl = doc._newline  # noqa: SLF001
-    doc._trailing.pieces = _render_comment_lines(block, nl)  # noqa: SLF001
+    doc._trailing = _render_comment_lines(block, nl)  # noqa: SLF001
 
 
 __all__ = ["EolCommentView", "LeadingBlockView", "LeadingCommentView"]

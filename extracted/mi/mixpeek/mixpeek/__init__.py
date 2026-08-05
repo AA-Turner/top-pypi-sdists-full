@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.253"
+__version__ = "1.3.262"
 
 # Define package exports
 __all__ = [
@@ -84,6 +84,7 @@ __all__ = [
     "OrganizationConnectionsApi",
     "OrganizationInfrastructureApi",
     "OrganizationSecretsApi",
+    "OrganizationTargetsApi",
     "OrganizationUsageApi",
     "OrganizationUsersApi",
     "OrganizationsApi",
@@ -913,6 +914,7 @@ __all__ = [
     "RenderStrategy",
     "RepresentativeDocument",
     "ResourceAllocation",
+    "ResourceDimension",
     "ResourceErrorCount",
     "ResourceFilter",
     "ResourceProgress",
@@ -920,6 +922,7 @@ __all__ = [
     "ResourceResultStatus",
     "ResourceScopeInput",
     "ResourceScopeOutput",
+    "ResourceTarget",
     "ResourceTypeInput",
     "ResponseRerunAnalyticsRunV1TaxonomiesTaxonomyIdAnalyticsRunsRunIdRerunPost",
     "ResponseShape",
@@ -964,6 +967,8 @@ __all__ = [
     "S3RoleCredentials",
     "S3TagSource",
     "SEOConfig",
+    "SLOSurface",
+    "SLOTarget",
     "SampleQuery",
     "ScaffoldManifestResponse",
     "ScaffoldSampleCollection",
@@ -1200,6 +1205,7 @@ __all__ = [
     "SystemCondition",
     "SystemConditionType",
     "TSNEParams",
+    "TargetSpec",
     "TaskProgress",
     "TaskResponse",
     "TaskResponseInputsInner",
@@ -1400,6 +1406,7 @@ from mixpeek.api.organization_billing_api import OrganizationBillingApi as Organ
 from mixpeek.api.organization_connections_api import OrganizationConnectionsApi as OrganizationConnectionsApi
 from mixpeek.api.organization_infrastructure_api import OrganizationInfrastructureApi as OrganizationInfrastructureApi
 from mixpeek.api.organization_secrets_api import OrganizationSecretsApi as OrganizationSecretsApi
+from mixpeek.api.organization_targets_api import OrganizationTargetsApi as OrganizationTargetsApi
 from mixpeek.api.organization_usage_api import OrganizationUsageApi as OrganizationUsageApi
 from mixpeek.api.organization_users_api import OrganizationUsersApi as OrganizationUsersApi
 from mixpeek.api.organizations_api import OrganizationsApi as OrganizationsApi
@@ -2233,6 +2240,7 @@ from mixpeek.models.reminder_preferences_response import ReminderPreferencesResp
 from mixpeek.models.render_strategy import RenderStrategy as RenderStrategy
 from mixpeek.models.representative_document import RepresentativeDocument as RepresentativeDocument
 from mixpeek.models.resource_allocation import ResourceAllocation as ResourceAllocation
+from mixpeek.models.resource_dimension import ResourceDimension as ResourceDimension
 from mixpeek.models.resource_error_count import ResourceErrorCount as ResourceErrorCount
 from mixpeek.models.resource_filter import ResourceFilter as ResourceFilter
 from mixpeek.models.resource_progress import ResourceProgress as ResourceProgress
@@ -2240,6 +2248,7 @@ from mixpeek.models.resource_result import ResourceResult as ResourceResult
 from mixpeek.models.resource_result_status import ResourceResultStatus as ResourceResultStatus
 from mixpeek.models.resource_scope_input import ResourceScopeInput as ResourceScopeInput
 from mixpeek.models.resource_scope_output import ResourceScopeOutput as ResourceScopeOutput
+from mixpeek.models.resource_target import ResourceTarget as ResourceTarget
 from mixpeek.models.resource_type_input import ResourceTypeInput as ResourceTypeInput
 from mixpeek.models.response_rerun_analytics_run_v1_taxonomies_taxonomy_id_analytics_runs_run_id_rerun_post import ResponseRerunAnalyticsRunV1TaxonomiesTaxonomyIdAnalyticsRunsRunIdRerunPost as ResponseRerunAnalyticsRunV1TaxonomiesTaxonomyIdAnalyticsRunsRunIdRerunPost
 from mixpeek.models.response_shape import ResponseShape as ResponseShape
@@ -2284,6 +2293,8 @@ from mixpeek.models.s3_metadata_source import S3MetadataSource as S3MetadataSour
 from mixpeek.models.s3_role_credentials import S3RoleCredentials as S3RoleCredentials
 from mixpeek.models.s3_tag_source import S3TagSource as S3TagSource
 from mixpeek.models.seo_config import SEOConfig as SEOConfig
+from mixpeek.models.slo_surface import SLOSurface as SLOSurface
+from mixpeek.models.slo_target import SLOTarget as SLOTarget
 from mixpeek.models.sample_query import SampleQuery as SampleQuery
 from mixpeek.models.scaffold_manifest_response import ScaffoldManifestResponse as ScaffoldManifestResponse
 from mixpeek.models.scaffold_sample_collection import ScaffoldSampleCollection as ScaffoldSampleCollection
@@ -2520,6 +2531,7 @@ from mixpeek.models.sync_update_request import SyncUpdateRequest as SyncUpdateRe
 from mixpeek.models.system_condition import SystemCondition as SystemCondition
 from mixpeek.models.system_condition_type import SystemConditionType as SystemConditionType
 from mixpeek.models.tsne_params import TSNEParams as TSNEParams
+from mixpeek.models.target_spec import TargetSpec as TargetSpec
 from mixpeek.models.task_progress import TaskProgress as TaskProgress
 from mixpeek.models.task_response import TaskResponse as TaskResponse
 from mixpeek.models.task_response_inputs_inner import TaskResponseInputsInner as TaskResponseInputsInner

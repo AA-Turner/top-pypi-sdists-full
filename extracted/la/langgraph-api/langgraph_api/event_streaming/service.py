@@ -623,6 +623,12 @@ class ThreadRunManager:
                         "no_such_interrupt",
                         "Interrupt namespace does not match the pending interrupt.",
                     )
+                # WS can surface ``input.requested`` before postgres/gRPC
+                # persists the thread-row interrupt. Reuse the HTTP settle
+                # barrier before enqueueing the resume run.
+                if not thread_state_fetched:
+                    thread_state_ids = await self._collect_settled_interrupt_ids()
+                    thread_state_fetched = True
                 continue
             # HTTP fallback: the persisted lookup surfaces interrupts by id
             # only, so trust the client-claimed namespace and validate by

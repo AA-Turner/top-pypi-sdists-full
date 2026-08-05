@@ -1,15 +1,31 @@
-from typing import List as list
-from typing import Optional
+from __future__ import annotations
 
 from fit_tool.definition_message import DefinitionMessage
 from fit_tool.developer_field import DeveloperField
 from fit_tool.endian import Endian
-from fit_tool.field import Field
+from fit_tool.exceptions import FitEncodingError, FitRecordError
+from fit_tool.field import Field, UnknownField
 from fit_tool.message import Message
 from fit_tool.utils.logging import logger
 
 
 class DataMessage(Message):
+    """Base class for FIT data messages.
+
+    Construction modes for generated subclasses:
+
+    * **Create (authoring):** ``MessageClass()`` or ``MessageClass(local_id=...,
+      endian=..., developer_fields=...)`` — blank growable fields, no wire
+      definition attached.
+    * **Project (decode):** ``MessageClass.from_definition(definition,
+      developer_fields=...)`` — field sizes fixed from the local definition.
+      :class:`~fit_tool.profile.messages.message_factory.MessageFactory` and
+      the wire projection path use this factory.
+
+    Do not pass a definition into ``__init__`` on generated message classes;
+    use :meth:`from_definition` (class method on each generated type) or this
+    base :meth:`from_definition` static method (routes via MessageFactory).
+    """
 
     def __init__(self, local_id: int = 0, global_id: int = 0, endian: Endian = Endian.LITTLE,
                  name: str = '',
@@ -27,6 +43,11 @@ class DataMessage(Message):
 
     @staticmethod
     def from_definition(definition_message: DefinitionMessage, developer_fields: list[DeveloperField]):
+        """Build the typed message for *definition_message* via MessageFactory.
+
+        Prefer ``SomeMessage.from_definition(...)`` when the concrete class is
+        known; use this entry point for polymorphic decode projection.
+        """
         from fit_tool.profile.messages.message_factory import MessageFactory
         return MessageFactory.from_definition(definition_message, developer_fields)
 
@@ -52,29 +73,38 @@ class DataMessage(Message):
 
     @size.setter
     def size(self, _size: int):
-        pass
+        if hasattr(self, 'fields'):
+            raise AttributeError('DataMessage.size is computed from fields and cannot be set directly.')
 
     def set_definition_message(self, definition_message: DefinitionMessage):
         self.definition_message = definition_message
+        field_definitions_by_id = {
+            field_definition.field_id: field_definition
+            for field_definition in reversed(definition_message.field_definitions)
+        }
+        developer_field_definitions_by_id = {
+            (field_definition.developer_data_index, field_definition.field_id): field_definition
+            for field_definition in reversed(definition_message.developer_field_definitions)
+        }
+
         for field in self.fields:
-            field_definition = definition_message.get_field_definition(field.field_id)
+            field_definition = field_definitions_by_id.get(field.field_id)
             if field_definition:
                 field.size = field_definition.size
             else:
                 field.size = 0
 
         for field in self.developer_fields:
-            field_definition = definition_message.get_developer_field_definition(field.developer_data_index,
-                                                                                 field.field_id)
+            field_definition = developer_field_definitions_by_id.get((field.developer_data_index, field.field_id))
             if field_definition:
                 field.size = field_definition.size
             else:
                 field.size = 0
 
-    def get_field(self, field_id: int) -> Optional[Field]:
+    def get_field(self, field_id: int) -> Field | None:
         return next((x for x in self.fields if x.field_id == field_id), None)
 
-    def get_field_by_name(self, name: str) -> Optional[Field]:
+    def get_field_by_name(self, name: str) -> Field | None:
         return next((x for x in self.fields if x.name == name), None)
 
     def clear_field_by_id(self, field_id: int):
@@ -87,58 +117,94 @@ class DataMessage(Message):
     def remove_field(self, field_id: int):
         self.clear_field_by_id(field_id)
 
-    def get_developer_field(self, developer_data_index: int, field_id: int) -> Optional[DeveloperField]:
+    def get_developer_field(self, developer_data_index: int, field_id: int) -> DeveloperField | None:
         return next((x for x in self.developer_fields if
                      x.developer_data_index == developer_data_index and x.field_id == field_id), None)
 
-    def get_developer_field_by_name(self, name: str) -> Optional[DeveloperField]:
+    def get_developer_field_by_name(self, name: str) -> DeveloperField | None:
         return next((x for x in self.developer_fields if x.name == name), None)
+
+    def retain_unknown_fields(self) -> None:
+        """Append :class:`UnknownField` slots for definition ids not in the Profile.
+
+        Called during decode projection so known messages keep unknown field ids
+        and their payloads (design Phase 3 / Multica Stage 2 E). Safe to call
+        more than once; already-present field ids are left unchanged.
+        """
+        if not self.definition_message:
+            return
+
+        known_ids = {field.field_id for field in self.fields}
+        for field_definition in self.definition_message.field_definitions:
+            if field_definition.field_id in known_ids:
+                continue
+            if field_definition.size <= 0:
+                continue
+            self.fields.append(UnknownField.from_field_definition(field_definition))
+            known_ids.add(field_definition.field_id)
 
     def read_from_bytes(self, bytes_buffer: bytes, offset: int = 0):
         start = offset
 
         if not self.definition_message:
-            raise Exception('DefinitionMessage cannot be null.')
+            raise FitRecordError('DefinitionMessage cannot be null.')
+
+        # Project unknown native field ids onto this known message before reading.
+        self.retain_unknown_fields()
+
+        fields_by_id = {field.field_id: field for field in reversed(self.fields)}
+        developer_fields_by_id = {
+            (field.developer_data_index, field.field_id): field for field in reversed(self.developer_fields)
+        }
 
         for field_definition in self.definition_message.field_definitions:
-            field = self.get_field(field_definition.field_id)
+            field = fields_by_id.get(field_definition.field_id)
 
             if not field:
+                # Developer-only or zero-size edge: skip with a warning (rare after retain).
                 logger.warning(
-                    f'Field id: {field_definition.field_id} is not defined for message {self.name}:{self.global_id}. Skipping this field')
+                    f'Field id: {field_definition.field_id} is not defined for message '
+                    f'{self.name}:{self.global_id}. Skipping this field'
+                )
                 start += field_definition.size
                 continue
 
             if field.is_valid():
-                field_bytes = bytes_buffer[start:start + field.size]
-                field.read_all_from_bytes(field_bytes, endian=self.endian)
+                field.read_all_from_bytes(bytes_buffer, endian=self.endian, offset=start)
                 start += field.size
             else:
-                raise Exception(f'Field ${field.name} is empty')
+                raise FitRecordError(f'Field {field.name} is empty')
 
         for developer_field_definition in self.definition_message.developer_field_definitions:
-            field = self.get_developer_field(developer_field_definition.developer_data_index,
-                                             developer_field_definition.field_id)
+            field = developer_fields_by_id.get(
+                (developer_field_definition.developer_data_index, developer_field_definition.field_id)
+            )
 
             if not field:
                 logger.warning(
-                    f'Developer Field id: {developer_field_definition.field_id} is not defined for message {self.name}:{self.global_id}. Skipping this field')
+                    f'Developer Field id: {developer_field_definition.field_id} is not defined for message '
+                    f'{self.name}:{self.global_id}. Skipping this field'
+                )
                 start += developer_field_definition.size
                 continue
 
             if field.is_valid():
-                field_bytes = bytes_buffer[start:start + field.size]
-                field.read_all_from_bytes(field_bytes, endian=self.endian)
+                field.read_all_from_bytes(bytes_buffer, endian=self.endian, offset=start)
                 start += field.size
             else:
-                raise Exception(f'Developer Field ${field.name} is empty')
+                raise FitRecordError(f'Developer Field {field.name} is empty')
 
     def to_row(self) -> list:
         row = [self.name]
 
         if self.definition_message:
+            fields_by_id = {field.field_id: field for field in reversed(self.fields)}
+            developer_fields_by_id = {
+                (field.developer_data_index, field.field_id): field for field in reversed(self.developer_fields)
+            }
+
             for field_definition in self.definition_message.field_definitions:
-                field = self.get_field(field_definition.field_id)
+                field = fields_by_id.get(field_definition.field_id)
                 if field is None:
                     # logger.w('Field for id: ${fieldDefinition.id} not found.');
                     continue
@@ -147,20 +213,23 @@ class DataMessage(Message):
                     sub_field = field.get_valid_sub_field(self.fields)
                     row.extend(field.to_row(sub_field=sub_field))
                 else:
-                    raise Exception(f'Field for id: {field_definition.field_id} is not valid.')
+                    # Cleared field still listed on definition — CSV gets empty cells.
+                    row.extend([''] * max(1, field_definition.size // max(field.base_type.size, 1)))
 
             for field_definition in self.definition_message.developer_field_definitions:
-                field = self.get_developer_field(field_definition.developer_data_index, field_definition.field_id)
+                field = developer_fields_by_id.get(
+                    (field_definition.developer_data_index, field_definition.field_id)
+                )
 
                 if field is None:
-                    raise Exception(
+                    raise FitEncodingError(
                         f'Developer field for id: {field_definition.developer_data_index}:{field_definition.field_id} not found.')
 
                 if field.is_valid():
                     sub_field = field.get_valid_sub_field(self.fields)
                     row.extend(field.to_row(sub_field=sub_field))
                 else:
-                    raise Exception(f'Developer Field for id: {field_definition.field_id} is not valid.')
+                    row.extend([''] * max(1, field_definition.size // max(field.base_type.size, 1)))
 
         else:
             for field in self.fields:
@@ -176,39 +245,59 @@ class DataMessage(Message):
         return row
 
     def to_bytes(self) -> bytes:
-        bytes_buffer = b''
+        bytes_buffer = bytearray()
 
         if self.definition_message:
+            fields_by_id = {field.field_id: field for field in reversed(self.fields)}
+            developer_fields_by_id = {
+                (field.developer_data_index, field.field_id): field for field in reversed(self.developer_fields)
+            }
+
             for field_definition in self.definition_message.field_definitions:
-                field = self.get_field(field_definition.field_id)
+                field = fields_by_id.get(field_definition.field_id)
                 if field is None:
                     # logger.w('Field for id: ${fieldDefinition.id} not found.');
                     continue
 
                 if field.is_valid():
-                    bytes_buffer += field.to_bytes(endian=self.endian)
+                    bytes_buffer.extend(field.to_bytes(endian=self.endian))
                 else:
-                    raise Exception(f'Field for id: {field_definition.field_id} is not valid.')
+                    # Cleared fields (e.g. property set to None → Field.clear()) stay
+                    # listed on the definition until it is rewritten. Emit invalid
+                    # bytes of the definition size so encode still succeeds.
+                    bytes_buffer.extend(
+                        field.invalid_bytes_for_definition_size(
+                            field_definition.size,
+                            endian=self.endian,
+                        )
+                    )
 
             for field_definition in self.definition_message.developer_field_definitions:
-                field = self.get_developer_field(field_definition.developer_data_index, field_definition.field_id)
+                field = developer_fields_by_id.get(
+                    (field_definition.developer_data_index, field_definition.field_id)
+                )
 
                 if field is None:
-                    raise Exception(
+                    raise FitEncodingError(
                         f'Developer field for id: {field_definition.developer_data_index}:{field_definition.field_id} not found.')
 
                 if field.is_valid():
-                    bytes_buffer += field.to_bytes(endian=self.endian)
+                    bytes_buffer.extend(field.to_bytes(endian=self.endian))
                 else:
-                    raise Exception(f'Developer Field for id: {field_definition.field_id} is not valid.')
+                    bytes_buffer.extend(
+                        field.invalid_bytes_for_definition_size(
+                            field_definition.size,
+                            endian=self.endian,
+                        )
+                    )
 
         else:
             for field in self.fields:
                 if field.is_valid():
-                    bytes_buffer += field.to_bytes(endian=self.endian)
+                    bytes_buffer.extend(field.to_bytes(endian=self.endian))
 
             for field in self.developer_fields:
                 if field.is_valid():
-                    bytes_buffer += field.to_bytes(endian=self.endian)
+                    bytes_buffer.extend(field.to_bytes(endian=self.endian))
 
-        return bytes_buffer
+        return bytes(bytes_buffer)

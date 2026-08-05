@@ -137,6 +137,23 @@ mod tests {
     }
 
     #[test]
+    fn test_object_contains() {
+        let needle = dyn_value!("Foo");
+        let haystack = test_only_make_eval_value!(json!({"foo": true, "bar": true}));
+
+        assert!(compare_strings_in_array(
+            (&needle).into(),
+            &haystack,
+            ConditionOperator::Any
+        ));
+        assert!(!compare_strings_in_array(
+            (&needle).into(),
+            &haystack,
+            ConditionOperator::NoneOf
+        ));
+    }
+
+    #[test]
     fn test_str_starting_with() {
         let needle = dyn_value!("daniel@statsig.com");
         let haystack = test_only_make_eval_value!(vec!["tore", "daniel"]);

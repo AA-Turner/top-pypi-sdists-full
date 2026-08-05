@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prowler
-Version: 5.37.0
+Version: 5.37.1
 Summary: Prowler is an Open Source security tool to perform AWS, GCP and Azure security best practices assessments, audits, incident response, continuous monitoring, hardening and forensics readiness. It contains hundreds of controls covering CIS, NIST 800, NIST CSF, CISA, RBI, FedRAMP, PCI-DSS, GDPR, HIPAA, FFIEC, SOC2, GXP, AWS Well-Architected Framework Security Pillar, AWS Foundational Technical Review (FTR), ENS (Spanish National Security Scheme) and your custom security frameworks.
 Project-URL: Changelog, https://github.com/prowler-cloud/prowler/releases
 Project-URL: Documentation, https://docs.prowler.com
@@ -27,7 +27,7 @@ Requires-Dist: alibabacloud-rds20140815==12.0.0
 Requires-Dist: alibabacloud-sas20181203==6.1.0
 Requires-Dist: alibabacloud-sls20201230==5.9.0
 Requires-Dist: alibabacloud-sts20150401==1.1.6
-Requires-Dist: alibabacloud-tea-openapi==0.4.4
+Requires-Dist: alibabacloud-tea-openapi==0.4.5
 Requires-Dist: alibabacloud-vpc20160428==6.13.0
 Requires-Dist: alive-progress==3.3.0
 Requires-Dist: azure-identity==1.21.0
@@ -61,7 +61,7 @@ Requires-Dist: boto3==1.40.61
 Requires-Dist: botocore==1.40.61
 Requires-Dist: cloudflare==4.3.1
 Requires-Dist: colorama==0.4.6
-Requires-Dist: cryptography==46.0.7
+Requires-Dist: cryptography==48.0.1
 Requires-Dist: dash-bootstrap-components==2.0.3
 Requires-Dist: dash==3.1.1
 Requires-Dist: defusedxml==0.7.1
@@ -85,15 +85,15 @@ Requires-Dist: kingfisher-bin==1.104.0
 Requires-Dist: kubernetes==32.0.1
 Requires-Dist: linode-api4==5.45.0
 Requires-Dist: markdown==3.10.2
-Requires-Dist: microsoft-kiota-abstractions==1.9.9
+Requires-Dist: microsoft-kiota-abstractions==1.9.10
 Requires-Dist: msgraph-sdk==1.55.0
 Requires-Dist: numpy==2.2.6
-Requires-Dist: oci==2.169.0
+Requires-Dist: oci==2.183.0
 Requires-Dist: okta==3.4.2
 Requires-Dist: openstacksdk==4.2.0
 Requires-Dist: pandas==2.2.3
 Requires-Dist: py-iam-expand==0.3.0
-Requires-Dist: py-ocsf-models==0.8.1
+Requires-Dist: py-ocsf-models==0.10.0
 Requires-Dist: pydantic==2.12.5
 Requires-Dist: pygithub==2.8.0
 Requires-Dist: python-dateutil==2.9.0.post0

@@ -6,6 +6,7 @@ __all__ = ["Submodule", "UpdateProgress"]
 import gc
 from io import BytesIO
 import logging
+import ntpath
 import os
 import os.path as osp
 import stat
@@ -28,6 +29,7 @@ from git.objects.util import TraversableIterableObj
 from git.util import (
     IterableList,
     RemoteProgress,
+    _to_relative_path,
     join_path_native,
     rmtree,
     to_native_path_linux,
@@ -303,7 +305,19 @@ class Submodule(IndexObject, TraversableIterableObj):
         return SectionConstraint(parser, sm_section(self.name))
 
     @classmethod
+    def _validated_name(cls, name: str) -> str:
+        if (
+            not name
+            or name.startswith(("/", "\\"))
+            or ntpath.splitdrive(name)[0]
+            or ".." in name.replace("\\", "/").split("/")
+        ):
+            raise ValueError("Invalid submodule name %r" % name)
+        return name
+
+    @classmethod
     def _module_abspath(cls, parent_repo: "Repo", path: PathLike, name: str) -> PathLike:
+        name = cls._validated_name(name)
         if cls._need_gitfile_submodules(parent_repo.git):
             return osp.join(parent_repo.git_dir, "modules", name)
         if parent_repo.working_tree_dir:
@@ -379,23 +393,14 @@ class Submodule(IndexObject, TraversableIterableObj):
         :raise ValueError:
             If path is not contained in the parent repository's working tree.
         """
-        path = to_native_path_linux(path)
+        if parent_repo.working_tree_dir:
+            path = _to_relative_path(parent_repo.working_tree_dir, path)
+        else:
+            path = to_native_path_linux(path)
         if path.endswith("/"):
             path = path[:-1]
-        # END handle trailing slash
-
-        if osp.isabs(path) and parent_repo.working_tree_dir:
-            working_tree_linux = to_native_path_linux(parent_repo.working_tree_dir)
-            if not path.startswith(working_tree_linux):
-                raise ValueError(
-                    "Submodule checkout path '%s' needs to be within the parents repository at '%s'"
-                    % (working_tree_linux, path)
-                )
-            path = path[len(working_tree_linux.rstrip("/")) + 1 :]
-            if not path:
-                raise ValueError("Absolute submodule path '%s' didn't yield a valid relative path" % path)
-            # END verify converted relative path makes sense
-        # END convert to a relative path
+        if not path or path == ".":
+            raise ValueError("Submodule checkout path must not be the repository root")
 
         return path
 
@@ -523,6 +528,7 @@ class Submodule(IndexObject, TraversableIterableObj):
             raise InvalidGitRepositoryError("Cannot add submodules to bare repositories")
         # END handle bare repos
 
+        cls._validated_name(name)
         path = cls._to_relative_path(repo, path)
 
         # Ensure we never put backslashes into the URL, as might happen on Windows.
@@ -734,9 +740,7 @@ class Submodule(IndexObject, TraversableIterableObj):
             prefix = "DRY-RUN: "
         # END handle prefix
 
-        # To keep things plausible in dry-run mode.
-        if dry_run:
-            mrepo = None
+        mrepo = None
         # END init mrepo
 
         def fetch_remotes(module_repo: "Repo") -> None:
@@ -771,6 +775,8 @@ class Submodule(IndexObject, TraversableIterableObj):
             # END fetch new data
 
         try:
+            self._validated_name(self.name)
+
             # ENSURE REPO IS PRESENT AND UP-TO-DATE
             #######################################
             try:
@@ -871,6 +877,7 @@ class Submodule(IndexObject, TraversableIterableObj):
             #############################
             binsha = self.binsha
             hexsha = self.hexsha
+            is_detached = False
             if mrepo is not None:
                 # mrepo is only set if we are not in dry-run mode or if the module
                 # existed.
@@ -1020,6 +1027,7 @@ class Submodule(IndexObject, TraversableIterableObj):
             raise ValueError("You must specify to move at least the module or the configuration of the submodule")
         # END handle input
 
+        self._validated_name(self.name)
         module_checkout_path = self._to_relative_path(self.repo, module_path)
 
         # VERIFY DESTINATION
@@ -1160,6 +1168,7 @@ class Submodule(IndexObject, TraversableIterableObj):
             raise ValueError("Need to specify to delete at least the module, or the configuration")
         # END handle parameters
 
+        self._validated_name(self.name)
         # Recursively remove children of this submodule.
         nc = 0
         for csm in self.children():
@@ -1213,6 +1222,7 @@ class Submodule(IndexObject, TraversableIterableObj):
                 for remote in mod.remotes:
                     num_branches_with_new_commits = 0
                     rrefs = remote.refs
+                    rref = None
                     for rref in rrefs:
                         num_branches_with_new_commits += len(mod.git.cherry(rref)) != 0
                     # END for each remote ref
@@ -1416,6 +1426,9 @@ class Submodule(IndexObject, TraversableIterableObj):
         if self.name == new_name:
             return self
 
+        self._validated_name(self.name)
+        self._validated_name(new_name)
+
         # .git/config
         with self.repo.config_writer() as pw:
             # As we ourselves didn't write anything about submodules into the parent
@@ -1463,6 +1476,7 @@ class Submodule(IndexObject, TraversableIterableObj):
             If a repository was not available.
             This could also mean that it was not yet initialized.
         """
+        self._validated_name(self.name)
         module_checkout_abspath = self.abspath
         try:
             repo = git.Repo(module_checkout_abspath)

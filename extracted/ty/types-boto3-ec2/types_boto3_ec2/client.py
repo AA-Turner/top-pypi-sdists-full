@@ -237,6 +237,8 @@ from .type_defs import (
     AssignPrivateNatGatewayAddressResultTypeDef,
     AssociateAddressRequestTypeDef,
     AssociateAddressResultTypeDef,
+    AssociateApplicationStatusCheckRequestTypeDef,
+    AssociateApplicationStatusCheckResultTypeDef,
     AssociateCapacityReservationBillingOwnerRequestTypeDef,
     AssociateCapacityReservationBillingOwnerResultTypeDef,
     AssociateClientVpnTargetNetworkRequestTypeDef,
@@ -324,6 +326,8 @@ from .type_defs import (
     CopySnapshotResultTypeDef,
     CopyVolumesRequestTypeDef,
     CopyVolumesResultTypeDef,
+    CreateApplicationStatusCheckRequestTypeDef,
+    CreateApplicationStatusCheckResultTypeDef,
     CreateCapacityManagerDataExportRequestTypeDef,
     CreateCapacityManagerDataExportResultTypeDef,
     CreateCapacityReservationBySplittingRequestTypeDef,
@@ -529,6 +533,8 @@ from .type_defs import (
     CreateVpnConnectionRouteRequestTypeDef,
     CreateVpnGatewayRequestTypeDef,
     CreateVpnGatewayResultTypeDef,
+    DeleteApplicationStatusCheckRequestTypeDef,
+    DeleteApplicationStatusCheckResultTypeDef,
     DeleteCapacityManagerDataExportRequestTypeDef,
     DeleteCapacityManagerDataExportResultTypeDef,
     DeleteCarrierGatewayRequestTypeDef,
@@ -726,6 +732,12 @@ from .type_defs import (
     DescribeAddressTransfersResultTypeDef,
     DescribeAggregateIdFormatRequestTypeDef,
     DescribeAggregateIdFormatResultTypeDef,
+    DescribeApplicationStatusCheckAssociationsRequestTypeDef,
+    DescribeApplicationStatusCheckAssociationsResultTypeDef,
+    DescribeApplicationStatusChecksRequestTypeDef,
+    DescribeApplicationStatusChecksResultTypeDef,
+    DescribeApplicationStatusRequestTypeDef,
+    DescribeApplicationStatusResultTypeDef,
     DescribeAvailabilityZonesRequestTypeDef,
     DescribeAvailabilityZonesResultTypeDef,
     DescribeAwsNetworkPerformanceMetricSubscriptionsRequestTypeDef,
@@ -1102,6 +1114,8 @@ from .type_defs import (
     DisableAddressTransferResultTypeDef,
     DisableAllowedImagesSettingsRequestTypeDef,
     DisableAllowedImagesSettingsResultTypeDef,
+    DisableApplicationStatusCheckSuppressionRequestTypeDef,
+    DisableApplicationStatusCheckSuppressionResultTypeDef,
     DisableAwsNetworkPerformanceMetricSubscriptionRequestTypeDef,
     DisableAwsNetworkPerformanceMetricSubscriptionResultTypeDef,
     DisableCapacityManagerRequestTypeDef,
@@ -1140,6 +1154,8 @@ from .type_defs import (
     DisableVpcClassicLinkRequestTypeDef,
     DisableVpcClassicLinkResultTypeDef,
     DisassociateAddressRequestTypeDef,
+    DisassociateApplicationStatusCheckRequestTypeDef,
+    DisassociateApplicationStatusCheckResultTypeDef,
     DisassociateCapacityReservationBillingOwnerRequestTypeDef,
     DisassociateCapacityReservationBillingOwnerResultTypeDef,
     DisassociateClientVpnTargetNetworkRequestTypeDef,
@@ -1178,6 +1194,8 @@ from .type_defs import (
     EnableAddressTransferResultTypeDef,
     EnableAllowedImagesSettingsRequestTypeDef,
     EnableAllowedImagesSettingsResultTypeDef,
+    EnableApplicationStatusCheckSuppressionRequestTypeDef,
+    EnableApplicationStatusCheckSuppressionResultTypeDef,
     EnableAwsNetworkPerformanceMetricSubscriptionRequestTypeDef,
     EnableAwsNetworkPerformanceMetricSubscriptionResultTypeDef,
     EnableCapacityManagerRequestTypeDef,
@@ -1395,6 +1413,8 @@ from .type_defs import (
     ModifyAccountVpcEncryptionControlResultTypeDef,
     ModifyAddressAttributeRequestTypeDef,
     ModifyAddressAttributeResultTypeDef,
+    ModifyApplicationStatusCheckRequestTypeDef,
+    ModifyApplicationStatusCheckResultTypeDef,
     ModifyAvailabilityZoneGroupRequestTypeDef,
     ModifyAvailabilityZoneGroupResultTypeDef,
     ModifyCapacityReservationFleetRequestTypeDef,
@@ -1979,6 +1999,17 @@ class EC2Client(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#associate_address)
         """
 
+    def associate_application_status_check(
+        self, **kwargs: Unpack[AssociateApplicationStatusCheckRequestTypeDef]
+    ) -> AssociateApplicationStatusCheckResultTypeDef:
+        """
+        Associates an application status check with instances or <a
+        href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html">tags</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/associate_application_status_check.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#associate_application_status_check)
+        """
+
     def associate_capacity_reservation_billing_owner(
         self, **kwargs: Unpack[AssociateCapacityReservationBillingOwnerRequestTypeDef]
     ) -> AssociateCapacityReservationBillingOwnerResultTypeDef:
@@ -2440,6 +2471,17 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/copy_volumes.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#copy_volumes)
+        """
+
+    def create_application_status_check(
+        self, **kwargs: Unpack[CreateApplicationStatusCheckRequestTypeDef]
+    ) -> CreateApplicationStatusCheckResultTypeDef:
+        """
+        Creates an application status check for monitoring the health of applications
+        running on your instances.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_application_status_check.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#create_application_status_check)
         """
 
     def create_capacity_manager_data_export(
@@ -3531,6 +3573,16 @@ class EC2Client(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#create_vpn_gateway)
         """
 
+    def delete_application_status_check(
+        self, **kwargs: Unpack[DeleteApplicationStatusCheckRequestTypeDef]
+    ) -> DeleteApplicationStatusCheckResultTypeDef:
+        """
+        Deletes an application status check.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_application_status_check.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#delete_application_status_check)
+        """
+
     def delete_capacity_manager_data_export(
         self, **kwargs: Unpack[DeleteCapacityManagerDataExportRequestTypeDef]
     ) -> DeleteCapacityManagerDataExportResultTypeDef:
@@ -4618,6 +4670,36 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_aggregate_id_format.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#describe_aggregate_id_format)
+        """
+
+    def describe_application_status(
+        self, **kwargs: Unpack[DescribeApplicationStatusRequestTypeDef]
+    ) -> DescribeApplicationStatusResultTypeDef:
+        """
+        Describes the application status for the specified instances.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_application_status.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#describe_application_status)
+        """
+
+    def describe_application_status_check_associations(
+        self, **kwargs: Unpack[DescribeApplicationStatusCheckAssociationsRequestTypeDef]
+    ) -> DescribeApplicationStatusCheckAssociationsResultTypeDef:
+        """
+        Describes the associations for one or more application status checks.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_application_status_check_associations.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#describe_application_status_check_associations)
+        """
+
+    def describe_application_status_checks(
+        self, **kwargs: Unpack[DescribeApplicationStatusChecksRequestTypeDef]
+    ) -> DescribeApplicationStatusChecksResultTypeDef:
+        """
+        Describes one or more application status checks.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_application_status_checks.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#describe_application_status_checks)
         """
 
     def describe_availability_zones(
@@ -6589,6 +6671,16 @@ class EC2Client(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#disable_allowed_images_settings)
         """
 
+    def disable_application_status_check_suppression(
+        self, **kwargs: Unpack[DisableApplicationStatusCheckSuppressionRequestTypeDef]
+    ) -> DisableApplicationStatusCheckSuppressionResultTypeDef:
+        """
+        Disables suppression of application status checks for the specified instances.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/disable_application_status_check_suppression.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#disable_application_status_check_suppression)
+        """
+
     def disable_aws_network_performance_metric_subscription(
         self, **kwargs: Unpack[DisableAwsNetworkPerformanceMetricSubscriptionRequestTypeDef]
     ) -> DisableAwsNetworkPerformanceMetricSubscriptionResultTypeDef:
@@ -6798,6 +6890,17 @@ class EC2Client(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#disassociate_address)
         """
 
+    def disassociate_application_status_check(
+        self, **kwargs: Unpack[DisassociateApplicationStatusCheckRequestTypeDef]
+    ) -> DisassociateApplicationStatusCheckResultTypeDef:
+        """
+        Disassociates an application status check from instances or <a
+        href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html">tags</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/disassociate_application_status_check.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#disassociate_application_status_check)
+        """
+
     def disassociate_capacity_reservation_billing_owner(
         self, **kwargs: Unpack[DisassociateCapacityReservationBillingOwnerRequestTypeDef]
     ) -> DisassociateCapacityReservationBillingOwnerResultTypeDef:
@@ -6991,6 +7094,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/enable_allowed_images_settings.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#enable_allowed_images_settings)
+        """
+
+    def enable_application_status_check_suppression(
+        self, **kwargs: Unpack[EnableApplicationStatusCheckSuppressionRequestTypeDef]
+    ) -> EnableApplicationStatusCheckSuppressionResultTypeDef:
+        """
+        Suppresses application status checks for the specified instances.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/enable_application_status_check_suppression.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#enable_application_status_check_suppression)
         """
 
     def enable_aws_network_performance_metric_subscription(
@@ -8122,6 +8235,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_address_attribute.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#modify_address_attribute)
+        """
+
+    def modify_application_status_check(
+        self, **kwargs: Unpack[ModifyApplicationStatusCheckRequestTypeDef]
+    ) -> ModifyApplicationStatusCheckResultTypeDef:
+        """
+        Modifies an existing application status check.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_application_status_check.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#modify_application_status_check)
         """
 
     def modify_availability_zone_group(

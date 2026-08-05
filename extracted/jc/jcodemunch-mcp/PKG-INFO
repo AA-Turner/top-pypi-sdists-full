@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jcodemunch-mcp
-Version: 1.108.234
+Version: 1.108.241
 Summary: Token-efficient MCP server for source code exploration via tree-sitter AST parsing
 Project-URL: Homepage, https://github.com/jgravelle/jcodemunch-mcp
 Project-URL: Repository, https://github.com/jgravelle/jcodemunch-mcp
@@ -320,9 +320,9 @@ is a byte the agent doesn't pay to read.
 <!-- WHATSNEW:START -->
 #### What's new
 
-- **[v1.108.170](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.170)** (2026-07-25) — the file and symbol tools can see a rebuild too
-- **[v1.108.169](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.169)** (2026-07-25) — the retrieval verdict survives compaction
-- **[v1.108.168](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.168)** (2026-07-24) — a rebuild underneath a scan cannot prove absence (5th refusal rule)
+- **[v1.108.239](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.239)** (2026-08-04) — a YAML key keeps its own name
+- **[v1.108.238](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.238)** (2026-08-04) — a YAML symbol is located at its own key's line, or refuses
+- **[v1.108.237](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.237)** (2026-08-04) — a YAML symbol's byte extent describes real source, not a reconstruction
 <!-- WHATSNEW:END -->
 
 ![License](https://img.shields.io/badge/license-dual--use-blue)
@@ -602,6 +602,41 @@ Everything jCodeMunch does beyond answering a tool call is listed here. All of i
 - **Accepting reports from other machines. Off by default, behind two explicit opt-ins.** One machine can act as the "org host" that collects the reports above, via `POST /org/report`. This is the only route in jCodeMunch that accepts writes from another computer, so it is gated three ways: the HTTP transport has to be running at all (`serve --transport streamable-http`), `org_ingest_enabled` must be turned on (it defaults to **false**, via `JCODEMUNCH_ORG_INGEST_ENABLED=1`), and the request must carry your `JCODEMUNCH_HTTP_TOKEN` bearer. It stores exactly the six fields listed above, in `org_savings.db` on that host. A default install accepts nothing, listens for nothing, and needs no action from you to keep it that way.
 
 Beyond the user-invoked calls listed above, the base package makes no other network calls and leaves no other persistent processes. AI-summary extras call their configured provider's API only when you enable them — see the extras matrix under [Start fast](#start-fast).
+
+---
+
+## Offloadable-work annotation (`JMUNCH_OFFLOADABLE`, off by default)
+
+Set `JMUNCH_OFFLOADABLE=1` (or the per-server `JCODEMUNCH_OFFLOADABLE=1`) and every `get_symbol_source` reply carries an advisory `_meta.offloadable` block saying whether the work that payload enables is grunt-work a cheaper model can do. Nothing is emitted unless you switch it on, and nothing about the answer itself changes when you do.
+
+**We label. We never route, execute, or hold model credentials.** No new process, no network call, no catalog action, and no model of ours ever runs. What to do with the label is entirely the client's decision.
+
+Every modelmaxxing router available today classifies the **prompt**, because the prompt is all a router standing in front of the model can see. This sits downstream of retrieval and classifies **the evidence we just assembled** — whether the answer is literally present in the payload, how many containers it spans, whether anything was truncated, and whether any freshness or coverage signal came back unknown.
+
+The verdict is **tri-state and reason-coded**, never a bare score:
+
+```json
+"offloadable": {
+  "offloadable": "offloadable",
+  "qualifiers": ["EXTRACTIVE", "SINGLE_CONTAINER", "IDENTITY_LOOKUP", "NO_ABSENCE_FLAGS", "SELF_CONTAINED"],
+  "disqualifiers": [],
+  "shape": {"units": 1, "containers": 1},
+  "verify_with": {"tool": "check_references", "args": {"identifier": "compute_confidence"}},
+  "criterion_version": 2
+}
+```
+
+`not_evaluated` is not `not_offloadable` — "we did not assess it" and "this is not grunt-work" are different facts, and collapsing them is exactly the failure the tri-state exists to prevent. The criterion **fails closed**: every unknown bearing on the answer disqualifies, because a false `offloadable` sends real work to a model that will confabulate over the gap, while a false `not_offloadable` costs nothing but a missed saving.
+
+`verify_with` names the call that would **adjudicate** a cheaper model's answer over this payload. That is the part that stops the label requiring trust in us: an annotation you cannot check is a vendor assertion, and this one ships next to the tool that checks it.
+
+**What we measured, and what the numbers do not say.** The criterion was run against three pinned corpora — this repository, `fastapi/fastapi` at `a64dfbbd`, and `django/django` — before the label shipped, with the harness in [`benchmarks/offload/`](benchmarks/offload/). Findings worth stating plainly:
+
+- On an index whose freshness cannot be established, **every** payload is refused. Django's index carries no source root, and all 300 sampled identity lookups gated on `TRI_STATE_UNKNOWN`. That is the fail-closed rule doing its job, not a defect.
+- The falsifier checks a **necessary** condition — was the ground truth actually present in the payload — never a sufficient one. It cannot tell you a cheap model will answer correctly, only that the information it needs was there. **A pass is an upper bound on achievable accuracy and must not be read as an accuracy figure.**
+- The batch arm's rate is a **floor**, not a representative rate: it deliberately scatters its sample across many files, which is close to the worst case for the container rule.
+
+Same field contract in jdocmunch-mcp (sections/documents) and jdatamunch-mcp (columns/datasets) — the vocabulary is *units* and *containers* so all three speak it identically, and a pinned contract digest fails the build in any one of them that drifts.
 
 ---
 

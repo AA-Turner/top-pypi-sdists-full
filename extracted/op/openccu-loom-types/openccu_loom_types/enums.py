@@ -299,6 +299,11 @@ class DeviceUpdateStatus(str, Enum):
     UpToDate = "up_to_date"
     UpdateAvailable = "update_available"
 
+class DuressVisibility(str, Enum):
+    Full = "full"
+    Hidden = "hidden"
+    NotifyOnly = "notify_only"
+
 class FailureReason(str, Enum):
     Auth = "auth"
     CircuitBreaker = "circuit_breaker"
@@ -489,6 +494,7 @@ class Parameter(str, Enum):
     ActualHumidity = "ACTUAL_HUMIDITY"
     ActualTemperature = "ACTUAL_TEMPERATURE"
     AirPressure = "AIR_PRESSURE"
+    AlarmState = "ALARMSTATE"
     AutoMode = "AUTO_MODE"
     AutoRelockState = "AUTO_RELOCK_STATE"
     BatteryState = "BATTERY_STATE"
@@ -533,7 +539,9 @@ class Parameter(str, Enum):
     EnergyCounter = "ENERGY_COUNTER"
     EnergyCounterFeedIn = "ENERGY_COUNTER_FEED_IN"
     Error = "ERROR"
+    ErrorAlarmTest = "ERROR_ALARM_TEST"
     ErrorJammed = "ERROR_JAMMED"
+    ErrorSmokeChamber = "ERROR_SMOKE_CHAMBER"
     Frequency = "FREQUENCY"
     GlobalButtonLock = "GLOBAL_BUTTON_LOCK"
     HeatingCooling = "HEATING_COOLING"
@@ -562,6 +570,7 @@ class Parameter(str, Enum):
     MassConcentrationPM1_24H = "MASS_CONCENTRATION_PM_1_24H_AVERAGE"
     MassConcentrationPM25_24H = "MASS_CONCENTRATION_PM_2_5_24H_AVERAGE"
     MinMaxNotRelevantForManuMode = "MIN_MAX_VALUE_NOT_RELEVANT_FOR_MANU_MODE"
+    MoistureDetected = "MOISTURE_DETECTED"
     Motion = "MOTION"
     MotionDetectionActive = "MOTION_DETECTION_ACTIVE"
     OnTime = "ON_TIME"
@@ -596,6 +605,7 @@ class Parameter(str, Enum):
     Program = "PROGRAM"
     RSSIDevice = "RSSI_DEVICE"
     RSSIPeer = "RSSI_PEER"
+    Raining = "RAINING"
     RampTime = "RAMP_TIME"
     RampTimeToOffUnit = "RAMP_TIME_TO_OFF_UNIT"
     RampTimeToOffValue = "RAMP_TIME_TO_OFF_VALUE"
@@ -617,6 +627,7 @@ class Parameter(str, Enum):
     SetPointTemperature = "SET_POINT_TEMPERATURE"
     SetTemperature = "SET_TEMPERATURE"
     Setpoint = "SETPOINT"
+    SmokeAlarm = "SMOKE_ALARM"
     SmokeDetectorAlarmStatus = "SMOKE_DETECTOR_ALARM_STATUS"
     SmokeDetectorCommand = "SMOKE_DETECTOR_COMMAND"
     SmokeLevel = "SMOKE_LEVEL"
@@ -636,6 +647,7 @@ class Parameter(str, Enum):
     ValveState = "VALVE_STATE"
     Voltage = "VOLTAGE"
     WaterFlow = "WATER_FLOW"
+    WaterLevelDetected = "WATERLEVEL_DETECTED"
     WaterVolume = "WATER_VOLUME"
     WaterVolumeSinceOpen = "WATER_VOLUME_SINCE_OPEN"
     WeekProgramChannelLocks = "WEEK_PROGRAM_CHANNEL_LOCKS"
@@ -866,6 +878,42 @@ class ScheduleProfile(str, Enum):
 class ScheduleType(str, Enum):
     Climate = "climate"
     Default = "default"
+
+class SecurityClass(str, Enum):
+    Battery = "battery"
+    CO = "co"
+    Gas = "gas"
+    Intrusion = "intrusion"
+    Panic = "panic"
+    Smoke = "smoke"
+    Tamper = "tamper"
+    Technical = "technical"
+    Water = "water"
+
+class SecurityFaultReason(str, Enum):
+    Blocked = "blocked"
+    CentralLost = "central_lost"
+    DeviceError = "device_error"
+    DutyCycle = "duty_cycle"
+    LowBattery = "low_battery"
+    Tamper = "tamper"
+    Unreachable = "unreachable"
+
+class SecuritySeverity(str, Enum):
+    Alarm = "alarm"
+    Critical = "critical"
+    Info = "info"
+    OK = "ok"
+    Warning = "warning"
+
+class SecurityVerb(str, Enum):
+    Cleared = "cleared"
+    FailedToArm = "failed_to_arm"
+    PreAlarm = "pre_alarm"
+    Raised = "raised"
+    Silenced = "silenced"
+    Test = "test"
+    Triggered = "triggered"
 
 class ServiceScope(str, Enum):
     External = "external"

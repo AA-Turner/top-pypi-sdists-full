@@ -1,11 +1,13 @@
 mod utils;
 
+use std::sync::Arc;
+
 use more_asserts::assert_gt;
 use statsig_rust::{
+    StatsigOptions, StatsigUser,
     evaluation::{dynamic_string::DynamicString, user_agent_parsing::UserAgentParser},
     interned_string::InternedString,
     user::StatsigUserInternal,
-    StatsigUser,
 };
 use utils::helpers::load_contents;
 
@@ -148,6 +150,36 @@ fn test_specific_browser_version() {
     let user_agent = "ChatGPT/1.2025.322 (iOS 18.6.2; iPhone12,1; build 19585375154)";
     let version = extract_field_from_user_agent(user_agent, "browser_version");
     assert_eq!(version.as_deref(), Some("0.0.0"));
+}
+
+#[test]
+fn test_full_first_party_parse_matches_individual_fields() {
+    for test_case in TEST_CASES.iter() {
+        let mut user = StatsigUser::with_user_id("");
+        user.set_user_agent(test_case.user_agent.clone());
+        let parsed = UserAgentParser::get_parsed_user_agent_value_for_user(
+            &user,
+            &Arc::new(StatsigOptions::new()),
+        )
+        .expect("user agent should parse");
+
+        assert_eq!(
+            parsed.os_name,
+            extract_field_from_user_agent(&test_case.user_agent, "os_name")
+        );
+        assert_eq!(
+            parsed.os_version,
+            extract_field_from_user_agent(&test_case.user_agent, "os_version")
+        );
+        assert_eq!(
+            parsed.browser_name,
+            extract_field_from_user_agent(&test_case.user_agent, "browser_name")
+        );
+        assert_eq!(
+            parsed.browser_version,
+            extract_field_from_user_agent(&test_case.user_agent, "browser_version")
+        );
+    }
 }
 
 fn extract_field_from_user_agent(user_agent: &str, field: &str) -> Option<InternedString> {

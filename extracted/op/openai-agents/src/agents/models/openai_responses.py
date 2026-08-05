@@ -75,6 +75,7 @@ from ..tool import (
 )
 from ..tracing import SpanError, response_span
 from ..usage import Usage, _response_usage_to_usage, model_usage_to_span_usage
+from ..util._error_tracing import record_model_error_on_span
 from ..util._json import _to_dump_compatible
 from ..version import __version__
 from ._openai_retry import get_openai_retry_advice
@@ -444,11 +445,33 @@ class OpenAIResponsesModel(Model):
                 await close_result
 
     def _schedule_async_iterator_close(self, iterator: Any) -> None:
-        task = asyncio.create_task(self._maybe_aclose_async_iterator(iterator))
-        task.add_done_callback(self._consume_background_cleanup_task_result)
+        self._detach_stream_close(
+            asyncio.ensure_future(self._maybe_aclose_async_iterator(iterator))
+        )
+
+    async def _close_stream_allowing_background_completion(self, iterator: Any) -> None:
+        """Close the provider stream, letting an in-flight close finish in the background.
+
+        Cancellation can arrive while `aclose()` is already awaiting the provider. Shielding the
+        close and detaching that exact task keeps it running instead of abandoning it half-done,
+        and avoids starting a second close: re-closing a provider stream is not guaranteed to be
+        safe or idempotent.
+        """
+        close_task = asyncio.ensure_future(self._maybe_aclose_async_iterator(iterator))
+        try:
+            await asyncio.shield(close_task)
+        except asyncio.CancelledError:
+            self._detach_stream_close(close_task)
+            raise
+
+    def _detach_stream_close(self, close_task: asyncio.Future[None]) -> None:
+        if close_task.done():
+            self._consume_background_cleanup_task_result(close_task)
+            return
+        close_task.add_done_callback(self._consume_background_cleanup_task_result)
 
     @staticmethod
-    def _consume_background_cleanup_task_result(task: asyncio.Task[Any]) -> None:
+    def _consume_background_cleanup_task_result(task: asyncio.Future[Any]) -> None:
         try:
             task.result()
         except asyncio.CancelledError:
@@ -593,6 +616,17 @@ class OpenAIResponsesModel(Model):
                             "response.error",
                         }:
                             yielded_terminal_event = True
+                            if terminal_failure_error is not None:
+                                # A consumer that stops at this event closes the
+                                # generator, which raises GeneratorExit at the yield
+                                # below and skips the raise after the loop, so the
+                                # span has to be annotated here or not at all.
+                                record_model_error_on_span(
+                                    span_response,
+                                    message="Error streaming response",
+                                    error=terminal_failure_error,
+                                    trace_include_sensitive_data=tracing.include_data(),
+                                )
                         yield chunk
                 except asyncio.CancelledError:
                     close_stream_in_background = True
@@ -601,7 +635,7 @@ class OpenAIResponsesModel(Model):
                 finally:
                     if not close_stream_in_background:
                         try:
-                            await self._maybe_aclose_async_iterator(stream)
+                            await self._close_stream_allowing_background_completion(stream)
                         except Exception as exc:
                             if yielded_terminal_event:
                                 log_model_action_debug(
@@ -2071,8 +2105,19 @@ class Converter:
                 "type": "file_search",
                 "vector_store_ids": tool.vector_store_ids,
             }
-            if tool.max_num_results:
-                file_search_tool_param["max_num_results"] = tool.max_num_results
+            if tool.max_num_results is not None:
+                if (
+                    isinstance(tool.max_num_results, bool)
+                    or not isinstance(tool.max_num_results, int)
+                    or not 0 <= tool.max_num_results <= 50
+                ):
+                    raise UserError(
+                        "FileSearchTool max_num_results must be zero, an integer between 1 and 50, "
+                        "or None."
+                    )
+                # Zero intentionally follows the released provider-default path, just like None.
+                if tool.max_num_results > 0:
+                    file_search_tool_param["max_num_results"] = tool.max_num_results
             if tool.ranking_options:
                 file_search_tool_param["ranking_options"] = tool.ranking_options
             if tool.filters:

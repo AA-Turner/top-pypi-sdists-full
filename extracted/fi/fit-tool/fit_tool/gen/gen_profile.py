@@ -1,16 +1,51 @@
 import argparse
 import os
+import shutil
+import sys
 from pathlib import Path
-
-import inflection
-import jinja2
 
 from fit_tool import SDK_VERSION
 from fit_tool.base_type import BaseType
 from fit_tool.field import Field
-from fit_tool.gen.profile import Profile, Message
+from fit_tool.gen.component_registry import write_component_registry
+from fit_tool.gen.field_catalog import write_field_catalog
+from fit_tool.gen.profile import Message, Profile
 
-DEFAULT_BUILD_PATH = '../../build'
+DEFAULT_BUILD_PATH = str(Path(__file__).resolve().parents[1])
+
+_GEN_INSTALL_HINT = (
+    "gen-profile requires the optional gen dependencies "
+    "(openpyxl, inflection, jinja2).\n"
+    "Install with: pip install 'fit-tool[gen]'  or  uv sync --extra gen --group dev"
+)
+
+try:
+    import inflection
+    import jinja2
+except ImportError:
+    # Allow the module (and console entry point) to load without gen extras;
+    # main() exits with a clear install hint.
+    inflection = None  # type: ignore[assignment]
+    jinja2 = None  # type: ignore[assignment]
+
+
+def _require_gen_dependencies():
+    """Exit with a clear install hint if gen-only deps are missing."""
+    missing = []
+    for module_name, module in (
+        ("inflection", inflection),
+        ("jinja2", jinja2),
+    ):
+        if module is None:
+            missing.append(module_name)
+    try:
+        import openpyxl  # noqa: F401
+    except ImportError:
+        missing.append("openpyxl")
+    if missing:
+        print(_GEN_INSTALL_HINT, file=sys.stderr)
+        print(f"Missing: {', '.join(missing)}", file=sys.stderr)
+        raise SystemExit(1)
 
 
 def parse_args():
@@ -80,7 +115,7 @@ def field_name_to_class_name(message: Message, field: Field, name: str) -> str:
     name = name.replace('wkt_', 'workout_')
 
     # if not a common field then prefix the message name so we don't get class naming conflicts
-    if field.field_id not in [253, 254]:
+    if not is_common_field(field):
         name = message.name + '_' + name
 
     name = inflection.camelize(name, uppercase_first_letter=True)
@@ -88,6 +123,15 @@ def field_name_to_class_name(message: Message, field: Field, name: str) -> str:
     if not name.endswith('Field'):
         name += 'Field'
     return name
+
+
+def is_common_field(field: Field) -> bool:
+    field_id = str(field.field_id).strip()
+    if field_id == '253' and field.name == 'timestamp' and field.type_name == 'date_time':
+        return True
+    if field_id == '254' and field.name == 'message_index' and field.type_name == 'message_index':
+        return True
+    return False
 
 
 RESERVED_PROPERTY_NAMES = {'name', 'local_id', 'global_id'}
@@ -166,21 +210,19 @@ def get_field_property_type_name(profile: Profile, field: Field) -> str:
 
 
 def main():
+    _require_gen_dependencies()
+
     build_path = DEFAULT_BUILD_PATH
     profile_path = os.path.join(build_path, 'profile')
     messages_path = os.path.join(profile_path, 'messages')
 
     messages_dir = Path(messages_path)
     if messages_dir.exists():
-        for p in messages_dir.glob('*.py'):
-            p.unlink()
-        messages_dir.rmdir()
+        shutil.rmtree(messages_dir)
 
     profile_dir = Path(profile_path)
     if profile_dir.exists():
-        for p in profile_dir.glob('*.py'):
-            p.unlink()
-        profile_dir.rmdir()
+        shutil.rmtree(profile_dir)
 
     Path(profile_path).mkdir(parents=True, exist_ok=True)
     Path(messages_path).mkdir(parents=True, exist_ok=True)
@@ -196,6 +238,9 @@ def main():
     profile.type_class_name_by_name = {k: convert_type_name(k) for k in profile.types_by_name.keys()}
 
     for message in profile.messages_by_name.values():
+        for field in message.fields_by_name.values():
+            field.is_common_field = is_common_field(field)
+
         message.field_class_name_by_name = {k: field_name_to_class_name(message, message.fields_by_name[k], k) for k in
                                             message.fields_by_name.keys()}
         message.field_property_name_by_name = {k: field_name_to_property_name(message, k) for k in
@@ -217,20 +262,21 @@ def main():
         profile_type = profile.types_by_name[k]
         profile_type.values_by_name = {convert_value_name(k): v for k, v in profile_type.values_by_name.items()}
 
-    env = jinja2.Environment(loader=jinja2.FileSystemLoader('..'), )
+    templates_dir = Path(__file__).resolve().parent / 'templates'
+    env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(templates_dir)), )
 
     #
     # Gen profile_type.py
     #
-    template = env.get_template('gen/templates/template_profile_type.jinja')
+    template = env.get_template('template_profile_type.jinja')
     rendering = template.render(profile=profile, profile_types=profile_types,
                                 sdk_version=SDK_VERSION)
     filename = os.path.join(profile_path, 'profile_type.py')
     with (open(filename, 'w')) as file_out:
         file_out.write(rendering)
 
-    for name, message in profile.messages_by_name.items():
-        template = env.get_template('gen/templates/template_message.jinja')
+    for _name, message in profile.messages_by_name.items():
+        template = env.get_template('template_message.jinja')
         rendering = template.render(profile=profile, sdk_version=SDK_VERSION,
                                     class_name=inflection.camelize(message.name + '_message'),
                                     message=message)
@@ -243,20 +289,43 @@ def main():
     message_class_names = [inflection.camelize(message_name + '_message') for message_name in
                            profile.messages_by_name.keys()]
 
-    template = env.get_template('gen/templates/template_message_factory.jinja')
+    template = env.get_template('template_message_factory.jinja')
 
-    message_names = zip(message_class_names, message_file_names)
+    message_types = [
+        (message.id, class_name, file_name)
+        for message, class_name, file_name in
+        zip(profile.messages_by_name.values(), message_class_names, message_file_names)
+    ]
     rendering = template.render(profile=profile, sdk_version=SDK_VERSION,
-                                message_names=message_names, message_class_names=message_class_names)
-    filename = os.path.join(messages_path, f"message_factory.py")
+                                message_types=message_types)
+    filename = os.path.join(messages_path, "message_factory.py")
     with (open(filename, 'w')) as file_out:
         file_out.write(rendering)
 
-    template = env.get_template('gen/templates/template_common_fields.jinja')
+    template = env.get_template('template_common_fields.jinja')
     rendering = template.render(profile=profile, sdk_version=SDK_VERSION)
-    filename = os.path.join(messages_path, f"common_fields.py")
+    filename = os.path.join(messages_path, "common_fields.py")
     with (open(filename, 'w')) as file_out:
         file_out.write(rendering)
+
+    # Main-field component registry for decode-time expansion (Stage 2 C).
+    xlsx_filename = os.path.join(
+        os.path.dirname(__file__), f'Profile_{SDK_VERSION}.xlsx'
+    )
+    component_registry_path = os.path.join(profile_path, 'component_registry.py')
+    write_component_registry(
+        component_registry_path,
+        xlsx_path=xlsx_filename,
+        sdk_version=SDK_VERSION,
+    )
+
+    # Native field + closed-enum catalog for PROFILE DOMAIN/FULL (Stage 4 H / O1).
+    field_catalog_path = os.path.join(profile_path, 'field_catalog.py')
+    write_field_catalog(
+        field_catalog_path,
+        xlsx_path=xlsx_filename,
+        sdk_version=SDK_VERSION,
+    )
 
 
 if __name__ == "__main__":

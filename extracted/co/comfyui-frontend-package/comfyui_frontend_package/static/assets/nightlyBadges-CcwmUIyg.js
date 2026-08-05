@@ -1,0 +1,2 @@
+import{Ci as e}from"./settingStore-FoBj0dOm.js";import{c as t}from"./i18n-C0Od0SdO.js";var n=[{text:t(`nightly.badge.label`),label:t(`g.nightly`),variant:`warning`,tooltip:t(`nightly.badge.tooltip`)}];e().registerExtension({name:`Comfy.Nightly.Badges`,topbarBadges:n});
+//# sourceMappingURL=nightlyBadges-CcwmUIyg.js.map

@@ -34,6 +34,7 @@ from .literals import (
     AddressFamilyType,
     AddressTransferStatusType,
     AffinityType,
+    AggregationStatusEnumType,
     AllocationStateType,
     AllocationStrategyType,
     AllocationTypeType,
@@ -43,11 +44,14 @@ from .literals import (
     AmdSevSnpType,
     AnalysisStatusType,
     ApplianceModeSupportValueType,
+    ApplicationStatusCheckEnumType,
+    ApplicationStatusEnumType,
     ArchitectureTypeType,
     ArchitectureValuesType,
     AsnAssociationStateType,
     AsnStateType,
     AssociationStatusCodeType,
+    AssociationTypeEnumType,
     AttachmentLimitTypeType,
     AttachmentStatusType,
     AutoAcceptSharedAssociationsValueType,
@@ -236,6 +240,7 @@ from .literals import (
     IpSourceType,
     Ipv6AddressAttributeType,
     Ipv6SupportValueType,
+    IpVersionEnumType,
     KeyFormatType,
     KeyTypeType,
     LaunchTemplateAutoRecoveryStateType,
@@ -281,6 +286,7 @@ from .literals import (
     NetworkInterfacePermissionStateCodeType,
     NetworkInterfaceStatusType,
     NetworkInterfaceTypeType,
+    NetworkProtocolEnumType,
     NitroEnclavesSupportType,
     NitroTpmSupportType,
     OfferingClassTypeType,
@@ -503,6 +509,13 @@ __all__ = (
     "AnalysisPacketHeaderTypeDef",
     "AnalysisRouteTableRouteTypeDef",
     "AnalysisSecurityGroupRuleTypeDef",
+    "ApplicationStatusCheckAssociationObjectTypeDef",
+    "ApplicationStatusCheckResponseObjectTypeDef",
+    "ApplicationStatusDetailTypeDef",
+    "ApplicationStatusReasonTypeDef",
+    "ApplicationStatusSummaryTypeDef",
+    "ApplicationStatusTypeDef",
+    "ApplicationStatusesResponseTypeTypeDef",
     "ApplySecurityGroupsToClientVpnTargetNetworkRequestTypeDef",
     "ApplySecurityGroupsToClientVpnTargetNetworkResultTypeDef",
     "AsnAssociationTypeDef",
@@ -519,6 +532,8 @@ __all__ = (
     "AssociateAddressRequestTypeDef",
     "AssociateAddressRequestVpcAddressAssociateTypeDef",
     "AssociateAddressResultTypeDef",
+    "AssociateApplicationStatusCheckRequestTypeDef",
+    "AssociateApplicationStatusCheckResultTypeDef",
     "AssociateCapacityReservationBillingOwnerRequestTypeDef",
     "AssociateCapacityReservationBillingOwnerResultTypeDef",
     "AssociateClientVpnTargetNetworkRequestTypeDef",
@@ -731,6 +746,8 @@ __all__ = (
     "CpuPerformanceFactorRequestTypeDef",
     "CpuPerformanceFactorTypeDef",
     "CpuPerformanceFactorUnionTypeDef",
+    "CreateApplicationStatusCheckRequestTypeDef",
+    "CreateApplicationStatusCheckResultTypeDef",
     "CreateCapacityManagerDataExportRequestTypeDef",
     "CreateCapacityManagerDataExportResultTypeDef",
     "CreateCapacityReservationBySplittingRequestTypeDef",
@@ -980,11 +997,15 @@ __all__ = (
     "CreationDateConditionTypeDef",
     "CreditSpecificationRequestTypeDef",
     "CreditSpecificationTypeDef",
+    "CustomTagKeyValueRequestPairTypeDef",
+    "CustomTagKeyValueResponsePairTypeDef",
     "CustomerGatewayTypeDef",
     "DataQueryTypeDef",
     "DataResponseTypeDef",
     "DeclarativePoliciesReportTypeDef",
     "DefaultConnectionTrackingConfigurationTypeDef",
+    "DeleteApplicationStatusCheckRequestTypeDef",
+    "DeleteApplicationStatusCheckResultTypeDef",
     "DeleteCapacityManagerDataExportRequestTypeDef",
     "DeleteCapacityManagerDataExportResultTypeDef",
     "DeleteCarrierGatewayRequestTypeDef",
@@ -1212,6 +1233,12 @@ __all__ = (
     "DescribeAddressesResultTypeDef",
     "DescribeAggregateIdFormatRequestTypeDef",
     "DescribeAggregateIdFormatResultTypeDef",
+    "DescribeApplicationStatusCheckAssociationsRequestTypeDef",
+    "DescribeApplicationStatusCheckAssociationsResultTypeDef",
+    "DescribeApplicationStatusChecksRequestTypeDef",
+    "DescribeApplicationStatusChecksResultTypeDef",
+    "DescribeApplicationStatusRequestTypeDef",
+    "DescribeApplicationStatusResultTypeDef",
     "DescribeAvailabilityZonesRequestTypeDef",
     "DescribeAvailabilityZonesResultTypeDef",
     "DescribeAwsNetworkPerformanceMetricSubscriptionsRequestPaginateTypeDef",
@@ -1793,6 +1820,8 @@ __all__ = (
     "DisableAddressTransferResultTypeDef",
     "DisableAllowedImagesSettingsRequestTypeDef",
     "DisableAllowedImagesSettingsResultTypeDef",
+    "DisableApplicationStatusCheckSuppressionRequestTypeDef",
+    "DisableApplicationStatusCheckSuppressionResultTypeDef",
     "DisableAwsNetworkPerformanceMetricSubscriptionRequestTypeDef",
     "DisableAwsNetworkPerformanceMetricSubscriptionResultTypeDef",
     "DisableCapacityManagerRequestTypeDef",
@@ -1838,6 +1867,8 @@ __all__ = (
     "DisassociateAddressRequestClassicAddressDisassociateTypeDef",
     "DisassociateAddressRequestNetworkInterfaceAssociationDeleteTypeDef",
     "DisassociateAddressRequestTypeDef",
+    "DisassociateApplicationStatusCheckRequestTypeDef",
+    "DisassociateApplicationStatusCheckResultTypeDef",
     "DisassociateCapacityReservationBillingOwnerRequestTypeDef",
     "DisassociateCapacityReservationBillingOwnerResultTypeDef",
     "DisassociateClientVpnTargetNetworkRequestTypeDef",
@@ -1910,6 +1941,8 @@ __all__ = (
     "EnableAddressTransferResultTypeDef",
     "EnableAllowedImagesSettingsRequestTypeDef",
     "EnableAllowedImagesSettingsResultTypeDef",
+    "EnableApplicationStatusCheckSuppressionRequestTypeDef",
+    "EnableApplicationStatusCheckSuppressionResultTypeDef",
     "EnableAwsNetworkPerformanceMetricSubscriptionRequestTypeDef",
     "EnableAwsNetworkPerformanceMetricSubscriptionResultTypeDef",
     "EnableCapacityManagerRequestTypeDef",
@@ -2189,6 +2222,12 @@ __all__ = (
     "GpuDeviceMemoryInfoTypeDef",
     "GpuInfoTypeDef",
     "GroupIdentifierTypeDef",
+    "HealthCheckPathDestinationRequestObjectTypeDef",
+    "HealthCheckPathDestinationResponseObjectTypeDef",
+    "HealthCheckPathRequestObjectTypeDef",
+    "HealthCheckPathResponseObjectTypeDef",
+    "HealthCheckPathSourceRequestObjectTypeDef",
+    "HealthCheckPathSourceResponseObjectTypeDef",
     "HibernationOptionsRequestTypeDef",
     "HibernationOptionsTypeDef",
     "HistoryRecordEntryTypeDef",
@@ -2251,6 +2290,7 @@ __all__ = (
     "InferenceDeviceInfoTypeDef",
     "InferenceDeviceMemoryInfoTypeDef",
     "InitializationStatusDetailsTypeDef",
+    "InstanceApplicationStatusTypeDef",
     "InstanceAttachmentEnaSrdSpecificationTypeDef",
     "InstanceAttachmentEnaSrdUdpSpecificationTypeDef",
     "InstanceAttributeTypeDef",
@@ -2482,6 +2522,8 @@ __all__ = (
     "ModifyAccountVpcEncryptionControlResultTypeDef",
     "ModifyAddressAttributeRequestTypeDef",
     "ModifyAddressAttributeResultTypeDef",
+    "ModifyApplicationStatusCheckRequestTypeDef",
+    "ModifyApplicationStatusCheckResultTypeDef",
     "ModifyAvailabilityZoneGroupRequestTypeDef",
     "ModifyAvailabilityZoneGroupResultTypeDef",
     "ModifyCapacityReservationFleetRequestTypeDef",
@@ -3047,8 +3089,10 @@ __all__ = (
     "SubnetIpv6CidrBlockAssociationTypeDef",
     "SubnetTypeDef",
     "SubscriptionTypeDef",
+    "SuccessfulAssociationResponseObjectTypeDef",
     "SuccessfulInstanceCreditSpecificationItemTypeDef",
     "SuccessfulQueuedPurchaseDeletionTypeDef",
+    "SuccessfulSuppressionResponseObjectTypeDef",
     "SupportedRegionDetailTypeDef",
     "TagDescriptionTypeDef",
     "TagFieldSpecificationRequestTypeDef",
@@ -3145,10 +3189,12 @@ __all__ = (
     "UnmonitorInstancesRequestInstanceUnmonitorTypeDef",
     "UnmonitorInstancesRequestTypeDef",
     "UnmonitorInstancesResultTypeDef",
+    "UnsuccessfulAssociationResponseObjectTypeDef",
     "UnsuccessfulInstanceCreditSpecificationItemErrorTypeDef",
     "UnsuccessfulInstanceCreditSpecificationItemTypeDef",
     "UnsuccessfulItemErrorTypeDef",
     "UnsuccessfulItemTypeDef",
+    "UnsuccessfulSuppressionResponseObjectTypeDef",
     "UpdateCapacityManagerMonitoredTagKeysRequestTypeDef",
     "UpdateCapacityManagerMonitoredTagKeysResultTypeDef",
     "UpdateCapacityManagerOrganizationsAccessRequestTypeDef",
@@ -3433,6 +3479,29 @@ class AnalysisRouteTableRouteTypeDef(TypedDict):
     CoreNetworkArn: NotRequired[str]
     LocalGatewayId: NotRequired[str]
 
+class ApplicationStatusCheckAssociationObjectTypeDef(TypedDict):
+    ApplicationStatusCheckId: NotRequired[str]
+    AssociationType: NotRequired[AssociationTypeEnumType]
+    Key: NotRequired[str]
+    Value: NotRequired[str]
+
+class CustomTagKeyValueResponsePairTypeDef(TypedDict):
+    Key: NotRequired[str]
+    Value: NotRequired[str]
+
+ApplicationStatusReasonTypeDef = TypedDict(
+    "ApplicationStatusReasonTypeDef",
+    {
+        "Code": NotRequired[str],
+        "StatusCode": NotRequired[int],
+        "Protocol": NotRequired[str],
+    },
+)
+
+class ApplicationStatusSummaryTypeDef(TypedDict):
+    Status: NotRequired[SummaryStatusType]
+    ImpairedSince: NotRequired[datetime]
+
 class ApplySecurityGroupsToClientVpnTargetNetworkRequestTypeDef(TypedDict):
     ClientVpnEndpointId: str
     VpcId: str
@@ -3519,6 +3588,21 @@ class AssociateAddressRequestVpcAddressAssociateTypeDef(TypedDict):
     NetworkInterfaceId: NotRequired[str]
     PrivateIpAddress: NotRequired[str]
     AllowReassociation: NotRequired[bool]
+
+class CustomTagKeyValueRequestPairTypeDef(TypedDict):
+    Key: NotRequired[str]
+    Value: NotRequired[str]
+
+class SuccessfulAssociationResponseObjectTypeDef(TypedDict):
+    ApplicationStatusCheckId: NotRequired[str]
+    AssociationType: NotRequired[str]
+    AssociationValue: NotRequired[str]
+
+class UnsuccessfulAssociationResponseObjectTypeDef(TypedDict):
+    ApplicationStatusCheckId: NotRequired[str]
+    AssociationType: NotRequired[str]
+    AssociationValue: NotRequired[str]
+    Reason: NotRequired[str]
 
 class AssociateCapacityReservationBillingOwnerRequestTypeDef(TypedDict):
     CapacityReservationId: str
@@ -4638,6 +4722,11 @@ class DefaultConnectionTrackingConfigurationTypeDef(TypedDict):
     DefaultUdpTimeout: NotRequired[int]
     DefaultUdpStreamTimeout: NotRequired[int]
 
+class DeleteApplicationStatusCheckRequestTypeDef(TypedDict):
+    ApplicationStatusCheckId: str
+    ClientToken: NotRequired[str]
+    DryRun: NotRequired[bool]
+
 class DeleteCapacityManagerDataExportRequestTypeDef(TypedDict):
     CapacityManagerDataExportId: str
     DryRun: NotRequired[bool]
@@ -5609,6 +5698,22 @@ class DisableAddressTransferRequestTypeDef(TypedDict):
 class DisableAllowedImagesSettingsRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
+class DisableApplicationStatusCheckSuppressionRequestTypeDef(TypedDict):
+    InstanceIds: NotRequired[Sequence[str]]
+    ClientToken: NotRequired[str]
+    DryRun: NotRequired[bool]
+
+class SuccessfulSuppressionResponseObjectTypeDef(TypedDict):
+    InstanceId: NotRequired[str]
+    SuppressAt: NotRequired[datetime]
+    ResumeAt: NotRequired[datetime]
+
+class UnsuccessfulSuppressionResponseObjectTypeDef(TypedDict):
+    InstanceId: NotRequired[str]
+    SuppressAt: NotRequired[datetime]
+    ResumeAt: NotRequired[datetime]
+    Reason: NotRequired[str]
+
 class DisableAwsNetworkPerformanceMetricSubscriptionRequestTypeDef(TypedDict):
     Source: NotRequired[str]
     Destination: NotRequired[str]
@@ -5948,6 +6053,12 @@ class EnableAddressTransferRequestTypeDef(TypedDict):
 
 class EnableAllowedImagesSettingsRequestTypeDef(TypedDict):
     AllowedImagesSettingsState: AllowedImagesSettingsEnabledStateType
+    DryRun: NotRequired[bool]
+
+class EnableApplicationStatusCheckSuppressionRequestTypeDef(TypedDict):
+    InstanceIds: NotRequired[Sequence[str]]
+    DurationSeconds: NotRequired[int]
+    ClientToken: NotRequired[str]
     DryRun: NotRequired[bool]
 
 class EnableAwsNetworkPerformanceMetricSubscriptionRequestTypeDef(TypedDict):
@@ -6543,6 +6654,22 @@ class MaintenanceDetailsTypeDef(TypedDict):
 
 class GpuDeviceMemoryInfoTypeDef(TypedDict):
     SizeInMiB: NotRequired[int]
+
+class HealthCheckPathDestinationRequestObjectTypeDef(TypedDict):
+    SubnetId: NotRequired[str]
+    SecurityGroupId: NotRequired[str]
+
+class HealthCheckPathDestinationResponseObjectTypeDef(TypedDict):
+    SubnetId: NotRequired[str]
+    SecurityGroupId: NotRequired[str]
+
+class HealthCheckPathSourceRequestObjectTypeDef(TypedDict):
+    SubnetId: NotRequired[str]
+    SecurityGroupId: NotRequired[str]
+
+class HealthCheckPathSourceResponseObjectTypeDef(TypedDict):
+    SubnetId: NotRequired[str]
+    SecurityGroupId: NotRequired[str]
 
 class HibernationOptionsRequestTypeDef(TypedDict):
     Configured: NotRequired[bool]
@@ -10087,6 +10214,21 @@ class FirewallStatelessRuleTypeDef(TypedDict):
     RuleAction: NotRequired[str]
     Priority: NotRequired[int]
 
+class DescribeApplicationStatusCheckAssociationsResultTypeDef(TypedDict):
+    Associations: list[ApplicationStatusCheckAssociationObjectTypeDef]
+    Tags: list[TagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ApplicationStatusDetailTypeDef(TypedDict):
+    ApplicationStatusCheckId: NotRequired[str]
+    CheckUpdateTime: NotRequired[datetime]
+    Aggregation: NotRequired[AggregationStatusEnumType]
+    Status: NotRequired[ApplicationStatusCheckEnumType]
+    StatusTimeStamp: NotRequired[datetime]
+    StatusSince: NotRequired[datetime]
+    Reason: NotRequired[ApplicationStatusReasonTypeDef]
+
 class AssociateIpamByoasnResultTypeDef(TypedDict):
     AsnAssociation: AsnAssociationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -10134,6 +10276,30 @@ class DisassociateNatGatewayAddressResultTypeDef(TypedDict):
 class UnassignPrivateNatGatewayAddressResultTypeDef(TypedDict):
     NatGatewayId: str
     NatGatewayAddresses: list[NatGatewayAddressTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class AssociateApplicationStatusCheckRequestTypeDef(TypedDict):
+    ApplicationStatusCheckId: str
+    TargetTagAssociations: NotRequired[Sequence[CustomTagKeyValueRequestPairTypeDef]]
+    InstanceIds: NotRequired[Sequence[str]]
+    ClientToken: NotRequired[str]
+    DryRun: NotRequired[bool]
+
+class DisassociateApplicationStatusCheckRequestTypeDef(TypedDict):
+    ApplicationStatusCheckId: str
+    TargetTagAssociations: NotRequired[Sequence[CustomTagKeyValueRequestPairTypeDef]]
+    InstanceIds: NotRequired[Sequence[str]]
+    ClientToken: NotRequired[str]
+    DryRun: NotRequired[bool]
+
+class AssociateApplicationStatusCheckResultTypeDef(TypedDict):
+    SuccessfulResults: list[SuccessfulAssociationResponseObjectTypeDef]
+    UnsuccessfulResults: list[UnsuccessfulAssociationResponseObjectTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DisassociateApplicationStatusCheckResultTypeDef(TypedDict):
+    SuccessfulResults: list[SuccessfulAssociationResponseObjectTypeDef]
+    UnsuccessfulResults: list[UnsuccessfulAssociationResponseObjectTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AssociateClientVpnTargetNetworkResultTypeDef(TypedDict):
@@ -11209,6 +11375,28 @@ class DescribeAddressesRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     AllocationIds: NotRequired[Sequence[str]]
+
+class DescribeApplicationStatusCheckAssociationsRequestTypeDef(TypedDict):
+    ApplicationStatusCheckIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    DryRun: NotRequired[bool]
+
+class DescribeApplicationStatusChecksRequestTypeDef(TypedDict):
+    ApplicationStatusCheckIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    IncludeAll: NotRequired[bool]
+    DryRun: NotRequired[bool]
+
+class DescribeApplicationStatusRequestTypeDef(TypedDict):
+    InstanceIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    DryRun: NotRequired[bool]
 
 class DescribeAvailabilityZonesRequestTypeDef(TypedDict):
     ZoneNames: NotRequired[Sequence[str]]
@@ -13920,6 +14108,16 @@ class ModifyVpcBlockPublicAccessOptionsResultTypeDef(TypedDict):
     VpcBlockPublicAccessOptions: VpcBlockPublicAccessOptionsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DisableApplicationStatusCheckSuppressionResultTypeDef(TypedDict):
+    SuccessfulResults: list[SuccessfulSuppressionResponseObjectTypeDef]
+    UnsuccessfulResults: list[UnsuccessfulSuppressionResponseObjectTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class EnableApplicationStatusCheckSuppressionResultTypeDef(TypedDict):
+    SuccessfulResults: list[SuccessfulSuppressionResponseObjectTypeDef]
+    UnsuccessfulResults: list[UnsuccessfulSuppressionResponseObjectTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DisableFastSnapshotRestoreStateErrorItemTypeDef(TypedDict):
     AvailabilityZone: NotRequired[str]
     AvailabilityZoneId: NotRequired[str]
@@ -14417,6 +14615,14 @@ class GpuDeviceInfoTypeDef(TypedDict):
     GpuPartitionSize: NotRequired[float]
     Workloads: NotRequired[list[str]]
     MemoryInfo: NotRequired[GpuDeviceMemoryInfoTypeDef]
+
+class HealthCheckPathRequestObjectTypeDef(TypedDict):
+    Source: NotRequired[HealthCheckPathSourceRequestObjectTypeDef]
+    Destinations: NotRequired[Sequence[HealthCheckPathDestinationRequestObjectTypeDef]]
+
+class HealthCheckPathResponseObjectTypeDef(TypedDict):
+    Source: NotRequired[HealthCheckPathSourceResponseObjectTypeDef]
+    Destinations: NotRequired[list[HealthCheckPathDestinationResponseObjectTypeDef]]
 
 class IamInstanceProfileAssociationTypeDef(TypedDict):
     AssociationId: NotRequired[str]
@@ -16357,6 +16563,13 @@ class ExplanationTypeDef(TypedDict):
     FirewallStatelessRule: NotRequired[FirewallStatelessRuleTypeDef]
     FirewallStatefulRule: NotRequired[FirewallStatefulRuleTypeDef]
 
+class ApplicationStatusTypeDef(TypedDict):
+    Status: NotRequired[ApplicationStatusEnumType]
+    StatusTimeStamp: NotRequired[datetime]
+    StatusSince: NotRequired[datetime]
+    ResumeAt: NotRequired[datetime]
+    Details: NotRequired[list[ApplicationStatusDetailTypeDef]]
+
 class AdvertiseByoipCidrResultTypeDef(TypedDict):
     ByoipCidr: ByoipCidrTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -17255,6 +17468,55 @@ class GpuInfoTypeDef(TypedDict):
     Gpus: NotRequired[list[GpuDeviceInfoTypeDef]]
     TotalGpuMemoryInMiB: NotRequired[int]
 
+ModifyApplicationStatusCheckRequestTypeDef = TypedDict(
+    "ModifyApplicationStatusCheckRequestTypeDef",
+    {
+        "ApplicationStatusCheckId": str,
+        "Aggregation": NotRequired[AggregationStatusEnumType],
+        "HealthCheckPaths": NotRequired[Sequence[HealthCheckPathRequestObjectTypeDef]],
+        "Protocol": NotRequired[NetworkProtocolEnumType],
+        "Port": NotRequired[int],
+        "Path": NotRequired[str],
+        "DeviceIndex": NotRequired[int],
+        "IpVersion": NotRequired[IpVersionEnumType],
+        "IpScope": NotRequired[Literal["private"]],
+        "Interval": NotRequired[int],
+        "Timeout": NotRequired[int],
+        "FailureThreshold": NotRequired[int],
+        "SuccessThreshold": NotRequired[int],
+        "StatusCodeMatcher": NotRequired[str],
+        "InitializationGracePeriodSeconds": NotRequired[int],
+        "ClientToken": NotRequired[str],
+        "DryRun": NotRequired[bool],
+    },
+)
+ApplicationStatusCheckResponseObjectTypeDef = TypedDict(
+    "ApplicationStatusCheckResponseObjectTypeDef",
+    {
+        "ApplicationStatusCheckId": NotRequired[str],
+        "Aggregation": NotRequired[AggregationStatusEnumType],
+        "HealthCheckPaths": NotRequired[list[HealthCheckPathResponseObjectTypeDef]],
+        "Protocol": NotRequired[NetworkProtocolEnumType],
+        "Port": NotRequired[int],
+        "Path": NotRequired[str],
+        "DeviceIndex": NotRequired[int],
+        "IpVersion": NotRequired[IpVersionEnumType],
+        "IpScope": NotRequired[Literal["private"]],
+        "Interval": NotRequired[int],
+        "Timeout": NotRequired[int],
+        "FailureThreshold": NotRequired[int],
+        "SuccessThreshold": NotRequired[int],
+        "StatusCodeMatcher": NotRequired[str],
+        "InitializationGracePeriodSeconds": NotRequired[int],
+        "LastUpdatedAt": NotRequired[datetime],
+        "TargetTagAssociations": NotRequired[list[CustomTagKeyValueResponsePairTypeDef]],
+        "Tags": NotRequired[list[TagTypeDef]],
+        "CreationTime": NotRequired[datetime],
+        "ModifyTime": NotRequired[datetime],
+        "DeletionTime": NotRequired[datetime],
+    },
+)
+
 class AssociateIamInstanceProfileResultTypeDef(TypedDict):
     IamInstanceProfileAssociation: IamInstanceProfileAssociationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -17419,6 +17681,7 @@ class InstanceStatusTypeDef(TypedDict):
     InstanceStatus: NotRequired[InstanceStatusSummaryTypeDef]
     SystemStatus: NotRequired[InstanceStatusSummaryTypeDef]
     AttachedEbsStatus: NotRequired[EbsStatusSummaryTypeDef]
+    ApplicationStatus: NotRequired[ApplicationStatusSummaryTypeDef]
 
 class RevokeSecurityGroupEgressResultTypeDef(TypedDict):
     Return: bool
@@ -18544,6 +18807,29 @@ class CopyVolumesRequestTypeDef(TypedDict):
     Throughput: NotRequired[int]
     ClientToken: NotRequired[str]
 
+CreateApplicationStatusCheckRequestTypeDef = TypedDict(
+    "CreateApplicationStatusCheckRequestTypeDef",
+    {
+        "Protocol": NetworkProtocolEnumType,
+        "Port": int,
+        "HealthCheckPaths": NotRequired[Sequence[HealthCheckPathRequestObjectTypeDef]],
+        "Aggregation": NotRequired[AggregationStatusEnumType],
+        "Path": NotRequired[str],
+        "DeviceIndex": NotRequired[int],
+        "IpVersion": NotRequired[IpVersionEnumType],
+        "IpScope": NotRequired[Literal["private"]],
+        "Interval": NotRequired[int],
+        "Timeout": NotRequired[int],
+        "FailureThreshold": NotRequired[int],
+        "SuccessThreshold": NotRequired[int],
+        "StatusCodeMatcher": NotRequired[str],
+        "InitializationGracePeriodSeconds": NotRequired[int],
+        "TagSpecifications": NotRequired[Sequence[TagSpecificationUnionTypeDef]],
+        "ClientToken": NotRequired[str],
+        "DryRun": NotRequired[bool],
+    },
+)
+
 class CreateCapacityManagerDataExportRequestTypeDef(TypedDict):
     S3BucketName: str
     Schedule: Literal["hourly"]
@@ -19096,10 +19382,10 @@ class CreateRouteTableRequestVpcCreateRouteTableTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
 class CreateSecondaryNetworkRequestTypeDef(TypedDict):
-    Ipv4CidrBlock: str
     NetworkType: Literal["rdma"]
     ClientToken: NotRequired[str]
     DryRun: NotRequired[bool]
+    Ipv4CidrBlock: NotRequired[str]
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
 
 class CreateSecondarySubnetRequestTypeDef(TypedDict):
@@ -19697,6 +19983,13 @@ PathComponentTypeDef = TypedDict(
     },
 )
 
+class InstanceApplicationStatusTypeDef(TypedDict):
+    InstanceId: NotRequired[str]
+    AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
+    ApplicationStatus: NotRequired[ApplicationStatusTypeDef]
+    Tags: NotRequired[list[TagTypeDef]]
+
 class CreateRouteTableResultTypeDef(TypedDict):
     RouteTable: RouteTableTypeDef
     ClientToken: str
@@ -20016,6 +20309,23 @@ class DescribeNetworkInsightsPathsResultTypeDef(TypedDict):
     NetworkInsightsPaths: list[NetworkInsightsPathTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class CreateApplicationStatusCheckResultTypeDef(TypedDict):
+    ApplicationStatusCheck: ApplicationStatusCheckResponseObjectTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteApplicationStatusCheckResultTypeDef(TypedDict):
+    ApplicationStatusCheck: ApplicationStatusCheckResponseObjectTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeApplicationStatusChecksResultTypeDef(TypedDict):
+    ApplicationStatusChecks: list[ApplicationStatusCheckResponseObjectTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ModifyApplicationStatusCheckResultTypeDef(TypedDict):
+    ApplicationStatusCheck: ApplicationStatusCheckResponseObjectTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeInstanceImageMetadataResultTypeDef(TypedDict):
     InstanceImageMetadata: list[InstanceImageMetadataTypeDef]
@@ -20430,6 +20740,9 @@ class NetworkInsightsAnalysisTypeDef(TypedDict):
     AlternatePathHints: NotRequired[list[AlternatePathHintTypeDef]]
     SuggestedAccounts: NotRequired[list[str]]
     Tags: NotRequired[list[TagTypeDef]]
+
+class ApplicationStatusesResponseTypeTypeDef(TypedDict):
+    Instances: NotRequired[list[InstanceApplicationStatusTypeDef]]
 
 class CreateNetworkInterfaceResultTypeDef(TypedDict):
     NetworkInterface: NetworkInterfaceTypeDef
@@ -20970,6 +21283,11 @@ class DescribeNetworkInsightsAnalysesResultTypeDef(TypedDict):
 class StartNetworkInsightsAnalysisResultTypeDef(TypedDict):
     NetworkInsightsAnalysis: NetworkInsightsAnalysisTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeApplicationStatusResultTypeDef(TypedDict):
+    ApplicationStatuses: ApplicationStatusesResponseTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class CreateVpnConnectionResultTypeDef(TypedDict):
     VpnConnection: VpnConnectionTypeDef

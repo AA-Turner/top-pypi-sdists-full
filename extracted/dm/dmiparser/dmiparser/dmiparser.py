@@ -1,10 +1,11 @@
 import json
 import re
 from enum import Enum, auto
-from itertools import takewhile
-from typing import Union
+from typing import Optional
 
 __all__ = ["DmiParser"]
+
+_HANDLE_RE = re.compile(r"^Handle\s(.+?),\sDMI\stype\s(\d+?),\s(\d+?)\sbytes\s*$")
 
 
 class DmiParserState(Enum):
@@ -14,7 +15,7 @@ class DmiParserState(Enum):
     GET_PROP_ITEM = auto()
 
 
-class DmiParserSectionHandle(object):
+class DmiParserSectionHandle:
     """A handle looks like this
 
     Handle 0x0066, DMI type 148, 48 bytes
@@ -23,7 +24,7 @@ class DmiParserSectionHandle(object):
     def __init__(self) -> None:
         self.id = ""
         self.type = ""
-        self.bytes = 0
+        self.bytes = ""
 
     def __str__(self) -> str:
         """
@@ -32,7 +33,7 @@ class DmiParserSectionHandle(object):
         return json.dumps(self.__dict__)
 
 
-class DmiParserSectionProp(object):
+class DmiParserSectionProp:
     """A property looks like this
 
     Characteristics:
@@ -63,7 +64,7 @@ class DmiParserSectionProp(object):
         self.values.append(item)
 
 
-class DmiParserSection(object):
+class DmiParserSection:
     """A section looks like this
 
     On Board Device 1 Information
@@ -83,7 +84,7 @@ class DmiParserSection(object):
         """
         return json.dumps(self.__dict__)
 
-    def append(self, key: str, prop: str) -> None:
+    def append(self, key: str, prop: dict) -> None:
         """
         @param key: property name
         @param prop: property
@@ -91,7 +92,7 @@ class DmiParserSection(object):
         self.props[key] = prop
 
 
-class DmiParser(object):
+class DmiParser:
     """This parse dmidecode output to JSON text"""
 
     def __init__(self, text: str, **kwargs) -> None:
@@ -99,15 +100,19 @@ class DmiParser(object):
         @param text: output of command dmidecode
         @param kwargs: these will pass to json.dumps()
         """
-        if type(text) is not str:
-            raise TypeError("{} want a {} but got {}".format(self.__class__, type(__name__), type(text)))
+        if not isinstance(text, str):
+            raise TypeError("text must be a str, got {}".format(type(text).__name__))
 
         self._text = text
         self._kwargs = kwargs
-        self._indentLv = lambda l: len(list(takewhile(lambda c: "\t" == c, l)))
         self._sections = []
 
         self._parse()
+
+    @staticmethod
+    def _indent_lv(line: str) -> int:
+        """Return the count of leading tab characters in line."""
+        return len(line) - len(line.lstrip("\t"))
 
     def __str__(self) -> str:
         """
@@ -117,34 +122,52 @@ class DmiParser(object):
 
     def _parse(self) -> None:
         state: DmiParserState = DmiParserState.NONE
-        handle: Union[DmiParserSectionHandle, None] = None
-        prop: Union[DmiParserSectionProp, None] = None
-        section: Union[DmiParserSection, None] = None
-        k: Union[str, None] = None
+        handle: Optional[DmiParserSectionHandle] = None
+        prop: Optional[DmiParserSectionProp] = None
+        section: Optional[DmiParserSection] = None
+        k: Optional[str] = None
         lines = self._text.splitlines()
+        # peek past blank lines so they never trigger a state
+        # transition (blank lines legally separate properties in some dmidecode
+        # outputs, e.g. loongarch 3.5 type 4).
+        next_nonempty = [None] * len(lines)
+        last_nonempty = None
+
+        for j in range(len(lines) - 1, -1, -1):
+            next_nonempty[j] = last_nonempty
+            if lines[j]:
+                last_nonempty = lines[j]
+
+        def flush_section() -> None:
+            nonlocal section, prop, k
+            if section:
+                if prop:
+                    section.append(k, json.loads(str(prop)))
+                    prop = None
+                    k = None
+                self._sections.append(json.loads(str(section)))
+                section = None
 
         for i, line in enumerate(lines):
-            if i == len(lines) - 1 or DmiParserState.GET_SECT == state:
-                # Add previous section if exist
-                if section:
-                    # Add previous prop if exist
-                    if prop:
-                        section.append(k, json.loads(str(prop)))
-                        prop = None
-
-                    self._sections.append(json.loads(str(section)))
-                    section = None
+            if DmiParserState.GET_SECT == state:
+                flush_section()
 
             if not line:
                 continue
 
-            if line.startswith("Handle"):
-                regex = r"^Handle\s(.+?),\sDMI\stype\s(\d+?),\s(\d+?)\sbytes$"
+            match = _HANDLE_RE.match(line)
+
+            if match:
                 state = DmiParserState.GET_SECT
                 handle = DmiParserSectionHandle()
-                match = re.match(regex, line)
                 handle.id, handle.type, handle.bytes = match.groups()
                 continue
+
+            # Malformed Handle line detection
+            stripped = line.rstrip()
+
+            if stripped.startswith("Handle") and (stripped.endswith("bytes") or stripped.endswith("byte")):
+                raise ValueError("Malformed Handle line: {!r}".format(line))
 
             if DmiParserState.GET_SECT == state:
                 section = DmiParserSection()
@@ -153,12 +176,16 @@ class DmiParser(object):
                 state = DmiParserState.GET_PROP
                 continue
 
-            lv = self._indentLv(line)
+            lv = self._indent_lv(line)
+            nxt = next_nonempty[i]
 
-            if i < len(lines) - 1:
-                lv -= self._indentLv(lines[i + 1])
+            if nxt is not None:
+                lv -= self._indent_lv(nxt)
 
             if DmiParserState.GET_PROP == state:
+                if ":" not in line:
+                    raise ValueError("Malformed property line (no ':'): {!r}".format(line))
+
                 k, v = [x.strip() for x in line.split(":", 1)]
                 prop = DmiParserSectionProp(v)
 
@@ -176,9 +203,8 @@ class DmiParser(object):
                         continue
 
                 # Next section for this handle
-                if i < len(lines) - 1:
-                    if 0 == self._indentLv(lines[i + 1]):
-                        state = DmiParserState.GET_SECT
+                if nxt is not None and 0 == self._indent_lv(nxt):
+                    state = DmiParserState.GET_SECT
 
             if DmiParserState.GET_PROP_ITEM == state:
                 prop.append(line.strip())
@@ -187,3 +213,5 @@ class DmiParser(object):
                     section.append(k, json.loads(str(prop)))
                     prop = None
                     state = DmiParserState.GET_SECT if lv > 1 else DmiParserState.GET_PROP
+
+        flush_section()

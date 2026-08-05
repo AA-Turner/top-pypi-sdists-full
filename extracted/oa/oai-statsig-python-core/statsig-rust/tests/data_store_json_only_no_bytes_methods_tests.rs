@@ -3,13 +3,13 @@ mod utils;
 use async_trait::async_trait;
 use serial_test::serial;
 use statsig_rust::{
+    SpecsSource, Statsig, StatsigErr, StatsigOptions,
     data_store_interface::{DataStoreResponse, DataStoreTrait, RequestPath},
     output_logger::LogLevel,
-    SpecsSource, Statsig, StatsigErr, StatsigOptions,
 };
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 use utils::{
     mock_log_provider::{MockLogProvider, RecordedLog},
     mock_scrapi::{Endpoint, EndpointStub, Method, MockScrapi, StubData},
