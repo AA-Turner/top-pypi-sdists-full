@@ -3,12 +3,13 @@ from __future__ import annotations
 import typing as t
 from dataclasses import field
 
+from query_cache_protobuf.query_cache.services import execution_service_pb2
+
 from query_cache_common.decorators import proto_dataclass
 from query_cache_common.models import shared_models
-from query_cache_common.models.services import sql_service_models
 from query_cache_common.models.base import BaseSerDeModel
 from query_cache_common.models.converters import dict_to_struct, struct_to_dict
-from query_cache_protobuf.query_cache.services import execution_service_pb2
+from query_cache_common.models.services import sql_service_models
 
 
 @proto_dataclass(execution_service_pb2.ConfirmExecutionRequest)
@@ -126,3 +127,17 @@ class RecordExecutionsRequest(BaseSerDeModel):
 @proto_dataclass(execution_service_pb2.RecordExecutionsResponse)
 class RecordExecutionsResponse(BaseSerDeModel):
     records_stored: int = 0
+
+
+@proto_dataclass(execution_service_pb2.ResolveDeferredRelationsRequest)
+class ResolveDeferredRelationsRequest(BaseSerDeModel):
+    profile_name: str
+    target_name: str
+    project_name: str
+    project_id: t.Optional[str] = None
+    node_unique_ids: t.List[str] = field(default_factory=list)
+
+
+@proto_dataclass(execution_service_pb2.ResolveDeferredRelationsResponse)
+class ResolveDeferredRelationsResponse(BaseSerDeModel):
+    fqn_by_unique_id: t.Dict[str, str] = field(default_factory=dict)

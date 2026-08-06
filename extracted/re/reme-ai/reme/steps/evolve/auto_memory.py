@@ -71,8 +71,11 @@ class AutoMemoryStep(BaseStep):
     def _session_path(self, session_id: str) -> Path:
         return self.file_store.workspace_path / self._session_dir() / "dialog" / f"{session_id}.jsonl"
 
+    def _session_source_path(self, session_id: str) -> str:
+        return f"{self._session_dir()}/dialog/{session_id}.jsonl"
+
     def _session_link(self, session_id: str) -> str:
-        return f"[[{self._session_dir()}/dialog/{session_id}.jsonl]]"
+        return f"[[{self._session_source_path(session_id)}]]"
 
     def _daily_note_path(self, day: str, name: str) -> str:
         return f"{self.config_value('daily_dir')}/{day}/{name}.md"
@@ -224,6 +227,30 @@ class AutoMemoryStep(BaseStep):
         days = [day for msg in messages if (day := extract_daily_date(msg.created_at))]
         return max(days) if days else None
 
+    def _build_messages(self, raw_messages: list) -> list[Msg]:
+        """Convert raw message payloads into ``Msg`` objects.
+
+        Overridable hook: subclasses can preprocess ``raw_messages`` (e.g. fill
+        in missing timestamps) before conversion.
+        """
+        return [self._to_msg(item) for item in raw_messages]
+
+    def _reply_extra_kwargs(self, day: str) -> dict:  # pylint: disable=unused-argument
+        """Extra keyword arguments for ``agent_wrapper.reply``.
+
+        Overridable hook: subclasses can inject additional reply options such
+        as per-tool defaults keyed on ``day``.
+        """
+        return {}
+
+    def _format_history(self, messages: list[Msg]) -> str:
+        """Render the conversation history injected into the prompt.
+
+        Overridable hook: subclasses can annotate messages (e.g. with their
+        source line numbers in the session file) before rendering.
+        """
+        return format_history(messages)
+
     # pylint: disable=too-many-return-statements
     async def execute(self):
         assert self.context is not None
@@ -234,7 +261,7 @@ class AutoMemoryStep(BaseStep):
         tz = self.app_context.app_config.timezone if self.app_context is not None else None
         current = now(tz)
 
-        messages: list[Msg] = [self._to_msg(item) for item in raw_messages]
+        messages: list[Msg] = self._build_messages(raw_messages)
         self.logger.info(
             f"[{self.name}] start session_id={session_id!r} raw_messages={len(raw_messages)} "
             f"messages={len(messages)} hint={bool(memory_hint)}",
@@ -292,14 +319,22 @@ class AutoMemoryStep(BaseStep):
             note=memory_hint or "(none)",
             note_path=note_path,
             session_id=session_id,
-            history=format_history(messages),
+            session_file=self._session_source_path(session_id),
+            history=self._format_history(messages),
         )
 
         self.logger.info(f"[{self.name}] agent start path={note_path} template={template_key}")
+        # Existing-note updates are restricted to the resolved note path. New
+        # notes retain the upstream ``daily_write`` date behavior, where the
+        # model supplies the date from the prompt.
+        reply_kwargs = self._reply_extra_kwargs(day)
+        if not created:
+            reply_kwargs["injected_job_kwargs"] = {"_allowed_paths": [note_path]}
         result = await self.agent_wrapper.reply(
             user_message,
             system_prompt=self.prompt_format("system_prompt"),
             job_tools=self.create_tools if created else self.update_tools,
+            **reply_kwargs,
         )
         self.logger.info(f"[{self.name}] agent done path={note_path} has_result={bool(result.get('result'))}")
 

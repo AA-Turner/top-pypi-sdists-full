@@ -40,7 +40,7 @@ version: 1
 #   review:
 #     enabled: true     # run the pre-release review (code-review-pre-release)
 #     prompt: null
-#   tracks: [web]       # web | service | apple | android | android-enterprise
+#   tracks: [web]       # web | service | package | apple | android | android-enterprise
 #   stores:             # mobile only — target store → notes variant + publish offer
 #     google_play_store: false
 #     apple_app_store: false

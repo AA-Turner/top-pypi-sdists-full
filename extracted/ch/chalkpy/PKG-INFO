@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chalkpy
-Version: 2.154.25
+Version: 2.154.26
 Summary: Python SDK for Chalk
 Author: Chalk AI, Inc.
 Project-URL: Homepage, https://chalk.ai
@@ -51,6 +51,7 @@ Requires-Dist: pytest; extra == "dev"
 Requires-Dist: python-dotenv; extra == "dev"
 Requires-Dist: sqlalchemy2-stubs; extra == "dev"
 Requires-Dist: sqlglot<21.2.0,>=19.0.0; extra == "dev"
+Requires-Dist: temporalio<2,>=1.7; extra == "dev"
 Requires-Dist: types-protobuf<6; extra == "dev"
 Requires-Dist: types-psycopg2; extra == "dev"
 Requires-Dist: types-pymysql; extra == "dev"
@@ -78,7 +79,7 @@ Requires-Dist: google-cloud-aiplatform<2; extra == "vertexai"
 Provides-Extra: sentence-transformers
 Requires-Dist: sentence-transformers==5.3.0; extra == "sentence-transformers"
 Provides-Extra: compute
-Requires-Dist: chalkcompute>=2.3.2; extra == "compute"
+Requires-Dist: chalkcompute>=2.3.2; python_version >= "3.11" and extra == "compute"
 Provides-Extra: sql
 Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "sql"
 Requires-Dist: adlfs; extra == "sql"
@@ -282,6 +283,8 @@ Requires-Dist: opentelemetry-api>=1.29.0; extra == "tracing"
 Requires-Dist: opentelemetry-sdk>=1.29.0; extra == "tracing"
 Provides-Extra: torch
 Requires-Dist: torch<3,>=1.7; extra == "torch"
+Provides-Extra: workflows
+Requires-Dist: temporalio<2,>=1.7; extra == "workflows"
 Provides-Extra: all
 Requires-Dist: PyAthena>=3.0.0; extra == "all"
 Requires-Dist: adlfs; extra == "all"

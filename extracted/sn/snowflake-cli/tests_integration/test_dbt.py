@@ -26,6 +26,7 @@ from snowflake.cli._plugins.dbt.constants import (
 )
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.utils.types import try_cast_to_bool
 
 from tests_common.feature_flag_utils import with_feature_flags
 
@@ -112,6 +113,19 @@ def _assert_dbt_version(name, runner, dbt_version):
         assert result.json[0].get("dbt_version") is None
     else:
         assert result.json[0]["dbt_version"] == dbt_version
+
+
+def _assert_last_deployed_from(name, runner, expected_commit, expected_branch):
+    result = runner.invoke_with_connection_json(["dbt", "describe", name])
+    assert result.exit_code == 0, result.output
+    assert len(result.json) == 1
+    ldf = result.json[0].get("last_deployed_from")
+    assert ldf is not None, "last_deployed_from should be populated"
+    assert ldf.get("git_commit") == expected_commit
+    assert ldf.get("git_branch") == expected_branch
+    assert ldf.get("user") is not None
+    assert ldf.get("timestamp") is not None
+    assert "stage_url" not in ldf
 
 
 def _setup_external_access_integration(runner, integration_name: str):
@@ -237,6 +251,140 @@ def test_deploy_and_execute(
         )
         assert len(result.json) == 1, result.json
         assert result.json[0]["COUNT"] == 1, result.json[0]
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_deploy_writeback_and_auto_compile(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """Deploy sets DEFAULT_WRITEBACK / AUTO_COMPILE on CREATE, then flips them via
+    ALTER ... SET on redeploy; the values are read back through `dbt list`.
+
+    Marked qa_only because writeback and auto-compile must be enabled on the test
+    account. Remove the qa_only marker once the feature is GA.
+    """
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_writeback_{ts}"
+        _setup_dbt_profile(root_dir, snowflake_session)
+
+        # CREATE with both enabled -> properties inlined on CREATE DBT PROJECT
+        result = runner.invoke_with_connection_json(
+            ["dbt", "deploy", name, "--default-writeback", "--auto-compile"]
+        )
+        assert result.exit_code == 0, result.output
+        obj = _verify_dbt_project_exists(runner, name)
+        assert try_cast_to_bool(obj["default_writeback"]) is True, obj
+        assert try_cast_to_bool(obj["auto_compile"]) is True, obj
+
+        # Redeploy with the negations -> ALTER ... SET flips both off
+        result = runner.invoke_with_connection_json(
+            ["dbt", "deploy", name, "--no-default-writeback", "--no-auto-compile"]
+        )
+        assert result.exit_code == 0, result.output
+        obj = _verify_dbt_project_exists(runner, name)
+        assert try_cast_to_bool(obj["default_writeback"]) is False, obj
+        assert try_cast_to_bool(obj["auto_compile"]) is False, obj
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_execute_with_writeback(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """Per-run --writeback emits the WRITEBACK clause on EXECUTE DBT PROJECT and the
+    run completes. (The writeback effect itself is applied server-side and is not
+    asserted here.)
+
+    Marked qa_only because writeback must be enabled on the test account. Remove the
+    qa_only marker once the feature is GA.
+    """
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_execute_wb_{ts}"
+        _setup_dbt_profile(root_dir, snowflake_session)
+        result = runner.invoke_with_connection_json(["dbt", "deploy", name])
+        assert result.exit_code == 0, result.output
+
+        # --writeback must be placed before the dbt command
+        result = runner.invoke_passthrough_with_connection(
+            args=["dbt", "execute", "--writeback"],
+            passthrough_args=[name, "run"],
+        )
+        assert result.exit_code == 0, result.output
+        assert "Done. PASS=2 WARN=0 ERROR=0 SKIP=0 TOTAL=2" in result.output
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_execute_with_imports(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """Exercise --import against a real Snowflake DBT PROJECT.
+
+    Verifies that the IMPORTS clause the CLI builds for EXECUTE DBT PROJECT is
+    accepted end-to-end across all supported shapes: a bare stage path, a stage
+    path aliased to a target folder, a SYSTEM$ function (bare and aliased), and a
+    snow://dbt URL — the SYSTEM$ and snow:// grammars being the parts unit tests
+    can't confirm against the server. qa_only because it depends on the backend
+    IMPORTS support being enabled on the account.
+    """
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_{ts}"
+
+        # A stage whose contents are imported into the run.
+        import_stage = f"dbt_import_stage_{ts}"
+        snowflake_session.execute_string(f"CREATE STAGE {import_stage}")
+
+        _setup_dbt_profile(root_dir, snowflake_session)
+        result = runner.invoke_with_connection_json(["dbt", "deploy", name])
+        assert result.exit_code == 0, result.output
+
+        def _execute_with_import(import_value: str):
+            return runner.invoke_passthrough_with_connection(
+                args=["dbt", "execute", "--import", import_value],
+                passthrough_args=[name, "run"],
+            )
+
+        # A bare stage path: IMPORTS=('@dbt_import_stage_.../')
+        result = _execute_with_import(f"@{import_stage}/")
+        assert result.exit_code == 0, result.output
+
+        # A stage path aliased to a target folder:
+        # IMPORTS=('@dbt_import_stage_.../' AS 'imported')
+        result = _execute_with_import(f"@{import_stage}/ as imported")
+        assert result.exit_code == 0, result.output
+
+        # SYSTEM$ function, bare: IMPORTS=(SYSTEM$DBT_GET_LAST_RUN_TARGET('...'))
+        result = _execute_with_import(f"SYSTEM$DBT_GET_LAST_RUN_TARGET('{name}')")
+        assert result.exit_code == 0, result.output
+
+        # SYSTEM$ function, aliased:
+        # IMPORTS=(SYSTEM$DBT_GET_LAST_RUN_TARGET('...') AS 'last_run')
+        result = _execute_with_import(
+            f"SYSTEM$DBT_GET_LAST_RUN_TARGET('{name}') as last_run"
+        )
+        assert result.exit_code == 0, result.output
+
+        # snow://dbt URL (the deployed project's live version), aliased:
+        # IMPORTS=('snow://dbt/<db>.<schema>.<project>/versions/live' AS 'prev')
+        snow_url = (
+            f"snow://dbt/{snowflake_session.database}."
+            f"{snowflake_session.schema}.{name}/versions/live"
+        )
+        result = _execute_with_import(f"{snow_url} as prev")
+        assert result.exit_code == 0, result.output
 
 
 @pytest.mark.integration
@@ -870,6 +1018,79 @@ def test_deploy_with_dbt_version(
         )
         assert result.exit_code == 0, result.output
         _assert_dbt_version(name, runner, "1.10.15")
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_deploy_with_git_commit_and_branch(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_git_metadata_{ts}"
+
+        _setup_dbt_profile(root_dir, snowflake_session)
+
+        result = runner.invoke_with_connection_json(
+            [
+                "dbt",
+                "deploy",
+                name,
+                "--git-commit",
+                "abc123deadbeef",
+                "--git-branch",
+                "main",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_last_deployed_from(name, runner, "abc123deadbeef", "main")
+
+        result = runner.invoke_with_connection_json(
+            [
+                "dbt",
+                "deploy",
+                name,
+                "--git-commit",
+                "newcommithash",
+                "--git-branch",
+                "feature-x",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_last_deployed_from(name, runner, "newcommithash", "feature-x")
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_deploy_auto_detects_git_metadata_in_github_actions(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_gha_autodetect_{ts}"
+
+        _setup_dbt_profile(root_dir, snowflake_session)
+
+        # Simulate a GitHub Actions push run. With no explicit flags, the commit and
+        # branch are auto-detected from GITHUB_SHA / GITHUB_REF_NAME.
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "push",
+            "GITHUB_SHA": "autodetectedsha123",
+            "GITHUB_HEAD_REF": "",
+            "GITHUB_REF_NAME": "main",
+        }
+        with mock.patch.dict(os.environ, gha_env):
+            result = runner.invoke_with_connection_json(["dbt", "deploy", name])
+
+        assert result.exit_code == 0, result.output
+        _assert_last_deployed_from(name, runner, "autodetectedsha123", "main")
 
 
 @pytest.mark.integration

@@ -201,7 +201,12 @@ def resolve_by_category_voting(
     """
     votes_a = 0
     votes_b = 0
-    relevant = frozenset(data) & diff_bytes
+    # Delete every non-distinguishing byte value in one C-level translate
+    # pass; what survives is exactly the distinguishing bytes present.
+    # Equivalent to ``frozenset(data) & diff_bytes`` but ~5x faster, since
+    # that would hash every byte of the (up to max_bytes) input.
+    non_diff, _ = _pair_byte_tables(diff_bytes)
+    relevant = frozenset(data.translate(None, non_diff))
     if not relevant:
         return None
     for bv in relevant:
@@ -219,9 +224,26 @@ def resolve_by_category_voting(
     return None
 
 
+@functools.cache
+def _pair_byte_tables(diff_bytes: frozenset[int]) -> tuple[bytes, bytes]:
+    """Return ``(non_diff_delete, membership)`` byte tables for a pair.
+
+    ``non_diff_delete`` holds every byte value *not* in *diff_bytes* (for
+    ``bytes.translate`` deletion) and ``membership`` is a 256-entry table
+    with 1 at each distinguishing byte (native indexing under mypyc, where
+    frozenset probes are boxed).  Cached because *diff_bytes* comes from
+    the fixed per-pair confusion maps loaded once per process.
+    """
+    member = bytearray(256)
+    for b in diff_bytes:
+        member[b] = 1
+    non_diff = bytes(b for b in range(256) if not member[b])
+    return non_diff, bytes(member)
+
+
 def _best_variant_score(
     profile: BigramProfile,
-    index: dict[str, list[tuple[str | None, memoryview, str]]],
+    index: dict[str, list[tuple[str | None, bytes, str]]],
     enc: str,
 ) -> float:
     """Return the best bigram score across all language variants for *enc*."""
@@ -255,12 +277,20 @@ def resolve_by_bigram_rescore(
     if len(data) < 2:
         return None
 
+    # C-level prefilter: if no distinguishing byte occurs anywhere, the
+    # focused profile below would be empty — skip the per-byte loop.
+    # Deleting the *non*-distinguishing bytes leaves a result that is tiny
+    # (usually empty) rather than a near-full copy of the input.
+    non_diff, is_diff = _pair_byte_tables(diff_bytes)
+    if not data.translate(None, non_diff):
+        return None
+
     idf = get_idf_weights()
     freq: dict[int, int] = {}
     for i in range(len(data) - 1):
         b1 = data[i]
         b2 = data[i + 1]
-        if b1 not in diff_bytes and b2 not in diff_bytes:
+        if not (is_diff[b1] | is_diff[b2]):
             continue
         idx = (b1 << 8) | b2
         freq[idx] = freq.get(idx, 0) + idf[idx]

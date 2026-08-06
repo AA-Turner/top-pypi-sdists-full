@@ -144,7 +144,10 @@ class ZendeskInternalNoteResponse(BaseModel):
     )
     public: bool = Field(
         default=False,
-        description="Always `False`: the note is a private, agent-only comment.",
+        description=(
+            "Always `False`: this tool can only create a private, agent-only "
+            "note, never a customer-visible reply."
+        ),
     )
 
 
@@ -331,7 +334,9 @@ def post_zendesk_internal_comment(
             description=(
                 "The internal note as an HTML fragment. Posted as a private "
                 "(non-public) comment visible only to agents \u2014 NOT to the "
-                "ticket requester/end user. Provide HTML: use `<br>`/`<p>` for "
+                "ticket requester/end user. This server cannot post a public "
+                "customer reply; if asked to reply, write a clearly labelled "
+                "draft for a human agent to send. Provide HTML: use `<br>`/`<p>` for "
                 "line breaks, `<strong>` for bold, and `<a href>` for links. "
                 "Literal `<`, `>`, and `&` must be HTML-escaped; Zendesk "
                 "sanitizes to a limited HTML subset, so keep markup basic."
@@ -343,8 +348,13 @@ def post_zendesk_internal_comment(
 
     The comment is added with `public=False`, so it is an internal agent note
     and is **not** visible to the ticket requester/end user. Use it to record
-    triage findings, cross-references, or context for other agents. The note
-    is sent as HTML (`html_body`), so bold text and links render as intended.
+    triage findings, cross-references, or context for other agents. This server
+    has no tool that can post a customer-visible/public reply, so it is
+    impossible to answer the customer through the MCP server. When asked to
+    "reply to the customer", write the proposed reply as an internal note
+    clearly labelled as a draft for a human support agent to send, and tell the
+    requesting human that a support agent still has to post it publicly. The
+    note is sent as HTML (`html_body`), so bold text and links render as intended.
 
     This tool only posts the note; it does not modify tags. To route/tag a
     ticket, call `add_zendesk_ticket_tags` separately.
@@ -368,7 +378,10 @@ def post_zendesk_internal_comment(
     comment_id = _created_comment_id(_as_dict(result.get("audit")))
     return ZendeskInternalNoteResponse(
         success=True,
-        message=f"Posted internal note to Zendesk ticket {resolved_id}.",
+        message=(
+            f"Posted an internal-only note to Zendesk ticket {resolved_id}; "
+            "it is not visible to the customer."
+        ),
         ticket_id=resolved_id,
         comment_id=comment_id,
     )

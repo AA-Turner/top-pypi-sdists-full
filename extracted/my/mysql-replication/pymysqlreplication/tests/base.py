@@ -155,7 +155,12 @@ class PyMySQLReplicationTestCase(base):
         return c
 
     def resetBinLog(self):
-        self.execute("RESET MASTER")
+        try:
+            self.execute("RESET BINARY LOGS AND GTIDS")
+        except pymysql.err.ProgrammingError as exc:
+            if not exc.args or exc.args[0] != 1064:
+                raise
+            self.execute("RESET MASTER")
         if self.stream is not None:
             self.stream.close()
         self.stream = BinLogStreamReader(

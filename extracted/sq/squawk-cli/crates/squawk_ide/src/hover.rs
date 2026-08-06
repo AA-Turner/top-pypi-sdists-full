@@ -15,6 +15,7 @@ use crate::symbols::{Name, Schema};
 use crate::{goto_definition, resolve};
 use rowan::TextSize;
 use salsa::Database as Db;
+use squawk_line_index::find_newline;
 use squawk_syntax::SyntaxNode;
 use squawk_syntax::SyntaxNodePtr;
 use squawk_syntax::ast::LitKind;
@@ -139,6 +140,7 @@ pub fn hover(db: &dyn Db, position: InFile<TextSize>) -> Option<Hover> {
     if let Some(name) = ast::AnyName::cast(parent.clone()) {
         match name {
             ast::AnyName::ColumnName(_)
+            | ast::AnyName::CompositeField(_)
             | ast::AnyName::ConstraintName(_)
             | ast::AnyName::CteName(_)
             | ast::AnyName::Database(_)
@@ -152,7 +154,9 @@ pub fn hover(db: &dyn Db, position: InFile<TextSize>) -> Option<Hover> {
             | ast::AnyName::TableAlias(_)
             | ast::AnyName::Tablespace(_)
             | ast::AnyName::TransitionRelationName(_) => return hover_position(db, position),
-            ast::AnyName::Name(name) => return hover_name(db, InFile::new(file, name)),
+            ast::AnyName::PathSegment(_) => {
+                return hover_name(db, Location::from_node(file, &parent)?);
+            }
             ast::AnyName::AccessMethod(_) => {
                 return hover_access_method(db, Location::from_node(file, &parent)?);
             }
@@ -198,11 +202,13 @@ pub fn hover(db: &dyn Db, position: InFile<TextSize>) -> Option<Hover> {
             | ast::AnyName::BindParamNameRef(_)
             | ast::AnyName::ChannelRef(_)
             | ast::AnyName::ColumnNameRef(_)
+            | ast::AnyName::CompositeFieldRef(_)
             | ast::AnyName::ConfigValueName(_)
             | ast::AnyName::CopyOptionName(_)
             | ast::AnyName::CursorRef(_)
             | ast::AnyName::DatabaseRef(_)
             | ast::AnyName::ElementTableAlias(_)
+            | ast::AnyName::ElementTableRef(_)
             | ast::AnyName::ElementTag(_)
             | ast::AnyName::EventTriggerRef(_)
             | ast::AnyName::ExplainOptionName(_)
@@ -212,12 +218,16 @@ pub fn hover(db: &dyn Db, position: InFile<TextSize>) -> Option<Hover> {
             | ast::AnyName::GrantRoleOptionName(_)
             | ast::AnyName::JsonPathNameRef(_)
             | ast::AnyName::JsonVariableName(_)
+            | ast::AnyName::Label(_)
+            | ast::AnyName::LabelRef(_)
             | ast::AnyName::LanguageRef(_)
             | ast::AnyName::NameRef(_)
             | ast::AnyName::ParamNameRef(_)
+            | ast::AnyName::PathSegmentRef(_)
             | ast::AnyName::PolicyRef(_)
             | ast::AnyName::PreparedStatementRef(_)
             | ast::AnyName::PropertyName(_)
+            | ast::AnyName::PropertyNameRef(_)
             | ast::AnyName::PublicationRef(_)
             | ast::AnyName::RemoteTableNameRef(_)
             | ast::AnyName::RoleRef(_)
@@ -271,8 +281,8 @@ fn hover_literal(literal: &ast::Literal) -> Option<Hover> {
         | LitKind::EscString(_)
         | LitKind::NationalString(_)
         | LitKind::UnicodeEscString(_)
-        | LitKind::DollarQuotedString(_) => match value.find('\n') {
-            Some(idx) => {
+        | LitKind::DollarQuotedString(_) => match find_newline(&value) {
+            Some((idx, _)) => {
                 let truncated = &value[..idx];
                 format!(
                     "value of literal (truncated up to newline): {}",
@@ -334,14 +344,16 @@ fn markdown_inline_code(text: &str) -> String {
     format!("{fence} {text} {fence}")
 }
 
-fn hover_name(db: &dyn Db, name: InFile<ast::Name>) -> Option<Hover> {
-    let file = name.file_id;
-    let name = name.value;
-    let def = Location::from_node(file, name.syntax())?;
+fn hover_name(db: &dyn Db, def: Location) -> Option<Hover> {
     match def.kind {
         LocationKind::AccessMethod => hover_access_method(db, def),
         LocationKind::Aggregate => hover_aggregate(db, def),
-        LocationKind::CaseExpr | LocationKind::CommitBegin | LocationKind::CommitEnd => None,
+        LocationKind::CaseExpr
+        | LocationKind::CommitBegin
+        | LocationKind::CommitEnd
+        | LocationKind::ElementTable
+        | LocationKind::Label
+        | LocationKind::Property => None,
         LocationKind::Channel => hover_channel(db, def),
         LocationKind::Column => hover_name_column(db, def),
         LocationKind::Constraint => hover_constraint(db, def),
@@ -424,7 +436,12 @@ fn hover_position(db: &dyn Db, position: InFile<TextSize>) -> Option<Hover> {
     match def.kind {
         LocationKind::AccessMethod => hover_access_method(db, def),
         LocationKind::Aggregate => hover_aggregate(db, def),
-        LocationKind::CaseExpr | LocationKind::CommitBegin | LocationKind::CommitEnd => None,
+        LocationKind::CaseExpr
+        | LocationKind::CommitBegin
+        | LocationKind::CommitEnd
+        | LocationKind::ElementTable
+        | LocationKind::Label
+        | LocationKind::Property => None,
         LocationKind::Channel => hover_channel(db, def),
         LocationKind::Column => {
             if let Some(result) = hover_composite_type_field(db, def) {
@@ -609,7 +626,7 @@ fn format_hover_for_column_ptr(db: &dyn Db, def: Location) -> Option<Hover> {
             ));
         }
         ast_nav::ParentSouce::Alias(alias) => {
-            let alias_name = alias.table_alias()?;
+            let alias_name = alias.name()?;
             alias.column_list()?;
             let from_item = alias.syntax().ancestors().find_map(ast::FromItem::cast)?;
             let table_name = Name::from_node(&alias_name);
@@ -706,14 +723,14 @@ fn format_hover_for_column_ptr(db: &dyn Db, def: Location) -> Option<Hover> {
 }
 
 fn hover_composite_type_field(db: &dyn Db, def: Location) -> Option<Hover> {
-    let column = def.to_node(db)?.ancestors().find_map(ast::Column::cast)?;
-    let field_name = column.name()?.syntax().text().to_string();
-    let ty = column.ty()?;
-
-    let create_type = column
-        .syntax()
+    let field = def
+        .to_node(db)?
         .ancestors()
-        .find_map(ast::CreateType::cast)?;
+        .find_map(ast::CompositeFieldDef::cast)?;
+    let field_name = field.name()?.syntax().text().to_string();
+    let ty = field.ty()?;
+
+    let create_type = field.syntax().ancestors().find_map(ast::CreateType::cast)?;
     let type_path = create_type.type_name()?.path()?;
     let (schema, type_name) = resolve::resolve_type_info(db, InFile::new(def.file, &type_path))?;
 
@@ -725,7 +742,7 @@ fn hover_composite_type_field(db: &dyn Db, def: Location) -> Option<Hover> {
             field_name,
             ty.syntax().text()
         ),
-        column.syntax(),
+        field.syntax(),
     ))
 }
 
@@ -778,11 +795,11 @@ fn hover_table(db: &dyn Db, def: Location) -> Option<Hover> {
 fn format_alias_with_column_list(db: &dyn Db, alias: InFile<ast::FromAlias>) -> Option<Hover> {
     let file = alias.file_id;
     let alias = alias.value;
-    let alias_name = alias.table_alias()?;
+    let alias_name = alias.name()?;
     let name = Name::from_node(&alias_name);
 
     let Some(column_list) = alias.column_list() else {
-        let name = Name::from_node(&alias.table_alias()?);
+        let name = Name::from_node(&alias.name()?);
         let from_item = alias.syntax().ancestors().find_map(ast::FromItem::cast)?;
         let ast::FromItem::ParenFromItem(paren) = from_item else {
             return None;
@@ -792,12 +809,8 @@ fn format_alias_with_column_list(db: &dyn Db, alias: InFile<ast::FromAlias>) -> 
     };
 
     let mut columns: Vec<Name> = column_list
-        .columns()
-        .filter_map(|column| {
-            column
-                .name()
-                .map(|column_name| Name::from_node(&column_name))
-        })
+        .column_names()
+        .map(|column_name| Name::from_node(&column_name))
         .collect();
 
     if let Some(from_item) = alias.syntax().ancestors().find_map(ast::FromItem::cast)
@@ -936,7 +949,7 @@ fn hover_qualified_star_columns_from_alias(
 ) -> Option<Hover> {
     let file = alias.file_id;
     let alias = alias.value;
-    let alias_name = Name::from_node(&alias.table_alias()?);
+    let alias_name = Name::from_node(&alias.name()?);
     alias.column_list()?;
     let from_item = alias.syntax().ancestors().find_map(ast::FromItem::cast)?;
     let columns = collect::columns_for_star_from_alias(db, file, &from_item, alias);
@@ -1184,7 +1197,7 @@ fn subquery_alias_name(paren_select: &ast::ParenSelect) -> Option<Name> {
         .syntax()
         .ancestors()
         .find_map(ast::FromItem::cast)?;
-    let alias_name = from_item.alias()?.table_alias()?;
+    let alias_name = from_item.alias()?.name()?;
     Some(Name::from_node(&alias_name))
 }
 
@@ -1654,7 +1667,6 @@ fn format_create_index(db: &dyn Db, create_index: InFile<ast::CreateIndex>) -> O
         .index()?
         .path()?
         .segment()?
-        .name()?
         .syntax()
         .text()
         .to_string();
@@ -1815,7 +1827,11 @@ fn format_create_type(db: &dyn Db, create_type: InFile<ast::CreateType>) -> Opti
             format!("type {schema}.{type_name} as enum {variants}")
         }
         Some(ast::CreateTypeKind::CompositeType(composite_type)) => {
-            let columns = composite_type.column_list()?.syntax().text().to_string();
+            let columns = composite_type
+                .composite_field_list()?
+                .syntax()
+                .text()
+                .to_string();
             format!("type {schema}.{type_name} as {columns}")
         }
         Some(ast::CreateTypeKind::RangeType(range_type)) => {
@@ -2088,7 +2104,7 @@ fn table_or_view_or_cte_ptrs(
     let path = path.value;
     let (schema, table_name) = name::schema_and_name_path(path)?;
     let mut results = vec![];
-    let name_ref = path.segment().and_then(|x| x.name_ref());
+    let name_ref = path.segment();
     let schemas = bind(db, file).resolved_schemas(position, schema.as_ref());
 
     if let Some((table_like_ptr, _kind)) =
@@ -5983,6 +5999,19 @@ select * from json_table(
     fn hover_esc_string() {
         assert_snapshot!(check_hover_info(r"
 select e'fo$0o\nbar';
+").markdown(), @"
+        ```sql
+        text
+        ```
+        ---
+        value of literal (truncated up to newline): ` foo `
+        ");
+    }
+
+    #[test]
+    fn hover_esc_string_with_cr() {
+        assert_snapshot!(check_hover_info(r"
+select e'fo$0o\rbar';
 ").markdown(), @"
         ```sql
         text

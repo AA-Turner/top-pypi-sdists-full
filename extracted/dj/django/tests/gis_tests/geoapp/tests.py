@@ -1,7 +1,7 @@
 import json
 from io import StringIO
 from pathlib import Path
-from unittest import mock
+from unittest import mock, skipIf
 
 from django.contrib.gis import gdal
 from django.contrib.gis.db.models import Extent, MakeLine, Union, functions
@@ -26,16 +26,18 @@ from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
 from django.test.utils import CaptureQueriesContext
 
 from ..data.rasters.textrasters import JSON_RASTER
-from ..utils import skipUnlessGISLookup
+from ..utils import cannot_save_multipoint, skipUnlessGISLookup
 from .models import (
     City,
     Country,
     Feature,
     GeometryCollectionModel,
+    Lines,
     MinusOneSRID,
     MultiFields,
     NonConcreteModel,
     PennsylvaniaCity,
+    Points,
     State,
     ThreeDimensionalFeature,
     Track,
@@ -276,6 +278,45 @@ class GeoModelTest(TestCase):
 
 
 class SaveLoadTests(TestCase):
+    def test_multilinestringfield(self):
+        geom = MultiLineString(
+            LineString((0, 0), (1, 1), (5, 5)),
+            LineString((0, 0), (0, 5), (5, 5), (5, 0), (0, 0)),
+        )
+        obj = Lines.objects.create(geom=geom)
+        obj.refresh_from_db()
+        self.assertEqual(obj.geom.tuple, geom.tuple)
+
+    def test_multilinestring_with_linearring(self):
+        geom = MultiLineString(
+            LineString((0, 0), (1, 1), (5, 5)),
+            LinearRing((0, 0), (0, 5), (5, 5), (5, 0), (0, 0)),
+        )
+        obj = Lines.objects.create(geom=geom)
+        obj.refresh_from_db()
+        self.assertEqual(obj.geom.tuple, geom.tuple)
+        self.assertEqual(obj.geom[1].__class__.__name__, "LineString")
+        self.assertEqual(obj.geom[0].tuple, geom[0].tuple)
+        # LinearRings are transformed to LineString.
+        self.assertEqual(obj.geom[1].__class__.__name__, "LineString")
+        self.assertEqual(obj.geom[1].tuple, geom[1].tuple)
+
+    @skipIf(cannot_save_multipoint, "MariaDB cannot save MultiPoint due to a bug.")
+    def test_multipointfield(self):
+        geom = MultiPoint(Point(1, 1), Point(0, 0))
+        obj = Points.objects.create(geom=geom)
+        obj.refresh_from_db()
+        self.assertEqual(obj.geom, geom)
+
+    def test_geometrycollectionfield(self):
+        geom = GeometryCollection(
+            Point(2, 2),
+            LineString((0, 0), (2, 2)),
+            Polygon(LinearRing((0, 0), (0, 5), (5, 5), (5, 0), (0, 0))),
+        )
+        obj = GeometryCollectionModel.objects.create(geom=geom)
+        obj.refresh_from_db()
+        self.assertIs(obj.geom.equals(geom), True)
 
     def test_geometrycollectionfield_max(self):
         geom = "POINT(0 0)"
@@ -324,6 +365,7 @@ class ValidationTests(SimpleTestCase):
 class GeoLookupTest(TestCase):
     fixtures = ["initial"]
 
+    @skipUnlessGISLookup("disjoint")
     def test_disjoint_lookup(self):
         "Testing the `disjoint` lookup type."
         ptown = City.objects.get(name="Pueblo")
@@ -333,22 +375,22 @@ class GeoLookupTest(TestCase):
         self.assertEqual(1, qs2.count())
         self.assertEqual("Kansas", qs2[0].name)
 
-    def test_contains_contained_lookups(self):
-        "Testing the 'contained', 'contains', and 'bbcontains' lookup types."
+    @skipUnlessGISLookup("contained")
+    def test_contained(self):
         # Getting Texas, yes we were a country -- once ;)
         texas = Country.objects.get(name="Texas")
 
         # Seeing what cities are in Texas, should get Houston and Dallas,
         #  and Oklahoma City because 'contained' only checks on the
         #  _bounding box_ of the Geometries.
-        if connection.features.supports_contained_lookup:
-            qs = City.objects.filter(point__contained=texas.mpoly)
-            self.assertEqual(3, qs.count())
-            cities = ["Houston", "Dallas", "Oklahoma City"]
-            for c in qs:
-                self.assertIn(c.name, cities)
+        qs = City.objects.filter(point__contained=texas.mpoly)
+        self.assertEqual(3, qs.count())
+        cities = ["Houston", "Dallas", "Oklahoma City"]
+        for c in qs:
+            self.assertIn(c.name, cities)
 
-        # Pulling out some cities.
+    @skipUnlessGISLookup("contains")
+    def test_contains(self):
         houston = City.objects.get(name="Houston")
         wellington = City.objects.get(name="Wellington")
         pueblo = City.objects.get(name="Pueblo")
@@ -377,13 +419,15 @@ class GeoLookupTest(TestCase):
             len(Country.objects.filter(mpoly__contains=okcity.point.wkt)), 0
         )  # Query w/WKT
 
+    @skipUnlessGISLookup("bbcontains")
+    def test_bbcontains(self):
         # OK City is contained w/in bounding box of Texas.
-        if connection.features.supports_bbcontains_lookup:
-            qs = Country.objects.filter(mpoly__bbcontains=okcity.point)
-            self.assertEqual(1, len(qs))
-            self.assertEqual("Texas", qs[0].name)
+        okcity = City.objects.get(name="Oklahoma City")
+        qs = Country.objects.filter(mpoly__bbcontains=okcity.point)
+        self.assertEqual(1, len(qs))
+        self.assertEqual("Texas", qs[0].name)
 
-    @skipUnlessDBFeature("supports_crosses_lookup")
+    @skipUnlessGISLookup("crosses")
     def test_crosses_lookup(self):
         Track.objects.create(name="Line1", line=LineString([(-95, 29), (-60, 0)]))
         self.assertEqual(
@@ -476,6 +520,7 @@ class GeoLookupTest(TestCase):
             lambda b: b.name,
         )
 
+    @skipUnlessGISLookup("same_as", "equals")
     def test_equals_lookups(self):
         "Testing the 'same_as' and 'equals' lookup types."
         pnt = fromstr("POINT (-95.363151 29.763374)", srid=4326)
@@ -664,6 +709,7 @@ class GeoLookupTest(TestCase):
             )
         )
 
+    @skipUnlessDBFeature("has_Union_function")
     def test_gis_lookups_with_complex_expressions(self):
         multiple_arg_lookups = {
             "dwithin",
@@ -677,6 +723,7 @@ class GeoLookupTest(TestCase):
                     **{"point__" + lookup: functions.Union("point", "point")}
                 ).exists()
 
+    @skipUnlessGISLookup("within")
     def test_subquery_annotation(self):
         multifields = MultiFields.objects.create(
             city=City.objects.create(point=Point(1, 1)),
@@ -927,6 +974,7 @@ class GeoQuerySetTest(TestCase):
                 Union("point", tolerance="0.05))), (((1"),
             )
 
+    @skipUnlessGISLookup("within")
     def test_within_subquery(self):
         """
         Using a queryset inside a geo lookup is working (using a subquery)

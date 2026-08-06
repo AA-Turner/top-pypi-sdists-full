@@ -340,6 +340,7 @@ class TestVectorStores:
             rerank_config={
                 "instruction": "instruction",
                 "model": "model",
+                "provider": "launch",
                 "top_n": 1,
                 "type": "base",
             },
@@ -747,6 +748,7 @@ class TestAsyncVectorStores:
             rerank_config={
                 "instruction": "instruction",
                 "model": "model",
+                "provider": "launch",
                 "top_n": 1,
                 "type": "base",
             },

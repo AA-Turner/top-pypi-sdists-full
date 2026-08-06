@@ -142,7 +142,7 @@ def update_user_config(
         if additional_data:
             existing_config[active_org].update(additional_data)
     elif additional_data:
-        raise ValueError("Attempt to store additional data without specifying namespace")
+        raise ValueError("Attempt to store additional data without specifying organization")
 
     try:
         _write_user_config(existing_config)
@@ -171,6 +171,8 @@ _CLI_SETTINGS = {
     "default_public_key": _Setting(),
     "default_public_key_name": _Setting(),
     "cli_log_level": _Setting("INFO"),
+    # Output mode (rich/plain/json); also settable via PIPECAT_OUTPUT
+    "output": _Setting(),
 }
 
 

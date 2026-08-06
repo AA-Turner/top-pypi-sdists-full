@@ -551,8 +551,14 @@ class Zotero:
 
     def last_modified_version(self, **kwargs: Any) -> int:
         """Get the last modified user or group library version."""
-        # This MUST be a multiple-object request, limit param notwithstanding
-        self.items(limit=1)
+        # This MUST be a multiple-object request, limit param notwithstanding.
+        # Call _retrieve_data directly (as _totals does) rather than items(),
+        # which would overwrite self.links and break any in-progress
+        # pagination via follow() / iterfollow()
+        self.add_parameters(limit=1)
+        query = self._build_query("/{t}/{u}/items")
+        self._retrieve_data(query)
+        self.url_params = None
         lmv = self.request.headers.get("last-modified-version", 0)
         return int(lmv)
 
@@ -716,12 +722,21 @@ class Zotero:
         """Retrieve all top-level items."""
         return self.everything(self.top(**kwargs))
 
-    @retrieve  # ty: ignore[invalid-argument-type]
-    def follow(self) -> str | None:
-        """Return the result of the call to the URL in the 'Next' link."""
-        if n := self.links.get("next"):
-            return self._striplocal(n)
-        return None
+    def follow(self) -> Any:
+        """Return the result of the call to the URL in the 'Next' link.
+
+        Returns None when there are no more pages to retrieve.
+        """
+        # Bail out before making a request: without a 'next' link, the
+        # decorated helper would end up querying the bare API root
+        if not self.links or not self.links.get("next"):
+            return None
+        return self._follow_next()
+
+    @retrieve
+    def _follow_next(self) -> str:
+        """Retrieve the URL in the 'next' link. Only called by follow()."""
+        return self._striplocal(self.links["next"])
 
     def iterfollow(self) -> Generator[Any, None, None]:
         """Return generator for self.follow()."""

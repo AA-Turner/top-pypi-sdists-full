@@ -433,6 +433,17 @@ def _catalog_outputs(json_schema: dict, name: str = "users"):
     )
 
 
+def _state_outputs(final_states: dict):
+    """A side that finished a read leaving this state per stream.
+
+    Named streams here, keyed on `(namespace, name)` for the comparison the way
+    extraction hands them over.
+    """
+    return ComparableOutputs(
+        final_states={(None, name): state for name, state in final_states.items()}
+    )
+
+
 def test_a_removed_spec_property_fails_a_run_whose_commands_both_passed(
     tmp_path, capsys, stub_comparison_run
 ):
@@ -820,10 +831,8 @@ def test_a_failed_command_is_not_also_reported_as_a_comparison_failure(
     assert "comparison" not in payload
 
 
-def test_read_and_check_have_no_declared_output_to_compare(
-    tmp_path, capsys, stub_comparison_run
-):
-    """`check` reports its own status and `read` is compared on its records."""
+def test_check_has_no_output_to_compare(tmp_path, capsys, stub_comparison_run):
+    """`check` reports its own status, so it is the one command with nothing to diff."""
     stub_comparison_run(
         {**_CLEAN_RUN, "connection_status": "SUCCEEDED"},
         {**_CLEAN_RUN, "connection_status": "SUCCEEDED"},
@@ -840,6 +849,127 @@ def test_read_and_check_have_no_declared_output_to_compare(
 
     assert payload["success"] is True
     assert "comparison" not in payload
+
+
+def test_a_restructured_final_state_fails_a_read_whose_commands_both_passed(
+    tmp_path, capsys, stub_comparison_run
+):
+    """The gap this closes: a `read` that corrupts its state exits 0.
+
+    Nothing else in the run looks at the state, so a dropped cursor key ships
+    and the damage shows up as missed records on a customer's next sync.
+    """
+    seen = stub_comparison_run(
+        dict(_CLEAN_RUN),
+        dict(_CLEAN_RUN),
+        target_outputs=_state_outputs({"users": {"updated_at": "2024-01-01"}}),
+        control_outputs=_state_outputs(
+            {"users": {"updated_at": "2024-01-01", "page": 3}}
+        ),
+    )
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        output_dir=str(tmp_path),
+    )
+
+    payload = _logged_payload(capsys.readouterr().out)
+
+    assert payload["success"] is False
+    # Both commands ran cleanly, so the outcome alone would have said no
+    # regression: the finding has to reach the flag the workflow reads.
+    assert payload["both_succeeded"] is True
+    assert payload["regression_detected"] is True
+
+    final_state = payload["comparison"]["final_state"]
+    assert final_state["value_only"] is False
+    assert final_state["changed_streams"] == ["users"]
+    # The diff itself has to survive the trip into the payload.
+    assert final_state["streams"]["users"]["diff"]
+
+    summary = "\n".join(seen["step_summary"])
+    assert "| Final state per stream | ❌ |" in summary
+    assert "State for users changed shape" in summary
+    # And a reviewer's next question -- which key? -- is answered in the report.
+    html = (tmp_path / "report.html").read_text()
+    assert "Final state diff — users" in html
+    assert "page" in html
+
+
+def test_an_advanced_cursor_warns_instead_of_failing_the_read(
+    tmp_path, capsys, stub_comparison_run
+):
+    """Both versions call the live API separately until HTTP replay lands.
+
+    A timestamp cursor advances between the two runs on its own, so failing on
+    it would redden every incremental read. It is still reported.
+    """
+    seen = stub_comparison_run(
+        dict(_CLEAN_RUN),
+        dict(_CLEAN_RUN),
+        target_outputs=_state_outputs(
+            {"users": {"updated_at": "2024-01-01T00:05:00Z"}}
+        ),
+        control_outputs=_state_outputs(
+            {"users": {"updated_at": "2024-01-01T00:00:00Z"}}
+        ),
+    )
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        output_dir=str(tmp_path),
+    )
+
+    payload = _logged_payload(capsys.readouterr().out)
+
+    assert payload["success"] is True
+    assert payload["regression_detected"] is False
+    # Reported, not hidden: the payload says why a `passed: false` did not gate.
+    assert payload["comparison"]["final_state"]["passed"] is False
+    assert payload["comparison"]["final_state"]["value_only"] is True
+    assert payload["comparison"]["final_state"]["inconclusive"] is False
+
+    summary = "\n".join(seen["step_summary"])
+    assert "| Final state per stream | ⚠️ |" in summary
+    assert "State for users changed value" in summary
+
+
+def test_a_read_that_emitted_no_state_is_warned_about_rather_than_passed(
+    tmp_path, capsys, stub_comparison_run
+):
+    """A read that emitted no state at all cannot fail, and must not go green.
+
+    Not the full-refresh case -- the CDK emits a terminal sentinel per stream
+    there. This is a connector that emitted nothing, which is no fault of the
+    target version; a check that passes over something it never looked at is how
+    a silent state regression ships.
+    """
+    seen = stub_comparison_run(dict(_CLEAN_RUN), dict(_CLEAN_RUN))
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        output_dir=str(tmp_path),
+    )
+
+    payload = _logged_payload(capsys.readouterr().out)
+
+    assert payload["success"] is True
+    assert payload["comparison"]["final_state"]["passed"] is False
+    assert (
+        payload["comparison"]["final_state"]["message"]
+        == "Neither version emitted any state; nothing was compared"
+    )
+    # Why it did not gate: nothing was compared -- not "every change was benign",
+    # which is what reporting this through `value_only` would have claimed.
+    assert payload["comparison"]["final_state"]["inconclusive"] is True
+    assert payload["comparison"]["final_state"]["value_only"] is False
+    assert "| Final state per stream | ⚠️ |" in "\n".join(seen["step_summary"])
 
 
 def test_comparison_mode_emits_the_html_report_and_a_concise_summary(

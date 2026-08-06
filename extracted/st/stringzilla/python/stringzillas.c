@@ -342,16 +342,20 @@ static int parse_and_intersect_capabilities(PyObject *caps_obj, sz_capability_t 
         return 0;
     }
 
-    // Any sequence of names, matching the StringZilla module rather than demanding a tuple
-    PyObject *seq = PySequence_Fast(caps_obj, "capabilities must be a sequence of strings or a DeviceScope object");
-    if (!seq) return -1;
+    // Any sequence of names, matching the StringZilla module rather than demanding a tuple. Snapshotted into
+    // a tuple rather than borrowed through `PySequence_Fast`, which returns the caller's list itself and
+    // leaves the walk indexing into storage another thread can resize.
+    PyObject *seq = PySequence_Tuple(caps_obj);
+    if (!seq) {
+        PyErr_SetString(PyExc_TypeError, "capabilities must be a sequence of strings or a DeviceScope object");
+        return -1;
+    }
 
     sz_capability_t requested_caps = 0;
-    Py_ssize_t n = PySequence_Fast_GET_SIZE(seq);
-    PyObject **items = PySequence_Fast_ITEMS(seq);
+    Py_ssize_t n = PyTuple_GET_SIZE(seq);
 
     for (Py_ssize_t i = 0; i < n; i++) {
-        PyObject *item = items[i];
+        PyObject *item = PyTuple_GET_ITEM(seq, i);
         if (!PyUnicode_Check(item)) {
             PyErr_SetString(PyExc_TypeError, "capabilities must be strings");
             Py_DECREF(seq);
@@ -1454,16 +1458,16 @@ static PyObject *NeedlemanWunsch_vectorcall(PyObject *callable, PyObject *const 
     if (candidates_obj == Py_None) candidates_obj = NULL;
     sz_bool_t is_self_similarity = (candidates_obj == NULL) ? sz_true_k : sz_false_k;
 
-    // Get device handle
-    szs_device_scope_t device_handle = default_device_scope;
-    if (device_obj && device_obj != Py_None) {
-        if (!PyObject_IsInstance(device_obj, (PyObject *)&DeviceScopeType)) {
+    DeviceScope *device_scope = NULL;
+    if (device_obj != NULL && device_obj != Py_None) {
+        if (!PyObject_TypeCheck(device_obj, &DeviceScopeType)) {
             PyErr_SetString(PyExc_TypeError, "device must be a DeviceScope instance");
             return NULL;
         }
-        device_handle = ((DeviceScope *)device_obj)->handle;
+        device_scope = (DeviceScope *)device_obj;
     }
 
+    szs_device_scope_t device_handle = device_scope ? device_scope->handle : default_device_scope;
     sz_size_t queries_count = 0;
     sz_size_t candidates_count = 0;
     void const *kernel_queries_punned = NULL;
@@ -1598,13 +1602,14 @@ static PyObject *NeedlemanWunsch_vectorcall(PyObject *callable, PyObject *const 
     char const *error_detail = NULL;
     sz_status_t status = sz_success_k; // An empty cross product (zero-row/col matrix) needs no kernel
     if (kernel_punned) {
-        // The default scope is stateless, so only the engine's scratch needs guarding.
+        if (device_scope) SZS_LOCK_(&device_scope->lock);
         SZS_LOCK_(&self->lock);
         status = kernel_punned(                              //
             self->handle, device_handle,                     //
             kernel_queries_punned, kernel_candidates_punned, //
             kernel_results, kernel_results_row_stride, &error_detail);
         SZS_UNLOCK_(&self->lock);
+        if (device_scope) SZS_UNLOCK_(&device_scope->lock);
     }
 
     if (status != sz_success_k) {
@@ -1876,16 +1881,16 @@ static PyObject *SmithWaterman_vectorcall(PyObject *callable, PyObject *const *a
     if (candidates_obj == Py_None) candidates_obj = NULL;
     sz_bool_t is_self_similarity = (candidates_obj == NULL) ? sz_true_k : sz_false_k;
 
-    // Get device handle
-    szs_device_scope_t device_handle = default_device_scope;
-    if (device_obj && device_obj != Py_None) {
-        if (!PyObject_IsInstance(device_obj, (PyObject *)&DeviceScopeType)) {
+    DeviceScope *device_scope = NULL;
+    if (device_obj != NULL && device_obj != Py_None) {
+        if (!PyObject_TypeCheck(device_obj, &DeviceScopeType)) {
             PyErr_SetString(PyExc_TypeError, "device must be a DeviceScope instance");
             return NULL;
         }
-        device_handle = ((DeviceScope *)device_obj)->handle;
+        device_scope = (DeviceScope *)device_obj;
     }
 
+    szs_device_scope_t device_handle = device_scope ? device_scope->handle : default_device_scope;
     sz_size_t queries_count = 0;
     sz_size_t candidates_count = 0;
     void const *kernel_queries_punned = NULL;
@@ -2020,13 +2025,14 @@ static PyObject *SmithWaterman_vectorcall(PyObject *callable, PyObject *const *a
     char const *error_detail = NULL;
     sz_status_t status = sz_success_k; // An empty cross product (zero-row/col matrix) needs no kernel
     if (kernel_punned) {
-        // The default scope is stateless, so only the engine's scratch needs guarding.
+        if (device_scope) SZS_LOCK_(&device_scope->lock);
         SZS_LOCK_(&self->lock);
         status = kernel_punned(                              //
             self->handle, device_handle,                     //
             kernel_queries_punned, kernel_candidates_punned, //
             kernel_results, kernel_results_row_stride, &error_detail);
         SZS_UNLOCK_(&self->lock);
+        if (device_scope) SZS_UNLOCK_(&device_scope->lock);
     }
 
     if (status != sz_success_k) {

@@ -16,6 +16,8 @@ ordering / failure-mode coverage lives in
 
 from __future__ import annotations
 
+import asyncio
+from itertools import count
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -36,7 +38,7 @@ def _make_scanner(config_dir: Path) -> tuple[DeviceScanner, list[tuple[ScanChang
     events: list[tuple[ScanChange, Device]] = []
     scanner = DeviceScanner(
         config_dir=config_dir,
-        get_metadata=_stub_metadata,
+        make_metadata_resolver=lambda: _stub_metadata,
         on_change=lambda kind, device, _previous: events.append((kind, device)),
     )
     return scanner, events
@@ -48,8 +50,15 @@ def _write_yaml(config_dir: Path, name: str) -> Path:
     return path
 
 
+_load_seq = count()
+
+
 def _stub_load(path: Path, *_a: Any, **_kw: Any) -> Device:
-    return Device(name=path.stem, friendly_name=path.stem, configuration=path.name)
+    # Monotonic friendly_name: every rebuild differs, so the reload's
+    # equal-rebuild event suppression never hides a drain under test.
+    return Device(
+        name=path.stem, friendly_name=f"{path.stem}-{next(_load_seq)}", configuration=path.name
+    )
 
 
 async def test_request_drains_one_file(tmp_path: Path) -> None:
@@ -207,3 +216,102 @@ async def test_worker_survives_failing_reload(tmp_path: Path) -> None:
 
     # Failing reload ran once and the worker survived to handle bedroom.
     assert reloaded == ["kitchen.yaml", "bedroom.yaml"]
+
+
+async def test_request_coalesces_into_the_running_drain_batch(tmp_path: Path) -> None:
+    """A request for a file still queued in the running cycle is not re-added."""
+    cfg = tmp_path / "configs"
+    cfg.mkdir()
+    _write_yaml(cfg, "kitchen")
+    _write_yaml(cfg, "bedroom")
+
+    reload_calls: list[str] = []
+    first_started = asyncio.Event()
+    release = asyncio.Event()
+    real_reload = DeviceScanner.reload
+
+    async def _gated(self: DeviceScanner, filename: str) -> bool:
+        reload_calls.append(filename)
+        if len(reload_calls) == 1:
+            first_started.set()
+            await release.wait()
+        return await real_reload(self, filename)
+
+    with (
+        patch(
+            "esphome_device_builder.controllers._device_scanner.load_device_from_storage",
+            side_effect=_stub_load,
+        ),
+        patch.object(DeviceScanner, "reload", _gated),
+    ):
+        scanner, _ = _make_scanner(cfg)
+        await scanner.scan()
+        scanner.request("kitchen.yaml")
+        scanner.request("bedroom.yaml")
+        scanner.start()
+        try:
+            await first_started.wait()
+            queued = "bedroom.yaml" if reload_calls[0] == "kitchen.yaml" else "kitchen.yaml"
+            # Still awaiting its turn in the swapped batch — coalesces.
+            scanner.request(queued)
+            release.set()
+            await scanner.wait_idle()
+        finally:
+            await scanner.stop()
+
+    assert reload_calls.count(queued) == 1
+
+
+async def test_cancelled_drain_requeues_the_unprocessed_remainder(tmp_path: Path) -> None:
+    """Items still queued when the worker is cancelled land back in pending."""
+    cfg = tmp_path / "configs"
+    cfg.mkdir()
+    _write_yaml(cfg, "kitchen")
+    _write_yaml(cfg, "bedroom")
+
+    first_started = asyncio.Event()
+
+    async def _parked(self: DeviceScanner, filename: str) -> bool:
+        first_started.set()
+        await asyncio.Event().wait()
+        return True
+
+    with (
+        patch(
+            "esphome_device_builder.controllers._device_scanner.load_device_from_storage",
+            side_effect=_stub_load,
+        ),
+        patch.object(DeviceScanner, "reload", _parked),
+    ):
+        scanner, _ = _make_scanner(cfg)
+        await scanner.scan()
+        scanner.request("kitchen.yaml")
+        scanner.request("bedroom.yaml")
+        scanner.start()
+        await first_started.wait()
+        await scanner.stop()
+
+    # One file was parked mid-reload; the other never left the batch and
+    # must survive into pending for a restarted worker.
+    assert len(scanner.pending) == 1
+
+
+async def test_request_drains_reload_that_returns_false(tmp_path: Path) -> None:
+    """A drain whose reload reports no update completes quietly."""
+    cfg = tmp_path / "configs"
+    cfg.mkdir()
+    _write_yaml(cfg, "kitchen")
+
+    async def _no_update(self: DeviceScanner, filename: str) -> bool:
+        return False
+
+    with patch.object(DeviceScanner, "reload", _no_update):
+        scanner, _ = _make_scanner(cfg)
+        scanner.start()
+        try:
+            scanner.request("kitchen.yaml")
+            await scanner.wait_idle()
+        finally:
+            await scanner.stop()
+
+    assert scanner.pending == set()

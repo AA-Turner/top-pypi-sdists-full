@@ -10,21 +10,24 @@
 //!
 //! The plugin intentionally infers subscriber names from the component namespace
 //! so configuration remains portable across bindings. Agent Trajectory
-//! Observability Format (ATOF), OpenTelemetry, and OpenInference each register
-//! one global subscriber when enabled. Agent Trajectory Interchange Format
-//! (ATIF) uses a global dispatcher that detects top-level agent or turn scopes
-//! and creates one scope-local exporter for each trajectory run. Coding-agent
-//! turns that need bounded traces carry role metadata; their declared scope
-//! type is preserved in the exported event stream.
+//! Observability Format (ATOF) registers one global subscriber when enabled.
+//! Typed OpenTelemetry endpoints share one global fan-out subscriber. Agent
+//! Trajectory Interchange Format (ATIF) uses a global dispatcher that detects
+//! top-level agent or turn scopes and creates one scope-local exporter for each
+//! trajectory run. Coding-agent turns that need bounded traces carry role
+//! metadata; their declared scope type is preserved in the exported event
+//! stream.
 
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
-use std::path::PathBuf;
+use std::net::IpAddr;
+use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::path::{Component, Path, PathBuf};
 use std::pin::Pin;
 #[cfg(feature = "object-store")]
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::{Arc, Mutex};
-#[cfg(any(feature = "otel", feature = "openinference", feature = "object-store"))]
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -35,10 +38,12 @@ use crate::api::event::{Event, ScopeCategory};
 use crate::api::runtime::{EventSubscriberFn, current_scope_stack};
 use crate::api::scope::ScopeType;
 use crate::api::subscriber::{
-    scope_deregister_subscriber, try_scope_deregister_subscriber, try_scope_register_subscriber,
+    flush_subscribers, scope_deregister_subscriber, try_scope_deregister_subscriber,
+    try_scope_register_subscriber,
 };
 use crate::config_editor::{
-    EditorConfig, EditorFieldKind, EditorListItemSpec, EditorTaggedUnionSpec, EditorVariantSpec,
+    EditorConfig, EditorFieldKind, EditorFieldSpec, EditorListItemSpec, EditorSchema,
+    EditorTaggedUnionSpec, EditorVariantSpec,
 };
 use crate::error::FlowError;
 use crate::observability::atif::{AtifAgentInfo, AtifExporter};
@@ -47,27 +52,25 @@ use crate::observability::atof::{
     AtofExporterConfig as CoreAtofExporterConfig, AtofExporterMode, AtofFileSinkConfig,
     AtofSinkConfig as CoreAtofSinkConfig, AtofStreamSinkConfig,
 };
-#[cfg(feature = "openinference")]
-use crate::observability::openinference::{
-    OpenInferenceConfig as CoreOpenInferenceConfig, OpenInferenceSubscriber,
-    OtlpTransport as OpenInferenceTransport,
-};
-#[cfg(feature = "otel")]
 use crate::observability::otel::{
-    OpenTelemetryConfig as CoreOpenTelemetryConfig, OpenTelemetrySubscriber,
+    OpenTelemetryConfig as CoreOpenTelemetryConfig, OpenTelemetrySubscriber, OtlpTransport,
+    resolve_http_trace_endpoint,
 };
 use crate::observability::{
-    MarkProjection, OtlpAttributeMapping, default_mark_exclude_names, validate_attribute_mappings,
+    MarkProjection, OpenTelemetryType, OtlpAttributeMapping, default_mark_exclude_names,
+    validate_attribute_mappings,
 };
 use crate::plugin::{
-    ConfigDiagnostic, ConfigPolicy, DiagnosticLevel, Plugin, PluginComponentSpec, PluginError,
-    PluginRegistration, PluginRegistrationContext, Result as PluginResult, UnsupportedBehavior,
-    apply_global_config_policy, deregister_plugin, register_builtin_plugin,
+    ATIF_RUNTIME_DELIVERY_FAILURE_MARKER, ConfigDiagnostic, ConfigPolicy, DiagnosticLevel,
+    OTEL_RUNTIME_DELIVERY_FAILURE_MARKER, Plugin, PluginComponentSpec, PluginError,
+    PluginRegistration, PluginRegistrationCleanupOutcome, PluginRegistrationContext,
+    Result as PluginResult, UnsupportedBehavior, apply_global_config_policy, deregister_plugin,
+    register_builtin_plugin,
 };
+use crate::plugin::{RuntimeDiagnostic, record_active_plugin_runtime_diagnostic};
 
 /// The plugin kind registered by the core crate.
 pub const OBSERVABILITY_PLUGIN_KIND: &str = "observability";
-
 /// Top-level observability component wrapper.
 ///
 /// Use this wrapper when constructing a [`PluginComponentSpec`] from Rust
@@ -129,10 +132,7 @@ pub struct ObservabilityConfig {
     pub atif: Option<AtifSectionConfig>,
     /// OpenTelemetry trace export.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub opentelemetry: Option<OtlpSectionConfig>,
-    /// OpenInference trace export.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub openinference: Option<OtlpSectionConfig>,
+    pub opentelemetry: Option<OpenTelemetrySectionConfig>,
     /// Observability-local unsupported-config policy.
     #[serde(default)]
     pub policy: ConfigPolicy,
@@ -145,10 +145,70 @@ impl Default for ObservabilityConfig {
             atof: None,
             atif: None,
             opentelemetry: None,
-            openinference: None,
             policy: ConfigPolicy::default(),
         }
     }
+}
+
+/// Multi-endpoint OpenTelemetry export settings.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+pub struct OpenTelemetrySectionConfig {
+    /// Whether OpenTelemetry export is active.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Independently configured OTLP destinations.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub endpoints: Vec<OpenTelemetryEndpointConfig>,
+}
+
+/// One typed OTLP destination.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+pub struct OpenTelemetryEndpointConfig {
+    /// Semantic projection emitted by this endpoint.
+    #[serde(rename = "type")]
+    pub otel_type: OpenTelemetryType,
+    /// Required OTLP endpoint.
+    pub endpoint: String,
+    /// Representation used for point-in-time marks.
+    #[serde(default)]
+    #[cfg_attr(feature = "schema", schemars(schema_with = "mark_projection_schema"))]
+    pub mark_projection: MarkProjection,
+    /// Mark names excluded from tool projection.
+    #[serde(default = "default_mark_exclude_names")]
+    pub mark_exclude_names: Vec<String>,
+    /// Projected attributes copied to aliases.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attribute_mappings: Vec<OtlpAttributeMapping>,
+    /// OTLP transport: `http_binary` or `grpc`.
+    #[serde(default = "default_otlp_transport")]
+    #[cfg_attr(feature = "schema", schemars(schema_with = "otlp_transport_schema"))]
+    pub transport: String,
+    /// Extra exporter headers or metadata.
+    #[serde(default)]
+    pub headers: HashMap<String, String>,
+    /// Exporter headers mapped to environment variable names.
+    #[serde(default)]
+    pub header_env: HashMap<String, String>,
+    /// Extra resource attributes.
+    #[serde(default)]
+    pub resource_attributes: HashMap<String, String>,
+    /// `service.name` resource attribute.
+    #[serde(default = "default_otel_service_name")]
+    pub service_name: String,
+    /// Optional `service.namespace` resource attribute.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service_namespace: Option<String>,
+    /// Optional `service.version` resource attribute.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service_version: Option<String>,
+    /// Instrumentation scope name.
+    #[serde(default = "default_otel_instrumentation_scope")]
+    pub instrumentation_scope: String,
+    /// Export timeout in milliseconds.
+    #[serde(default = "default_timeout_millis")]
+    pub timeout_millis: u64,
 }
 
 /// Multi-sink ATOF JSONL exporter config.
@@ -256,8 +316,10 @@ pub struct AtifSectionConfig {
     /// [`storage`]: Self::storage
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output_directory: Option<PathBuf>,
-    /// Filename template. `{session_id}` is replaced with the top-level trajectory scope UUID.
-    /// When [`storage`] is non-empty, the rendered filename is appended to each backend's key prefix.
+    /// Filename template. `{session_id}` is replaced with the top-level trajectory scope UUID, and
+    /// `{metadata.<path>:-fallback}` placeholders use path-safe strings from the top-level scope
+    /// metadata or the optional literal fallback. When [`storage`] is non-empty, the rendered
+    /// filename is appended to each backend's key prefix.
     ///
     /// [`storage`]: Self::storage
     #[serde(default = "default_atif_filename_template")]
@@ -381,77 +443,6 @@ pub struct HttpStorageConfig {
     pub timeout_millis: u64,
 }
 
-/// Shared OTLP exporter config for OpenTelemetry and OpenInference.
-///
-/// The `opentelemetry` and `openinference` sections share the same shape but
-/// construct different subscriber implementations. Both sections are disabled
-/// by default and use `http_binary` transport unless configured otherwise.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
-pub struct OtlpSectionConfig {
-    /// Whether the subscriber is active.
-    #[serde(default)]
-    pub enabled: bool,
-    /// Representation used for mark events: `inherit`, `event`, or `tool`.
-    #[serde(default)]
-    #[cfg_attr(feature = "schema", schemars(schema_with = "mark_projection_schema"))]
-    pub mark_projection: MarkProjection,
-    /// Mark names excluded from tool projection. Defaults to `llm.chunk`.
-    #[serde(default = "default_mark_exclude_names")]
-    pub mark_exclude_names: Vec<String>,
-    /// Typed projected attributes copied to aliases.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub attribute_mappings: Vec<OtlpAttributeMapping>,
-    /// OTLP transport: `http_binary` or `grpc`.
-    #[serde(default = "default_otlp_transport")]
-    #[cfg_attr(feature = "schema", schemars(schema_with = "otlp_transport_schema"))]
-    pub transport: String,
-    /// OTLP endpoint.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub endpoint: Option<String>,
-    /// Extra exporter headers or metadata.
-    #[serde(default)]
-    pub headers: HashMap<String, String>,
-    /// Extra resource attributes.
-    #[serde(default)]
-    pub resource_attributes: HashMap<String, String>,
-    /// `service.name` resource attribute.
-    #[serde(default = "default_service_name")]
-    pub service_name: String,
-    /// Optional `service.namespace` resource attribute.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_namespace: Option<String>,
-    /// Optional `service.version` resource attribute.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_version: Option<String>,
-    /// Instrumentation scope name.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub instrumentation_scope: Option<String>,
-    /// Export timeout in milliseconds.
-    #[serde(default = "default_timeout_millis")]
-    pub timeout_millis: u64,
-}
-
-impl Default for OtlpSectionConfig {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            mark_projection: MarkProjection::default(),
-            mark_exclude_names: default_mark_exclude_names(),
-            attribute_mappings: Vec::new(),
-            transport: default_otlp_transport(),
-            endpoint: None,
-            headers: HashMap::new(),
-            resource_attributes: HashMap::new(),
-            service_name: default_service_name(),
-            service_namespace: None,
-            service_version: None,
-            instrumentation_scope: None,
-            timeout_millis: default_timeout_millis(),
-        }
-    }
-}
-
 crate::editor_config! {
     impl ObservabilityConfig {
         atof => {
@@ -472,15 +463,8 @@ crate::editor_config! {
             label: "OpenTelemetry",
             kind: Section,
             optional: true,
-            nested: OtlpSectionConfig,
-            default: OtlpSectionConfig,
-        },
-        openinference => {
-            label: "OpenInference",
-            kind: Section,
-            optional: true,
-            nested: OtlpSectionConfig,
-            default: OtlpSectionConfig,
+            nested: OpenTelemetrySectionConfig,
+            default: OpenTelemetrySectionConfig,
         },
         policy => {
             label: "policy",
@@ -490,6 +474,98 @@ crate::editor_config! {
         },
     }
 }
+
+crate::editor_config! {
+    impl OpenTelemetrySectionConfig {
+        enabled => { label: "enabled", kind: Boolean },
+        endpoints => { label: "endpoints", kind: List, list: &OPENTELEMETRY_ENDPOINT_LIST },
+    }
+}
+
+const fn otel_editor_field(
+    name: &'static str,
+    kind: EditorFieldKind,
+    enum_values: &'static [&'static str],
+    optional: bool,
+) -> EditorFieldSpec {
+    EditorFieldSpec {
+        name,
+        label: name,
+        kind,
+        enum_values,
+        optional,
+        nested_schema: None,
+        nested_default: None,
+        list_item: None,
+        tagged_union: None,
+    }
+}
+
+impl EditorConfig for OpenTelemetryEndpointConfig {
+    fn editor_schema() -> &'static EditorSchema {
+        static SCHEMA: EditorSchema = EditorSchema {
+            fields: &[
+                otel_editor_field(
+                    "type",
+                    EditorFieldKind::Enum,
+                    &["full", "gen_ai", "openinference"],
+                    false,
+                ),
+                otel_editor_field("endpoint", EditorFieldKind::String, &[], false),
+                otel_editor_field(
+                    "mark_projection",
+                    EditorFieldKind::Enum,
+                    &["inherit", "event", "tool"],
+                    false,
+                ),
+                otel_editor_field("mark_exclude_names", EditorFieldKind::Json, &[], false),
+                otel_editor_field("attribute_mappings", EditorFieldKind::List, &[], false),
+                otel_editor_field(
+                    "transport",
+                    EditorFieldKind::Enum,
+                    &["http_binary", "grpc"],
+                    false,
+                ),
+                otel_editor_field("service_name", EditorFieldKind::String, &[], false),
+                otel_editor_field("service_namespace", EditorFieldKind::String, &[], true),
+                otel_editor_field("service_version", EditorFieldKind::String, &[], true),
+                otel_editor_field("instrumentation_scope", EditorFieldKind::String, &[], false),
+                otel_editor_field("timeout_millis", EditorFieldKind::Integer, &[], false),
+                otel_editor_field("headers", EditorFieldKind::StringMap, &[], false),
+                otel_editor_field("header_env", EditorFieldKind::StringMap, &[], false),
+                otel_editor_field(
+                    "resource_attributes",
+                    EditorFieldKind::StringMap,
+                    &[],
+                    false,
+                ),
+            ],
+        };
+        &SCHEMA
+    }
+}
+
+fn default_opentelemetry_endpoint_editor_value() -> Json {
+    serde_json::json!({
+        "type": "full",
+        "endpoint": "",
+        "transport": "http_binary",
+        "service_name": "unknown_service",
+        "instrumentation_scope": "opentelemetry",
+        "timeout_millis": 3000,
+        "headers": {},
+        "header_env": {},
+        "resource_attributes": {},
+    })
+}
+
+static OPENTELEMETRY_ENDPOINT_LIST: EditorListItemSpec = EditorListItemSpec {
+    kind: EditorFieldKind::Section,
+    schema: Some(<OpenTelemetryEndpointConfig as EditorConfig>::editor_schema),
+    default: Some(default_opentelemetry_endpoint_editor_value),
+    tagged_union: None,
+    list_item: None,
+};
 
 crate::editor_config! {
     impl AtofSectionConfig {
@@ -575,49 +651,6 @@ static ATOF_SINK_LIST: EditorListItemSpec = EditorListItemSpec {
     tagged_union: Some(&ATOF_SINK_TAGGED_UNION),
     list_item: None,
 };
-
-crate::editor_config! {
-    impl OtlpAttributeMapping {
-        key => { label: "key", kind: String },
-        alias => { label: "alias", kind: String },
-    }
-}
-
-fn otlp_attribute_mapping_editor_schema() -> &'static crate::config_editor::EditorSchema {
-    <OtlpAttributeMapping as crate::config_editor::EditorConfig>::editor_schema()
-}
-
-fn default_otlp_attribute_mapping() -> Json {
-    serde_json::to_value(OtlpAttributeMapping::new("", ""))
-        .expect("attribute mapping should serialize")
-}
-
-static OTLP_ATTRIBUTE_MAPPING_LIST_ITEM: crate::config_editor::EditorListItemSpec =
-    crate::config_editor::EditorListItemSpec {
-        kind: crate::config_editor::EditorFieldKind::Section,
-        schema: Some(otlp_attribute_mapping_editor_schema),
-        default: Some(default_otlp_attribute_mapping),
-        tagged_union: None,
-        list_item: None,
-    };
-
-crate::editor_config! {
-    impl OtlpSectionConfig {
-        enabled => { label: "enabled", kind: Boolean },
-        mark_projection => { label: "mark_projection", kind: Enum, values: ["inherit", "event", "tool"] },
-        mark_exclude_names => { label: "mark_exclude_names", kind: Json },
-        attribute_mappings => { label: "attribute_mappings", kind: List, list: &OTLP_ATTRIBUTE_MAPPING_LIST_ITEM },
-        transport => { label: "transport", kind: Enum, values: ["http_binary", "grpc"] },
-        endpoint => { label: "endpoint", kind: String, optional: true },
-        headers => { label: "headers", kind: StringMap },
-        resource_attributes => { label: "resource_attributes", kind: StringMap },
-        service_name => { label: "service_name", kind: String },
-        service_namespace => { label: "service_namespace", kind: String, optional: true },
-        service_version => { label: "service_version", kind: String, optional: true },
-        instrumentation_scope => { label: "instrumentation_scope", kind: String, optional: true },
-        timeout_millis => { label: "timeout_millis", kind: Integer },
-    }
-}
 
 struct ObservabilityPlugin;
 
@@ -743,9 +776,6 @@ fn register_observability(
     if let Some(otel) = config.opentelemetry.filter(|section| section.enabled) {
         register_opentelemetry(otel, ctx)?;
     }
-    if let Some(openinference) = config.openinference.filter(|section| section.enabled) {
-        register_openinference(openinference, ctx)?;
-    }
     Ok(())
 }
 
@@ -846,11 +876,8 @@ fn register_atif_dispatcher(
     section: AtifSectionConfig,
     ctx: &mut PluginRegistrationContext,
 ) -> PluginResult<()> {
-    if !section.filename_template.contains("{session_id}") {
-        return Err(PluginError::InvalidConfig(
-            "ATIF filename_template must contain '{session_id}'".to_string(),
-        ));
-    }
+    validate_atif_filename_template(&section.filename_template)
+        .map_err(PluginError::InvalidConfig)?;
 
     let mut storage_vec = Vec::with_capacity(section.storage.len());
     for (index, entry) in section.storage.iter().enumerate() {
@@ -866,41 +893,62 @@ fn register_atif_dispatcher(
     );
     ctx.register_subscriber("atif", dispatcher)?;
     let shutdown_storage = Arc::clone(&storage);
-    ctx.add_registration(PluginRegistration::new(
+    ctx.add_registration(PluginRegistration::new_with_outcome(
         "observability",
         ctx.qualify_name("atif.shutdown"),
         Box::new(move || {
-            let work = {
-                let mut guard = manager.lock().map_err(|err| {
-                    PluginError::Internal(format!("ATIF dispatcher lock poisoned: {err}"))
-                })?;
-                guard.flush_open_agents()
-            };
-            for (scope_uuid, name) in work.scope_subscribers {
-                deregister_atif_shutdown_subscriber(&scope_uuid, &name)?;
-            }
-            for export in work.exports {
-                let write = prepare_atif_shutdown_file(&export, Arc::clone(&manager))
-                    .map_err(observability_registration_error)?;
-                let agent_uuid = write.agent_uuid;
-                let targets = {
-                    let guard = manager.lock().map_err(|err| {
+            let work = match (|| -> PluginResult<_> {
+                let work = {
+                    let mut guard = manager.lock().map_err(|err| {
                         PluginError::Internal(format!("ATIF dispatcher lock poisoned: {err}"))
                     })?;
-                    guard.sink_targets()
+                    guard.flush_open_agents()
                 };
-                let results = write_atif(&write, shutdown_storage.as_slice(), &targets);
-                let mut guard = manager.lock().map_err(|err| {
-                    PluginError::Internal(format!("ATIF dispatcher lock poisoned: {err}"))
-                })?;
-                let _ = guard.complete_scope_write(agent_uuid, results);
+                for (scope_uuid, name) in &work.scope_subscribers {
+                    deregister_atif_shutdown_subscriber(scope_uuid, name)?;
+                }
+                Ok(work)
+            })() {
+                Ok(work) => work,
+                Err(error) => return PluginRegistrationCleanupOutcome::NotRemoved(error),
+            };
+
+            let delivery = (|| -> PluginResult<()> {
+                for export in work.exports {
+                    let write = prepare_atif_shutdown_file(&export, Arc::clone(&manager))
+                        .map_err(observability_registration_error)?;
+                    let agent_uuid = write.agent_uuid;
+                    let targets = {
+                        let guard = manager.lock().map_err(|err| {
+                            PluginError::Internal(format!("ATIF dispatcher lock poisoned: {err}"))
+                        })?;
+                        guard.sink_targets()
+                    };
+                    let results = write_atif(&write, shutdown_storage.as_slice(), &targets);
+                    let mut guard = manager.lock().map_err(|err| {
+                        PluginError::Internal(format!("ATIF dispatcher lock poisoned: {err}"))
+                    })?;
+                    let _ = guard.complete_scope_write(agent_uuid, results);
+                }
+                Ok(())
+            })();
+            if let Err(error) = delivery {
+                return PluginRegistrationCleanupOutcome::RemovedWithError(error);
             }
-            let guard = manager.lock().map_err(|err| {
-                PluginError::Internal(format!("ATIF dispatcher lock poisoned: {err}"))
-            })?;
-            guard
-                .last_error_result()
-                .map_err(observability_registration_error)
+            let guard = match manager.lock() {
+                Ok(guard) => guard,
+                Err(error) => {
+                    return PluginRegistrationCleanupOutcome::RemovedWithError(
+                        PluginError::Internal(format!("ATIF dispatcher lock poisoned: {error}")),
+                    );
+                }
+            };
+            match guard.last_error_result() {
+                Ok(()) => PluginRegistrationCleanupOutcome::Removed,
+                Err(error) => PluginRegistrationCleanupOutcome::RemovedWithError(
+                    observability_registration_error(error),
+                ),
+            }
         }),
     ));
     Ok(())
@@ -943,92 +991,156 @@ fn build_atif_storage(
     ))
 }
 
-#[cfg(feature = "otel")]
 fn register_opentelemetry(
-    section: OtlpSectionConfig,
+    section: OpenTelemetrySectionConfig,
     ctx: &mut PluginRegistrationContext,
 ) -> PluginResult<()> {
-    let endpoint_configured = section.endpoint.is_some();
-    let subscriber = Arc::new(
-        OpenTelemetrySubscriber::new(build_otel_config(section)?)
-            .map_err(observability_registration_error)?,
-    );
-    if endpoint_configured {
+    if section.endpoints.is_empty() {
+        return Err(PluginError::InvalidConfig(
+            "enabled OpenTelemetry section requires at least one endpoint".to_string(),
+        ));
+    }
+    validate_distinct_opentelemetry_destinations(&section.endpoints)?;
+    let subscribers = build_opentelemetry_subscribers(section.endpoints)?;
+    for (index, _) in subscribers.iter().enumerate() {
         log::info!(
             target: "nemo_relay.plugin",
             event = "plugin_resource_access_pending",
             plugin_kind = OBSERVABILITY_PLUGIN_KIND,
             resource_kind = "otlp_endpoint",
             exporter = "opentelemetry",
+            resource_index = index,
             permission = "write";
             "Plugin resource access will be validated during export"
         );
     }
-    ctx.register_subscriber("opentelemetry", subscriber.subscriber())?;
-    ctx.add_registration(PluginRegistration::new(
+    let callbacks = subscribers
+        .iter()
+        .map(|subscriber| subscriber.subscriber())
+        .collect::<Vec<_>>();
+    // Retain the subscribers as long as the registered fan-out callback exists.
+    // Their tracer providers and exporter runtimes must outlive event delivery.
+    let delivery_subscribers = subscribers.clone();
+    ctx.add_registration(PluginRegistration::new_with_outcome(
         "observability",
         ctx.qualify_name("opentelemetry.shutdown"),
-        Box::new(move || {
-            subscriber
-                .shutdown()
-                .map_err(observability_registration_error)
-        }),
+        Box::new(
+            move || match shutdown_opentelemetry_subscribers(&subscribers) {
+                None => PluginRegistrationCleanupOutcome::Removed,
+                Some(OpenTelemetryShutdownFailure::Delivery(error)) => {
+                    PluginRegistrationCleanupOutcome::RemovedWithError(error)
+                }
+                Some(OpenTelemetryShutdownFailure::Other(error)) => {
+                    PluginRegistrationCleanupOutcome::NotRemoved(error)
+                }
+            },
+        ),
     ));
+    ctx.register_subscriber(
+        "opentelemetry",
+        Arc::new(move |event| {
+            let _keep_exporters_alive = &delivery_subscribers;
+            deliver_opentelemetry_event(&callbacks, event);
+        }),
+    )?;
     Ok(())
 }
 
-#[cfg(not(feature = "otel"))]
-fn register_opentelemetry(
-    _section: OtlpSectionConfig,
-    _ctx: &mut PluginRegistrationContext,
-) -> PluginResult<()> {
-    Err(PluginError::InvalidConfig(
-        "OpenTelemetry support is not enabled in this build".to_string(),
-    ))
-}
-
-#[cfg(feature = "openinference")]
-fn register_openinference(
-    section: OtlpSectionConfig,
-    ctx: &mut PluginRegistrationContext,
-) -> PluginResult<()> {
-    let endpoint_configured = section.endpoint.is_some();
-    let subscriber = Arc::new(
-        OpenInferenceSubscriber::new(build_openinference_config(section)?)
-            .map_err(observability_registration_error)?,
-    );
-    if endpoint_configured {
-        log::info!(
-            target: "nemo_relay.plugin",
-            event = "plugin_resource_access_pending",
-            plugin_kind = OBSERVABILITY_PLUGIN_KIND,
-            resource_kind = "otlp_endpoint",
-            exporter = "openinference",
-            permission = "write";
-            "Plugin resource access will be validated during export"
-        );
+fn deliver_opentelemetry_event(callbacks: &[EventSubscriberFn], event: &Event) {
+    for (index, callback) in callbacks.iter().enumerate() {
+        if catch_unwind(AssertUnwindSafe(|| callback(event))).is_err() {
+            log::error!(
+                target: "nemo_relay.plugin",
+                event = "opentelemetry_endpoint_callback_panicked",
+                plugin_kind = OBSERVABILITY_PLUGIN_KIND,
+                resource_kind = "otlp_endpoint",
+                resource_index = index;
+                "OpenTelemetry endpoint callback panicked; delivery continued to remaining endpoints"
+            );
+        }
     }
-    ctx.register_subscriber("openinference", subscriber.subscriber())?;
-    ctx.add_registration(PluginRegistration::new(
-        "observability",
-        ctx.qualify_name("openinference.shutdown"),
-        Box::new(move || {
-            subscriber
-                .shutdown()
-                .map_err(observability_registration_error)
-        }),
-    ));
-    Ok(())
 }
 
-#[cfg(not(feature = "openinference"))]
-fn register_openinference(
-    _section: OtlpSectionConfig,
-    _ctx: &mut PluginRegistrationContext,
-) -> PluginResult<()> {
-    Err(PluginError::InvalidConfig(
-        "OpenInference support is not enabled in this build".to_string(),
-    ))
+fn build_opentelemetry_subscribers(
+    endpoints: Vec<OpenTelemetryEndpointConfig>,
+) -> PluginResult<Vec<Arc<OpenTelemetrySubscriber>>> {
+    let mut subscribers = Vec::with_capacity(endpoints.len());
+    for (index, endpoint) in endpoints.into_iter().enumerate() {
+        let subscriber = build_otel_config(index, endpoint).and_then(|config| {
+            OpenTelemetrySubscriber::new_for_plugin(config, index)
+                .map(Arc::new)
+                .map_err(observability_registration_error)
+        });
+        match subscriber {
+            Ok(subscriber) => subscribers.push(subscriber),
+            Err(error) => {
+                if !shutdown_opentelemetry_providers(&subscribers).is_empty() {
+                    log::warn!(
+                        target: "nemo_relay.plugin",
+                        event = "plugin_resource_rollback_failed",
+                        plugin_kind = OBSERVABILITY_PLUGIN_KIND,
+                        resource_kind = "otlp_endpoint",
+                        reason = "shutdown_failed";
+                        "OpenTelemetry construction rollback could not shut down every endpoint"
+                    );
+                }
+                return Err(error);
+            }
+        }
+    }
+    Ok(subscribers)
+}
+
+enum OpenTelemetryShutdownFailure {
+    Delivery(PluginError),
+    Other(PluginError),
+}
+
+fn shutdown_opentelemetry_subscribers(
+    subscribers: &[Arc<OpenTelemetrySubscriber>],
+) -> Option<OpenTelemetryShutdownFailure> {
+    let mut errors = Vec::new();
+    if let Err(error) = flush_subscribers() {
+        errors.push(crate::observability::otel::OpenTelemetryError::Core(error));
+    }
+    errors.extend(shutdown_opentelemetry_providers(subscribers));
+    if errors.is_empty() {
+        return None;
+    }
+
+    let all_delivery_failures = errors.iter().all(|error| {
+        error
+            .to_string()
+            .contains(OTEL_RUNTIME_DELIVERY_FAILURE_MARKER)
+    });
+    let summary = errors
+        .into_iter()
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>()
+        .join("; ");
+    let message = if all_delivery_failures {
+        format!("{OTEL_RUNTIME_DELIVERY_FAILURE_MARKER}: {summary}")
+    } else {
+        format!("OpenTelemetry shutdown failures: {summary}")
+    };
+    let error = PluginError::RegistrationFailed(message);
+    Some(if all_delivery_failures {
+        OpenTelemetryShutdownFailure::Delivery(error)
+    } else {
+        OpenTelemetryShutdownFailure::Other(error)
+    })
+}
+
+fn shutdown_opentelemetry_providers(
+    subscribers: &[Arc<OpenTelemetrySubscriber>],
+) -> Vec<crate::observability::otel::OpenTelemetryError> {
+    let mut errors = Vec::new();
+    for subscriber in subscribers {
+        if let Err(error) = subscriber.shutdown_provider() {
+            errors.push(error);
+        }
+    }
+    errors
 }
 
 struct AtifDispatcher {
@@ -1040,9 +1152,7 @@ struct AtifDispatcher {
     /// that cannot be isolated to a single sink. Once set, the dispatcher stops
     /// observing further events.
     fatal_error: Option<String>,
-    /// Per-sink last error. A sink that recorded an error is skipped on
-    /// subsequent trajectories; other sinks continue to receive writes.
-    sink_errors: HashMap<SinkLabel, String>,
+    runtime_failures: Vec<RuntimeDiagnostic>,
     validated_sinks: HashSet<SinkLabel>,
 }
 
@@ -1142,7 +1252,7 @@ impl AtifDispatcher {
             scope_owners: HashMap::new(),
             scope_subscribers: HashMap::new(),
             fatal_error: None,
-            sink_errors: HashMap::new(),
+            runtime_failures: Vec::new(),
             validated_sinks: HashSet::new(),
         }
     }
@@ -1171,9 +1281,28 @@ impl AtifDispatcher {
         // subscriber is attached after that start event has already been
         // emitted.
         let session_id = event.uuid().to_string();
+        let (filename, local_path) = match self.prepare_destination(&session_id, event.metadata()) {
+            Ok(destination) => destination,
+            Err(error) => {
+                self.record_runtime_failure(
+                    "atif.destination_render_failed",
+                    Some("filename_template".into()),
+                    error.clone(),
+                    Some(session_id.clone()),
+                );
+                log::warn!(
+                    target: "nemo_relay.observability",
+                    event = "atif_destination_render_failed",
+                    plugin_kind = OBSERVABILITY_PLUGIN_KIND,
+                    exporter = "atif",
+                    session_id = session_id.as_str();
+                    "ATIF destination rendering failed: {error}"
+                );
+                return None;
+            }
+        };
         let exporter = AtifExporter::new(session_id.clone(), self.agent_info());
         (exporter.subscriber())(event);
-        let (filename, local_path) = self.prepare_destination(&session_id);
         let correlation = AtifCorrelation::from_event(event);
         self.scope_owners.insert(event.uuid(), event.uuid());
         self.agents.insert(
@@ -1264,6 +1393,9 @@ impl AtifDispatcher {
         agent_uuid: Uuid,
         results: Vec<(SinkLabel, std::io::Result<()>)>,
     ) -> Option<(Uuid, String)> {
+        let is_remote_fallback = results
+            .iter()
+            .any(|(label, _)| matches!(label, SinkLabel::Remote(_)));
         for (label, result) in results {
             if result.is_ok()
                 && label == SinkLabel::Local
@@ -1279,6 +1411,10 @@ impl AtifDispatcher {
                     "ATIF storage access validated"
                 );
             } else if let Err(err) = result {
+                let (field, message) = match &label {
+                    SinkLabel::Local => ("output_directory".to_string(), err.to_string()),
+                    SinkLabel::Remote(index) => (format!("storage[{index}]"), err.to_string()),
+                };
                 match &label {
                     SinkLabel::Local => log::warn!(
                         target: "nemo_relay.observability",
@@ -1290,9 +1426,25 @@ impl AtifDispatcher {
                         reason = "write_failed";
                         "ATIF storage access failed"
                     ),
-                    SinkLabel::Remote(_) => {}
+                    SinkLabel::Remote(index) => log::warn!(
+                        target: "nemo_relay.observability",
+                        event = "atif_remote_delivery_failed",
+                        plugin_kind = OBSERVABILITY_PLUGIN_KIND,
+                        exporter = "atif",
+                        storage_index = *index;
+                        "ATIF remote storage upload failed"
+                    ),
                 }
-                self.sink_errors.insert(label, err.to_string());
+                self.record_runtime_failure(
+                    match &label {
+                        SinkLabel::Local if is_remote_fallback => "atif.local_fallback_failed",
+                        SinkLabel::Local => "atif.local_write_failed",
+                        SinkLabel::Remote(_) => "atif.remote_delivery_failed",
+                    },
+                    Some(field),
+                    message,
+                    Some(agent_uuid.to_string()),
+                );
             }
         }
         if let Some(agent) = self.agents.get_mut(&agent_uuid) {
@@ -1347,6 +1499,16 @@ impl AtifDispatcher {
         if let Some(message) = &self.fatal_error {
             return Err(std::io::Error::other(message.clone()));
         }
+        if !self.runtime_failures.is_empty() {
+            return Err(std::io::Error::other(format!(
+                "{ATIF_RUNTIME_DELIVERY_FAILURE_MARKER}: {}",
+                self.runtime_failures
+                    .iter()
+                    .map(|diagnostic| format!("{} ({})", diagnostic.code, diagnostic.count))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )));
+        }
         Ok(())
     }
 
@@ -1360,37 +1522,194 @@ impl AtifDispatcher {
         }
     }
 
-    fn prepare_destination(&self, session_id: &str) -> (String, Option<PathBuf>) {
-        let filename = self
-            .config
-            .filename_template
-            .replace("{session_id}", session_id);
-        if !self.config.storage.is_empty() {
-            return (filename, None);
-        }
+    fn prepare_destination(
+        &self,
+        session_id: &str,
+        metadata: Option<&Json>,
+    ) -> Result<(String, Option<PathBuf>), String> {
+        validate_atif_filename_template(&self.config.filename_template)?;
+        let filename = render_atif_filename(&self.config.filename_template, session_id, metadata)?;
         let directory = self
             .config
             .output_directory
             .clone()
             .unwrap_or_else(default_output_directory);
         let path = directory.join(&filename);
-        (filename, Some(path))
+        Ok((filename, Some(path)))
     }
 
     fn sink_targets(&self) -> Vec<SinkLabel> {
         if self.config.storage.is_empty() {
-            if self.sink_errors.contains_key(&SinkLabel::Local) {
-                Vec::new()
-            } else {
-                vec![SinkLabel::Local]
-            }
+            vec![SinkLabel::Local]
         } else {
             (0..self.config.storage.len())
                 .map(SinkLabel::Remote)
-                .filter(|label| !self.sink_errors.contains_key(label))
                 .collect()
         }
     }
+
+    fn record_runtime_failure(
+        &mut self,
+        code: &str,
+        field: Option<String>,
+        message: String,
+        session_id: Option<String>,
+    ) {
+        let diagnostic = RuntimeDiagnostic {
+            code: code.to_string(),
+            component: OBSERVABILITY_PLUGIN_KIND.to_string(),
+            field,
+            message,
+            session_id,
+            count: 1,
+        };
+        if let Some(existing) = self
+            .runtime_failures
+            .iter_mut()
+            .find(|existing| existing.code == diagnostic.code && existing.field == diagnostic.field)
+        {
+            existing.message = diagnostic.message.clone();
+            existing.session_id = diagnostic.session_id.clone();
+            existing.count += 1;
+        } else {
+            self.runtime_failures.push(diagnostic.clone());
+        }
+        record_active_plugin_runtime_diagnostic(diagnostic);
+    }
+}
+
+fn is_valid_atif_metadata_selector(selector: &str) -> bool {
+    !selector.is_empty()
+        && selector.split('.').all(|segment| {
+            !segment.is_empty()
+                && segment
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+        })
+}
+
+fn parse_atif_metadata_expression(expression: &str) -> Result<(&str, Option<&str>), String> {
+    let (selector, fallback) = expression
+        .split_once(":-")
+        .map_or((expression, None), |(key, value)| (key, Some(value)));
+    if !is_valid_atif_metadata_selector(selector) {
+        return Err(format!(
+            "ATIF filename_template metadata placeholder '{{metadata.{selector}}}' must contain a dot-separated path of ASCII letters, digits, '-' or '_'"
+        ));
+    }
+    Ok((selector, fallback))
+}
+
+fn validate_atif_filename_template(template: &str) -> Result<(), String> {
+    const PREFIX: &str = "{metadata.";
+
+    if !template.contains("{session_id}") {
+        return Err("ATIF filename_template must contain '{session_id}'".to_string());
+    }
+
+    let literal_path = template
+        .replace("{session_id}", "session")
+        .replace("{metadata.", "metadata.");
+    if Path::new(&literal_path).is_absolute()
+        || Path::new(&literal_path).components().any(|component| {
+            matches!(
+                component,
+                Component::ParentDir
+                    | Component::CurDir
+                    | Component::RootDir
+                    | Component::Prefix(_)
+            )
+        })
+    {
+        return Err("ATIF filename_template must be a path-safe relative path".to_string());
+    }
+
+    let mut cursor = 0;
+    while let Some(relative_start) = template[cursor..].find(PREFIX) {
+        let selector_start = cursor + relative_start + PREFIX.len();
+        let end = template[selector_start..]
+            .find('}')
+            .map(|relative_end| selector_start + relative_end)
+            .ok_or_else(|| {
+                "ATIF filename_template contains an unclosed metadata placeholder".to_string()
+            })?;
+        let (_, fallback) = parse_atif_metadata_expression(&template[selector_start..end])?;
+        if let Some(fallback) = fallback
+            && !is_safe_atif_metadata_path(fallback)
+        {
+            return Err(format!(
+                "ATIF filename_template fallback '{fallback}' must be a path-safe relative fragment"
+            ));
+        }
+        cursor = end + 1;
+    }
+    Ok(())
+}
+
+fn render_atif_filename(
+    template: &str,
+    session_id: &str,
+    metadata: Option<&Json>,
+) -> Result<String, String> {
+    const PREFIX: &str = "{metadata.";
+
+    let mut rendered = template.replace("{session_id}", session_id);
+    let mut cursor = 0;
+    while let Some(relative_start) = rendered[cursor..].find(PREFIX) {
+        let start = cursor + relative_start;
+        let selector_start = start + PREFIX.len();
+        let end = rendered[selector_start..]
+            .find('}')
+            .map(|relative_end| selector_start + relative_end)
+            .ok_or_else(|| {
+                "ATIF filename_template contains an unclosed metadata placeholder".to_string()
+            })?;
+        let expression = rendered[selector_start..end].to_string();
+        let (selector, fallback) = parse_atif_metadata_expression(&expression)?;
+        let mut resolved = metadata;
+        for segment in selector.split('.') {
+            resolved = match resolved {
+                Some(Json::Object(object)) => object.get(segment),
+                None | Some(Json::Null) => break,
+                Some(_) => {
+                    return Err(format!(
+                        "filename_template placeholder '{{metadata.{selector}}}' traversed a non-object value"
+                    ));
+                }
+            };
+        }
+        let value = match resolved {
+            Some(Json::String(value)) => value.as_str(),
+            None | Some(Json::Null) => fallback.ok_or_else(|| {
+                format!(
+                    "filename_template placeholder '{{metadata.{selector}}}' must resolve to a string"
+                )
+            })?,
+            Some(_) => {
+                return Err(format!(
+                    "filename_template placeholder '{{metadata.{selector}}}' resolved to a non-string value"
+                ));
+            }
+        };
+        if !is_safe_atif_metadata_path(value) {
+            return Err(format!(
+                "metadata path '{selector}' must be a path-safe relative fragment"
+            ));
+        }
+        rendered.replace_range(start..=end, value);
+        cursor = start + value.len();
+    }
+    Ok(rendered)
+}
+
+fn is_safe_atif_metadata_path(value: &str) -> bool {
+    !value.is_empty()
+        && value.split('/').all(|segment| {
+            !matches!(segment, "" | "." | "..")
+                && segment.bytes().all(|byte| {
+                    byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~')
+                })
+        })
 }
 
 fn atif_dispatcher_subscriber(
@@ -1544,7 +1863,7 @@ fn write_atif(
     storage: &[Arc<AtifRemoteStorage>],
     targets: &[SinkLabel],
 ) -> Vec<(SinkLabel, std::io::Result<()>)> {
-    targets
+    let mut results = targets
         .iter()
         .map(|label| {
             let result = match label {
@@ -1558,7 +1877,22 @@ fn write_atif(
             };
             (label.clone(), result)
         })
-        .collect()
+        .collect::<Vec<_>>();
+    if !targets.is_empty()
+        && targets
+            .iter()
+            .all(|label| matches!(label, SinkLabel::Remote(_)))
+        && results.iter().all(|(_, result)| result.is_err())
+    {
+        let fallback = match &write.local_path {
+            Some(path) => write_atif_local(path, &write.payload),
+            None => Err(std::io::Error::other(
+                "ATIF local fallback has no output path",
+            )),
+        };
+        results.push((SinkLabel::Local, fallback));
+    }
+    results
 }
 
 fn write_atif_local(path: &PathBuf, payload: &[u8]) -> std::io::Result<()> {
@@ -1623,80 +1957,89 @@ fn is_top_level_trajectory_start(event: &Event) -> bool {
         .unwrap_or(false)
 }
 
-#[cfg(feature = "otel")]
-fn build_otel_config(section: OtlpSectionConfig) -> PluginResult<CoreOpenTelemetryConfig> {
-    let mut config = match section.transport.as_str() {
-        "http_binary" => CoreOpenTelemetryConfig::http_binary(section.service_name),
-        "grpc" => CoreOpenTelemetryConfig::grpc(section.service_name),
+fn build_otel_config(
+    index: usize,
+    section: OpenTelemetryEndpointConfig,
+) -> PluginResult<CoreOpenTelemetryConfig> {
+    if section.endpoint.trim().is_empty() {
+        return Err(PluginError::InvalidConfig(
+            "OpenTelemetry endpoint must be a nonblank string".to_string(),
+        ));
+    }
+    let transport = match section.transport.as_str() {
+        "http_binary" => OtlpTransport::HttpBinary,
+        "grpc" => OtlpTransport::Grpc,
         other => {
             return Err(PluginError::InvalidConfig(format!(
                 "OpenTelemetry transport must be 'http_binary' or 'grpc', got {other:?}"
             )));
         }
-    }
-    .with_timeout(Duration::from_millis(section.timeout_millis));
-    config = config
+    };
+    validate_otel_header_env(index, &section)?;
+    let mut config = CoreOpenTelemetryConfig::new(section.otel_type, section.endpoint)
+        .with_transport(transport)
+        .with_service_name(section.service_name)
+        .with_timeout(Duration::from_millis(section.timeout_millis))
+        .with_instrumentation_scope(section.instrumentation_scope)
         .with_mark_projection(section.mark_projection)
         .with_mark_exclude_names(section.mark_exclude_names)
         .with_attribute_mappings(section.attribute_mappings);
-
-    if let Some(endpoint) = section.endpoint {
-        config = config.with_endpoint(endpoint);
-    }
     if let Some(namespace) = section.service_namespace {
         config = config.with_service_namespace(namespace);
     }
     if let Some(version) = section.service_version {
         config = config.with_service_version(version);
     }
-    if let Some(scope) = section.instrumentation_scope {
-        config = config.with_instrumentation_scope(scope);
-    }
     for (key, value) in section.headers {
         config = config.with_header(key, value);
     }
+    config = apply_otel_environment_headers(config, index, section.header_env)?;
     for (key, value) in section.resource_attributes {
         config = config.with_resource_attribute(key, value);
     }
     Ok(config)
 }
 
-#[cfg(feature = "openinference")]
-fn build_openinference_config(section: OtlpSectionConfig) -> PluginResult<CoreOpenInferenceConfig> {
-    let transport = match section.transport.as_str() {
-        "http_binary" => OpenInferenceTransport::HttpBinary,
-        "grpc" => OpenInferenceTransport::Grpc,
-        other => {
+fn validate_otel_header_env(
+    index: usize,
+    section: &OpenTelemetryEndpointConfig,
+) -> PluginResult<()> {
+    for (header, variable) in &section.header_env {
+        if variable.trim().is_empty() || variable.trim() != variable {
             return Err(PluginError::InvalidConfig(format!(
-                "OpenInference transport must be 'http_binary' or 'grpc', got {other:?}"
+                "OpenTelemetry endpoints[{index}].header_env.{header} must name a nonblank environment variable without surrounding whitespace"
             )));
         }
-    };
-    let mut config = CoreOpenInferenceConfig::new()
-        .with_transport(transport)
-        .with_service_name(section.service_name)
-        .with_timeout(Duration::from_millis(section.timeout_millis))
-        .with_mark_projection(section.mark_projection)
-        .with_mark_exclude_names(section.mark_exclude_names)
-        .with_attribute_mappings(section.attribute_mappings);
+        if section
+            .headers
+            .keys()
+            .any(|configured| configured.eq_ignore_ascii_case(header))
+        {
+            return Err(PluginError::InvalidConfig(format!(
+                "OpenTelemetry endpoints[{index}] header {header:?} cannot appear in both headers and header_env"
+            )));
+        }
+    }
+    Ok(())
+}
 
-    if let Some(endpoint) = section.endpoint {
-        config = config.with_endpoint(endpoint);
-    }
-    if let Some(namespace) = section.service_namespace {
-        config = config.with_service_namespace(namespace);
-    }
-    if let Some(version) = section.service_version {
-        config = config.with_service_version(version);
-    }
-    if let Some(scope) = section.instrumentation_scope {
-        config = config.with_instrumentation_scope(scope);
-    }
-    for (key, value) in section.headers {
+fn apply_otel_environment_headers(
+    mut config: CoreOpenTelemetryConfig,
+    index: usize,
+    header_env: HashMap<String, String>,
+) -> PluginResult<CoreOpenTelemetryConfig> {
+    for (key, variable) in header_env {
+        let value = std::env::var(&variable).map_err(|error| {
+            PluginError::InvalidConfig(format!(
+                "OpenTelemetry endpoints[{index}].header_env.{key} could not read environment variable {variable:?}: {error}"
+            ))
+        })?;
+        if value.trim().is_empty() || value.trim() != value {
+            return Err(PluginError::InvalidConfig(format!(
+                "OpenTelemetry endpoints[{index}].header_env.{key} references a blank or padded environment variable {variable:?}"
+            )));
+        }
         config = config.with_header(key, value);
-    }
-    for (key, value) in section.resource_attributes {
-        config = config.with_resource_attribute(key, value);
     }
     Ok(config)
 }
@@ -1764,6 +2107,16 @@ fn validate_top_level_observability_fields(
             "policy",
         ],
     );
+    if plugin_config.contains_key("openinference") {
+        push_policy_diag(
+            diagnostics,
+            UnsupportedBehavior::Error,
+            "observability.legacy_openinference_section",
+            Some(OBSERVABILITY_PLUGIN_KIND.to_string()),
+            Some("openinference".to_string()),
+            "the standalone OpenInference section was removed in observability config version 3; configure an opentelemetry endpoint with type = \"openinference\"".to_string(),
+        );
+    }
 }
 
 fn validate_observability_section_fields(
@@ -1818,6 +2171,7 @@ fn validate_observability_section_fields(
         "opentelemetry",
         &[
             "enabled",
+            "endpoints",
             "mark_projection",
             "mark_exclude_names",
             "attribute_mappings",
@@ -1832,13 +2186,9 @@ fn validate_observability_section_fields(
             "timeout_millis",
         ],
     );
-    validate_section_fields(
-        diagnostics,
-        policy,
-        plugin_config,
-        "openinference",
-        &[
-            "enabled",
+    if let Some(opentelemetry) = plugin_config.get("opentelemetry").and_then(Json::as_object) {
+        validate_opentelemetry_endpoint_fields(diagnostics, policy, opentelemetry);
+        for legacy_field in [
             "mark_projection",
             "mark_exclude_names",
             "attribute_mappings",
@@ -1851,8 +2201,75 @@ fn validate_observability_section_fields(
             "service_version",
             "instrumentation_scope",
             "timeout_millis",
-        ],
-    );
+        ] {
+            if opentelemetry.contains_key(legacy_field) {
+                push_policy_diag(
+                    diagnostics,
+                    UnsupportedBehavior::Error,
+                    "observability.legacy_opentelemetry_field",
+                    Some("opentelemetry".to_string()),
+                    Some(legacy_field.to_string()),
+                    format!(
+                        "OpenTelemetry {legacy_field} moved into each typed endpoint in observability config version 3"
+                    ),
+                );
+            }
+        }
+    }
+}
+
+fn validate_opentelemetry_endpoint_fields(
+    diagnostics: &mut Vec<ConfigDiagnostic>,
+    policy: &ConfigPolicy,
+    opentelemetry: &Map<String, Json>,
+) {
+    const ALLOWED: &[&str] = &[
+        "type",
+        "endpoint",
+        "mark_projection",
+        "mark_exclude_names",
+        "attribute_mappings",
+        "transport",
+        "headers",
+        "header_env",
+        "resource_attributes",
+        "service_name",
+        "service_namespace",
+        "service_version",
+        "instrumentation_scope",
+        "timeout_millis",
+    ];
+    const REMOVED: &[&str] = &["semantic_selector", "capture_content"];
+    let Some(endpoints) = opentelemetry.get("endpoints").and_then(Json::as_array) else {
+        return;
+    };
+    for (index, endpoint) in endpoints.iter().enumerate() {
+        let Some(endpoint) = endpoint.as_object() else {
+            continue;
+        };
+        for field in endpoint
+            .keys()
+            .filter(|field| !ALLOWED.contains(&field.as_str()))
+        {
+            let behavior = if REMOVED.contains(&field.as_str()) {
+                UnsupportedBehavior::Error
+            } else {
+                policy.unknown_field
+            };
+            push_policy_diag(
+                diagnostics,
+                behavior,
+                if REMOVED.contains(&field.as_str()) {
+                    "observability.legacy_opentelemetry_field"
+                } else {
+                    "observability.unknown_field"
+                },
+                Some("opentelemetry".to_string()),
+                Some(format!("endpoints[{index}].{field}")),
+                format!("unknown OpenTelemetry endpoint field {field:?}"),
+            );
+        }
+    }
 }
 
 fn validate_observability_section_values(
@@ -1867,9 +2284,6 @@ fn validate_observability_section_values(
     }
     if let Some(section) = &config.opentelemetry {
         validate_opentelemetry_section(diagnostics, &config.policy, section);
-    }
-    if let Some(section) = &config.openinference {
-        validate_openinference_section(diagnostics, &config.policy, section);
     }
 }
 
@@ -1959,75 +2373,372 @@ fn validate_atif_storage_support(
 fn validate_opentelemetry_section(
     diagnostics: &mut Vec<ConfigDiagnostic>,
     policy: &ConfigPolicy,
-    section: &OtlpSectionConfig,
+    section: &OpenTelemetrySectionConfig,
 ) {
-    validate_otlp_values(diagnostics, policy, "opentelemetry", section);
+    if section.enabled && section.endpoints.is_empty() {
+        push_policy_diag(
+            diagnostics,
+            policy.unsupported_value,
+            "observability.unsupported_value",
+            Some("opentelemetry".to_string()),
+            Some("endpoints".to_string()),
+            "enabled OpenTelemetry section requires at least one endpoint".to_string(),
+        );
+    }
+    for (index, endpoint) in section.endpoints.iter().enumerate() {
+        if endpoint.endpoint.trim().is_empty() {
+            push_policy_diag(
+                diagnostics,
+                policy.unsupported_value,
+                "observability.unsupported_value",
+                Some("opentelemetry".to_string()),
+                Some(format!("endpoints[{index}].endpoint")),
+                "OpenTelemetry endpoint must be a nonblank string".to_string(),
+            );
+        }
+        if !matches!(endpoint.transport.as_str(), "http_binary" | "grpc") {
+            push_policy_diag(
+                diagnostics,
+                policy.unsupported_value,
+                "observability.unsupported_value",
+                Some("opentelemetry".to_string()),
+                Some(format!("endpoints[{index}].transport")),
+                "OpenTelemetry endpoint transport must be 'http_binary' or 'grpc'".to_string(),
+            );
+        }
+        if let Err(error) = validate_attribute_mappings(&endpoint.attribute_mappings) {
+            push_policy_diag(
+                diagnostics,
+                policy.unsupported_value,
+                "observability.unsupported_value",
+                Some("opentelemetry".to_string()),
+                Some(format!("endpoints[{index}].attribute_mappings")),
+                error,
+            );
+        }
+        validate_opentelemetry_headers(diagnostics, policy, index, endpoint);
+    }
+    for error in opentelemetry_destination_collision_errors(&section.endpoints) {
+        diagnostics.push(ConfigDiagnostic {
+            level: DiagnosticLevel::Error,
+            code: "observability.unsafe_otel_destination_collision".to_string(),
+            component: Some("opentelemetry".to_string()),
+            field: Some(format!("endpoints[{}].endpoint", error.index)),
+            message: error.message,
+        });
+    }
     validate_opentelemetry_feature_support(diagnostics, policy, section);
 }
 
-#[cfg(not(feature = "otel"))]
-fn validate_opentelemetry_feature_support(
+struct OpenTelemetryDestinationCollision {
+    index: usize,
+    message: String,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum OpenTelemetryDestinationKey {
+    Url {
+        scheme: String,
+        host: String,
+        port: Option<u16>,
+        path: String,
+        query: Option<String>,
+    },
+    Raw(String),
+}
+
+struct OpenTelemetryDestination {
+    key: OpenTelemetryDestinationKey,
+    display: String,
+}
+
+fn validate_distinct_opentelemetry_destinations(
+    endpoints: &[OpenTelemetryEndpointConfig],
+) -> PluginResult<()> {
+    if let Some(error) = opentelemetry_destination_collision_errors(endpoints)
+        .into_iter()
+        .next()
+    {
+        return Err(PluginError::InvalidConfig(error.message));
+    }
+    Ok(())
+}
+
+fn opentelemetry_destination_collision_errors(
+    endpoints: &[OpenTelemetryEndpointConfig],
+) -> Vec<OpenTelemetryDestinationCollision> {
+    let mut errors = Vec::new();
+    for (index, endpoint) in endpoints.iter().enumerate() {
+        for (other_index, other) in endpoints[..index].iter().enumerate() {
+            let endpoint_destination = opentelemetry_destination(endpoint);
+            let other_destination = opentelemetry_destination(other);
+            if endpoint.transport == other.transport
+                && endpoint_destination.key == other_destination.key
+                && endpoint.otel_type != other.otel_type
+            {
+                errors.push(OpenTelemetryDestinationCollision {
+                    index,
+                    message: format!(
+                        "OpenTelemetry endpoints[{other_index}] ({}) and endpoints[{index}] ({}) use the same {} destination {:?}; different projection types must use independent destinations",
+                        opentelemetry_type_name(other.otel_type),
+                        opentelemetry_type_name(endpoint.otel_type),
+                        endpoint.transport,
+                        endpoint_destination.display,
+                    ),
+                });
+            }
+        }
+    }
+    errors
+}
+
+fn opentelemetry_destination(endpoint: &OpenTelemetryEndpointConfig) -> OpenTelemetryDestination {
+    let configured_endpoint = endpoint.endpoint.trim();
+    let effective_endpoint = if endpoint.transport == "http_binary" {
+        resolve_http_trace_endpoint(configured_endpoint)
+    } else {
+        Cow::Borrowed(configured_endpoint)
+    };
+    canonicalize_opentelemetry_destination(&effective_endpoint)
+}
+
+fn canonicalize_opentelemetry_destination(endpoint: &str) -> OpenTelemetryDestination {
+    let Ok(url) = reqwest::Url::parse(endpoint) else {
+        return raw_opentelemetry_destination(endpoint);
+    };
+    if !matches!(url.scheme(), "http" | "https") {
+        return raw_opentelemetry_destination(endpoint);
+    }
+    let Some(url_host) = url.host_str() else {
+        return raw_opentelemetry_destination(endpoint);
+    };
+
+    let scheme = url.scheme().to_string();
+    let host = canonical_opentelemetry_host(url_host);
+    let port = url.port_or_known_default();
+    let path = normalize_opentelemetry_path(url.path());
+    let query = url.query().map(str::to_string);
+    let display = format!(
+        "{scheme}://{host}{}{path}{}",
+        port.map(|port| format!(":{port}")).unwrap_or_default(),
+        query
+            .as_deref()
+            .map(|query| format!("?{query}"))
+            .unwrap_or_default(),
+    );
+    OpenTelemetryDestination {
+        key: OpenTelemetryDestinationKey::Url {
+            scheme,
+            host,
+            port,
+            path,
+            query,
+        },
+        display,
+    }
+}
+
+fn raw_opentelemetry_destination(endpoint: &str) -> OpenTelemetryDestination {
+    OpenTelemetryDestination {
+        key: OpenTelemetryDestinationKey::Raw(endpoint.to_string()),
+        display: endpoint.to_string(),
+    }
+}
+
+fn canonical_opentelemetry_host(host: &str) -> String {
+    let domain = host.strip_suffix('.').unwrap_or(host);
+    let unbracketed = host
+        .strip_prefix('[')
+        .and_then(|host| host.strip_suffix(']'))
+        .unwrap_or(host);
+    let is_loopback_domain = domain == "localhost" || domain.ends_with(".localhost");
+    let is_loopback_address = unbracketed
+        .parse::<IpAddr>()
+        .is_ok_and(|address| address.is_loopback());
+    if is_loopback_domain || is_loopback_address {
+        "<loopback>".to_string()
+    } else {
+        host.to_string()
+    }
+}
+
+fn normalize_opentelemetry_path(path: &str) -> String {
+    let mut normalized = String::with_capacity(path.len());
+    let mut previous_was_slash = false;
+    for character in path.chars() {
+        if character == '/' {
+            if !previous_was_slash {
+                normalized.push(character);
+            }
+            previous_was_slash = true;
+        } else {
+            normalized.push(character);
+            previous_was_slash = false;
+        }
+    }
+    while normalized.len() > 1 && normalized.ends_with('/') {
+        normalized.pop();
+    }
+    normalized
+}
+
+const fn opentelemetry_type_name(otel_type: OpenTelemetryType) -> &'static str {
+    match otel_type {
+        OpenTelemetryType::Full => "full",
+        OpenTelemetryType::GenAi => "gen_ai",
+        OpenTelemetryType::OpenInference => "openinference",
+    }
+}
+
+fn validate_opentelemetry_headers(
     diagnostics: &mut Vec<ConfigDiagnostic>,
     policy: &ConfigPolicy,
-    section: &OtlpSectionConfig,
+    index: usize,
+    endpoint: &OpenTelemetryEndpointConfig,
 ) {
-    if section.enabled {
+    validate_case_insensitive_header_duplicates(
+        diagnostics,
+        policy,
+        index,
+        "headers",
+        endpoint.headers.keys(),
+    );
+    validate_case_insensitive_header_duplicates(
+        diagnostics,
+        policy,
+        index,
+        "header_env",
+        endpoint.header_env.keys(),
+    );
+    for (header, value) in &endpoint.headers {
+        let field = format!("endpoints[{index}].headers.{header}");
+        validate_opentelemetry_header_name(diagnostics, policy, &field, header);
+        validate_opentelemetry_header_value(diagnostics, policy, &field, header, value);
+    }
+    for (header, variable) in &endpoint.header_env {
+        let field = format!("endpoints[{index}].header_env.{header}");
+        validate_opentelemetry_header_name(diagnostics, policy, &field, header);
+        if endpoint
+            .headers
+            .keys()
+            .any(|configured| configured.eq_ignore_ascii_case(header))
+        {
+            push_policy_diag(
+                diagnostics,
+                policy.unsupported_value,
+                "observability.unsupported_value",
+                Some("opentelemetry".to_string()),
+                Some(field.clone()),
+                format!(
+                    "OpenTelemetry endpoints[{index}] header {header:?} cannot appear in both headers and header_env"
+                ),
+            );
+        }
+        validate_opentelemetry_header_env(diagnostics, policy, &field, variable);
+    }
+}
+
+fn validate_case_insensitive_header_duplicates<'a>(
+    diagnostics: &mut Vec<ConfigDiagnostic>,
+    policy: &ConfigPolicy,
+    index: usize,
+    map_name: &str,
+    headers: impl Iterator<Item = &'a String>,
+) {
+    let mut normalized = HashSet::new();
+    for header in headers {
+        if !normalized.insert(header.to_ascii_lowercase()) {
+            push_policy_diag(
+                diagnostics,
+                policy.unsupported_value,
+                "observability.unsupported_value",
+                Some("opentelemetry".to_string()),
+                Some(format!("endpoints[{index}].{map_name}.{header}")),
+                format!(
+                    "OpenTelemetry endpoints[{index}].{map_name} contains duplicate header {header:?} ignoring ASCII case"
+                ),
+            );
+        }
+    }
+}
+
+fn validate_opentelemetry_header_name(
+    diagnostics: &mut Vec<ConfigDiagnostic>,
+    policy: &ConfigPolicy,
+    field: &str,
+    header: &str,
+) {
+    if header.trim().is_empty()
+        || header.trim() != header
+        || reqwest::header::HeaderName::from_bytes(header.as_bytes()).is_err()
+    {
         push_policy_diag(
             diagnostics,
             policy.unsupported_value,
-            "observability.feature_disabled",
+            "observability.unsupported_value",
             Some("opentelemetry".to_string()),
-            Some("enabled".to_string()),
-            "OpenTelemetry support is not enabled in this build".to_string(),
+            Some(field.to_string()),
+            format!("OpenTelemetry {field} header name {header:?} is invalid"),
         );
     }
 }
 
-#[cfg(feature = "otel")]
-fn validate_opentelemetry_feature_support(
-    _diagnostics: &mut Vec<ConfigDiagnostic>,
-    _policy: &ConfigPolicy,
-    _section: &OtlpSectionConfig,
-) {
-}
-
-fn validate_openinference_section(
+fn validate_opentelemetry_header_value(
     diagnostics: &mut Vec<ConfigDiagnostic>,
     policy: &ConfigPolicy,
-    section: &OtlpSectionConfig,
+    field: &str,
+    header: &str,
+    value: &str,
 ) {
-    validate_otlp_values(diagnostics, policy, "openinference", section);
-    validate_openinference_feature_support(diagnostics, policy, section);
-}
-
-#[cfg(not(feature = "openinference"))]
-fn validate_openinference_feature_support(
-    diagnostics: &mut Vec<ConfigDiagnostic>,
-    policy: &ConfigPolicy,
-    section: &OtlpSectionConfig,
-) {
-    if section.enabled {
+    if reqwest::header::HeaderValue::from_str(value).is_err() {
         push_policy_diag(
             diagnostics,
             policy.unsupported_value,
-            "observability.feature_disabled",
-            Some("openinference".to_string()),
-            Some("enabled".to_string()),
-            "OpenInference support is not enabled in this build".to_string(),
+            "observability.unsupported_value",
+            Some("opentelemetry".to_string()),
+            Some(field.to_string()),
+            format!("OpenTelemetry header {header:?} has an invalid value"),
         );
     }
 }
 
-#[cfg(feature = "openinference")]
-fn validate_openinference_feature_support(
+fn validate_opentelemetry_header_env(
+    diagnostics: &mut Vec<ConfigDiagnostic>,
+    policy: &ConfigPolicy,
+    field: &str,
+    variable: &str,
+) {
+    let trimmed = variable.trim();
+    let error = if trimmed.is_empty() {
+        Some("must name a non-empty environment variable".to_string())
+    } else if trimmed != variable {
+        Some(format!(
+            "must not have surrounding whitespace; got {variable:?}"
+        ))
+    } else {
+        None
+    };
+    if let Some(error) = error {
+        push_policy_diag(
+            diagnostics,
+            policy.unsupported_value,
+            "observability.unsupported_value",
+            Some("opentelemetry".to_string()),
+            Some(field.to_string()),
+            format!("OpenTelemetry {field} {error}"),
+        );
+    }
+}
+
+fn validate_opentelemetry_feature_support(
     _diagnostics: &mut Vec<ConfigDiagnostic>,
     _policy: &ConfigPolicy,
-    _section: &OtlpSectionConfig,
+    _section: &OpenTelemetrySectionConfig,
 ) {
 }
 
 fn validate_version(diagnostics: &mut Vec<ConfigDiagnostic>, policy: &ConfigPolicy, version: u32) {
-    if version != 2 {
+    if version != 3 {
         push_policy_diag(
             diagnostics,
             policy.unsupported_value,
@@ -2035,7 +2746,7 @@ fn validate_version(diagnostics: &mut Vec<ConfigDiagnostic>, policy: &ConfigPoli
             Some(OBSERVABILITY_PLUGIN_KIND.to_string()),
             Some("version".to_string()),
             format!(
-                "observability config version {version} is unsupported; use version 2 and migrate ATOF output_directory, filename, mode, and endpoints into sinks"
+                "observability config version {version} is unsupported; use version 3 and migrate OpenTelemetry and OpenInference exporters into opentelemetry.endpoints"
             ),
         );
     }
@@ -2376,14 +3087,14 @@ fn validate_atif_values(
     policy: &ConfigPolicy,
     section: &AtifSectionConfig,
 ) {
-    if !section.filename_template.contains("{session_id}") {
+    if let Err(message) = validate_atif_filename_template(&section.filename_template) {
         push_policy_diag(
             diagnostics,
             policy.unsupported_value,
             "observability.unsupported_value",
             Some("atif".to_string()),
             Some("filename_template".to_string()),
-            "ATIF filename_template must contain '{session_id}'".to_string(),
+            message,
         );
     }
     for (index, storage) in section.storage.iter().enumerate() {
@@ -2606,34 +3317,6 @@ fn validate_atif_storage_env_var(
     }
 }
 
-fn validate_otlp_values(
-    diagnostics: &mut Vec<ConfigDiagnostic>,
-    policy: &ConfigPolicy,
-    section_name: &str,
-    section: &OtlpSectionConfig,
-) {
-    if !matches!(section.transport.as_str(), "http_binary" | "grpc") {
-        push_policy_diag(
-            diagnostics,
-            policy.unsupported_value,
-            "observability.unsupported_value",
-            Some(section_name.to_string()),
-            Some("transport".to_string()),
-            format!("{section_name} transport must be 'http_binary' or 'grpc'"),
-        );
-    }
-    if let Err(message) = validate_attribute_mappings(&section.attribute_mappings) {
-        push_policy_diag(
-            diagnostics,
-            policy.unsupported_value,
-            "observability.unsupported_value",
-            Some(section_name.to_string()),
-            Some("attribute_mappings".to_string()),
-            message,
-        );
-    }
-}
-
 fn validate_unknown_fields(
     diagnostics: &mut Vec<ConfigDiagnostic>,
     policy: &ConfigPolicy,
@@ -2686,7 +3369,7 @@ fn observability_registration_error(error: impl std::fmt::Display) -> PluginErro
 }
 
 fn default_observability_config_version() -> u32 {
-    2
+    3
 }
 
 fn default_atof_mode() -> String {
@@ -2721,8 +3404,12 @@ fn default_otlp_transport() -> String {
     "http_binary".to_string()
 }
 
-fn default_service_name() -> String {
-    "nemo-relay".to_string()
+fn default_otel_service_name() -> String {
+    "unknown_service".to_string()
+}
+
+fn default_otel_instrumentation_scope() -> String {
+    "opentelemetry".to_string()
 }
 
 fn default_timeout_millis() -> u64 {

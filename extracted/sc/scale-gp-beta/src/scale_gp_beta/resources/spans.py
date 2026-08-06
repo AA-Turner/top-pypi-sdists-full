@@ -297,6 +297,7 @@ class SpansResource(SyncAPIResource):
         application_variant_ids: SequenceNotStr[str] | Omit = omit,
         assessment_types: SequenceNotStr[str] | Omit = omit,
         excluded_span_ids: SequenceNotStr[str] | Omit = omit,
+        excluded_spans: Iterable[span_search_params.ExcludedSpan] | Omit = omit,
         excluded_trace_ids: SequenceNotStr[str] | Omit = omit,
         extra_metadata: Dict[str, object] | Omit = omit,
         group_id: str | Omit = omit,
@@ -307,6 +308,7 @@ class SpansResource(SyncAPIResource):
         parents_only: bool | Omit = omit,
         search_texts: SequenceNotStr[str] | Omit = omit,
         span_ids: SequenceNotStr[str] | Omit = omit,
+        spans: Iterable[span_search_params.Span] | Omit = omit,
         statuses: List[SpanStatus] | Omit = omit,
         trace_ids: SequenceNotStr[str] | Omit = omit,
         types: List[SpanType] | Omit = omit,
@@ -350,6 +352,10 @@ class SpansResource(SyncAPIResource):
 
           excluded_span_ids: List of span IDs to exclude from results
 
+          excluded_spans: List of (trace_id, span_id) identities to exclude from results. Unlike
+              excluded_span_ids, a pair never excludes a same-id span from another trace.
+              Takes precedence over excluded_span_ids when both are set.
+
           excluded_trace_ids: List of trace IDs to exclude from results
 
           extra_metadata: Filter on custom metadata key-value pairs
@@ -370,16 +376,33 @@ class SpansResource(SyncAPIResource):
 
           parents_only: Only fetch spans that are the top-level (ie. have no parent_id)
 
-          search_texts: Free text search across span input and output fields. For exact trace ID lookup,
-              use the `trace_ids` filter.
+          search_texts: Case-insensitive text search across span name, input, output, and metadata. A
+              single-word term of ASCII letters and digits matches as a whole word in input,
+              output, and metadata, and as a substring of the name. A term of up to 8 such
+              words matches as a contiguous phrase whose words each appear as whole words. All
+              other terms (punctuated, non-ASCII, longer) match as substrings, where mid-word
+              fragments match and an inflected form such as a plural matches only where it
+              appears literally. Multiple terms are ANDed, and UUID-shaped terms match trace
+              IDs instead. A span must match every non-UUID term, and each term may match any
+              of the searched fields. UUID matches are ORed onto the text match. Each term
+              must be at least 2 characters, and at most 10 terms are supported. For exact
+              trace ID lookup, use the `trace_ids` filter. Accounts still served by the legacy
+              trace store match differently until migrated: every term matches as stemmed
+              whole words (so inflected forms match and multi-word terms match word-adjacent),
+              only input and output are searched, the 2-character minimum is not enforced, and
+              characters like `:`, `|`, or `!` inside a term may be interpreted as query
+              operators or cause an error.
 
           span_ids: Filter by span IDs
+
+          spans: Filter by exact (trace_id, span_id) identity. Unlike span_ids, a pair never
+              matches a same-id span from another trace. ANDs with span_ids when both are set.
 
           statuses: Filter on span status
 
           trace_ids: Filter by trace IDs. The combined count of trace_ids, span_ids,
-              excluded_span_ids, excluded_trace_ids, and parent_ids may not exceed 10000. A
-              request over that returns 422.
+              excluded_span_ids, excluded_trace_ids, parent_ids, and (trace_id, span_id) pairs
+              (each pair counting 2) may not exceed 10000. A request over that returns 422.
 
           extra_headers: Send extra headers
 
@@ -400,6 +423,7 @@ class SpansResource(SyncAPIResource):
                     "application_variant_ids": application_variant_ids,
                     "assessment_types": assessment_types,
                     "excluded_span_ids": excluded_span_ids,
+                    "excluded_spans": excluded_spans,
                     "excluded_trace_ids": excluded_trace_ids,
                     "extra_metadata": extra_metadata,
                     "group_id": group_id,
@@ -410,6 +434,7 @@ class SpansResource(SyncAPIResource):
                     "parents_only": parents_only,
                     "search_texts": search_texts,
                     "span_ids": span_ids,
+                    "spans": spans,
                     "statuses": statuses,
                     "trace_ids": trace_ids,
                     "types": types,
@@ -737,6 +762,7 @@ class AsyncSpansResource(AsyncAPIResource):
         application_variant_ids: SequenceNotStr[str] | Omit = omit,
         assessment_types: SequenceNotStr[str] | Omit = omit,
         excluded_span_ids: SequenceNotStr[str] | Omit = omit,
+        excluded_spans: Iterable[span_search_params.ExcludedSpan] | Omit = omit,
         excluded_trace_ids: SequenceNotStr[str] | Omit = omit,
         extra_metadata: Dict[str, object] | Omit = omit,
         group_id: str | Omit = omit,
@@ -747,6 +773,7 @@ class AsyncSpansResource(AsyncAPIResource):
         parents_only: bool | Omit = omit,
         search_texts: SequenceNotStr[str] | Omit = omit,
         span_ids: SequenceNotStr[str] | Omit = omit,
+        spans: Iterable[span_search_params.Span] | Omit = omit,
         statuses: List[SpanStatus] | Omit = omit,
         trace_ids: SequenceNotStr[str] | Omit = omit,
         types: List[SpanType] | Omit = omit,
@@ -790,6 +817,10 @@ class AsyncSpansResource(AsyncAPIResource):
 
           excluded_span_ids: List of span IDs to exclude from results
 
+          excluded_spans: List of (trace_id, span_id) identities to exclude from results. Unlike
+              excluded_span_ids, a pair never excludes a same-id span from another trace.
+              Takes precedence over excluded_span_ids when both are set.
+
           excluded_trace_ids: List of trace IDs to exclude from results
 
           extra_metadata: Filter on custom metadata key-value pairs
@@ -810,16 +841,33 @@ class AsyncSpansResource(AsyncAPIResource):
 
           parents_only: Only fetch spans that are the top-level (ie. have no parent_id)
 
-          search_texts: Free text search across span input and output fields. For exact trace ID lookup,
-              use the `trace_ids` filter.
+          search_texts: Case-insensitive text search across span name, input, output, and metadata. A
+              single-word term of ASCII letters and digits matches as a whole word in input,
+              output, and metadata, and as a substring of the name. A term of up to 8 such
+              words matches as a contiguous phrase whose words each appear as whole words. All
+              other terms (punctuated, non-ASCII, longer) match as substrings, where mid-word
+              fragments match and an inflected form such as a plural matches only where it
+              appears literally. Multiple terms are ANDed, and UUID-shaped terms match trace
+              IDs instead. A span must match every non-UUID term, and each term may match any
+              of the searched fields. UUID matches are ORed onto the text match. Each term
+              must be at least 2 characters, and at most 10 terms are supported. For exact
+              trace ID lookup, use the `trace_ids` filter. Accounts still served by the legacy
+              trace store match differently until migrated: every term matches as stemmed
+              whole words (so inflected forms match and multi-word terms match word-adjacent),
+              only input and output are searched, the 2-character minimum is not enforced, and
+              characters like `:`, `|`, or `!` inside a term may be interpreted as query
+              operators or cause an error.
 
           span_ids: Filter by span IDs
+
+          spans: Filter by exact (trace_id, span_id) identity. Unlike span_ids, a pair never
+              matches a same-id span from another trace. ANDs with span_ids when both are set.
 
           statuses: Filter on span status
 
           trace_ids: Filter by trace IDs. The combined count of trace_ids, span_ids,
-              excluded_span_ids, excluded_trace_ids, and parent_ids may not exceed 10000. A
-              request over that returns 422.
+              excluded_span_ids, excluded_trace_ids, parent_ids, and (trace_id, span_id) pairs
+              (each pair counting 2) may not exceed 10000. A request over that returns 422.
 
           extra_headers: Send extra headers
 
@@ -840,6 +888,7 @@ class AsyncSpansResource(AsyncAPIResource):
                     "application_variant_ids": application_variant_ids,
                     "assessment_types": assessment_types,
                     "excluded_span_ids": excluded_span_ids,
+                    "excluded_spans": excluded_spans,
                     "excluded_trace_ids": excluded_trace_ids,
                     "extra_metadata": extra_metadata,
                     "group_id": group_id,
@@ -850,6 +899,7 @@ class AsyncSpansResource(AsyncAPIResource):
                     "parents_only": parents_only,
                     "search_texts": search_texts,
                     "span_ids": span_ids,
+                    "spans": spans,
                     "statuses": statuses,
                     "trace_ids": trace_ids,
                     "types": types,

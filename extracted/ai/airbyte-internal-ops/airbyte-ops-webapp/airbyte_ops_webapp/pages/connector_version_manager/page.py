@@ -15,6 +15,7 @@ from fastmcp import FastMCP
 from prefab_ui.app import PrefabApp
 from prefab_ui.components import (
     Column,
+    Div,
     Row,
 )
 from prefab_ui.components.control_flow import If
@@ -157,18 +158,38 @@ def connector_version_manager(
                 )
                 render_connector_selector(state)
 
-                with If(STATE.selected_connector.id):
+                with If(STATE.selected_connector.id.__or__(STATE.context_loading)):
                     # Responsive two-panel layout: the panels sit side by side
                     # when the tab is wide enough and stack when it is not.
                     # Widths flow from content via flex-grow + min-width rather
                     # than a fixed column ratio.
+                    rollout_detail_condition = STATE.active_rollouts.length().__and__(
+                        STATE.rollout_summary.rc_version.__eq__(
+                            STATE.selected_version_tag
+                        )
+                    )
                     with Row(gap=4, align="start", css_class="flex-wrap"):
-                        render_rollout_status_section(
-                            css_class="grow basis-[22rem] min-w-[18rem] max-w-[34rem]"
-                        )
-                        render_pin_detail(
-                            css_class="grow-[2] basis-[30rem] min-w-[24rem]"
-                        )
+                        with Div(
+                            css_class=rollout_detail_condition.then(
+                                "min-w-[min(35rem,calc(100vw-6rem))] grow-[3] "
+                                "basis-[min(35rem,calc(100vw-6rem))] "
+                                "max-w-[36rem] shrink-0",
+                                "min-w-[18rem] grow basis-[22rem] max-w-[34rem]",
+                            )
+                        ):
+                            render_rollout_status_section(css_class="w-full")
+                        with Div(
+                            css_class=[
+                                "min-w-[24rem]",
+                                rollout_detail_condition.then(
+                                    STATE.version_pins_total.__gt__(0).then(
+                                        "basis-0 grow-[4]", "basis-0 grow"
+                                    ),
+                                    "basis-[30rem] grow-[2]",
+                                ),
+                            ]
+                        ):
+                            render_pin_detail(css_class="w-full")
                     render_pin_modal(state)
                 render_version_footer()
 

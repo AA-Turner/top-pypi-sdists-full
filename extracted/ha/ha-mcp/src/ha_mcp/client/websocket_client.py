@@ -19,8 +19,12 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 from urllib.parse import urlparse
 
-import websockets
-
+# The vendored copy, NEVER the shared site-packages one: inside Home
+# Assistant that copy is unowned — ~20 integration libraries drag it in with
+# conflicting version demands and any of their installs can replace or tear
+# it in place (#2135/#2146). The private copy is immune, and CI tests
+# exactly the version production runs.
+from .._vendor import websockets
 from ..config import get_global_settings
 from .rest_client import (
     HomeAssistantAuthError,
@@ -1251,10 +1255,31 @@ class WebSocketManager:
                 self._last_used[key] = time.monotonic()
                 return existing
 
-            # Remove stale client if present
+            # Remove stale client if present. Disconnect it too: a client
+            # whose connection dropped can still own a parked reader task and
+            # a half-open socket, and simply dropping the reference abandons
+            # both to garbage collection — the GC's asyncgen finalizer then
+            # acloses the reader's ``Connection.__aiter__`` mid-``__anext__``
+            # and logs ``aclose(): asynchronous generator is already
+            # running`` (issue #2127). Same-loop by construction: a loop
+            # change already detached the pool above, so ``existing`` was
+            # built on ``current_loop`` and can be awaited here.
             if existing:
                 self._clients.pop(key, None)
                 self._last_used.pop(key, None)
+                try:
+                    await existing.disconnect()
+                except asyncio.CancelledError:
+                    # The caller itself was cancelled mid-cleanup: propagate.
+                    # Swallowing here would let a cancelled operation keep
+                    # doing network I/O and leave a fresh connection retained
+                    # in the pool.
+                    raise
+                except (OSError, RuntimeError):
+                    logger.warning(
+                        "Error disconnecting stale WebSocket client",
+                        exc_info=True,
+                    )
 
             factory = self._client_factory or HomeAssistantWebSocketClient
             client = (
@@ -1291,7 +1316,14 @@ class WebSocketManager:
         if stale:
             try:
                 await stale.disconnect()
-            except (OSError, RuntimeError, asyncio.CancelledError):
+            except asyncio.CancelledError:
+                # The caller itself was cancelled mid-eviction: propagate.
+                # Eviction runs after the fresh client was pooled, so a
+                # swallow here would hand a connected client back to a
+                # cancelled caller (mirror of the stale-replacement clause
+                # in get_client).
+                raise
+            except (OSError, RuntimeError):
                 logger.warning(
                     "Error disconnecting evicted WebSocket client",
                     exc_info=True,

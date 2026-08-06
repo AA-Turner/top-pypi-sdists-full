@@ -19,6 +19,58 @@ from .complexity import compute_complexity
 logger = logging.getLogger(__name__)
 
 
+class ByteSlicedSource:
+    """A text view indexed by BYTE offsets, not character offsets.
+
+    tree-sitter reports ``node.start_byte`` / ``node.end_byte`` as offsets into
+    the UTF-8 encoding of the source. Slicing a decoded ``str`` with them is
+    correct only while the file is pure ASCII: every earlier non-ASCII
+    character shifts the window forward by (bytes - characters), so the
+    extracted text becomes an unrelated run of source further down the file.
+    The window keeps its byte width, so an ASCII identifier still comes back
+    with the right LENGTH -- which is why the corruption reads as a plausible
+    fragment rather than obvious garbage (#414, @MotoMato85).
+
+    Assigning this in place of the decoded string keeps the offsets and the
+    text in one coordinate system, leaving the slice expressions themselves
+    untouched.
+
+    ⚠ Not for the regex-based extractors. ``_parse_cobol_symbols`` and friends
+    slice ``source`` with CHARACTER offsets from ``re`` matches and call
+    ``.count()`` / ``.splitlines()`` on it; they are already correct and this
+    view would break them.
+    """
+
+    __slots__ = ("_data",)
+
+    def __init__(self, data: bytes) -> None:
+        self._data = data
+
+    def __getitem__(self, key) -> str:
+        chunk = self._data[key] if isinstance(key, slice) else self._data[key:key + 1]
+        try:
+            return chunk.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            # A byte-capped slice (the 120-byte signature truncations) can land
+            # mid-character. Drop that trailing partial rather than emit U+FFFD.
+            # ⚠ Only when the bad run reaches the END of the chunk: retrying on
+            # a shorter prefix for a bad byte anywhere else would silently DROP
+            # the rest of the text, which is worse than the mangling it avoids.
+            # Genuinely undecodable bytes keep the old errors="replace" result.
+            if exc.end == len(chunk) and exc.start >= len(chunk) - 3:
+                try:
+                    return chunk[:exc.start].decode("utf-8")
+                except UnicodeDecodeError:
+                    pass
+            return chunk.decode("utf-8", errors="replace")
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+    def __str__(self) -> str:
+        return self._data.decode("utf-8", errors="replace")
+
+
 # Node types that represent function/call expressions per language.
 # These are used to extract call_references from the AST.
 _CALL_NODE_TYPES: dict[str, set[str]] = {
@@ -546,6 +598,32 @@ def _walk_tree(
         if const_symbol:
             symbols.append(const_symbol)
 
+    # A JS/TS class field INITIALIZER is not the class body. Everything the
+    # initializer contains is attributed to the field, never to the class.
+    #
+    # `class Host { handlers = { onDone(){} } }` puts a `method_definition`
+    # under `Host` -- the grammar uses that node type for object-literal
+    # shorthand as well as for real methods, and the only discriminator is the
+    # parent. Left alone it yields `Host.onDone`, a member `Host` does not
+    # declare. A free `function_declaration` in an arrow initializer has the
+    # same symptom by a different route: a field initializer is not a scope
+    # boundary, so `parent_is_container` survives into it and promotes the
+    # function to a method.
+    #
+    # A real class method is a DIRECT child of `class_body` and never reaches
+    # here, so declared members are untouched. Object literals inside a
+    # FUNCTION are also untouched: `pluginCreator.prepare` is ordinary lexical
+    # nesting, the same shape Python already emits for `Host.real.inner`.
+    if (
+        language in ("javascript", "typescript", "tsx")
+        and node.type in _JS_CLASS_FIELD_NODE_TYPES
+        and parent_symbol is not None
+    ):
+        field_scope = _js_field_scope(node, parent_symbol, source_bytes, language)
+        if field_scope is not None:
+            next_parent = field_scope
+            next_is_container = False
+
     # Recurse into children
     for child in node.children:
         _walk_tree(
@@ -562,6 +640,52 @@ def _walk_tree(
             calls,
             next_is_container,
         )
+
+
+# Class field declarations in the JS grammar (`field_definition`) and the
+# TS/TSX grammars (`public_field_definition`). Both hold the initializer whose
+# contents must not be attributed to the enclosing class.
+_JS_CLASS_FIELD_NODE_TYPES = frozenset({"field_definition", "public_field_definition"})
+
+
+def _js_field_scope(node, parent_symbol: Symbol, source_bytes: bytes, language: str):
+    """A naming scope for the inside of a class field initializer.
+
+    Returns a ``Symbol`` used ONLY as a `parent_symbol` while walking the
+    initializer -- it is never appended to the symbol list, so this adds no
+    symbol and changes no count. `parent` still points at the class, keeping
+    the graph edge from the class to whatever the field holds.
+
+    ⚠ The two grammars disagree on the field name's field name: JS exposes it
+    as ``property``, TS/TSX as ``name``. Reading only one silently leaves the
+    other language unfixed -- which it did, until a TSX case caught it.
+
+    A computed key (`[expr] = ...`) keeps its brackets verbatim, matching how
+    a computed METHOD name is already stored. It is not a resolvable
+    identifier either way, and blocking the class attribution still matters.
+    Returns ``None`` only when no key node exists at all.
+    """
+    name_node = node.child_by_field_name("property") or node.child_by_field_name("name")
+    if name_node is None or name_node.type not in (
+        "property_identifier",
+        "private_property_identifier",
+        "computed_property_name",
+    ):
+        return None
+    field_name = source_bytes[name_node.start_byte:name_node.end_byte].decode(
+        "utf-8", errors="replace"
+    ).strip()
+    if not field_name:
+        return None
+    return Symbol(
+        id=parent_symbol.id,
+        file=parent_symbol.file,
+        name=field_name,
+        qualified_name=f"{parent_symbol.qualified_name}.{field_name}",
+        kind="constant",
+        language=language,
+        signature="",
+    )
 
 
 def _detect_interface_keywords(node, language: str) -> list[str]:
@@ -5870,7 +5994,7 @@ def _parse_objc_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
         return []
 
     tree = parser.parse(source_bytes)
-    source = source_bytes.decode("utf-8", errors="replace")
+    source = ByteSlicedSource(source_bytes)
     symbols: list[Symbol] = []
 
     CLASS_NODE_TYPES = {
@@ -5999,7 +6123,7 @@ def _parse_proto_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
         return []
 
     tree = parser.parse(source_bytes)
-    source = source_bytes.decode("utf-8", errors="replace")
+    source = ByteSlicedSource(source_bytes)
     symbols: list[Symbol] = []
 
     NODE_MAP = {
@@ -6069,7 +6193,7 @@ def _parse_hcl_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
         return []
 
     tree = parser.parse(source_bytes)
-    source = source_bytes.decode("utf-8", errors="replace")
+    source = ByteSlicedSource(source_bytes)
     symbols: list[Symbol] = []
 
     BLOCK_KINDS = {
@@ -6152,7 +6276,7 @@ def _parse_graphql_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
         return []
 
     tree = parser.parse(source_bytes)
-    source = source_bytes.decode("utf-8", errors="replace")
+    source = ByteSlicedSource(source_bytes)
     symbols: list[Symbol] = []
 
     NODE_KINDS = {
@@ -6635,7 +6759,7 @@ def _parse_julia_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
         return []
 
     tree = parser.parse(source_bytes)
-    source = source_bytes.decode("utf-8", errors="replace")
+    source = ByteSlicedSource(source_bytes)
     symbols: list[Symbol] = []
 
     def _func_name(node) -> Optional[str]:
@@ -6736,7 +6860,7 @@ def _parse_groovy_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
         return []
 
     tree = parser.parse(source_bytes)
-    source = source_bytes.decode("utf-8", errors="replace")
+    source = ByteSlicedSource(source_bytes)
     symbols: list[Symbol] = []
 
     CONTAINER_KEYWORDS = {"class", "interface", "enum", "trait", "record"}
@@ -7058,7 +7182,7 @@ def _parse_xml_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
         return []
 
     tree = parser.parse(source_bytes)
-    source = source_bytes.decode("utf-8", errors="replace")
+    source = ByteSlicedSource(source_bytes)
     symbols: list[Symbol] = []
     root_extracted = False
 
@@ -8782,7 +8906,7 @@ def _parse_pascal_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
         return []
 
     tree = parser.parse(source_bytes)
-    source = source_bytes.decode("utf-8", errors="replace")
+    source = ByteSlicedSource(source_bytes)
     symbols: list[Symbol] = []
 
     def _text(node) -> str:
@@ -8879,7 +9003,7 @@ def _parse_matlab_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
         return []
 
     tree = parser.parse(source_bytes)
-    source = source_bytes.decode("utf-8", errors="replace")
+    source = ByteSlicedSource(source_bytes)
     symbols: list[Symbol] = []
 
     def _text(node) -> str:
@@ -8965,7 +9089,7 @@ def _parse_ada_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
         return []
 
     tree = parser.parse(source_bytes)
-    source = source_bytes.decode("utf-8", errors="replace")
+    source = ByteSlicedSource(source_bytes)
     symbols: list[Symbol] = []
 
     def _text(node) -> str:
@@ -9149,7 +9273,7 @@ def _parse_commonlisp_symbols(source_bytes: bytes, filename: str) -> list[Symbol
         return []
 
     tree = parser.parse(source_bytes)
-    source = source_bytes.decode("utf-8", errors="replace")
+    source = ByteSlicedSource(source_bytes)
     symbols: list[Symbol] = []
 
     def _text(node) -> str:
@@ -9241,7 +9365,7 @@ def _parse_solidity_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
         return []
 
     tree = parser.parse(source_bytes)
-    source = source_bytes.decode("utf-8", errors="replace")
+    source = ByteSlicedSource(source_bytes)
     symbols: list[Symbol] = []
 
     def _text(node) -> str:
@@ -9352,7 +9476,7 @@ def _parse_zig_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
         return []
 
     tree = parser.parse(source_bytes)
-    source = source_bytes.decode("utf-8", errors="replace")
+    source = ByteSlicedSource(source_bytes)
     symbols: list[Symbol] = []
 
     def _text(node) -> str:
@@ -9487,7 +9611,7 @@ def _parse_powershell_symbols(source_bytes: bytes, filename: str) -> list[Symbol
         return []
 
     tree = parser.parse(source_bytes)
-    source = source_bytes.decode("utf-8", errors="replace")
+    source = ByteSlicedSource(source_bytes)
     symbols: list[Symbol] = []
 
     def _text(node) -> str:
@@ -9597,7 +9721,7 @@ def _parse_apex_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
         return []
 
     tree = parser.parse(source_bytes)
-    source = source_bytes.decode("utf-8", errors="replace")
+    source = ByteSlicedSource(source_bytes)
     symbols: list[Symbol] = []
 
     def _text(node) -> str:
@@ -9701,7 +9825,7 @@ def _parse_ocaml_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
         return []
 
     tree = parser.parse(source_bytes)
-    source = source_bytes.decode("utf-8", errors="replace")
+    source = ByteSlicedSource(source_bytes)
     symbols: list[Symbol] = []
 
     def _text(node) -> str:

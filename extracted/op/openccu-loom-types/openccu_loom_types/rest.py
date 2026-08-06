@@ -1083,21 +1083,18 @@ class AlarmMessage(BaseModel):
     id: str
     name: str
     description: str | None = None
-    device_name: str | None = None
-    address: str | None = Field(
+    timestamp: AwareDatetime | None = Field(
         None,
-        description="CCU channel address that generated the alarm. Omitted when\nunavailable (legacy CCUs).\n",
+        description="When the alarm was raised. Omitted on the rare CCU report that\ncarries no occurrence at all.\n",
     )
-    state_value: str | None = Field(
-        None, description="Raw alarm state string from the CCU Rega script."
+    last_timestamp: AwareDatetime | None = Field(
+        None,
+        description="When the backing alarm variable last changed. Omitted when the\nCCU reports no such occurrence.\n",
     )
-    timestamp: AwareDatetime
     counter: int
-    last_trigger: str | None = None
     display_name: str | None = Field(
         None, description="Human-readable translation of the message code."
     )
-    rooms: list[str] | None = None
 
 
 class ServiceMessage(BaseModel):
@@ -1110,14 +1107,21 @@ class ServiceMessage(BaseModel):
     address: str | None = None
     device_name: str | None = None
     type: str | None = None
-    description: str | None = Field(
-        None, description="Optional human-readable message text."
+    timestamp: AwareDatetime | None = Field(
+        None,
+        description="When the message first appeared. Omitted on the rare CCU report\nthat carries no occurrence at all.\n",
     )
-    priority: int | None = Field(
-        None, description="Integer priority level (0 = normal)."
+    last_timestamp: AwareDatetime | None = Field(
+        None,
+        description="When the message last recurred. Omitted when the CCU reports no\nsuch occurrence.\n",
     )
-    timestamp: AwareDatetime
     counter: int
+    rooms: list[str] | None = Field(
+        None, description="Rooms assigned to the triggering channel."
+    )
+    functions: list[str] | None = Field(
+        None, description="Functions (Gewerke) assigned to the triggering channel."
+    )
     quittable: bool
     display_name: str | None = Field(
         None, description="Human-readable translation of the message code."

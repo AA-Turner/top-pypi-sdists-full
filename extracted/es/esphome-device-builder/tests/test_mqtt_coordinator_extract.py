@@ -1,0 +1,317 @@
+"""Coverage for the scan-time ``mqtt:`` extraction consumed by the coordinator."""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from esphome_device_builder.helpers.device_yaml import _loading as loading_module
+from esphome_device_builder.helpers.device_yaml import extract_mqtt_block
+from esphome_device_builder.helpers.device_yaml._loading import load_device_from_storage
+from esphome_device_builder.models import Device
+from tests._mqtt_fixtures import (
+    RecordingMonitor,
+    build_test_extract,
+    make_mqtt_coordinator,
+    write_mqtt_device,
+)
+
+_BROKER_YAML = "mqtt:\n  broker: 192.168.1.10\n"
+
+
+def _rewrite_keeping_mtime(path: Path, text: str) -> None:
+    """Rewrite *path* while restoring its original mtime (ns-exact)."""
+    original_ns = path.stat().st_mtime_ns
+    path.write_text(text, encoding="utf-8")
+    os.utime(path, ns=(original_ns, original_ns))
+
+
+def _bump_mtime(path: Path) -> None:
+    """Push *path*'s mtime into the future so freshness checks see an edit."""
+    future_ns = path.stat().st_mtime_ns + 5_000_000_000
+    os.utime(path, ns=(future_ns, future_ns))
+
+
+def _seed_package_device(
+    tmp_path: Path,
+    resolved_block: dict[str, Any] | None,
+    resolved_substitutions: dict[str, str] | None = None,
+) -> Device:
+    """Build a package-sourced mqtt device whose extract carries *resolved_block*."""
+    yaml = "esphome:\n  name: pkg\n\npackages:\n  core: !include core.yaml\n"
+    path = tmp_path / "pkg.yaml"
+    path.write_text(yaml)
+    resolved = {"mqtt": resolved_block} if resolved_block is not None else None
+    return Device(
+        name="pkg",
+        friendly_name="pkg",
+        configuration="pkg.yaml",
+        uses_mqtt=True,
+        mqtt_extract=build_test_extract(path, yaml, resolved, resolved_substitutions),
+    )
+
+
+async def test_fresh_extract_skips_reading_the_yaml(
+    tmp_path: Path,
+    stub_monitor: type[RecordingMonitor],
+) -> None:
+    """A fresh carried extract resolves the broker without touching the file."""
+    device = write_mqtt_device(tmp_path, "kitchen", _BROKER_YAML)
+    # Rewrite with a same-length broker and restore the original mtime —
+    # the carried extract must win, proving no re-read happened.
+    path = tmp_path / "kitchen.yaml"
+    _rewrite_keeping_mtime(path, "esphome:\n  name: kitchen\n\nmqtt:\n  broker: 192.168.1.99\n")
+
+    coord = make_mqtt_coordinator(tmp_path, [device])
+    await coord.reconcile()
+
+    assert [m.broker.host for m in stub_monitor.instances] == ["192.168.1.10"]
+
+
+async def test_fast_tier_rejects_extract_when_size_changes_under_same_mtime(
+    tmp_path: Path,
+    stub_monitor: type[RecordingMonitor],
+) -> None:
+    """A same-mtime size change invalidates the carried block; the re-read wins."""
+    device = write_mqtt_device(tmp_path, "kitchen", _BROKER_YAML)
+    path = tmp_path / "kitchen.yaml"
+    _rewrite_keeping_mtime(path, "esphome:\n  name: kitchen\n\nmqtt:\n  broker: 10.0.0.9\n")
+
+    coord = make_mqtt_coordinator(tmp_path, [device])
+    await coord.reconcile()
+
+    assert [m.broker.host for m in stub_monitor.instances] == ["10.0.0.9"]
+
+
+async def test_stale_extract_falls_back_and_sees_the_edit(
+    tmp_path: Path,
+    stub_monitor: type[RecordingMonitor],
+) -> None:
+    """An extract whose mtime no longer matches re-reads the edited YAML."""
+    device = write_mqtt_device(tmp_path, "kitchen", _BROKER_YAML)
+    path = tmp_path / "kitchen.yaml"
+    path.write_text("esphome:\n  name: kitchen\n\nmqtt:\n  broker: 10.0.0.9\n")
+    _bump_mtime(path)
+
+    coord = make_mqtt_coordinator(tmp_path, [device])
+    await coord.reconcile()
+
+    assert [m.broker.host for m in stub_monitor.instances] == ["10.0.0.9"]
+
+
+async def test_resolved_seed_resolves_without_a_reload(
+    tmp_path: Path,
+    stub_monitor: type[RecordingMonitor],
+) -> None:
+    """A package-sourced broker derives from the scan seed with no reload request."""
+    device = _seed_package_device(tmp_path, {"broker": "10.1.1.1"})
+    reloads: list[str] = []
+    coord = make_mqtt_coordinator(tmp_path, [device], reload_requests=reloads)
+    await coord.reconcile()
+    await coord.reconcile()
+
+    assert [m.broker.host for m in stub_monitor.instances] == ["10.1.1.1"]
+    assert reloads == []
+
+
+async def test_seed_resolves_package_substitutions(
+    tmp_path: Path,
+    stub_monitor: type[RecordingMonitor],
+) -> None:
+    """The seed resolves ``${var}`` against the package-merged substitutions."""
+    device = _seed_package_device(tmp_path, {"broker": "${host}"}, {"host": "10.4.4.4"})
+    reloads: list[str] = []
+    coord = make_mqtt_coordinator(tmp_path, [device], reload_requests=reloads)
+    await coord.reconcile()
+
+    assert [m.broker.host for m in stub_monitor.instances] == ["10.4.4.4"]
+    assert reloads == []
+
+
+async def test_stale_seed_requests_a_reload(
+    tmp_path: Path,
+    stub_monitor: type[RecordingMonitor],
+) -> None:
+    """A secrets-mtime bump invalidates the seed; the pass defers to a reload."""
+    device = _seed_package_device(tmp_path, {"broker": "10.1.1.1"})
+    (tmp_path / "secrets.yaml").write_text("added: after-scan\n")
+
+    reloads: list[str] = []
+    coord = make_mqtt_coordinator(tmp_path, [device], reload_requests=reloads)
+    await coord.reconcile()
+
+    assert stub_monitor.instances == []
+    assert reloads == ["pkg.yaml"]
+
+
+async def test_seed_deriving_none_warns_without_reload_churn(
+    tmp_path: Path,
+    stub_monitor: type[RecordingMonitor],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A fresh deep seed that still can't resolve warns; no reload loop."""
+    device = _seed_package_device(tmp_path, {"broker": "${never_defined}"})
+    reloads: list[str] = []
+    coord = make_mqtt_coordinator(tmp_path, [device], reload_requests=reloads)
+
+    target = "esphome_device_builder.controllers._device_mqtt_coordinator"
+    with caplog.at_level("WARNING", logger=target):
+        await coord.reconcile()
+
+    assert stub_monitor.instances == []
+    assert reloads == []
+    warnings = [r for r in caplog.records if r.name == target and r.levelname == "WARNING"]
+    assert len(warnings) == 1
+
+
+@pytest.mark.parametrize(
+    ("mqtt_yaml", "expected_hosts"),
+    [
+        pytest.param("mqtt:\n  broker: 192.168.1.10\n", ["192.168.1.10"], id="plain"),
+        pytest.param("mqtt:\n  broker: !secret mqtt_host\n", ["172.16.0.2"], id="secret"),
+        pytest.param(
+            "substitutions:\n  host: 10.9.9.9\n\nmqtt:\n  broker: ${host}\n",
+            ["10.9.9.9"],
+            id="substitution",
+        ),
+        pytest.param(
+            "mqtt:\n  broker: h\n  client_certificate: c\n  client_certificate_key: k\n",
+            [],
+            id="client-cert",
+        ),
+    ],
+)
+async def test_extract_and_fallback_paths_agree(
+    tmp_path: Path,
+    stub_monitor: type[RecordingMonitor],
+    mqtt_yaml: str,
+    expected_hosts: list[str],
+) -> None:
+    """Both tiers produce the expected brokers, so monitors never churn on a rescan."""
+    (tmp_path / "secrets.yaml").write_text("mqtt_host: 172.16.0.2\n")
+    carried = write_mqtt_device(tmp_path, "kitchen", mqtt_yaml)
+    fallback = write_mqtt_device(tmp_path, "kitchen", mqtt_yaml)
+    fallback.mqtt_extract = None
+
+    coord_a = make_mqtt_coordinator(tmp_path, [carried])
+    await coord_a.reconcile()
+    brokers_a = sorted((m.broker for m in coord_a._monitors.values()), key=lambda b: str(b.key))
+
+    coord_b = make_mqtt_coordinator(tmp_path, [fallback])
+    await coord_b.reconcile()
+
+    assert sorted(b.host for b in brokers_a) == expected_hosts
+    assert (
+        sorted((m.broker for m in coord_b._monitors.values()), key=lambda b: str(b.key))
+        == brokers_a
+    )
+
+
+def test_secrets_edit_during_parse_stamps_the_pre_edit_mtime(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A secrets write racing the esphome parse leaves a stale stamp, not a poisoned seed."""
+    secrets = tmp_path / "secrets.yaml"
+    secrets.write_text("mqtt_host: 10.0.0.1\n")
+    pre_edit_mtime_ns = secrets.stat().st_mtime_ns
+    (tmp_path / "kitchen.yaml").write_text("esphome:\n  name: kitchen\n\nmqtt:\n  broker: x\n")
+
+    def _parse_and_race(_path: Path) -> dict:
+        secrets.write_text("mqtt_host: 10.0.0.2\n")
+        _bump_mtime(secrets)
+        return {"mqtt": {"broker": "10.0.0.1"}}
+
+    monkeypatch.setattr(loading_module, "load_device_yaml", _parse_and_race)
+    device = load_device_from_storage(tmp_path / "kitchen.yaml", "", "", "", "", 0, ())
+
+    assert device.mqtt_extract is not None
+    assert device.mqtt_extract.secrets_mtime_ns == pre_edit_mtime_ns
+
+
+async def test_seed_rejected_when_yaml_size_changes_under_same_mtime(
+    tmp_path: Path,
+    stub_monitor: type[RecordingMonitor],
+) -> None:
+    """A same-mtime size change invalidates the seed like the scanner's own cache key."""
+    device = _seed_package_device(tmp_path, {"broker": "10.1.1.1"})
+    path = tmp_path / "pkg.yaml"
+    _rewrite_keeping_mtime(path, path.read_text() + "# grew\n")
+
+    reloads: list[str] = []
+    coord = make_mqtt_coordinator(tmp_path, [device], reload_requests=reloads)
+    await coord.reconcile()
+
+    assert stub_monitor.instances == []
+    assert reloads == ["pkg.yaml"]
+
+
+def test_load_device_from_storage_survives_a_vanished_yaml(tmp_path: Path) -> None:
+    """A file deleted before the load still builds a Device with no extract."""
+    device = load_device_from_storage(tmp_path / "gone.yaml", "", "", "", "", 0, ())
+
+    assert device.uses_mqtt is False
+    assert device.mqtt_extract is None
+
+
+async def test_yaml_vanishing_between_stat_and_read_is_skipped(
+    tmp_path: Path,
+    stub_monitor: type[RecordingMonitor],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A file that disappears after the stat skips the device silently."""
+    device = write_mqtt_device(tmp_path, "kitchen", _BROKER_YAML)
+    _bump_mtime(tmp_path / "kitchen.yaml")  # stale extract → fallback read
+
+    real_open = Path.open
+
+    def _gone(self: Path, *args: Any, **kwargs: Any) -> Any:
+        if self.name == "kitchen.yaml":
+            raise OSError("vanished")
+        return real_open(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", _gone)
+    coord = make_mqtt_coordinator(tmp_path, [device])
+    await coord.reconcile()
+
+    assert stub_monitor.instances == []
+
+
+async def test_seed_rejected_when_secrets_size_changes_under_same_mtime(
+    tmp_path: Path,
+    stub_monitor: type[RecordingMonitor],
+) -> None:
+    """A same-mtime secrets replacement invalidates the seed's baked credentials."""
+    (tmp_path / "secrets.yaml").write_text("mqtt_pass: old\n")
+    device = _seed_package_device(tmp_path, {"broker": "10.6.6.6"})
+    _rewrite_keeping_mtime(tmp_path / "secrets.yaml", "mqtt_pass: rotated\n")
+
+    reloads: list[str] = []
+    coord = make_mqtt_coordinator(tmp_path, [device], reload_requests=reloads)
+    await coord.reconcile()
+
+    assert stub_monitor.instances == []
+    assert reloads == ["pkg.yaml"]
+
+
+def test_extract_mqtt_block_rejects_non_mapping_yaml() -> None:
+    """A YAML document that isn't a mapping yields no block."""
+    assert extract_mqtt_block("- just\n- a\n- list\n") == (None, {})
+
+
+def test_scan_populates_and_omits_the_extract(tmp_path: Path) -> None:
+    """The producer carries the extract for mqtt devices only, and never serializes it."""
+    (tmp_path / "kitchen.yaml").write_text(
+        "esphome:\n  name: kitchen\n\nmqtt:\n  broker: !secret mqtt_host\n"
+    )
+    (tmp_path / "plain.yaml").write_text("esphome:\n  name: plain\n")
+
+    mqtt_device = load_device_from_storage(tmp_path / "kitchen.yaml", "", "", "", "", 0, ())
+    plain_device = load_device_from_storage(tmp_path / "plain.yaml", "", "", "", "", 0, ())
+
+    assert mqtt_device.mqtt_extract is not None
+    assert mqtt_device.mqtt_extract.main_block is not None
+    assert "mqtt_extract" not in mqtt_device.to_dict()
+    assert plain_device.mqtt_extract is None

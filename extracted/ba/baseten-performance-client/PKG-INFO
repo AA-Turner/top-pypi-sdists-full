@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: baseten_performance_client
-Version: 0.1.12
+Version: 0.1.13
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

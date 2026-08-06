@@ -19,7 +19,7 @@ import re  # noqa: F401
 import json
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
@@ -38,7 +38,10 @@ class InvoiceInfo(BaseModel):
     total_credits: StrictInt = Field(description="Total credits billed")
     created: datetime = Field(description="When invoice was created")
     paid_at: Optional[datetime] = Field(default=None, description="When invoice was paid")
-    __properties: ClassVar[List[str]] = ["invoice_id", "invoice_url", "invoice_pdf", "amount_due", "amount_paid", "status", "billing_month", "total_credits", "created", "paid_at"]
+    platform_fee_cents: Optional[StrictInt] = Field(default=None, description="Monthly platform fee component in cents (delineated)")
+    cloud_fee_cents: Optional[StrictInt] = Field(default=None, description="Cloud passthrough + markup (platform_fee mode) or metered usage (platform_only mode) component in cents")
+    platform_fee_billed_externally: Optional[StrictBool] = Field(default=None, description="True when the platform fee is settled outside this system — it is then excluded from amount_due and should render as 'billed externally' rather than unpaid")
+    __properties: ClassVar[List[str]] = ["invoice_id", "invoice_url", "invoice_pdf", "amount_due", "amount_paid", "status", "billing_month", "total_credits", "created", "paid_at", "platform_fee_cents", "cloud_fee_cents", "platform_fee_billed_externally"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -100,7 +103,10 @@ class InvoiceInfo(BaseModel):
             "billing_month": obj.get("billing_month"),
             "total_credits": obj.get("total_credits"),
             "created": obj.get("created"),
-            "paid_at": obj.get("paid_at")
+            "paid_at": obj.get("paid_at"),
+            "platform_fee_cents": obj.get("platform_fee_cents"),
+            "cloud_fee_cents": obj.get("cloud_fee_cents"),
+            "platform_fee_billed_externally": obj.get("platform_fee_billed_externally")
         })
         return _obj
 

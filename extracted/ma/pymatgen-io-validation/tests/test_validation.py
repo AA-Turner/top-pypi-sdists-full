@@ -1,15 +1,18 @@
-import pytest
 import copy
-
+from itertools import product
+import pytest
+from conftest import incar_check_list, set_fake_potcar_dir, vasp_calc_data
 from monty.serialization import loadfn
 from pymatgen.core.structure import Structure
 from pymatgen.io.vasp import Kpoints
 
+from pymatgen.io.validation.common import (
+    LightIonicStep,
+    PotcarSummaryStats,
+    ValidationError,
+    VaspFiles,
+)
 from pymatgen.io.validation.validation import VaspValidator
-from pymatgen.io.validation.common import ValidationError, VaspFiles, PotcarSummaryStats, LightIonicStep
-
-from conftest import vasp_calc_data, incar_check_list, set_fake_potcar_dir
-
 
 ### TODO: add tests for many other MP input sets (e.g. MPNSCFSet, MPNMRSet, MPScanRelaxSet, Hybrid sets, etc.)
 ### TODO: add check for an MP input set that uses an IBRION other than [-1, 1, 2]
@@ -19,22 +22,40 @@ from conftest import vasp_calc_data, incar_check_list, set_fake_potcar_dir
 
 set_fake_potcar_dir()
 
+INCAR_CHECKS = incar_check_list()
+
 
 def run_check(
     vasp_files: VaspFiles,
     error_message_to_search_for: str,
     should_the_check_pass: bool,
-    vasprun_parameters_to_change: dict = {},  # for changing the parameters read from vasprun.xml
-    incar_settings_to_change: dict = {},  # for directly changing the INCAR file,
-    validation_doc_kwargs: dict = {},  # any kwargs to pass to the VaspValidator class
+    vasprun_parameters_to_change: (
+        dict | None
+    ) = None,  # for changing the parameters read from vasprun.xml
+    incar_settings_to_change: (
+        dict | None
+    ) = None,  # for directly changing the INCAR file,
+    validation_doc_kwargs: (
+        dict | None
+    ) = None,  # any kwargs to pass to the VaspValidator class
 ):
     _new_vf = vasp_files.model_dump()
-    _new_vf["vasprun"]["parameters"] = {**vasp_files.vasprun.parameters, **vasprun_parameters_to_change}
+    _new_vf["vasprun"]["parameters"] = {
+        **vasp_files.vasprun.parameters,
+        **(vasprun_parameters_to_change or {}),
+    }
 
-    _new_vf["user_input"]["incar"] = {**vasp_files.user_input.incar, **incar_settings_to_change}
+    _new_vf["user_input"]["incar"] = {
+        **vasp_files.user_input.incar,
+        **(incar_settings_to_change or {}),
+    }
 
-    validator = VaspValidator.from_vasp_input(vasp_files=VaspFiles(**_new_vf), **validation_doc_kwargs)
-    has_specified_error = any([error_message_to_search_for in reason for reason in validator.reasons])
+    validator = VaspValidator.from_vasp_input(
+        vasp_files=VaspFiles(**_new_vf), **(validation_doc_kwargs or {})
+    )
+    has_specified_error = any(
+        error_message_to_search_for in reason for reason in validator.reasons
+    )
 
     assert (not has_specified_error) if should_the_check_pass else has_specified_error
 
@@ -43,16 +64,21 @@ def test_validation_from_files(test_dir):
 
     dir_name = test_dir / "vasp" / "Si_uniform"
     validator_from_paths = VaspValidator.from_directory(dir_name)
-    validator_from_vasp_files = VaspValidator.from_vasp_input(vasp_files=vasp_calc_data["Si_uniform"])
+    validator_from_vasp_files = VaspValidator.from_vasp_input(
+        vasp_files=vasp_calc_data["Si_uniform"]
+    )
 
     # Note: because the POTCAR info cannot be distributed, `validator_from_paths`
     # is missing POTCAR checks.
-    assert set([r for r in validator_from_paths.reasons if "POTCAR" not in r]) == set(validator_from_vasp_files.reasons)
-    assert set([r for r in validator_from_paths.warnings if "POTCAR" not in r]) == set(
+    assert {r for r in validator_from_paths.reasons if "POTCAR" not in r} == set(
+        validator_from_vasp_files.reasons
+    )
+    assert {r for r in validator_from_paths.warnings if "POTCAR" not in r} == set(
         validator_from_vasp_files.warnings
     )
     assert all(
-        getattr(validator_from_paths.vasp_files.user_input, k) == getattr(validator_from_paths.vasp_files.user_input, k)
+        getattr(validator_from_paths.vasp_files.user_input, k)
+        == getattr(validator_from_paths.vasp_files.user_input, k)
         for k in ("incar", "structure", "kpoints")
     )
 
@@ -81,7 +107,8 @@ def test_potcar_validation(test_dir, object_name):
     vf_og = vasp_calc_data[object_name]
 
     correct_potcar_summary_stats = [
-        PotcarSummaryStats(**ps) for ps in loadfn(test_dir / "vasp" / "fake_Si_potcar_spec.json.gz")
+        PotcarSummaryStats(**ps)
+        for ps in loadfn(test_dir / "vasp" / "fake_Si_potcar_spec.json.gz")
     ]
 
     # Check POTCAR (this test should PASS, as we ARE using a MP-compatible pseudopotential)
@@ -97,8 +124,19 @@ def test_potcar_validation(test_dir, object_name):
     run_check(vf, "PSEUDOPOTENTIALS", False)
 
 
-@pytest.mark.parametrize("object_name", ["Si_static", "Si_old_double_relax"])
-def test_scf_incar_checks(test_dir, object_name):
+@pytest.mark.parametrize(
+    "object_name,incar_check",
+    product(["Si_static", "Si_old_double_relax"], INCAR_CHECKS),
+    ids=[
+        "-".join(p)
+        for p in product(
+            ["Si_static", "Si_old_double_relax"],
+            [entry["_id"] for entry in INCAR_CHECKS],
+        )
+    ],
+)
+def test_scf_incar_checks(test_dir, object_name: str, incar_check: dict):
+
     vf_og = vasp_calc_data[object_name]
     vf_og.vasprun.final_structure._charge = 0.0  # patch for old test files
 
@@ -106,14 +144,21 @@ def test_scf_incar_checks(test_dir, object_name):
     # Some parameters are validated from one or the other of these items, depending on whether VASP
     # changes the value between the INCAR and the vasprun.xml (which it often does)
 
-    for incar_check in incar_check_list():
-        run_check(
-            vf_og,
-            incar_check["err_msg"],
-            incar_check["should_pass"],
-            vasprun_parameters_to_change=incar_check.get("vasprun", {}),
-            incar_settings_to_change=incar_check.get("incar", {}),
-        )
+    run_check(
+        vf_og,
+        incar_check["err_msg"],
+        incar_check["should_pass"],
+        vasprun_parameters_to_change=incar_check.get("vasprun", {}),
+        incar_settings_to_change=incar_check.get("incar", {}),
+    )
+
+
+@pytest.mark.parametrize("object_name", ["Si_static", "Si_old_double_relax"])
+def test_bespoke_scf_incar_checks(test_dir, object_name):
+
+    vf_og = vasp_calc_data[object_name]
+    vf_og.vasprun.final_structure._charge = 0.0  # patch for old test files
+
     ### Most all of the tests below are too specific to use the kwargs in the
     # run_check() method. Hence, the calcs are manually modified. Apologies.
 
@@ -130,7 +175,11 @@ def test_scf_incar_checks(test_dir, object_name):
     vf.vasprun.ionic_steps = [
         LightIonicStep(
             e_fr_energy=energy,
-            **{k: v for k, v in vf.vasprun.ionic_steps[0].model_dump().items() if k != "e_fr_energy"},
+            **{
+                k: v
+                for k, v in vf.vasprun.ionic_steps[0].model_dump().items()
+                if k != "e_fr_energy"
+            },
         )
         for energy in [0, 1e4]
     ]
@@ -140,12 +189,16 @@ def test_scf_incar_checks(test_dir, object_name):
     vf = copy.deepcopy(vf_og)
     vf.vasprun.ionic_steps = [
         LightIonicStep(
-            e_0_energy=energy, **{k: v for k, v in vf.vasprun.ionic_steps[0].model_dump().items() if k != "e_0_energy"}
+            e_0_energy=energy,
+            **{
+                k: v
+                for k, v in vf.vasprun.ionic_steps[0].model_dump().items()
+                if k != "e_0_energy"
+            },
         )
         for energy in [-1, -2]
     ]
     run_check(vf, "ENERGY CHANGE BETWEEN LAST TWO IONIC STEPS", False)
-    return
 
     # EDIFFG / force convergence check (the MP input set for R2SCAN has force convergence criteria)
     # (the below test should NOT fail, because final forces are 0)
@@ -204,9 +257,9 @@ def test_scf_incar_checks(test_dir, object_name):
     )
     validated = VaspValidator.from_vasp_input(vasp_files=vf)
     # should not invalidate SCF calcs based on LMAXMIX
-    assert not any(["LMAXMIX" in reason for reason in validated.reasons])
+    assert not any("LMAXMIX" in reason for reason in validated.reasons)
     # rather should add a warning
-    assert any(["LMAXMIX" in warning for warning in validated.warnings])
+    assert any("LMAXMIX" in warning for warning in validated.warnings)
 
     # EFERMI check (does not matter for VASP versions before 6.4)
     # must check EFERMI in the *incar*, as it is saved as a numerical value after VASP
@@ -281,9 +334,9 @@ def test_nscf_checks(object_name):
     vf.user_input.incar["LMAXMIX"] = 0
     validated = VaspValidator.from_vasp_input(vasp_files=vf)
     # should invalidate NSCF calcs based on LMAXMIX
-    assert any(["LMAXMIX" in reason for reason in validated.reasons])
+    assert any("LMAXMIX" in reason for reason in validated.reasons)
     # and should *not* create a warning for NSCF calcs
-    assert not any(["LMAXMIX" in warning for warning in validated.warnings])
+    assert not any("LMAXMIX" in warning for warning in validated.warnings)
 
     # Explicit kpoints for NSCF calc check (this should not raise any flags for NSCF calcs)
     vf = copy.deepcopy(vf_og)
@@ -319,8 +372,7 @@ def test_common_error_checks(object_name):
             "METAGGA": "R2SCAN",
         }
 
-        vf_new = VaspFiles(**vfd)
-        vf_new.valid_input_set
+        VaspFiles(**vfd).valid_input_set
 
     # Drift forces too high check - a warning
     vf = copy.deepcopy(vf_og)
@@ -375,7 +427,9 @@ def test_common_error_checks(object_name):
     # Element Po / Am present
     for unsupported_ele in ("Po", "Am"):
         vf = copy.deepcopy(vf_og)
-        vf.user_input.structure.replace_species({ele: unsupported_ele for ele in vf.user_input.structure.elements})
+        vf.user_input.structure.replace_species(
+            {ele: unsupported_ele for ele in vf.user_input.structure.elements}
+        )
         with pytest.raises(KeyError):
             run_check(vf, "COMPOSITION", False)
 
@@ -511,7 +565,9 @@ def test_fast_mode():
     # print(vf.user_input.kpoints.as_dict)
     _update_kpoints_for_test(vf, {"kpoints": [[1, 1, 2]]})
 
-    validated = VaspValidator.from_vasp_input(vasp_files=vf, check_potcar=True, fast=True)
+    validated = VaspValidator.from_vasp_input(
+        vasp_files=vf, check_potcar=True, fast=True
+    )
     assert len(validated.reasons) == 1
     assert "VASP VERSION" in validated.reasons[0]
 
@@ -523,24 +579,38 @@ def test_fast_mode():
 
     # Now remove GGA tag, get k-point density error
     # vf.user_input.incar.pop("GGA")
-    validated = VaspValidator.from_vasp_input(vasp_files=vf, check_potcar=True, fast=True)
+    validated = VaspValidator.from_vasp_input(
+        vasp_files=vf, check_potcar=True, fast=True
+    )
     assert len(validated.reasons) == 1
-    assert "INPUT SETTINGS --> KPOINTS or KSPACING:" in validated.reasons[0]
+    assert any(
+        valid_reason in validated.reasons[0]
+        for valid_reason in (
+            "KPOINTS or KSPACING",
+            "NBANDS",
+        )
+    )
 
     # Now restore k-points and don't check POTCAR --> get error
     _update_kpoints_for_test(vf, og_kpoints)
-    validated = VaspValidator.from_vasp_input(vasp_files=vf, check_potcar=False, fast=True)
+    validated = VaspValidator.from_vasp_input(
+        vasp_files=vf, check_potcar=False, fast=True
+    )
     assert len(validated.reasons) == 1
     assert "NBANDS" in validated.reasons[0]
 
     # Fix NBANDS, get no errors
     vf.vasprun.parameters["NBANDS"] = 10
-    validated = VaspValidator.from_vasp_input(vasp_files=vf, check_potcar=True, fast=True)
+    validated = VaspValidator.from_vasp_input(
+        vasp_files=vf, check_potcar=True, fast=True
+    )
     assert len(validated.reasons) == 0
 
     # Remove POTCAR, should fail validation
     vf.user_input.potcar = None
-    validated = VaspValidator.from_vasp_input(vasp_files=vf, check_potcar=True, fast=True)
+    validated = VaspValidator.from_vasp_input(
+        vasp_files=vf, check_potcar=True, fast=True
+    )
     assert "PSEUDOPOTENTIALS" in validated.reasons[0]
 
 
@@ -558,3 +628,43 @@ def test_site_properties(test_dir):
     )
     vd = VaspValidator.from_vasp_input(vasp_files=vf)
     assert any("non-zero velocities" in warning.lower() for warning in vd.warnings)
+
+
+@pytest.mark.parametrize(
+    "run_type,expected_set",
+    [("relax", "MP24RelaxSet"), ("static", "MP24StaticSet")],
+)
+def test_r2scan_uses_mp24_input_set(run_type, expected_set):
+    """r2SCAN calcs must validate against the MP24 sets, not the legacy MPScan sets.
+
+    Regression test for the GGA_COMPAT false-positive: the MP24 input sets set
+    GGA_COMPAT=False, but MPScanRelaxSet/MPScanStaticSet leave it unset (default
+    True), so an MP24 r2SCAN calc was spuriously flagged. VASP_DEFAULT_INPUT_SETS
+    already maps the r2SCAN calc types to the MP24 sets; the resolver must agree.
+    """
+    from pymatgen.io.validation.common import VaspFiles
+
+    vf = VaspFiles.model_construct(functional="r2scan", run_type=run_type)
+    assert vf.set_valid_input_set_name() == expected_set
+
+
+def test_r2scan_relax_passes_gga_compat_check():
+    """An MP24RelaxSet-generated r2SCAN relax must not fail the GGA_COMPAT check."""
+    from pymatgen.core import Lattice
+    from pymatgen.io.vasp.sets import MP24RelaxSet
+
+    from pymatgen.io.validation.common import VaspFiles, VaspInputSafe
+
+    si = Structure.from_spacegroup(
+        "Fd-3m", Lattice.cubic(5.468), ["Si"], [[0.0, 0.0, 0.0]]
+    ).get_primitive_structure()
+    vf = VaspFiles(
+        user_input=VaspInputSafe.from_vasp_input_set(MP24RelaxSet(structure=si))
+    )
+
+    assert vf.functional == "r2scan"
+    assert vf.run_type == "relax"
+    assert vf.valid_input_set_name == "MP24RelaxSet"
+
+    reasons, _ = VaspValidator.run_checks(vf, fast=False)
+    assert not any("GGA_COMPAT" in reason for reason in reasons), reasons

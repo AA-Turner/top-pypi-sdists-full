@@ -231,6 +231,25 @@
 #endif
 
 /**
+ *  @brief Forbids the compiler from eliding stores to @p pointer that nothing afterwards reads back.
+ *
+ *  Zeroing a buffer that is about to die is a dead store, and an optimizer is entitled to drop it. That
+ *  is fatal when the buffer held key material, so a scrub places ordinary wide stores and then this
+ *  barrier, rather than paying for `volatile` on every byte - `volatile` also forbids vectorization, so
+ *  a scrub written that way cannot use more than one byte per store.
+ *
+ *  @sa sz_do_not_optimize in `types.hpp`, the C++ read-side companion for a value rather than a buffer.
+ */
+#if defined(__GNUC__) || defined(__clang__)
+#define sz_keep_alive_(pointer) __asm__ __volatile__("" : : "r"(pointer) : "memory")
+#elif defined(_MSC_VER)
+#include <intrin.h> // `_ReadWriteBarrier`
+#define sz_keep_alive_(pointer) (_ReadWriteBarrier(), (void)(pointer))
+#else
+#define sz_keep_alive_(pointer) ((void)(pointer))
+#endif
+
+/**
  *  @brief C99 static array parameter annotation for minimum array size.
  *         In C, expands to `static n` enabling compiler bounds checking.
  *         In C++, expands to nothing as this syntax is not supported.
@@ -426,16 +445,15 @@
 #endif
 
 /**
- *  LLVM 18 split the `evex512` target feature out of the AVX-512 family (the AVX10 transition): in
- *  per-function `target` attributes, `avx512f` alone now grants only 256-bit EVEX forms, and ZMM codegen
- *  requires naming `evex512` explicitly. Older Clang treats the token as unknown and DROPS the whole
- *  attribute (`-Wignored-attributes`, a hard error under `-Werror`), so the AVX-512 kernels fork their
- *  pragmas on this one condition. Apple Clang versions its own way: Apple Clang 17 is LLVM-19-based and
- *  already needs the token. Every shipped AVX-512 CPU is 512-bit capable, so the feature is semantically
- *  implied by the Skylake and Ice Lake tiers - this is purely an encoding-model fork, never a codegen
- *  difference on real hardware.
+ *  LLVM 18 through 22 carry `evex512` as a separate target feature, split out of AVX-512 for the AVX10
+ *  transition; ZMM codegen in a per-function `target` attribute needs it named. LLVM 17 and older never
+ *  knew the token, LLVM 23 retired it again, and Clang drops the WHOLE attribute over one unknown
+ *  feature - `-Wignored-attributes`, silently costing every AVX-512 kernel - so the fork is a closed
+ *  version window, not a floor. Apple Clang 17 is LLVM-19-based and sits inside it. The same window is
+ *  spelled out in `probes/x86_skylake.c` and `probes/x86_icelake.c`, which stay freestanding for Cargo.
  */
-#if defined(__clang__) && (__clang_major__ >= 18 || (defined(__apple_build_version__) && __clang_major__ >= 17))
+#if defined(__clang__) && __clang_major__ < 23 && \
+    (__clang_major__ >= 18 || (defined(__apple_build_version__) && __clang_major__ >= 17))
 #define SZ_CLANG_HAS_EVEX512_ (1)
 #else
 #define SZ_CLANG_HAS_EVEX512_ (0)
@@ -721,6 +739,11 @@ typedef sz_u16_t sz_error_cost_magnitude_t; // The smallest type that can hold u
 
 struct sz_hash_state_t;            // Forward declaration of a hash state structure
 struct sz_sha256_state_t;          // Forward declaration of a SHA256 hash state structure
+struct sz_aes256_key_t;            // Forward declaration of an AES-256 round-key schedule
+struct sz_aes256_gcm_key_t;        // Forward declaration of an AES-256-GCM key, schedule plus hash powers
+struct sz_aes256_gcm_state_t;      // Forward declaration of the payload both streaming directions share
+struct sz_aes256_gcm_encryptor_t;  // Forward declaration of an AES-256-GCM sealing state
+struct sz_aes256_gcm_decryptor_t;  // Forward declaration of an AES-256-GCM opening state
 struct sz_sequence_t;              // Forward declaration of an ordered collection of strings
 typedef sz_size_t sz_sorted_idx_t; // Index of a sorted string in a list of strings
 typedef sz_size_t sz_pgram_t;      // "Pointer-sized N-gram" of a string
@@ -803,6 +826,8 @@ typedef enum sz_status_t {
     sz_device_code_mismatch_k = -17,
     /** Device memory mismatch: e.g., GPU kernel requires unified/device-accessible memory. */
     sz_device_memory_mismatch_k = -18,
+    /** An authenticated decryption saw a tag that does not match the ciphertext it accompanies. */
+    sz_authentication_failed_k = -19,
     /** A sink-hole status for unknown errors. */
     sz_status_unknown_k = -1,
 } sz_status_t;
@@ -850,16 +875,16 @@ typedef enum sz_capability_t {
     sz_caps_sil_k = sz_cap_serial_k | sz_cap_icelake_k, ///< Serial code with Ice Lake
 
     sz_caps_spil_k = sz_cap_serial_k | sz_cap_parallel_k |
-                     sz_cap_icelake_k,                                  ///< Serial code with Fork Union and Ice Lake
+        sz_cap_icelake_k,                                               ///< Serial code with Fork Union and Ice Lake
     sz_caps_sps_k = sz_cap_serial_k | sz_cap_parallel_k | sz_cap_sve_k, ///< Serial code with Fork Union and SVE
     sz_caps_ck_k = sz_cap_cuda_k | sz_cap_kepler_k,                     ///< CUDA code with Kepler
     sz_caps_ckh_k = sz_cap_cuda_k | sz_cap_kepler_k | sz_cap_hopper_k,  ///< CUDA code with Kepler and Hopper
 
     // Aggregates for different StringZillas builds
     sz_caps_cpus_k = sz_cap_serial_k | sz_cap_parallel_k | sz_cap_haswell_k | sz_cap_skylake_k | sz_cap_icelake_k |
-                     sz_cap_westmere_k | sz_cap_goldmont_k | sz_cap_neon_k | sz_cap_neonaes_k | sz_cap_neonsha_k |
-                     sz_cap_sve_k | sz_cap_sve2_k | sz_cap_sve2aes_k | sz_cap_v128_k | sz_cap_v128relaxed_k |
-                     sz_cap_rvv_k | sz_cap_rvvcrypto_k | sz_cap_lasx_k | sz_cap_powervsx_k,
+        sz_cap_westmere_k | sz_cap_goldmont_k | sz_cap_neon_k | sz_cap_neonaes_k | sz_cap_neonsha_k | sz_cap_sve_k |
+        sz_cap_sve2_k | sz_cap_sve2aes_k | sz_cap_v128_k | sz_cap_v128relaxed_k | sz_cap_rvv_k | sz_cap_rvvcrypto_k |
+        sz_cap_lasx_k | sz_cap_powervsx_k,
     sz_caps_cuda_k = sz_cap_cuda_k | sz_cap_kepler_k | sz_cap_hopper_k,
 
 } sz_capability_t;
@@ -1100,6 +1125,57 @@ typedef void (*sz_sha256_state_update_t)(struct sz_sha256_state_t *, sz_cptr_t, 
 /** @brief Signature of `sz_sha256_state_digest`. */
 typedef void (*sz_sha256_state_digest_t)(struct sz_sha256_state_t const *, sz_u8_t *);
 
+/** @brief Signature of `sz_sha256_multistate_update`. */
+typedef void (*sz_sha256_multistate_update_t)(struct sz_sha256_state_t *, struct sz_sequence_t const *);
+
+/** @brief Signature of `sz_sha256_multistate_digest`. */
+typedef void (*sz_sha256_multistate_digest_t)(struct sz_sha256_state_t const *, sz_size_t, sz_u8_t *);
+
+/** @brief Signature of `sz_aes256_key_init`. */
+typedef void (*sz_aes256_key_init_t)(struct sz_aes256_key_t *, sz_u8_t const *);
+
+/** @brief Signature of `sz_aes256_gcm_key_init`. */
+typedef void (*sz_aes256_gcm_key_init_t)(struct sz_aes256_gcm_key_t *, sz_u8_t const *);
+
+/** @brief Signature of `sz_aes256_ctr_xor`. */
+typedef void (*sz_aes256_ctr_xor_t)(struct sz_aes256_key_t const *, sz_u8_t const *, sz_u64_t, sz_cptr_t, sz_size_t,
+                                    sz_ptr_t);
+
+/** @brief Signature of `sz_aes256_gcm_encrypt`. */
+typedef void (*sz_aes256_gcm_encrypt_t)(struct sz_aes256_gcm_key_t const *, sz_u8_t const *, sz_cptr_t, sz_size_t,
+                                        sz_cptr_t, sz_size_t, sz_ptr_t, sz_u8_t *);
+
+/** @brief Signature of `sz_aes256_gcm_decrypt`. */
+typedef sz_status_t (*sz_aes256_gcm_decrypt_t)(struct sz_aes256_gcm_key_t const *, sz_u8_t const *, sz_cptr_t,
+                                               sz_size_t, sz_cptr_t, sz_size_t, sz_ptr_t, sz_u8_t const *);
+
+/** @brief Signature of `sz_aes256_gcm_encryptor_init`. */
+typedef void (*sz_aes256_gcm_encryptor_init_t)(struct sz_aes256_gcm_encryptor_t *, struct sz_aes256_gcm_key_t const *,
+                                               sz_u8_t const *);
+
+/** @brief Signature of `sz_aes256_gcm_encryptor_associate`. */
+typedef void (*sz_aes256_gcm_encryptor_associate_t)(struct sz_aes256_gcm_encryptor_t *, sz_cptr_t, sz_size_t);
+
+/** @brief Signature of `sz_aes256_gcm_encryptor_update`. */
+typedef void (*sz_aes256_gcm_encryptor_update_t)(struct sz_aes256_gcm_encryptor_t *, sz_cptr_t, sz_size_t, sz_ptr_t);
+
+/** @brief Signature of `sz_aes256_gcm_encryptor_digest`. */
+typedef void (*sz_aes256_gcm_encryptor_digest_t)(struct sz_aes256_gcm_encryptor_t const *, sz_u8_t *);
+
+/** @brief Signature of `sz_aes256_gcm_decryptor_init`. */
+typedef void (*sz_aes256_gcm_decryptor_init_t)(struct sz_aes256_gcm_decryptor_t *, struct sz_aes256_gcm_key_t const *,
+                                               sz_u8_t const *);
+
+/** @brief Signature of `sz_aes256_gcm_decryptor_associate`. */
+typedef void (*sz_aes256_gcm_decryptor_associate_t)(struct sz_aes256_gcm_decryptor_t *, sz_cptr_t, sz_size_t);
+
+/** @brief Signature of `sz_aes256_gcm_decryptor_update_unverified`. */
+typedef void (*sz_aes256_gcm_decryptor_update_unverified_t)(struct sz_aes256_gcm_decryptor_t *, sz_cptr_t, sz_size_t,
+                                                            sz_ptr_t);
+
+/** @brief Signature of `sz_aes256_gcm_decryptor_verify`. */
+typedef sz_status_t (*sz_aes256_gcm_decryptor_verify_t)(struct sz_aes256_gcm_decryptor_t const *, sz_u8_t const *);
+
 /** @brief Signature of `sz_equal`. */
 typedef sz_bool_t (*sz_equal_t)(sz_cptr_t, sz_cptr_t, sz_size_t);
 
@@ -1330,6 +1406,15 @@ typedef struct sz_sequence_t {
 SZ_API_COMPTIME void sz_sequence_from_null_terminated_strings(sz_cptr_t *start, sz_size_t count,
                                                               sz_sequence_t *sequence);
 
+/**
+ *  @brief Initiates the sequence structure from an array of pointer-length pairs, like `sz_string_view_t[]`.
+ *  @param views Pointer to the array of views, which must outlive @p sequence.
+ *  @param count Number of views in the array.
+ *  @param sequence Sequence structure to initialize.
+ */
+SZ_API_COMPTIME void sz_sequence_from_string_views(sz_string_view_t const *views, sz_size_t count,
+                                                   sz_sequence_t *sequence);
+
 #pragma endregion
 
 #pragma region Helper Functions
@@ -1501,6 +1586,43 @@ SZ_HELPER_AUTO sz_u64_t sz_u64_bytes_reverse(sz_u64_t val) { return __builtin_bs
 SZ_HELPER_AUTO sz_u32_t sz_u32_bytes_reverse(sz_u32_t val) { return __builtin_bswap32(val); }
 #endif
 
+/*  ARM NEON kernel files call these directly instead of `sz_u32_ctz`/`sz_u32_clz`/`sz_u32_popcount`:
+ *  unlike those, they are explicitly ISA-named and never fall back to a portable loop, so a missing
+ *  case here is a compile error, not a silent downgrade. Real MSVC (not clang-cl) compiles NEON code
+ *  on Windows-on-Arm (`SZ_USE_NEON` is unconditionally 1 there) and has no `__builtin_*`/ACLE support,
+ *  so the MSVC branch is required, not optional; `_CountTrailingZeros[64]` needs VS2022 17.7+, which
+ *  matches this repo's CI floor (`windows-11-arm` runner).
+ */
+#if defined(_MSC_VER) && !defined(__clang__)
+#define sz_u32_ctz_neon_(x) ((int)_CountTrailingZeros(x))
+#define sz_u64_ctz_neon_(x) ((int)_CountTrailingZeros64(x))
+#define sz_u32_clz_neon_(x) ((int)_CountLeadingZeros(x))
+#define sz_u64_clz_neon_(x) ((int)_CountLeadingZeros64(x))
+#define sz_u32_popcount_neon_(x) ((int)_CountOneBits(x))
+#define sz_u64_popcount_neon_(x) ((int)_CountOneBits64(x))
+#else
+#define sz_u32_ctz_neon_(x) ((int)__clz(__rbit(x))) // ACLE, byte-identical to `sz_u32_ctz`'s `rbit`+`clz`
+#define sz_u64_ctz_neon_(x) ((int)__clzll(__rbitll(x)))
+#define sz_u32_clz_neon_(x) ((int)__clz(x))
+#define sz_u64_clz_neon_(x) ((int)__clzll(x))
+#define sz_u32_popcount_neon_(x) (__builtin_popcount(x)) // no ACLE popcount intrinsic exists
+#define sz_u64_popcount_neon_(x) (__builtin_popcountll(x))
+#endif
+
+/**
+ *  @brief Returns @p pointer unchanged, hiding its origin so table reads stay memory operands.
+ *
+ *  Left visible, a `static const` table folds into immediates and every constant costs a `vpbroadcastd`
+ *  where an AVX-512 `{1toN}` embedded broadcast would have been free. No use outside x86, which has no
+ *  equivalent operand to protect.
+ */
+SZ_HELPER_INLINE void const *sz_x86_hide_pointer_origin_(void const *pointer) {
+#if defined(__GNUC__)
+    __asm__("" : "+r"(pointer));
+#endif
+    return pointer;
+}
+
 /** @brief Reverse the 64 bits of @p value (bit `i` moves to bit `63 - i`): swap adjacent bits, then bit-pairs
  *         within nibbles, then nibbles within bytes, then the bytes. Lets an ascending-only byte-compress
  *         (`vpcompressb`) pack lanes in descending order. */
@@ -1628,14 +1750,15 @@ SZ_HELPER_AUTO __mmask64 sz_u64_clamp_mask_until_(sz_size_t n) {
  *  @brief Byte-level equality comparison between two 64-bit integers.
  *  @return 64-bit integer, where every top bit in each byte signifies a match.
  */
-SZ_HELPER_AUTO sz_u64_vec_t sz_u64_each_byte_equal_(sz_u64_vec_t a, sz_u64_vec_t b) {
-    sz_u64_vec_t vec;
-    vec.u64 = ~(a.u64 ^ b.u64);
+SZ_HELPER_AUTO sz_u64_vec_t sz_u64_each_byte_equal_(sz_u64_vec_t a_vec, sz_u64_vec_t b_vec) {
+    sz_u64_vec_t result_vec;
+    result_vec.u64 = ~(a_vec.u64 ^ b_vec.u64);
     // The match is valid, if every bit within each byte is set.
     // For that take the bottom 7 bits of each byte, add one to them,
     // and if this sets the top bit to one, then all the 7 bits are ones as well.
-    vec.u64 = ((vec.u64 & 0x7F7F7F7F7F7F7F7Full) + 0x0101010101010101ull) & ((vec.u64 & 0x8080808080808080ull));
-    return vec;
+    result_vec.u64 = ((result_vec.u64 & 0x7F7F7F7F7F7F7F7Full) + 0x0101010101010101ull) &
+                     ((result_vec.u64 & 0x8080808080808080ull));
+    return result_vec;
 }
 
 /**
@@ -1738,10 +1861,10 @@ SZ_HELPER_AUTO sz_u64_t sz_u64_transpose(sz_u64_t x) {
  */
 SZ_HELPER_AUTO sz_u16_vec_t sz_u16_load(sz_cptr_t ptr) {
 #if !SZ_USE_MISALIGNED_LOADS
-    sz_u16_vec_t result;
-    result.u8s[0] = ptr[0];
-    result.u8s[1] = ptr[1];
-    return result;
+    sz_u16_vec_t result_vec;
+    result_vec.u8s[0] = ptr[0];
+    result_vec.u8s[1] = ptr[1];
+    return result_vec;
 #elif defined(_MSC_VER) && !defined(__clang__)
 #if defined(_M_IX86) //< The `__unaligned` modifier isn't valid for the x86 platform.
     return *((sz_u16_vec_t *)ptr);
@@ -1749,8 +1872,8 @@ SZ_HELPER_AUTO sz_u16_vec_t sz_u16_load(sz_cptr_t ptr) {
     return *((__unaligned sz_u16_vec_t *)ptr);
 #endif
 #else
-    __attribute__((aligned(1))) sz_u16_vec_t const *result = (sz_u16_vec_t const *)ptr;
-    return *result;
+    __attribute__((aligned(1))) sz_u16_vec_t const *result_vec = (sz_u16_vec_t const *)ptr;
+    return *result_vec;
 #endif
 }
 
@@ -1758,12 +1881,12 @@ SZ_HELPER_AUTO sz_u16_vec_t sz_u16_load(sz_cptr_t ptr) {
  */
 SZ_HELPER_AUTO sz_u32_vec_t sz_u32_load(sz_cptr_t ptr) {
 #if !SZ_USE_MISALIGNED_LOADS
-    sz_u32_vec_t result;
-    result.u8s[0] = ptr[0];
-    result.u8s[1] = ptr[1];
-    result.u8s[2] = ptr[2];
-    result.u8s[3] = ptr[3];
-    return result;
+    sz_u32_vec_t result_vec;
+    result_vec.u8s[0] = ptr[0];
+    result_vec.u8s[1] = ptr[1];
+    result_vec.u8s[2] = ptr[2];
+    result_vec.u8s[3] = ptr[3];
+    return result_vec;
 #elif defined(_MSC_VER) && !defined(__clang__)
 #if defined(_M_IX86) //< The `__unaligned` modifier isn't valid for the x86 platform.
     return *((sz_u32_vec_t *)ptr);
@@ -1771,8 +1894,8 @@ SZ_HELPER_AUTO sz_u32_vec_t sz_u32_load(sz_cptr_t ptr) {
     return *((__unaligned sz_u32_vec_t *)ptr);
 #endif
 #else
-    __attribute__((aligned(1))) sz_u32_vec_t const *result = (sz_u32_vec_t const *)ptr;
-    return *result;
+    __attribute__((aligned(1))) sz_u32_vec_t const *result_vec = (sz_u32_vec_t const *)ptr;
+    return *result_vec;
 #endif
 }
 
@@ -1780,16 +1903,16 @@ SZ_HELPER_AUTO sz_u32_vec_t sz_u32_load(sz_cptr_t ptr) {
  */
 SZ_HELPER_AUTO sz_u64_vec_t sz_u64_load(sz_cptr_t ptr) {
 #if !SZ_USE_MISALIGNED_LOADS
-    sz_u64_vec_t result;
-    result.u8s[0] = ptr[0];
-    result.u8s[1] = ptr[1];
-    result.u8s[2] = ptr[2];
-    result.u8s[3] = ptr[3];
-    result.u8s[4] = ptr[4];
-    result.u8s[5] = ptr[5];
-    result.u8s[6] = ptr[6];
-    result.u8s[7] = ptr[7];
-    return result;
+    sz_u64_vec_t result_vec;
+    result_vec.u8s[0] = ptr[0];
+    result_vec.u8s[1] = ptr[1];
+    result_vec.u8s[2] = ptr[2];
+    result_vec.u8s[3] = ptr[3];
+    result_vec.u8s[4] = ptr[4];
+    result_vec.u8s[5] = ptr[5];
+    result_vec.u8s[6] = ptr[6];
+    result_vec.u8s[7] = ptr[7];
+    return result_vec;
 #elif defined(_MSC_VER) && !defined(__clang__)
 #if defined(_M_IX86) //< The `__unaligned` modifier isn't valid for the x86 platform.
     return *((sz_u64_vec_t *)ptr);
@@ -1797,8 +1920,8 @@ SZ_HELPER_AUTO sz_u64_vec_t sz_u64_load(sz_cptr_t ptr) {
     return *((__unaligned sz_u64_vec_t *)ptr);
 #endif
 #else
-    __attribute__((aligned(1))) sz_u64_vec_t const *result = (sz_u64_vec_t const *)ptr;
-    return *result;
+    __attribute__((aligned(1))) sz_u64_vec_t const *result_vec = (sz_u64_vec_t const *)ptr;
+    return *result_vec;
 #endif
 }
 
@@ -1816,8 +1939,8 @@ SZ_HELPER_AUTO void sz_u16_store(sz_ptr_t ptr, sz_u16_t value) {
     ((__unaligned sz_u16_vec_t *)ptr)->u16 = value;
 #endif
 #else
-    __attribute__((aligned(1))) sz_u16_vec_t *result = (sz_u16_vec_t *)ptr;
-    result->u16 = value;
+    __attribute__((aligned(1))) sz_u16_vec_t *result_vec = (sz_u16_vec_t *)ptr;
+    result_vec->u16 = value;
 #endif
 }
 
@@ -1837,8 +1960,8 @@ SZ_HELPER_AUTO void sz_u32_store(sz_ptr_t ptr, sz_u32_t value) {
     ((__unaligned sz_u32_vec_t *)ptr)->u32 = value;
 #endif
 #else
-    __attribute__((aligned(1))) sz_u32_vec_t *result = (sz_u32_vec_t *)ptr;
-    result->u32 = value;
+    __attribute__((aligned(1))) sz_u32_vec_t *result_vec = (sz_u32_vec_t *)ptr;
+    result_vec->u32 = value;
 #endif
 }
 
@@ -1862,8 +1985,8 @@ SZ_HELPER_AUTO void sz_u64_store(sz_ptr_t ptr, sz_u64_t value) {
     ((__unaligned sz_u64_vec_t *)ptr)->u64 = value;
 #endif
 #else
-    __attribute__((aligned(1))) sz_u64_vec_t *result = (sz_u64_vec_t *)ptr;
-    result->u64 = value;
+    __attribute__((aligned(1))) sz_u64_vec_t *result_vec = (sz_u64_vec_t *)ptr;
+    result_vec->u64 = value;
 #endif
 }
 
@@ -1954,6 +2077,24 @@ SZ_API_COMPTIME void sz_sequence_from_null_terminated_strings(sz_cptr_t *start, 
     sequence->count = count;
     sequence->get_start = sz_sequence_from_null_terminated_strings_get_start_;
     sequence->get_length = sz_sequence_from_null_terminated_strings_get_length_;
+}
+
+SZ_API_COMPTIME sz_cptr_t sz_sequence_from_string_views_get_start_(void const *handle, sz_size_t i) {
+    sz_string_view_t const *views = (sz_string_view_t const *)handle;
+    return views[i].start;
+}
+
+SZ_API_COMPTIME sz_size_t sz_sequence_from_string_views_get_length_(void const *handle, sz_size_t i) {
+    sz_string_view_t const *views = (sz_string_view_t const *)handle;
+    return views[i].length;
+}
+
+SZ_API_COMPTIME void sz_sequence_from_string_views(sz_string_view_t const *views, sz_size_t count,
+                                                   sz_sequence_t *sequence) {
+    sequence->handle = views;
+    sequence->count = count;
+    sequence->get_start = sz_sequence_from_string_views_get_start_;
+    sequence->get_length = sz_sequence_from_string_views_get_length_;
 }
 
 #pragma endregion

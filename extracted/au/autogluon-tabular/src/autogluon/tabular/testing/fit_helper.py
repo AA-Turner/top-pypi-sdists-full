@@ -2,34 +2,36 @@ from __future__ import annotations
 
 import copy
 import os
-import pandas as pd
 import shutil
-import sys
 import subprocess
+import sys
 import textwrap
 import uuid
 from typing import Any, Type
 
+import numpy as np
+import pandas as pd
+import pandas.testing as pdt
+
 from autogluon.common.utils.path_converter import PathConverter
 from autogluon.core.constants import BINARY, MULTICLASS, REGRESSION
 from autogluon.core.metrics import METRICS
-from autogluon.core.models import AbstractModel, BaggedEnsembleModel
+from autogluon.core.models import AbstractModel, AuxiliaryParams, BaggedEnsembleModel
 from autogluon.core.stacked_overfitting.utils import check_stacked_overfitting_from_leaderboard
 from autogluon.core.testing.global_context_snapshot import GlobalContextSnapshot
 from autogluon.core.utils import download, generate_train_test_split_combined, infer_problem_type, unzip
-
 from autogluon.tabular import TabularDataset, TabularPredictor
 from autogluon.tabular.testing.generate_datasets import (
-    generate_toy_binary_dataset,
     generate_toy_binary_10_dataset,
+    generate_toy_binary_dataset,
+    generate_toy_multiclass_10_dataset,
+    generate_toy_multiclass_30_dataset,
     generate_toy_multiclass_dataset,
-    generate_toy_regression_dataset,
+    generate_toy_quantile_10_dataset,
     generate_toy_quantile_dataset,
     generate_toy_quantile_single_level_dataset,
-    generate_toy_multiclass_10_dataset,
     generate_toy_regression_10_dataset,
-    generate_toy_quantile_10_dataset,
-    generate_toy_multiclass_30_dataset,
+    generate_toy_regression_dataset,
 )
 
 
@@ -154,6 +156,7 @@ class FitHelper:
     """
     Helper functions to test and verify predictors and models when fit through TabularPredictor's API.
     """
+
     @staticmethod
     def fit_and_validate_dataset(
         dataset_name: str,
@@ -181,11 +184,16 @@ class FitHelper:
         deepcopy_fit_args: bool = True,
         verify_model_seed: bool = False,
         verify_load_wo_cuda: bool = False,
+        verify_single_prediction_equivalent_to_multi: bool = True,
     ) -> TabularPredictor:
         if compiler_configs is None:
             compiler_configs = {}
         directory_prefix = "./datasets/"
-        train_data, test_data, dataset_info = DatasetLoaderHelper.load_dataset(name=dataset_name, directory_prefix=directory_prefix)
+        train_data, test_data, dataset_info = DatasetLoaderHelper.load_dataset(
+            name=dataset_name, directory_prefix=directory_prefix
+        )
+        if sample_size is not None and sample_size < len(test_data):
+            test_data = test_data.sample(n=sample_size, random_state=0)
         label = dataset_info["label"]
         problem_type = dataset_info["problem_type"]
         _init_args = dict(
@@ -234,21 +242,55 @@ class FitHelper:
             scikit_api=scikit_api,
             min_cls_count_train=min_cls_count_train,
         )
-        
-        ctx_after = GlobalContextSnapshot.capture()
-        ctx_before.assert_unchanged(ctx_after)
+
+        ctx_after_fit = GlobalContextSnapshot.capture()
+        ctx_before.assert_unchanged(ctx_after_fit)
 
         if compile:
             predictor.compile(models="all", compiler_configs=compiler_configs)
             predictor.persist(models="all")
-        if sample_size is not None and sample_size < len(test_data):
-            test_data = test_data.sample(n=sample_size, random_state=0)
+
+        model_names = predictor.model_names()
+        model_name = model_names[0]
+        if expected_model_count is not None:
+            assert len(model_names) == expected_model_count
+
         predictor.predict(test_data)
+
+        ctx_after_predict = GlobalContextSnapshot.capture()
+        ctx_after_fit.assert_unchanged(ctx_after_predict)
+
         predictor.evaluate(test_data)
+
+        test_data_transform = predictor.transform_features(data=test_data, model=model_name)
+        test_data_transform_before = test_data_transform.copy(deep=True)
+        model = predictor._trainer.load_model(model_name=model_name)
+        model.predict(X=test_data_transform)
+        pdt.assert_frame_equal(test_data_transform, test_data_transform_before, check_dtype=True)
 
         if predictor.can_predict_proba:
             pred_proba = predictor.predict_proba(test_data)
             predictor.evaluate_predictions(y_true=test_data[label], y_pred=pred_proba)
+
+            pred_proba_repeat = predictor.predict_proba(test_data)
+            are_close = np.allclose(pred_proba, pred_proba_repeat, atol=1e-5)
+            if not are_close:
+                raise AssertionError(
+                    "Predictions differ when predicting on the same data multiple times\n"
+                    f"First Predict:\n{pred_proba}\n"
+                    f"Second Predict:\n{pred_proba_repeat}\n"
+                )
+
+            pred_proba_1 = predictor.predict_proba(test_data.head(1))  # Verify model can predict on a single sample
+            if verify_single_prediction_equivalent_to_multi:
+                pred_proba_1_from_multi = pred_proba.head(1)
+                are_close = np.allclose(pred_proba_1, pred_proba_1_from_multi, atol=1e-5)
+                if not are_close:
+                    raise AssertionError(
+                        "Predictions differ when predicting a single sample vs predicting multiple samples\n"
+                        f"Single Sample:\n{pred_proba_1}\n"
+                        f"Multi Sample:\n{pred_proba_1_from_multi}\n"
+                    )
         else:
             try:
                 predictor.predict_proba(test_data)
@@ -257,10 +299,6 @@ class FitHelper:
             else:
                 raise AssertionError("Expected `predict_proba` to raise AssertionError, but it didn't!")
 
-        model_names = predictor.model_names()
-        model_name = model_names[0]
-        if expected_model_count is not None:
-            assert len(model_names) == expected_model_count
         if refit_full:
             refit_model_names = predictor.refit_full()
             if expected_model_count is not None:
@@ -278,13 +316,15 @@ class FitHelper:
             model_info = model.get_info()
             can_refit_full = model._get_tags()["can_refit_full"]
             if can_refit_full:
-                assert not model_info["val_in_fit"], f"val data must not be present in refit model if `can_refit_full=True`. Maybe an exception occurred?"
+                assert not model_info["val_in_fit"], (
+                    f"val data must not be present in refit model if `can_refit_full=True`. Maybe an exception occurred?"
+                )
             else:
                 assert model_info["val_in_fit"], f"val data must be present in refit model if `can_refit_full=False`"
         if verify_model_seed:
-            model_names = predictor.model_names()
-            for model_name in model_names:
-                model = predictor._trainer.load_model(model_name)
+            names = predictor.model_names()
+            for name in names:
+                model = predictor._trainer.load_model(name)
                 _verify_model_seed(model=model)
 
         if predictor_info:
@@ -293,7 +333,9 @@ class FitHelper:
         if extra_info:
             lb_kwargs["extra_info"] = True
         lb = predictor.leaderboard(test_data, extra_metrics=extra_metrics, **lb_kwargs)
-        stacked_overfitting_assert(lb, predictor, expected_stacked_overfitting_at_val, expected_stacked_overfitting_at_test)
+        stacked_overfitting_assert(
+            lb, predictor, expected_stacked_overfitting_at_val, expected_stacked_overfitting_at_test
+        )
 
         predictor_load = predictor.load(path=predictor.path)
         predictor_load.predict(test_data)
@@ -301,6 +343,7 @@ class FitHelper:
         # TODO: This is expensive, only do this sparingly.
         if verify_load_wo_cuda:
             import torch
+
             if torch.cuda.is_available():
                 # Checks if the model is able to predict w/o CUDA.
                 # This verifies that a model artifact works on a CPU machine.
@@ -310,7 +353,7 @@ class FitHelper:
                         import os
                         os.environ["CUDA_VISIBLE_DEVICES"] = ""
                         from autogluon.tabular import TabularPredictor
-    
+
                         import torch
                         assert torch.cuda.is_available() is False
                         predictor = TabularPredictor.load(r"{predictor_path}")
@@ -322,7 +365,9 @@ class FitHelper:
 
         assert os.path.realpath(save_path) == os.path.realpath(predictor.path)
         if delete_directory:
-            shutil.rmtree(save_path, ignore_errors=True)  # Delete AutoGluon output directory to ensure runs' information has been removed.
+            shutil.rmtree(
+                save_path, ignore_errors=True
+            )  # Delete AutoGluon output directory to ensure runs' information has been removed.
         return predictor
 
     @staticmethod
@@ -369,6 +414,32 @@ class FitHelper:
             return TabularPredictor(**init_args).fit(train_data, **fit_args)
 
     @staticmethod
+    def _verify_auxiliary_param_keys(model_cls: type[AbstractModel]) -> None:
+        """Fail if the model declares `_default_auxiliary_params_extra` keys that nothing consumes.
+
+        Known keys are the `AuxiliaryParams` schema fields plus the registered ag-params
+        (`_ag_params_common()` and the model's `_ag_params()`). An unknown key is either a typo
+        or a model-private param the wrapper reads without registering it — register such keys
+        in the model's `_ag_params()`.
+        """
+        known_keys = AuxiliaryParams.known_keys()
+        known_keys |= model_cls._ag_params_common()
+        # `_ag_params` implementations are constant per class, so calling on an
+        # uninitialized instance is safe.
+        known_keys |= model_cls._ag_params(object.__new__(model_cls))
+        declared_keys = set()
+        for klass in model_cls.__mro__:
+            declared_keys |= set(klass.__dict__.get("_default_auxiliary_params_extra") or {})
+        unknown_keys = declared_keys - known_keys
+        if unknown_keys:
+            raise AssertionError(
+                f"Model {model_cls.__name__} declares unknown auxiliary param key(s) in "
+                f"`_default_auxiliary_params_extra`: {sorted(unknown_keys)}"
+                f"\nEither fix the typo (known keys: {sorted(known_keys)}),"
+                f"\nor, if the model's wrapper code consumes the key, register it in the model's `_ag_params()`."
+            )
+
+    @staticmethod
     def verify_model(
         model_cls: Type[AbstractModel],
         model_hyperparameters: dict[str, Any],
@@ -379,6 +450,8 @@ class FitHelper:
         raise_on_model_failure: bool = True,
         problem_types: list[str] | None = None,
         verify_model_seed: bool = True,
+        verify_single_prediction_equivalent_to_multi: bool = True,
+        use_larger_toy_datasets: bool = False,
         **kwargs,
     ):
         """
@@ -396,6 +469,7 @@ class FitHelper:
             If specified, checks the given problem_types.
             If None, checks `model_cls.supported_problem_types()`
         verify_model_seed: bool = True
+        verify_single_prediction_equivalent_to_multi: bool = True
         **kwargs
 
         Returns
@@ -410,14 +484,21 @@ class FitHelper:
         fit_args = dict(
             hyperparameters={model_cls: model_hyperparameters},
         )
+        if model_cls.supported_problem_types.__func__ is not AbstractModel.supported_problem_types.__func__:
+            raise AssertionError(
+                f"Model {model_cls.__name__} overrides `supported_problem_types()`. "
+                f"Declare the `_supported_problem_types` class attribute instead of overriding the classmethod."
+                f"""\nExample code:
+    _supported_problem_types = ["binary", "multiclass", "regression", "quantile"]
+        """
+            )
+        FitHelper._verify_auxiliary_param_keys(model_cls=model_cls)
         supported_problem_types = model_cls.supported_problem_types()
         if supported_problem_types is None:
             raise AssertionError(
-                f"Model must specify `cls.supported_problem_types`"
+                f"Model must specify `cls._supported_problem_types`"
                 f"""\nExample code:
-    @classmethod
-    def supported_problem_types(cls) -> list[str] | None:
-        return ["binary", "multiclass", "regression", "quantile"]
+    _supported_problem_types = ["binary", "multiclass", "regression", "quantile"]
         """
             )
         assert isinstance(supported_problem_types, list)
@@ -440,12 +521,20 @@ class FitHelper:
                         f"\nEither remove the unknown problem_type from `model_cls.supported_problem_types` or set `require_known_problem_types=False`"
                     )
 
-        problem_type_dataset_map = {
-            "binary": ["toy_binary"],
-            "multiclass": ["toy_multiclass"],
-            "regression": ["toy_regression"],
-            "quantile": ["toy_quantile", "toy_quantile_single_level"],
-        }
+        if use_larger_toy_datasets:
+            problem_type_dataset_map = {
+                "binary": ["toy_binary_10"],
+                "multiclass": ["toy_multiclass_10"],
+                "regression": ["toy_regression_10"],
+                "quantile": ["toy_quantile_10"],
+            }
+        else:
+            problem_type_dataset_map = {
+                "binary": ["toy_binary"],
+                "multiclass": ["toy_multiclass"],
+                "regression": ["toy_regression"],
+                "quantile": ["toy_quantile", "toy_quantile_single_level"],
+            }
 
         problem_types_refit_full = []
         if refit_full:
@@ -476,6 +565,7 @@ class FitHelper:
                     extra_metrics=_extra_metrics,
                     raise_on_model_failure=raise_on_model_failure,
                     verify_model_seed=verify_model_seed,
+                    verify_single_prediction_equivalent_to_multi=verify_single_prediction_equivalent_to_multi,
                     **kwargs,
                 )
 
@@ -508,6 +598,7 @@ class FitHelper:
                         extra_metrics=_extra_metrics,
                         raise_on_model_failure=raise_on_model_failure,
                         verify_model_seed=verify_model_seed,
+                        verify_single_prediction_equivalent_to_multi=verify_single_prediction_equivalent_to_multi,
                         **kwargs,
                     )
 
@@ -519,11 +610,15 @@ def stacked_overfitting_assert(
     expected_stacked_overfitting_at_test: bool | None,
 ):
     if expected_stacked_overfitting_at_val is not None:
-        assert predictor._stacked_overfitting_occurred == expected_stacked_overfitting_at_val, "Expected stacked overfitting at val mismatch!"
+        assert predictor._stacked_overfitting_occurred == expected_stacked_overfitting_at_val, (
+            "Expected stacked overfitting at val mismatch!"
+        )
 
     if expected_stacked_overfitting_at_test is not None:
         stacked_overfitting = check_stacked_overfitting_from_leaderboard(lb)
-        assert stacked_overfitting == expected_stacked_overfitting_at_test, "Expected stacked overfitting at test mismatch!"
+        assert stacked_overfitting == expected_stacked_overfitting_at_test, (
+            "Expected stacked overfitting at test mismatch!"
+        )
 
 
 def _verify_model_seed(model: AbstractModel):

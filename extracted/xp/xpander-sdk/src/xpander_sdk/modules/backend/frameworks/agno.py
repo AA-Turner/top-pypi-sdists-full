@@ -26,6 +26,7 @@ from xpander_sdk.core.context_optimizer.constants import (
     COMPACTION_MODEL_OVERRIDE_ENABLED,
     ERROR_STREAK_FINALIZE_AT,
     FINALIZE_MODE_ENABLED,
+    FINALIZE_SAFE_READS_CAP,
     LEDGER_ENABLED,
     LLM_MAX_OUTPUT_TOKENS,
     MAX_PLAN_CHURN,
@@ -37,6 +38,8 @@ from xpander_sdk.core.context_optimizer.constants import (
     REPEATED_TOOL_CALL_WARN_AT,
     TOTAL_TOOL_CALLS_WARN_AT,
     TRUNCATED_TOOL_CALL_MESSAGE,
+    WRAPUP_GRACE_CALLS,
+    WRAPUP_MAX_CALLS,
 )
 from xpander_sdk.core.context_optimizer.context_optimizer import (
     XPanderContextOptimizer,
@@ -60,6 +63,16 @@ from xpander_sdk.core.context_optimizer.finalize_mode import (
     is_task_finalize_active,
     is_tool_allowed,
     mark_finalize_tool_registered,
+)
+from xpander_sdk.core.steering import (
+    STEER_SKIP_STUB,
+    append_to_tool_result,
+    arm_steer_batch_skip,
+    drain_steers,
+    get_steer_key,
+    render_steer_block,
+    steer_batch_skip_armed,
+    steering_contract_block,
 )
 from xpander_sdk.core.xpander_api_client import APIClient
 from xpander_sdk.models.generic import LLMCredentials
@@ -85,6 +98,7 @@ from xpander_sdk.modules.backend.utils.prompt_budget import log_prompt_budget
 from xpander_sdk.utils.json_parsing import parse_structured_string
 from xpander_sdk.modules.backend.utils.tool_call_events import (
     coerce_json_like,
+    report_steer_applied,
     DYNAMIC_META_TOOLS,
     extract_reasoning,
     get_tool_call_summary,
@@ -238,6 +252,8 @@ above; if you are unsure whether something was asked, check or ask rather than a
 A tool result carrying an HTTP 4xx/5xx or error(...) is a FAILURE, not an empty result. Never report
 it as "no results found" / "nothing matched" — say the lookup failed and why (quote the status), then
 fix the call (e.g. correct the identifier) or surface the failure.
+Evidence comes from tool results already visible in this conversation. A result above you IS
+grounding — never call a tool to refresh, re-witness, or re-confirm something already done.
 Your FINAL answer is the OUTCOME, never a promise or progress note. Never end a run
 with "I've started..." / "I'm identifying..." / "I will..." - state what IS done (with
 the evidence) and, when work remains, list exactly what was completed vs what was not.
@@ -306,6 +322,8 @@ turn - the runtime already runs them concurrently. Reading four files, grepping 
 patterns, checking two schedules: one turn, N calls, not N turns.
 Serialize ONLY when a call genuinely needs a previous call's output - xp_get_tool before
 xp_execute_tool, or a path you first had to learn from glob.
+The cheapest turn of all is the one with zero tool calls: it is the only turn that ends
+the run, and it is the correct final turn of every task.
 This does NOT override the rules that deliberately end a turn: one plan-tool call per
 turn, one interactive card per turn, one dispatch per gateway turn. Those stand.
 </turn_economy>
@@ -314,15 +332,17 @@ turn, one interactive card per turn, one dispatch per gateway turn. Those stand.
 
 TOOL_CALL_DISCIPLINE_INSTRUCTIONS = """
 <tool_call_discipline>
-Call a tool only when you will use its result. Never make a noop, keepalive, filler,
-placeholder, or confirmation tool call: no `echo`-style shell commands that just print a
-status, no re-fetching something you already have, and no calls whose purpose is to
-"verify", "sanity check", "confirm data ready", "clean up" nothing, "wrap up", or
-"finalize" the task. The final answer IS the wrap-up: the moment the work is done, stop
-calling tools and write the answer - a finished answer never needs one more tool call
-first, and there is no tool for ending a task.
-Do not shell out for what you can do inline: trivial arithmetic, unit conversions,
-date math, or reformatting a value you already have belong in your answer directly.
+Every tool call must earn its place: call a tool only to obtain information you do not
+already have or to change state you have not yet changed. Before each call, name the
+concrete thing it will tell you or do - if you cannot, you are finished: the call must
+not happen. A call you cannot title with a real action is a call you must not make.
+Ending the run is an action you always have: a turn with ZERO tool calls that carries
+your final answer. That turn is the closing step - always available, never wrong, and
+the cheapest turn you can take. The moment the work is done, take it: write the answer.
+A finished answer never needs one more tool call first. Do not re-run a command you already ran just to have
+something current to show, and do not shell out for what you can do inline: trivial
+arithmetic, unit conversions, date math, or reformatting a value you already hold
+belong in your answer directly.
 A refusal or block ("Refused:", "Redundant call blocked", "No memory was changed",
 "Already known", "Not written") means that call class is spent: never retry it in
 another wording or through another tool, and a platform refusal is never a lesson
@@ -369,8 +389,8 @@ For large output written directly (long docs, many-section files, big code):
   genuinely exceeds this — a 25K-char file is 2-3 chunks, not 8. Don't split small files.
 - For free-form prose where scripting doesn't fit: outline N chunks once (number 1/N..N/N), write
   chunk 1 with mode='w' (header + section 1), chunks 2..N with mode='a' (one section each), then
-  xpworkspace-file-share. Need a size check? xpworkspace-bash `wc -l <path>` — never file-read the
-  whole file back; skip the check on routine writes.
+  xpworkspace-file-share. Check the size only when a chunk write reported an anomaly — never
+  file-read the whole file back, and skip the check entirely on routine writes.
 - Encoding: write raw UTF-8 in natural codepoint form (—, 🥺, é) — never pre-encode, escape,
   double-encode, or paste Latin-1 mojibake (â€", ðŸ¥º). Split only at paragraph/sentence
   boundaries, never mid-character.
@@ -455,15 +475,14 @@ Rules:
 Fidelity (CRITICAL): the file is read verbatim and forwarded to the consuming tool — no second pass,
 no review step. For external operations (email, Slack, SMS, HTTP POST, SQL, deploy, file share) the
 recipient/backend receives exactly the file contents, not `workspace_path`. Write the REAL, FINAL,
-COMPLETE data. NEVER placeholders (TODO, lorem ipsum, [content here], <actual subject>, <...>),
-summaries/excerpts/drafts/"sample" versions, truncated bodies (..., (continues), // rest omitted,
-[snip]), or example values borrowed from these instructions or schema docstrings. If the data isn't
-ready, assemble it in your reasoning first, then write. Verify every templated field (subject, title,
-body, query, recipients, URLs) is the final value before invoking the consuming tool.
+COMPLETE data: every field fully written out, every templated value resolved to its actual final
+value, nothing abbreviated, elided, or borrowed from these instructions or schema docstrings. If the
+data isn't ready, assemble it in your reasoning first, then write. Verify every field (subject,
+title, body, query, recipients, URLs) is the final value before invoking the consuming tool.
 
 Cleanup:
 - On success, delete the file with xpworkspace-bash `rm <path>` — these are write-once disposable
-  scratch. Skip the rm only if the user asked to keep it or the same payload is reused in an
+  scratch. Keep it only if the user asked for the file or the same payload is reused in an
   immediate follow-up call.
 - On failure, keep the file so you can inspect and retry.
 - If the user wants the file itself, xpworkspace-file-share it before deleting — never
@@ -533,9 +552,11 @@ Workflow (multi-step only):
    result with any incomplete plan item is a FAILED run.
 
 Rules:
-- After xpstart_execution_plan you may NOT write questions in response text ("Before I
-  proceed", "I need clarification", "Please choose"). Ask ONLY via xpask_for_information
-  (body_params={"question":"..."}). Before start, you may ask directly.
+- Need the user's input to proceed? STOP: write the question as your FINAL answer and
+  end the run — do not keep calling tools or editing the plan while a question is
+  pending. The user's reply starts the next run, which resumes the plan.
+- A mid-run <user_message> that changes scope: reshape the plan with the fewest calls
+  needed (delete/add/update), then get straight back to executing real steps.
 - __UUID_RULE__
 - Do NOT let completed-but-unmarked steps reach the final answer — sweep them into the
   boundary xpcomplete_agent_plan_items call before finishing (see 4).
@@ -597,8 +618,9 @@ Rules:
 - The seeded steps are your starting plan; if the real work needs a different shape use
   xpadd_new_agent_plan_item / xpupdate_agent_plan_item / xpdelete_agent_plan_item — but
   EVERY remaining step must end marked complete.
-- You may NOT write questions in response text; ask ONLY via xpask_for_information
-  (body_params={"question":"..."}).
+- Need the user's input to proceed? STOP: write the question as your FINAL answer and
+  end the run — do not keep calling tools or editing the plan while a question is
+  pending.
 - __UUID_RULE__
 - One plan-tool call per turn (they all mutate the same plan document). Non-plan
   tools may be batched alongside it freely - see <turn_economy>.
@@ -655,7 +677,7 @@ def _build_compact_tool():
                             "properties": {
                                 "toolcallreasoningtitle": {
                                     "type": "string",
-                                    "description": 'Action-oriented title (max 5 words) describing the purpose. Example: "Compact context for next phase".',
+                                    "description": 'The concrete action this call performs (max 5 words). If you cannot name one, you are finished: do not make this call — end the turn with your answer. Example: "Compact context for next phase".',
                                 },
                                 "toolcallreasoningdescription": {
                                     "type": "string",
@@ -1002,11 +1024,26 @@ def _is_finalize_safe_read(function_name: str, arguments: Any) -> bool:
         return inner_name in _FINALIZE_SAFE_READS
     return False
 
+
+def _finalize_safe_read_allowed(task: Any, function_name: str, arguments: Any) -> bool:
+    """Safe reads stay open in finalize mode, but only a bounded number of them —
+    an unbounded varying-args read loop would defeat the wind-down entirely."""
+    if not _is_finalize_safe_read(function_name, arguments):
+        return False
+    if task is None:
+        return True
+    reads = (getattr(task, "_xp_finalize_reads", 0) or 0) + 1
+    try:
+        object.__setattr__(task, "_xp_finalize_reads", reads)
+    except Exception:
+        return True
+    return reads <= FINALIZE_SAFE_READS_CAP
+
 REDUNDANT_CALL_MESSAGE = (
     "Redundant call blocked: '{tool}' already ran with these exact arguments earlier in this "
     "task and nothing has changed since, so it was not run again - the earlier result above is "
-    "still current. Never call a tool as a noop, keepalive, or to confirm you are finished. "
-    "If the work is done, answer the user now."
+    "still current. Never repeat a call just to have something current to show or to confirm "
+    "you are finished. If the work is done, answer the user now."
 )
 
 # Sandbox bash-guard mirror (agent_sandbox bash_tool.py) - keep in sync;
@@ -1029,22 +1066,227 @@ _NOOP_BASH_COMMANDS = {
     "hostname",
     "uname",
     "uname -a",
+    "date",
+    "uptime",
 }
 _LITERAL_ECHO_RE = re.compile(r"^echo\b[^|<>$`;&*?~\[\]{}!\n]*$")
+# Suffixes that change no stdout the model would see; peeled repeatedly so
+# `ls -la 2>&1 | cat` and `ls -la` classify and hash identically.
+_BASH_COSMETIC_SUFFIXES = (
+    re.compile(r"\s*;\s*$"),
+    re.compile(r"\s*2>&1\s*$"),
+    re.compile(r"\s*\|\s*cat\s*$"),
+    re.compile(r"\s*2>\s*/dev/null\s*$"),
+)
+# A stdout redirect to /dev/null SUPPRESSES output, so it is cosmetic only for the
+# noop classifier (`pwd > /dev/null` still reveals nothing) - never for the repeat
+# signature, where `ls > /dev/null` and a later informative `ls` must not collide.
+_BASH_STDOUT_SUPPRESS_SUFFIX = re.compile(r"\s*1?>\s*/dev/null\s*$")
+_BASH_COMMENT_RE = re.compile(r"\s+#[^'\"`]*$")
+# Whole commands whose output the model already knows byte-for-byte before running them.
+_NOOP_BASH_PATTERNS = (
+    re.compile(r"^sleep\s+[\d.]+$"),
+    re.compile(r"^printf\b[^|<>$`;&]*$"),
+    # reads of /dev/null / guaranteed-empty input: `wc -l < /dev/null`, `cat /dev/null`
+    re.compile(r"^(?:wc|cat|head|tail|md5(?:sum)?|sha\d+sum|sort|uniq)\b[^|;&]*<\s*/dev/null$"),
+    re.compile(r"^(?:wc|cat|head|tail)(?:\s+-[a-zA-Z]+)*\s+/dev/null$"),
+)
 # Byte-identical to the sandbox refusal so _NO_PROGRESS_MARKERS matches both origins.
 BASH_NOOP_REFUSAL = (
     "Refused: this command reads nothing and changes nothing, so it cannot advance the "
-    "task. Never call a tool to confirm, wrap up, or mark that you are finished - if the "
-    "work is done, write your answer to the user instead."
+    "task. If the work is done, write your answer to the user instead of calling "
+    "another tool."
 )
+
+
+def _normalize_bash_command(command: str, *, for_noop_check: bool = False) -> str:
+    """Strip decorations that cannot change what the model learns from the command."""
+    stripped = _BASH_COMMENT_RE.sub("", (command or "").strip())
+    stripped = re.sub(r"\s+", " ", stripped)
+    previous = None
+    while previous != stripped:
+        previous = stripped
+        for suffix in _BASH_COSMETIC_SUFFIXES:
+            stripped = suffix.sub("", stripped).strip()
+        if for_noop_check:
+            stripped = _BASH_STDOUT_SUPPRESS_SUFFIX.sub("", stripped).strip()
+    return stripped
 
 
 def _is_noop_bash_command(command: str) -> bool:
     """True for commands that read nothing and change nothing (sandbox-guard mirror)."""
-    stripped = command.strip().rstrip(";").strip()
-    return stripped.lower() in _NOOP_BASH_COMMANDS or bool(
-        _LITERAL_ECHO_RE.match(stripped)
-    )
+    stripped = _normalize_bash_command(command, for_noop_check=True)
+    lowered = stripped.lower()
+    if lowered in _NOOP_BASH_COMMANDS:
+        return True
+    if _LITERAL_ECHO_RE.match(stripped):
+        return True
+    return any(pattern.match(lowered) for pattern in _NOOP_BASH_PATTERNS)
+
+
+# Pure readers/filters only - sed/awk/find/xargs/env/sort can write or exec, and
+# misclassifying a mutation as a read would hide its state change from the ledger.
+_BASH_READ_ONLY_BINARIES = frozenset({
+    "ls", "cat", "head", "tail", "wc", "stat", "file", "grep", "egrep", "fgrep",
+    "rg", "du", "df", "tree", "pwd", "which", "type", "printenv", "date", "whoami",
+    "id", "uname", "hostname", "md5", "md5sum", "shasum", "sha256sum", "diff",
+    "cmp", "jq", "yq", "uniq", "cut", "tr", "basename", "dirname", "realpath",
+    "readlink", "echo", "printf",
+})
+
+
+def _bash_command_is_read_only(normalized: str) -> bool:
+    """True when re-running the command can only differ if workspace state changed."""
+    if not normalized or ">" in normalized:
+        return False
+    # `||` before `|` - the single-pipe alternative would split `a || b` into empty chunks
+    for chunk in re.split(r"\|\||&&|\||;", normalized):
+        first = chunk.strip().split(" ", 1)[0].strip()
+        if not first or first not in _BASH_READ_ONLY_BINARIES:
+            return False
+    return True
+
+
+# The title is the model's own confession; the refusal never echoes a matched token.
+_FILLER_TITLE_RE = re.compile(
+    r"^(?:"
+    r"no[\s_-]?op\w*|placeholder\w*|filler|keepalive|dummy(?:[\s_-]+call)?|idle|"
+    r"padding|stall(?:ing)?|wrap[\s_-]?up\w*|sanity[\s_-]?check|"
+    r"final(?:ize|ise)?(?:[\s_-]+(?:answer|task|check|prep|step))?(?:[\s_-]+prep)?|"
+    r"confirm(?:ation)?(?:[\s_-]+(?:done|completion|finished))?|"
+    r"verify[\s_-]+(?:done|complete(?:d|ion)?)|done|finish(?:ed|ing)?(?:[\s_-]+up)?|"
+    r"clean[\s_-]?up|no[\s_-]+action|nothing(?:[\s_-]+to[\s_-]+do)?|test(?:[\s_-]+call)?"
+    r")$",
+    re.IGNORECASE,
+)
+
+FILLER_TITLE_REFUSAL = (
+    "Refused: this call's own reasoning title says it performs no real work, so it was "
+    "not run and nothing was recorded. If the work is done, write your final answer to "
+    "the user now - no tool call is needed to end a task."
+)
+
+# Degenerate titles ("x", "n/a", "ok") carry no action; 3-letter words ("run") stay legal.
+_DEGENERATE_TITLE_RE = re.compile(r"[a-z]{1,2}|n/a|tbd|nil|\.+")
+# Filler only when EVERY non-stopword token matches - one real word keeps the call.
+_FILLER_TOKEN_RE = re.compile(
+    r"no[-_]?op\w*|placeholder\w*|filler|keepalive|dummy|idle|padding|stall(?:ing)?|"
+    r"wrap(?:up)?\w*|sanity|check|final(?:ize|ise)?|confirm(?:ation)?|done|verify|"
+    r"finish(?:ed|ing)?|clean(?:up)?|action|nothing|test|call|skip(?:ping)?|"
+    r"stop(?:ping|ped)?|answer|prep|step|task|complete(?:d|ion)?|irrelevant|"
+    r"unrelated|probe",
+    re.IGNORECASE,
+)
+_TITLE_STOPWORDS = frozenset(
+    {"the", "a", "an", "of", "for", "to", "in", "on", "at", "with", "up", "now", "and"}
+)
+
+
+def _extract_reasoning_title(arguments: Any) -> Optional[str]:
+    """Best-effort read of toolcallreasoningtitle from the shapes the LLM emits."""
+    if not isinstance(arguments, dict):
+        return None
+    candidates = [arguments]
+    for container_key in ("payload", "body_params"):
+        container = arguments.get(container_key)
+        if isinstance(container, dict):
+            candidates.append(container)
+            nested = container.get("body_params")
+            if isinstance(nested, dict):
+                candidates.append(nested)
+    for candidate in candidates:
+        headers = candidate.get("headers")
+        if isinstance(headers, dict):
+            title = headers.get("toolcallreasoningtitle")
+            if isinstance(title, str) and title.strip():
+                return title
+        title = candidate.get("toolcallreasoningtitle")
+        if isinstance(title, str) and title.strip():
+            return title
+    return None
+
+
+def _is_filler_title(title: Optional[str]) -> bool:
+    """True when the model's own reasoning title declares the call does nothing."""
+    if not title:
+        return False
+    stripped = title.strip()
+    if _FILLER_TITLE_RE.match(stripped):
+        return True
+    if _DEGENERATE_TITLE_RE.fullmatch(stripped.lower()):
+        return True
+    # hyphens stay inside tokens ("no-op" must not split); 1-char fragments carry no signal
+    tokens = [
+        t.replace("-", "")
+        for t in re.split(r"[\s_/]+", stripped.lower())
+    ]
+    tokens = [t for t in tokens if len(t) > 1 and t not in _TITLE_STOPWORDS]
+    return bool(tokens) and all(_FILLER_TOKEN_RE.fullmatch(t) for t in tokens)
+
+
+class ToolSchemaValidationError(RuntimeError):
+    """A tool-argument schema failure re-raised with repair guidance attached."""
+
+
+VALIDATION_ERROR_GUIDANCE = (
+    "\n\nFix the arguments to match the tool's schema exactly - payload must be a "
+    "JSON object literal, never a quoted/stringified string - and retry once with "
+    "the corrected shape. If the work is already complete, write your final answer "
+    "to the user now instead of making more tool calls."
+)
+
+
+# A live surface renders inline the moment xplivesurface-create succeeds; sharing the
+# manifest file afterwards delivers nothing and only manufactures a wrap-up step.
+LIVESURFACE_SHARE_REFUSAL = (
+    "Already delivered: a live surface renders inline in the conversation the moment it "
+    "is created, so its manifest file needs no share link and nothing was shared. If "
+    "the surface exists, the deliverable is complete - answer the user now and refer to "
+    "the surface you already published."
+)
+
+
+IDENTICAL_RESULT_NOTE = (
+    "Note: this call returned byte-identical output to an earlier call in this task - "
+    "it added nothing new. Work with the results you already have; if the work is done, "
+    "answer the user now."
+)
+
+
+def _record_identical_result(task: Any, tool_name: str, result: Any) -> bool:
+    """True when this tool already returned byte-identical output earlier in the task.
+
+    Catches filler shapes no static command list predicts: whatever the call was, if
+    its output is something the task already saw from the same tool, it moved nothing.
+    Short outputs are skipped - tiny acks ("OK", "{}") legitimately recur.
+    """
+    if task is None or tool_name in _REDUNDANCY_EXEMPT_TOOLS:
+        return False
+    text = _no_progress_text(result)
+    if not text or len(text) < 24:
+        return False
+    digest = hashlib.md5(f"{tool_name}:{text}".encode()).hexdigest()
+    seen = getattr(task, "_xp_result_hashes", None)
+    if not isinstance(seen, set):
+        seen = set()
+        try:
+            object.__setattr__(task, "_xp_result_hashes", seen)
+        except Exception:
+            return False
+    if digest in seen:
+        return True
+    seen.add(digest)
+    return False
+
+
+def _extract_share_path(arguments: Any) -> Optional[str]:
+    """Best-effort read of xpworkspace-file-share's path argument."""
+    if not isinstance(arguments, dict):
+        return None
+    container = arguments.get("payload") if isinstance(arguments.get("payload"), dict) else arguments
+    body = container.get("body_params") if isinstance(container.get("body_params"), dict) else container
+    path = body.get("path")
+    return path if isinstance(path, str) else None
 
 
 def _coerce_bash_command(arguments: Any) -> Optional[str]:
@@ -1076,8 +1318,8 @@ def _coerce_bash_command(arguments: Any) -> Optional[str]:
 # A call that was refused, blocked, or changed nothing is not progress. A few in a row
 # means the model has run out of work and is filling turns - the tail of the runs this
 # fixes was noop bash, a blocked memory write, noop bash again. Only genuine refused-noop
-# RESULTS advance this (raised errors feed the error-streak breaker instead), so 3 is a
-# conservative bar that won't trip on a couple of incidental redundant reads mid-work.
+# RESULTS advance this (raised errors feed the error-streak breaker instead). 3, not 2:
+# finalize locks out real follow-up work, so two incidental refusals must not trip it.
 NO_PROGRESS_FINALIZE_AT = 3
 NO_PROGRESS_MESSAGE = (
     "You have now made {n} tool calls in a row that changed nothing - refused, blocked, or "
@@ -1088,7 +1330,9 @@ NO_PROGRESS_MESSAGE = (
 # redundancy guard here, and the memory tool).
 _NO_PROGRESS_MARKERS = (
     "Refused: this command reads nothing and changes nothing",
+    "Refused: this call's own reasoning title",
     "Redundant call blocked:",
+    "Already delivered: a live surface renders inline",
     "No memory was changed",
     "Not written: this task has already made",
     "Already known - not saved again",
@@ -1203,18 +1447,18 @@ DEFAULT_TOOL_CALL_LIMIT = 400
 # block omits flags for cache stability), so a finished dp run loops on xpget_agent_plan
 # + noop bash hunting for a finish step - detect completion from the plan-tool results
 # the hook already sees, tell it in-band, allow a few wrap-up reads, then force finalize.
-PLAN_COMPLETE_GRACE_CALLS = 5
+PLAN_COMPLETE_GRACE_CALLS = 2
 PLAN_COMPLETE_NOTE = (
     "PLAN COMPLETE: all {total} plan steps are done. Compose your final answer NOW from "
-    "what you already have. Do not call plan, confirmation, or noop tools again - you "
-    "have at most {grace} more tool calls for genuinely missing values, then you must answer."
+    "what you already have. Do not call plan or confirmation tools again - you have at "
+    "most {grace} more tool calls for genuinely missing values, then you must answer."
 )
 PLAN_COMPLETE_COUNTDOWN = (
     "PLAN COMPLETE: the plan finished {n} tool calls ago (budget {grace}). Stop gathering - "
     "answer the user in your next message."
 )
 PLAN_COMPLETE_STOP = (
-    "Done - the plan is fully complete and the wrap-up budget is spent. No further tool "
+    "Done - the plan is fully complete and the post-plan call budget is spent. No further tool "
     "calls will run. Your next message MUST be plain text with your final answer to the "
     "user, based on the work already done. Do NOT call any more tools."
 )
@@ -1378,10 +1622,12 @@ def _has_meaningful_args(args: Any) -> bool:
     return True
 
 
-def _bump_mutation_counter(task, function_name: str) -> int:
+def _bump_mutation_counter(
+    task: Any, function_name: str, *, is_read_only: bool = False
+) -> int:
     """Count state-changing calls, so a read can tell whether the world moved under it."""
     counter = getattr(task, "_xp_mutation_counter", 0) if task is not None else 0
-    if function_name not in _READ_ONLY_TOOLS:
+    if not is_read_only and function_name not in _READ_ONLY_TOOLS:
         counter += 1
         if task is not None:
             try:
@@ -1391,12 +1637,20 @@ def _bump_mutation_counter(task, function_name: str) -> int:
     return counter
 
 
-def _is_redundant_call(task, signature: str, function_name: str, has_args: bool) -> bool:
+def _is_redundant_call(
+    task: Any,
+    signature: str,
+    function_name: str,
+    has_args: bool,
+    *,
+    treat_read_only: bool = False,
+) -> bool:
     """True when this exact call already ran and could not possibly answer differently."""
     if task is None or function_name in _REDUNDANCY_EXEMPT_TOOLS:
         return False
     if (
         has_args
+        and not treat_read_only
         and function_name not in _READ_ONLY_TOOLS
         and function_name not in _IDEMPOTENT_WRITE_TOOLS
     ):
@@ -1438,6 +1692,119 @@ def _bump_plan_churn(task, function_name: str) -> int:
     except Exception:
         return 0
     return streak
+
+
+# Poll pair repeats legitimately after a write; control tools advance nothing.
+_WRAPUP_EXEMPT_TOOLS = frozenset(
+    {
+        "xpsleep_agent_delay",
+        "xpget_agent_task_execution_status",
+        "xpcompact_context",
+        "xpfinalize_task",
+    }
+)
+# Wrap-up-streak-only mutation test; delivering (send/share/publish/upload) IS mutating.
+_MUTATING_NAME_RE = re.compile(
+    r"insert|write|create|update|patch|delete|send|share|publish|upload", re.I
+)
+
+
+def _bump_wrapup_streak(
+    task: Any, eff_name: str, result_is_error: bool, bash_read_only: bool
+) -> int:
+    """Successful non-mutating calls since the run's last mutation; mutations reset."""
+    if task is None or result_is_error:
+        return 0
+    if eff_name in _WRAPUP_EXEMPT_TOOLS or eff_name in _PLAN_CHURN_TOOLS:
+        return 0
+    if eff_name == "xpworkspace-bash":
+        is_mutation = not bash_read_only
+    else:
+        # manage_memory is an idempotent write elsewhere in the SDK; stay consistent
+        is_mutation = (
+            eff_name == "manage_memory"
+            or _MUTATING_NAME_RE.search(eff_name) is not None
+        )
+    if is_mutation:
+        try:
+            object.__setattr__(task, "_xp_write_seen", True)
+            object.__setattr__(task, "_xp_wrapup_streak", 0)
+        except Exception:
+            pass
+        return 0
+    if not getattr(task, "_xp_write_seen", False):
+        return 0
+    streak = (getattr(task, "_xp_wrapup_streak", 0) or 0) + 1
+    try:
+        object.__setattr__(task, "_xp_wrapup_streak", streak)
+    except Exception:
+        return 0
+    return streak
+
+
+# Advisory on a SUCCESS result (not a refusal - must never join _NO_PROGRESS_MARKERS).
+WRAPUP_NUDGE = (
+    "Note: the last several calls only read state that was already established. If the "
+    "work is complete, write your final answer to the user now; if real steps remain, "
+    "take the next one."
+)
+
+
+def _reset_wrapup_streak(task: Any) -> None:
+    """A delivered steer reopens the task's scope, so the wrap-up streak restarts."""
+    if task is None:
+        return
+    try:
+        object.__setattr__(task, "_xp_wrapup_streak", 0)
+    except Exception:
+        pass
+
+
+def _reset_plan_churn(task: Any) -> None:
+    """A delivered steer legitimizes replanning, so the churn streak restarts."""
+    if task is None:
+        return
+    try:
+        object.__setattr__(task, "_xp_plan_churn_streak", 0)
+    except Exception:
+        pass
+
+
+_QUERY_ARG_KEYS = ("query", "q", "search_term", "search_query")
+
+
+def _extract_query_arg(arguments: Any) -> Optional[str]:
+    """Best-effort read of a search-style query arg from the shapes the LLM emits."""
+    if not isinstance(arguments, dict):
+        return None
+    candidates = [arguments]
+    for container_key in ("payload", "body_params"):
+        container = arguments.get(container_key)
+        if isinstance(container, dict):
+            candidates.append(container)
+            nested = container.get("body_params")
+            if isinstance(nested, dict):
+                candidates.append(nested)
+    for candidate in candidates:
+        for key in _QUERY_ARG_KEYS:
+            value = candidate.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return None
+
+
+def _log_junk_query(task: Any, eff_name: str, arguments: Any) -> None:
+    """Telemetry only (Coralogix e2m counts the marker) - never blocks the call."""
+    if task is None or not getattr(task, "_xp_write_seen", False):
+        return
+    query = _extract_query_arg(arguments)
+    if query is None:
+        return
+    if len(query.split()) <= 1 and len(query) <= 16:
+        logger.warning(
+            f"[junk-args] single-token query on '{eff_name}' after the run's "
+            f"mutations for task {getattr(task, 'id', '?')}"
+        )
 
 
 def _schema_satisfiable_by_empty(prop_schema: Any) -> bool:
@@ -1880,6 +2247,10 @@ async def build_agent_args(
     if workspace_enabled:
         args["instructions"] += CONTEXT_OPTIMIZATION_INSTRUCTIONS
 
+    # Without the contract an aligned model refuses keyed steer blocks as injections.
+    if task is not None and getattr(task, "id", None):
+        args["instructions"] += steering_contract_block(task.id)
+
     # Conditionally inject workspace output guidance (only when workspace tools are
     # present). Also gated on workspace_enabled — the backend should already omit
     # xpworkspace-* tools when disabled, but gate here too as a safeguard.
@@ -2113,7 +2484,7 @@ async def build_agent_args(
                 isinstance(optimizer_finalize, XPanderContextOptimizer)
                 and is_finalize_active(optimizer_finalize)
                 and not is_tool_allowed(optimizer_finalize, function_name)
-                and not _is_finalize_safe_read(function_name, arguments)
+                and not _finalize_safe_read_allowed(task, function_name, arguments)
             ):
                 gated = _record_gated_call(task)
                 logger.info(
@@ -2162,6 +2533,15 @@ async def build_agent_args(
         # on the unwrapped inner tool instead of the opaque meta name.
         eff_name, eff_args = _effective_tool_identity(function_name, arguments)
 
+        # Steer delivered earlier in this model step: unstarted calls stub out here,
+        # before any cache/flush/billing work. Keyed on eff_name so a dispatcher-wrapped
+        # finalize/plan call is still never skipped.
+        if steer_batch_skip_armed(getattr(task, "id", None), eff_name):
+            logger.info(
+                f"[steering] skipped queued call '{eff_name}' behind a delivered steer"
+            )
+            return STEER_SKIP_STUB
+
         # a tool disabled by the volume/error caps stays disabled for the run;
         # each refusal advances the no-progress streak so hammering it converges
         if _is_tool_disabled(task, eff_name):
@@ -2172,6 +2552,50 @@ async def build_agent_args(
                 message = f"{message}\n\n{warning}"
             _report_blocked_call(task, eff_name, message)
             return message
+
+        # Self-declared filler: the reasoning title itself says the call does no work.
+        # Refused before dispatch, billing, and activity logging - nothing is recorded.
+        # xpfinalize_task is exempt: "finalize task" is its one legitimate title.
+        if eff_name != "xpfinalize_task":
+            try:
+                # dynamic dispatch may carry the headers on the OUTER call, not the inner args
+                _reasoning_title = _extract_reasoning_title(
+                    eff_args if isinstance(eff_args, dict) else None
+                ) or _extract_reasoning_title(arguments)
+                if _is_filler_title(_reasoning_title):
+                    logger.info(
+                        f"[filler-title] refused '{eff_name}' - self-labelled filler call"
+                    )
+                    warning = _record_no_progress(FILLER_TITLE_REFUSAL)
+                    return (
+                        f"{FILLER_TITLE_REFUSAL}\n\n{warning}"
+                        if warning
+                        else FILLER_TITLE_REFUSAL
+                    )
+            except Exception:
+                pass
+
+        # A live surface is already delivered at create time; sharing its manifest
+        # afterwards is a manufactured wrap-up step, not a deliverable.
+        if eff_name == "xpworkspace-file-share":
+            try:
+                _share_path = _extract_share_path(
+                    eff_args
+                    if function_name == _DYNAMIC_DISPATCH_META_TOOL
+                    else arguments
+                )
+                if isinstance(_share_path, str) and _share_path.strip().lower().endswith(
+                    ".livesurface"
+                ):
+                    logger.info(f"[livesurface-share] refused share of {_share_path!r}")
+                    warning = _record_no_progress(LIVESURFACE_SHARE_REFUSAL)
+                    return (
+                        f"{LIVESURFACE_SHARE_REFUSAL}\n\n{warning}"
+                        if warning
+                        else LIVESURFACE_SHARE_REFUSAL
+                    )
+            except Exception:
+                pass
 
         # preflight and monitoring + metrics
         matched_tool = None
@@ -2256,6 +2680,23 @@ async def build_agent_args(
             if isinstance(_sig_args, dict)
             else str(_sig_args or "")
         )
+        # xpworkspace-bash keys on the NORMALIZED command so cosmetic variants
+        # (`2>&1`, `| cat`, null redirects, trailing `;`) hash identically, and a
+        # command made purely of readers/filters joins the ledger as a read.
+        _bash_read_only = False
+        if eff_name == "xpworkspace-bash":
+            try:
+                _bash_cmd = _coerce_bash_command(
+                    eff_args
+                    if function_name == _DYNAMIC_DISPATCH_META_TOOL
+                    else arguments
+                )
+                if isinstance(_bash_cmd, str):
+                    _bash_norm = _normalize_bash_command(_bash_cmd)
+                    _bash_read_only = _bash_command_is_read_only(_bash_norm)
+                    _sig_body = f"command={_bash_norm}"
+            except Exception:
+                pass
         _args_hash = hashlib.md5(_sig_body.encode()).hexdigest()[:12]
         _call_signature = f"{eff_name}:{_args_hash}"
 
@@ -2263,13 +2704,17 @@ async def build_agent_args(
         # Runs before stuck detection so a provably-useless call costs nothing at all.
         try:
             if _is_redundant_call(
-                task, _call_signature, eff_name, has_args=_has_meaningful_args(_sig_args)
+                task,
+                _call_signature,
+                eff_name,
+                has_args=_has_meaningful_args(_sig_args),
+                treat_read_only=_bash_read_only,
             ):
                 logger.info(f"[redundancy] blocked repeat call to '{eff_name}'")
                 message = REDUNDANT_CALL_MESSAGE.format(tool=eff_name)
                 warning = _record_no_progress(message)
                 return f"{message}\n\n{warning}" if warning else message
-            _bump_mutation_counter(task, eff_name)
+            _bump_mutation_counter(task, eff_name, is_read_only=_bash_read_only)
         except Exception:
             pass
 
@@ -2730,6 +3175,11 @@ async def build_agent_args(
 
             except Exception as e:
                 error = str(e)
+                # A schema failure is the one error class that arrives with no
+                # guidance; without an exit ramp it decays into junk wrap-up calls.
+                guidance_added = "validation error" in error.lower()
+                if guidance_added:
+                    error = f"{error}{VALIDATION_ERROR_GUIDANCE}"
                 # Emit ToolCallResult with is_error=True before re-raising.
                 if activity_request_id and task:
                     try:
@@ -2777,6 +3227,8 @@ async def build_agent_args(
                 # Effective name: five raises through xp_execute_tool must streak the
                 # INNER tool, never phantom-disable the meta-tool.
                 _record_tool_outcome(eff_name, True)
+                if guidance_added:
+                    raise ToolSchemaValidationError(error) from e
                 raise
             finally:
                 current_tool_call_id.reset(_billing_ctx_token)
@@ -3118,35 +3570,62 @@ async def build_agent_args(
         # accounting (activity is_error, ledger status, error-streak breaker)
         # sees them instead of logging every MCP error as a success.
         result_is_error = _result_is_error(result)
+        # Byte-identical output to an earlier call from the same tool moved nothing -
+        # tell the model in-band and count it toward the no-progress streak. Reads
+        # only: a mutation legitimately returns the same ack twice (equal-size write
+        # chunks, repeated upserts), so writes never feed this detector.
+        identical_result = (
+            not result_is_error
+            and (eff_name in _READ_ONLY_TOOLS or _bash_read_only)
+            and _record_identical_result(task, eff_name, result)
+        )
         warnings = [
+            IDENTICAL_RESULT_NOTE if identical_result else None,
             _record_tool_outcome(eff_name, result_is_error),
             # a refused noop / blocked repeat "succeeds", so the error streak never sees it
-            _record_no_progress(result),
+            _record_no_progress(result, force=identical_result),
             # plan finished -> tell the model in-band and arm the wrap-up budget
             # (effective name: plan tools may arrive via xp_execute_tool)
             _track_plan_complete(task, eff_name, result, result_is_error),
         ]
         streak_warning = "\n\n".join(w for w in warnings if w)
         if streak_warning:
-            try:
-                if isinstance(result, ToolInvocationResult):
-                    # dict results (plan tools) must append as JSON, not Python repr
-                    base_text = (
-                        result.result
-                        if isinstance(result.result, str)
-                        else json.dumps(result.result, default=str)
-                        if result.result
-                        else ""
+            result = append_to_tool_result(result, streak_warning)
+
+        # Plan-less endgame: nudge first, finalize only at the hard cap - a mutation or a
+        # delivered steer resets, so legitimate write-then-read work is never locked out.
+        _log_junk_query(task, eff_name, arguments)
+        wrapup_streak = _bump_wrapup_streak(task, eff_name, result_is_error, _bash_read_only)
+        if wrapup_streak == WRAPUP_GRACE_CALLS:
+            result = append_to_tool_result(result, WRAPUP_NUDGE)
+        elif wrapup_streak > WRAPUP_MAX_CALLS:
+            optimizer_wu = args.get("compression_manager")
+            if isinstance(optimizer_wu, XPanderContextOptimizer) and not is_finalize_active(optimizer_wu):
+                enter_finalize_mode(optimizer_wu, reason="wrapup_budget")
+                logger.warning(
+                    f"[wrapup-budget] {wrapup_streak} non-mutating calls since the last "
+                    f"mutation (cap {WRAPUP_MAX_CALLS}); entering finalize mode"
+                )
+
+        # Steering: the user's mid-run message rides this tool result; the run is never restarted.
+        try:
+            pending_steers = await drain_steers(getattr(task, "id", None))
+            if pending_steers:
+                steer_block = render_steer_block(
+                    pending_steers, key=get_steer_key(getattr(task, "id", None))
+                )
+                if steer_block:
+                    result = append_to_tool_result(result, steer_block)
+                    _reset_wrapup_streak(task)
+                    _reset_plan_churn(task)
+                    arm_steer_batch_skip(getattr(task, "id", None))
+                    logger.info(
+                        f"[steering] delivered {len(pending_steers)} message(s) at the "
+                        f"{function_name} boundary for task {getattr(task, 'id', '?')}"
                     )
-                    result.result = (
-                        f"{base_text}\n\n{streak_warning}" if base_text else streak_warning
-                    )
-                elif hasattr(result, "content") and isinstance(result.content, str):
-                    result.content = f"{result.content}\n\n{streak_warning}"
-                elif isinstance(result, str):
-                    result = f"{result}\n\n{streak_warning}"
-            except Exception:
-                pass
+                    _spawn_bg(report_steer_applied(task, pending_steers))
+        except Exception as exc:
+            logger.warning(f"[steering] injection failed at {function_name}: {exc}")
 
         # Emit ToolCallResult (success) using the final post-processed value
         # so the activity-log report matches what the LLM actually sees,
@@ -4553,7 +5032,7 @@ def _build_memory_tool(
             "format it actually accepts, the flag that stopped the timeout - save that in one "
             "sentence, so the next run skips the dead end you already paid for. This applies "
             "ONLY to a real external failure you then made succeed: a platform refusal (a "
-            "refused noop command, a blocked repeat, a budget or duplicate refusal) is not a "
+            "refused command, a blocked repeat, a budget or duplicate refusal) is not a "
             "fix and never a memory. update/delete: a listed memory "
             "changed or the user asks to forget it - pass its memory_id from <memories>, never "
             "a task or execution id. "
@@ -4607,7 +5086,7 @@ def _build_memory_tool(
                             "properties": {
                                 "toolcallreasoningtitle": {
                                     "type": "string",
-                                    "description": 'Action-oriented title (max 5 words). Example: "Remember user preference".',
+                                    "description": 'The concrete action this call performs (max 5 words). If you cannot name one, do not make this call — end the turn with your answer. Example: "Remember user preference".',
                                 },
                                 "toolcallreasoningdescription": {
                                     "type": "string",

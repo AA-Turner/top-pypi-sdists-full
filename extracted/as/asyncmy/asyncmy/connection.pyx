@@ -11,13 +11,16 @@ import warnings
 from asyncio import StreamReader, StreamWriter
 from typing import Optional, Type
 
+from cpython.bytearray cimport PyByteArray_AS_STRING
+from cpython.bytes cimport PyBytes_FromStringAndSize
+
 from asyncmy import auth, converters, errors
 from asyncmy.charset import charset_by_id, charset_by_name
 from asyncmy.cursors import Cursor
 from asyncmy.optionfile import Parser
 from asyncmy.protocol import (EOFPacketWrapper, FieldDescriptorPacket,
                               LoadLocalPacketWrapper, MysqlPacket,
-                              OKPacketWrapper)
+                              OKPacketWrapper, parse_rows_from_buffer)
 
 from .constants.CLIENT import (CAPABILITIES, CONNECT_ATTRS, CONNECT_WITH_DB,
                                LOCAL_FILES, MULTI_RESULTS, MULTI_STATEMENTS,
@@ -35,7 +38,7 @@ from .constants.SERVER_STATUS import (SERVER_STATUS_AUTOCOMMIT,
                                       SERVER_STATUS_IN_TRANS,
                                       SERVER_STATUS_NO_BACKSLASH_ESCAPES)
 from .contexts import _ConnectionContextManager
-from .structs import B_, BHHB, HBB, IIB, B, H, I, Q, i, iB, iIB23s
+from .structs import B_, BHHB, IIB, B, H, I, Q, i, iB, iIB23s
 from .version import __VERSION__
 
 try:
@@ -73,8 +76,24 @@ cdef str DEFAULT_CHARSET = "utf8mb4"
 
 cdef int MAX_PACKET_LEN = 2 ** 24 - 1
 
-cdef _pack_int24(int n):
-    return I.pack(n)[:3]
+# Size of socket reads and of the StreamReader flow-control limit.
+cdef int READ_CHUNK_SIZE = 2 ** 18
+STREAM_LIMIT = 2 ** 18
+
+# Decoders that accept raw bytes input, allowing us to skip the ascii decode
+# step entirely for their columns.
+cdef set _BYTES_SAFE_DECODERS = {
+    int,
+    float,
+    converters.convert_datetime,
+    converters.convert_timedelta,
+    converters.convert_time,
+    converters.convert_date,
+}
+
+cdef inline bytes _take_bytes(bytearray buf, Py_ssize_t pos, Py_ssize_t n):
+    """Copy buf[pos:pos+n] into a fresh bytes object with a single allocation."""
+    return PyBytes_FromStringAndSize(PyByteArray_AS_STRING(buf) + pos, n)
 
 # https://dev.mysql.com/doc/internals/en/integer.html#packet-Protocol::LengthEncodedInteger
 cdef _lenenc_int(int i):
@@ -299,6 +318,12 @@ class Connection:
         self._reader: Optional[StreamReader] = None
         self._writer: Optional[StreamWriter] = None
 
+        # Incoming data buffer: packets are parsed out of it in bulk so that a
+        # single socket read serves many packets.
+        self._buffer = bytearray()
+        self._buf_pos = 0
+        self._close_reason = None
+
         self._auth_plugin_name = ""
 
     def _create_ssl_ctx(self, sslp):
@@ -343,6 +368,12 @@ class Connection:
         self._writer = None
         self._reader = None
 
+    def _close_on_cancel(self):
+        """Close the connection after a cancelled read left it desynced."""
+        self.close()
+        self._close_reason = "Cancelled during execution"
+        self._connected = False
+
     @property
     def connected(self):
         """Return True if the connection is open."""
@@ -358,7 +389,7 @@ class Connection:
         return self._last_usage
 
     async def ensure_closed(self):
-        """Close connection without QUIT message."""
+        """Send QUIT message and close connection."""
         if self._connected:
             send_data = i.pack(1) + B.pack(COM_QUIT)
             self._write_bytes(send_data)
@@ -550,10 +581,14 @@ class Connection:
         if self._connected:
             return self._reader, self._writer
         try:
+            self._buffer = bytearray()
+            self._buf_pos = 0
+            self._close_reason = None
 
             if self._unix_socket:
-                self._reader, self._writer = await asyncio.wait_for(asyncio.open_unix_connection(self._unix_socket),
-                                                                    timeout=self._connect_timeout, )
+                self._reader, self._writer = await asyncio.wait_for(
+                    asyncio.open_unix_connection(self._unix_socket, limit=STREAM_LIMIT),
+                    timeout=self._connect_timeout, )
                 self.host_info = "Localhost via UNIX socket"
                 self._secure = True
             else:
@@ -562,6 +597,7 @@ class Connection:
                         self._reader, self._writer = await asyncio.wait_for(asyncio.open_connection(
                             self._host,
                             self._port,
+                            limit=STREAM_LIMIT,
                         ), timeout=self._connect_timeout)
                         self._set_keep_alive()
                         break
@@ -606,9 +642,56 @@ class Connection:
         """
         # Internal note: when you build packet manually and calls _write_bytes()
         # directly, you should set self._next_seq_id properly.
-        data = _pack_int24(len(payload)) + B.pack(self._next_seq_id) + payload
-        self._write_bytes(data)
-        self._next_seq_id = (self._next_seq_id + 1) % 256
+        cdef Py_ssize_t length = len(payload)
+        header = bytes(
+            (length & 0xFF, (length >> 8) & 0xFF, (length >> 16) & 0xFF, self._next_seq_id)
+        )
+        if length < 8192:
+            self._write_bytes(header + payload)
+        else:
+            # avoid copying large payloads just to prepend 4 header bytes
+            self._write_bytes(header)
+            self._write_bytes(payload)
+        self._next_seq_id = (self._next_seq_id + 1) & 0xFF
+
+    async def _fill_buffer(self, need):
+        """Ensure at least `need` bytes are available at self._buf_pos."""
+        buffer = self._buffer
+        pos = self._buf_pos
+        if pos:
+            # compact consumed prefix before growing the buffer
+            del buffer[:pos]
+            self._buf_pos = 0
+        reader = self._reader
+        read_timeout = self._read_timeout
+        while len(buffer) < need:
+            try:
+                if read_timeout:
+                    try:
+                        chunk = await asyncio.wait_for(reader.read(READ_CHUNK_SIZE), read_timeout)
+                    except asyncio.TimeoutError:
+                        await self.ensure_closed()
+                        raise errors.OperationalError(
+                            CR_SERVER_LOST,
+                            "Lost connection to MySQL server during query (read timeout)",
+                        )
+                else:
+                    chunk = await reader.read(READ_CHUNK_SIZE)
+            except asyncio.CancelledError:
+                # Cancelled mid-read: the protocol stream is now desynced, so
+                # the connection must not be reused (e.g. returned to a pool).
+                self._close_on_cancel()
+                raise
+            except (IOError, OSError, asyncio.TimeoutError) as e:
+                raise errors.OperationalError(
+                    CR_SERVER_LOST,
+                    "Lost connection to MySQL server during query (%s)" % (e,),
+                )
+            if not chunk:
+                raise errors.OperationalError(
+                    CR_SERVER_LOST, "Lost connection to MySQL server during query"
+                )
+            buffer += chunk
 
     async def read_packet(self, packet_type=MysqlPacket):
         """
@@ -618,11 +701,17 @@ class Connection:
         :raise OperationalError: If the connection to the MySQL server is lost.
         :raise InternalError: If the packet sequence number is wrong.
         """
-        buff = bytearray()
+        buff = None
         while True:
-            packet_header = await self._read_bytes(4)
-            btrl, btrh, packet_number = HBB.unpack(packet_header)
-            bytes_to_read = btrl + (btrh << 16)
+            buffer = self._buffer
+            pos = self._buf_pos
+            if len(buffer) - pos < 4:
+                await self._fill_buffer(4)
+                pos = self._buf_pos
+            bytes_to_read = buffer[pos] | (buffer[pos + 1] << 8) | (buffer[pos + 2] << 16)
+            packet_number = buffer[pos + 3]
+            pos += 4
+            self._buf_pos = pos
             if packet_number != self._next_seq_id:
                 if packet_number == 0:
                     # MariaDB sends error packet with seqno==0 when shutdown
@@ -634,16 +723,24 @@ class Connection:
                     "Packet sequence number wrong - got %d expected %d"
                     % (packet_number, self._next_seq_id)
                 )
-            self._next_seq_id = (self._next_seq_id + 1) % 256
-            recv_data = await self._read_bytes(bytes_to_read)
-            buff.extend(recv_data)
-            # https://dev.mysql.com/doc/internals/en/sending-more-than-16mbyte.html
-            if bytes_to_read == 0xFFFFFF:
-                continue
-            if bytes_to_read < MAX_PACKET_LEN:
+            self._next_seq_id = (self._next_seq_id + 1) & 0xFF
+            if len(buffer) - pos < bytes_to_read:
+                await self._fill_buffer(bytes_to_read)
+                pos = self._buf_pos
+            recv_data = _take_bytes(buffer, pos, bytes_to_read)
+            self._buf_pos = pos + bytes_to_read
+            # Fast path: single packet (most common case ~99%)
+            if bytes_to_read < MAX_PACKET_LEN and buff is None:
                 break
-
-        packet = packet_type(bytes(buff), encoding=self._encoding)
+            # Slow path: payload split across 16MB wire packets
+            # https://dev.mysql.com/doc/internals/en/sending-more-than-16mbyte.html
+            if buff is None:
+                buff = []
+            buff.append(recv_data)
+            if bytes_to_read < MAX_PACKET_LEN:
+                recv_data = b"".join(buff)
+                break
+        packet = packet_type(recv_data, encoding=self._encoding)
         if packet.is_error_packet():
             if self._result is not None and self._result.unbuffered_active is True:
                 self._result.unbuffered_active = False
@@ -651,23 +748,14 @@ class Connection:
         return packet
 
     async def _read_bytes(self, num_bytes: int):
-        try:
-            if self._read_timeout:
-                try:
-                    data = await asyncio.wait_for(self._reader.readexactly(num_bytes), self._read_timeout)
-                except asyncio.TimeoutError:
-                    await self.ensure_closed()
-                    raise
-            else:
-                data = await self._reader.readexactly(num_bytes)
-        except (IOError, OSError, asyncio.TimeoutError) as e:
-            raise errors.OperationalError(
-                CR_SERVER_LOST,
-                "Lost connection to MySQL server during query (%s)" % (e,),
-            )
-        except asyncio.IncompleteReadError as e:
-            msg = "Lost connection to MySQL server during query"
-            raise errors.OperationalError(CR_SERVER_LOST, msg) from e
+        # Kept for backwards compatibility; packet reads go through the
+        # internal buffer (see _fill_buffer/read_packet).
+        buffer = self._buffer
+        if len(buffer) - self._buf_pos < num_bytes:
+            await self._fill_buffer(num_bytes)
+        pos = self._buf_pos
+        data = _take_bytes(buffer, pos, num_bytes)
+        self._buf_pos = pos + num_bytes
         return data
 
     def _write_bytes(self, bytes data):
@@ -712,7 +800,7 @@ class Connection:
         :raise ValueError: If no username was specified.
         """
         if not self._connected:
-            raise errors.InterfaceError(0, "Not connected")
+            raise errors.InterfaceError(0, self._close_reason or "Not connected")
 
         # If the last query was unbuffered, make sure it finishes before
         # sending new commands
@@ -732,7 +820,13 @@ class Connection:
         # tiny optimization: build first packet manually instead of
         # calling self..write_packet()
         prelude = iB.pack(packet_size, command)
-        self._write_bytes(prelude + sql[: packet_size - 1])
+        chunk = sql[: packet_size - 1]
+        if packet_size < 8192:
+            self._write_bytes(prelude + chunk)
+        else:
+            # avoid copying a large SQL payload just to prepend the header
+            self._write_bytes(prelude)
+            self._write_bytes(chunk)
         self._next_seq_id = 1
 
         if packet_size < MAX_PACKET_LEN:
@@ -777,9 +871,11 @@ class Connection:
             # TCP connection not at start. Passing in a socket to
             # open_connection will cause it to negotiate TLS on an existing
             # connection not initiate a new one.
+            self._buffer = bytearray()
+            self._buf_pos = 0
             self._reader, self._writer = await asyncio.open_connection(
                 sock=raw_sock, ssl=self._ssl_context,
-                server_hostname=self._host,
+                server_hostname=self._host, limit=STREAM_LIMIT,
             )
         if isinstance(self._user, str):
             self._user = self._user.encode(self._encoding)
@@ -802,7 +898,7 @@ class Connection:
                 authresp = auth.scramble_caching_sha2(self._password, self.salt)
         elif self._auth_plugin_name == "sha256_password":
             plugin_name = b"sha256_password"
-            if self.ssl and self.server_capabilities & SSL:
+            if self._ssl_context and self.server_capabilities & SSL:
                 authresp = self._password + b"\0"
             elif self._password:
                 authresp = b"\1"  # request public key
@@ -1048,10 +1144,12 @@ cdef class MySQLResult:
     cdef:
         public connection
         public bytes message
-        public int affected_rows, warning_count, field_count, server_status, unbuffered_active, has_next
+        public int warning_count, field_count, server_status, unbuffered_active, has_next
+        public object affected_rows
         public list fields, converters
-        public unsigned long insert_id
+        public unsigned long long insert_id
         public tuple rows, description
+        tuple _row_converters
 
     def __init__(self, connection: Connection):
         self.connection = connection
@@ -1182,33 +1280,30 @@ cdef class MySQLResult:
 
     async def _read_rowdata_packet(self):
         """Read a rowdata packet for each data row in the result set."""
-        rows = []
+        cdef list rows = []
+        cdef tuple convs = self._row_converters
+        conn = self.connection
         while True:
-            packet = await self.connection.read_packet()
+            # Bulk-parse every complete row packet already sitting in the
+            # connection's receive buffer without touching the event loop.
+            new_pos, new_seq = parse_rows_from_buffer(
+                conn._buffer, conn._buf_pos, convs, conn._next_seq_id, rows
+            )
+            conn._buf_pos = new_pos
+            conn._next_seq_id = new_seq
+            # Whatever stopped the bulk parser (incomplete data, EOF, error,
+            # jumbo packet) goes through the generic packet reader.
+            packet = await conn.read_packet()
             if self._check_packet_is_eof(packet):
                 self.connection = None  # release reference to kill cyclic reference.
                 break
-            rows.append(self._read_row_from_packet(packet))
+            rows.append(packet.read_row(convs))
 
         self.affected_rows = len(rows)
         self.rows = tuple(rows)
 
     cdef _read_row_from_packet(self, packet: MysqlPacket):
-        row = []
-        for encoding, converter in self.converters:
-            try:
-                data = packet.read_length_coded_string()
-            except IndexError:
-                # No more columns in this row
-                # See https://github.com/PyMySQL/PyMySQL/pull/434
-                break
-            if data is not None:
-                if encoding is not None:
-                    data = data.decode(encoding)
-                if converter is not None:
-                    data = converter(data)
-            row.append(data)
-        return tuple(row)
+        return packet.read_row(self._row_converters)
 
     async def _get_descriptions(self):
         """Read a column descriptor packet for each column in the result."""
@@ -1245,8 +1340,21 @@ cdef class MySQLResult:
             converter = self.connection._decoders.get(field_type)
             if converter is converters.through:
                 converter = None
-            self.converters.append((encoding, converter))
+            if encoding == "ascii" and converter in _BYTES_SAFE_DECODERS:
+                # int()/float()/date-time parsers consume bytes directly;
+                # skip the intermediate str allocation entirely.
+                encoding = None
+            if encoding is None:
+                code = 0
+            elif encoding == "utf8":
+                code = 1
+            elif encoding == "ascii":
+                code = 2
+            else:
+                code = 3
+            self.converters.append((code, encoding, converter))
 
+        self._row_converters = tuple(self.converters)
         eof_packet = await self.connection.read_packet()
         assert eof_packet.is_eof_packet(), "Protocol error, expecting EOF"
         self.description = tuple(description)

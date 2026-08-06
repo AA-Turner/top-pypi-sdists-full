@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tink
-Version: 1.15.0
+Version: 1.16.0
 Summary: A multi-language, cross-platform library that provides cryptographic APIs that are secure, easy to use correctly, and hard(er) to misuse.
 Home-page: https://github.com/tink-crypto/tink-py
 Author: Tink Developers
@@ -24,7 +24,10 @@ Requires-Dist: bazel-runfiles>=1.3.0
 Provides-Extra: gcpkms
 Requires-Dist: google-auth>=2.38.0; extra == "gcpkms"
 Requires-Dist: google-api-core>=2.24.2; extra == "gcpkms"
-Requires-Dist: google-cloud-kms>=3.4.1; extra == "gcpkms"
+Requires-Dist: google-cloud-kms>=3.16.0; extra == "gcpkms"
+Requires-Dist: google-crc32c>=1.8.0; extra == "gcpkms"
+Requires-Dist: pyasn1>=0.6.1; extra == "gcpkms"
+Requires-Dist: pyasn1-modules>=0.4.2; extra == "gcpkms"
 Provides-Extra: awskms
 Requires-Dist: boto3>=1.37.32; extra == "awskms"
 Provides-Extra: hcvault
@@ -32,7 +35,10 @@ Requires-Dist: hvac>=2.3.0; extra == "hcvault"
 Provides-Extra: all
 Requires-Dist: google-auth>=2.38.0; extra == "all"
 Requires-Dist: google-api-core>=2.24.2; extra == "all"
-Requires-Dist: google-cloud-kms>=3.4.1; extra == "all"
+Requires-Dist: google-cloud-kms>=3.16.0; extra == "all"
+Requires-Dist: google-crc32c>=1.8.0; extra == "all"
+Requires-Dist: pyasn1>=0.6.1; extra == "all"
+Requires-Dist: pyasn1-modules>=0.4.2; extra == "all"
 Requires-Dist: boto3>=1.37.32; extra == "all"
 Requires-Dist: hvac>=2.3.0; extra == "all"
 Dynamic: author

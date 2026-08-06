@@ -4,8 +4,25 @@ from __future__ import annotations
 
 import re
 
-from chardet.pipeline import DETERMINISTIC_CONFIDENCE, DetectionResult
-from chardet.registry import lookup_encoding
+from chardet._utils import decodes_without_error
+from chardet.pipeline import DETERMINISTIC_CONFIDENCE, DetectionResult, PipelineContext
+from chardet.pipeline.structural import compute_structural_score
+from chardet.registry import REGISTRY, lookup_encoding
+
+# Markup charset declarations that commonly refer to a Windows superset
+# encoding rather than the strict standard encoding.  Japanese web content
+# almost universally declares "Shift_JIS" but actually uses CP932 extensions;
+# similarly, Korean web content declares "EUC-KR" but uses CP949/UHC.
+# When the declared encoding resolves to the base (key), we check whether
+# the superset (second element) is a better answer.  The first element is
+# the codec that the *reported* encoding name resolves to for callers:
+# shift_jis_2004 is displayed as "SHIFT_JIS", which standard codec lookup
+# resolves to plain shift_jis, so that is the codec whose decode must not
+# break for the un-promoted name to be safe to report.
+_MARKUP_SUPERSET_PROMOTIONS: dict[str, tuple[str, str]] = {
+    "shift_jis_2004": ("shift_jis", "cp932"),
+    "euc_kr": ("euc_kr", "cp949"),
+}
 
 _SCAN_LIMIT = 4096
 
@@ -93,6 +110,56 @@ def detect_markup_charset(data: bytes) -> DetectionResult | None:
     return _detect_pep263(data)
 
 
+def promote_markup_superset(
+    data: bytes,
+    markup_result: DetectionResult,
+    allowed: frozenset[str],
+) -> DetectionResult:
+    """Promote a markup-declared encoding to its superset when structural evidence supports it.
+
+    If the declared encoding has a known superset (per
+    :data:`_MARKUP_SUPERSET_PROMOTIONS`), the superset validates the data,
+    and the superset's structural score is materially better, return a new
+    result using the superset encoding.  Otherwise return *markup_result*
+    unchanged.
+    """
+    if markup_result.encoding is None:
+        return markup_result
+    promotion = _MARKUP_SUPERSET_PROMOTIONS.get(markup_result.encoding)
+    if promotion is None:
+        return markup_result
+    reported_codec, superset_name = promotion
+    if superset_name not in allowed:
+        return markup_result
+    superset_info = REGISTRY[superset_name]
+    # Validate: superset must be able to decode the data
+    if not decodes_without_error(data, superset_name):
+        return markup_result
+    # Decode-safety: if the codec the reported name resolves to cannot
+    # decode the data (e.g. a declared-Shift_JIS page using CP932 NEC/IBM
+    # extensions), the superset is the only answer a caller can actually
+    # use with ``.decode()`` -- promote unconditionally.
+    if not decodes_without_error(data, reported_codec):
+        return DetectionResult(
+            superset_name,
+            markup_result.confidence,
+            markup_result.language,
+            markup_result.mime_type,
+        )
+    # Compare structural scores
+    ctx = PipelineContext()
+    base_score = compute_structural_score(data, REGISTRY[markup_result.encoding], ctx)
+    superset_score = compute_structural_score(data, superset_info, ctx)
+    if superset_score > base_score:
+        return DetectionResult(
+            superset_name,
+            markup_result.confidence,
+            markup_result.language,
+            markup_result.mime_type,
+        )
+    return markup_result
+
+
 def _validate_bytes(data: bytes, encoding: str) -> bool:
     """Check that *data* can be decoded under *encoding* without errors.
 
@@ -100,8 +167,4 @@ def _validate_bytes(data: bytes, encoding: str) -> bool:
     full 200 kB input just to verify a charset declaration found in the
     header.
     """
-    try:
-        data[:_SCAN_LIMIT].decode(encoding)
-    except (UnicodeDecodeError, LookupError, ValueError):
-        return False
-    return True
+    return decodes_without_error(data[:_SCAN_LIMIT], encoding)

@@ -54,7 +54,7 @@ the size of the intervals will decrease.
 You can use a gamma coefficient to adjust the strength of the correction.
 """
 
-# sphinx_gallery_thumbnail_number = 2
+# mkdocs_gallery_thumbnail_number = 2
 
 import warnings
 
@@ -81,7 +81,7 @@ warnings.simplefilter("ignore")
 # ------------------------------------------
 #
 # The Victoria electricity demand dataset can be downloaded directly on the
-# MAPIE github repository. It consists in hourly electricity demand (in GW)
+# MAPIE GitHub repository. It consists of hourly electricity demand (in GW)
 # of the Victoria state in Australia together with the temperature
 # (in Celsius degrees). We extract temporal features out of the date and hour.
 

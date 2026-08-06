@@ -53,6 +53,9 @@ from typing import Any, Callable, List, Mapping, Optional, Sequence, Tuple
 
 from . import numerics_ladder
 from .numerics_ladder import Comparison, Thresholds
+from . import aot_serve
+from . import aot_inputs
+from .aot_contract import ExportSpec
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +108,7 @@ class ProbeAxis:
     target: str
     fork: Tuple[Tuple[str, Any], ...] = ()
     class_dims: Tuple[Tuple[str, int], ...] = ()
-    lane: str = ""
+    execution_lane: str = ""
     lora_bucket: int = 0
 
     @property
@@ -122,7 +125,7 @@ class ProbeAxis:
         re-litigates from a screenshot.
         """
         digest = hashlib.sha256(
-            f"{self.entry}|{self.lane}|{self.lora_bucket}".encode()).hexdigest()
+            f"{self.entry}|{self.execution_lane}|{self.lora_bucket}".encode()).hexdigest()
         return int(digest[:8], 16)
 
     @property
@@ -133,7 +136,7 @@ class ProbeAxis:
 
     def __str__(self) -> str:
         return (f"entry={self.entry} target={self.target} "
-                f"row={self.shape_row} lane={self.lane or '(plain)'} "
+                f"row={self.shape_row} lane={self.execution_lane or '(plain)'} "
                 f"bucket={self.lora_bucket} seed={self.seed}")
 
 
@@ -144,10 +147,9 @@ def axes_from_meta(meta: Mapping[str, Any]) -> Tuple[ProbeAxis, ...]:
     artifacts sharing a file (pgw#758), and a verdict that averaged them could
     not name the class that parted from eager.
     """
-    from . import aot_serve
 
     entries = aot_serve.entries_from_meta(dict(meta))
-    lane = str(meta.get("precision") or "")
+    execution_lane = str(meta.get("precision") or "")
     cell_bucket = int(meta.get("lora_bucket") or 0)
     axes: List[ProbeAxis] = []
     for name in sorted(entries):
@@ -166,7 +168,7 @@ def axes_from_meta(meta: Mapping[str, Any]) -> Tuple[ProbeAxis, ...]:
             fork=tuple((str(n), v) for n, v in (block.get("fork") or ())),
             class_dims=tuple(
                 (str(n), int(v)) for n, v in (block.get("class_dims") or ())),
-            lane=lane,
+            execution_lane=execution_lane,
             lora_bucket=bucket,
         ))
     if not axes:
@@ -225,9 +227,6 @@ def build_feed(module: Any, family: str, axis: ProbeAxis) -> Tuple[Any, ...]:
     to check a cell.
     """
     import torch
-
-    from . import aot_inputs
-    from .aot_contract import ExportSpec
 
     try:
         builder = aot_inputs.builder_for(family, axis.target)
@@ -427,7 +426,6 @@ def probe_cell(
     Raises :class:`ProbeUnavailable` when the cell cannot be probed at all —
     never returns a report that could be mistaken for a pass.
     """
-    from . import aot_serve
 
     family = str(getattr(cfg, "family", "") or meta.get("family") or "")
     thresholds = numerics_ladder.declared_thresholds(cfg)

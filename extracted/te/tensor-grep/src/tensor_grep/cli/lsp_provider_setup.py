@@ -15,6 +15,8 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+from tensor_grep.cli._index_lock import atomic_write_bytes_anchored
+
 _MANAGED_PROVIDER_HOME_ENV_VAR = "TENSOR_GREP_LSP_PROVIDER_HOME"
 _NODE_VERSION = "22.14.0"
 _NODE_PACKAGE_SPECS = (
@@ -210,19 +212,36 @@ def _node_archive_name() -> str:
 
 
 def _download(url: str, destination: Path) -> None:
+    # H2 (#859 class ratchet): `destination` is a caller-supplied PARAMETER (every current caller
+    # happens to pass a path inside its own TemporaryDirectory, but that confinement is not
+    # statically provable from the signature alone -- same "no implicit leniency" reasoning as
+    # ast_workflows._batch_search_snippets). A plain `destination.open("wb")` follows a
+    # pre-existing destination symlink; `atomic_write_bytes_anchored` requires the full payload
+    # in memory (unsuited to a size-capped streaming download), so this claims the destination
+    # name exclusively FIRST -- O_CREAT|O_EXCL|O_NOFOLLOW, mirroring the reviewed
+    # `_download_native_frontdoor_asset` (main.py) pattern -- and then writes through that SAME
+    # held fd for the whole streamed transfer, which is strictly tighter than that precedent: no
+    # close-then-reopen gap exists here for a symlink to be swapped in between the claim and the
+    # first byte written.
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(destination, flags, 0o644)
     total = 0
-    with urllib.request.urlopen(url, timeout=60) as response, destination.open("wb") as output:
-        while True:
-            chunk = response.read(1024 * 1024)
-            if not chunk:
-                break
-            total += len(chunk)
-            if total > _MAX_TOOLCHAIN_DOWNLOAD_BYTES:
-                raise RuntimeError(
-                    f"Toolchain download exceeded {_MAX_TOOLCHAIN_DOWNLOAD_BYTES} bytes "
-                    f"(possible oversized or malicious response): {url}"
-                )
-            output.write(chunk)
+    try:
+        with urllib.request.urlopen(url, timeout=60) as response, os.fdopen(fd, "wb") as output:
+            while True:
+                chunk = response.read(1024 * 1024)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > _MAX_TOOLCHAIN_DOWNLOAD_BYTES:
+                    raise RuntimeError(
+                        f"Toolchain download exceeded {_MAX_TOOLCHAIN_DOWNLOAD_BYTES} bytes "
+                        f"(possible oversized or malicious response): {url}"
+                    )
+                output.write(chunk)
+    except BaseException:
+        destination.unlink(missing_ok=True)  # don't leave a partial/unsafe temp behind
+        raise
 
 
 def _allow_unverified_toolchain() -> bool:
@@ -330,6 +349,43 @@ def _extract_archive(archive_path: Path, destination: Path) -> Path:
     return extracted_children[0]
 
 
+def _remove_stale_staging_path(path: Path) -> None:
+    """Remove a leftover staging/backup path, INCLUDING when it is a symlink.
+
+    `shutil.rmtree` REFUSES a symlink, and `ignore_errors=True` makes that refusal silent, so the
+    previous `if path.exists(): shutil.rmtree(path, ignore_errors=True)` was a no-op against
+    exactly the input it most needed to clear. The subsequent `shutil.move(extracted, staged_dir)`
+    then follows the surviving link and writes the downloaded runtime INTO the link target.
+
+    Measured before this fix, not theorised: rmtree left the link in place, and the move deposited
+    the payload inside the target directory alongside an untouched canary file.
+
+    `exists()` also follows symlinks and returns False for a DANGLING one, so the old guard could
+    skip a broken link that `move` would still happily resolve against. Test `is_symlink()` first
+    and unlink unconditionally.
+    """
+    # UNLINK FIRST, rmtree only as the fallback. Order is load-bearing and is NOT arbitrary:
+    #   * `is_dir()` FOLLOWS links, so testing it first would route a directory symlink into
+    #     rmtree and reintroduce the very bug this function exists to fix.
+    #   * `is_symlink()` is FALSE for a Windows directory JUNCTION while `is_dir()` is True, and
+    #     `shutil.rmtree` refuses junctions exactly as it refuses symlinks. An is_symlink()-first
+    #     fix therefore still lets a junction survive -- measured on Windows: junction survived,
+    #     and the following shutil.move deposited the payload in the junction target. Any
+    #     unprivileged user can create a junction (a symlink needs SeCreateSymbolicLinkPrivilege),
+    #     so the junction case is the MORE reachable one, not the exotic one.
+    # `unlink()` succeeds on a symlink, a junction, and a plain file, and removes the LINK rather
+    # than recursing into its target. A real directory raises, which is the fallback signal.
+    try:
+        path.unlink()
+        return
+    except FileNotFoundError:
+        return
+    except OSError:
+        # a real directory (PermissionError on Windows, IsADirectoryError on POSIX)
+        pass
+    shutil.rmtree(path, ignore_errors=True)
+
+
 def _ensure_node_runtime(root: Path) -> Path:
     runtime_dir = _node_runtime_dir(root)
     node_executable = _node_executable(root)
@@ -345,8 +401,7 @@ def _ensure_node_runtime(root: Path) -> Path:
     staged_dir = runtime_dir.with_name(f".{runtime_dir.name}.staging-{os.getpid()}")
     backup_dir = runtime_dir.with_name(f".{runtime_dir.name}.backup-{os.getpid()}")
     for stale in (staged_dir, backup_dir):
-        if stale.exists():
-            shutil.rmtree(stale, ignore_errors=True)
+        _remove_stale_staging_path(stale)
     with tempfile.TemporaryDirectory(prefix="tg-node-") as temp_dir_raw:
         temp_dir = Path(temp_dir_raw)
         archive_path = temp_dir / archive_name
@@ -365,13 +420,12 @@ def _ensure_node_runtime(root: Path) -> Path:
             raise RuntimeError(f"Managed Node runtime install failed: missing {node_executable}")
     except Exception:
         # Restore the previous working runtime on any failure of the swap/verify.
-        if runtime_dir.exists():
-            shutil.rmtree(runtime_dir, ignore_errors=True)
+        _remove_stale_staging_path(runtime_dir)
         if had_previous:
             os.replace(str(backup_dir), str(runtime_dir))
         raise
     if had_previous:
-        shutil.rmtree(backup_dir, ignore_errors=True)
+        _remove_stale_staging_path(backup_dir)
     return runtime_dir
 
 
@@ -578,8 +632,13 @@ def _verify_rust_analyzer_checksum(archive_path: Path) -> None:
 
 
 def _copy_binary_to_managed(binary: str, destination: Path) -> Path:
+    # H2 (#859 class ratchet): `destination` is the fixed, predictable managed-provider install
+    # path (`_managed_bin_binary(root, ...)`), not a randomized temp name -- a real pre-planted-
+    # symlink target, unlike the checkpoint_store snapshot copies (which pass
+    # `follow_symlinks=False` and are exempted for that reason). Plain `shutil.copy2` follows a
+    # destination symlink. Route through the anchored helper instead.
     destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(binary, destination)
+    atomic_write_bytes_anchored(destination, Path(binary).read_bytes())
     if not is_windows():
         _mark_executable(destination)
     return destination
@@ -614,8 +673,14 @@ def _extract_rust_analyzer_exe_from_zip(archive_path: Path, destination: Path) -
         if not exe_members:
             raise RuntimeError(f"rust-analyzer archive {archive_path.name} has no .exe member")
         destination.parent.mkdir(parents=True, exist_ok=True)
-        with bundle.open(exe_members[0]) as source, destination.open("wb") as output:
-            shutil.copyfileobj(source, output)
+        # H2 (#859 class ratchet): `destination` is the fixed managed rust-analyzer.exe path.
+        # The archive is already checksum-verified (`_verify_rust_analyzer_checksum`, called by
+        # this function's one caller) before this member is extracted, so the payload is trusted
+        # -- the gap was the raw `Path.open("wb")` following a pre-planted destination symlink.
+        # Route through the anchored helper instead of streaming to a plain reopen.
+        with bundle.open(exe_members[0]) as source:
+            data = source.read()
+        atomic_write_bytes_anchored(destination, data)
 
 
 def _download_rust_analyzer(destination: Path) -> None:
@@ -630,8 +695,14 @@ def _download_rust_analyzer(destination: Path) -> None:
         if artifact.endswith(".zip"):
             _extract_rust_analyzer_exe_from_zip(archive_path, destination)
         else:
-            with gzip.open(archive_path, "rb") as compressed, destination.open("wb") as output:
-                shutil.copyfileobj(compressed, output)
+            # H2 (#859 class ratchet): same fix as _extract_rust_analyzer_exe_from_zip above --
+            # the archive is already checksum-verified at this point, so decompress fully and
+            # publish through the anchored helper instead of streaming to a plain reopen of the
+            # fixed `destination` path.
+            with gzip.open(archive_path, "rb") as compressed:
+                data = compressed.read()
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            atomic_write_bytes_anchored(destination, data)
     if not is_windows():
         _mark_executable(destination)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nemo-relay
-Version: 0.6.0
+Version: 0.7.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
@@ -8,6 +8,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Rust
+Requires-Dist: nemo-relay-cli-bin==0.7.0 ; extra == 'cli'
 Requires-Dist: nemo-relay[langgraph] ; extra == 'deepagents'
 Requires-Dist: deepagents>=0.6.12,<0.7.0 ; extra == 'deepagents'
 Requires-Dist: langchain-anthropic>=1.4.8,<2.0.0 ; extra == 'deepagents'
@@ -21,6 +22,7 @@ Requires-Dist: langchain-nvidia-ai-endpoints>=1.4.1,<2.0.0 ; extra == 'langchain
 Requires-Dist: aiohttp>=3.14.1 ; extra == 'langchain-nvidia'
 Requires-Dist: nemo-relay[langchain] ; extra == 'langgraph'
 Requires-Dist: langgraph>=1.2.9,<2.0.0 ; extra == 'langgraph'
+Provides-Extra: cli
 Provides-Extra: deepagents
 Provides-Extra: langchain
 Provides-Extra: langchain-nvidia
@@ -72,8 +74,8 @@ Use the Python binding for the following tasks:
 - **Package policy around callbacks**: Use guardrails and intercepts to block
   work, sanitize observability payloads, rewrite requests, or wrap execution.
 - **Emit one lifecycle stream**: Send runtime events to in-process
-  subscribers, Agent Trajectory Interchange Format (ATIF), OpenTelemetry, or
-  OpenInference workflows.
+  subscribers, Agent Trajectory Interchange Format (ATIF), or typed
+  OpenTelemetry workflows.
 - **Integrate without a framework migration**: Wrap framework or provider
   callbacks while preserving the application’s orchestration model.
 
@@ -86,8 +88,9 @@ The Python package provides the following capabilities:
 - **Middleware APIs**: Guardrails and intercepts for tool and LLM requests,
   responses, and execution, plus mark and scope event sanitizers for `data`,
   `category_profile`, and `metadata`.
-- **Subscribers and exporters**: Event consumers for observability and
-  diagnostics.
+- **Subscribers and exporters**: `OpenTelemetrySubscriber` accepts one required
+  `full`, `gen_ai`, or `openinference` endpoint configuration. The
+  `nemo_relay.observability` helpers configure plugin-owned endpoint fan-out.
 - **Plugin and typed helpers**: Public modules for plugins, codecs, typed
   wrappers, adaptive runtime behavior, and observability plugin configuration.
 - **Shared Rust runtime semantics**: Python behavior aligned with the Rust
@@ -191,6 +194,8 @@ nemo_relay.subscribers.deregister("printer")
 
 Native subscriber delivery is asynchronous, so call
 `nemo_relay.subscribers.flush()` before you read subscriber output or exit.
+From an `asyncio` task, use `await nemo_relay.subscribers.flush_async()` so
+async event sanitizers can continue running on that event loop.
 
 For host integrations that need a serialized event shape, consume the
 canonical JSON payload from the subscriber event object:

@@ -1,20 +1,19 @@
 from __future__ import annotations
 
-from dataclasses import field
-
-
 import typing as t
+from dataclasses import field
 from datetime import timedelta
 
+from query_cache_protobuf.query_cache.services import client_telemetry_service_pb2
+
 from query_cache_common.decorators import proto_dataclass, proto_enum
-from query_cache_common.models.base import BaseSerDeModel, BaseSerDeEnum
+from query_cache_common.models.base import BaseSerDeEnum, BaseSerDeModel
 from query_cache_common.models.converters import (
-    struct_to_dict,
     dict_to_struct,
     duration_to_timedelta,
+    struct_to_dict,
     timedelta_to_duration,
 )
-from query_cache_protobuf.query_cache.services import client_telemetry_service_pb2
 
 
 @proto_dataclass(client_telemetry_service_pb2.SessionStartRequest)

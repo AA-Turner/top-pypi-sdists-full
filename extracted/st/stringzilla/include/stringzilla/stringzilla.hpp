@@ -36,7 +36,6 @@
 #endif
 
 #if !SZ_AVOID_STL
-#include <cassert>   // `assert`
 #include <cstddef>   // `std::size_t`
 #include <cstdint>   // `std::int8_t`
 #include <iosfwd>    // `std::basic_ostream`
@@ -950,7 +949,9 @@ class find_splits_view {
     };
 
     iterator begin() const noexcept { return {string_view_type(haystack_), matcher_}; }
-    iterator end() const noexcept { return {string_view_type(haystack_.end(), 0), matcher_, end_sentinel_type {}}; }
+    iterator end() const noexcept {
+        return {string_view_type(haystack_.end(), 0), matcher_, end_sentinel_type {}};
+    }
     size_type size() const noexcept { return static_cast<size_type>(ssize()); }
     difference_type ssize() const noexcept { return std::distance(begin(), end()); }
     constexpr bool empty() const noexcept { return false; }
@@ -1085,7 +1086,9 @@ class rfind_splits_view {
     };
 
     iterator begin() const noexcept { return {string_view_type(haystack_), matcher_}; }
-    iterator end() const noexcept { return {string_view_type(haystack_.data(), 0ull), matcher_, end_sentinel_type {}}; }
+    iterator end() const noexcept {
+        return {string_view_type(haystack_.data(), 0ull), matcher_, end_sentinel_type {}};
+    }
     size_type size() const noexcept { return static_cast<size_type>(ssize()); }
     difference_type ssize() const noexcept { return std::distance(begin(), end()); }
     constexpr bool empty() const noexcept { return false; }
@@ -1251,7 +1254,9 @@ class utf8_runes_view {
     };
 
     iterator begin() const noexcept { return {string_view_type(haystack_)}; }
-    iterator end() const noexcept { return {string_view_type(haystack_), end_sentinel_type {}}; }
+    iterator end() const noexcept {
+        return {string_view_type(haystack_), end_sentinel_type {}};
+    }
     end_sentinel_type end_sentinel() const noexcept { return {}; }
 
     /** @brief Count UTF-8 characters in the string. */
@@ -2323,7 +2328,7 @@ class basic_string_slice {
      *         Supports signed and unsigned intervals.
      */
     string_slice operator[](std::initializer_list<difference_type> signed_offsets) const noexcept {
-        assert(signed_offsets.size() == 2 && "operator[] can't take more than 2 offsets");
+        sz_assert_(signed_offsets.size() == 2 && "operator[] can't take more than 2 offsets");
         return sub(signed_offsets.begin()[0], signed_offsets.begin()[1]);
     }
 
@@ -2333,7 +2338,7 @@ class basic_string_slice {
      */
     reference sat(difference_type signed_offset) const noexcept {
         size_type pos = static_cast<size_type>(signed_offset < 0 ? size() + signed_offset : signed_offset);
-        assert(pos < size() && "string_slice::sat(i) out of bounds");
+        sz_assert_(pos < size() && "string_slice::sat(i) out of bounds");
         return start_[pos];
     }
 
@@ -2345,7 +2350,7 @@ class basic_string_slice {
      */
     string_slice front(difference_type signed_offset) const noexcept {
         size_type pos = static_cast<size_type>(signed_offset < 0 ? size() + signed_offset : signed_offset);
-        assert(pos <= size() && "string_slice::front(signed_offset) out of bounds");
+        sz_assert_(pos <= size() && "string_slice::front(signed_offset) out of bounds");
         return {start_, pos};
     }
 
@@ -2356,7 +2361,7 @@ class basic_string_slice {
      */
     string_slice back(difference_type signed_offset) const noexcept {
         size_type pos = static_cast<size_type>(signed_offset < 0 ? size() + signed_offset : signed_offset);
-        assert(pos <= size() && "string_slice::back(signed_offset) out of bounds");
+        sz_assert_(pos <= size() && "string_slice::back(signed_offset) out of bounds");
         return {start_ + pos, length_ - pos};
     }
 
@@ -2388,13 +2393,19 @@ class basic_string_slice {
      *  @brief Removes the first @p `n` bytes from the view.
      *  @warning The behavior is @b undefined if `n > size()`.
      */
-    void remove_prefix(size_type n) noexcept { assert(n <= size()), start_ += n, length_ -= n; }
+    void remove_prefix(size_type n) noexcept {
+        sz_assert_(n <= size());
+        start_ += n, length_ -= n;
+    }
 
     /**
      *  @brief Removes the last @p `n` bytes from the view.
      *  @warning The behavior is @b undefined if `n > size()`.
      */
-    void remove_suffix(size_type n) noexcept { assert(n <= size()), length_ -= n; }
+    void remove_suffix(size_type n) noexcept {
+        sz_assert_(n <= size());
+        length_ -= n;
+    }
 
 #if !SZ_AVOID_STL
 
@@ -3100,10 +3111,14 @@ class basic_string_slice {
     rfind_disjoint_type rfind_all(string_view needle, exclude_overlaps_type) const noexcept { return {*this, needle}; }
 
     /**  @brief Find all occurrences of given characters. */
-    find_all_chars_type find_all(byteset set) const noexcept { return {*this, {set}}; }
+    find_all_chars_type find_all(byteset set) const noexcept {
+        return {*this, {set}};
+    }
 
     /**  @brief Find all occurrences of given characters in @b reverse order. */
-    rfind_all_chars_type rfind_all(byteset set) const noexcept { return {*this, {set}}; }
+    rfind_all_chars_type rfind_all(byteset set) const noexcept {
+        return {*this, {set}};
+    }
 
     using split_type = find_splits_view<string_slice, matcher_find<string_view, exclude_overlaps_type>>;
     using rsplit_type = rfind_splits_view<string_slice, matcher_rfind<string_view, exclude_overlaps_type>>;
@@ -3125,10 +3140,14 @@ class basic_string_slice {
     rsplit_type rsplit(string_view delimiter) const noexcept { return {*this, delimiter}; }
 
     /**  @brief Split around occurrences of given characters. */
-    split_chars_type split(byteset set = whitespaces_set()) const noexcept { return {*this, {set}}; }
+    split_chars_type split(byteset set = whitespaces_set()) const noexcept {
+        return {*this, {set}};
+    }
 
     /**  @brief Split around occurrences of given characters in @b reverse order. */
-    rsplit_chars_type rsplit(byteset set = whitespaces_set()) const noexcept { return {*this, {set}}; }
+    rsplit_chars_type rsplit(byteset set = whitespaces_set()) const noexcept {
+        return {*this, {set}};
+    }
 
     /**  @brief Split around the occurrences of all newline characters. */
     split_chars_type splitlines() const noexcept { return split(newlines_set()); }
@@ -3574,7 +3593,7 @@ class basic_string {
      *  @warning The behavior is @b undefined if `n > size()`.
      */
     void remove_prefix(size_type n) noexcept {
-        assert(n <= size());
+        sz_assert_(n <= size());
         sz_string_erase(&string_, 0, n);
     }
 
@@ -3583,7 +3602,7 @@ class basic_string {
      *  @warning The behavior is @b undefined if `n > size()`.
      */
     void remove_suffix(size_type n) noexcept {
-        assert(n <= size());
+        sz_assert_(n <= size());
         sz_string_erase(&string_, size() - n, n);
     }
 
@@ -5137,7 +5156,7 @@ bool basic_string<char_type_, allocator_>::try_preparing_replacement( //
     // 1. The replacement is the same length as the replaced range.
     // 2. The replacement is shorter than the replaced range.
     // 3. The replacement is longer than the replaced range. An allocation may occur.
-    assert(offset + length <= size());
+    sz_assert_(offset + length <= size());
 
     // 1. The replacement is the same length as the replaced range.
     if (replacement_length == length) return true;

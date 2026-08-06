@@ -28,12 +28,22 @@ _forced_non_interactive = False
 
 
 def force_non_interactive(enabled: bool = True) -> None:
-    """Make :func:`is_interactive` report ``False`` process-wide, so every
-    checklist and prompt self-skips even on a TTY. Set by the
-    ``--non-interactive`` CLI flag to guarantee an unattended run regardless of
-    the terminal."""
+    """Silence every question for the rest of the run, even on a TTY.
+
+    Set by the ``--non-interactive`` CLI flag. Two layers decide independently
+    whether they may involve a human, and this is the single place that settles
+    both — otherwise an unattended run would still be free to open a browser:
+
+    - the checklist and the value prompts, via :func:`is_interactive` below;
+    - the env resolvers that launch a human flow (browser OAuth,
+      ``glab auth login``), via ``env.trace``.
+    """
     global _forced_non_interactive
     _forced_non_interactive = enabled
+
+    from ...env import trace
+
+    trace.set_noninteractive(enabled)
 
 
 def is_interactive() -> bool:

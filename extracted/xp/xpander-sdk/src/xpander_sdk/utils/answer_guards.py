@@ -31,6 +31,28 @@ PROMISE_CONTINUATION_NUDGE = (
 )
 
 
+# After a terminal '?': only closers/quotes/whitespace and at most one short
+# parenthetical hint ("(y/n)") may follow, so prose after a question never counts.
+_QUESTION_TAIL_RE = re.compile(
+    r"[\)\]\}\"'”’\s]*(\([^()]{0,14}\))?[\)\]\}\"'”’\s]*"
+)
+
+
+def ends_with_question(text: Optional[str]) -> bool:
+    """True when the final non-empty line ends on a clarifying question."""
+    if not isinstance(text, str):
+        return False
+    stripped = text.strip()
+    if not stripped:
+        return False
+    line = stripped.splitlines()[-1].strip()
+    idx = line.rfind("?")
+    if idx == -1:
+        return False
+    tail = line[idx + 1 :].strip()
+    return not tail or (len(tail) <= 16 and bool(_QUESTION_TAIL_RE.fullmatch(tail)))
+
+
 def is_promise_only_answer(text: Optional[str], tool_call_count: int) -> bool:
     """True when a run's final answer is a short forward promise instead of an outcome.
 

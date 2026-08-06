@@ -498,9 +498,11 @@ class BinaryClassificationController:
             best_index = best_index[np.argmax(first_risk_values[best_index])]
         else:
             best_index = best_index[0]
-        self.best_predict_param = self.valid_predict_params[best_index]
-        if isinstance(self.best_predict_param, np.ndarray):
-            self.best_predict_param = tuple(self.best_predict_param.tolist())
+        best_predict_param = self.valid_predict_params[best_index]
+        if isinstance(best_predict_param, np.ndarray):
+            self.best_predict_param = tuple(best_predict_param.tolist())
+        else:
+            self.best_predict_param = float(best_predict_param)
 
     @staticmethod
     def _get_risk_values_and_eff_sample_sizes(
@@ -536,7 +538,7 @@ class BinaryClassificationController:
         n_params = len(params)
         n_samples = len(np.asarray(X))
         if self.is_multi_dimensional_param:
-            y_pred: NDArray[np.float_] = np.empty((n_params, n_samples), dtype=float)
+            y_pred: NDArray[np.float64] = np.empty((n_params, n_samples), dtype=float)
             for i in range(n_params):
                 y_pred[i] = self._predict_function(X, *params[i])
             if is_calibration_step:

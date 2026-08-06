@@ -3,7 +3,7 @@ from __future__ import annotations
 import typing as t
 from dataclasses import replace
 
-from dbt.config import RuntimeConfig, Profile
+from dbt.config import Profile, RuntimeConfig
 from dbt.contracts.graph.manifest import Manifest, ManifestNode
 from dbt.parser.base import RelationUpdate
 

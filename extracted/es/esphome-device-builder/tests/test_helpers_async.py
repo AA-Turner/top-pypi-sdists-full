@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 
-from esphome_device_builder.helpers.async_ import create_eager_task
+import pytest
+
+from esphome_device_builder.helpers.async_ import create_eager_task, create_logged_task
 
 
 async def test_eager_task_runs_synchronously_until_first_await() -> None:
@@ -49,3 +51,45 @@ async def test_eager_task_uses_explicit_loop() -> None:
     task = create_eager_task(coro(), loop=loop)
     assert task.get_loop() is loop
     await task
+
+
+async def test_logged_task_starts_eagerly_and_names_the_task() -> None:
+    ran: list[bool] = []
+
+    async def coro() -> None:
+        ran.append(True)
+
+    task = create_logged_task(coro(), name="worker")
+    assert ran == [True]
+    assert task.get_name() == "worker"
+    await task
+
+
+async def test_logged_task_logs_a_crash(caplog: pytest.LogCaptureFixture) -> None:
+    async def coro() -> None:
+        await asyncio.sleep(0)
+        raise RuntimeError("simulated crash")
+
+    target = "esphome_device_builder.helpers.async_"
+    with caplog.at_level("ERROR", logger=target):
+        task = create_logged_task(coro(), name="doomed worker")
+        await asyncio.gather(task, return_exceptions=True)
+
+    assert any("doomed worker crashed" in r.getMessage() for r in caplog.records)
+
+
+async def test_logged_task_logs_a_crash_before_the_first_await(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    async def coro() -> None:
+        raise RuntimeError("synchronous crash")
+
+    target = "esphome_device_builder.helpers.async_"
+    with caplog.at_level("ERROR", logger=target):
+        # Completes inside create_eager_task; the logger attaches to an
+        # already-settled task and must still fire.
+        task = create_logged_task(coro(), name="instant casualty")
+        await asyncio.gather(task, return_exceptions=True)
+        await asyncio.sleep(0)
+
+    assert any("instant casualty crashed" in r.getMessage() for r in caplog.records)

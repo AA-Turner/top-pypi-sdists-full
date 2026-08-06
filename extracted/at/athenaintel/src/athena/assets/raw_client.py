@@ -19,7 +19,10 @@ from ..errors.service_unavailable_error import ServiceUnavailableError
 from ..errors.too_many_requests_error import TooManyRequestsError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
+from ..types.activity_clock_range_in import ActivityClockRangeIn
 from ..types.archive_asset_response_out import ArchiveAssetResponseOut
+from ..types.asset_activity_delta_response_out import AssetActivityDeltaResponseOut
+from ..types.asset_activity_response_out import AssetActivityResponseOut
 from ..types.convert_excel_to_sheet_response_out import ConvertExcelToSheetResponseOut
 from ..types.creatable_asset_type import CreatableAssetType
 from ..types.create_asset_response_out import CreateAssetResponseOut
@@ -602,6 +605,7 @@ class RawAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to retrieve
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -673,6 +677,7 @@ class RawAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to rename
 
         title : str
             New display title for the asset
@@ -745,6 +750,315 @@ class RawAssetsClient:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def list_activity(
+        self,
+        asset_id: str,
+        *,
+        limit: typing.Optional[int] = None,
+        to_clock: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[AssetActivityResponseOut]:
+        """
+        Admin only. List the edit history of a collaborative asset, newest first: who edited it, when, and under which agent/session attribution. Works for every collaborative asset type. Each item's from_clock/to_clock identify the edit for the companion delta endpoint, which reports what actually changed.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        limit : typing.Optional[int]
+            Maximum items to return.
+
+        to_clock : typing.Optional[int]
+            Return only items at or before this clock. Pass the previous response's next_page_to_clock to page backwards through history.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[AssetActivityResponseOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v0/assets/{jsonable_encoder(asset_id)}/activity",
+            method="GET",
+            params={
+                "limit": limit,
+                "to_clock": to_clock,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    AssetActivityResponseOut,
+                    parse_obj_as(
+                        type_=AssetActivityResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def get_activity_delta(
+        self, asset_id: str, *, from_: int, to: int, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[AssetActivityDeltaResponseOut]:
+        """
+        Admin only. Report what changed between two Keryx clocks — for spreadsheets, the per-cell before/after values; for documents, the inserted and deleted text; for presentations, the affected slides. Take the clocks from the activity endpoint. Computed by the same differ the in-app Activity pane renders, so the payload matches what a user sees. Always inspect delta.coverage: caps and non-decodable bulk regions are reported there rather than silently omitted.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        from_ : int
+            Start clock, from an activity item's from_clock.
+
+        to : int
+            End clock, from the same activity item's to_clock.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[AssetActivityDeltaResponseOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v0/assets/{jsonable_encoder(asset_id)}/activity/delta",
+            method="GET",
+            params={
+                "from": from_,
+                "to": to,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    AssetActivityDeltaResponseOut,
+                    parse_obj_as(
+                        type_=AssetActivityDeltaResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def get_activity_deltas(
+        self,
+        asset_id: str,
+        *,
+        ranges: typing.Sequence[ActivityClockRangeIn],
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[AssetActivityDeltaResponseOut]:
+        """
+        Admin only. Batch form of the activity-delta endpoint: diff several clock ranges in one request. Prefer this when walking a whole log — one call computes every range in a single pass over the document instead of one request each (up to 25 per call). Results come back in request order, and a range that could not be read carries its own `error` instead of failing the batch. Same payload and `coverage` semantics as the single-range endpoint.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        ranges : typing.Sequence[ActivityClockRangeIn]
+            Activity clock ranges to diff, at most 25 per call. Results are returned in request order.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[AssetActivityDeltaResponseOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v0/assets/{jsonable_encoder(asset_id)}/activity/deltas",
+            method="POST",
+            json={
+                "ranges": convert_and_respect_annotation_metadata(
+                    object_=ranges, annotation=typing.Sequence[ActivityClockRangeIn], direction="write"
+                ),
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    AssetActivityDeltaResponseOut,
+                    parse_obj_as(
+                        type_=AssetActivityDeltaResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     def archive(
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[ArchiveAssetResponseOut]:
@@ -754,6 +1068,7 @@ class RawAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to archive
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -826,6 +1141,7 @@ class RawAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to download
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
@@ -916,6 +1232,7 @@ class RawAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to move
 
         parent_folder_id : typing.Optional[str]
             ID of the destination folder. Pass null or omit the field to move the asset to the workspace root.
@@ -1019,6 +1336,7 @@ class RawAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to share
 
         recipients : typing.Sequence[ShareRecipient]
             List of users to share the asset with. Each entry specifies an email address and the permission level to grant.
@@ -1118,6 +1436,7 @@ class RawAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset
 
         workspace_access : WorkspaceShareAccess
             Permission level to grant to the entire workspace. Set to 'view' or 'edit'.
@@ -1755,6 +2074,7 @@ class AsyncRawAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to retrieve
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1826,6 +2146,7 @@ class AsyncRawAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to rename
 
         title : str
             New display title for the asset
@@ -1898,6 +2219,315 @@ class AsyncRawAssetsClient:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    async def list_activity(
+        self,
+        asset_id: str,
+        *,
+        limit: typing.Optional[int] = None,
+        to_clock: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[AssetActivityResponseOut]:
+        """
+        Admin only. List the edit history of a collaborative asset, newest first: who edited it, when, and under which agent/session attribution. Works for every collaborative asset type. Each item's from_clock/to_clock identify the edit for the companion delta endpoint, which reports what actually changed.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        limit : typing.Optional[int]
+            Maximum items to return.
+
+        to_clock : typing.Optional[int]
+            Return only items at or before this clock. Pass the previous response's next_page_to_clock to page backwards through history.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[AssetActivityResponseOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v0/assets/{jsonable_encoder(asset_id)}/activity",
+            method="GET",
+            params={
+                "limit": limit,
+                "to_clock": to_clock,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    AssetActivityResponseOut,
+                    parse_obj_as(
+                        type_=AssetActivityResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def get_activity_delta(
+        self, asset_id: str, *, from_: int, to: int, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[AssetActivityDeltaResponseOut]:
+        """
+        Admin only. Report what changed between two Keryx clocks — for spreadsheets, the per-cell before/after values; for documents, the inserted and deleted text; for presentations, the affected slides. Take the clocks from the activity endpoint. Computed by the same differ the in-app Activity pane renders, so the payload matches what a user sees. Always inspect delta.coverage: caps and non-decodable bulk regions are reported there rather than silently omitted.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        from_ : int
+            Start clock, from an activity item's from_clock.
+
+        to : int
+            End clock, from the same activity item's to_clock.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[AssetActivityDeltaResponseOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v0/assets/{jsonable_encoder(asset_id)}/activity/delta",
+            method="GET",
+            params={
+                "from": from_,
+                "to": to,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    AssetActivityDeltaResponseOut,
+                    parse_obj_as(
+                        type_=AssetActivityDeltaResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def get_activity_deltas(
+        self,
+        asset_id: str,
+        *,
+        ranges: typing.Sequence[ActivityClockRangeIn],
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[AssetActivityDeltaResponseOut]:
+        """
+        Admin only. Batch form of the activity-delta endpoint: diff several clock ranges in one request. Prefer this when walking a whole log — one call computes every range in a single pass over the document instead of one request each (up to 25 per call). Results come back in request order, and a range that could not be read carries its own `error` instead of failing the batch. Same payload and `coverage` semantics as the single-range endpoint.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        ranges : typing.Sequence[ActivityClockRangeIn]
+            Activity clock ranges to diff, at most 25 per call. Results are returned in request order.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[AssetActivityDeltaResponseOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v0/assets/{jsonable_encoder(asset_id)}/activity/deltas",
+            method="POST",
+            json={
+                "ranges": convert_and_respect_annotation_metadata(
+                    object_=ranges, annotation=typing.Sequence[ActivityClockRangeIn], direction="write"
+                ),
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    AssetActivityDeltaResponseOut,
+                    parse_obj_as(
+                        type_=AssetActivityDeltaResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     async def archive(
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[ArchiveAssetResponseOut]:
@@ -1907,6 +2537,7 @@ class AsyncRawAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to archive
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1979,6 +2610,7 @@ class AsyncRawAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to download
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
@@ -2070,6 +2702,7 @@ class AsyncRawAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to move
 
         parent_folder_id : typing.Optional[str]
             ID of the destination folder. Pass null or omit the field to move the asset to the workspace root.
@@ -2173,6 +2806,7 @@ class AsyncRawAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to share
 
         recipients : typing.Sequence[ShareRecipient]
             List of users to share the asset with. Each entry specifies an email address and the permission level to grant.
@@ -2272,6 +2906,7 @@ class AsyncRawAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset
 
         workspace_access : WorkspaceShareAccess
             Permission level to grant to the entire workspace. Set to 'view' or 'edit'.

@@ -24,14 +24,14 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17tink/proto/ml_dsa.proto\x12\x12google.crypto.tink\"I\n\x0bMlDsaParams\x12:\n\x0fml_dsa_instance\x18\x01 \x01(\x0e\x32!.google.crypto.tink.MlDsaInstance\"R\n\x0eMlDsaKeyFormat\x12\x0f\n\x07version\x18\x01 \x01(\r\x12/\n\x06params\x18\x02 \x01(\x0b\x32\x1f.google.crypto.tink.MlDsaParams\"e\n\x0eMlDsaPublicKey\x12\x0f\n\x07version\x18\x01 \x01(\r\x12\x11\n\tkey_value\x18\x02 \x01(\x0c\x12/\n\x06params\x18\x03 \x01(\x0b\x32\x1f.google.crypto.tink.MlDsaParams\"m\n\x0fMlDsaPrivateKey\x12\x0f\n\x07version\x18\x01 \x01(\r\x12\x11\n\tkey_value\x18\x02 \x01(\x0c\x12\x36\n\npublic_key\x18\x03 \x01(\x0b\x32\".google.crypto.tink.MlDsaPublicKey*Y\n\rMlDsaInstance\x12\x1b\n\x17ML_DSA_UNKNOWN_INSTANCE\x10\x00\x12\r\n\tML_DSA_65\x10\x01\x12\r\n\tML_DSA_87\x10\x02\x12\r\n\tML_DSA_44\x10\x03\x42V\n\x1c\x63om.google.crypto.tink.protoP\x01Z4github.com/tink-crypto/tink-go/v2/proto/ml_dsa_protob\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17tink/proto/ml_dsa.proto\x12\x12google.crypto.tink\"I\n\x0bMlDsaParams\x12:\n\x0fml_dsa_instance\x18\x01 \x01(\x0e\x32!.google.crypto.tink.MlDsaInstance\"R\n\x0eMlDsaKeyFormat\x12\x0f\n\x07version\x18\x01 \x01(\r\x12/\n\x06params\x18\x02 \x01(\x0b\x32\x1f.google.crypto.tink.MlDsaParams\"e\n\x0eMlDsaPublicKey\x12\x0f\n\x07version\x18\x01 \x01(\r\x12\x11\n\tkey_value\x18\x02 \x01(\x0c\x12/\n\x06params\x18\x03 \x01(\x0b\x32\x1f.google.crypto.tink.MlDsaParams\"m\n\x0fMlDsaPrivateKey\x12\x0f\n\x07version\x18\x01 \x01(\r\x12\x11\n\tkey_value\x18\x02 \x01(\x0c\x12\x36\n\npublic_key\x18\x03 \x01(\x0b\x32\".google.crypto.tink.MlDsaPublicKey*Y\n\rMlDsaInstance\x12\x1b\n\x17ML_DSA_UNKNOWN_INSTANCE\x10\x00\x12\r\n\tML_DSA_65\x10\x01\x12\r\n\tML_DSA_87\x10\x02\x12\r\n\tML_DSA_44\x10\x03\x42Y\n\x1c\x63om.google.crypto.tink.protoP\x01Z7github.com/tink-crypto/tink-go/v2/proto/ml_dsa_go_protob\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'tink.proto.ml_dsa_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
-  _globals['DESCRIPTOR']._serialized_options = b'\n\034com.google.crypto.tink.protoP\001Z4github.com/tink-crypto/tink-go/v2/proto/ml_dsa_proto'
+  _globals['DESCRIPTOR']._serialized_options = b'\n\034com.google.crypto.tink.protoP\001Z7github.com/tink-crypto/tink-go/v2/proto/ml_dsa_go_proto'
   _globals['_MLDSAINSTANCE']._serialized_start=420
   _globals['_MLDSAINSTANCE']._serialized_end=509
   _globals['_MLDSAPARAMS']._serialized_start=47

@@ -68,7 +68,7 @@ ENABLE_MYPYC = _resolve_enable_mypyc()
 
 def get_version() -> str:
     """Get version from PACKAGE_VERSION environment variable."""
-    version = os.environ.get("PACKAGE_VERSION", "0.0.0.dev0")
+    version = "1.0.2"
     print(f"Building version: {version}")
     return version
 

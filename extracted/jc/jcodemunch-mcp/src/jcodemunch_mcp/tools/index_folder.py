@@ -42,7 +42,13 @@ from ..storage.git_root import (
     is_linked_worktree,
     resolve_index_identity,
 )
-from ..storage.index_store import _file_hash, _file_hash_bytes, _get_git_head, _get_git_branch
+from ..storage.index_store import (
+    PARSER_GENERATION,
+    _file_hash,
+    _file_hash_bytes,
+    _get_git_head,
+    _get_git_branch,
+)
 from ..summarizer import summarize_symbols
 from ..reindex_state import WatcherChange
 from ..path_map import parse_path_map, remap
@@ -714,6 +720,12 @@ from ._indexing_pipeline import (
     parse_and_prepare_incremental,
     parse_immediate,
 )
+from ._utils import (
+    PARSER_UPGRADE_WARNING,
+    describe_unloadable_index,
+    needs_parser_upgrade as _needs_parser_upgrade,
+    stamp_incremental_outcome as _stamp_incremental_outcome,
+)
 from .package_registry import extract_package_names as _extract_package_names
 
 
@@ -1327,6 +1339,12 @@ def index_folder(
     _config.load_project_config(str(folder_path))
 
     warnings = []
+    # What the caller ASKED for, pinned before anything downstream can flip
+    # `incremental` (#413). Every non-error return stamps requested vs
+    # performed, so a caller never has to grep `warnings[]` for a sentence to
+    # learn that the operation it requested was substituted for another one.
+    _requested_incremental = incremental
+    rebuild_reason: Optional[str] = None
     trusted_folders = _config.get("trusted_folders", [], repo=str(folder_path))
     whitelist_mode = _config.get(
         "trusted_folders_whitelist_mode", True, repo=str(folder_path)
@@ -1655,6 +1673,15 @@ def index_folder(
                         continue
                     _old_hash_map[rel_path] = old_hash
 
+            # An index whose symbols predate the current extraction semantics
+            # cannot be repaired by a delta: the files carrying the bad symbols
+            # are UNCHANGED, so a change-set-driven pass never re-parses them
+            # (#414). Disarm the fast path and let the full walk below take the
+            # upgrade branch, which is the only thing that rewrites every row.
+            if _needs_parser_upgrade(_fast_base_index):
+                existing_index = None
+                use_memory_hash_cache = False
+
             if existing_index is not None or use_memory_hash_cache:
                 # Reuse the providers discovered by the initial full index so a
                 # watched edit re-enriches its changed symbols (ecosystem_context
@@ -1728,7 +1755,7 @@ def index_folder(
                         store, owner, repo_name, folder_path,
                         existing_index.git_head if existing_index else None,
                     )
-                    return {
+                    _fast_no_change = {
                         "success": True,
                         "message": "No changes detected",
                         "repo": f"{owner}/{repo_name}",
@@ -1736,6 +1763,10 @@ def index_folder(
                         "changed": 0, "new": 0, "deleted": 0,
                         "duration_seconds": round(time.monotonic() - t0, 2),
                     }
+                    _stamp_incremental_outcome(
+                        _fast_no_change, _requested_incremental, True
+                    )
+                    return _fast_no_change
 
                 # Read and hash only the changed/new files.
                 # For "modified" files, compare hash against stored hash —
@@ -1805,7 +1836,7 @@ def index_folder(
                             file_mtimes=mtime_only_updates,
                             git_head=_new_head if _head_advanced else "",
                         )
-                    return {
+                    _fast_mtime_only = {
                         "success": True,
                         "message": "No changes detected",
                         "repo": f"{owner}/{repo_name}",
@@ -1814,6 +1845,10 @@ def index_folder(
                         "changed": 0, "new": 0, "deleted": 0,
                         "duration_seconds": round(time.monotonic() - t0, 2),
                     }
+                    _stamp_incremental_outcome(
+                        _fast_mtime_only, _requested_incremental, True
+                    )
+                    return _fast_mtime_only
 
                 files_to_parse = set(changed_files) | set(new_files)
                 # Split pipeline: parse immediately (no AI), fire summarization thread.
@@ -1916,6 +1951,7 @@ def index_folder(
                     )
                 if fast_warnings:
                     result["warnings"] = fast_warnings
+                _stamp_incremental_outcome(result, _requested_incremental, True)
                 _maybe_apply_adaptive(folder_path, result)
                 return result
 
@@ -2116,16 +2152,27 @@ def index_folder(
                 )
 
         if existing_index is None and store.has_index(owner, repo_name):
+            rebuild_reason, _rebuild_message = describe_unloadable_index(
+                store, owner, repo_name
+            )
             logger.warning(
-                "index_folder version_mismatch — %s/%s: on-disk index is a newer version; full re-index required",
+                "index_folder unloadable_index — %s/%s: %s; full re-index required",
+                owner, repo_name, rebuild_reason,
+            )
+            warnings.append(_rebuild_message)
+        elif _needs_parser_upgrade(existing_index):
+            # One-off full re-parse after an extraction-semantics bump (#414).
+            # Reported through the same fields a caller already reads for an
+            # unreadable index, so a substituted rebuild always has a reason.
+            incremental = False
+            rebuild_reason = "parser_generation_upgrade"
+            logger.warning(
+                "index_folder parser_generation_upgrade — %s/%s: stored=%s current=%s; "
+                "re-parsing every file once",
                 owner, repo_name,
+                getattr(existing_index, "parser_generation", 0), PARSER_GENERATION,
             )
-            warnings.append(
-                "Existing index was created by a newer version of jcodemunch-mcp "
-                "and cannot be read — performing a full re-index. "
-                "If you downgraded the package, delete ~/.code-index/ (or your "
-                "CODE_INDEX_PATH directory) to remove the stale index."
-            )
+            warnings.append(PARSER_UPGRADE_WARNING)
 
         # Discovery pass — resolve rel_paths and collect mtimes without
         # reading file contents (P2-5: avoids 200MB-1GB allocation
@@ -2258,6 +2305,9 @@ def index_folder(
                     "changed": 0, "new": 0, "deleted": 0,
                     "duration_seconds": round(time.monotonic() - t0, 2),
                 }
+                _stamp_incremental_outcome(
+                    _no_change_result, _requested_incremental, True
+                )
                 # This ran a full discovery walk, so a still-truncated index
                 # stays loud even when nothing changed (#366).
                 _attach_cap_report(_no_change_result, _cap_status)
@@ -2401,6 +2451,7 @@ def index_folder(
                 result["branch_delta"] = True
             if warnings:
                 result["warnings"] = warnings
+            _stamp_incremental_outcome(result, _requested_incremental, True)
             _attach_cap_report(result, _cap_status)
             _attach_provider_skips(result, folder_path)
             _maybe_apply_adaptive(folder_path, result)
@@ -2757,6 +2808,11 @@ def index_folder(
         if warnings:
             result["warnings"] = warnings
 
+        # This path rebuilt the whole corpus. When the caller asked for an
+        # incremental, that substitution is now a field, not a sentence (#413).
+        _stamp_incremental_outcome(
+            result, _requested_incremental, False, rebuild_reason
+        )
         _attach_cap_report(result, _cap_status)
         _attach_provider_skips(result, folder_path)
 

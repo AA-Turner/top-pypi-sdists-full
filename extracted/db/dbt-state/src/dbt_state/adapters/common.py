@@ -1,23 +1,22 @@
 from __future__ import annotations
 
 import itertools
-import traceback
-import time
-from datetime import datetime, timedelta
 import sys
 import threading
+import time
+import traceback
 import typing as t
-
 from collections import defaultdict, deque
 from concurrent.futures import Future
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from types import TracebackType
 
+from query_cache_common.utils import extract_select_from_ctas
 from sqlglot import exp, parse_one
 from sqlglot.optimizer.qualify_tables import qualify_tables
 
 from dbt_state.utils import find_tables
-from query_cache_common.utils import extract_select_from_ctas
 
 if t.TYPE_CHECKING:
     if sys.version_info >= (3, 11):
@@ -42,7 +41,7 @@ class ViewTraversalResult:
 
 @dataclass
 class ViewFetchResult:
-    definitions: t.Collection["ViewDefinition"]
+    definitions: t.Collection[ViewDefinition]
     unresolvable: t.Set[str] = field(default_factory=set)
 
 
@@ -110,7 +109,7 @@ class LockStats:
     @_last.setter
     def _last(self, value: t.Optional[float]) -> None:
         if value is None and hasattr(self._local, "last"):
-            delattr(self._local, "last")
+            del self._local.last
         else:
             self._local.last = value
 
@@ -191,7 +190,7 @@ class CacheStats:
         now = datetime.now()
         waiting_on_thread_stacktrace = ""
 
-        frames = sys._current_frames()
+        frames = sys._current_frames()  # noqa: SLF001
         if frame := frames.get(waiting_on_thread_id):
             waiting_on_thread_stacktrace = "".join(traceback.format_stack(frame))
 

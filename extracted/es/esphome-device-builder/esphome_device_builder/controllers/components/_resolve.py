@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import NamedTuple
 
+from ...definitions import load_featured_components_index
+from ...helpers.async_ import run_in_executor
 from ...helpers.json import loads
 from ...helpers.lazy_catalog import is_unsafe_catalog_id
 from ...models import (
@@ -92,6 +96,67 @@ class _FeaturedRecord:
     board_id: str
     featured: FeaturedComponent
     underlying_id: str
+
+
+class FeaturedView(NamedTuple):
+    """Hydrated featured lookups; obtained only from :meth:`LazyFeaturedRegistry.snapshot`."""
+
+    by_id: Mapping[str, _FeaturedRecord]
+    by_board: Mapping[str, list[str]]
+
+
+class LazyFeaturedRegistry:
+    """Featured lookups built off-loop on first snapshot; one build under the lock."""
+
+    def __init__(
+        self,
+        build: Callable[[], tuple[dict[str, _FeaturedRecord], dict[str, list[str]]]],
+    ) -> None:
+        self._build = build
+        self._lock = asyncio.Lock()
+        self._view: FeaturedView | None = None
+
+    async def snapshot(self) -> FeaturedView:
+        """Return the hydrated view, building it once on first use."""
+        if (view := self._view) is not None:
+            return view
+        async with self._lock:
+            if self._view is None:
+                by_id, by_board = await run_in_executor(self._build)
+                self._view = FeaturedView(by_id, by_board)
+            return self._view
+
+
+def build_featured_registry(
+    by_id: Mapping[str, ComponentCatalogIndexEntry],
+) -> tuple[dict[str, _FeaturedRecord], dict[str, list[str]]]:
+    """Index the aggregate featured map by full id and by board id."""
+    featured_by_id: dict[str, _FeaturedRecord] = {}
+    featured_by_board: dict[str, list[str]] = {}
+    for board_id, featured in load_featured_components_index().items():
+        ids: list[str] = []
+        for fc in featured:
+            full_id = f"{_FEATURED_PREFIX}{board_id}.{fc.id}"
+            underlying = by_id.get(fc.component_id)
+            if underlying is None:
+                _LOGGER.warning(
+                    "Board %s featured.%s references unknown component %s — skipping",
+                    board_id,
+                    fc.id,
+                    fc.component_id,
+                )
+                continue
+            featured_by_id[full_id] = _FeaturedRecord(
+                full_id=full_id,
+                board_id=board_id,
+                featured=fc,
+                underlying_id=underlying.id,
+            )
+            ids.append(full_id)
+        if ids:
+            featured_by_board[board_id] = ids
+    _LOGGER.info("Featured-component registry built: %d entries", len(featured_by_id))
+    return featured_by_id, featured_by_board
 
 
 def _featured_display_name(fc: FeaturedComponent, underlying_name: str) -> str:

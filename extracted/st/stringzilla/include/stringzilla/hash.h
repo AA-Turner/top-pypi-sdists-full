@@ -67,7 +67,7 @@
  *  Originally, the PRNG was designed to produce random byte sequences, but combining it with @b `sz_lookup`,
  *  one can produce random strings with a given byteset.
  *
- *  Other helpers include: TODO:
+ *  Other helpers include:
  *
  *  - `sz_fill_alphabet` - combines `sz_fill_random` & `sz_lookup` to fill buffers with random ASCII characters.
  *  - `sz_fill_alphabet_utf8` - combines `sz_fill_random` & `sz_lookup` to fill buffers with random UTF-8 characters.
@@ -239,16 +239,34 @@ typedef struct __attribute__((packed)) sz_hash_state_t {
 } sz_hash_state_t;
 #endif
 
+/** @brief Bytes in a SHA256 digest, fixed by FIPS 180-4. */
+#define SZ_SHA256_DIGEST_LENGTH (32)
+
+/**
+ *  @brief Bytes in a SHA256 message block, fixed by FIPS 180-4.
+ *  @note Coincides with `SZ_CACHE_LINE_WIDTH` and the ZMM width, which are unrelated reasons for the same 64.
+ */
+#define SZ_SHA256_BLOCK_LENGTH (64)
+
 /**
  *  @brief The state for incremental construction of a SHA256 hash.
  *  @see sz_sha256_state_init, sz_sha256_state_update, sz_sha256_state_digest.
  */
 typedef struct sz_sha256_state_t {
-    sz_u32_t hash[8];       ///< Current hash state: 8x 32-bit values
-    sz_u8_t block[64];      ///< 64-byte message block buffer
-    sz_size_t block_length; ///< Current bytes in block (0-63)
-    sz_u64_t total_length;  ///< Total message length in bytes
+    sz_u8_t block[SZ_SHA256_BLOCK_LENGTH]; ///< Message block buffer
+    sz_u32_t hash[8];                      ///< Current hash state: 8x 32-bit values
+    sz_u64_t total_length;                 ///< Total message length in bytes
+    sz_u8_t block_length;                  ///< Current bytes in block (0-63)
+    sz_u8_t padding_[23];                  ///< Rounds the state to 128 bytes
 } sz_sha256_state_t;
+
+/*  The batched kernels walk an array of these, so the layout is load-bearing rather than incidental. A
+ *  power-of-two stride turns lane indexing into a shift, and putting `block` first gives every lane the same
+ *  cache-line phase as the array itself — at 112 bytes the phase rotated per lane, splitting the 64-byte
+ *  block read across two lines for most of them. `block_length` is a byte because it never exceeds 63, which
+ *  also makes the struct identical on 32- and 64-bit builds. Alignment stays natural on purpose: `malloc`
+ *  only promises 16 bytes, so demanding 64 would under-align every heap-allocated batch. */
+sz_static_assert(sizeof(sz_sha256_state_t) == 128, sha256_state_is_two_cache_lines);
 
 /**
  *  @brief Initializes the state for incremental construction of a hash.
@@ -292,12 +310,67 @@ SZ_API_RUNTIME void sz_sha256_state_init(sz_sha256_state_t *state);
 SZ_API_RUNTIME void sz_sha256_state_update(sz_sha256_state_t *state, sz_cptr_t data, sz_size_t length);
 
 /**
- *  @brief Finalizes the SHA256 state and returns the hash.
+ *  @brief Finalizes the SHA256 state and returns the digest, leaving the state able to accept more data.
  *
  *  @param state The state to finalize.
- *  @param digest Output buffer for the 32-byte (256-bit) hash.
+ *  @param digest Output buffer for the 32-byte (256-bit) digest.
  */
-SZ_API_RUNTIME void sz_sha256_state_digest(sz_sha256_state_t const *state, sz_u8_t digest[sz_at_least_(32)]);
+SZ_API_RUNTIME void sz_sha256_state_digest(sz_sha256_state_t const *state,
+                                           sz_u8_t digest[sz_at_least_(SZ_SHA256_DIGEST_LENGTH)]);
+
+/**
+ *  @brief Advances many independent SHA256 states, one message per lane.
+ *
+ *  @param states Array of at least `texts->count` states, each initialized with `sz_sha256_state_init`.
+ *  @param texts Sequence supplying the next chunk of each lane's message; its `count` sets the lane count.
+ *
+ *  Hashing one message is a serial dependency chain, so a wider instruction set cannot accelerate it.
+ *  Independent messages compress in parallel lanes, which is what this does: sixteen at a time on AVX-512,
+ *  eight on AVX2. Supply at least a few kilobytes per lane per call so the lane transposition is amortized;
+ *  below one 64-byte block per lane it degrades to the single-message path.
+ *
+ *  A zero-length chunk is a no-op for that lane. The states must be distinct; the chunks may overlap.
+ *
+ *  Example usage:
+ *
+ *  @code{.c}
+ *      #include <stringzilla/hash.h>
+ *      int main() {
+ *          sz_cptr_t chunks[2] = {"hello", "world"};
+ *          sz_sha256_state_t states[2];
+ *          sz_u8_t digests[2 * SZ_SHA256_DIGEST_LENGTH];
+ *          sz_sequence_t texts;
+ *          sz_sequence_from_null_terminated_strings(chunks, 2, &texts);
+ *          sz_sha256_state_init(&states[0]), sz_sha256_state_init(&states[1]);
+ *          sz_sha256_multistate_update(states, &texts);
+ *          sz_sha256_multistate_digest(states, 2, digests);
+ *          return digests[0] == 0x2c ? 0 : 1;
+ *      }
+ *  @endcode
+ *
+ *  @note Selects the fastest implementation at compile- or run-time based on `SZ_DYNAMIC_DISPATCH`.
+ *  @note Lanes are grouped by vector width and a group advances in lockstep, so it costs as much as its
+ *        longest member. Every lane is correct whatever its length, but throughput is best when inputs
+ *        arrive sorted by length, which puts similar lengths in the same group - `sz_sequence_argsort` gives
+ *        that ordering.
+ *  @sa sz_sha256_multistate_update_serial, sz_sha256_multistate_update_haswell, sz_sha256_multistate_update_skylake
+ */
+SZ_API_RUNTIME void sz_sha256_multistate_update(sz_sha256_state_t *states, sz_sequence_t const *texts);
+
+/**
+ *  @brief Finalizes many independent SHA256 states, one digest per lane.
+ *
+ *  @param states Array of @p states_count states.
+ *  @param states_count Number of states to finalize, which is the lane count.
+ *  @param digests Output buffer of `states_count * SZ_SHA256_DIGEST_LENGTH` bytes, one big-endian
+ *                 digest per lane, in lane order.
+ *
+ *  Leaves every state unmodified, so a streaming caller can take an interim digest and keep appending.
+ *
+ *  @sa sz_sha256_state_digest, sz_sha256_multistate_update
+ */
+SZ_API_RUNTIME void sz_sha256_multistate_digest(sz_sha256_state_t const *states, sz_size_t states_count,
+                                                sz_u8_t *digests);
 
 /** @copydoc sz_bytesum */
 SZ_API_COMPTIME sz_u64_t sz_bytesum_serial(sz_cptr_t text, sz_size_t length);
@@ -328,7 +401,15 @@ SZ_API_COMPTIME void sz_sha256_state_init_serial(sz_sha256_state_t *state);
 SZ_API_COMPTIME void sz_sha256_state_update_serial(sz_sha256_state_t *state, sz_cptr_t text, sz_size_t length);
 
 /** @copydoc sz_sha256_state_digest */
-SZ_API_COMPTIME void sz_sha256_state_digest_serial(sz_sha256_state_t const *state, sz_u8_t digest[sz_at_least_(32)]);
+SZ_API_COMPTIME void sz_sha256_state_digest_serial(sz_sha256_state_t const *state,
+                                                   sz_u8_t digest[sz_at_least_(SZ_SHA256_DIGEST_LENGTH)]);
+
+/** @copydoc sz_sha256_multistate_update */
+SZ_API_COMPTIME void sz_sha256_multistate_update_serial(sz_sha256_state_t *states, sz_sequence_t const *texts);
+
+/** @copydoc sz_sha256_multistate_digest */
+SZ_API_COMPTIME void sz_sha256_multistate_digest_serial(sz_sha256_state_t const *states, sz_size_t states_count,
+                                                        sz_u8_t *digests);
 
 #if SZ_USE_WESTMERE
 
@@ -362,7 +443,15 @@ SZ_API_COMPTIME void sz_sha256_state_init_goldmont(sz_sha256_state_t *state);
 SZ_API_COMPTIME void sz_sha256_state_update_goldmont(sz_sha256_state_t *state, sz_cptr_t text, sz_size_t length);
 
 /** @copydoc sz_sha256_state_digest */
-SZ_API_COMPTIME void sz_sha256_state_digest_goldmont(sz_sha256_state_t const *state, sz_u8_t digest[sz_at_least_(32)]);
+SZ_API_COMPTIME void sz_sha256_state_digest_goldmont(sz_sha256_state_t const *state,
+                                                     sz_u8_t digest[sz_at_least_(SZ_SHA256_DIGEST_LENGTH)]);
+
+/** @copydoc sz_sha256_multistate_update */
+SZ_API_COMPTIME void sz_sha256_multistate_update_goldmont(sz_sha256_state_t *states, sz_sequence_t const *texts);
+
+/** @copydoc sz_sha256_multistate_digest */
+SZ_API_COMPTIME void sz_sha256_multistate_digest_goldmont(sz_sha256_state_t const *states, sz_size_t states_count,
+                                                          sz_u8_t *digests);
 
 #endif
 
@@ -370,6 +459,13 @@ SZ_API_COMPTIME void sz_sha256_state_digest_goldmont(sz_sha256_state_t const *st
 
 /** @copydoc sz_bytesum */
 SZ_API_COMPTIME sz_u64_t sz_bytesum_haswell(sz_cptr_t text, sz_size_t length);
+
+/** @copydoc sz_sha256_multistate_update */
+SZ_API_COMPTIME void sz_sha256_multistate_update_haswell(sz_sha256_state_t *states, sz_sequence_t const *texts);
+
+/** @copydoc sz_sha256_multistate_digest */
+SZ_API_COMPTIME void sz_sha256_multistate_digest_haswell(sz_sha256_state_t const *states, sz_size_t states_count,
+                                                         sz_u8_t *digests);
 
 #endif
 
@@ -392,6 +488,13 @@ SZ_API_COMPTIME void sz_hash_state_update_skylake(sz_hash_state_t *state, sz_cpt
 
 /** @copydoc sz_hash_state_digest */
 SZ_API_COMPTIME sz_u64_t sz_hash_state_digest_skylake(sz_hash_state_t const *state);
+
+/** @copydoc sz_sha256_multistate_update */
+SZ_API_COMPTIME void sz_sha256_multistate_update_skylake(sz_sha256_state_t *states, sz_sequence_t const *texts);
+
+/** @copydoc sz_sha256_multistate_digest */
+SZ_API_COMPTIME void sz_sha256_multistate_digest_skylake(sz_sha256_state_t const *states, sz_size_t states_count,
+                                                         sz_u8_t *digests);
 
 #endif
 
@@ -418,15 +521,6 @@ SZ_API_COMPTIME void sz_hash_state_update_icelake(sz_hash_state_t *state, sz_cpt
 
 /** @copydoc sz_hash_state_digest */
 SZ_API_COMPTIME sz_u64_t sz_hash_state_digest_icelake(sz_hash_state_t const *state);
-
-/** @copydoc sz_sha256_state_init */
-SZ_API_COMPTIME void sz_sha256_state_init_icelake(sz_sha256_state_t *state);
-
-/** @copydoc sz_sha256_state_update */
-SZ_API_COMPTIME void sz_sha256_state_update_icelake(sz_sha256_state_t *state, sz_cptr_t text, sz_size_t length);
-
-/** @copydoc sz_sha256_state_digest */
-SZ_API_COMPTIME void sz_sha256_state_digest_icelake(sz_sha256_state_t const *state, sz_u8_t digest[sz_at_least_(32)]);
 
 #endif
 
@@ -469,7 +563,8 @@ SZ_API_COMPTIME void sz_sha256_state_init_neonsha(sz_sha256_state_t *state);
 SZ_API_COMPTIME void sz_sha256_state_update_neonsha(sz_sha256_state_t *state, sz_cptr_t data, sz_size_t length);
 
 /** @copydoc sz_sha256_state_digest */
-SZ_API_COMPTIME void sz_sha256_state_digest_neonsha(sz_sha256_state_t const *state, sz_u8_t digest[sz_at_least_(32)]);
+SZ_API_COMPTIME void sz_sha256_state_digest_neonsha(sz_sha256_state_t const *state,
+                                                    sz_u8_t digest[sz_at_least_(SZ_SHA256_DIGEST_LENGTH)]);
 
 #endif
 
@@ -582,6 +677,8 @@ SZ_API_RUNTIME sz_u64_t sz_hash(sz_cptr_t text, sz_size_t length, sz_u64_t seed)
     return sz_hash_v128relaxed(text, length, seed);
 #elif SZ_USE_V128
     return sz_hash_v128(text, length, seed);
+#elif SZ_USE_RVVCRYPTO
+    return sz_hash_rvvcrypto(text, length, seed);
 #elif SZ_USE_RVV
     return sz_hash_rvv(text, length, seed);
 #elif SZ_USE_LASX
@@ -626,6 +723,8 @@ SZ_API_RUNTIME void sz_fill_random(sz_ptr_t text, sz_size_t length, sz_u64_t non
     sz_fill_random_v128relaxed(text, length, nonce);
 #elif SZ_USE_V128
     sz_fill_random_v128(text, length, nonce);
+#elif SZ_USE_RVVCRYPTO
+    sz_fill_random_rvvcrypto(text, length, nonce);
 #elif SZ_USE_RVV
     sz_fill_random_rvv(text, length, nonce);
 #elif SZ_USE_LASX
@@ -652,6 +751,8 @@ SZ_API_RUNTIME void sz_hash_state_init(sz_hash_state_t *state, sz_u64_t seed) {
     sz_hash_state_init_v128relaxed(state, seed);
 #elif SZ_USE_V128
     sz_hash_state_init_v128(state, seed);
+#elif SZ_USE_RVVCRYPTO
+    sz_hash_state_init_rvvcrypto(state, seed);
 #elif SZ_USE_RVV
     sz_hash_state_init_rvv(state, seed);
 #elif SZ_USE_LASX
@@ -678,6 +779,8 @@ SZ_API_RUNTIME void sz_hash_state_update(sz_hash_state_t *state, sz_cptr_t text,
     sz_hash_state_update_v128relaxed(state, text, length);
 #elif SZ_USE_V128
     sz_hash_state_update_v128(state, text, length);
+#elif SZ_USE_RVVCRYPTO
+    sz_hash_state_update_rvvcrypto(state, text, length);
 #elif SZ_USE_RVV
     sz_hash_state_update_rvv(state, text, length);
 #elif SZ_USE_LASX
@@ -704,6 +807,8 @@ SZ_API_RUNTIME sz_u64_t sz_hash_state_digest(sz_hash_state_t const *state) {
     return sz_hash_state_digest_v128relaxed(state);
 #elif SZ_USE_V128
     return sz_hash_state_digest_v128(state);
+#elif SZ_USE_RVVCRYPTO
+    return sz_hash_state_digest_rvvcrypto(state);
 #elif SZ_USE_RVV
     return sz_hash_state_digest_rvv(state);
 #elif SZ_USE_LASX
@@ -728,6 +833,8 @@ SZ_API_RUNTIME sz_u64_t sz_hash_state_digest(sz_hash_state_t const *state) {
 SZ_API_RUNTIME void sz_sha256_state_init(sz_sha256_state_t *state) {
 #if SZ_USE_V128
     sz_sha256_state_init_v128(state);
+#elif SZ_USE_RVVCRYPTO
+    sz_sha256_state_init_rvvcrypto(state);
 #elif SZ_USE_RVV
     sz_sha256_state_init_rvv(state);
 #elif SZ_USE_LASX
@@ -736,8 +843,6 @@ SZ_API_RUNTIME void sz_sha256_state_init(sz_sha256_state_t *state) {
     sz_sha256_state_init_powervsx(state);
 #elif SZ_USE_NEONSHA
     sz_sha256_state_init_neonsha(state);
-#elif SZ_USE_ICELAKE
-    sz_sha256_state_init_icelake(state);
 #elif SZ_USE_GOLDMONT
     sz_sha256_state_init_goldmont(state);
 #else
@@ -748,6 +853,8 @@ SZ_API_RUNTIME void sz_sha256_state_init(sz_sha256_state_t *state) {
 SZ_API_RUNTIME void sz_sha256_state_update(sz_sha256_state_t *state, sz_cptr_t data, sz_size_t length) {
 #if SZ_USE_V128
     sz_sha256_state_update_v128(state, data, length);
+#elif SZ_USE_RVVCRYPTO
+    sz_sha256_state_update_rvvcrypto(state, data, length);
 #elif SZ_USE_RVV
     sz_sha256_state_update_rvv(state, data, length);
 #elif SZ_USE_LASX
@@ -756,8 +863,6 @@ SZ_API_RUNTIME void sz_sha256_state_update(sz_sha256_state_t *state, sz_cptr_t d
     sz_sha256_state_update_powervsx(state, data, length);
 #elif SZ_USE_NEONSHA
     sz_sha256_state_update_neonsha(state, data, length);
-#elif SZ_USE_ICELAKE
-    sz_sha256_state_update_icelake(state, data, length);
 #elif SZ_USE_GOLDMONT
     sz_sha256_state_update_goldmont(state, data, length);
 #else
@@ -765,9 +870,12 @@ SZ_API_RUNTIME void sz_sha256_state_update(sz_sha256_state_t *state, sz_cptr_t d
 #endif
 }
 
-SZ_API_RUNTIME void sz_sha256_state_digest(sz_sha256_state_t const *state, sz_u8_t digest[sz_at_least_(32)]) {
+SZ_API_RUNTIME void sz_sha256_state_digest(sz_sha256_state_t const *state,
+                                           sz_u8_t digest[sz_at_least_(SZ_SHA256_DIGEST_LENGTH)]) {
 #if SZ_USE_V128
     sz_sha256_state_digest_v128(state, digest);
+#elif SZ_USE_RVVCRYPTO
+    sz_sha256_state_digest_rvvcrypto(state, digest);
 #elif SZ_USE_RVV
     sz_sha256_state_digest_rvv(state, digest);
 #elif SZ_USE_LASX
@@ -776,12 +884,35 @@ SZ_API_RUNTIME void sz_sha256_state_digest(sz_sha256_state_t const *state, sz_u8
     sz_sha256_state_digest_powervsx(state, digest);
 #elif SZ_USE_NEONSHA
     sz_sha256_state_digest_neonsha(state, digest);
-#elif SZ_USE_ICELAKE
-    sz_sha256_state_digest_icelake(state, digest);
 #elif SZ_USE_GOLDMONT
     sz_sha256_state_digest_goldmont(state, digest);
 #else
     sz_sha256_state_digest_serial(state, digest);
+#endif
+}
+
+SZ_API_RUNTIME void sz_sha256_multistate_update(sz_sha256_state_t *states, sz_sequence_t const *texts) {
+#if SZ_USE_SKYLAKE
+    sz_sha256_multistate_update_skylake(states, texts);
+#elif SZ_USE_HASWELL
+    sz_sha256_multistate_update_haswell(states, texts);
+#elif SZ_USE_GOLDMONT
+    sz_sha256_multistate_update_goldmont(states, texts);
+#else
+    sz_sha256_multistate_update_serial(states, texts);
+#endif
+}
+
+SZ_API_RUNTIME void sz_sha256_multistate_digest(sz_sha256_state_t const *states, sz_size_t states_count,
+                                                sz_u8_t *digests) {
+#if SZ_USE_SKYLAKE
+    sz_sha256_multistate_digest_skylake(states, states_count, digests);
+#elif SZ_USE_HASWELL
+    sz_sha256_multistate_digest_haswell(states, states_count, digests);
+#elif SZ_USE_GOLDMONT
+    sz_sha256_multistate_digest_goldmont(states, states_count, digests);
+#else
+    sz_sha256_multistate_digest_serial(states, states_count, digests);
 #endif
 }
 

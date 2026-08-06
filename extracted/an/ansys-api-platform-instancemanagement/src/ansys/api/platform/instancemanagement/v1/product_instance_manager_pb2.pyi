@@ -8,6 +8,7 @@ isort:skip_file
 import builtins
 import collections.abc
 import google.protobuf.descriptor
+import google.protobuf.empty_pb2
 import google.protobuf.internal.containers
 import google.protobuf.message
 import typing
@@ -46,30 +47,31 @@ class Instance(google.protobuf.message.Message):
     STATUS_MESSAGE_FIELD_NUMBER: builtins.int
     SERVICES_FIELD_NUMBER: builtins.int
     name: builtins.str
-    """(Output only) The name of the product instance.
-    Starts with 'instances/'
-    e.g: instances/workbench-221-12345
+    """(Output only) Name of the product instance.
+    The name starts with 'instances/'.
+    For example: instances/workbench-221-12345
     """
     definition_name: builtins.str
-    """The name of the product definition.
-    e.g: definitions/workbench-221
-    Note: A list of all product definition names can be found using `ListDefinitions`
+    """Name of the product definition.
+    For example: definitions/workbench-221
+    Note: To obtain a list of all product definition names, use the
+    `ListDefinitions` method.
     """
     ready: builtins.bool
-    """(Output only) The status of the instance.
-    When this status is true, then the services can be used.
+    """(Output only) Status of the instance.
+    When the status is true, the services can be used.
     """
     status_message: builtins.str
-    """(Output only) Human readable message elaborating the status of the instance.
+    """(Output only) Human-readable message elaborating the status of the instance.
     Available only if ready is false.
     """
     @property
     def services(self) -> google.protobuf.internal.containers.MessageMap[builtins.str, global___Service]:
-        """(Output only) Services exposed by this instance, by name.
+        """(Output only) Names of the services exposed by this instance.
         Available only if the instance is ready.
         The list of keys must match the `available_service_names` of this instance definition.
-        If the instance exposes a main HTTP API, then the service must be named "http"
-        If the instance exposes a main GRPC API, then the service must be named "grpc"
+        If the instance exposes a main HTTP API, the service must be named "http".
+        If the instance exposes a main gRPC API, the service must be named "grpc".
         """
 
     def __init__(
@@ -88,7 +90,8 @@ global___Instance = Instance
 @typing.final
 class Definition(google.protobuf.message.Message):
     """Static definition of a product instance.
-    To list all available product definitions, use `ListDefinitions`
+    To list all available product definitions, use the `ListDefinitions`
+    method.
     """
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -98,25 +101,25 @@ class Definition(google.protobuf.message.Message):
     PRODUCT_VERSION_FIELD_NUMBER: builtins.int
     AVAILABLE_SERVICE_NAMES_FIELD_NUMBER: builtins.int
     name: builtins.str
-    """The product definition name.
-    e.g: definitions/workbench-221
+    """Product definition name.
+    For example: definitions/workbench-221
     """
     product_name: builtins.str
     """Name of the product.
-    e.g: workbench
+    For example: workbench
     """
     product_version: builtins.str
     """Version of the product.
-    For product following the unified installation, it
-    should be the 3 letters short name of the version.
-    e.g: 221
+    For a product following the unified installation, use
+    the 3-digit format for the version.
+    For example: 221
     """
     @property
     def available_service_names(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
-        """List of available services name that an instance of this definition
-        will expose once created.
-        If the instance exposes a main HTTP API, then the service must be named "http"
-        If the instance exposes a main GRPC API, then the service must be named "grpc"
+        """List of names for the available services that an instance of this definition
+        exposes once it is created.
+        If the instance exposes a main HTTP API, the service must be named "http".
+        If the instance exposes a main gRPC API, the service must be named "grpc".
         """
 
     def __init__(
@@ -130,6 +133,78 @@ class Definition(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["available_service_names", b"available_service_names", "name", b"name", "product_name", b"product_name", "product_version", b"product_version"]) -> None: ...
 
 global___Definition = Definition
+
+@typing.final
+class MtlsClientInfo(google.protobuf.message.Message):
+    """Resolved file paths a client needs to create an mTLS-secured gRPC channel.
+    All paths are fully resolved by the server (env-var fallbacks and defaults applied).
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CA_CERTIFICATE_PATH_FIELD_NUMBER: builtins.int
+    CLIENT_CERTIFICATE_PATH_FIELD_NUMBER: builtins.int
+    CLIENT_KEY_PATH_FIELD_NUMBER: builtins.int
+    ca_certificate_path: builtins.str
+    """Path to the trusted CA certificate file (ca.crt)."""
+    client_certificate_path: builtins.str
+    """Path to the client's certificate file (client.crt)."""
+    client_key_path: builtins.str
+    """Path to the client's private key file (client.key)."""
+    def __init__(
+        self,
+        *,
+        ca_certificate_path: builtins.str = ...,
+        client_certificate_path: builtins.str = ...,
+        client_key_path: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["ca_certificate_path", b"ca_certificate_path", "client_certificate_path", b"client_certificate_path", "client_key_path", b"client_key_path"]) -> None: ...
+
+global___MtlsClientInfo = MtlsClientInfo
+
+@typing.final
+class ServiceSecurityInfo(google.protobuf.message.Message):
+    """Connection security info for a service, as resolved by the server.
+    Tells the client how to configure its gRPC channel.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    INSECURE_FIELD_NUMBER: builtins.int
+    MTLS_FIELD_NUMBER: builtins.int
+    WNUA_FIELD_NUMBER: builtins.int
+    UDS_FIELD_NUMBER: builtins.int
+    @property
+    def insecure(self) -> google.protobuf.empty_pb2.Empty:
+        """No TLS. Connect with an insecure channel."""
+
+    @property
+    def mtls(self) -> global___MtlsClientInfo:
+        """Mutual TLS. The client must load these files to build its channel."""
+
+    @property
+    def wnua(self) -> google.protobuf.empty_pb2.Empty:
+        """Windows user-based authentication (Windows only).
+        Connect with an insecure channel; the server-side interceptor handles auth.
+        """
+
+    @property
+    def uds(self) -> google.protobuf.empty_pb2.Empty:
+        """Unix Domain Socket. The socket path is also encoded in the service URI."""
+
+    def __init__(
+        self,
+        *,
+        insecure: google.protobuf.empty_pb2.Empty | None = ...,
+        mtls: global___MtlsClientInfo | None = ...,
+        wnua: google.protobuf.empty_pb2.Empty | None = ...,
+        uds: google.protobuf.empty_pb2.Empty | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["insecure", b"insecure", "mtls", b"mtls", "transport", b"transport", "uds", b"uds", "wnua", b"wnua"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["insecure", b"insecure", "mtls", b"mtls", "transport", b"transport", "uds", b"uds", "wnua", b"wnua"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["transport", b"transport"]) -> typing.Literal["insecure", "mtls", "wnua", "uds"] | None: ...
+
+global___ServiceSecurityInfo = ServiceSecurityInfo
 
 @typing.final
 class Service(google.protobuf.message.Message):
@@ -155,58 +230,223 @@ class Service(google.protobuf.message.Message):
 
     URI_FIELD_NUMBER: builtins.int
     HEADERS_FIELD_NUMBER: builtins.int
+    SECURITY_FIELD_NUMBER: builtins.int
     uri: builtins.str
-    """The URI to reach the service
-    For gRPC, this is a valid URI, following gRPC name resolution syntax:
+    """URI to reach the service.
+    For gRPC, this is a valid URI, following the gRPC name resolution syntax:
     https://grpc.github.io/grpc/core/md_doc_naming.html
-    For HTTP/REST, this is a valid http or https URI. It is the base path of the service API.
+    For HTTP/REST, this is a valid HTTP or HTTPS URI. It is the base path of the service API.
     """
     @property
     def headers(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
-        """The list of headers to pass to the service for each request to the service."""
+        """List of headers to pass to the service for each request to the service."""
+
+    @property
+    def security(self) -> global___ServiceSecurityInfo:
+        """(Output only) How to secure the connection to this service.
+        Only set when the instance was created with explicit security settings.
+        """
 
     def __init__(
         self,
         *,
         uri: builtins.str = ...,
         headers: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
+        security: global___ServiceSecurityInfo | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["headers", b"headers", "uri", b"uri"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["security", b"security"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["headers", b"headers", "security", b"security", "uri", b"uri"]) -> None: ...
 
 global___Service = Service
 
 @typing.final
+class MtlsCertificatePaths(google.protobuf.message.Message):
+    """Individual certificate and key file paths for mTLS.
+    Expected file naming convention:
+      Client Certificate:      client.crt
+      Client Private Key:      client.key
+      Server Certificate:      server.crt
+      Server Private Key:      server.key
+      Trusted CA Certificates: ca.crt
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    SERVER_KEY_PATH_FIELD_NUMBER: builtins.int
+    SERVER_CERTIFICATE_PATH_FIELD_NUMBER: builtins.int
+    CA_CERTIFICATE_PATH_FIELD_NUMBER: builtins.int
+    CLIENT_KEY_PATH_FIELD_NUMBER: builtins.int
+    CLIENT_CERTIFICATE_PATH_FIELD_NUMBER: builtins.int
+    server_key_path: builtins.str
+    """Path to the server's private key file (server.key)."""
+    server_certificate_path: builtins.str
+    """Path to the server's certificate file (server.crt)."""
+    ca_certificate_path: builtins.str
+    """Path to the trusted CA certificate file (ca.crt)."""
+    client_key_path: builtins.str
+    """Path to the client's private key file (client.key)."""
+    client_certificate_path: builtins.str
+    """Path to the client's certificate file (client.crt)."""
+    def __init__(
+        self,
+        *,
+        server_key_path: builtins.str = ...,
+        server_certificate_path: builtins.str = ...,
+        ca_certificate_path: builtins.str = ...,
+        client_key_path: builtins.str = ...,
+        client_certificate_path: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["ca_certificate_path", b"ca_certificate_path", "client_certificate_path", b"client_certificate_path", "client_key_path", b"client_key_path", "server_certificate_path", b"server_certificate_path", "server_key_path", b"server_key_path"]) -> None: ...
+
+global___MtlsCertificatePaths = MtlsCertificatePaths
+
+@typing.final
+class MtlsSettings(google.protobuf.message.Message):
+    """Settings for mutual TLS (mTLS) — a secure gRPC channel with certificates.
+
+    Certificate resolution order:
+      1. `certificate_source` (directory path or individual paths), if set.
+      2. Path from the ANSYS_GRPC_CERTIFICATES environment variable, if set.
+      3. Default directory: "certs".
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CERTIFICATES_DIRECTORY_FIELD_NUMBER: builtins.int
+    CERTIFICATE_PATHS_FIELD_NUMBER: builtins.int
+    certificates_directory: builtins.str
+    """Directory containing all certificate and key files."""
+    @property
+    def certificate_paths(self) -> global___MtlsCertificatePaths:
+        """Individual file paths for each certificate and key."""
+
+    def __init__(
+        self,
+        *,
+        certificates_directory: builtins.str = ...,
+        certificate_paths: global___MtlsCertificatePaths | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["certificate_paths", b"certificate_paths", "certificate_source", b"certificate_source", "certificates_directory", b"certificates_directory"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["certificate_paths", b"certificate_paths", "certificate_source", b"certificate_source", "certificates_directory", b"certificates_directory"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["certificate_source", b"certificate_source"]) -> typing.Literal["certificates_directory", "certificate_paths"] | None: ...
+
+global___MtlsSettings = MtlsSettings
+
+@typing.final
+class UdsSettings(google.protobuf.message.Message):
+    """Settings for a Unix Domain Socket (UDS) connection."""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    SOCKET_PATH_FIELD_NUMBER: builtins.int
+    SOCKET_DIRECTORY_FIELD_NUMBER: builtins.int
+    SOCKET_IDENTIFIER_FIELD_NUMBER: builtins.int
+    socket_path: builtins.str
+    """Full path of the socket file.
+    When set, socket_directory and socket_identifier are ignored.
+    """
+    socket_directory: builtins.str
+    """Directory where socket files are stored."""
+    socket_identifier: builtins.str
+    """Identifier used in the socket file name."""
+    def __init__(
+        self,
+        *,
+        socket_path: builtins.str = ...,
+        socket_directory: builtins.str = ...,
+        socket_identifier: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["socket_directory", b"socket_directory", "socket_identifier", b"socket_identifier", "socket_path", b"socket_path"]) -> None: ...
+
+global___UdsSettings = UdsSettings
+
+@typing.final
+class InstanceSecuritySettings(google.protobuf.message.Message):
+    """Security settings for the gRPC service exposed by a product instance.
+
+    Set exactly one field to select the transport mode and supply its settings.
+    If no field is set, the server applies its default security configuration.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    INSECURE_FIELD_NUMBER: builtins.int
+    MTLS_FIELD_NUMBER: builtins.int
+    WNUA_FIELD_NUMBER: builtins.int
+    UDS_FIELD_NUMBER: builtins.int
+    @property
+    def insecure(self) -> google.protobuf.empty_pb2.Empty:
+        """Insecure gRPC channel (no TLS)."""
+
+    @property
+    def mtls(self) -> global___MtlsSettings:
+        """Mutual TLS — secure gRPC channel with client and server certificates."""
+
+    @property
+    def wnua(self) -> google.protobuf.empty_pb2.Empty:
+        """Windows user-based authentication (Windows only).
+        Uses an insecure gRPC channel with a server-side interceptor.
+        """
+
+    @property
+    def uds(self) -> global___UdsSettings:
+        """Unix Domain Socket connection."""
+
+    def __init__(
+        self,
+        *,
+        insecure: google.protobuf.empty_pb2.Empty | None = ...,
+        mtls: global___MtlsSettings | None = ...,
+        wnua: google.protobuf.empty_pb2.Empty | None = ...,
+        uds: global___UdsSettings | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["insecure", b"insecure", "mtls", b"mtls", "transport", b"transport", "uds", b"uds", "wnua", b"wnua"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["insecure", b"insecure", "mtls", b"mtls", "transport", b"transport", "uds", b"uds", "wnua", b"wnua"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["transport", b"transport"]) -> typing.Literal["insecure", "mtls", "wnua", "uds"] | None: ...
+
+global___InstanceSecuritySettings = InstanceSecuritySettings
+
+@typing.final
 class CreateInstanceRequest(google.protobuf.message.Message):
-    """Request message for `CreateInstance` method."""
+    """Request message for the `CreateInstance` method."""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     INSTANCE_FIELD_NUMBER: builtins.int
+    SECURITY_SETTINGS_FIELD_NUMBER: builtins.int
     @property
     def instance(self) -> global___Instance:
-        """The product instance resource to create.
-        Note: you can call `ListDefinitions` to get a list of existing instance definitions.
+        """Product instance resource to create.
+        Note: You can call the `ListDefinitions` method to get a list of existing instance
+        definitions.
+        """
+
+    @property
+    def security_settings(self) -> global___InstanceSecuritySettings:
+        """Optional security settings for the gRPC service exposed by the instance.
+        If not set, the server applies default security settings.
         """
 
     def __init__(
         self,
         *,
         instance: global___Instance | None = ...,
+        security_settings: global___InstanceSecuritySettings | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["instance", b"instance"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["instance", b"instance"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["instance", b"instance", "security_settings", b"security_settings"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["instance", b"instance", "security_settings", b"security_settings"]) -> None: ...
 
 global___CreateInstanceRequest = CreateInstanceRequest
 
 @typing.final
 class DeleteInstanceRequest(google.protobuf.message.Message):
-    """Request message for `DeleteInstance` method."""
+    """Request message for the `DeleteInstance` method."""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     NAME_FIELD_NUMBER: builtins.int
     name: builtins.str
-    """The instance name of the product to delete."""
+    """Instance name of the product to delete."""
     def __init__(
         self,
         *,
@@ -219,14 +459,16 @@ global___DeleteInstanceRequest = DeleteInstanceRequest
 @typing.final
 class GetInstanceRequest(google.protobuf.message.Message):
     """
-    Request message for `GetInstance` method.
+    Request message for the `GetInstance` method.
     """
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     NAME_FIELD_NUMBER: builtins.int
     name: builtins.str
-    """The name of the product instance. E.g: instances/example-212-IDAENEID"""
+    """Name of the product instance.
+    For example: instances/example-212-123456879
+    """
     def __init__(
         self,
         *,
@@ -238,22 +480,22 @@ global___GetInstanceRequest = GetInstanceRequest
 
 @typing.final
 class ListInstancesRequest(google.protobuf.message.Message):
-    """Request message for `ListInstances` method."""
+    """Request message for the `ListInstances` method."""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     PAGE_SIZE_FIELD_NUMBER: builtins.int
     PAGE_TOKEN_FIELD_NUMBER: builtins.int
     page_size: builtins.int
-    """The maximum number of productInstances to return in the response. If this value
-    is zero, the service will select a default size. A call may return fewer
+    """Maximum number of product instances to return in the response. If this value
+    is zero, the service selects a default size. A call may return fewer
     objects than requested. A non-empty `next_page_token` in the response
     indicates that more data is available.
     """
     page_token: builtins.str
-    """The value returned by the last `ListInstancesResponse`; indicates
-    that this is a continuation of a prior `ListApps` call and
-    the system should return the next page of data.
+    """Value returned by the last call to the `ListInstances` method.
+    This value indicates that this is a continuation of a prior `ListInstances` call
+    and that the system should return the next page of data.
     """
     def __init__(
         self,
@@ -267,19 +509,21 @@ global___ListInstancesRequest = ListInstancesRequest
 
 @typing.final
 class ListInstancesResponse(google.protobuf.message.Message):
-    """Response message for ListInstances call."""
+    """Response message for the `ListInstances` call."""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     INSTANCES_FIELD_NUMBER: builtins.int
     NEXT_PAGE_TOKEN_FIELD_NUMBER: builtins.int
     next_page_token: builtins.str
-    """If not empty, indicates that there may be more productInstances that match the
-    request; this value should be passed in a new `ListInstancesRequest`.
+    """If this field is empty, there are no more results in the list.
+    If this field is not empty, it contains the token for retrieving the next page of
+    results. To retrieve the next page of results, pass this token as `page_token`
+    in a new call to the `ListInstances` method.
     """
     @property
     def instances(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Instance]:
-        """The list of running productInstances."""
+        """List of running product instances."""
 
     def __init__(
         self,
@@ -293,7 +537,7 @@ global___ListInstancesResponse = ListInstancesResponse
 
 @typing.final
 class ListDefinitionsRequest(google.protobuf.message.Message):
-    """Request message for `ListDefinitions` method."""
+    """Request message for the `ListDefinitions` method."""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -302,23 +546,24 @@ class ListDefinitionsRequest(google.protobuf.message.Message):
     PRODUCT_NAME_FIELD_NUMBER: builtins.int
     PRODUCT_VERSION_FIELD_NUMBER: builtins.int
     page_size: builtins.int
-    """The maximum number of product definitions to return in the response. If this value
-    is zero, the service will select a default size. A call may return fewer
+    """Maximum number of product definitions to return in the response. If this value
+    is zero, the service selects a default size. A call may return fewer
     objects than requested. A non-empty `next_page_token` in the response
     indicates that more data is available.
     """
     page_token: builtins.str
-    """The value returned by the last `ListDefinitionsResponse`; indicates
-    that this is a continuation of a prior `ListApps` call and
-    the system should return the next page of data.
+    """Value returned by the last call to the `ListDefinitions` method.
+    This value indicates that this is a continuation of a prior `ListDefinitions` call
+    and that the system should return the next page of data.
     """
     product_name: builtins.str
-    """When specified, only products matching this name will be returned.
-    e.g: workbench
+    """When a product name is specified, only products matching this name are returned.
+    For example: workbench
     """
     product_version: builtins.str
-    """When specified, only products matching this version will be returned.
-    e.g: 211
+    """When a version in the three-digit format is specified, only products matching
+    this version are returned.
+    For example: 211
     """
     def __init__(
         self,
@@ -334,19 +579,21 @@ global___ListDefinitionsRequest = ListDefinitionsRequest
 
 @typing.final
 class ListDefinitionsResponse(google.protobuf.message.Message):
-    """Response message for `ListDefinitions` call."""
+    """Response message for the `ListDefinitions` call."""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     DEFINITIONS_FIELD_NUMBER: builtins.int
     NEXT_PAGE_TOKEN_FIELD_NUMBER: builtins.int
     next_page_token: builtins.str
-    """If not empty, indicates that there may be more products that match the
-    request; this value should be passed in a new `ListDefinitionsRequest`.
+    """If this field is empty, there are no more results in the list.
+    If this field is not empty, it contains the token for retrieving the next page of
+    results. To retrieve the next page of results, pass this token as `page_token`
+    in a new call to the `ListDefinitions` method.
     """
     @property
     def definitions(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Definition]:
-        """The list of all products that can be used to start new instances."""
+        """List of all products that can be used to start new instances."""
 
     def __init__(
         self,
@@ -360,14 +607,15 @@ global___ListDefinitionsResponse = ListDefinitionsResponse
 
 @typing.final
 class GetDefinitionRequest(google.protobuf.message.Message):
-    """Request message for `GetDefinition` method."""
+    """Request message for the `GetDefinition` method."""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     NAME_FIELD_NUMBER: builtins.int
     name: builtins.str
-    """The name of the product definition. E.g: definitions/example-212
-    Note: you can call `ListDefinitions` to get a list of existing job definition.
+    """Name of the product definition.
+    For example: definitions/example-212
+    Note: You can call the `ListDefinitions` method to get a list of existing product definitions.
     """
     def __init__(
         self,

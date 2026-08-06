@@ -3,6 +3,8 @@ from __future__ import annotations
 import typing as t
 from dataclasses import field
 
+from query_cache_protobuf.query_cache.services import sql_service_pb2
+
 from query_cache_common.decorators import proto_dataclass
 from query_cache_common.models import shared_models
 from query_cache_common.models._typing import TransformedNodesByQuery
@@ -12,7 +14,6 @@ from query_cache_common.models.fields import (
     transformed_nodes_by_query_field,
 )
 from query_cache_common.models.services.clone_service_models import TableProperties
-from query_cache_protobuf.query_cache.services import sql_service_pb2
 
 
 @proto_dataclass(sql_service_pb2.SubmitValuesRequest)

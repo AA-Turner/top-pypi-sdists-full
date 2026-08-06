@@ -106,8 +106,8 @@ def _get_single_vram_utilization(handle: Any) -> float:
   return 0.0
 
 
-def get_gpu_utilization() -> Sequence[float]:
-  """Returns the GPU SM core utilization from pynvml."""
+def get_gpu_duty_cycle() -> Sequence[float]:
+  """Returns the GPU SM duty cycle (temporal active percentage) from pynvml."""
   if not _initialized:
     _initialize()
   if not pynvml:
@@ -124,8 +124,14 @@ def get_gpu_utilization() -> Sequence[float]:
         for i in range(device_count)
     ]
   except Exception:  # pylint: disable=broad-exception-caught
-    logger.warning("Failed to get GPU utilization.", exc_info=True)
+    logger.warning("Failed to get GPU duty cycle.", exc_info=True)
     return [0.0]
+
+
+# TODO([INTERNAL]): Remove this function once all references are updated.
+def get_gpu_utilization() -> Sequence[float]:
+  """Deprecated: Use get_gpu_duty_cycle() instead."""
+  return get_gpu_duty_cycle()
 
 
 def get_gpu_tensorcore_utilization() -> Sequence[float]:
@@ -166,4 +172,24 @@ def get_vram_utilization() -> Sequence[float]:
   except Exception:  # pylint: disable=broad-exception-caught
     logger.warning("Failed to get VRAM utilization.", exc_info=True)
     return [0.0]
+
+
+def get_gpu_device_info() -> tuple[str, int]:
+  """Returns (device_name, device_count) if NVML is available, otherwise ('unknown', 0)."""
+  if not _initialized:
+    _initialize()
+  if not pynvml:
+    return "unknown", 0
+  try:
+    device_count = pynvml.nvmlDeviceGetCount()
+    if device_count > 0:
+      handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+      device_name = pynvml.nvmlDeviceGetName(handle)
+      if isinstance(device_name, bytes):
+        device_name = device_name.decode("utf-8")
+      return device_name, device_count
+  except Exception as e:  # pylint: disable=broad-exception-caught
+    logger.warning("Failed to get GPU device info: %s", e)
+  return "unknown", 0
+
 

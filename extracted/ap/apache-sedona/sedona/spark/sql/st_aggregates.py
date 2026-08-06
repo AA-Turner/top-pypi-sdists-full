@@ -42,6 +42,37 @@ def ST_Envelope_Aggr(geometry: ColumnOrName) -> Column:
 
 
 @validate_argument_types
+def ST_Extent(geometry: ColumnOrName) -> Column:
+    """Aggregate Function: Get the bounding box (Box2D) of a geometry column.
+
+    Returns NULL when the input contains no rows or all rows are null/empty
+    geometries. Mirrors PostGIS ST_Extent.
+
+    :param geometry: Geometry column to aggregate.
+    :type geometry: ColumnOrName
+    :return: Box2D representing the union of bounding boxes of the geometry column.
+    :rtype: Column
+    """
+    return _call_aggregate_function("ST_Extent", geometry)
+
+
+@validate_argument_types
+def ST_3DExtent(geometry: ColumnOrName) -> Column:
+    """Aggregate Function: Get the 3D bounding box (Box3D) of a geometry column.
+
+    Returns NULL when the input contains no rows or all rows are null/empty
+    geometries. Geometries without a Z dimension contribute ``z = 0`` per
+    coordinate, matching PostGIS. Mirrors PostGIS ST_3DExtent.
+
+    :param geometry: Geometry column to aggregate.
+    :type geometry: ColumnOrName
+    :return: Box3D representing the union of 3D bounding boxes of the geometry column.
+    :rtype: Column
+    """
+    return _call_aggregate_function("ST_3DExtent", geometry)
+
+
+@validate_argument_types
 def ST_Intersection_Aggr(geometry: ColumnOrName) -> Column:
     """Aggregate Function: Get the aggregate intersection of a geometry column.
 

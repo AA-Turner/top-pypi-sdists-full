@@ -151,7 +151,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
         runs_on: str = UBUNTU_LATEST,
         if_condition: str | None = None,
         steps: list[dict[str, Any]] | None = None,
-        job: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Build a job configuration dict.
 
@@ -165,27 +164,23 @@ class WorkflowConfigFile(YMLDictConfigFile):
             if_condition: GitHub Actions conditional expression controlling
                 whether the job runs.
             steps: Ordered list of step configurations.
-            job: Additional job-level keys to merge into the configuration.
 
         Returns:
             Dict mapping the derived job ID to its configuration.
         """
-        if job is None:
-            job = {}
-        job_config: dict[str, Any] = {}
+        job = {}
         if if_condition is not None:
-            job_config["if"] = if_condition
+            job["if"] = if_condition
         if needs is not None:
-            job_config["needs"] = needs
+            job["needs"] = needs
         if permissions is not None:
-            job_config["permissions"] = permissions
-        job_config["runs-on"] = runs_on
+            job["permissions"] = permissions
+        job["runs-on"] = runs_on
         if strategy is not None:
-            job_config["strategy"] = strategy
+            job["strategy"] = strategy
         if steps is not None:
-            job_config["steps"] = steps
-        job_config.update(job)
-        return {self.id_from_method(method): job_config}
+            job["steps"] = steps
+        return {self.id_from_method(method): job}
 
     def step(  # noqa: PLR0913
         self,
@@ -196,7 +191,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
         uses: str | None = None,
         with_: dict[str, Any] | None = None,
         env: dict[str, Any] | None = None,
-        step: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Build a step configuration dict.
 
@@ -210,31 +204,26 @@ class WorkflowConfigFile(YMLDictConfigFile):
                 `"actions/checkout@main"`).
             with_: Input parameters passed to the action.
             env: Step-level environment variables.
-            step: Additional keys to merge into the step configuration.
 
         Returns:
             Step configuration dict with at least `name` and `id` set.
         """
-        if step is None:
-            step = {}
-        step_config: dict[str, Any] = {
+        step = {
             "name": self.name_from_method(method),
             "id": self.id_from_method(method),
         }
         if if_condition is not None:
-            step_config["if"] = if_condition
+            step["if"] = if_condition
         if run is not None:
-            step_config["run"] = run
+            step["run"] = run
         if uses is not None:
-            step_config["uses"] = uses
+            step["uses"] = uses
         if with_ is not None:
-            step_config["with"] = with_
+            step["with"] = with_
         if env is not None:
-            step_config["env"] = env
+            step["env"] = env
 
-        step_config.update(step)
-
-        return step_config
+        return step
 
     def name_from_method(self, method: MethodType) -> str:
         """Generate a human-readable display name from a method.
@@ -344,8 +333,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
         self,
         os: list[str] | None = None,
         python_versions: list[str] | None = None,
-        matrix: dict[str, list[Any]] | None = None,
-        strategy: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Create a strategy with OS and Python version matrix.
 
@@ -356,27 +343,39 @@ class WorkflowConfigFile(YMLDictConfigFile):
             python_versions: Python version strings to test against. Defaults
                 to all versions returned by
                 `PyprojectConfigFile.supported_python_versions()`.
-            matrix: Additional matrix dimensions to merge in.
-            strategy: Additional strategy options (e.g. `max-parallel`).
 
         Returns:
             Strategy configuration containing the combined OS and Python
             version matrix.
         """
         return self.strategy_matrix(
-            matrix=self.matrix_os_and_python_version(
-                os=os,
-                python_versions=python_versions,
-                matrix=matrix,
-            ),
-            strategy=strategy,
+            matrix={
+                **self.matrix_os(os=os),
+                **self.matrix_python_version(python_versions=python_versions),
+            },
+        )
+
+    def strategy_matrix_python_version(
+        self,
+        python_versions: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Create a strategy with Python version matrix.
+
+        Args:
+            python_versions: Python version strings to test against. Defaults
+                to all versions returned by
+                `PyprojectConfigFile.supported_python_versions()`.
+
+        Returns:
+            Strategy configuration containing the Python version matrix.
+        """
+        return self.strategy_matrix(
+            matrix=self.matrix_python_version(python_versions=python_versions),
         )
 
     def strategy_matrix_os(
         self,
         os: list[str] | None = None,
-        matrix: dict[str, list[Any]] | None = None,
-        strategy: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Create a strategy with OS matrix.
 
@@ -384,38 +383,26 @@ class WorkflowConfigFile(YMLDictConfigFile):
             os: Runner labels to test against. Defaults to Ubuntu, Windows,
                 and macOS latest (`ubuntu-latest`, `windows-latest`,
                 `macos-latest`).
-            matrix: Additional matrix dimensions to merge in.
-            strategy: Additional strategy options (e.g. `max-parallel`).
 
         Returns:
             Strategy configuration containing the OS matrix.
         """
-        return self.strategy_matrix(
-            matrix=self.matrix_os(os=os, matrix=matrix),
-            strategy=strategy,
-        )
+        return self.strategy_matrix(matrix=self.matrix_os(os=os))
 
     def strategy_matrix(
         self,
         *,
-        strategy: dict[str, Any] | None = None,
-        matrix: dict[str, list[Any]] | None = None,
+        matrix: dict[str, list[Any]],
     ) -> dict[str, Any]:
         """Create a matrix strategy configuration.
 
         Args:
-            strategy: Base strategy options.
             matrix: Matrix dimensions.
 
         Returns:
             Strategy configuration with matrix.
         """
-        if strategy is None:
-            strategy = {}
-        if matrix is None:
-            matrix = {}
-        strategy["matrix"] = matrix
-        return self.strategy(strategy=strategy)
+        return self.strategy(strategy={"matrix": matrix})
 
     def strategy(
         self,
@@ -436,42 +423,10 @@ class WorkflowConfigFile(YMLDictConfigFile):
         strategy["fail-fast"] = strategy.pop("fail-fast", True)
         return strategy
 
-    def matrix_os_and_python_version(
-        self,
-        os: list[str] | None = None,
-        python_versions: list[str] | None = None,
-        matrix: dict[str, list[Any]] | None = None,
-    ) -> dict[str, Any]:
-        """Create a matrix with OS and Python version dimensions.
-
-        Args:
-            os: Runner labels to include. Defaults to Ubuntu, Windows, and
-                macOS latest (`ubuntu-latest`, `windows-latest`,
-                `macos-latest`).
-            python_versions: Python version strings to include. Defaults to
-                all versions returned by
-                `PyprojectConfigFile.supported_python_versions()`.
-            matrix: Additional matrix dimensions to merge in.
-
-        Returns:
-            Matrix dict with `os` and `python-version` keys populated.
-        """
-        if matrix is None:
-            matrix = {}
-        os_matrix = self.matrix_os(os=os, matrix=matrix)["os"]
-        python_version_matrix = self.matrix_python_version(
-            python_versions=python_versions,
-            matrix=matrix,
-        )["python-version"]
-        matrix["os"] = os_matrix
-        matrix["python-version"] = python_version_matrix
-        return self.matrix(matrix=matrix)
-
     def matrix_os(
         self,
         *,
         os: list[str] | None = None,
-        matrix: dict[str, list[Any]] | None = None,
     ) -> dict[str, Any]:
         """Create a matrix with OS dimension.
 
@@ -479,23 +434,18 @@ class WorkflowConfigFile(YMLDictConfigFile):
             os: Runner labels to include. Defaults to Ubuntu, Windows, and
                 macOS latest (`ubuntu-latest`, `windows-latest`,
                 `macos-latest`).
-            matrix: Additional matrix dimensions to merge in.
 
         Returns:
             Matrix dict with the `os` key populated.
         """
         if os is None:
             os = [self.UBUNTU_LATEST, self.WINDOWS_LATEST, self.MACOS_LATEST]
-        if matrix is None:
-            matrix = {}
-        matrix["os"] = os
-        return self.matrix(matrix=matrix)
+        return self.matrix({"os": os})
 
     def matrix_python_version(
         self,
         *,
         python_versions: list[str] | None = None,
-        matrix: dict[str, list[Any]] | None = None,
     ) -> dict[str, Any]:
         """Create a matrix with Python version dimension.
 
@@ -503,7 +453,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
             python_versions: Python version strings to include. Defaults to
                 all versions returned by
                 `PyprojectConfigFile.supported_python_versions()`.
-            matrix: Additional matrix dimensions to merge in.
 
         Returns:
             Matrix dict with the `python-version` key populated.
@@ -512,10 +461,7 @@ class WorkflowConfigFile(YMLDictConfigFile):
             python_versions = [
                 str(v) for v in PyprojectConfigFile.I.supported_python_versions()
             ]
-        if matrix is None:
-            matrix = {}
-        matrix["python-version"] = python_versions
-        return self.matrix(matrix=matrix)
+        return self.matrix({"python-version": python_versions})
 
     def matrix(self, matrix: dict[str, list[Any]]) -> dict[str, Any]:
         """Return the matrix configuration.
@@ -613,35 +559,24 @@ class WorkflowConfigFile(YMLDictConfigFile):
             self.step_setup_package_manager(python_version=python_version),
         ]
 
-    def step_checkout_repository(
-        self,
-        *,
-        step: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    def step_checkout_repository(self) -> dict[str, Any]:
         """Build a step that checks out the repository.
 
         Uses `actions/checkout@main`, which authenticates with the automatic
         `GITHUB_TOKEN`.
 
-        Args:
-            step: Additional keys to merge into the step configuration.
-
         Returns:
             Step using `actions/checkout@main`.
         """
-        if step is None:
-            step = {}
         return self.step(
             self.step_checkout_repository,
             uses="actions/checkout@main",
-            step=step,
         )
 
     def step_setup_package_manager(
         self,
         *,
         python_version: str,
-        step: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Build a step that installs uv and pins the Python version.
 
@@ -651,7 +586,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
 
         Args:
             python_version: Python version string to pin, e.g. `"3.13"`.
-            step: Additional keys to merge into the step configuration.
 
         Returns:
             Step using `astral-sh/setup-uv@main`.
@@ -660,21 +594,13 @@ class WorkflowConfigFile(YMLDictConfigFile):
             self.step_setup_package_manager,
             uses="astral-sh/setup-uv@main",
             with_={"python-version": python_version},
-            step=step,
         )
 
-    def step_update_dependencies(
-        self,
-        *,
-        step: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    def step_update_dependencies(self) -> dict[str, Any]:
         """Build a step that upgrades all pinned dependencies.
 
         Runs `uv lock --upgrade` to update the lock file to the latest
         versions allowed by the version constraints in `pyproject.toml`.
-
-        Args:
-            step: Additional keys to merge into the step configuration.
 
         Returns:
             Step that runs `uv lock --upgrade`.
@@ -682,20 +608,12 @@ class WorkflowConfigFile(YMLDictConfigFile):
         return self.step(
             self.step_update_dependencies,
             run=str(PackageManager.I.update_dependencies_args()),
-            step=step,
         )
 
-    def step_install_dependencies(
-        self,
-        *,
-        step: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    def step_install_dependencies(self) -> dict[str, Any]:
         """Build a step that synchronises the virtual environment.
 
         Runs `uv sync` to install all locked dependencies.
-
-        Args:
-            step: Additional keys to merge into the step configuration.
 
         Returns:
             Step that runs `uv sync`.
@@ -703,7 +621,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
         return self.step(
             self.step_install_dependencies,
             run=str(PackageManager.I.install_dependencies_args()),
-            step=step,
         )
 
     def repo_token_var(self) -> str:

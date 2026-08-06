@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mode-streaming
-Version: 0.5.4
+Version: 0.6.0
 Summary: AsyncIO Service-based programming
 Author-email: Ask Solem Hoel <ask@robinhood.com>
 Maintainer-email: William Barnhart <williambbarnhart@gmail.com>
@@ -12,7 +12,6 @@ Classifier: Framework :: AsyncIO
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -27,13 +26,12 @@ Classifier: Operating System :: Unix
 Classifier: Environment :: No Input/Output (Daemon)
 Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
 Requires-Dist: colorlog<7.0.0,>=6.0.0
 Requires-Dist: croniter<6.0.0,>=2.0.0
-Requires-Dist: importlib-metadata; python_version < "3.10"
 Requires-Dist: mypy_extensions
 Provides-Extra: eventlet
 Requires-Dist: faust-aioeventlet; extra == "eventlet"

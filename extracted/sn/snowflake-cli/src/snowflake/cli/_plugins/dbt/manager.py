@@ -25,10 +25,13 @@ from typing import Dict, List, Optional, TypedDict
 
 import yaml
 from snowflake.cli._plugins.dbt.constants import (
+    AUTO_COMPILE_PROPERTY,
     DBT_PROJECTS_PROFILES_FILENAME,
+    DEFAULT_WRITEBACK_PROPERTY,
     ENV_FILENAME,
     PROFILES_FILENAME,
     SUPPORTED_DBT_VERSIONS_QUERY,
+    WRITEBACK_CLAUSE,
 )
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.stage.manager import StageManager
@@ -40,6 +43,7 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.api.utils.types import try_cast_to_bool
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
@@ -47,6 +51,41 @@ DBT_ENV_SECRET_PREFIX = "DBT_ENV_SECRET_"
 _ENV_VAR_KEY_PREFIX = "DBT_"
 _ENV_VAR_KEY_RE = re.compile(r"^[A-Za-z0-9_]+$")
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
+# Grammar for a single --import value (see _render_import). An entry is
+# "VALUE [as ALIAS]" where each token is a bareword (no spaces) or a
+# single-quoted literal (spaces allowed, internal quotes doubled). VALUE is a
+# stage path (@…), a snow URL (snow://…), or a SYSTEM$ function; ALIAS is a
+# folder name.
+#
+# A well-formed single-quoted SQL string literal (internal quotes doubled).
+_QUOTED_LITERAL = r"'(?:[^']|'')*'"
+# Valid folder-alias (mount name): the server requires an ASCII name of letters,
+# digits, underscores, and hyphens (GS DBT_IMPORTS_INVALID_MOUNT_NAME).
+_MOUNT_NAME_RE = re.compile(r"[A-Za-z0-9_-]+")
+# A SYSTEM$ scalar function call whose arguments (if any) are string literals
+# only. Any SYSTEM$ function name is accepted — the server validates whether the
+# function is supported in IMPORTS; the CLI only constrains the shape. The
+# string-literal-only argument rule mirrors the server, which accepts only
+# string-literal arguments in an IMPORTS function call. Restricting to literals
+# also means the value can be emitted into SQL verbatim safely. Matched
+# case-insensitively.
+_SYSTEM_FUNC = (
+    r"SYSTEM\$[A-Za-z_][A-Za-z0-9_]*"
+    r"\(\s*(?:'(?:[^']|'')*'(?:\s*,\s*'(?:[^']|'')*')*\s*)?\)"
+)
+# Optional trailing " as <folder>", folder being a quoted literal or a bareword.
+_IMPORT_ALIAS = r"(?:\s+[aA][sS]\s+(?P<alias>" + _QUOTED_LITERAL + r"|\S+))?"
+# A SYSTEM$ import: the function (raw) plus an optional alias.
+_SYSTEM_IMPORT_RE = re.compile(
+    r"^(?P<value>" + _SYSTEM_FUNC + r")" + _IMPORT_ALIAS + r"$", re.IGNORECASE
+)
+# A location import: a quoted literal, or a bare @/snow:// token (no spaces),
+# plus an optional alias. Case-insensitive so the snow:// scheme may be given in
+# any case (GS matches it with startsWithIgnoreCase).
+_LOCATION_IMPORT_RE = re.compile(
+    r"^(?P<value>" + _QUOTED_LITERAL + r"|@\S+|snow://\S+)" + _IMPORT_ALIAS + r"$",
+    re.IGNORECASE,
+)
 # Matches any Jinja expression ({{ ... }}). Used to skip local role validation for
 # templated values that GS resolves at CREATE/execute time.
 _JINJA_EXPR = re.compile(r"\{\{.*?\}\}", re.DOTALL)
@@ -63,6 +102,28 @@ def _reject_control_chars(value: Optional[str], flag_name: str) -> Optional[str]
             f"(newlines, tabs, etc.)"
         )
     return value
+
+
+def _sql_bool(value: bool) -> str:
+    """Render a Python bool as the SQL literal expected by DBT PROJECT DDL."""
+    return "TRUE" if value else "FALSE"
+
+
+def _coerce_optional_bool(value) -> Optional[bool]:
+    """Coerce a value read back from DESCRIBE into Optional[bool].
+
+    DESCRIBE DBT PROJECT returns these columns as strings ('true'/'false'), and
+    the column may be absent entirely (e.g. auto_compile when its DESC column is
+    gated off, or older-type projects) -> None. Delegates the string parsing to
+    the shared try_cast_to_bool util and maps None/unparsable to None so a
+    subsequent ALTER only fires on an unambiguous change.
+    """
+    if value is None:
+        return None
+    try:
+        return try_cast_to_bool(value)
+    except ValueError:
+        return None
 
 
 def _collect_shell_env_vars() -> tuple[Dict[str, str], int, int]:
@@ -133,6 +194,8 @@ class DBTObjectEditableAttributes(TypedDict):
     default_env: Optional[str]
     external_access_integrations: Optional[List[str]]
     dbt_version: Optional[str]
+    default_writeback: Optional[bool]
+    auto_compile: Optional[bool]
 
 
 @dataclass
@@ -146,6 +209,12 @@ class DBTDeployAttributes:
     external_access_integrations: Optional[List[str]] = None
     install_local_deps: bool = False
     dbt_version: Optional[str] = None
+    # Tri-state: None leaves the persisted default unchanged; True/False set it.
+    default_writeback: Optional[bool] = None
+    # Tri-state: None uses the server default; True/False set it explicitly.
+    auto_compile: Optional[bool] = None
+    git_commit: Optional[str] = None
+    git_branch: Optional[str] = None
 
 
 class DBTManager(SqlExecutionMixin):
@@ -202,6 +271,8 @@ class DBTManager(SqlExecutionMixin):
             default_env=row_dict.get("default_environment"),
             external_access_integrations=external_access_integrations,
             dbt_version=row_dict.get("dbt_version"),
+            default_writeback=_coerce_optional_bool(row_dict.get("default_writeback")),
+            auto_compile=_coerce_optional_bool(row_dict.get("auto_compile")),
         )
 
     def _get_supported_dbt_versions(self) -> List[str]:
@@ -353,6 +424,25 @@ class DBTManager(SqlExecutionMixin):
         if attrs.dbt_version:
             set_properties.append(f"DBT_VERSION={to_string_literal(attrs.dbt_version)}")
 
+        # default_writeback and auto_compile are persisted properties on the DBT
+        # PROJECT object; only SET when the user asked (not None) and the requested
+        # value differs from the current one. Both are set via ALTER ... SET (not on
+        # ADD VERSION); auto_compile governs the base compile performed on the
+        # ADD VERSION that follows.
+        if attrs.default_writeback is not None:
+            current_default_writeback = dbt_object_attributes.get("default_writeback")
+            if current_default_writeback != attrs.default_writeback:
+                set_properties.append(
+                    f"{DEFAULT_WRITEBACK_PROPERTY}={_sql_bool(attrs.default_writeback)}"
+                )
+
+        if attrs.auto_compile is not None:
+            current_auto_compile = dbt_object_attributes.get("auto_compile")
+            if current_auto_compile != attrs.auto_compile:
+                set_properties.append(
+                    f"{AUTO_COMPILE_PROPERTY}={_sql_bool(attrs.auto_compile)}"
+                )
+
         current_external_access_integrations = dbt_object_attributes.get(
             "external_access_integrations"
         )
@@ -374,6 +464,10 @@ class DBTManager(SqlExecutionMixin):
 
         query = f"ALTER DBT PROJECT {fqn} ADD VERSION"
         query += f"\nFROM {stage_name}"
+        if attrs.git_commit:
+            query += f" GIT_COMMIT={to_string_literal(attrs.git_commit)}"
+        if attrs.git_branch:
+            query += f" GIT_BRANCH={to_string_literal(attrs.git_branch)}"
         result = self.execute_query(query)
 
         return result
@@ -418,6 +512,16 @@ class DBTManager(SqlExecutionMixin):
             query += f" DEFAULT_ENVIRONMENT={to_string_literal(attrs.default_env)}"
         if attrs.dbt_version:
             query += f" DBT_VERSION={to_string_literal(attrs.dbt_version)}"
+        if attrs.default_writeback is not None:
+            query += (
+                f" {DEFAULT_WRITEBACK_PROPERTY}={_sql_bool(attrs.default_writeback)}"
+            )
+        if attrs.auto_compile is not None:
+            query += f" {AUTO_COMPILE_PROPERTY}={_sql_bool(attrs.auto_compile)}"
+        if attrs.git_commit:
+            query += f" GIT_COMMIT={to_string_literal(attrs.git_commit)}"
+        if attrs.git_branch:
+            query += f" GIT_BRANCH={to_string_literal(attrs.git_branch)}"
         query = self._handle_external_access_integrations_query(
             query, attrs.external_access_integrations, attrs.install_local_deps
         )
@@ -451,6 +555,16 @@ class DBTManager(SqlExecutionMixin):
             query += f" DEFAULT_ENVIRONMENT={to_string_literal(attrs.default_env)}"
         if attrs.dbt_version:
             query += f" DBT_VERSION={to_string_literal(attrs.dbt_version)}"
+        if attrs.default_writeback is not None:
+            query += (
+                f" {DEFAULT_WRITEBACK_PROPERTY}={_sql_bool(attrs.default_writeback)}"
+            )
+        if attrs.auto_compile is not None:
+            query += f" {AUTO_COMPILE_PROPERTY}={_sql_bool(attrs.auto_compile)}"
+        if attrs.git_commit:
+            query += f" GIT_COMMIT={to_string_literal(attrs.git_commit)}"
+        if attrs.git_branch:
+            query += f" GIT_BRANCH={to_string_literal(attrs.git_branch)}"
         query = self._handle_external_access_integrations_query(
             query, attrs.external_access_integrations, attrs.install_local_deps
         )
@@ -676,15 +790,20 @@ class DBTManager(SqlExecutionMixin):
         env_vars: Optional[str] = None,
         *dbt_cli_args,
         use_shell_env_vars: bool = False,
+        writeback: Optional[bool] = None,
+        imports: Optional[List[str]] = None,
     ) -> SnowflakeCursor:
         if dbt_cli_args:
             processed_args = self._process_dbt_args(dbt_cli_args)
             dbt_command = f"{dbt_command} {processed_args}".strip()
         query = f"EXECUTE DBT PROJECT {name}"
+        query += self._format_imports_clause(imports)
         if dbt_version:
             query += f" dbt_version={to_string_literal(dbt_version)}"
         if environment:
             query += f" ENVIRONMENT={to_string_literal(environment)}"
+        if writeback is not None:
+            query += f" {WRITEBACK_CLAUSE}={_sql_bool(writeback)}"
 
         merged: Dict[str, str] = {}
         if use_shell_env_vars:
@@ -728,6 +847,93 @@ class DBTManager(SqlExecutionMixin):
             query += env_vars_clause
         query += f" args={to_string_literal(dbt_command)}"
         return self.execute_query(query, _exec_async=run_async)
+
+    @staticmethod
+    def _format_imports_clause(imports: Optional[List[str]]) -> str:
+        if not imports:
+            return ""
+        rendered = ", ".join(DBTManager._render_import(entry) for entry in imports)
+        return f" IMPORTS=({rendered})"
+
+    @staticmethod
+    def _render_import(entry: str) -> str:
+        """Validate a single --import value and render its SQL form.
+
+        An entry is ``VALUE [as ALIAS]``. VALUE is a stage path (``@…``), a dbt
+        snow URL (``snow://dbt/…``), or a ``SYSTEM$`` function (any function
+        name — the server validates which are supported); ALIAS is a folder
+        name. Each of VALUE (stage/snow only) and ALIAS may be given as a
+        bareword (no spaces) or as a single-quoted literal (spaces allowed in
+        the value) — a value containing spaces must therefore be quoted. The
+        folder alias must not contain spaces (the server requires an ASCII
+        name), and a ``snow://`` URL must be of the ``dbt`` type.
+
+        Rendering: a bare stage/snow value or a bare alias is quoted with
+        ``to_string_literal``; a value or alias the caller already quoted is
+        passed through unchanged (the caller owns its escaping); a ``SYSTEM$``
+        function is emitted verbatim, never quoted. Anything that is not one of
+        these shapes is rejected rather than interpolated into SQL.
+        """
+        _reject_control_chars(entry, "--import")
+        value = entry.strip()
+        if not value:
+            raise CliError("--import value must not be empty.")
+        match = _SYSTEM_IMPORT_RE.match(value)
+        if match is not None:
+            rendered = match.group("value")  # SYSTEM$ function, emitted raw
+        else:
+            match = _LOCATION_IMPORT_RE.match(value)
+            if match is None:
+                raise CliError(DBTManager._invalid_import_message(value))
+            raw = match.group("value")
+            # For a quoted value, look past the opening quote at the content.
+            content = raw[1:] if raw.startswith("'") else raw
+            # snow:// scheme and dbt type are case-insensitive on the server.
+            lowered = content.lower()
+            if lowered.startswith("snow://") and not lowered.startswith("snow://dbt/"):
+                raise CliError(
+                    "--import snow URL must be a dbt project URL, e.g. "
+                    '"snow://dbt/my_db.my_schema.my_project/versions/live".'
+                )
+            if not (content.startswith("@") or lowered.startswith("snow://dbt/")):
+                raise CliError(DBTManager._invalid_import_message(value))
+            # Reject only a trailing (odd-count) backslash: it would escape the
+            # emitted closing quote and leave an unterminated literal. A
+            # backslash elsewhere is left to the server (matching SQL, which
+            # honors backslash escapes inside string literals).
+            inner = raw[1:-1] if raw.startswith("'") else raw
+            if (len(inner) - len(inner.rstrip("\\"))) % 2 == 1:
+                raise CliError(
+                    "--import value must not end with a backslash; it would "
+                    "escape the closing quote and produce invalid SQL."
+                )
+            rendered = raw if raw.startswith("'") else to_string_literal(raw)
+        alias = match.group("alias")
+        if alias:
+            folder = alias[1:-1] if alias.startswith("'") else alias
+            if not _MOUNT_NAME_RE.fullmatch(folder):
+                raise CliError(
+                    "--import folder alias must be an ASCII name using only "
+                    "letters, digits, underscores, and hyphens, e.g. "
+                    '"@stage/s1 as folder1".'
+                )
+            rendered += " AS " + (
+                alias if alias.startswith("'") else to_string_literal(alias)
+            )
+        return rendered
+
+    @staticmethod
+    def _invalid_import_message(value: str) -> str:
+        return (
+            f"--import value {value!r} is not valid. Provide a stage path "
+            "(@stage/s1), a dbt snow URL "
+            "(snow://dbt/my_db.my_schema.my_project/versions/live), or a "
+            'SYSTEM$ function, optionally followed by "as folder". Stage paths, '
+            "snow URLs, and folder names may be given with or without single "
+            "quotes, but a value containing spaces must be single-quoted "
+            "(e.g. '@\"my stage\"/dir'). Example: "
+            '--import "@stage/s1 as folder1".'
+        )
 
     @staticmethod
     def _format_env_vars_clause_from_dict(pairs: Dict[str, str]) -> str:

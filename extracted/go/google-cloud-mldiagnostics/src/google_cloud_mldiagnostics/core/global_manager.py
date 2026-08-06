@@ -111,7 +111,12 @@ class GlobalRunManager:
           environment=mlrun.environment,
       )
 
-      if not host_utils.is_master_host(mlrun.framework, mlrun.serving_engine):
+      if (
+          mlrun.orchestrator == mlrun_types.Orchestrator.GKE.value
+          and not host_utils.is_master_host(
+              mlrun.framework, mlrun.serving_engine
+          )
+      ):
         logger.info(
             "Skipping ML run initialization on control plane (run_group=%s,"
             " name=%s): Current host is not the master host.",
@@ -151,7 +156,7 @@ class GlobalRunManager:
     if mlrun.gcs_path:
       artifacts = {"gcsPath": mlrun.gcs_path}
 
-    tools = [{"xprof": {}}]
+    tools = None if mlrun.metric_only_run else [{"xprof": {}}]
     labels = {
         "created_by": "diagon_sdk",
         "create-tool-mode": "regular",
@@ -160,6 +165,7 @@ class GlobalRunManager:
         "sdk_report_system_metrics": (
             "true" if mlrun.log_system_metrics else "false"
         ),
+        "metric_only_run": "true" if mlrun.metric_only_run else "false",
         "accelerator_type": self._accelerator_type.value,
         "framework": mlrun.framework.value.lower(),
         "serving_engine": (
@@ -169,7 +175,7 @@ class GlobalRunManager:
         ),
     }
     try:
-      response = self._control_plane_client.create_ml_run(
+      response = self._control_plane_client.create_ml_run(  # pyrefly: ignore[missing-attribute]
           name=mlrun.name,
           display_name=mlrun.display_name,
           run_phase=str(mlrun.run_phase.value),
@@ -187,17 +193,15 @@ class GlobalRunManager:
           response.get("name") if response else "unknown",
       )
       if response and "name" in response:
-        self._ml_run.name = response.get("name", "unknown").split("/")[-1]
+        self._ml_run.name = response.get("name", "unknown").split("/")[-1]  # pyrefly: ignore[missing-attribute]
 
     except requests.exceptions.HTTPError as e_create:
-      if (
-          e_create.response is not None
-          and e_create.response.status_code == 409
-      ):
+      if e_create.response is not None and e_create.response.status_code == 409:
         logger.info(
-            "ML run %r already exists. Updating existing run details.", mlrun.name
+            "ML run %r already exists. Updating existing run details.",
+            mlrun.name,
         )
-        self._control_plane_client.update_ml_run(
+        self._control_plane_client.update_ml_run(  # pyrefly: ignore[missing-attribute]
             name=mlrun.name,
             display_name=mlrun.display_name,
             tools=tools,
@@ -205,6 +209,7 @@ class GlobalRunManager:
             run_phase=mlrun_types.RunPhase.PHASE_ACTIVE.value,
             labels=labels,
             configs=mlrun.configs,
+            workload_targets=mlrun.workload_targets,
         )
       else:
         logger.error("Failed to create ML run: %s", e_create)
@@ -325,7 +330,8 @@ class GlobalRunManager:
                   name=self._ml_run.name,
                   force=True,
                   run_phase=mlrun_types.RunPhase.PHASE_ACTIVE.value,
-                  update_mask="workload_details"
+                  update_mask="workload_details",
+                  workload_targets=self._ml_run.workload_targets,
               )
               continue
 
@@ -338,7 +344,10 @@ class GlobalRunManager:
         profiler_target = None
         for target in workload_details.get("targets", []):
           # In GKE, hostname is the pod name without unique suffix.
-          if target.get("displayName", "").startswith(hostname):
+          # In Slurm / Other orchestrators, hostname is the instance name.
+          if target.get("hostname", "") == hostname or target.get(
+              "displayName", ""
+          ).startswith(hostname):
             profiler_target = target.get("displayName", None)
             break
 

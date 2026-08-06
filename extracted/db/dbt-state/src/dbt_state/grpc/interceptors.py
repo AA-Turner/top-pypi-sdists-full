@@ -6,18 +6,18 @@ import typing as t
 import uuid
 
 import grpc
-
 from query_cache_common.constants import (
     CLOUD_RUN_ID_HEADER,
     INVOCATION_ID_HEADER,
-    SYSTEM_USER_ID_HEADER,
     ORG_ID_HEADER,
     OS_NAME_HEADER,
     REQUEST_ID_HEADER,
     SESSION_ID_HEADER,
     SUBMITTED_AT_EPOCH_HEADER,
+    SYSTEM_USER_ID_HEADER,
 )
 from query_cache_common.utils import current_epoch_millis
+from typing_extensions import override
 
 
 class _ClientCallDetails(
@@ -165,8 +165,9 @@ class RequestIdInterceptor(
 ):
     """Client interceptor that adds x-request-id to all gRPC calls and enhances errors."""
 
+    @staticmethod
     def _add_request_id_metadata(
-        self, client_call_details: grpc.ClientCallDetails
+        client_call_details: grpc.ClientCallDetails,
     ) -> t.Tuple[grpc.ClientCallDetails, str]:
         metadata = list(client_call_details.metadata or [])
 
@@ -256,6 +257,7 @@ class SubmittedAtEpochInterceptor(_MetadataModifyingInterceptor):
     The epoch is generated fresh for each request (milliseconds since Unix epoch).
     """
 
+    @override
     def _modify_metadata(self, metadata: t.List[t.Tuple[str, t.Any]]) -> None:
         metadata.append((SUBMITTED_AT_EPOCH_HEADER, str(current_epoch_millis())))
 

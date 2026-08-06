@@ -53,7 +53,12 @@ execute(conn, "CREATE TABLE test (i INT) ENGINE = MEMORY")
 execute(conn, "INSERT INTO test VALUES(1)")
 execute(conn, "CREATE TABLE test2 (i INT) ENGINE = MEMORY")
 execute(conn, "INSERT INTO test2 VALUES(1)")
-execute(conn, "RESET MASTER")
+try:
+    execute(conn, "RESET BINARY LOGS AND GTIDS")
+except pymysql.err.ProgrammingError as exc:
+    if not exc.args or exc.args[0] != 1064:
+        raise
+    execute(conn, "RESET MASTER")
 
 
 if os.fork() != 0:

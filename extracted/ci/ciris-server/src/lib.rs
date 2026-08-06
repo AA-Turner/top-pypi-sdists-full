@@ -52,6 +52,12 @@ pub mod accord_reactivate;
 /// "ciris-server + an adapter": it contributes HTTP routes + a background
 /// lifecycle to the SAME shared core, instead of re-composing the substrate.
 pub mod adapter;
+/// The **graded admin-op ladder, tiers 0–4** (CIRISServer#346) — owner-gated
+/// `POST /v1/admin/{preview,annotate,throttle,quarantine,descend,deadmit}` (+
+/// the three reversals) over persist's removal primitives, every mutating call
+/// committing the hash its preview returned. Public so the integration test
+/// (`tests/admin_ops.rs`) can drive the router directly.
+pub mod admin_ops;
 /// The fabric auth subsystem — CIRISServer as the single auth authority
 /// (CIRISServer#9): one hybrid request contract, the CEG role-set, self-at-login
 /// (so consent/erasure are user-signed in 3.x, not agent-signed in 2.x), the
@@ -206,6 +212,12 @@ mod import;
 /// signature is the auth, so it is unauthenticated like the relay. Public so the
 /// integration test (`tests/ingest_http.rs`) can drive the router directly.
 pub mod ingest_http;
+/// **`revoked_after` enforcement** (CIRISServer#355) — the consumer-side read of
+/// persist's time-bounded de-admission. One place decides whether a key's claim
+/// still stands, dated by the SIGNED envelope instant rather than the unsigned
+/// row column, so the five read paths that ask the question cannot answer it
+/// differently. Public so the gate tests can drive the fold directly.
+pub mod key_standing;
 /// Directed-consent federation peering (CIRISServer federation Round 2): mutual
 /// key registration + the `consent:replication:v1` grant that authorizes
 /// bidirectional replication with an out-of-group peer (Node B / `ciris-status`).
@@ -218,6 +230,13 @@ pub mod location;
 /// `cirisgraph_nodes` / `cirisgraph_edges` SQLite tables onto the client's
 /// wire contract so both cards work in server mode.
 pub mod memory_api;
+/// CIRISServer#346 — **the Mesh Configuration surface** (the fourth tab): the
+/// owner-gated read of persist's `mesh_config:{key}` plane (effective values,
+/// provenance, counting-down TTLs, full signed history) plus the two write
+/// paths, durable and emergency relief. The key registry, the emergency TTL
+/// bound and the durability ruling are all READ from the substrate — none is
+/// restated here.
+pub mod mesh_config_surface;
 pub mod mesh_genesis;
 /// **Mesh control-plane relay** (CIRISServer#128 Phase D): `POST /v1/mesh/relay`
 /// (the local RNS-gateway endpoint) + the remote `MeshControlResponder` riding
@@ -235,6 +254,10 @@ pub mod node_control;
 /// byte-identically with the agent so a code shared from one app decodes on the
 /// other. Public so the node-code endpoint + the founder's client can use it.
 pub mod nodecode;
+/// CIRISServer#356 — **the operator surface**: one owner-gated read composing
+/// persist's node-state signals with edge's carriage counters, where every zero
+/// names its own cause. `GET /v1/node/state` + `ciris_server.node_state()`.
+pub mod operator_surface;
 pub mod peer;
 /// Mount-by-proxy router (CIRISServer#80) — reverse-proxy a path prefix to a
 /// sibling service's upstream base URL, so an out-of-process brain folds onto the
@@ -1578,6 +1601,84 @@ mod python {
         py.detach(crate::federation_delivery::delivery_status_json)
     }
 
+    /// `ciris_server.node_state(self_key_id=None, root_key_id=None, now=None,
+    /// sla_seconds=None)` — **CIRISServer#356: how is this node?**, as a JSON
+    /// string. Read-only on every arm; it writes NOTHING and may be polled at
+    /// any rate.
+    ///
+    /// # This is the COMPOSED view, and it has two halves
+    ///
+    /// | half | source | question |
+    /// |---|---|---|
+    /// | `node` | persist `Engine.node_state_json()` | *how is this node* — trust root + drill freshness, key standing, quarantine, consent SLA, peer quota |
+    /// | `carriage` / `receive` | edge `metrics_snapshot()` | *did anything move, and if not, what stopped it* — the withhold ledger, apply refusals |
+    ///
+    /// Persist's `Engine.node_state_json()` is ONE HALF of this, not a
+    /// competitor to it: this call carries that value verbatim under `node` and
+    /// re-derives none of its bands.
+    ///
+    /// # Every zero names its own cause
+    ///
+    /// `withholds_total: 0` is three different facts and they carry three
+    /// different `carriage.standing` tokens: `unreadable` (the counters could
+    /// not be read), `not_exercised` (no replication round has finished, so the
+    /// ledger has never been written to), and `idle` (rounds finished and there
+    /// was nothing to send). Branch on the token, never on the count. The same
+    /// discipline holds for `receive.standing`, for `trust_root.drill`
+    /// (`never_drilled` vs `stale` — persist bands both red on purpose), and
+    /// for `peer_quota` (`no_quota` / `not_exercised` / `clean`).
+    ///
+    /// # A missing edge is a READING, not an exception
+    ///
+    /// If the in-process Edge is not up, this still returns: `sources.edge_metrics`
+    /// reads `present: false` with the reason, and the carriage/receive halves
+    /// read `unavailable`. An exception is raised only when there is no persist
+    /// engine or the delivery runtime has not started — i.e. when there is
+    /// nothing to compose at all.
+    ///
+    /// # The return is a TRUTHY Python string on every arm
+    ///
+    /// A node whose every signal reads red still returns a non-empty `str`.
+    /// `json.loads` it and read `["band"]` and `["unknown"]`. Strings are
+    /// `{id, text}` pairs — resolve the `id`, and mark the `text` as a fallback
+    /// (`source_locale` says what it falls back TO).
+    ///
+    /// **Report it; never gate on it.** A red `band` can mean nothing worse
+    /// than a stale kill-switch drill, which is a trust signal and explicitly
+    /// not a functionality gate.
+    #[pyfunction]
+    #[pyo3(name = "node_state", signature = (self_key_id=None, root_key_id=None, now=None, sla_seconds=None))]
+    fn py_node_state(
+        py: Python<'_>,
+        self_key_id: Option<String>,
+        root_key_id: Option<String>,
+        now: Option<String>,
+        sla_seconds: Option<u64>,
+    ) -> PyResult<String> {
+        let now = match now.as_deref() {
+            None => None,
+            Some(s) => Some(
+                chrono::DateTime::parse_from_rfc3339(s)
+                    .map(|t| t.with_timezone(&chrono::Utc))
+                    .map_err(|e| {
+                        pyo3::exceptions::PyValueError::new_err(format!(
+                            "node_state: bad `now` (RFC 3339): {e}"
+                        ))
+                    })?,
+            ),
+        };
+        let opts = crate::operator_surface::OperatorStateOptions {
+            self_key_id,
+            root_key_id,
+            now,
+            sla_seconds,
+        };
+        py.detach(move || {
+            crate::operator_surface::node_state_json(&opts)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))
+        })
+    }
+
     /// **CIRISConstitution#46 — read the RESOLVED `analyze` stance** (CIRISServer#331
     /// ask 2). Read-only: this NEVER authors.
     ///
@@ -1744,6 +1845,7 @@ mod python {
         m.add_function(wrap_pyfunction!(py_reprime_federation_delivery, m)?)?;
         m.add_function(wrap_pyfunction!(py_delivery_status, m)?)?;
         m.add_function(wrap_pyfunction!(py_analyze_consent_stance, m)?)?;
+        m.add_function(wrap_pyfunction!(py_node_state, m)?)?;
         m.add_function(wrap_pyfunction!(py_sign_object, m)?)?;
         m.add_function(wrap_pyfunction!(py_verify_object, m)?)?;
         m.add_function(wrap_pyfunction!(py_mint_location_proof, m)?)?;

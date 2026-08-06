@@ -1,18 +1,17 @@
 import typing as t
 
-from query_cache_common.models.services import (
-    client_telemetry_service_models,
-    sql_service_models,
-    clone_service_models,
-)
 from dbt.contracts.graph.nodes import (
     GenericTestNode,
     ModelNode,
-    SnapshotNode,
-    SingularTestNode,
     SeedNode,
+    SingularTestNode,
+    SnapshotNode,
 )
-
+from query_cache_common.models.services import (
+    client_telemetry_service_models,
+    clone_service_models,
+    sql_service_models,
+)
 
 SQLSubmitResponse = t.Union[
     sql_service_models.ReadyToExecuteResponse,

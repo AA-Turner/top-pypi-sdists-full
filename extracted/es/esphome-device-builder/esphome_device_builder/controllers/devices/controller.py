@@ -19,7 +19,7 @@ from esphome.zeroconf import AsyncEsphomeZeroconf
 
 from ...constants import is_secrets_file
 from ...helpers.api import CommandError, api_command
-from ...helpers.async_ import run_in_executor
+from ...helpers.async_ import create_logged_task, drain_tasks, run_in_executor
 from ...helpers.build_size import BuildSizeRefreshResult
 from ...helpers.device_yaml import board_requires_wifi
 from ...helpers.event_bus import Event
@@ -72,6 +72,7 @@ from . import (
     mutations_simple,
     mutations_yaml,
     reachability,
+    refine,
     scan_change,
     search,
     state_callbacks,
@@ -113,6 +114,10 @@ _REGEN_FAILURE_TTL_SECONDS: float = 3600.0
 # where store loads and job restore need the disk.
 _BUILD_SIZE_SWEEP_DELAY_SECONDS: float = 20.0
 
+# Coalesces the refine burst's per-device scan changes into one MQTT
+# reconcile per few seconds of landing parses.
+_MQTT_RECONCILE_DEBOUNCE_SECONDS: float = 3.0
+
 
 class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods need a refactor first)
     DeviceMetadataBase,
@@ -133,6 +138,14 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
         # configuration so a re-flash cancels its predecessor; cancelled
         # en masse in stop().
         self._reprobe_timers: dict[str, asyncio.TimerHandle] = {}
+        self._refine_task: asyncio.Task[None] | None = None
+        # Debounced scan-change → MQTT reconcile nudge (see
+        # ``schedule_mqtt_reconcile``).
+        self._mqtt_reconcile_handle: asyncio.TimerHandle | None = None
+        # A set: a fire can land while the previous reconcile is still
+        # stopping monitors, and an overwritten ref would escape
+        # ``stop()``'s drain.
+        self._mqtt_reconcile_tasks: set[asyncio.Task[None]] = set()
 
         # Constructed before the scanner so the first
         # ``_resolve_device_metadata`` reads off the store.
@@ -193,7 +206,7 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
 
         self._scanner = DeviceScanner(
             config_dir=self._db.settings.config_dir,
-            get_metadata=self._resolve_device_metadata,
+            make_metadata_resolver=self._make_metadata_resolver,
             on_change=self._on_scan_change,
         )
         # Single-worker build-size refresher. Bulk operations
@@ -205,7 +218,10 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
             get_filenames=lambda: (d.configuration for d in self._get_devices()),
             get_metadata_snapshot=self._metadata_store.snapshot_all,
             persist_size=self._persist_build_size,
-            on_refreshed=self._scanner.reload,
+            # ``request`` (not ``reload``) so the build-size worker never
+            # blocks on a deep parse (or the scanner lock) inside
+            # ``on_refreshed``.
+            on_refreshed=self._scanner.request,
             initial_sweep_delay=_BUILD_SIZE_SWEEP_DELAY_SECONDS,
         )
         # Build the state monitor first so the reachability tracker
@@ -253,6 +269,9 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
             on_state_change=lambda n, s: self._state_monitor.apply(n, s, "mqtt"),
             on_ip_change=self._state_monitor.apply_ip,
             presence=self._db.subscriber_presence,
+            # The scanner owns all YAML parsing; an unresolvable broker
+            # becomes a queued deep reload, never an in-coordinator parse.
+            request_reload=self._scanner.request,
         )
 
     @property
@@ -274,14 +293,20 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
     async def start(self) -> None:
         """Initialise — load state, scan files, start mDNS + ping + MQTT discovery."""
         self._stopped = False
+        self._mqtt_coordinator.resume()
         self.state.esphome_cmd = _find_esphome_cmd()
-        # Seed the store (and migrate on first post-upgrade boot)
-        # before the scanner runs — resolver reads off it.
-        await self._metadata_store.async_load()
-        await self._pending_keys.async_load()
-        await self.migrate_board_id_user_set()
-        await run_in_executor(self._load_ignored_devices)
-        await self._scanner.scan()
+        # Store seed + migrations + ignore-list are independent; all
+        # must land before the scanner (the resolver reads off them).
+        # TaskGroup so a failing leg cancels its siblings instead of
+        # orphaning them past the aborted start.
+        async with asyncio.TaskGroup() as group:
+            group.create_task(self._metadata_store.async_load())
+            group.create_task(self._pending_keys.async_load())
+            group.create_task(self.migrate_board_id_user_set())
+            group.create_task(run_in_executor(self._load_ignored_devices))
+        # Shallow seed; the refine task spawned below deep-reloads each
+        # device off the startup critical path.
+        await self._scanner.scan(shallow=True)
         self._scanner.start()
         _LOGGER.info("Devices controller started — %d devices loaded", len(self._scanner.devices))
         await self._state_monitor.start()
@@ -293,6 +318,13 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
         # sweep to pick up CLI-compile drift, then drains per-device
         # requests as they arrive from the job-completion hook.
         self._build_size.start()
+        if self._scanner.devices:
+            # Eager: the request loop runs to its ``wait_idle`` park
+            # before ``start()`` returns, so the drain batch is fully
+            # staged for coalescing.
+            self._refine_task = create_logged_task(
+                refine.refine_shallow_scan(self), name="Cold-start refine"
+            )
 
     async def stop(self) -> None:
         """Stop background monitors so the process exits cleanly."""
@@ -301,8 +333,19 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
             self._unsub_job_completed()
             self._unsub_job_completed = None
         self._cancel_reprobe_timers()
-        await self._scanner.stop()
+        if self._mqtt_reconcile_handle is not None:
+            self._mqtt_reconcile_handle.cancel()
+            self._mqtt_reconcile_handle = None
+        await drain_tasks(self._mqtt_reconcile_tasks, log_exceptions=True)
+        self._mqtt_reconcile_tasks.clear()
+        # Drain the refine before its scanner worker goes away.
+        if self._refine_task is not None:
+            await drain_tasks([self._refine_task], log_exceptions=True)
+            self._refine_task = None
+        # Build-size first: its drain's ``on_refreshed`` requests a
+        # scanner reload, which a stopped worker would drop silently.
         await self._build_size.stop()
+        await self._scanner.stop()
         await self._mqtt_coordinator.stop()
         await self._state_monitor.stop()
         await drain_shutdown_callbacks(self._shutdown_callbacks)
@@ -313,6 +356,25 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
             return
         await self._scanner.scan()
         await self._mqtt_coordinator.reconcile()
+
+    def schedule_mqtt_reconcile(self) -> None:
+        """Debounce an MQTT reconcile; scan changes with mqtt deltas coalesce into one pass."""
+        if self._stopped or self._mqtt_reconcile_handle is not None:
+            return
+
+        def _fire() -> None:
+            self._mqtt_reconcile_handle = None
+            if self._stopped:
+                return
+            task = create_logged_task(
+                self._mqtt_coordinator.reconcile(), name="MQTT reconcile nudge"
+            )
+            self._mqtt_reconcile_tasks.add(task)
+            task.add_done_callback(self._mqtt_reconcile_tasks.discard)
+
+        self._mqtt_reconcile_handle = asyncio.get_running_loop().call_later(
+            _MQTT_RECONCILE_DEBOUNCE_SECONDS, _fire
+        )
 
     def get_devices(self) -> list[Device]:
         """Snapshot of the currently-loaded devices."""
@@ -343,8 +405,9 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
         in the YAML's mtime (labels, IP cache after restart-driven
         re-resolution, etc.) — the scanner's mtime-based cache would
         otherwise skip the file. Fires ``DEVICE_UPDATED`` via the
-        scanner's existing scan-change pipeline. Returns ``True``
-        when the device exists and was reloaded.
+        scanner's existing scan-change pipeline when the reload
+        changed the row. Returns ``True`` when the device exists and
+        was reloaded.
         """
         return await self._scanner.reload(filename)
 

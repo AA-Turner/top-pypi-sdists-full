@@ -29,6 +29,7 @@ class ContentsFormat(str, Enum):
     CSV = 'csv'
     JSON_RECORDS = 'json_records'
     JSON_COMPACT = 'json_compact'
+    CARD_JSON = 'card_json'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

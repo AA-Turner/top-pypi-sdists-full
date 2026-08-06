@@ -52,6 +52,8 @@ from .presentation import (
     ButtonStyle,
     BlockType,
     adapt_presentation,
+    table_to_markdown,
+    chart_to_text,
 )
 from .interactive import (
     InteractiveContext,
@@ -80,10 +82,16 @@ from .format import (
     markdown_to_slack,
     strip_markdown,
 )
+from .webhook_filter import (
+    WebhookFilter,
+    evaluate_webhook_filter,
+    resolve_field,
+)
 from .config import BotConfig, BotOSConfig, DisplayPolicy, resolve_display_policy
 from .silence import (
     SILENT_REPLY_TOKEN,
     is_intentional_silence_response,
+    classify_final,
     BotLoopPolicy,
     BotLoopGuard,
 )
@@ -125,10 +133,15 @@ __all__ = [
     "ButtonStyle",
     "BlockType",
     "adapt_presentation",
+    "table_to_markdown",
+    "chart_to_text",
     "PlatformCapabilities",
     "ChannelField",
     "ChannelDescriptor",
     "WebhookVerifierProtocol",
+    "WebhookFilter",
+    "evaluate_webhook_filter",
+    "resolve_field",
     "CallbackPayloadStoreProtocol",
     "InMemoryCallbackPayloadStore",
     "GatewayRuntimeSeams",
@@ -159,6 +172,7 @@ __all__ = [
     "strip_markdown",
     "SILENT_REPLY_TOKEN",
     "is_intentional_silence_response",
+    "classify_final",
     "BotLoopPolicy",
     "BotLoopGuard",
     "RunPhase",

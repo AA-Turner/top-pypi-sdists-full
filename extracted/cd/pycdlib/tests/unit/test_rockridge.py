@@ -1377,7 +1377,8 @@ def test_rr_add_to_file_links_uses_ce_entries_when_dr_lacks_px():
     rr = pycdlib.rockridge.RockRidge()
     rr.new(False, b'foo', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
     # Move the PX record into the CE entries to mimic the spilled layout.
-    rr.ce_entries.px_record = rr.dr_entries.px_record
+    # ce_entries is lazy-allocated, so materialize it via _ensure_ce_entries.
+    rr._ensure_ce_entries().px_record = rr.dr_entries.px_record
     rr.dr_entries.px_record = None
     rr.add_to_file_links()
     assert(rr.ce_entries.px_record.posix_file_links == 2)
@@ -1391,7 +1392,8 @@ def test_rr_add_to_file_links_no_px_record():
     rr = pycdlib.rockridge.RockRidge()
     rr.new(False, b'foo', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
     rr.dr_entries.px_record = None
-    rr.ce_entries.px_record = None
+    # ce_entries is None by default (no CE overflow happened), which already
+    # means "no PX record on the CE side".
     with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
         rr.add_to_file_links()
     assert(str(excinfo.value) == 'No Rock Ridge file links')
@@ -1400,7 +1402,6 @@ def test_rr_remove_from_file_links_no_px_record():
     rr = pycdlib.rockridge.RockRidge()
     rr.new(False, b'foo', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
     rr.dr_entries.px_record = None
-    rr.ce_entries.px_record = None
     with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
         rr.remove_from_file_links()
     assert(str(excinfo.value) == 'No Rock Ridge file links')
@@ -1409,7 +1410,6 @@ def test_rr_copy_file_links_no_px_record_in_src():
     src = pycdlib.rockridge.RockRidge()
     src.new(False, b'src', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
     src.dr_entries.px_record = None
-    src.ce_entries.px_record = None
     dst = pycdlib.rockridge.RockRidge()
     dst.new(False, b'dst', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
     with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
@@ -1422,7 +1422,6 @@ def test_rr_copy_file_links_no_px_record_in_dst():
     dst = pycdlib.rockridge.RockRidge()
     dst.new(False, b'dst', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
     dst.dr_entries.px_record = None
-    dst.ce_entries.px_record = None
     with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
         dst.copy_file_links(src)
     assert(str(excinfo.value) == 'No Rock Ridge file links')

@@ -1,11 +1,23 @@
 import fnmatch
-import click
-import humanize
 import json
 import typing as t
-
 from pathlib import Path
+
+import click
+import humanize
 from dbt.contracts.graph.nodes import NodeType
+from query_cache_common.models.services import explain_service_models
+from query_cache_common.models.services.explain_service_models import (
+    ExplainBadge,
+    ExplainLine,
+    ExplainMarker,
+    ExplainMessageEntry,
+)
+from query_cache_common.models.shared_models import SubmitSQLResultType
+from query_cache_common.utils import format_as_localtime
+from rich.console import Console
+from rich.tree import Tree
+
 from dbt_state.config import CloneIncrementalInDev
 from dbt_state.decision_logger import (
     NodeInfo,
@@ -14,18 +26,6 @@ from dbt_state.decision_logger import (
     RunStartEntry,
 )
 from dbt_state.grpc.client import QueryCacheGrpcClient
-from query_cache_common.models.shared_models import SubmitSQLResultType
-from query_cache_common.models.services import explain_service_models
-from query_cache_common.models.services.explain_service_models import (
-    ExplainBadge,
-    ExplainLine,
-    ExplainMarker,
-    ExplainMessageEntry,
-)
-
-from query_cache_common.utils import format_as_localtime
-from rich.console import Console
-from rich.tree import Tree
 
 _EXPLAINER_MAX_BATCH_SIZE = 1000
 

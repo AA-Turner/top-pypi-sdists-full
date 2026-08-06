@@ -30,6 +30,7 @@ from prefab_ui.rx import RESULT, STATE, LoopItem
 from airbyte_ops_webapp.auth.oauth import OAUTH_SESSION_PATH
 from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
     fail_tool_call,
+    render_loading_feedback,
     rollout_action_success_actions,
     start_tool_call,
 )
@@ -65,7 +66,9 @@ def _refresh_token_then(on_success: list) -> Fetch:
     )
 
 
-def render_rollout_status_section(css_class: str = "") -> None:
+def render_rollout_status_section(
+    css_class: str = "",
+) -> None:
     """Connector Version Status section (pivoted key-value layout).
 
     Shows connector name, UUID, version comparison, and rollout status
@@ -78,7 +81,7 @@ def render_rollout_status_section(css_class: str = "") -> None:
         with CardContent(), Column(gap=3):
             # Loading state while connector context is being fetched
             with If(STATE.context_loading.__eq__(True)):
-                Muted("Loading connector status…")
+                render_loading_feedback("Loading connector status…")
 
             # Populated state
             with If(STATE.context_loading.__eq__(False)):

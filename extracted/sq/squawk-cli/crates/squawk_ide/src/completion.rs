@@ -402,8 +402,8 @@ fn column_completions_from_clause(
                 let alias_columns: Vec<Name> = alias
                     .column_list()
                     .into_iter()
-                    .flat_map(|column_list| column_list.columns())
-                    .filter_map(|column| column.name().map(|name| Name::from_node(&name)))
+                    .flat_map(|column_list| column_list.column_names())
+                    .map(|name| Name::from_node(&name))
                     .collect();
 
                 let base_columns = alias_base_columns_with_types(db, file, &syntax_root, &alias);
@@ -719,7 +719,7 @@ fn delete_expr_completions(
 }
 
 fn table_name_from_from_item(from_item: &ast::FromItem) -> Option<Name> {
-    if let Some(alias_name) = from_item.alias().and_then(|alias| alias.table_alias()) {
+    if let Some(alias_name) = from_item.alias().and_then(|alias| alias.name()) {
         return Some(Name::from_node(&alias_name));
     }
     if let ast::FromItem::RelationFromItem(relation) = from_item

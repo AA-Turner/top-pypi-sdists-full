@@ -99,6 +99,16 @@ _INTEGRATION_REGISTRY: dict[str, IntegrationInfo] = {
         kind="agent_framework",
         handler_class="aigie.integrations.strands.native_callback.StrandsHookProvider",
     ),
+    "openai_agents": IntegrationInfo(
+        name="openai_agents",
+        display_name="OpenAI Agents",
+        description="OpenAI Agents SDK — agent, handoff, tool, and model tracing.",
+        package_name="openai-agents",
+        import_name="agents",
+        patch_function="aigie.integrations.openai_agents.lifecycle.install_openai_agents_patches",
+        kind="agent_framework",
+        handler_class="aigie.integrations.openai_agents.processor.OpenAIAgentsProcessor",
+    ),
     # LLM Providers (direct patching)
     "openai": IntegrationInfo(
         name="openai",

@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Set
 
 import yaml
 from snowflake.cli._plugins.dcm.exceptions import (
@@ -32,6 +33,23 @@ SOURCES_FOLDER = "sources"
 SUPPORTED_MANIFEST_VERSION = 2
 log = logging.getLogger(__name__)
 
+# POSIX portable character set for env var names: letters, digits, and
+# underscores only, not starting with a digit. The server enforces the
+# same rule.
+_ENV_VAR_NAME_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+# _snow is the Jinja context object injected into every template render
+# (`_snow.env_var()` / `_snow.env_secret()`) -- declaring an env var with
+# this exact name would shadow it in the render namespace.
+_RESERVED_ENV_VAR_NAME = "_snow"
+
+
+def _section_label(section_name: str) -> str:
+    """Error-message-friendly identifier for a templating section, e.g.
+    "manifest.yml's 'templating.env_vars' section" -- so a bare 'env_vars'
+    in an error isn't mistaken for something other than a manifest.yml
+    section (a shell variable, a CLI flag, etc.)."""
+    return f"{MANIFEST_FILE_NAME}'s 'templating.{section_name}' section"
+
 
 @dataclass
 class DCMTemplating:
@@ -39,16 +57,84 @@ class DCMTemplating:
 
     defaults: Dict[str, Any] = field(default_factory=dict)
     configurations: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    env_vars: List[str] = field(default_factory=list)
+    env_secrets: List[str] = field(default_factory=list)
+
+    @staticmethod
+    def _declared_names(raw_entries: List[Any], section_name: str) -> List[str]:
+        """Each entry is a single-key mapping (e.g. `- BUILD_NUMBER:` in the
+        manifest) -- the key is the declared name; the value is a reserved,
+        currently-empty placeholder for future per-variable properties."""
+        names: List[str] = []
+        for entry in raw_entries:
+            if not isinstance(entry, dict):
+                raise InvalidManifestError(
+                    f"Entry {entry!r} in {_section_label(section_name)} must be "
+                    f"a single-key mapping (e.g. `- BUILD_NUMBER:`)."
+                )
+            if len(entry) != 1:
+                raise InvalidManifestError(
+                    f"Entry {entry!r} in {_section_label(section_name)} must "
+                    f"declare exactly one name (e.g. `- BUILD_NUMBER:`), not "
+                    f"{len(entry)}."
+                )
+            for name in entry.keys():
+                if not isinstance(name, str):
+                    raise InvalidManifestError(
+                        f"Variable name {name!r} in {_section_label(section_name)} "
+                        f"must be a string."
+                    )
+                if name == _RESERVED_ENV_VAR_NAME:
+                    raise InvalidManifestError(
+                        f"'{_RESERVED_ENV_VAR_NAME}' in {_section_label(section_name)} "
+                        f"is a reserved name and cannot be declared."
+                    )
+                if not _ENV_VAR_NAME_PATTERN.match(name):
+                    raise InvalidManifestError(
+                        f"Variable name '{name}' in {_section_label(section_name)} "
+                        f"is not a valid environment variable name. Must follow "
+                        f"the POSIX portable character set: letters, digits, and "
+                        f"underscores only, and must not start with a digit."
+                    )
+            names.extend(entry.keys())
+        return names
 
     @classmethod
     def from_dict(cls, data: Optional[Dict[str, Any]]) -> "DCMTemplating":
         if not data:
             return cls()
         configurations = data.get("configurations", {})
+        env_vars = cls._declared_names(data.get("env_vars") or [], "env_vars")
+        env_secrets = cls._declared_names(data.get("env_secrets") or [], "env_secrets")
+        for section, names in (("env_vars", env_vars), ("env_secrets", env_secrets)):
+            duplicates = {name for name in names if names.count(name) > 1}
+            if duplicates:
+                raise InvalidManifestError(
+                    f"Duplicate name(s) in {_section_label(section)}: "
+                    f"{sorted(duplicates)}."
+                )
+        overlap = set(env_vars) & set(env_secrets)
+        if overlap:
+            raise InvalidManifestError(
+                f"Name(s) declared in both 'templating.env_vars' and "
+                f"'templating.env_secrets' sections of {MANIFEST_FILE_NAME}: "
+                f"{sorted(overlap)}."
+            )
         return cls(
             defaults=data.get("defaults", {}),
             configurations={k.upper(): v for k, v in configurations.items()},
+            env_vars=env_vars,
+            env_secrets=env_secrets,
         )
+
+    @property
+    def declared_variable_names(self) -> Set[str]:
+        """Names declared in either env_vars or env_secrets.
+
+        The CLI does not distinguish secret vs. non-secret declarations —
+        that distinction is only meaningful server-side.
+        """
+        return set(self.env_vars) | set(self.env_secrets)
 
 
 @dataclass
@@ -219,3 +305,4 @@ class TargetContext:
 
     project_identifier: FQN
     configuration: Optional[str] = None
+    declared_variable_names: Set[str] = field(default_factory=set)

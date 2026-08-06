@@ -130,6 +130,7 @@ class Track(StrEnum):
 
     WEB = ("web", ":globe_with_meridians:", "Web")
     SERVICE = ("service", ":gear:", "Service")
+    PACKAGE = ("package", ":package:", "Package")
     APPLE = ("apple", ":apple:", "iOS")
     ANDROID = ("android", ":robot_face:", "Android")
     ANDROID_ENTERPRISE = ("android-enterprise", ":lock:", "Android (Enterprise)")

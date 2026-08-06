@@ -65,9 +65,13 @@ class AgentExecutionManager:
 
         vm_timeout: int | None = None
         if isinstance(agent_config.runtime, VMRuntimeConfig):
-            if total_agents is not None:
-                vm_timeout = agent_config.runtime.vm.timeout * total_agents
-            vm_timeout = max(vm_timeout or 0, min_warmpool_timeout) if min_warmpool_timeout > 0 else vm_timeout
+            # min_warmpool_timeout is a floor on the config's own timeout, never
+            # a replacement: without total_agents the configured runtime.vm.timeout
+            # must still be honored (a serve-mode orchestrator configured for 24h
+            # must not be silently clamped to the 12h pool minimum).
+            vm_timeout = agent_config.runtime.vm.timeout * (total_agents or 1)
+            if min_warmpool_timeout > 0:
+                vm_timeout = max(vm_timeout, min_warmpool_timeout)
 
         self._salvage_timeout = _SALVAGE_TIMEOUT_S
         self._warm_pool = WarmPool(

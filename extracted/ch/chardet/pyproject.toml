@@ -56,7 +56,9 @@ packages = ["src/chardet"]
 
 [tool.hatch.build.targets.wheel.hooks.mypyc]
 enable-by-default = false
-dependencies = ["hatch-mypyc>=0.16.0", "mypy>=1.15"]
+# mypy 1.15's generated C fails to compile on Python 3.14; 1.19 is the
+# oldest release verified to build all compiled modules there.
+dependencies = ["hatch-mypyc>=0.16.0", "mypy>=1.19"]
 require-runtime-dependencies = false
 include = [
     "/src/chardet/models/__init__.py",
@@ -66,10 +68,12 @@ include = [
     "/src/chardet/pipeline/utf1632.py",
     "/src/chardet/pipeline/utf8.py",
     "/src/chardet/pipeline/escape.py",
+    "/src/chardet/pipeline/language.py",
     "/src/chardet/pipeline/orchestrator.py",
     "/src/chardet/pipeline/confusion.py",
     "/src/chardet/pipeline/magic.py",
     "/src/chardet/pipeline/ascii.py",
+    "/src/chardet/pipeline/postprocess.py",
 ]
 mypy-args = ["--ignore-missing-imports"]
 options = { debug_level = "0" }
@@ -189,6 +193,8 @@ ignore = [
 "src/chardet/pipeline/confusion.py" = ["FA100"]
 "src/chardet/pipeline/magic.py" = ["FA100"]
 "src/chardet/pipeline/ascii.py" = ["FA100"]
+"src/chardet/pipeline/language.py" = ["FA100"]
+"src/chardet/pipeline/postprocess.py" = ["FA100"]
 
 
 [tool.ruff.lint.pydocstyle]
@@ -226,12 +232,14 @@ archs = ["AMD64"]
 
 [dependency-groups]
 dev = [
-    "datasets>=4.6.0",
     "prek>=0.3.4",
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
     "pytest-xdist>=3.5.0",
     "ruff>=0.15.2",
+]
+training = [
+    "datasets>=4.6.0",
 ]
 docs = [
     "sphinx>=8.0",

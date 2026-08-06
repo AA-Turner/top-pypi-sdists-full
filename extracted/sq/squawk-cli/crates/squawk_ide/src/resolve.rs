@@ -76,7 +76,7 @@ pub(crate) fn resolve_param_name_ref(
 /// since `col` is defined in both `t` and `u`.
 pub(crate) fn resolve_name_ref(
     db: &dyn Db,
-    name_ref: InFile<&ast::NameRef>,
+    name_ref: InFile<&impl ast::NameLike>,
 ) -> Option<SmallVec<[Location; 1]>> {
     let file = name_ref.file_id;
     let name_ref = name_ref.value;
@@ -546,18 +546,26 @@ pub(crate) fn resolve_name_ref(
             }
             resolve_composite_type_field_for_path(db, InFile::new(file, &table_path), &column_name)
         }
-        NameRefClass::CompositeTypeAttribute => {
-            let attribute_name = Name::from_node(name_ref);
-            let alter_type = name_ref
-                .syntax()
-                .ancestors()
-                .find_map(ast::AlterType::cast)?;
-            let type_path = alter_type.type_name_ref()?.path_ref()?;
-            resolve_composite_type_field_for_path(
-                db,
-                InFile::new(file, &type_path),
-                &attribute_name,
-            )
+        NameRefClass::CompositeField => {
+            // ALTER TYPE names the type directly, everywhere else we infer it
+            // from the base column
+            if let Some(parent) = name_ref.syntax().parent()
+                && (ast::AlterAttribute::can_cast(parent.kind())
+                    || ast::DropAttribute::can_cast(parent.kind())
+                    || ast::RenameAttribute::can_cast(parent.kind()))
+            {
+                let alter_type = name_ref
+                    .syntax()
+                    .ancestors()
+                    .find_map(ast::AlterType::cast)?;
+                let type_path = alter_type.type_name_ref()?.path_ref()?;
+                return resolve_composite_type_field_for_path(
+                    db,
+                    InFile::new(file, &type_path),
+                    &Name::from_node(name_ref),
+                );
+            }
+            resolve_composite_type_field_ptr(db, InFile::new(file, name_ref))
         }
         NameRefClass::TableAndColumnsColumn => {
             let column_name = Name::from_node(name_ref);
@@ -661,7 +669,7 @@ pub(crate) fn resolve_name_ref(
             let publication_object = name_ref
                 .syntax()
                 .ancestors()
-                .find_map(ast::PublicationObject::cast)?;
+                .find_map(ast::PublicationObjectTable::cast)?;
             let path = publication_object.table_name_ref()?.path_ref()?;
             resolve_column_for_path(db, InFile::new(file, &path), column_name)
         }
@@ -865,9 +873,6 @@ pub(crate) fn resolve_name_ref(
         NameRefClass::SelectQualifiedColumn => {
             resolve_select_qualified_column_ptr(db, InFile::new(file, name_ref))
         }
-        NameRefClass::CompositeTypeField => {
-            resolve_composite_type_field_ptr(db, InFile::new(file, name_ref))
-        }
         NameRefClass::InsertColumn => {
             let column_name = Name::from_node(name_ref);
             let insert = name_ref.syntax().ancestors().find_map(ast::Insert::cast)?;
@@ -880,7 +885,7 @@ pub(crate) fn resolve_name_ref(
             resolve_table_in_returning_clause(
                 db,
                 InFile::new(file, name_ref),
-                insert.alias().and_then(|alias| alias.table_alias()),
+                insert.alias().and_then(|alias| alias.name()),
                 &path,
                 insert.returning_clause(),
             )
@@ -1080,7 +1085,7 @@ fn fallback_type_alias(type_name: &Name) -> Option<Name> {
     }
 }
 
-fn resolve_float_precision(name_ref: &ast::NameRef, type_name: Name) -> Name {
+fn resolve_float_precision(name_ref: &impl ast::NameLike, type_name: Name) -> Name {
     if type_name.0.as_str() == "float"
         && let Some(ast::Expr::Literal(lit)) = name_ref
             .syntax()
@@ -1105,7 +1110,7 @@ fn resolve_view_name_ptr(
 
 pub(crate) fn resolve_table_like(
     db: &dyn Db,
-    name_ref: Option<&ast::NameRef>,
+    name_ref: Option<&impl ast::NameLike>,
     table_name: &Name,
     schemas: &ResolvedSchemas,
     file: File,
@@ -1117,6 +1122,15 @@ pub(crate) fn resolve_table_like(
         return Some((cte_ptr, LocationKind::Table));
     }
 
+    resolve_view_or_table(db, table_name, schemas, file)
+}
+
+fn resolve_view_or_table(
+    db: &dyn Db,
+    table_name: &Name,
+    schemas: &ResolvedSchemas,
+    file: File,
+) -> Option<(SyntaxNodePtr, LocationKind)> {
     if let Some(view_name_ptr) = resolve_view_name_ptr(db, table_name, schemas, file) {
         return Some((view_name_ptr, LocationKind::View));
     }
@@ -1130,7 +1144,7 @@ pub(crate) fn resolve_table_like(
 
 fn resolve_constraint(
     db: &dyn Db,
-    name_ref: InFile<&ast::NameRef>,
+    name_ref: InFile<&impl ast::NameLike>,
 ) -> Option<SmallVec<[Location; 1]>> {
     let file = name_ref.file_id;
     let name_ref = name_ref.value;
@@ -1156,7 +1170,7 @@ fn resolve_constraint(
     )])
 }
 
-fn constraint_owner(name_ref: &ast::NameRef) -> Option<(Option<Schema>, Option<Name>)> {
+fn constraint_owner(name_ref: &impl ast::NameLike) -> Option<(Option<Schema>, Option<Name>)> {
     let mut fallback_schema = None;
 
     for ancestor in name_ref.syntax().ancestors() {
@@ -1213,7 +1227,7 @@ fn resolve_for_kind_with_params(
 // some keywords behave as functions
 fn resolve_special_keyword_as_function(
     db: &dyn Db,
-    name_ref: InFile<&ast::NameRef>,
+    name_ref: InFile<&impl ast::NameLike>,
 ) -> Option<SmallVec<[Location; 1]>> {
     let function_name = name_ref
         .value
@@ -1300,7 +1314,7 @@ fn resolve_procedure(
 
 fn resolve_create_index_column_ptr(
     db: &dyn Db,
-    column_name_ref: InFile<&ast::NameRef>,
+    column_name_ref: InFile<&impl ast::NameLike>,
 ) -> Option<SmallVec<[Location; 1]>> {
     let file = column_name_ref.file_id;
     let column_name_ref = column_name_ref.value;
@@ -1320,16 +1334,14 @@ fn resolve_create_index_column_ptr(
 
 fn resolve_property_graph_column_ptr(
     db: &dyn Db,
-    column_name_ref: InFile<&ast::NameRef>,
+    column_name_ref: InFile<&impl ast::NameLike>,
 ) -> Option<SmallVec<[Location; 1]>> {
     let file = column_name_ref.file_id;
     let column_name_ref = column_name_ref.value;
     let column_name = Name::from_node(column_name_ref);
     let parent = column_name_ref.syntax().parent()?;
 
-    if let Some(column_ref) = ast::ColumnRef::cast(parent.clone())
-        && let Some(column_list) = ast::ColumnRefList::cast(column_ref.syntax().parent()?)
-    {
+    if let Some(column_list) = ast::ColumnRefList::cast(parent.clone()) {
         if let Some(references_table) = ast::ReferencesTable::cast(column_list.syntax().parent()?) {
             let path = property_graph_vertex_table(&references_table.vertex_table_ref()?)?
                 .table_name_ref()?
@@ -1392,100 +1404,6 @@ fn resolve_unqualified_ref(
         ptr.text_range(),
         location_kind
     )])
-}
-
-pub(crate) fn resolve_column_name_ref(
-    db: &dyn Db,
-    column_name_ref: InFile<&ast::ColumnNameRef>,
-) -> Option<SmallVec<[Location; 1]>> {
-    let file = column_name_ref.file_id;
-    let column_name_ref = column_name_ref.value;
-    let node = column_name_ref.syntax();
-    let column_name = Name::from_node(column_name_ref);
-
-    match classify_name_ref(node)? {
-        NameRefClass::AlterColumn => {
-            let table_path = resolve_alter_column_relation_path(node)?;
-            resolve_column_for_path(db, InFile::new(file, &table_path), column_name)
-        }
-        NameRefClass::CompositeTypeAttribute => {
-            let alter_type = node.ancestors().find_map(ast::AlterType::cast)?;
-            let type_path = alter_type.type_name_ref()?.path_ref()?;
-            resolve_composite_type_field_for_path(db, InFile::new(file, &type_path), &column_name)
-        }
-        NameRefClass::ConstraintColumn => {
-            for ancestor in node.ancestors() {
-                if let Some(create_table) = ast::CreateTableLike::cast(ancestor.clone()) {
-                    return find_column_in_create_table(
-                        db,
-                        InFile::new(file, &create_table),
-                        &column_name,
-                    );
-                }
-                if let Some(alter_table) = ast::AlterTable::cast(ancestor) {
-                    let table_path = alter_table
-                        .table_relation_name()?
-                        .table_name_ref()?
-                        .path_ref()?;
-                    return resolve_column_for_path(
-                        db,
-                        InFile::new(file, &table_path),
-                        column_name,
-                    );
-                }
-            }
-            None
-        }
-        NameRefClass::CopyColumn => {
-            let copy = node.ancestors().find_map(ast::Copy::cast)?;
-            let path = copy.copy_table()?.table_name_ref()?.path_ref()?;
-            resolve_column_for_path(db, InFile::new(file, &path), column_name)
-        }
-        NameRefClass::ForeignKeyColumn => {
-            let path = if let Some(foreign_key) =
-                node.ancestors().find_map(ast::ForeignKeyConstraint::cast)
-            {
-                foreign_key.table_name_ref()?.path_ref()?
-            } else if let Some(references_constraint) =
-                node.ancestors().find_map(ast::ReferencesConstraint::cast)
-            {
-                references_constraint.table()?.path_ref()?
-            } else {
-                return None;
-            };
-            resolve_column_for_path(db, InFile::new(file, &path), column_name)
-        }
-        NameRefClass::PublicationColumn => {
-            let publication_object = node.ancestors().find_map(ast::PublicationObject::cast)?;
-            let path = publication_object.table_name_ref()?.path_ref()?;
-            resolve_column_for_path(db, InFile::new(file, &path), column_name)
-        }
-        NameRefClass::StatisticsColumn => {
-            let create_statistics = node.ancestors().find_map(ast::CreateStatistics::cast)?;
-            let path = create_statistics
-                .from_table()?
-                .table_name_ref()?
-                .path_ref()?;
-            resolve_column_for_path(db, InFile::new(file, &path), column_name)
-        }
-        NameRefClass::TableAndColumnsColumn => {
-            let table_and_columns = node.ancestors().find_map(ast::TableAndColumns::cast)?;
-            let path = table_and_columns
-                .table_relation_name()?
-                .table_name_ref()?
-                .path_ref()?;
-            resolve_column_for_path(db, InFile::new(file, &path), column_name)
-        }
-        NameRefClass::TriggerEventColumn => {
-            let create_trigger = node.ancestors().find_map(ast::CreateTrigger::cast)?;
-            let path = create_trigger
-                .on_relation()?
-                .relation_name_ref()?
-                .path_ref()?;
-            resolve_column_for_path(db, InFile::new(file, &path), column_name)
-        }
-        _ => None,
-    }
 }
 
 pub(crate) fn resolve_database_ref(
@@ -1853,7 +1771,7 @@ pub(crate) fn resolve_vertex_table_ref(
     let file = vertex_table_ref.file_id;
     let vertex_table_ref = vertex_table_ref.value;
     let vertex_table = property_graph_vertex_table(vertex_table_ref)?;
-    if let Some(alias) = vertex_table.element_table_alias() {
+    if let Some(alias) = vertex_table.alias() {
         return Some(smallvec![Location::new(
             file,
             alias.syntax().text_range(),
@@ -1911,11 +1829,10 @@ fn property_graph_vertex_table(
         .find_map(|vertex_table| {
             let path = vertex_table.table_name_ref()?.path_ref()?;
             let matches_alias = vertex_table
-                .element_table_alias()
+                .alias()
                 .is_some_and(|alias| Name::from_node(&alias) == vertex_table_name);
             let matches_table = path
                 .segment()
-                .and_then(|segment| segment.name_ref())
                 .is_some_and(|name| Name::from_node(&name) == vertex_table_name);
             (matches_alias || matches_table).then_some(vertex_table)
         })
@@ -1955,7 +1872,7 @@ fn resolve_column_for_path(
 
 fn resolve_select_qualified_column_table_name_ptr(
     db: &dyn Db,
-    table_name_ref: InFile<&ast::NameRef>,
+    table_name_ref: InFile<&impl ast::NameLike>,
 ) -> Option<SmallVec<[Location; 1]>> {
     let file = table_name_ref.file_id;
     let table_name_ref = table_name_ref.value;
@@ -1992,7 +1909,7 @@ fn resolve_select_qualified_column_table_name_ptr(
 
     let from_item = find_from_item_for_select_qualified_name_ref(table_name_ref, &table_name)?;
 
-    if let Some(alias_name) = from_item.alias().and_then(|alias| alias.table_alias())
+    if let Some(alias_name) = from_item.alias().and_then(|alias| alias.name())
         && Name::from_node(&alias_name) == table_name
     {
         return Some(smallvec![Location::new(
@@ -2040,7 +1957,7 @@ fn match_table_in_returning_clause(
     // Check `returning with (old as alias, new as alias)`
     if let Some(option_list) = returning_clause.and_then(|x| x.returning_option_list()) {
         for option in option_list.returning_options() {
-            if let Some(alias) = option.table_alias()
+            if let Some(alias) = option.name()
                 && Name::from_node(&alias) == *table_name
             {
                 return Some(ReturningClauseMatch::ReturningAlias(alias));
@@ -2069,7 +1986,7 @@ fn match_table_in_returning_clause(
 
 fn resolve_select_qualified_column_ptr(
     db: &dyn Db,
-    column_name_ref: InFile<&ast::NameRef>,
+    column_name_ref: InFile<&impl ast::NameLike>,
 ) -> Option<SmallVec<[Location; 1]>> {
     let file = column_name_ref.file_id;
     let column_name_ref = column_name_ref.value;
@@ -2146,7 +2063,7 @@ fn resolve_select_qualified_column_ptr(
                 // `from t as u`
                 // `from t as u(a, b, c)`
                 if let Some(alias) = from_item.alias()
-                    && let Some(alias_name) = alias.table_alias()
+                    && let Some(alias_name) = alias.name()
                     && Name::from_node(&alias_name) == column_table_name
                 {
                     if let ast::FromItem::ParenFromItem(paren) = &from_item {
@@ -2172,10 +2089,8 @@ fn resolve_select_qualified_column_ptr(
 
                     // `from t as u(a, b, c)`
                     if let Some(column_list) = alias.column_list() {
-                        for column in column_list.columns() {
-                            if let Some(col_name) = column.name()
-                                && Name::from_node(&col_name) == column_name
-                            {
+                        for col_name in column_list.column_names() {
+                            if Name::from_node(&col_name) == column_name {
                                 return Some(smallvec![Location::new(
                                     file,
                                     col_name.syntax().text_range(),
@@ -2225,7 +2140,7 @@ fn resolve_select_qualified_column_ptr(
                     && let Some(from_item) = using_on.from_item()
                 {
                     let matches_source = if let Some(alias_name) =
-                        from_item.alias().and_then(|alias| alias.table_alias())
+                        from_item.alias().and_then(|alias| alias.name())
                     {
                         Name::from_node(&alias_name) == column_table_name
                     } else if let Some((_, item_name)) =
@@ -2336,7 +2251,7 @@ pub(crate) fn resolve_table_name(
         // A little clunky
         let single = ResolvedSchemas::from_single(resolved_schema.clone());
         for file in list_files(db, origin_file) {
-            let Some((ptr, kind)) = resolve_table_like(db, None, table_name, &single, file) else {
+            let Some((ptr, kind)) = resolve_view_or_table(db, table_name, &single, file) else {
                 continue;
             };
             let tree = parse(db, file).tree();
@@ -2369,13 +2284,13 @@ pub(crate) fn resolve_table_name(
     None
 }
 
-fn resolve_merge_alias(name_ref: &ast::NameRef, table_name: &Name) -> Option<Name> {
+fn resolve_merge_alias(name_ref: &impl ast::NameLike, table_name: &Name) -> Option<Name> {
     let from_item = name_ref.syntax().ancestors().find_map(|x| {
         ast::Merge::cast(x)?
             .using_on_clause()
             .and_then(|c| c.from_item())
     })?;
-    if let Some(alias_name) = from_item.alias().and_then(|alias| alias.table_alias())
+    if let Some(alias_name) = from_item.alias().and_then(|alias| alias.name())
         && Name::from_node(&alias_name) == *table_name
         && let ast::FromItem::RelationFromItem(relation) = &from_item
     {
@@ -2388,7 +2303,7 @@ fn resolve_merge_alias(name_ref: &ast::NameRef, table_name: &Name) -> Option<Nam
 fn resolve_from_item_column_ptr(
     db: &dyn Db,
     from_item: InFile<&ast::FromItem>,
-    column_name_ref: &ast::NameRef,
+    column_name_ref: &impl ast::NameLike,
 ) -> Option<SmallVec<[Location; 1]>> {
     let column_name = Name::from_node(column_name_ref);
     resolve_from_item_column_by_name(db, from_item, column_name_ref, &column_name)
@@ -2397,7 +2312,7 @@ fn resolve_from_item_column_ptr(
 fn resolve_from_item_column_by_name(
     db: &dyn Db,
     from_item: InFile<&ast::FromItem>,
-    scope_name_ref: &ast::NameRef,
+    scope_name_ref: &impl ast::NameLike,
     column_name: &Name,
 ) -> Option<SmallVec<[Location; 1]>> {
     resolve_from_item_column_by_name_after_index(db, from_item, scope_name_ref, column_name, 0)
@@ -2406,7 +2321,7 @@ fn resolve_from_item_column_by_name(
 fn resolve_from_item_column_by_name_after_index(
     db: &dyn Db,
     from_item: InFile<&ast::FromItem>,
-    scope_name_ref: &ast::NameRef,
+    scope_name_ref: &impl ast::NameLike,
     column_name: &Name,
     skip_column_count: usize,
 ) -> Option<SmallVec<[Location; 1]>> {
@@ -2429,7 +2344,7 @@ fn resolve_from_item_column_by_name_after_index(
             return Some(ptr);
         }
         if original_skip == 0
-            && let Some(alias_name) = alias.and_then(|alias| alias.table_alias())
+            && let Some(alias_name) = alias.and_then(|alias| alias.name())
             && Name::from_node(&alias_name) == *column_name
         {
             return Some(smallvec![Location::new(
@@ -2446,7 +2361,7 @@ fn resolve_from_item_column_by_name_after_index(
     {
         let (alias_len, alias_column) = resolve_column_list_column(
             file,
-            from_item.alias().and_then(|x| x.column_list()),
+            alias_column_names(from_item.alias()),
             column_name,
             skip_column_count,
         );
@@ -2465,7 +2380,7 @@ fn resolve_from_item_column_by_name_after_index(
             return Some(ptr);
         }
         if original_skip == 0
-            && let Some(alias_name) = from_item.alias().and_then(|alias| alias.table_alias())
+            && let Some(alias_name) = from_item.alias().and_then(|alias| alias.name())
             && Name::from_node(&alias_name) == *column_name
         {
             return Some(smallvec![Location::new(
@@ -2494,7 +2409,7 @@ fn resolve_from_item_column_by_name_after_index(
 
     let (alias_len, alias_column) = resolve_column_list_column(
         file,
-        from_item.alias().and_then(|x| x.column_list()),
+        alias_column_names(from_item.alias()),
         column_name,
         skip_column_count,
     );
@@ -2564,7 +2479,7 @@ fn resolve_from_item_column_by_name_after_index(
     }
 
     if original_skip == 0
-        && let Some(alias_name) = from_item.alias().and_then(|alias| alias.table_alias())
+        && let Some(alias_name) = from_item.alias().and_then(|alias| alias.name())
         && Name::from_node(&alias_name) == *column_name
     {
         return Some(smallvec![Location::new(
@@ -2605,7 +2520,7 @@ fn resolve_from_item_column_by_name_after_index(
 
 fn resolve_column_from_table_or_view_or_cte(
     db: &dyn Db,
-    name_ref: InFile<&ast::NameRef>,
+    name_ref: InFile<&impl ast::NameLike>,
     table_name: &Name,
     schema: Option<&Schema>,
     column_name: &Name,
@@ -2623,7 +2538,7 @@ fn resolve_column_from_table_or_view_or_cte(
 
 fn resolve_column_from_table_or_view_or_cte_impl(
     db: &dyn Db,
-    name_ref: InFile<&ast::NameRef>,
+    name_ref: InFile<&impl ast::NameLike>,
     table_name: &Name,
     schema: Option<&Schema>,
     column_name: &Name,
@@ -2644,7 +2559,7 @@ fn resolve_column_from_table_or_view_or_cte_impl(
 
 fn resolve_column_from_table_or_view_or_cte_column_only(
     db: &dyn Db,
-    name_ref: InFile<&ast::NameRef>,
+    name_ref: InFile<&impl ast::NameLike>,
     table_name: &Name,
     schema: Option<&Schema>,
     column_name: &Name,
@@ -2664,7 +2579,7 @@ fn resolve_column_from_table_or_view_or_cte_column_only(
 
 fn resolve_column_from_table_or_view_or_cte_impl_inner(
     db: &dyn Db,
-    name_ref: InFile<&ast::NameRef>,
+    name_ref: InFile<&impl ast::NameLike>,
     table_name: &Name,
     schema: Option<&Schema>,
     column_name: &Name,
@@ -2801,7 +2716,7 @@ fn resolve_column_from_table_or_view_or_cte_impl_inner(
 fn resolve_from_item_for_cte_star(
     db: &dyn Db,
     from_item: InFile<&ast::FromItem>,
-    name_ref: &ast::NameRef,
+    name_ref: &impl ast::NameLike,
     cte_name: &Name,
     column_name: &Name,
     skip_column_count: usize,
@@ -2833,7 +2748,7 @@ fn resolve_from_item_for_cte_star(
 
 fn resolve_select_column_ptr(
     db: &dyn Db,
-    column_name_ref: InFile<&ast::NameRef>,
+    column_name_ref: InFile<&impl ast::NameLike>,
 ) -> Option<SmallVec<[Location; 1]>> {
     let file = column_name_ref.file_id;
     let column_name_ref = column_name_ref.value;
@@ -2876,7 +2791,7 @@ fn resolve_select_column_ptr(
 }
 
 fn resolve_enclosing_function_param(
-    name_ref: InFile<&ast::NameRef>,
+    name_ref: InFile<&impl ast::NameLike>,
 ) -> Option<SmallVec<[Location; 1]>> {
     let file = name_ref.file_id;
     let name_ref = name_ref.value;
@@ -2907,7 +2822,7 @@ fn resolve_enclosing_function_param(
 
 fn resolve_select_group_by_alias_or_column_ptr(
     db: &dyn Db,
-    column_name_ref: InFile<&ast::NameRef>,
+    column_name_ref: InFile<&impl ast::NameLike>,
 ) -> Option<SmallVec<[Location; 1]>> {
     if let Some(ptr) = resolve_select_column_ptr(db, column_name_ref) {
         return Some(ptr);
@@ -2917,7 +2832,7 @@ fn resolve_select_group_by_alias_or_column_ptr(
 
 fn resolve_select_order_by_alias_or_column_ptr(
     db: &dyn Db,
-    column_name_ref: InFile<&ast::NameRef>,
+    column_name_ref: InFile<&impl ast::NameLike>,
 ) -> Option<SmallVec<[Location; 1]>> {
     if let Some(compound_select) = compound_select_for_order_by_name_ref(column_name_ref.value) {
         return resolve_compound_select_order_by_column_ptr(db, column_name_ref, &compound_select);
@@ -2929,7 +2844,9 @@ fn resolve_select_order_by_alias_or_column_ptr(
     resolve_select_column_ptr(db, column_name_ref)
 }
 
-fn compound_select_for_order_by_name_ref(name_ref: &ast::NameRef) -> Option<ast::CompoundSelect> {
+fn compound_select_for_order_by_name_ref(
+    name_ref: &impl ast::NameLike,
+) -> Option<ast::CompoundSelect> {
     let order_by_clause = name_ref
         .syntax()
         .ancestors()
@@ -2942,7 +2859,7 @@ fn compound_select_for_order_by_name_ref(name_ref: &ast::NameRef) -> Option<ast:
 
 fn resolve_compound_select_order_by_column_ptr(
     db: &dyn Db,
-    column_name_ref: InFile<&ast::NameRef>,
+    column_name_ref: InFile<&impl ast::NameLike>,
     compound_select: &ast::CompoundSelect,
 ) -> Option<SmallVec<[Location; 1]>> {
     let file = column_name_ref.file_id;
@@ -2962,7 +2879,7 @@ fn resolve_column_from_select_variant_with_skip(
     db: &dyn Db,
     file: File,
     select_variant: ast::SelectVariant,
-    name_ref: &ast::NameRef,
+    name_ref: &impl ast::NameLike,
     column_name: &Name,
     skip_column_count: usize,
 ) -> Option<SmallVec<[Location; 1]>> {
@@ -3034,7 +2951,7 @@ fn resolve_column_from_table_query_with_skip(
 }
 
 fn resolve_select_target_alias_ptr(
-    column_name_ref: InFile<&ast::NameRef>,
+    column_name_ref: InFile<&impl ast::NameLike>,
 ) -> Option<SmallVec<[Location; 1]>> {
     let file = column_name_ref.file_id;
     let column_name_ref = column_name_ref.value;
@@ -3061,7 +2978,7 @@ fn resolve_select_target_alias_ptr(
 
 fn resolve_fn_call_column(
     db: &dyn Db,
-    name_ref: InFile<&ast::NameRef>,
+    name_ref: InFile<&impl ast::NameLike>,
 ) -> Option<SmallVec<[Location; 1]>> {
     let file = name_ref.file_id;
     let name_ref = name_ref.value;
@@ -3099,7 +3016,7 @@ fn resolve_fn_call_column(
 }
 
 fn is_from_item_match(from_item: &ast::FromItem, qualifier: &Name) -> bool {
-    if let Some(alias_name) = from_item.alias().and_then(|alias| alias.table_alias()) {
+    if let Some(alias_name) = from_item.alias().and_then(|alias| alias.name()) {
         return Name::from_node(&alias_name) == *qualifier;
     }
 
@@ -3156,7 +3073,7 @@ fn find_join_expr_by_using_alias(
     qualifier: &Name,
 ) -> Option<ast::JoinExpr> {
     if let Some(using_clause) = join_expr.join().and_then(|join| join.using_clause())
-        && let Some(alias_name) = using_clause.alias().and_then(|alias| alias.table_alias())
+        && let Some(alias_name) = using_clause.alias().and_then(|alias| alias.name())
         && Name::from_node(&alias_name) == *qualifier
     {
         return Some(join_expr.clone());
@@ -3165,7 +3082,7 @@ fn find_join_expr_by_using_alias(
 }
 
 fn find_using_alias_join_expr_for_name_ref(
-    name_ref: &ast::NameRef,
+    name_ref: &impl ast::NameLike,
     qualifier: &Name,
 ) -> Option<ast::JoinExpr> {
     let select = name_ref
@@ -3179,11 +3096,11 @@ fn find_using_alias_join_expr_for_name_ref(
 }
 
 fn resolve_join_using_alias_table_ptr(
-    name_ref: InFile<&ast::NameRef>,
+    name_ref: InFile<&impl ast::NameLike>,
     qualifier: &Name,
 ) -> Option<SmallVec<[Location; 1]>> {
     let join_expr = find_using_alias_join_expr_for_name_ref(name_ref.value, qualifier)?;
-    let alias_name = join_expr.join()?.using_clause()?.alias()?.table_alias()?;
+    let alias_name = join_expr.join()?.using_clause()?.alias()?.name()?;
     Some(smallvec![Location::new(
         name_ref.file_id,
         alias_name.syntax().text_range(),
@@ -3193,7 +3110,7 @@ fn resolve_join_using_alias_table_ptr(
 
 fn resolve_join_using_alias_column_ptr(
     db: &dyn Db,
-    name_ref: InFile<&ast::NameRef>,
+    name_ref: InFile<&impl ast::NameLike>,
     qualifier: &Name,
 ) -> Option<SmallVec<[Location; 1]>> {
     let join_expr = find_using_alias_join_expr_for_name_ref(name_ref.value, qualifier)?;
@@ -3204,7 +3121,7 @@ fn resolve_columns_in_join_expr(
     db: &dyn Db,
     file: File,
     join_expr: &ast::JoinExpr,
-    name_ref: &ast::NameRef,
+    name_ref: &impl ast::NameLike,
 ) -> Option<SmallVec<[Location; 1]>> {
     let mut results: SmallVec<[Location; 1]> = SmallVec::new();
     for from_item in ast_nav::iter_join_expr(join_expr) {
@@ -3228,7 +3145,7 @@ fn select_like_from_clause(node: &SyntaxNode) -> Option<ast::FromClause> {
 }
 
 fn find_from_item_for_select_qualified_name_ref(
-    name_ref: &ast::NameRef,
+    name_ref: &impl ast::NameLike,
     table_name: &Name,
 ) -> Option<ast::FromItem> {
     let select = name_ref.syntax().ancestors().find(|ancestor| {
@@ -3396,23 +3313,31 @@ fn find_column_in_resolved(
     }
 }
 
+fn column_list_names(
+    column_list: Option<ast::ColumnList>,
+) -> impl Iterator<Item = ast::ColumnName> {
+    column_list
+        .into_iter()
+        .flat_map(|column_list| column_list.column_names())
+}
+
+fn alias_column_names(alias: Option<ast::FromAlias>) -> impl Iterator<Item = ast::ColumnName> {
+    alias
+        .and_then(|alias| alias.column_list())
+        .into_iter()
+        .flat_map(|column_list| column_list.column_names())
+}
+
 fn resolve_column_list_column(
     file: File,
-    column_list: Option<ast::ColumnList>,
+    column_names: impl Iterator<Item = ast::ColumnName>,
     column_name: &Name,
     skip_column_count: usize,
 ) -> (usize, Option<SmallVec<[Location; 1]>>) {
-    let Some(column_list) = column_list else {
-        return (0, None);
-    };
-
     let mut column_list_len = 0usize;
-    for (idx, column) in column_list.columns().enumerate() {
+    for (idx, col_name) in column_names.enumerate() {
         column_list_len = idx + 1;
-        if idx >= skip_column_count
-            && let Some(col_name) = column.name()
-            && Name::from_node(&col_name) == *column_name
-        {
+        if idx >= skip_column_count && Name::from_node(&col_name) == *column_name {
             return (
                 column_list_len,
                 Some(smallvec![Location::new(
@@ -3659,7 +3584,7 @@ fn find_column_in_create_view_like_with_skip(
 ) -> Option<SmallVec<[Location; 1]>> {
     let (column_list_len, alias_column) = resolve_column_list_column(
         file,
-        create_view.column_list(),
+        column_list_names(create_view.column_list()),
         column_name,
         skip_column_count,
     );
@@ -3803,23 +3728,22 @@ fn find_column_in_select_into_with_skip(
     )
 }
 
-fn relation_name_ref_from_table(table: &ast::Table) -> Option<ast::NameRef> {
+fn relation_name_ref_from_table(table: &ast::Table) -> Option<ast::PathSegmentRef> {
     table
         .relation_name()?
         .relation_name_ref()?
         .path_ref()?
-        .segment()?
-        .name_ref()
+        .segment()
 }
 
-fn relation_name_ref_from_from_item(from_item: &ast::FromItem) -> Option<ast::NameRef> {
+fn relation_name_ref_from_from_item(from_item: &ast::FromItem) -> Option<ast::PathSegmentRef> {
     let ast::FromItem::RelationFromItem(relation) = from_item else {
         return None;
     };
     relation.name_ref()
 }
 
-fn resolve_cte_table(name_ref: &ast::NameRef, cte_name: &Name) -> Option<SyntaxNodePtr> {
+fn resolve_cte_table(name_ref: &impl ast::NameLike, cte_name: &Name) -> Option<SyntaxNodePtr> {
     let with_table = ast_nav::find_cte_with_table(name_ref, cte_name)?;
     Some(SyntaxNodePtr::new(with_table.name()?.syntax()))
 }
@@ -3830,7 +3754,23 @@ fn count_columns_for_path(db: &dyn Db, path: InFile<&ast::PathRef>) -> Option<us
     let (schema, table_name) = name::schema_and_name_path(path)?;
     let position = path.syntax().text_range().start();
     let schemas = bind(db, file).resolved_schemas(position, schema.as_ref());
-    count_columns_for_table_name(db, &table_name, &schemas, file, None)
+    count_columns_for_table_name(db, &table_name, &schemas, file)
+}
+
+fn count_columns_for_cte_or_table_name(
+    db: &dyn Db,
+    table_name: &Name,
+    schemas: &ResolvedSchemas,
+    file: File,
+    name_ref: &impl ast::NameLike,
+) -> Option<usize> {
+    if schemas.unqualified()
+        && let Some(with_table) = ast_nav::find_cte_with_table(name_ref, table_name)
+    {
+        return count_columns_for_with_table(db, file, with_table);
+    }
+
+    count_columns_for_table_name(db, table_name, schemas, file)
 }
 
 fn count_columns_for_table_name(
@@ -3838,21 +3778,13 @@ fn count_columns_for_table_name(
     table_name: &Name,
     schemas: &ResolvedSchemas,
     file: File,
-    name_ref: Option<&ast::NameRef>,
 ) -> Option<usize> {
     let tree = parse(db, file).tree();
     let root = tree.syntax();
-    let (table_like_ptr, kind) = resolve_table_like(db, name_ref, table_name, schemas, file)?;
+    let (table_like_ptr, kind) = resolve_view_or_table(db, table_name, schemas, file)?;
 
     match kind {
         LocationKind::Table => {
-            if schemas.unqualified()
-                && let Some(name_ref) = name_ref
-                && let Some(with_table) = ast_nav::find_cte_with_table(name_ref, table_name)
-            {
-                return count_columns_for_with_table(db, file, with_table);
-            }
-
             let table_like_node = table_like_ptr.to_node(root);
             if let Some(create_table) = table_like_node
                 .ancestors()
@@ -3905,7 +3837,7 @@ fn count_columns_for_table_name(
                 .ancestors()
                 .find_map(ast::CreateViewLike::cast)?;
             if let Some(column_list) = create_view.column_list() {
-                return Some(column_list.columns().count());
+                return Some(column_list.column_names().count());
             }
 
             count_columns_for_select_variant(db, file, &create_view.query()?)
@@ -3920,7 +3852,7 @@ fn count_columns_for_with_table(
     with_table: ast::WithTable,
 ) -> Option<usize> {
     if let Some(column_list) = with_table.column_list() {
-        return Some(column_list.columns().count());
+        return Some(column_list.column_names().count());
     }
 
     count_columns_for_with_query(db, file, with_table.query()?)
@@ -3979,7 +3911,7 @@ fn count_columns_for_table_query(db: &dyn Db, file: File, table: &ast::Table) ->
     let table_name_ref = relation_name_ref_from_table(table)?;
     let position = table_name_ref.syntax().text_range().start();
     let schemas = bind(db, file).resolved_schemas(position, schema.as_ref());
-    count_columns_for_table_name(db, &table_name, &schemas, file, Some(&table_name_ref))
+    count_columns_for_cte_or_table_name(db, &table_name, &schemas, file, &table_name_ref)
 }
 
 fn count_columns_for_values(values: &ast::Values) -> Option<usize> {
@@ -3991,7 +3923,7 @@ fn count_columns_for_values(values: &ast::Values) -> Option<usize> {
 
 fn resolve_cte_column(
     db: &dyn Db,
-    name_ref: InFile<&ast::NameRef>,
+    name_ref: InFile<&impl ast::NameLike>,
     cte_name: &Name,
     column_name: &Name,
 ) -> Option<SmallVec<[Location; 1]>> {
@@ -4000,7 +3932,7 @@ fn resolve_cte_column(
 
 fn resolve_cte_column_with_skip(
     db: &dyn Db,
-    name_ref: InFile<&ast::NameRef>,
+    name_ref: InFile<&impl ast::NameLike>,
     cte_name: &Name,
     column_name: &Name,
     skip_column_count: usize,
@@ -4010,7 +3942,7 @@ fn resolve_cte_column_with_skip(
 
 fn resolve_cte_column_with_skip_impl(
     db: &dyn Db,
-    name_ref: InFile<&ast::NameRef>,
+    name_ref: InFile<&impl ast::NameLike>,
     cte_name: &Name,
     column_name: &Name,
     skip_column_count: usize,
@@ -4022,7 +3954,7 @@ fn resolve_cte_column_with_skip_impl(
 
     let (column_list_len, alias_column) = resolve_column_list_column(
         file,
-        with_table.column_list(),
+        column_list_names(with_table.column_list()),
         column_name,
         skip_column_count,
     );
@@ -4124,7 +4056,7 @@ fn resolve_cte_column_from_with_query_with_skip(
     db: &dyn Db,
     file: File,
     query: ast::WithQuery,
-    name_ref: &ast::NameRef,
+    name_ref: &impl ast::NameLike,
     cte_name: &Name,
     column_name: &Name,
     skip_column_count: usize,
@@ -4182,7 +4114,7 @@ fn resolve_cte_column_from_select_variant_with_skip(
     db: &dyn Db,
     file: File,
     select_variant: ast::SelectVariant,
-    name_ref: &ast::NameRef,
+    name_ref: &impl ast::NameLike,
     cte_name: &Name,
     column_name: &Name,
     skip_column_count: usize,
@@ -4243,7 +4175,7 @@ fn resolve_cte_column_from_select_with_skip(
     db: &dyn Db,
     file: File,
     select: &ast::Select,
-    name_ref: &ast::NameRef,
+    name_ref: &impl ast::NameLike,
     cte_name: &Name,
     column_name: &Name,
     skip_column_count: usize,
@@ -4293,22 +4225,22 @@ fn column_in_with_query(
     let (returning_clause, alias, path) = match query {
         ast::WithQuery::Delete(delete) => (
             delete.returning_clause(),
-            delete.alias().and_then(|alias| alias.table_alias()),
+            delete.alias().and_then(|alias| alias.name()),
             delete.relation_name()?.relation_name_ref()?.path_ref()?,
         ),
         ast::WithQuery::Insert(insert) => (
             insert.returning_clause(),
-            insert.alias().and_then(|alias| alias.table_alias()),
+            insert.alias().and_then(|alias| alias.name()),
             insert.relation_name_ref()?.path_ref()?,
         ),
         ast::WithQuery::Merge(merge) => (
             merge.returning_clause(),
-            merge.alias().and_then(|alias| alias.table_alias()),
+            merge.alias().and_then(|alias| alias.name()),
             merge.table_relation_name()?.table_name_ref()?.path_ref()?,
         ),
         ast::WithQuery::Update(update) => (
             update.returning_clause(),
-            update.alias().and_then(|alias| alias.table_alias()),
+            update.alias().and_then(|alias| alias.name()),
             update.relation_name()?.relation_name_ref()?.path_ref()?,
         ),
         ast::WithQuery::Select(_)
@@ -4402,7 +4334,7 @@ fn returning_target_kind(
 fn resolve_subquery_column_ptr(
     db: &dyn Db,
     paren_select: InFile<&ast::ParenSelect>,
-    name_ref: &ast::NameRef,
+    name_ref: &impl ast::NameLike,
     column_name: &Name,
     alias: Option<&ast::FromAlias>,
 ) -> Option<SmallVec<[Location; 1]>> {
@@ -4412,7 +4344,7 @@ fn resolve_subquery_column_ptr(
 fn resolve_subquery_column_ptr_with_skip(
     db: &dyn Db,
     paren_select: InFile<&ast::ParenSelect>,
-    name_ref: &ast::NameRef,
+    name_ref: &impl ast::NameLike,
     column_name: &Name,
     alias: Option<&ast::FromAlias>,
     skip_column_count: usize,
@@ -4423,7 +4355,7 @@ fn resolve_subquery_column_ptr_with_skip(
 
     let (column_list_len, alias_column) = resolve_column_list_column(
         file,
-        alias.and_then(|x| x.column_list()),
+        alias_column_names(alias.cloned()),
         column_name,
         skip_column_count,
     );
@@ -4445,7 +4377,7 @@ fn resolve_subquery_column_ptr_with_skip(
 fn resolve_column_from_select_targets(
     db: &dyn Db,
     select: InFile<&ast::Select>,
-    name_ref: &ast::NameRef,
+    name_ref: &impl ast::NameLike,
     column_name: &Name,
     skip_column_count: usize,
 ) -> Option<SmallVec<[Location; 1]>> {
@@ -4631,13 +4563,13 @@ fn count_columns_for_from_item(db: &dyn Db, from_item: InFile<&ast::FromItem>) -
     let scope_name_ref = relation_name_ref_from_from_item(from_item)?;
     let position = scope_name_ref.syntax().text_range().start();
     let schemas = bind(db, file).resolved_schemas(position, schema.as_ref());
-    count_columns_for_table_name(db, &table_name, &schemas, file, Some(&scope_name_ref))
+    count_columns_for_cte_or_table_name(db, &table_name, &schemas, file, &scope_name_ref)
 }
 
 fn resolve_from_clause_column_after_index(
     db: &dyn Db,
     from_clause: InFile<&ast::FromClause>,
-    name_ref: &ast::NameRef,
+    name_ref: &impl ast::NameLike,
     column_name: &Name,
     skip_column_count: usize,
 ) -> Option<SmallVec<[Location; 1]>> {
@@ -4669,7 +4601,7 @@ fn resolve_from_clause_column_after_index(
 fn resolve_from_clause_for_cte_star(
     db: &dyn Db,
     from_clause: InFile<&ast::FromClause>,
-    name_ref: &ast::NameRef,
+    name_ref: &impl ast::NameLike,
     cte_name: &Name,
     column_name: &Name,
     skip_column_count: usize,
@@ -4703,7 +4635,7 @@ fn resolve_from_clause_for_cte_star(
 fn resolve_qualified_star_in_from_clause(
     db: &dyn Db,
     from_clause: InFile<&ast::FromClause>,
-    name_ref: &ast::NameRef,
+    name_ref: &impl ast::NameLike,
     cte_name: &Name,
     column_name: &Name,
     table_name: &Name,
@@ -4724,7 +4656,7 @@ fn resolve_qualified_star_in_from_clause(
 fn resolve_column_from_paren_expr(
     db: &dyn Db,
     paren_expr: InFile<&ast::ParenExpr>,
-    name_ref: &ast::NameRef,
+    name_ref: &impl ast::NameLike,
     column_name: &Name,
 ) -> Option<SmallVec<[Location; 1]>> {
     resolve_column_from_paren_expr_with_skip(db, paren_expr, name_ref, column_name, 0)
@@ -4733,7 +4665,7 @@ fn resolve_column_from_paren_expr(
 fn resolve_column_from_paren_expr_with_skip(
     db: &dyn Db,
     paren_expr: InFile<&ast::ParenExpr>,
-    name_ref: &ast::NameRef,
+    name_ref: &impl ast::NameLike,
     column_name: &Name,
     skip_column_count: usize,
 ) -> Option<SmallVec<[Location; 1]>> {
@@ -4866,7 +4798,10 @@ fn find_json_path_name_in_table(
         .or_else(|| find_json_path_name(&json_table.json_table_column_list()?, target))
 }
 
-fn resolve_json_path_name(file: File, name_ref: &ast::NameRef) -> Option<SmallVec<[Location; 1]>> {
+fn resolve_json_path_name(
+    file: File,
+    name_ref: &impl ast::NameLike,
+) -> Option<SmallVec<[Location; 1]>> {
     let json_table = name_ref
         .syntax()
         .ancestors()
@@ -4927,7 +4862,7 @@ fn resolve_json_table_column(
 fn resolve_column_from_call_expr_return_table(
     db: &dyn Db,
     call_expr: InFile<&ast::CallExpr>,
-    name_ref: &ast::NameRef,
+    name_ref: &impl ast::NameLike,
     column_name: &Name,
     min_index: usize,
 ) -> Option<SmallVec<[Location; 1]>> {
@@ -5116,10 +5051,7 @@ fn param_signature(node: &ast::HasParamList) -> Option<Vec<Name>> {
     let mut params = vec![];
     for param in node.param_list()?.params() {
         if let Some(ast::Type::PathType(path_type)) = param.ty()
-            && let Some(name_ref) = path_type
-                .path_ref()
-                .and_then(|x| x.segment())
-                .and_then(|x| x.name_ref())
+            && let Some(name_ref) = path_type.path_ref().and_then(|x| x.segment())
         {
             params.push(Name::from_node(&name_ref));
         }
@@ -5129,38 +5061,41 @@ fn param_signature(node: &ast::HasParamList) -> Option<Vec<Name>> {
 
 fn resolve_composite_type_field_ptr(
     db: &dyn Db,
-    field_name_ref: InFile<&ast::NameRef>,
+    field_name_ref: InFile<&impl ast::NameLike>,
 ) -> Option<SmallVec<[Location; 1]>> {
     let file = field_name_ref.file_id;
     let field_name_ref = field_name_ref.value;
     let tree = parse(db, file).tree();
     let root = tree.syntax();
     let field_name = Name::from_node(field_name_ref);
-    let field_expr = field_name_ref
-        .syntax()
-        .parent()
-        .and_then(ast::FieldExpr::cast)?;
-    let base = field_expr.base()?;
+    let parent = field_name_ref.syntax().parent()?;
 
-    if let ast::Expr::ParenExpr(ref paren_expr) = base
-        && let Some(result) = resolve_column_from_paren_expr(
-            db,
-            InFile::new(file, paren_expr),
-            field_name_ref,
-            &field_name,
-        )
-    {
-        return Some(result);
-    }
+    let column_locs = if let Some(field_accessor) = ast::FieldAccessor::cast(parent.clone()) {
+        resolve_accessor_base_column(db, file, &field_accessor)?
+    } else {
+        let field_expr = ast::FieldExpr::cast(parent)?;
+        let base = field_expr.base()?;
 
-    let base_name_ref = ast_nav::unwrap_paren_expr(base.clone()).find_map(|e| match e {
-        ast::Expr::NameRef(nr) => Some(nr),
-        ast::Expr::FieldExpr(field_expr) => field_expr.field(),
-        _ => None,
-    })?;
+        if let ast::Expr::ParenExpr(ref paren_expr) = base
+            && let Some(result) = resolve_column_from_paren_expr(
+                db,
+                InFile::new(file, paren_expr),
+                field_name_ref,
+                &field_name,
+            )
+        {
+            return Some(result);
+        }
 
-    let column_locs = resolve_select_column_ptr(db, InFile::new(file, &base_name_ref))
-        .or_else(|| resolve_name_ref(db, InFile::new(file, &base_name_ref)))?;
+        let base_name_ref = ast_nav::unwrap_paren_expr(base.clone()).find_map(|e| match e {
+            ast::Expr::NameRef(nr) => Some(nr),
+            ast::Expr::FieldExpr(field_expr) => field_expr.field(),
+            _ => None,
+        })?;
+
+        resolve_select_column_ptr(db, InFile::new(file, &base_name_ref))
+            .or_else(|| resolve_name_ref(db, InFile::new(file, &base_name_ref)))?
+    };
     let column_node = column_locs.first()?.to_node(db)?;
 
     let (schema, type_name) = resolve_composite_type_from_column_node(&column_node)
@@ -5199,13 +5134,13 @@ fn composite_type_field_location(
     let ast::CreateTypeKind::CompositeType(composite) = create_type.kind()? else {
         return None;
     };
-    for column in composite.column_list()?.columns() {
-        if let Some(col_name) = column.name()
-            && Name::from_node(&col_name) == *field_name
+    for field in composite.composite_field_list()?.composite_field_defs() {
+        if let Some(name) = field.name()
+            && Name::from_node(&name) == *field_name
         {
             return Some(smallvec![Location::new(
                 file,
-                col_name.syntax().text_range(),
+                name.syntax().text_range(),
                 LocationKind::Column
             )]);
         }
@@ -5214,11 +5149,30 @@ fn composite_type_field_location(
     None
 }
 
+// only the first accessor refers to the column itself, i.e., the `x` in
+// `a.x` but not the `y` in `a.x.y`
+fn resolve_accessor_base_column(
+    db: &dyn Db,
+    file: File,
+    field_accessor: &ast::FieldAccessor,
+) -> Option<SmallVec<[Location; 1]>> {
+    let column_target = ast::ColumnTarget::cast(field_accessor.syntax().parent()?)?;
+    if column_target.accessors().next()?.syntax() != field_accessor.syntax() {
+        return None;
+    }
+    resolve_name_ref(db, InFile::new(file, &column_target.name()?))
+}
+
 fn resolve_composite_type_from_column_node(
     column_node: &SyntaxNode,
 ) -> Option<(Option<Schema>, Name)> {
-    let column = column_node.ancestors().find_map(ast::Column::cast)?;
-    let ty = column.ty()?;
+    let ty = column_node.ancestors().find_map(|node| {
+        if let Some(column) = ast::Column::cast(node.clone()) {
+            column.ty()
+        } else {
+            ast::CompositeFieldDef::cast(node)?.ty()
+        }
+    })?;
     name::schema_and_type_name(&ty)
 }
 
@@ -5235,7 +5189,7 @@ fn resolve_composite_type_from_cast_node(
 
 fn resolve_update_table_name_ptr(
     db: &dyn Db,
-    table_name_ref: InFile<&ast::NameRef>,
+    table_name_ref: InFile<&impl ast::NameLike>,
 ) -> Option<SmallVec<[Location; 1]>> {
     let file = table_name_ref.file_id;
     let table_name_ref = table_name_ref.value;
@@ -5262,7 +5216,7 @@ fn resolve_update_table_name_ptr(
     resolve_table_in_returning_clause(
         db,
         InFile::new(file, table_name_ref),
-        update.alias().and_then(|alias| alias.table_alias()),
+        update.alias().and_then(|alias| alias.name()),
         &path,
         update.returning_clause(),
     )
@@ -5270,14 +5224,14 @@ fn resolve_update_table_name_ptr(
 
 fn resolve_from_item_table_name_ptr(
     db: &dyn Db,
-    table_name_ref: InFile<&ast::NameRef>,
+    table_name_ref: InFile<&impl ast::NameLike>,
     from_item: &ast::FromItem,
     table_name: &Name,
 ) -> Option<SmallVec<[Location; 1]>> {
     let file = table_name_ref.file_id;
     let table_name_ref = table_name_ref.value;
 
-    if let Some(alias_name) = from_item.alias().and_then(|alias| alias.table_alias()) {
+    if let Some(alias_name) = from_item.alias().and_then(|alias| alias.name()) {
         if Name::from_node(&alias_name) == *table_name {
             return Some(smallvec![Location::new(
                 file,
@@ -5309,7 +5263,7 @@ fn resolve_from_item_table_name_ptr(
     Some(smallvec![Location::new(file, ptr.text_range(), kind)])
 }
 
-fn column_qualifier_name(column_name_ref: &ast::NameRef) -> Option<Name> {
+fn column_qualifier_name(column_name_ref: &impl ast::NameLike) -> Option<Name> {
     let field_expr = column_name_ref
         .syntax()
         .parent()
@@ -5329,7 +5283,7 @@ fn column_qualifier_name(column_name_ref: &ast::NameRef) -> Option<Name> {
 
 fn resolve_update_column_ptr(
     db: &dyn Db,
-    column_name_ref: InFile<&ast::NameRef>,
+    column_name_ref: InFile<&impl ast::NameLike>,
 ) -> Option<SmallVec<[Location; 1]>> {
     let file = column_name_ref.file_id;
     let column_name_ref = column_name_ref.value;
@@ -5372,10 +5326,7 @@ fn resolve_update_column_ptr(
         match_table_in_returning_clause(
             &qualifier,
             &stmt_table_name,
-            update
-                .alias()
-                .and_then(|alias| alias.table_alias())
-                .as_ref(),
+            update.alias().and_then(|alias| alias.name()).as_ref(),
             update.returning_clause().as_ref(),
         )?;
     }
@@ -5385,7 +5336,7 @@ fn resolve_update_column_ptr(
 
 fn resolve_delete_column_ptr(
     db: &dyn Db,
-    column_name_ref: InFile<&ast::NameRef>,
+    column_name_ref: InFile<&impl ast::NameLike>,
 ) -> Option<SmallVec<[Location; 1]>> {
     let file = column_name_ref.file_id;
     let column_name_ref = column_name_ref.value;
@@ -5412,10 +5363,7 @@ fn resolve_delete_column_ptr(
         match_table_in_returning_clause(
             &qualifier,
             &stmt_table_name,
-            delete
-                .alias()
-                .and_then(|alias| alias.table_alias())
-                .as_ref(),
+            delete.alias().and_then(|alias| alias.name()).as_ref(),
             delete.returning_clause().as_ref(),
         )?;
     }
@@ -5425,7 +5373,7 @@ fn resolve_delete_column_ptr(
 
 fn resolve_delete_table_name_ptr(
     db: &dyn Db,
-    table_name_ref: InFile<&ast::NameRef>,
+    table_name_ref: InFile<&impl ast::NameLike>,
 ) -> Option<SmallVec<[Location; 1]>> {
     let file = table_name_ref.file_id;
     let table_name_ref = table_name_ref.value;
@@ -5437,7 +5385,7 @@ fn resolve_delete_table_name_ptr(
 
     if let Some(using_clause) = delete.using_clause() {
         for from_item in using_clause.from_items() {
-            if let Some(alias_name) = from_item.alias().and_then(|alias| alias.table_alias()) {
+            if let Some(alias_name) = from_item.alias().and_then(|alias| alias.name()) {
                 if Name::from_node(&alias_name) == table_name {
                     return Some(smallvec![Location::new(
                         file,
@@ -5464,7 +5412,7 @@ fn resolve_delete_table_name_ptr(
     resolve_table_in_returning_clause(
         db,
         InFile::new(file, table_name_ref),
-        delete.alias().and_then(|alias| alias.table_alias()),
+        delete.alias().and_then(|alias| alias.name()),
         &path,
         delete.returning_clause(),
     )
@@ -5472,7 +5420,7 @@ fn resolve_delete_table_name_ptr(
 
 fn resolve_merge_column_ptr(
     db: &dyn Db,
-    column_name_ref: InFile<&ast::NameRef>,
+    column_name_ref: InFile<&impl ast::NameLike>,
 ) -> Option<SmallVec<[Location; 1]>> {
     let file = column_name_ref.file_id;
     let column_name_ref = column_name_ref.value;
@@ -5492,7 +5440,7 @@ fn resolve_merge_column_ptr(
         if ast::SetExpr::can_cast(ancestor.kind()) {
             in_set_expr = true;
         }
-        if ast::ColumnRefList::can_cast(ancestor.kind()) {
+        if ast::ColumnTargetList::can_cast(ancestor.kind()) {
             in_insert_column_list = true;
         }
     }
@@ -5515,7 +5463,7 @@ fn resolve_merge_column_ptr(
 // callers pass in the stmt instead of the fields.
 fn resolve_table_in_returning_clause(
     db: &dyn Db,
-    table_name_ref: InFile<&ast::NameRef>,
+    table_name_ref: InFile<&impl ast::NameLike>,
     alias: Option<ast::TableAlias>,
     path: &ast::PathRef,
     returning_clause: Option<ast::ReturningClause>,
@@ -5567,7 +5515,7 @@ fn resolve_table_in_returning_clause(
 
 fn resolve_merge_table_name_ptr(
     db: &dyn Db,
-    table_name_ref: InFile<&ast::NameRef>,
+    table_name_ref: InFile<&impl ast::NameLike>,
 ) -> Option<SmallVec<[Location; 1]>> {
     let file = table_name_ref.file_id;
     let table_name_ref = table_name_ref.value;
@@ -5582,7 +5530,7 @@ fn resolve_merge_table_name_ptr(
     // Check USING clause for the source table - MERGE-specific.
     // A source alias hides the underlying table name.
     if let Some(from_item) = merge.using_on_clause().and_then(|x| x.from_item()) {
-        if let Some(alias_name) = from_item.alias().and_then(|alias| alias.table_alias()) {
+        if let Some(alias_name) = from_item.alias().and_then(|alias| alias.name()) {
             if Name::from_node(&alias_name) == table_name {
                 return Some(smallvec![Location::new(
                     file,
@@ -5607,7 +5555,7 @@ fn resolve_merge_table_name_ptr(
     resolve_table_in_returning_clause(
         db,
         InFile::new(file, table_name_ref),
-        merge.alias().and_then(|alias| alias.table_alias()),
+        merge.alias().and_then(|alias| alias.name()),
         &path,
         merge.returning_clause(),
     )

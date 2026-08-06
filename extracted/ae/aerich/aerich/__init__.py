@@ -5,7 +5,7 @@ import warnings
 from collections.abc import Generator
 from contextlib import AbstractAsyncContextManager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
 import asyncclick as click
 from tortoise import BaseDBAsyncClient, Tortoise
@@ -13,7 +13,7 @@ from tortoise.exceptions import OperationalError
 from tortoise.transactions import in_transaction
 from tortoise.utils import generate_schema_for_client, get_schema_sql
 
-from aerich._compat import _init_asyncio_patch, _init_tortoise_0_24_1_patch, is_tortoise_inited
+from aerich._compat import _init_asyncio_patch, is_tortoise_inited
 from aerich.exceptions import DowngradeError, NotInitedError
 from aerich.inspectdb.mysql import InspectMySQL
 from aerich.inspectdb.postgres import InspectPostgres
@@ -34,12 +34,13 @@ from aerich.utils import (
 from aerich.version import __version__
 
 if TYPE_CHECKING:
+    from tortoise.backends.base_postgres.client import BasePostgresClient
+
     from aerich._compat import Self
     from aerich.inspectdb import Inspect
 
 
 _init_asyncio_patch()  # Change event_loop_policy for Windows
-_init_tortoise_0_24_1_patch()  # Patch m2m table generator for tortoise-orm==0.24.1
 __all__ = ("Command", "TortoiseContext", "__version__")
 
 
@@ -189,16 +190,16 @@ class Command(TortoiseContext):
 
     async def inspectdb(self, tables: list[str] | None = None) -> str:
         connection = get_app_connection(self.tortoise_config, self.app)
-        dialect = connection.schema_generator.DIALECT
-        if dialect == "mysql":
-            cls: type[Inspect] = InspectMySQL
-        elif dialect == "postgres":
-            cls = InspectPostgres
-        elif dialect == "sqlite":
-            cls = InspectSQLite
-        else:
-            raise NotImplementedError(f"{dialect} is not supported")
-        inspect = cls(connection, tables)
+        match connection.schema_generator.DIALECT:
+            case "postgres":
+                conn = cast("BasePostgresClient", connection)
+                inspect: Inspect = InspectPostgres(conn, tables)
+            case "mysql":
+                inspect = InspectMySQL(connection, tables)
+            case "sqlite":
+                inspect = InspectSQLite(connection, tables)
+            case _ as dialect:
+                raise NotImplementedError(f"{dialect} is not supported")
         if self._inspectdb_fields:
             inspect._special_fields = self._inspectdb_fields
         return await inspect.inspect()
@@ -318,7 +319,7 @@ class Command(TortoiseContext):
         return await Migrate.fix_migrations(self.tortoise_config)
 
     @staticmethod
-    async def get_applied_migrations(self, app: str | None = None) -> list[str]:
+    async def get_applied_migrations(app: str | None = None) -> list[str]:
         """
         Get applied migrations by query the 'aerich' table
 
@@ -328,7 +329,8 @@ class Command(TortoiseContext):
         qs = Aerich.all()
         if app is not None:
             qs = qs.filter(app=app)
-        return await qs.values_list("version", flat=True)  # type:ignore[return-value]
+        version_list = await qs.values_list("version", flat=True)
+        return cast(list[str], version_list)
 
     @classmethod
     def list_applied(cls, app: str | None = None) -> None:

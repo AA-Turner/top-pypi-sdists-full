@@ -4,12 +4,10 @@ import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
-from ..types.agora_web_api_public_v0models_database_data_database_status_response import (
-    AgoraWebApiPublicV0ModelsDatabaseDataDatabaseStatusResponse,
-)
 from ..types.database_data_response import DatabaseDataResponse
 from ..types.database_mutation_response import DatabaseMutationResponse
 from ..types.database_sql_response import DatabaseSqlResponse
+from ..types.database_status_response import DatabaseStatusResponse
 from ..types.database_table_schema_response import DatabaseTableSchemaResponse
 from ..types.database_tables_response import DatabaseTablesResponse
 from ..types.delete_data_request import DeleteDataRequest
@@ -37,7 +35,7 @@ class DatabasesClient:
 
     def get_status(
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AgoraWebApiPublicV0ModelsDatabaseDataDatabaseStatusResponse:
+    ) -> DatabaseStatusResponse:
         """
         Check if a database is running, suspended, or starting up. Poll this endpoint to determine when a serverless database is ready.
 
@@ -57,7 +55,7 @@ class DatabasesClient:
 
         Returns
         -------
-        AgoraWebApiPublicV0ModelsDatabaseDataDatabaseStatusResponse
+        DatabaseStatusResponse
             Successful Response
 
         Examples
@@ -464,7 +462,7 @@ class AsyncDatabasesClient:
 
     async def get_status(
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AgoraWebApiPublicV0ModelsDatabaseDataDatabaseStatusResponse:
+    ) -> DatabaseStatusResponse:
         """
         Check if a database is running, suspended, or starting up. Poll this endpoint to determine when a serverless database is ready.
 
@@ -484,7 +482,7 @@ class AsyncDatabasesClient:
 
         Returns
         -------
-        AgoraWebApiPublicV0ModelsDatabaseDataDatabaseStatusResponse
+        DatabaseStatusResponse
             Successful Response
 
         Examples

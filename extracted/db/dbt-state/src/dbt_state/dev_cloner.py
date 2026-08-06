@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 import typing as t
-from dbt.config import RuntimeConfig
+
 from dbt.adapters.sql import SQLAdapter
+from dbt.config import RuntimeConfig
 
-from dbt_state.adapters import BaseAdapterExtension
 from dbt_state import events
+from dbt_state.adapters import BaseAdapterExtension
 from dbt_state.config import CloneIncrementalInDev, RunCacheConfig
-from dbt_state.relation import DeferredRelationResolver
 from dbt_state.profiles import Profiles
+from dbt_state.relation import DeferredRelationResolver
 from dbt_state.utils import is_full_refresh, is_incremental_or_snapshot
-
 
 if t.TYPE_CHECKING:
     from dbt_state._typing import ModelOrSnapshotNode

@@ -59,6 +59,7 @@ from chalk.utils import AnyDataclass
 from chalk.utils.duration import CronTab, Duration, ScheduleOptions
 from chalk.utils.json import JSON
 from chalk.utils.secret import Secret
+from chalk.workflows import task, workflow
 
 batch = offline
 realtime = online
@@ -137,6 +138,8 @@ __all__ = (
     "select",
     "stream",
     "tags",
+    "task",
     "underscore",
     "windowed",
+    "workflow",
 )

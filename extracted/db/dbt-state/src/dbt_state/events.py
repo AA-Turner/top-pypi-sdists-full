@@ -4,15 +4,15 @@ import typing as t
 
 try:
     from dbt.adapters.events import types
-    from dbt_common.events.functions import fire_event as dbt_fire_event
-    from dbt_common.events.event_manager import IEventManager
     from dbt_common.events.base_types import EventMsg as EventMsg
+    from dbt_common.events.event_manager import IEventManager
+    from dbt_common.events.functions import fire_event as dbt_fire_event
     from dbt_common.events.types import Formatting as Formatting
 except ImportError:
     from dbt.events import types
-    from dbt.events.functions import fire_event as dbt_fire_event  # type: ignore[import-untyped]
-    from dbt.events.eventmgr import IEventManager  # type: ignore[import-untyped]
     from dbt.events.base_types import EventMsg as EventMsg  # type: ignore[import-untyped]
+    from dbt.events.eventmgr import IEventManager  # type: ignore[import-untyped]
+    from dbt.events.functions import fire_event as dbt_fire_event  # type: ignore[import-untyped]
 
     Formatting = None  # type: ignore[assignment]
 

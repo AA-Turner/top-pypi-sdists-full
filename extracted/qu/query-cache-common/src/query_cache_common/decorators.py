@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 import typing as t
-from dataclasses import fields, Field, dataclass
+from dataclasses import Field, dataclass, fields
 
 from google.protobuf.message import Message
 from typing_extensions import dataclass_transform
@@ -38,7 +38,7 @@ class FieldInfo:
     def create_inner_field_info(self) -> FieldInfo:
         return FieldInfo(
             name=self.name,
-            field_type=[x for x in self.inner_types if x is not type(None)][0],
+            field_type=next(x for x in self.inner_types if x is not type(None)),
             proto_converter={},
         )
 
@@ -321,15 +321,15 @@ def _create_enum_from_proto_method(
         """Convert protobuf enum value to Python enum instance."""
         try:
             return from_proto_map[proto_value]
-        except KeyError:
+        except KeyError as e:
             if hasattr(cls_inner, "_UNSUPPORTED"):
-                return cls_inner._UNSUPPORTED  # ty: ignore[invalid-return-type]
+                return cls_inner._UNSUPPORTED  # ty: ignore[invalid-return-type]  # noqa: SLF001
             valid_values = sorted(from_proto_map.keys())
             proto_enum_name = getattr(proto_enum_cls, "_enum_type", proto_enum_cls).name  # ty: ignore[unresolved-attribute]
             raise ValueError(
                 f"Invalid proto enum value {proto_value} for {proto_enum_name}. "
                 f"Valid values: {valid_values}"
-            )
+            ) from e
 
     return classmethod(from_proto_func)
 
@@ -348,10 +348,10 @@ def _generate_enum_to_proto_method(
         """Convert Python enum instance to protobuf enum value."""
         try:
             return to_proto_map[self]
-        except KeyError:
+        except KeyError as e:
             raise ValueError(
                 f"Invalid enum instance {self} for conversion to proto. "
                 f"This indicates a bug in the proto_enum decorator."
-            )
+            ) from e
 
     return to_proto_func

@@ -13,6 +13,7 @@ use ruff_db::files::File;
 use ruff_index::{FrozenIndexVec, Idx, IndexVec};
 use ruff_python_ast::{Singleton, name::Name};
 
+use crate::ProgramFile;
 use crate::ast_ids::ExpressionNodeKey;
 use crate::db::Db;
 use crate::expression::Expression;
@@ -137,6 +138,10 @@ pub enum PredicateNode<'db> {
     /// semantically during type checking, so calls to a shadowed `range` remain ambiguous.
     IsNonEmptyIterable(Expression<'db>),
     Pattern(PatternPredicate<'db>),
+    /// Whether control flow takes one branch of an OR pattern instead of its remaining
+    /// alternatives. The selected branch is unknown, but recording a predicate and its negation
+    /// preserves the fact that exactly one branch is taken.
+    OrPatternAlternative(ScopeId<'db>),
     SubjectElementPattern(SubjectElementPatternPredicate<'db>),
     StarImportPlaceholder(StarImportPlaceholderPredicate<'db>),
 }
@@ -233,7 +238,7 @@ pub enum PatternPredicateKind<'db> {
 #[salsa::tracked(debug, heap_size=ruff_memory_usage::heap_size)]
 pub struct PatternPredicate<'db> {
     #[returns(copy)]
-    pub python_file: PythonFile<'db>,
+    pub program_file: ProgramFile<'db>,
 
     #[returns(copy)]
     pub file_scope: FileScopeId,
@@ -257,14 +262,18 @@ impl get_size2::GetSize for PatternPredicate<'_> {}
 
 impl<'db> PatternPredicate<'db> {
     pub fn file(self, db: &'db dyn Db) -> File {
-        self.python_file(db).file(db)
+        self.program_file(db).file(db)
+    }
+
+    pub fn python_file(self, db: &'db dyn Db) -> PythonFile<'db> {
+        self.program_file(db).python_file(db)
     }
 
     pub fn scope(self, db: &'db dyn Db) -> ScopeId<'db> {
-        self.file_scope(db).to_scope_id(db, self.python_file(db))
+        self.file_scope(db).to_scope_id(db, self.program_file(db))
     }
 
-    pub fn program(self, db: &'db dyn Db) -> Program {
+    pub fn program(self, db: &'db dyn Db) -> Program<'db> {
         self.scope(db).program(db)
     }
 }
@@ -312,7 +321,7 @@ impl<'db> PatternPredicate<'db> {
 #[salsa::tracked(debug, heap_size=ruff_memory_usage::heap_size)]
 pub struct StarImportPlaceholderPredicate<'db> {
     #[returns(copy)]
-    pub importing_parse_file: PythonFile<'db>,
+    pub importing_file: ProgramFile<'db>,
 
     /// Each symbol imported by a `*` import has a separate predicate associated with it:
     /// this field identifies which symbol that is.
@@ -327,7 +336,7 @@ pub struct StarImportPlaceholderPredicate<'db> {
     pub symbol_id: ScopedSymbolId,
 
     #[returns(copy)]
-    pub referenced_parse_file: PythonFile<'db>,
+    pub referenced_file: ProgramFile<'db>,
 }
 
 // The Salsa heap is tracked separately.
@@ -337,7 +346,7 @@ impl<'db> StarImportPlaceholderPredicate<'db> {
     pub fn scope(self, db: &'db dyn Db) -> ScopeId<'db> {
         // See doc-comment above [`StarImportPlaceholderPredicate::symbol_id`]:
         // valid `*`-import definitions can only take place in the global scope.
-        global_scope(db, self.importing_parse_file(db))
+        global_scope(db, self.importing_file(db))
     }
 }
 

@@ -12,7 +12,7 @@ all: install
 
 .PHONY: prek
 prek: install
-	@(prek run $(PRE_COMMIT_OPTIONS) || true) | more
+	@(prek run $(PRE_COMMIT_OPTIONS) || true)
 	@prek cache gc -q
 
 .PHONY: clean
@@ -33,9 +33,9 @@ uninstall:
 	@prek uninstall -q
 	@rm -f .git/hooks/pre-commit
 
-.PHONY: upgrade
-upgrade: install
-	prek auto-update
+.PHONY: update
+update: install
+	prek update --freeze
 	$(MAKE) prek
 
 .PHONY: wheel
@@ -47,6 +47,7 @@ tests: wheel
 	./ci/install-tools.sh --tests
 	cp pyproject.toml $(COV_TMPDIR)/
 	cp -a tests/ $(COV_TMPDIR)/
+	cp -a wheelhouse $(COV_TMPDIR)/
 	cd $(COV_TMPDIR) && pytest -nauto -v || true
 
 .PHONY: cov
@@ -55,6 +56,7 @@ cov: wheel
 	@rm -rf build/coverage_html_report
 	cp pyproject.toml $(COV_TMPDIR)/
 	cp -a tests/ $(COV_TMPDIR)/
+	cp -a wheelhouse $(COV_TMPDIR)/
 	cd $(COV_TMPDIR) && coverage run || true
 	coverage combine --keep --quiet -a $(COV_TMPDIR)/
 	coverage report

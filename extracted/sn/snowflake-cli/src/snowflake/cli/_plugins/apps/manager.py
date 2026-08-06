@@ -37,10 +37,11 @@ from typing import (
 )
 
 DEFAULT_PERSONAL_SCHEMA = "PUBLIC"
-# Shared workspace name used when ``snow app setup`` resolves the destination
-# database from the user's personal database. All of the user's apps live as
-# subdirectories under this single workspace.
-DEFAULT_PERSONAL_WORKSPACE_NAME = "SNOWFLAKE_APPS"
+# Shared workspace name used by ``snow app setup`` for the code-storage backend.
+# The workspace flow is the default for both personal and regular databases, so
+# all of a user's apps live as subdirectories under this single workspace in the
+# resolved destination database/schema.
+DEFAULT_WORKSPACE_NAME = "SNOWFLAKE_APPS"
 WORKSPACE_LIVE_VERSION_PATH = "versions/live"
 
 # Snowflake assigns every user a *personal database* named ``USER$<username>``.
@@ -98,7 +99,7 @@ if TYPE_CHECKING:
     from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
         SnowflakeAppEntityModel,
     )
-from snowflake.cli._plugins.object.manager import ObjectManager
+from snowflake.cli._plugins.apps.events import EVENT_TABLE_FUNCTION
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.cli_global_context import get_cli_context
@@ -312,16 +313,6 @@ def _poll_until(
     )
 
 
-def _object_exists(object_type: str, name: str) -> bool:
-    """Check if an object exists in Snowflake."""
-    try:
-        return ObjectManager().object_exists(
-            object_type=object_type, fqn=FQN.from_string(name)
-        )
-    except Exception:
-        return False
-
-
 def _is_unknown_function_error(exc: ProgrammingError) -> bool:
     """Return ``True`` when *exc* indicates that
     ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` does not exist on the account.
@@ -396,6 +387,23 @@ def _deploy_privilege_check_statements(database: str, schema: str) -> list[str]:
         f"CREATE STAGE {placeholder} ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE')",
         f"CREATE ARTIFACT REPOSITORY {placeholder} TYPE=APPLICATION",
     ]
+
+
+def _workspace_privilege_check_statement(database: str, schema: str) -> str:
+    """Build the representative ``CREATE WORKSPACE`` DDL used to probe whether
+    the current role can use the workspace code-storage backend in
+    *database*/*schema*, via ``EXPLAIN_PRIVILEGES``.
+
+    The object name is a placeholder — the required privilege (``CREATE
+    WORKSPACE`` on the schema) depends on the destination database/schema, not
+    the final object name — and is emitted as a plain (per-component quoted)
+    dotted identifier rather than ``IDENTIFIER(...)`` so the analyzer can
+    resolve it.
+    """
+    placeholder = app_fqn(
+        database=database, schema=schema, name=PRIVILEGE_CHECK_OBJECT_NAME
+    ).identifier
+    return f"CREATE WORKSPACE {placeholder}"
 
 
 def _format_missing_privileges(nodes: list[Dict[str, str]]) -> list[str]:
@@ -556,8 +564,8 @@ def _resolve_deploy_defaults(
     4. Current session values (lowest priority)
 
     Returns a dict with keys ``query_warehouse``, ``build_compute_pool``,
-    ``service_compute_pool``, ``build_eai``, ``service_eai``,
-    ``artifact_repository``,
+    ``service_compute_pool``, ``compute_resource``, ``build_eai``,
+    ``service_eai``, ``artifact_repository``,
     ``artifact_repo_database``, ``artifact_repo_schema``, ``database``,
     and ``schema``.  Any of them may still be ``None`` if no source
     provides a value.
@@ -574,7 +582,11 @@ def _resolve_deploy_defaults(
     """
 
     # ── 1. snowflake.yml values ───────────────────────────────────────
+    # Resolve db/schema from the active connection in place on the shared
+    # entity.fqn (also expands USER$ → USER$<user>); downstream re-reads of
+    # entity.fqn intentionally see the resolved value.
     fqn = entity.fqn
+    fqn.using_context()
     if app_name is None:
         app_name = fqn.name
     yml_vals: Dict[str, Optional[str]] = {
@@ -585,6 +597,10 @@ def _resolve_deploy_defaults(
         "service_compute_pool": (
             entity.service_compute_pool.name if entity.service_compute_pool else None
         ),
+        # Resolved only from snowflake.yml (tier 1); no account-parameter or
+        # session fallback. Emitted on CREATE only when the
+        # ``ENABLE_APP_SERVICE_COMPUTE_RESOURCE`` feature flag is enabled.
+        "compute_resource": entity.compute_resource,
         "build_eai": entity.build_eai.name if entity.build_eai else None,
         "service_eai": entity.service_eai.name if entity.service_eai else None,
         "artifact_repository": (
@@ -927,6 +943,52 @@ class SnowflakeAppManager(SqlExecutionMixin):
             return []
         return _flatten_missing_privileges(payload)
 
+    def role_can_create_workspace(self, database: str, schema: str) -> bool:
+        """Return whether the current role can create a workspace in *database*/*schema*.
+
+        ``snow app setup`` uses this to decide, up front, whether to persist the
+        workspace code-storage backend (the default) or fall back to a stage,
+        so the choice is baked into ``snowflake.yml`` and later deploys don't
+        have to discover it at runtime.
+
+        The probe issues ``EXPLAIN_PRIVILEGES`` against a representative
+        ``CREATE WORKSPACE`` statement with ``missing_only => true`` for the
+        current role:
+
+        * No missing privileges reported → ``True`` (workspace is usable).
+        * Missing privileges reported → ``False`` (persist a stage instead).
+        * The probe itself cannot be evaluated (e.g. ``EXPLAIN_PRIVILEGES``
+          cannot analyze ``CREATE WORKSPACE`` on this account) → ``True``.
+          The workspace flow is the intended default and ``snow app deploy``
+          still falls back to a stage at runtime if the workspace turns out to
+          be unusable, so an inconclusive probe should not pre-emptively give
+          up the default.
+        """
+        role = self.current_role()
+        statement = _workspace_privilege_check_statement(database, schema)
+        try:
+            missing = self.get_missing_privileges(statement, role)
+        except Exception:
+            log.info(
+                "Could not evaluate CREATE WORKSPACE privileges for %r.%r; "
+                "assuming the workspace backend is usable.",
+                database,
+                schema,
+                exc_info=True,
+            )
+            return True
+        if missing:
+            log.info(
+                "Role %r is missing privileges to create a workspace in %r.%r: %s. "
+                "Falling back to a stage for code storage.",
+                role,
+                database,
+                schema,
+                _format_missing_privileges(missing),
+            )
+            return False
+        return True
+
     def stage_exists(self, stage_fqn: FQN) -> bool:
         """Return True if the stage already exists and is visible to the role.
 
@@ -982,10 +1044,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
             return "IDLE"
         normalised = {k.lower(): v for k, v in row.items()}
         return normalised.get("status", "IDLE")
-
-    def drop_service_if_exists(self, service_fqn: FQN) -> None:
-        """Drop a service if it exists."""
-        self.execute_query(f"DROP SERVICE IF EXISTS {service_fqn.sql_identifier}")
 
     def drop_app_service_if_exists(self, service_fqn: FQN) -> None:
         """Drop an application service if it exists."""
@@ -1224,29 +1282,40 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
         yield from self._run_uploads(uploads)
 
-    def get_service_status(self, service_fqn: FQN) -> str:
-        """
-        Get the status of a service.
-
-        Returns:
-            - "IDLE" if the service doesn't exist
-            - The actual status from SHOW SERVICES (e.g., "PENDING", "READY", "SUSPENDED", "FAILED")
-        """
-        cursor = self.execute_query(
-            f"SHOW SERVICES IN SCHEMA {service_fqn.prefix}",
-            cursor_class=DictCursor,
-        )
-        for row in cursor:
-            if row["name"].upper() == service_fqn.name.upper():
-                return row["status"]
-
-        return "IDLE"
-
     def get_service_logs(self, service_fqn: FQN, last: int = 500) -> str:
         """Fetch recent log output from an application service."""
         cursor = self.execute_query(
             f"CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{service_fqn.identifier}', {last})"
         )
+        row = cursor.fetchone()
+        return row[0] if row else ""
+
+    def get_event_table_data(
+        self,
+        service_fqn: FQN,
+        event_type: str,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+    ) -> str:
+        """Fetch observability telemetry from an application service's event table.
+
+        Wraps ``SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA``, which returns
+        a VARCHAR holding a JSON array of positional tuples for the requested
+        ``event_type`` (``LOG`` / ``METRIC`` / ``EVENT``). When both bounds are
+        given the call is scoped to that ``[start_time, end_time]`` window;
+        otherwise the function applies its own default window. There is a short
+        ingestion delay before recent data appears.
+        """
+        from snowflake.cli.api.project.util import to_string_literal
+
+        args = [
+            to_string_literal(service_fqn.identifier),
+            to_string_literal(event_type),
+        ]
+        if start_time is not None and end_time is not None:
+            args.append(to_string_literal(start_time))
+            args.append(to_string_literal(end_time))
+        cursor = self.execute_query(f"CALL {EVENT_TABLE_FUNCTION}({', '.join(args)})")
         row = cursor.fetchone()
         return row[0] if row else ""
 
@@ -1568,8 +1637,18 @@ class SnowflakeAppManager(SqlExecutionMixin):
         query_warehouse: Optional[str] = None,
         external_access_integrations: Optional[list[str]] = None,
         comment: Optional[str] = None,
+        compute_resource: Optional[str] = None,
     ) -> None:
-        """Create an application service from an artifact repository package."""
+        """Create an application service from an artifact repository package.
+
+        ``compute_resource`` (``SERVERLESS`` or ``MANAGED_COMPUTE_POOL``) maps to
+        the write-once ``COMPUTE_RESOURCE`` DDL field. It can only be set at
+        CREATE time — it is immutable afterwards, so it is intentionally never
+        emitted on the ``ALTER ... UPGRADE`` path in
+        :meth:`upgrade_app_service`. Callers gate this behind the
+        ``ENABLE_APP_SERVICE_COMPUTE_RESOURCE`` feature flag; when ``None`` the
+        field is omitted and the server defaults the backend.
+        """
         parts = [
             f"CREATE APPLICATION SERVICE {service_fqn.identifier}",
             f"FROM ARTIFACT REPOSITORY {artifact_repo_fqn} PACKAGE {package_name}",
@@ -1583,6 +1662,8 @@ class SnowflakeAppManager(SqlExecutionMixin):
             parts.append(f"EXTERNAL_ACCESS_INTEGRATIONS = ({eai_list})")
         if query_warehouse:
             parts.append(f"QUERY_WAREHOUSE = {query_warehouse}")
+        if compute_resource:
+            parts.append(f"COMPUTE_RESOURCE = {compute_resource}")
         if comment:
             escaped = comment.replace("'", "''")
             parts.append(f"COMMENT = '{escaped}'")
@@ -1600,31 +1681,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
         if version:
             query += f"\nTO VERSION {version}"
         self.execute_query(query)
-
-    def is_application_service(self, service_fqn: FQN) -> bool:
-        """Return True when settings should use the ``app-service`` URL segment.
-
-        Detection order:
-        1) If ``DESCRIBE APPLICATION SERVICE`` returns a row, treat as application
-           service.
-        2) Otherwise, if a legacy ``SERVICE`` object exists with the same FQN,
-           treat as legacy service.
-        3) If type checks fail (errors/unknown), default to application service.
-        """
-        try:
-            if self.describe_app_service(service_fqn):
-                return True
-        except ProgrammingError:
-            log.debug(
-                "DESCRIBE APPLICATION SERVICE failed for %s",
-                service_fqn,
-                exc_info=True,
-            )
-
-        if _object_exists("service", service_fqn.identifier):
-            return False
-
-        return True
 
     def describe_app_service(self, service_fqn: FQN) -> Dict[str, Any]:
         """Run ``DESCRIBE APPLICATION SERVICE`` and return a case-insensitive

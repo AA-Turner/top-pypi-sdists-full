@@ -36,6 +36,7 @@ from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
     context_success_actions,
     fail_context_actions,
     fail_tool_call,
+    render_loading_feedback,
     start_tool_call,
 )
 from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import (
@@ -190,7 +191,7 @@ def _render_lazy_tab(
             ],
         ),
     ):
-        Muted(loading_label)
+        render_loading_feedback(loading_label)
 
     # After loading: show table or empty message
     with If(loaded_flag_ref.__eq__(True)):
@@ -544,7 +545,7 @@ def _render_org_pin_versions_section() -> None:
             ],
         ),
     ):
-        Muted("Loading organization pins\u2026")
+        render_loading_feedback("Loading organization pins\u2026")
     with If(STATE.org_pin_error):
         Muted(content=STATE.org_pin_error)
     with If(STATE.org_pin_version_rows_loaded.__eq__(True)):
@@ -658,7 +659,7 @@ def _render_org_pin_detail_section() -> None:
         with If(STATE.org_pin_rows_error):
             Muted(content=STATE.org_pin_rows_error)
         with If(STATE.org_pin_rows_loaded.__eq__(False)):
-            Muted("Loading pins\u2026")
+            render_loading_feedback("Loading pins\u2026")
         with If(STATE.org_pin_rows_loaded.__eq__(True)):
             with If(STATE.org_pin_rows):
                 _render_org_pin_detail_table()

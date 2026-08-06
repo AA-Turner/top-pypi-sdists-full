@@ -428,10 +428,17 @@ class DeviceBuilder:
         if "auth/login" in self.command_handlers:
             self.command_handlers["auth"] = self.command_handlers["auth/login"]
 
-    async def _advertise_and_start_peer_discovery(
-        self, zeroconf: AsyncEsphomeZeroconf | None
-    ) -> None:
-        """Once serving, register the dashboard mDNS advertise, then start peer discovery."""
+    async def _prewarm_featured_registry(self) -> None:
+        """Hydrate the featured registry; a failure logs instead of vanishing."""
+        if (components := self.components) is None:
+            return
+        try:
+            await components.ensure_featured_registry()
+        except Exception:
+            _LOGGER.exception("Featured-registry pre-warm failed; first catalog use retries")
+
+    async def _post_serving_startup(self, zeroconf: AsyncEsphomeZeroconf | None) -> None:
+        """Once serving: advertise, start peer discovery, pre-warm the featured registry."""
         try:
             await asyncio.wait_for(self._serving_event.wait(), _SERVING_GATE_TIMEOUT_SECONDS)
         except TimeoutError:
@@ -440,6 +447,9 @@ class DeviceBuilder:
                 "notify_serving(); advertising anyway",
                 _SERVING_GATE_TIMEOUT_SECONDS,
             )
+        # Sibling task: the pre-warm has no ordering dependency on the
+        # advertise probe below and shouldn't queue behind it.
+        self.create_background_task(self._prewarm_featured_registry())
         if self._dashboard_advertiser is not None and zeroconf is not None:
             # The legs are independent: a failed advertise must neither
             # die silently nor keep the peer browse from starting.
@@ -552,9 +562,7 @@ class DeviceBuilder:
         # ``async_register_service`` awaits its ~1.2s probe cycle, and
         # the browse must follow the register, so both run off the
         # startup critical path.
-        self._advertise_task = self.create_background_task(
-            self._advertise_and_start_peer_discovery(zeroconf)
-        )
+        self._advertise_task = self.create_background_task(self._post_serving_startup(zeroconf))
 
         self._register_command_handlers()
 

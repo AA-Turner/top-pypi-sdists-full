@@ -11,6 +11,7 @@ import os
 import pathlib
 import random
 import re
+import socket
 import string
 import subprocess
 import sys
@@ -241,6 +242,8 @@ if TYPE_CHECKING:
     from chalk.client.client_grpc import ChalkGRPCClient
     from chalk.queries.named_query import NamedQuery
     from chalk.testing import FeatureAssertion, StreamMessage, UploadFeatures
+    from chalk.workflows import WorkflowDefinition
+    from chalk.workflows._remote import WorkflowRunHandle
 
     QueryInput = Union[Mapping[FeatureReference, Any], pd.DataFrame, pl.DataFrame, DataFrame]
     QueryInputTime = Union[Sequence[datetime], datetime, None]
@@ -752,6 +755,27 @@ def _validate_context_dict(data: Any) -> ContextJsonDict | None:
     return dict(data)
 
 
+_DEFAULT_SOCKET_OPTIONS: list[tuple[int, int, int]] = [
+    (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
+]
+if hasattr(socket, "TCP_KEEPIDLE"):  # Linux
+    _DEFAULT_SOCKET_OPTIONS.append(
+        (socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 15)  # pyright: ignore[reportAttributeAccessIssue]
+    )
+elif hasattr(socket, "TCP_KEEPALIVE"):  # macOS
+    _DEFAULT_SOCKET_OPTIONS.append(
+        (socket.IPPROTO_TCP, socket.TCP_KEEPALIVE, 15)  # pyright: ignore[reportAttributeAccessIssue]
+    )
+if hasattr(socket, "TCP_KEEPINTVL"):
+    _DEFAULT_SOCKET_OPTIONS.append(
+        (socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 60)  # pyright: ignore[reportAttributeAccessIssue]
+    )
+if hasattr(socket, "TCP_KEEPCNT"):
+    _DEFAULT_SOCKET_OPTIONS.append(
+        (socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)  # pyright: ignore[reportAttributeAccessIssue]
+    )
+
+
 class _ChalkHTTPAdapter(HTTPAdapter):
     """
     Allows for customization such as specifying an SSLContext for all requests.
@@ -782,6 +806,7 @@ class _ChalkHTTPAdapter(HTTPAdapter):
     ):
         if self.ssl_context is not None:
             pool_kwargs["ssl_context"] = self.ssl_context
+        pool_kwargs.setdefault("socket_options", _DEFAULT_SOCKET_OPTIONS)
         return super().init_poolmanager(connections, maxsize, block, **pool_kwargs)
 
 
@@ -1132,6 +1157,7 @@ class ChalkAPIClientImpl(ChalkClient):
         default_connect_timeout: float | timedelta | None = None,
         local: bool = False,
         ssl_context: ssl.SSLContext | None = None,
+        pool_maxsize: Optional[int] = None,
     ):
         if CHALK_IMPORT_FLAG.get() is True:
             raise RuntimeError(
@@ -1157,11 +1183,14 @@ class ChalkAPIClientImpl(ChalkClient):
         if session is None:
             session = requests.Session()
             retries = Retry(connect=3, read=3)
+            adapter_kwargs: dict[str, Any] = {}
+            if pool_maxsize:
+                adapter_kwargs["pool_maxsize"] = pool_maxsize
             session.mount(
                 "https://",
-                _ChalkHTTPAdapter(max_retries=retries, ssl_context=ssl_context),
+                _ChalkHTTPAdapter(max_retries=retries, ssl_context=ssl_context, **adapter_kwargs),
             )
-            session.mount("http://", HTTPAdapter(max_retries=retries))
+            session.mount("http://", _ChalkHTTPAdapter(max_retries=retries, **adapter_kwargs))
 
         self.session = session
 
@@ -2469,6 +2498,7 @@ https://docs.chalk.ai/cli/apply
         request_timeout: float | ellipsis | None = ...,
         headers: Mapping[str, str] | None = None,
         translate_fqns: bool = False,
+        trace: bool = False,
         value_metrics_tag_by_features: Sequence[FeatureReference] = (),
     ) -> BulkOnlineQueryResponse:
         if branch is ...:
@@ -2478,7 +2508,7 @@ https://docs.chalk.ai/cli/apply
             extra_headers[CHALK_QUERY_NAME_HEADER] = query_name
         if headers:
             extra_headers.update(headers)
-        trace_context = current_trace_context()
+        trace_context = current_or_new_trace_context() if trace else current_trace_context()
         if trace_context is not None:
             extra_headers = cast(dict[str, str], inject_trace_context(extra_headers, trace_context))
 
@@ -6660,6 +6690,62 @@ https://docs.chalk.ai/cli/apply
             enable_profiling=enable_profiling,
             resource_group=resource_group,
             input_sql=input_sql,
+        )
+
+    def _workflow_auth_context(self, environment: Optional[EnvironmentId]) -> tuple[str | None, str | None, str | None]:
+        """Returns (api_server, bearer_token, environment_id) for reaching the
+        environment's workflow orchestrator."""
+        if self._access_token is None and not self._has_authorization_header():
+            self._exchange_credentials()
+        headers = self._get_headers(
+            environment_override=environment,
+            preview_deployment_id=None,
+            branch=None,
+            metadata_request=True,
+        )
+        return self._api_server, headers.get("Authorization"), headers.get(CHALK_ENV_ID_HEADER)
+
+    def trigger_workflow(
+        self,
+        workflow: WorkflowDefinition | str,
+        input: Optional[Mapping[str, Any]] = None,
+        *,
+        workflow_id: Optional[str] = None,
+        environment: Optional[EnvironmentId] = None,
+        wait: bool = False,
+    ) -> Union[WorkflowRunHandle, Any]:
+        from chalk.workflows import _remote
+
+        api_server, bearer_token, environment_id = self._workflow_auth_context(environment)
+        return _remote.trigger_workflow(
+            workflow,
+            input,
+            api_server=api_server,
+            bearer_token=bearer_token,
+            environment_id=environment_id,
+            workflow_id=workflow_id,
+            task_queue=None,
+            wait=wait,
+        )
+
+    def run_workflow(
+        self,
+        workflow: WorkflowDefinition,
+        input: Optional[Mapping[str, Any]] = None,
+        *,
+        workflow_id: Optional[str] = None,
+        environment: Optional[EnvironmentId] = None,
+    ) -> Any:
+        from chalk.workflows import _remote
+
+        api_server, bearer_token, environment_id = self._workflow_auth_context(environment)
+        return _remote.run_workflow(
+            workflow,
+            input,
+            api_server=api_server,
+            bearer_token=bearer_token,
+            environment_id=environment_id,
+            workflow_id=workflow_id,
         )
 
 

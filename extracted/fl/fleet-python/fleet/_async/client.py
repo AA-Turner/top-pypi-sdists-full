@@ -29,6 +29,7 @@ from enum import Enum
 from pathlib import Path
 from typing import List, Optional, Dict, Any, TYPE_CHECKING, Union
 from uuid import UUID
+from fleet.runner_auth import RunnerTokenProvider
 
 from .base import EnvironmentBase, AsyncWrapper
 from ..models import (
@@ -142,7 +143,9 @@ def _to_dict(obj: Any) -> Any:
 
     # Generic object with __dict__
     if hasattr(obj, "__dict__"):
-        return {k: _to_dict(v) for k, v in obj.__dict__.items() if not k.startswith("_")}
+        return {
+            k: _to_dict(v) for k, v in obj.__dict__.items() if not k.startswith("_")
+        }
 
     # Fallback - try to convert, or return string representation
     try:
@@ -150,6 +153,7 @@ def _to_dict(obj: Any) -> Any:
         return obj
     except (TypeError, ValueError):
         return str(obj)
+
 
 from .instance import (
     AsyncInstanceClient,
@@ -175,15 +179,10 @@ from .instance.base import default_httpx_client
 from .instance.client import ValidatorType
 from .resources.base import Resource
 from .resources.sqlite import AsyncSQLiteResource
+from .resources.browser import AsyncBrowserResource
 from .resources.filesystem import AsyncFilesystemResource
 from .resources.mcp import AsyncMCPResource
 from .resources.api import AsyncAPIResource
-from .browser import (
-    AsyncBrowserLease,
-    create_browser as _create_browser_lease,
-    get_browser as _get_browser_lease,
-    host_from_url,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -233,7 +232,9 @@ class AsyncSession:
         self._client = client
         self._message_count = 0
         self._logged_count = 0  # Track how many messages from history have been logged
-        self._config_sent = False  # Only send config/model/task_key/instance_id on first log
+        self._config_sent = (
+            False  # Only send config/model/task_key/instance_id on first log
+        )
 
     async def log(self, history: List[Any], response: Any) -> SessionIngestResponse:
         """Log an LLM call to the session.
@@ -254,7 +255,7 @@ class AsyncSession:
             SessionIngestResponse with updated message count
         """
         # Collect new history messages since last call
-        new_history = history[self._logged_count:]
+        new_history = history[self._logged_count :]
 
         # Update tracked count to include the response we're about to send
         # This prevents the response from being sent again as "new history" in the next call
@@ -361,12 +362,23 @@ class AsyncEnv(EnvironmentBase):
         self._apps: Dict[str, AsyncInstanceClient] = {}
         self._instance: Optional[AsyncInstanceClient] = None
         self._judge: Optional["AsyncJudge"] = None
+        self._runner_token_provider: Optional[RunnerTokenProvider] = None
+
+    def _runner_tokens(self) -> Optional[RunnerTokenProvider]:
+        """One provider per env, so instance + every app share one resolution."""
+        if self._client is None:
+            return None
+        if self._runner_token_provider is None:
+            self._runner_token_provider = RunnerTokenProvider(self._client)
+        return self._runner_token_provider
 
     @property
     def instance(self) -> AsyncInstanceClient:
         if self._instance is None:
             self._instance = AsyncInstanceClient(
-                self.manager_url, self._client.httpx_client if self._client else None
+                self.manager_url,
+                self._client.httpx_client if self._client else None,
+                runner_token_provider=self._runner_tokens(),
             )
         return self._instance
 
@@ -384,6 +396,7 @@ class AsyncEnv(EnvironmentBase):
             self._apps[name] = AsyncInstanceClient(
                 f"{base_url}/{name}/api/v1/env",
                 self._client.httpx_client if self._client else None,
+                runner_token_provider=self._runner_tokens(),
             )
         return self._apps[name]
 
@@ -401,51 +414,8 @@ class AsyncEnv(EnvironmentBase):
     def db(self, name: str = "current") -> AsyncSQLiteResource:
         return self.instance.db(name)
 
-    async def browser(
-        self,
-        ttl_seconds: int = 300,
-        *,
-        lease_id: Optional[str] = None,
-        allowed_hosts: Optional[List[str]] = None,
-        include_root_host: bool = True,
-        wait_until_running: bool = False,
-        wait_timeout: float = 60.0,
-        extra: Optional[Dict[str, Any]] = None,
-        jwt_token: Optional[str] = None,
-        team_id: Optional[str] = None,
-    ) -> AsyncBrowserLease:
-        """Spin up an orchestrator-managed Fleet Browser lease for this env.
-
-        ``await env.browser()`` posts to ``/v1/browser`` and returns an
-        :class:`fleet._async.browser.AsyncBrowserLease` with ``cdp_url`` /
-        ``mcp_url`` / ``stream_url`` and a ``mcp_tools()`` accessor. By
-        default the host derived from ``self.urls.root`` is prepended to
-        ``allowed_hosts`` so the browser can reach the instance — pass
-        ``include_root_host=False`` to opt out.
-        """
-        hosts: Optional[List[str]] = list(allowed_hosts) if allowed_hosts else None
-        if include_root_host and self.urls and self.urls.root:
-            root_host = host_from_url(self.urls.root)
-            if root_host:
-                hosts = hosts or []
-                if root_host not in hosts:
-                    hosts.insert(0, root_host)
-        return await _create_browser_lease(
-            self._load_client,
-            ttl_seconds=ttl_seconds,
-            lease_id=lease_id,
-            allowed_hosts=hosts,
-            extra=extra,
-            jwt_token=jwt_token,
-            team_id=team_id,
-            wait_until_running=wait_until_running,
-            wait_timeout=wait_timeout,
-        )
-
-    @property
-    def root_url(self) -> Optional[str]:
-        """Convenience: ``self.urls.root`` if available."""
-        return self.urls.root if self.urls else None
+    def browser(self, name: str = "cdp") -> AsyncBrowserResource:
+        return self.instance.browser(name)
 
     def fs(self) -> AsyncFilesystemResource:
         """Get a filesystem diff resource for inspecting file changes."""
@@ -467,9 +437,9 @@ class AsyncEnv(EnvironmentBase):
             base_url = f"{self.urls.root.rstrip('/')}/raw"
         elif self._manager_url_override and self._manager_url_override != "local://":
             # URL mode: strip /api/v1/env suffix to get root URL
-            base_url = self._manager_url_override.rstrip('/')
-            if base_url.endswith('/api/v1/env'):
-                base_url = base_url[:-len('/api/v1/env')]
+            base_url = self._manager_url_override.rstrip("/")
+            if base_url.endswith("/api/v1/env"):
+                base_url = base_url[: -len("/api/v1/env")]
         else:
             raise ValueError("No API URL configured for this environment")
         return self.instance.api(name, base_url)
@@ -502,18 +472,16 @@ class AsyncEnv(EnvironmentBase):
 
     async def heartbeat(self) -> HeartbeatResponse:
         """Send heartbeat to keep instance alive (if heartbeat monitoring is enabled).
-        
+
         Returns:
             HeartbeatResponse containing heartbeat status and deadline information
         """
         body = {}
         if self.heartbeat_region:
             body["region"] = self.heartbeat_region
-        
+
         response = await self._load_client.request(
-            "POST", 
-            f"/v1/env/instances/{self.instance_id}/heartbeat",
-            json=body
+            "POST", f"/v1/env/instances/{self.instance_id}/heartbeat", json=body
         )
         return HeartbeatResponse(**response.json())
 
@@ -540,9 +508,6 @@ class AsyncEnv(EnvironmentBase):
         timeout: Optional[int] = 30,
         needs_upload: bool = True,
         verifier_runtime_version: Optional[str] = None,
-        async_: bool = False,
-        poll_interval: float = 5.0,
-        cost_team_id: Optional[str] = None,
     ) -> VerifiersExecuteResponse:
         return await _execute_verifier_remote(
             self._load_client,
@@ -556,9 +521,6 @@ class AsyncEnv(EnvironmentBase):
             timeout,
             needs_upload,
             verifier_runtime_version,
-            async_=async_,
-            poll_interval=poll_interval,
-            cost_team_id=cost_team_id,
         )
 
     def __getstate__(self):
@@ -585,6 +547,8 @@ class AsyncFleet:
         if base_url is None:
             base_url = os.getenv("FLEET_BASE_URL")
         self._httpx_client = httpx_client or default_httpx_client(max_retries, timeout)
+        # One per Fleet client: the token is resolved once, lazily, on the
+        # first runner call, and shared by every instance this client hands out.
         self.client = AsyncWrapper(
             api_key=api_key,
             base_url=base_url,
@@ -690,9 +654,6 @@ class AsyncFleet:
             raise
 
         instance = AsyncEnv(client=self.client, **response.json())
-        # Resources are loaded lazily on first `db()`/`browser()`/`resources()` access
-        # via `_load_resources()`, so we don't preload here. Eagerly loading would
-        # fail-fast with a 502 while the container is still warming up.
         return instance
 
     async def _recover_duplicate_create(
@@ -735,7 +696,11 @@ class AsyncFleet:
         return await self.make(env_key=f"{task.env_id}:{task.version}")
 
     async def instances(
-        self, status: Optional[str] = None, region: Optional[str] = None, run_id: Optional[str] = None, profile_id: Optional[str] = None
+        self,
+        status: Optional[str] = None,
+        region: Optional[str] = None,
+        run_id: Optional[str] = None,
+        profile_id: Optional[str] = None,
     ) -> List[AsyncEnv]:
         params = {}
         if status:
@@ -773,14 +738,17 @@ class AsyncFleet:
             return self._create_local_instance(instance_id)
 
         # Localhost/direct URL mode - string starting with http:// or https://
-        elif isinstance(instance_id, str) and instance_id.startswith(("http://", "https://")):
+        elif isinstance(instance_id, str) and instance_id.startswith(
+            ("http://", "https://")
+        ):
             return self._create_url_instance(instance_id)
 
         # Remote mode - existing behavior
         else:
-            response = await self.client.request("GET", f"/v1/env/instances/{instance_id}")
+            response = await self.client.request(
+                "GET", f"/v1/env/instances/{instance_id}"
+            )
             instance = AsyncEnv(client=self.client, **response.json())
-            # Resources load lazily on first `db()`/`browser()`/`resources()` access.
             return instance
 
     def _create_url_instance(self, base_url: str) -> AsyncEnv:
@@ -792,7 +760,11 @@ class AsyncFleet:
         Returns:
             AsyncEnv: Environment instance configured for URL mode
         """
-        instance_client = AsyncInstanceClient(url=base_url, httpx_client=self._httpx_client)
+        instance_client = AsyncInstanceClient(
+            url=base_url,
+            httpx_client=self._httpx_client,
+            runner_token_provider=RunnerTokenProvider(self.client),
+        )
 
         # Create a minimal environment for URL mode
         env = AsyncEnv(
@@ -883,10 +855,10 @@ class AsyncFleet:
                 label=f"Local: {path}",
             )
             instance_client._resources_state[ResourceType.db.value][name] = {
-                'type': 'local',
-                'resource_model': resource_model,
-                'db_path': normalized_path,
-                'is_memory': is_memory
+                "type": "local",
+                "resource_model": resource_model,
+                "db_path": normalized_path,
+                "is_memory": is_memory,
             }
 
         # Create a minimal environment for local mode
@@ -921,95 +893,129 @@ class AsyncFleet:
             self.client, bundle_data, args, kwargs, timeout
         )
 
-    async def create_browser(
-        self,
-        ttl_seconds: int = 300,
-        *,
-        lease_id: Optional[str] = None,
-        allowed_hosts: Optional[List[str]] = None,
-        request_timestamp_ms: Optional[int] = None,
-        extra: Optional[Dict[str, Any]] = None,
-        jwt_token: Optional[str] = None,
-        team_id: Optional[str] = None,
-        wait_until_running: bool = False,
-        wait_timeout: float = 60.0,
-    ) -> AsyncBrowserLease:
-        """Create a Fleet Browser lease (``POST /v1/browser``)."""
-        return await _create_browser_lease(
-            self.client,
-            ttl_seconds=ttl_seconds,
-            lease_id=lease_id,
-            allowed_hosts=allowed_hosts,
-            request_timestamp_ms=request_timestamp_ms,
-            extra=extra,
-            jwt_token=jwt_token,
-            team_id=team_id,
-            wait_until_running=wait_until_running,
-            wait_timeout=wait_timeout,
-        )
-
-    async def get_browser(
-        self,
-        lease_id: str,
-        *,
-        jwt_token: Optional[str] = None,
-        team_id: Optional[str] = None,
-    ) -> AsyncBrowserLease:
-        """Inspect an existing browser lease (``GET /v1/browser/{lease_id}``)."""
-        return await _get_browser_lease(
-            self.client, lease_id, jwt_token=jwt_token, team_id=team_id
-        )
-
     async def delete(self, instance_id: str) -> InstanceResponse:
         return await _delete_instance(self.client, instance_id)
 
     async def close(self, instance_id: str) -> InstanceResponse:
         """Close (delete) a specific instance by ID.
-        
+
         Args:
             instance_id: The instance ID to close
-            
+
         Returns:
             InstanceResponse containing the deleted instance details
         """
         return await _delete_instance(self.client, instance_id)
 
-    async def heartbeat(self, instance_id: str, region: Optional[str] = None) -> HeartbeatResponse:
+    async def heartbeat(
+        self, instance_id: str, region: Optional[str] = None
+    ) -> HeartbeatResponse:
         """Send heartbeat to keep instance alive (if heartbeat monitoring is enabled).
-        
+
         Args:
             instance_id: The instance ID to send heartbeat for
             region: Optional region override for cross-region heartbeats
-            
+
         Returns:
             HeartbeatResponse containing heartbeat status and deadline information
         """
         return await _send_heartbeat(self.client, instance_id, region)
 
-    async def close_all(self, run_id: Optional[str] = None, profile_id: Optional[str] = None) -> List[InstanceResponse]:
+    async def close_all(
+        self, run_id: Optional[str] = None, profile_id: Optional[str] = None
+    ) -> List[InstanceResponse]:
         """Close (delete) instances using the batch delete endpoint.
-        
+
         Args:
             run_id: Optional run ID to filter instances by
             profile_id: Optional profile ID to filter instances by (use "self" for your own profile)
-            
+
         Returns:
             List[InstanceResponse] containing the deleted instances
-            
+
         Note:
             At least one of run_id or profile_id must be provided.
         """
-        return await _delete_instances_batch(self.client, run_id=run_id, profile_id=profile_id)
-    
+        return await _delete_instances_batch(
+            self.client, run_id=run_id, profile_id=profile_id
+        )
+
+    @staticmethod
+    async def execute_verifier_local(
+        verifier_func: str,
+        seed_db: str,
+        current_db: str,
+        final_answer: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Execute a verifier function locally against SQLite database files.
+
+        No authentication or remote server required. The verifier code is executed
+        in an isolated namespace with the same helpers available in production
+        (``normalized_contains``, ``IgnoreConfig``, ``DatabaseSnapshot``, etc.).
+
+        Args:
+            verifier_func: Python source code containing the verifier function definition.
+            seed_db: Path to the seed (before) SQLite database file.
+            current_db: Path to the current (after) SQLite database file.
+            final_answer: Optional final answer string passed to the verifier.
+
+        Returns:
+            Dict with keys ``success``, ``result``, ``error``, and ``stdout``.
+
+        Example::
+
+            result = await fleet.execute_verifier_local(
+                verifier_func=verifier_code_string,
+                seed_db="./seed.db",
+                current_db="./current.db",
+            )
+            print(result["result"])  # 1 (TASK_SUCCESSFUL_SCORE) or 0
+        """
+        import asyncio
+        from ..verifiers.local_executor import execute_verifier_local
+
+        return await asyncio.to_thread(
+            execute_verifier_local, verifier_func, seed_db, current_db, final_answer
+        )
+
+    @staticmethod
+    async def diff_dbs(
+        seed_db: str,
+        current_db: str,
+        ignore_tables: Optional[set] = None,
+        ignore_table_fields: Optional[Dict[str, set]] = None,
+    ) -> Dict[str, Any]:
+        """Compute a structured diff between two local SQLite databases.
+
+        Returns the same format as the runner's ``/diff/structured`` endpoint.
+        No authentication or network access required.
+
+        Args:
+            seed_db: Path to the seed (before) SQLite database file.
+            current_db: Path to the current (after) SQLite database file.
+            ignore_tables: Optional set of table names to skip entirely.
+            ignore_table_fields: Optional mapping of ``{table: {field, ...}}``
+                to strip from the output.
+
+        Returns:
+            Dict with keys ``success``, ``diff``, and ``message``.
+        """
+        import asyncio
+        from ..verifiers.local_executor import diff_dbs
+
+        return await asyncio.to_thread(
+            diff_dbs, seed_db, current_db, ignore_tables, ignore_table_fields
+        )
+
     async def list_runs(
         self, profile_id: Optional[str] = None, status: Optional[str] = "active"
     ) -> List[Run]:
         """List all runs (groups of instances by run_id) with aggregated statistics.
-        
+
         Args:
             profile_id: Optional profile ID to filter runs by (use "self" for your own profile)
             status: Filter by run status - "active" (default), "inactive", or "all"
-            
+
         Returns:
             List[Run] containing run information with instance counts and timestamps
         """
@@ -1018,7 +1024,7 @@ class AsyncFleet:
             params["profile_id"] = profile_id
         if status:
             params["active"] = status
-            
+
         response = await self.client.request("GET", "/v1/env/runs", params=params)
         return [Run(**run_data) for run_data in response.json()]
 
@@ -1068,13 +1074,13 @@ class AsyncFleet:
 
         # Try to find verifier_id in multiple locations
         verifier_id = task_json.get("verifier_id")
-        
+
         # Check nested verifier object for verifier_id
         if not verifier_id and "verifier" in task_json:
             verifier_obj = task_json["verifier"]
             if isinstance(verifier_obj, dict):
                 verifier_id = verifier_obj.get("verifier_id")
-        
+
         if (
             not verifier_id
             and "metadata" in task_json
@@ -1091,7 +1097,9 @@ class AsyncFleet:
         # Extract verifier_runtime_version from metadata if present
         verifier_runtime_version = None
         if "metadata" in task_json and isinstance(task_json["metadata"], dict):
-            verifier_runtime_version = task_json["metadata"].get("verifier_runtime_version")
+            verifier_runtime_version = task_json["metadata"].get(
+                "verifier_runtime_version"
+            )
 
         try:
             if verifier_id and verifier_code:
@@ -1126,7 +1134,9 @@ class AsyncFleet:
             verifier_sha=verifier_sha,  # Set verifier_sha
             verifier_runtime_version=verifier_runtime_version,  # Set verifier_runtime_version
             metadata=task_json.get("metadata", {}),  # Default empty metadata
-            output_json_schema=task_json.get("output_json_schema"),  # JSON schema for output
+            output_json_schema=task_json.get(
+                "output_json_schema"
+            ),  # JSON schema for output
         )
         return task
 
@@ -1274,11 +1284,11 @@ class AsyncFleet:
             verifier_id = task_response.verifier_id
             if not verifier_id and task_response.verifier:
                 verifier_id = task_response.verifier.verifier_id
-            
+
             verifier_sha = None
             if task_response.verifier:
                 verifier_sha = task_response.verifier.sha256
-            
+
             # Extract verifier_runtime_version from metadata if present
             verifier_runtime_version = None
             metadata = task_response.metadata or {}
@@ -1291,8 +1301,12 @@ class AsyncFleet:
                 env_id=task_response.environment_id,  # Map environment_id -> env_id
                 created_at=task_response.created_at,
                 version=task_response.version,
-                data_id=getattr(task_response, "data_id", None),  # Get data_id if available
-                data_version=getattr(task_response, "data_version", None),  # Get data_version if available
+                data_id=getattr(
+                    task_response, "data_id", None
+                ),  # Get data_id if available
+                data_version=getattr(
+                    task_response, "data_version", None
+                ),  # Get data_version if available
                 env_variables=task_response.env_variables or {},
                 verifier_func=verifier_func,  # Set verifier code
                 verifier=verifier,  # Use created verifier or None
@@ -1300,18 +1314,20 @@ class AsyncFleet:
                 verifier_sha=verifier_sha,  # Set verifier_sha
                 verifier_runtime_version=verifier_runtime_version,  # Set verifier_runtime_version
                 metadata=metadata,
-                output_json_schema=getattr(task_response, "output_json_schema", None),  # Get output_json_schema if available
+                output_json_schema=getattr(
+                    task_response, "output_json_schema", None
+                ),  # Get output_json_schema if available
             )
             tasks.append(task)
 
         # Apply client-side filtering for version if specified
         if version is not None:
             tasks = [task for task in tasks if task.version == version]
-        
+
         # Apply client-side filtering for data_id if specified
         if data_id is not None:
             tasks = [task for task in tasks if task.data_id == data_id]
-        
+
         # Apply client-side filtering for data_version if specified
         if data_version is not None:
             tasks = [task for task in tasks if task.data_version == data_version]
@@ -1467,7 +1483,9 @@ class AsyncFleet:
         Returns:
             TaskResponse containing the updated task details
         """
-        payload = TaskUpdateRequest(prompt=prompt, verifier_code=verifier_code, metadata=metadata)
+        payload = TaskUpdateRequest(
+            prompt=prompt, verifier_code=verifier_code, metadata=metadata
+        )
         response = await self.client.request(
             "PUT", f"/v1/tasks/{task_key}", json=payload.model_dump(exclude_none=True)
         )
@@ -1514,7 +1532,9 @@ class AsyncFleet:
         response = await self.client.request("GET", f"/v1/sessions/job/{job_id}")
         return JobSessionsResponse(**response.json())
 
-    async def get_session_transcript(self, session_id: str) -> SessionTranscriptResponse:
+    async def get_session_transcript(
+        self, session_id: str
+    ) -> SessionTranscriptResponse:
         """Get the transcript for a specific session.
 
         Args:
@@ -1682,7 +1702,7 @@ class AsyncFleet:
                 task_key="my_task",
                 started_at=datetime.now().isoformat()
             )
-            
+
             # Append messages as they happen
             await fleet.append_message(session.session_id, {"role": "user", "content": "Hello"})
             await fleet.append_message(session.session_id, {"role": "assistant", "content": "Hi!"})
@@ -1729,10 +1749,10 @@ class AsyncFleet:
         Example:
             # Append user message
             await fleet.append_message(session_id, {"role": "user", "content": "What's 2+2?"})
-            
+
             # Append assistant response
             await fleet.append_message(session_id, {"role": "assistant", "content": "4"})
-            
+
             # Complete the session
             await fleet.append_message(
                 session_id,
@@ -1767,10 +1787,10 @@ class AsyncFleet:
             SessionIngestResponse with final state
         """
         from datetime import datetime as dt
-        
+
         if ended_at is None:
             ended_at = dt.now().isoformat()
-        
+
         if final_message:
             messages = [final_message]
         else:
@@ -1784,7 +1804,12 @@ class AsyncFleet:
         )
 
     async def _create_verifier_from_data(
-        self, verifier_id: str, verifier_key: str, verifier_code: str, verifier_sha: str, verifier_runtime_version: Optional[str] = None
+        self,
+        verifier_id: str,
+        verifier_key: str,
+        verifier_code: str,
+        verifier_sha: str,
+        verifier_runtime_version: Optional[str] = None,
     ) -> "AsyncVerifierFunction":
         """Create an AsyncVerifierFunction from verifier data.
 
@@ -1841,16 +1866,16 @@ async def _delete_instance(client: AsyncWrapper, instance_id: str) -> InstanceRe
     return InstanceResponse(**response.json())
 
 
-async def _send_heartbeat(client: AsyncWrapper, instance_id: str, region: Optional[str] = None) -> HeartbeatResponse:
+async def _send_heartbeat(
+    client: AsyncWrapper, instance_id: str, region: Optional[str] = None
+) -> HeartbeatResponse:
     """Send heartbeat to keep instance alive."""
     body = {}
     if region:
         body["region"] = region
-    
+
     response = await client.request(
-        "POST",
-        f"/v1/env/instances/{instance_id}/heartbeat",
-        json=body
+        "POST", f"/v1/env/instances/{instance_id}/heartbeat", json=body
     )
     return HeartbeatResponse(**response.json())
 
@@ -1864,10 +1889,10 @@ async def _delete_instances_batch(
         params["run_id"] = run_id
     if profile_id:
         params["profile_id"] = profile_id
-    
+
     if not params:
         raise ValueError("At least one of run_id or profile_id must be provided")
-    
+
     response = await client.request("DELETE", "/v1/env/instances/batch", params=params)
     return [InstanceResponse(**instance_data) for instance_data in response.json()]
 
@@ -1891,9 +1916,6 @@ async def _execute_verifier_remote(
     timeout: Optional[int] = 30,
     needs_upload: bool = True,
     verifier_runtime_version: Optional[str] = None,
-    async_: bool = False,
-    poll_interval: float = 5.0,
-    cost_team_id: Optional[str] = None,
 ) -> VerifiersExecuteResponse:
     # Pickle args and kwargs together
     # The first arg should be None as a placeholder for env
@@ -1921,14 +1943,6 @@ async def _execute_verifier_remote(
     if verifier_runtime_version:
         request_data["verifier_runtime_version"] = verifier_runtime_version
 
-    if cost_team_id is not None:
-        request_data["cost_team_id"] = cost_team_id
-
-    # Async submit-and-poll path. When async_ is False the behavior below is
-    # identical to the original synchronous request.
-    if async_:
-        request_data["async"] = True
-
     # Debug logging
     # logger.debug(
     #     f"Sending verifier execute request: key={key}, sha256={bundle_sha[:8]}..., function_name={function_name}"
@@ -1950,21 +1964,4 @@ async def _execute_verifier_remote(
     response_json = response.json()
     # logger.debug(f"Verifier execute response: {response_json}")
 
-    if not async_:
-        return VerifiersExecuteResponse(**response_json)
-
-    # Async: the submit returns a job handle; poll until the job reaches a
-    # terminal state (completed/failed). Branch on `status`, never `success`.
-    job_id = response_json.get("job_id")
-    if not job_id:
-        # No job handle returned (e.g. server ran it inline) - surface as-is.
-        return VerifiersExecuteResponse(**response_json)
-
-    while True:
-        poll_response = await client.request(
-            "GET", f"/v1/verifiers/jobs/{job_id}"
-        )
-        poll_json = poll_response.json()
-        if poll_json.get("status") in ("completed", "failed"):
-            return VerifiersExecuteResponse(**poll_json)
-        await asyncio.sleep(poll_interval)
+    return VerifiersExecuteResponse(**response_json)

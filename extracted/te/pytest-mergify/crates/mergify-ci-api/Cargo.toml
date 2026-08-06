@@ -1,0 +1,38 @@
+[package]
+name = "mergify-ci-api"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Shared Mergify backend API client + trace export for test-client integrations."
+# Publishable alongside mergify-ci-core: crates.io-only deps, no private Mergify
+# crates. Keep it that way.
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+# Async HTTP: rustls (no system OpenSSL) so the wheels/gems stay portable.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# OTLP trace export by hand — the prost messages only, no tonic/grpc transport
+# and no opentelemetry-otlp SDK (matches mergify-cli's uploader).
+opentelemetry-proto = { version = "0.32", default-features = false, features = ["gen-tonic-messages", "trace"] }
+prost = "0.14"
+flate2 = "1"
+# `time` only: the trace-upload retry backs off between attempts. The driver is
+# provided by the caller's runtime (the binding builds it with `enable_all`).
+tokio = { version = "1", features = ["time"] }
+
+[dev-dependencies]
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+wiremock = "0.6"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"

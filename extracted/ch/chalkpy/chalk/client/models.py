@@ -2155,13 +2155,24 @@ class ModelVersionResponse(abc.ABC):
     """A registered model version; see RegisteredModelVersion / DeployedModelVersion."""
 
     model_id: str
+    """Server-assigned id of the model namespace this version belongs to."""
+
     model_name: str
+    """Name of the model namespace, e.g. ``"RiskScoreModel"``."""
+
     version: int
+    """Version number within the namespace. Versions are immutable once registered."""
+
     created_by: str
     created_at: Optional[datetime] = None
     model_artifact: Optional[ModelArtifactSpec] = None
+    """The registered artifact (files, schemas, dependencies), when one was uploaded."""
+
     input_features: List[str] = dataclasses.field(default_factory=list)
+    """Input feature names, in the order ``remote()`` binds positional arguments."""
+
     output_features: List[str] = dataclasses.field(default_factory=list)
+    """Output feature names produced by the model."""
 
     @abc.abstractmethod
     def remote(self, *args: Any, **kwargs: Any) -> Any:
@@ -2171,9 +2182,22 @@ class ModelVersionResponse(abc.ABC):
 
 @dataclasses.dataclass(frozen=True)
 class RegisteredModelVersion(ModelVersionResponse):
-    """A version that is registered but not deployed to a scaling group."""
+    """A version that is registered but not deployed to a scaling group.
+
+    `ChalkClient.get_model_version` returns this when the version has no scaling group
+    serving it. It carries the same metadata as a `DeployedModelVersion` but cannot be
+    invoked — deploy it with ``deploy_model_version_to_scaling_group()`` first.
+    """
 
     def remote(self, *args: Any, **kwargs: Any) -> Any:
+        """Always raises: this version is not deployed to a scaling group.
+
+        Raises
+        ------
+        ModelNotDeployedError
+            Every call. Deploy the version with ``deploy_model_version_to_scaling_group()``
+            to get a `DeployedModelVersion`, whose ``remote()`` invokes the model.
+        """
         from chalk.client._model_remote import ModelNotDeployedError
 
         raise ModelNotDeployedError(
@@ -2190,6 +2214,41 @@ class DeployedModelVersion(ModelVersionResponse):
     _web_url: str = dataclasses.field(default="", repr=False, compare=False)
 
     def remote(self, *args: Any, **kwargs: Any) -> Any:
+        """Invoke the model with one row of feature values, blocking until it responds.
+
+        The call goes straight to the scaling group serving this version, so the
+        version is pinned — no other deployed version can answer it.
+
+        Parameters
+        ----------
+        args
+            Feature values in `input_features` order.
+        kwargs
+            Feature values by name. A feature given both positionally and by keyword,
+            an unknown name, or a missing feature raises ``ValueError`` before any
+            network call.
+
+        Returns
+        -------
+        Any
+            The model's first output value.
+
+        Raises
+        ------
+        ValueError
+            The supplied arguments do not bind to `input_features`.
+        ModelRemoteError
+            The scaling group returned an error or an empty response.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> model = ChalkClient().get_model_version("RiskScoreModel")
+        >>> model.remote(txn_amount=42.0, account_age_days=365)
+        0.83
+        >>> model.remote(42.0, 365)  # positional, in input_features order
+        0.83
+        """
         from chalk.client._model_remote import bind_inputs, call_model_scaling_group
 
         inputs = bind_inputs(self.input_features, args, kwargs)

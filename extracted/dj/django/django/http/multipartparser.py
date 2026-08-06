@@ -231,7 +231,7 @@ class MultiPartParser:
                         raw_data = field_stream.read(size=read_size)
                         num_bytes_read += len(raw_data)
                         try:
-                            data = base64.b64decode(raw_data)
+                            data = base64.b64decode(raw_data, validate=True)
                         except binascii.Error:
                             data = raw_data
                     else:
@@ -319,7 +319,9 @@ class MultiPartParser:
                                 stripped_chunk = b"".join(stripped_parts)
 
                                 try:
-                                    chunk = base64.b64decode(stripped_chunk)
+                                    chunk = base64.b64decode(
+                                        stripped_chunk, validate=True
+                                    )
                                 except Exception as exc:
                                     # Since this is only a chunk, any error is
                                     # an unfixable error.
@@ -729,7 +731,7 @@ def parse_boundary_stream(stream, max_header_size):
             name = header_name.lower().rstrip(" ")
             value, params = parse_header_parameters(value_and_params.lstrip(" "))
             params = {k: v.encode() for k, v in params.items()}
-        except ValueError:  # Invalid header.
+        except (ValueError, LookupError):  # Invalid header.
             continue
 
         if name == "content-disposition":

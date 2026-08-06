@@ -32,11 +32,12 @@ class DataSourceSettings(BaseModel):
     """ # noqa: E501
     count: Optional[Annotated[int, Field(le=20, strict=True, ge=1)]] = Field(default=5, description="Maximum number of results to return for this source. 1-20.")
     include_contents: Optional[StrictBool] = Field(default=False, description="Inline this source's underlying data directly in the response. For the Tako data source, that is serialized card data (see content_format). For web results, that is the extracted text.")
-    mode: Optional[ContentsDeliveryMode] = Field(default=None, description="Delivery for inlined card data when include_contents is true. For Tako cards, include_contents always returns a small free inline preview of the most-recent rows in the response body. This field therefore has no effect on Tako cards; it stays for schema stability. total_rows and truncated on the returned content indicate when more data is available. For the full, priced export, call POST /api/v1/contents, which supports mode='url' for a presigned download link.")
-    content_format: Optional[ContentsFormat] = Field(default=None, description="Serialization for card data: 'json_compact' (default), 'json_records', or 'csv'.")
+    mode: Optional[ContentsDeliveryMode] = Field(default=None, description="Delivery for inlined card data when include_contents is true. For Tako cards, include_contents always returns the most-recent rows in the response body, up to max_rows, or up to the free row allowance if you omit max_rows. This field therefore has no effect on Tako cards; it stays for schema stability. total_rows and truncated on the returned content indicate when more data is available. For a presigned download link, call POST /api/v1/contents with mode='url'.")
+    content_format: Optional[ContentsFormat] = Field(default=None, description="Serialization for card data: 'json_compact' (default), 'json_records', 'csv', or 'card_json'. The first three return a free row-capped preview. 'card_json' returns a rich card-type-specific JSON object under card_data: the payload is complete, so Tako bills it at the export rate for its record rows. A card type with no card_json shape falls back to 'json_compact' for that card.")
+    max_rows: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="Maximum number of card data rows to inline when include_contents is true. If you omit this field, Tako returns the free row allowance (20 rows for most callers). Raise it to inline more rows, up to the 2,000-row system ceiling. Tako clamps a larger value to that ceiling. Once rows exceed the free row allowance, Tako charges a flat per-card baseline fee plus the per-1,000-row rate, the same rate POST /api/v1/contents charges. total_rows and truncated report whether more rows remain. A single response also has a 2,000 billable-row budget shared across all cards, so a later card can return fewer rows than you requested.")
     node_ids: Optional[Annotated[List[StrictStr], Field(max_length=20)]] = Field(default=None, description="Graph node ids to pin into the search; the /v1/graph endpoints return these ids. Pinned nodes always become retrieval candidates and get a strong boost; organic results do not change. Ids are not durable across knowledge-graph rebuilds: the search skips an id that no longer resolves (in strict mode it simply cannot match). Malformed ids fail the request with a 400. Max 20.")
     strict: Optional[StrictBool] = Field(default=False, description="When true, return only data cards that match at least one node in node_ids (which must then be non-empty). When false (the default), pinned nodes rank first but organic results still return. Web results do not change either way.")
-    __properties: ClassVar[List[str]] = ["count", "include_contents", "mode", "content_format", "node_ids", "strict"]
+    __properties: ClassVar[List[str]] = ["count", "include_contents", "mode", "content_format", "max_rows", "node_ids", "strict"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -77,6 +78,11 @@ class DataSourceSettings(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if max_rows (nullable) is None
+        # and model_fields_set contains the field
+        if self.max_rows is None and "max_rows" in self.model_fields_set:
+            _dict['max_rows'] = None
+
         return _dict
 
     @classmethod
@@ -93,6 +99,7 @@ class DataSourceSettings(BaseModel):
             "include_contents": obj.get("include_contents") if obj.get("include_contents") is not None else False,
             "mode": obj.get("mode"),
             "content_format": obj.get("content_format"),
+            "max_rows": obj.get("max_rows"),
             "node_ids": obj.get("node_ids"),
             "strict": obj.get("strict") if obj.get("strict") is not None else False
         })

@@ -144,7 +144,16 @@ def compare_stream_schemas(
         elif control_schema and not target_schema:
             differences[stream] = {"status": "removed_stream", "schema": control_schema}
         else:
-            diff = DeepDiff(control_schema, target_schema, ignore_order=True)
+            # `ignore_private_variables=False`: see `compare_catalog_schemas`.
+            # Nothing imports this module today, so this is not a live miss --
+            # but the flag belongs on every DeepDiff call in the package, so
+            # reviving the module does not revive the bug with it.
+            diff = DeepDiff(
+                control_schema,
+                target_schema,
+                ignore_order=True,
+                ignore_private_variables=False,
+            )
             if diff:
                 differences[stream] = {
                     "status": "changed",

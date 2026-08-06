@@ -26,6 +26,11 @@ from gen_worker.api.types import (
     Tensors,
     VideoAsset,
 )
+from gen_worker.discovery.execution_lanes import (
+    derive_execution_lanes,
+    execution_lanes_for_function,
+    manifest_block,
+)
 from gen_worker.discovery.heavy_deps import stub_missing_heavy_deps
 from gen_worker.discovery.names import slugify_name
 from gen_worker.discovery.project import load_project_config
@@ -33,6 +38,7 @@ from gen_worker.discovery.walk import EndpointImportError, find_endpoints
 from gen_worker.models.refs import DEFAULT_REF_TAG
 from gen_worker.registry import extract_specs
 from .validation import validate_endpoint_lock
+import importlib.machinery
 
 
 def _type_id(t: type) -> Dict[str, str]:
@@ -581,7 +587,6 @@ def _audit_source_only_imports(*, root: Path, top_level: str) -> None:
     ``cwd`` is deliberately not honoured (the worker's import set must not
     depend on the directory it happens to start in).
     """
-    import importlib.machinery
 
     root_str = str(root)
     src_str = str(root / "src")
@@ -800,14 +805,6 @@ def _extract_entries(obj: Any, module_name: str) -> List[Dict[str, Any]]:
         # th#1050: opt-in declared lane bodies (behavioral divergence marker).
         if es.handles:
             fn["handles"] = list(es.handles)
-        # Paul 2026-08-02: the WEIGHT-SET declaration the placement side reads
-        # to decide whether a cached volume can help this endpoint. OMITTED
-        # when undeclared — the consumer must be able to tell "the author said
-        # per_request" from "nobody said", because a cached volume lives in
-        # exactly ONE datacenter and attaching one that cannot be used
-        # collapses placement rather than merely wasting disk.
-        if es.weight_set is not None:
-            fn["weight_set"] = es.weight_set
         # th#1087: declared config parameters + env names — the hub persists
         # these as the release's declared surface and 422s config writes
         # outside it.
@@ -911,8 +908,27 @@ def discover_manifest(root: Optional[Path] = None) -> Dict[str, Any]:
             )
         seen_fn[fn_name] = py_name
 
+    # th#1580 A4: the endpoint half of §1.30's intersection, DERIVED from the
+    # decoders this image actually carries — never a hand-maintained list.
+    # Runs inside the same heavy-dep stubbing the endpoint walk used, so a
+    # torch-less manifest build derives the same set an in-image build does.
+    with stub_missing_heavy_deps(cfg.discovery_heavy_deps):
+        derived = derive_execution_lanes()
+    for fn in functions:
+        bucket = int((fn.get("compile") or {}).get("lora_bucket") or 0)
+        lanes, exclusions = execution_lanes_for_function(
+            derived, lora_bucket=bucket
+        )
+        fn["execution_lanes"] = list(lanes)
+        if exclusions:
+            fn["execution_lane_exclusions"] = [
+                {"execution_lane": e.execution_lane, "reason": e.reason}
+                for e in exclusions
+            ]
+
     manifest: Dict[str, Any] = {
         "functions": functions,
+        "execution_lanes": manifest_block(derived),
     }
     return manifest
 

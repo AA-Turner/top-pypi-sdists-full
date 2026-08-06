@@ -18,11 +18,11 @@ DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 class BillContractChangeRequest(google.protobuf.message.Message):
     """Invoices an immediate mid-term contract change and rolls the contract over
     now. The caller supplies the change to apply (target package/interval and the
-    caps taking effect now) plus the plan-change line items (the prorated
-    new-plan charge and the credit for unused time on the current plan). The
-    invoicer settles accrued pay-as-you-go usage at the current contract's rates,
-    applies monetary grants and sales tax, closes the current contract
-    immediately, and opens the new contract with the supplied change applied.
+    caps taking effect now). The invoicer prices the prorated new-plan charge and
+    the credit for unused time on the current plan itself, settles accrued
+    pay-as-you-go usage at the current contract's rates, applies monetary grants
+    and sales tax, closes the current contract immediately, and opens the new
+    contract with the supplied change applied.
     """
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

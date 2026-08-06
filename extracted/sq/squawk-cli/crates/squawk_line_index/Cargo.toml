@@ -1,0 +1,27 @@
+[package]
+name = "squawk-line-index"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Maps flat `TextSize` offsets to/from `(line, column)` representation."
+documentation.workspace = true
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+
+[lib]
+doctest = false
+
+[dependencies]
+memchr.workspace = true
+nohash-hasher.workspace = true
+text-size.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+oorandom.workspace = true
+
+[lints]
+workspace = true

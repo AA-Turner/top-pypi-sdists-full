@@ -29,12 +29,13 @@ from .reporter import generate_report, generate_html_report, save_report, save_h
 class AgentLoop:
     """Claude Code CLI architecture agent loop for penetration testing."""
 
-    def __init__(self, target: str, config: BingoConfig, console: Console | None = None, event_bus=None):
+    def __init__(self, target: str, config: BingoConfig, console: Console | None = None, event_bus=None, cancel_token=None):
         self.target = target
         self.config = config
         self.console = console or Console()
         self.lang = config.lang or "en"
         self._event_bus = event_bus  # Web UI bridge (optional)
+        self._cancel = cancel_token   # 협조적 취소 (TUI Stop) — optional
 
         model_cfg = config.get_active_model_config()
         if not model_cfg:
@@ -106,6 +107,13 @@ class AgentLoop:
         nudge_count = 0
 
         while True:
+            # 협조적 취소 (TUI Stop) — iteration 경계에서 폴링.
+            # 세팅되면 지금까지의 findings로 리포트를 생성하고 깔끔히 종료.
+            if self._cancel is not None and self._cancel.is_set():
+                self.console.print("\n[#ffaa00]⚡ 사용자 요청으로 중단됨 — 현재까지 결과로 리포트 생성[/]")
+                self._finalize()
+                return
+
             self._loop_count += 1
 
             # Drain web UI hints into pending injections
@@ -124,6 +132,11 @@ class AgentLoop:
 
             # 1. Call model
             response_text, tool_calls = self._call_model()
+
+            # 협조적 취소 — 도구 실행 직전 폴링. 세팅됐으면 도구를 돌리지 않고
+            # 루프 상단으로 돌아가 종료 처리한다.
+            if self._cancel is not None and self._cancel.is_set():
+                continue
 
             # 2. If tool calls → execute and continue
             if tool_calls:
@@ -290,6 +303,10 @@ class AgentLoop:
         self.console.print(f"\n[#00ff41]╔═[BINGO]══ {self._loop_count} ══▶[/]\n")
         stream = self._model.chat_stream(messages, tools=tools)
         for chunk in stream:
+            # 협조적 취소 — 스트리밍 청크 경계에서 폴링. 세팅되면 지금까지
+            # 받은 텍스트/도구호출을 반환하고, run() 상단에서 종료 처리.
+            if self._cancel is not None and self._cancel.is_set():
+                break
             if chunk.text:
                 text_parts.append(chunk.text)
                 self.console.print(chunk.text, end="", highlight=False, markup=False)

@@ -30,12 +30,12 @@ import threading
 import urllib.error
 import urllib.parse
 import urllib.request
-import webbrowser
 from dataclasses import dataclass, field
 from typing import Annotated
 
 import typer
 
+from ..common.browser import open_and_announce
 from .client import SLACK_API_BASE
 
 SLACK_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize"
@@ -201,8 +201,7 @@ def main(
         if no_browser:
             typer.echo(f"Open this URL in your browser:\n{authorize_url}", err=True)
         else:
-            typer.echo("Opening Slack authorize page in your browser...", err=True)
-            webbrowser.open(authorize_url)
+            open_and_announce(authorize_url, what="Slack authorization page")
 
         if not result.received.wait(timeout=timeout):
             typer.echo(f"Timed out after {timeout}s waiting for the OAuth callback", err=True)

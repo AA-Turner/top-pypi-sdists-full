@@ -1,0 +1,552 @@
+"""Unit tests for api.py — uses httpx.MockTransport, no network."""
+
+from __future__ import annotations
+
+import json
+import gzip
+from typing import Optional
+
+import httpx
+import pytest
+
+from fleet.track.api import (
+    SERVER_UPLOAD_URL_BATCH_CAP,
+    TrackAPIClient,
+    TrackAPIError,
+    TrackSessionSearchRequest,
+    TrackTextMatch,
+)
+
+
+def _auth() -> Optional[str]:
+    return "test-api-key"
+
+
+def _jwt_auth() -> tuple[str, str]:
+    return ("jwt-token", "team-1")
+
+
+def _no_auth() -> Optional[str]:
+    return None
+
+
+def _client_with_handler(handler):
+    transport = httpx.MockTransport(handler)
+    return httpx.Client(transport=transport, base_url="http://test")
+
+
+def test_provision_sends_expected_payload_and_headers():
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["headers"] = dict(request.headers)
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={"device_id": "dev1", "team_id": "team-1", "user_id": "user-1"},
+        )
+
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_auth)
+    out = api.provision("dev1")
+
+    assert out == {"device_id": "dev1", "team_id": "team-1", "user_id": "user-1"}
+    assert captured["url"] == "http://test/v1/track/provision"
+    assert captured["headers"]["authorization"] == "Bearer test-api-key"
+    assert captured["body"]["device_id"] == "dev1"
+    assert "hostname" in captured["body"]
+    assert "platform" in captured["body"]
+
+
+def test_provision_supports_browser_login_headers():
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["headers"] = dict(request.headers)
+        return httpx.Response(
+            200,
+            json={"device_id": "dev1", "team_id": "team-1", "user_id": "user-1"},
+        )
+
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_jwt_auth)
+    api.provision("dev1")
+
+    assert captured["headers"]["x-jwt-token"] == "jwt-token"
+    assert captured["headers"]["x-team-id"] == "team-1"
+    assert "authorization" not in captured["headers"]
+
+
+def test_get_manifest_returns_files_dict():
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert request.headers.get("x-device-id") == "dev1"
+        return httpx.Response(
+            200,
+            json={
+                "root_hash": "abc",
+                "files": {".claude/x.jsonl": "h1", ".codex/y.jsonl": "h2"},
+            },
+        )
+
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_auth)
+    files = api.get_manifest("dev1")
+    assert files == {".claude/x.jsonl": "h1", ".codex/y.jsonl": "h2"}
+
+
+def test_get_manifest_empty_on_first_run():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"root_hash": "", "files": {}})
+
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_auth)
+    assert api.get_manifest("dev1") == {}
+
+
+def test_get_upload_urls_round_trips():
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={"urls": {p: f"https://s3/{p}?sig=x" for p in body["paths"]}},
+        )
+
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_auth)
+    urls = api.get_upload_urls("dev1", [".claude/a.jsonl", ".codex/b.jsonl"])
+    assert urls == {
+        ".claude/a.jsonl": "https://s3/.claude/a.jsonl?sig=x",
+        ".codex/b.jsonl": "https://s3/.codex/b.jsonl?sig=x",
+    }
+
+
+def test_get_upload_urls_empty_paths_skips_request():
+    called = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        called["n"] += 1
+        return httpx.Response(200, json={"urls": {}})
+
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_auth)
+    assert api.get_upload_urls("dev1", []) == {}
+    assert called["n"] == 0
+
+
+def test_get_upload_urls_chunks_above_server_cap():
+    """Server caps at 100; client must chunk so one logical request → many HTTP calls."""
+    requests_received: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests_received.append(len(body["paths"]))
+        return httpx.Response(200, json={"urls": {p: f"u/{p}" for p in body["paths"]}})
+
+    paths = [f"f{i}.jsonl" for i in range(250)]  # 250 > cap of 100
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_auth)
+    urls = api.get_upload_urls("dev1", paths)
+
+    # Three chunks expected: 100 + 100 + 50.
+    assert requests_received == [
+        SERVER_UPLOAD_URL_BATCH_CAP,
+        SERVER_UPLOAD_URL_BATCH_CAP,
+        50,
+    ]
+    assert len(urls) == 250
+
+
+def test_upsert_session_posts_relative_path_and_session_payload():
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(204)
+
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_auth)
+    api.upsert_session(
+        device_id="dev1",
+        path=".codex/sessions/rollout-2026-05-05T00-00-00-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jsonl",
+        session={
+            "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            "tool": "codex",
+            "cwd": "/tmp/project",
+            "event_count": 3,
+            "metadata": {"title": "demo"},
+        },
+        content_codec="gzip",
+        raw_bytes=1000,
+        stored_bytes=200,
+    )
+
+    assert captured["url"] == (
+        "http://test/v1/track/sessions/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    )
+    assert captured["body"]["device_id"] == "dev1"
+    assert captured["body"]["path"].startswith(".codex/sessions/")
+    assert captured["body"]["session"]["tool"] == "codex"
+    assert captured["body"]["content_codec"] == "gzip"
+    assert captured["body"]["raw_bytes"] == 1000
+    assert captured["body"]["stored_bytes"] == 200
+
+
+def test_upsert_session_can_omit_content_metadata():
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(204)
+
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_auth)
+    api.upsert_session(
+        device_id="dev1",
+        path=".codex/sessions/rollout-2026-05-05T00-00-00-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jsonl",
+        session={
+            "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            "tool": "codex",
+            "cwd": "/tmp/project",
+            "event_count": 3,
+        },
+        include_content_metadata=False,
+    )
+
+    assert captured["body"]["device_id"] == "dev1"
+    assert "content_codec" not in captured["body"]
+    assert "raw_bytes" not in captured["body"]
+    assert "stored_bytes" not in captured["body"]
+
+
+def test_list_sessions_sends_filters_and_returns_json():
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["params"] = dict(request.url.params)
+        return httpx.Response(
+            200,
+            json={
+                "items": [
+                    {
+                        "id": "s1",
+                        "tool": "claude",
+                        "last_active": "2026-05-05T00:00:00Z",
+                    }
+                ],
+                "next_cursor": "next",
+            },
+        )
+
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_auth)
+    out = api.list_sessions(tool="claude", query="fleet", limit=25, cursor="cur")
+
+    assert captured["params"] == {
+        "tool": "claude",
+        "query": "fleet",
+        "limit": "25",
+        "cursor": "cur",
+    }
+    assert out["items"][0]["id"] == "s1"
+    assert out["next_cursor"] == "next"
+
+
+def test_search_sessions_raw_posts_turbopuffer_body_and_returns_json():
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["method"] = request.method
+        captured["url"] = str(request.url)
+        captured["headers"] = dict(request.headers)
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                "items": [
+                    {
+                        "id": "s1",
+                        "tool": "codex",
+                        "last_active": "2026-05-05T00:00:00Z",
+                    }
+                ],
+                "next_cursor": None,
+            },
+        )
+
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_auth)
+    out = api.search_sessions_raw(
+        {
+            "query": "bugbot local index",
+            "filters": [
+                "And",
+                [["repo_url", "Eq", "git@github.com:fleet-ai/fleet-sdk.git"]],
+            ],
+            "top_k": 10,
+        }
+    )
+
+    assert captured["method"] == "POST"
+    assert captured["url"] == "http://test/v1/track/sessions/search"
+    assert captured["headers"]["authorization"] == "Bearer test-api-key"
+    assert captured["body"]["query"] == "bugbot local index"
+    assert captured["body"]["top_k"] == 10
+    assert out["items"][0]["id"] == "s1"
+
+
+def test_search_sessions_posts_structured_body_and_returns_json():
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"items": [], "next_cursor": None})
+
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_auth)
+    out = api.search_sessions(
+        {
+            "query": "schema failure",
+            "filters": {"tool": "codex"},
+            "time": {"field": "last_active", "since": "7d"},
+            "limit": 5,
+        }
+    )
+
+    assert captured["url"] == "http://test/v1/track/sessions/search"
+    assert captured["body"]["filters"] == {"tool": "codex"}
+    assert out["items"] == []
+
+
+def test_search_sessions_accepts_typed_text_match_request():
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"items": [], "next_cursor": None})
+
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_auth)
+    api.search_sessions(
+        TrackSessionSearchRequest(
+            query="schema migr",
+            mode="keyword",
+            last_as_prefix=True,
+            text_match=TrackTextMatch(query="database schema", operator="phrase"),
+            filters={"search_text": {"$prefix": "database schem"}},
+            limit=5,
+        )
+    )
+
+    assert captured["url"] == "http://test/v1/track/sessions/search"
+    assert captured["body"]["mode"] == "keyword"
+    assert captured["body"]["last_as_prefix"] is True
+    assert captured["body"]["text_match"] == {
+        "query": "database schema",
+        "operator": "phrase",
+        "field": "search_text",
+        "negate": False,
+    }
+    assert captured["body"]["filters"] == {
+        "search_text": {"$prefix": "database schem"}
+    }
+
+
+def test_aggregate_sessions_posts_body_and_returns_json():
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                "backend": "postgres",
+                "groups": [{"key": {"tool": "codex"}, "count": 2}],
+                "row_count": 2,
+                "total_groups": 1,
+                "truncated": False,
+            },
+        )
+
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_auth)
+    out = api.aggregate_sessions({"group_by": ["tool"], "metrics": ["count"]})
+
+    assert captured["url"] == "http://test/v1/track/sessions/aggregate"
+    assert captured["body"]["group_by"] == ["tool"]
+    assert out["groups"][0]["count"] == 2
+
+
+def test_search_fabric_posts_body_headers_and_returns_json():
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["method"] = request.method
+        captured["url"] = str(request.url)
+        captured["headers"] = dict(request.headers)
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                "items": [{"id": "entry-1", "kind": "note"}],
+                "next_cursor": None,
+            },
+        )
+
+    body = {
+        "q": "deployment plan",
+        "sources": ["slack", "github"],
+        "time": {"field": "occurred_at", "since": "7d"},
+        "limit": 5,
+    }
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_auth)
+    out = api.search_fabric(body)
+
+    assert captured["method"] == "POST"
+    assert captured["url"] == "http://test/v1/fabric/entries/search"
+    assert captured["headers"]["authorization"] == "Bearer test-api-key"
+    assert captured["body"] == body
+    assert out["items"][0]["id"] == "entry-1"
+
+
+def test_aggregate_fabric_posts_body_headers_and_returns_json():
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["method"] = request.method
+        captured["url"] = str(request.url)
+        captured["headers"] = dict(request.headers)
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                "backend": "postgres",
+                "groups": [{"key": {"kind": "note"}, "count": 3}],
+                "row_count": 3,
+                "total_groups": 1,
+                "truncated": False,
+            },
+        )
+
+    body = {
+        "q": "deployment plan",
+        "sources": ["linear", "github"],
+        "time": {"field": "occurred_at", "since": "14d"},
+        "group_by": ["source", "day"],
+        "metrics": ["count"],
+    }
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_auth)
+    out = api.aggregate_fabric(body)
+
+    assert captured["method"] == "POST"
+    assert captured["url"] == "http://test/v1/fabric/entries/aggregate"
+    assert captured["headers"]["authorization"] == "Bearer test-api-key"
+    assert captured["body"] == body
+    assert out["groups"][0]["count"] == 3
+
+
+def test_download_session_content_uses_presigned_url_without_auth_headers():
+    seen: list[tuple[str, str | None]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((str(request.url), request.headers.get("authorization")))
+        if request.url.path == "/v1/track/sessions/s1/content":
+            return httpx.Response(200, json={"url": "https://s3.test/session"})
+        if str(request.url) == "https://s3.test/session":
+            return httpx.Response(200, content=b'{"ok": true}\n')
+        raise AssertionError(f"unexpected request: {request.url}")
+
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_auth)
+    assert api.download_session_content("s1") == b'{"ok": true}\n'
+    assert seen == [
+        ("http://test/v1/track/sessions/s1/content", "Bearer test-api-key"),
+        ("https://s3.test/session", None),
+    ]
+
+
+def test_download_session_content_decompresses_gzip_content():
+    compressed = gzip.compress(b'{"ok": true}\n')
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/track/sessions/s1/content":
+            return httpx.Response(
+                200,
+                json={"url": "https://s3.test/session", "content_codec": "gzip"},
+            )
+        if str(request.url) == "https://s3.test/session":
+            return httpx.Response(200, content=compressed)
+        raise AssertionError(f"unexpected request: {request.url}")
+
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_auth)
+    assert api.download_session_content("s1") == b'{"ok": true}\n'
+
+
+def test_unauthenticated_raises_track_api_error():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={})
+
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_no_auth)
+    with pytest.raises(TrackAPIError, match="Not authenticated"):
+        api.provision("dev1")
+
+
+def test_4xx_response_raises_with_detail_message():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            403, json={"detail": "Track requires user-scoped credentials."}
+        )
+
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_auth)
+    with pytest.raises(TrackAPIError) as ei:
+        api.provision("dev1")
+    assert "403" in str(ei.value)
+    assert "user-scoped" in str(ei.value)
+
+
+def test_5xx_response_includes_status_in_error():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="upstream exploded")
+
+    api = TrackAPIClient(client=_client_with_handler(handler), auth_provider=_auth)
+    with pytest.raises(TrackAPIError) as ei:
+        api.get_manifest("dev1")
+    assert "500" in str(ei.value)
+
+
+def test_context_manager_closes_owned_client():
+    """When the API client constructs its own httpx.Client, exiting the context
+    closes it. When client is injected, we must not close the caller's."""
+    api_owned = TrackAPIClient(auth_provider=_auth)
+    api_owned.close()  # must not raise
+
+    injected = httpx.Client(base_url="http://test")
+    with TrackAPIClient(client=injected, auth_provider=_auth):
+        pass
+    # Injected client was NOT owned by the API; should still be usable.
+    assert not injected.is_closed
+    injected.close()
+
+
+def test_default_auth_provider_prefers_flt_login_over_api_key(monkeypatch):
+    """flt login is the canonical auth path; FLEET_API_KEY is a fallback."""
+    from fleet import auth as auth_module
+    from fleet.track import api as api_module
+
+    monkeypatch.setenv("FLEET_API_KEY", "sk_should_be_ignored")
+    monkeypatch.setattr(
+        auth_module, "get_valid_token", lambda: ("jwt-token", "team-1")
+    )
+
+    assert api_module._default_auth_provider() == ("jwt-token", "team-1")
+
+
+def test_default_auth_provider_falls_back_to_api_key(monkeypatch):
+    """Without flt login creds, FLEET_API_KEY still works for headless hosts."""
+    from fleet import auth as auth_module
+    from fleet.track import api as api_module
+
+    monkeypatch.setenv("FLEET_API_KEY", "sk_fallback")
+    monkeypatch.setattr(auth_module, "get_valid_token", lambda: None)
+
+    assert api_module._default_auth_provider() == "sk_fallback"
+
+
+def test_default_auth_provider_returns_none_when_unauthenticated(monkeypatch):
+    from fleet import auth as auth_module
+    from fleet.track import api as api_module
+
+    monkeypatch.delenv("FLEET_API_KEY", raising=False)
+    monkeypatch.setattr(auth_module, "get_valid_token", lambda: None)
+
+    assert api_module._default_auth_provider() is None

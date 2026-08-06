@@ -1170,3 +1170,108 @@ def test_a_reordered_cursor_path_fails():
     result = compare_catalog_schemas(control, target)
 
     assert not result.passed
+
+
+def test_a_catalog_label_collision_is_qualified_the_same_way_every_run():
+    """Two streams can render one label; which gets `(2)` must not drift.
+
+    Ordering by the label alone leaves tied identities to set iteration order,
+    which string hashing randomises per process, so the same catalog could
+    qualify the collision differently between runs. The state comparison uses the
+    same total ordering.
+    """
+    catalog = {
+        "streams": [
+            {"name": "public.users", "json_schema": {"type": "object"}},
+            {"name": "users", "namespace": "public", "json_schema": {"type": "object"}},
+        ]
+    }
+
+    result = compare_catalog_schemas(catalog, catalog)
+
+    assert result.passed is True
+    assert sorted(result.stream_results) == ["public.users", "public.users (2)"]
+    # The namespace-less stream sorts first, so it keeps the bare label. Pinned
+    # because "some deterministic order" is not enough -- it has to be this one
+    # on every run, or the report text moves under a reader.
+    assert list(result.stream_results) == ["public.users", "public.users (2)"]
+
+
+def test_a_dunder_prefixed_schema_property_is_compared():
+    """DeepDiff drops `__`-prefixed keys unless told otherwise.
+
+    A connector's own `__`-prefixed field -- `__v` on a Mongo-shaped source,
+    `__typename` passed through from a GraphQL API -- is a declared field, not a
+    Python private. On DeepDiff's default, removing one leaves the two schemas
+    comparing equal and the check reports the catalog unchanged.
+    """
+    control = {
+        "streams": [
+            {
+                "name": "users",
+                "json_schema": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string"}, "__v": {"type": "number"}},
+                },
+            }
+        ]
+    }
+    target = {
+        "streams": [
+            {
+                "name": "users",
+                "json_schema": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string"}},
+                },
+            }
+        ]
+    }
+
+    result = compare_catalog_schemas(control, target)
+
+    assert result.passed is False
+    # A removed field is not growth, so it gates rather than warning.
+    assert result.additive_only is False
+    assert result.failed_streams == ["users"]
+
+
+def test_every_deepdiff_call_in_the_package_compares_dunder_keys() -> None:
+    """The invariant, pinned structurally rather than per call site.
+
+    DeepDiff drops every key beginning with `__` unless
+    `ignore_private_variables` is False, and a connector's own `__`-prefixed
+    field is data it emitted, not a Python private. Each call site has its own
+    behavioural test, but those only cover the sites someone remembered to
+    wire up -- a new `DeepDiff(...)` added anywhere in the package inherits the
+    dropping default silently, and no existing test goes red. This walks the
+    source instead, so the invariant holds for call sites that do not exist yet.
+    """
+    import ast
+    from pathlib import Path
+
+    import airbyte_ops_mcp
+
+    offenders: list[str] = []
+    for path in sorted(Path(airbyte_ops_mcp.__file__).parent.rglob("*.py")):
+        tree = ast.parse(path.read_text())
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            name = (
+                func.attr
+                if isinstance(func, ast.Attribute)
+                else getattr(func, "id", None)
+            )
+            if name != "DeepDiff":
+                continue
+            passed = {kw.arg: kw.value for kw in node.keywords}
+            flag = passed.get("ignore_private_variables")
+            if not (isinstance(flag, ast.Constant) and flag.value is False):
+                offenders.append(f"{path.name}:{node.lineno}")
+
+    assert not offenders, (
+        "DeepDiff called without `ignore_private_variables=False`, so any "
+        f"`__`-prefixed connector field is invisible to it: {offenders}"
+    )

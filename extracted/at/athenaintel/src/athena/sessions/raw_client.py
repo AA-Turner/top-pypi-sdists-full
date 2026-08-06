@@ -185,6 +185,7 @@ class RawSessionsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the session asset to retrieve
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -260,6 +261,7 @@ class RawSessionsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the session asset to download
 
         export_format : typing.Optional[DownloadSessionsRequestExportFormat]
             Which representation to download: 'trace' (full trace with all tool calls), 'messages' (user/agent turns only), 'markdown' (readable transcript), or 'stats' (aggregate metrics)
@@ -497,6 +499,7 @@ class AsyncRawSessionsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the session asset to retrieve
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -572,6 +575,7 @@ class AsyncRawSessionsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the session asset to download
 
         export_format : typing.Optional[DownloadSessionsRequestExportFormat]
             Which representation to download: 'trace' (full trace with all tool calls), 'messages' (user/agent turns only), 'markdown' (readable transcript), or 'stats' (aggregate metrics)

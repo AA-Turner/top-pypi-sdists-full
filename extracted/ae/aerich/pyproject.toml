@@ -12,11 +12,11 @@ keywords = [
     "mysql",
     "postgresql",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
-    "tortoise-orm (>=0.21.0,!=1.0.0,<2.0.0)",
+    "tortoise-orm (>=0.25.0,!=1.0.0,<2.0.0)",
     "dictdiffer (>=0.9.0,<1.0.0)",
-    "asyncclick (>=8.1.7,<9.0.0)",
+    "asyncclick (>=8.3.0,<9.0.0)",
     "anyio (>=3.6.2,<5.0.0)",
 ]
 classifiers = [
@@ -24,7 +24,6 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -40,7 +39,7 @@ classifiers = [
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: Microsoft :: Windows",
 ]
-version = "0.9.3"
+version = "0.10.0"
 
 [project.license]
 text = "Apache-2.0"
@@ -73,10 +72,10 @@ aerich = "aerich.cli:main"
 
 [dependency-groups]
 dev = [
-    "ruff >=0.9.0",
+    "ruff >=0.16.0",
     "bandit >=1.7.0",
-    "mypy >=1.10.0",
     "twine >=6.1.0",
+    "ty >=0.0.64",
 ]
 test = [
     "pytest >=8.3.0",
@@ -84,10 +83,10 @@ test = [
     "pytest-cov>=7.0.0",
     "async-timeout >=5.0.1; python_version <'3.11'",
     "pydantic-settings >=2.10.1",
-    "cryptography; python_version >='3.9.0,!=3.9.1'",
+    "cryptography",
 ]
 vector = [
-    "tortoise-vector >=0.2.0; python_version >='3.10'",
+    "tortoise-vector >=0.2.0",
 ]
 
 [tool.aerich]
@@ -156,6 +155,8 @@ extend-select = [
 ]
 ignore = [
     "UP031",
+    "DTZ005",
+    "RUF012",
 ]
 
 [tool.ruff.lint.isort]
@@ -171,6 +172,35 @@ exclude_dirs = [
 
 [tool.codespell]
 ignore-words-list = "Bu"
+
+[tool.ty.src]
+include = [
+    "aerich/",
+    "tests/",
+    "conftest.py",
+]
+
+[[tool.ty.overrides]]
+include = [
+    "tests/assets/**",
+]
+
+[tool.ty.overrides.rules]
+unresolved-import = "ignore"
+unresolved-attribute = "ignore"
+
+[[tool.ty.overrides]]
+include = [
+    "aerich/_compat.py",
+]
+
+[tool.ty.overrides.rules]
+unresolved-import = "ignore"
+deprecated = "ignore"
+unused-type-ignore-comment = "ignore"
+
+[tool.pyright]
+reportMissingImports = false
 
 [build-system]
 requires = [

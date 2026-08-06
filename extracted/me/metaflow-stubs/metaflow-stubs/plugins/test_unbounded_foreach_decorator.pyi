@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.35                                                                                #
-# Generated on 2026-06-24T22:10:38.899695                                                            #
+# MF version: 2.19.36                                                                                #
+# Generated on 2026-08-05T18:17:36.302019                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.decorators
     import metaflow.unbounded_foreach
+    import metaflow.decorators
 
 from ..exception import MetaflowException as MetaflowException
 from ..metadata_provider.metadata import MetaDatum as MetaDatum

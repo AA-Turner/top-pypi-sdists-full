@@ -17,12 +17,10 @@ from ..errors.not_found_error import NotFoundError
 from ..errors.not_implemented_error import NotImplementedError
 from ..errors.service_unavailable_error import ServiceUnavailableError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
-from ..types.agora_web_api_public_v0models_database_data_database_status_response import (
-    AgoraWebApiPublicV0ModelsDatabaseDataDatabaseStatusResponse,
-)
 from ..types.database_data_response import DatabaseDataResponse
 from ..types.database_mutation_response import DatabaseMutationResponse
 from ..types.database_sql_response import DatabaseSqlResponse
+from ..types.database_status_response import DatabaseStatusResponse
 from ..types.database_table_schema_response import DatabaseTableSchemaResponse
 from ..types.database_tables_response import DatabaseTablesResponse
 from ..types.delete_data_request import DeleteDataRequest
@@ -38,7 +36,7 @@ class RawDatabasesClient:
 
     def get_status(
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[AgoraWebApiPublicV0ModelsDatabaseDataDatabaseStatusResponse]:
+    ) -> HttpResponse[DatabaseStatusResponse]:
         """
         Check if a database is running, suspended, or starting up. Poll this endpoint to determine when a serverless database is ready.
 
@@ -58,7 +56,7 @@ class RawDatabasesClient:
 
         Returns
         -------
-        HttpResponse[AgoraWebApiPublicV0ModelsDatabaseDataDatabaseStatusResponse]
+        HttpResponse[DatabaseStatusResponse]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -69,9 +67,9 @@ class RawDatabasesClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    AgoraWebApiPublicV0ModelsDatabaseDataDatabaseStatusResponse,
+                    DatabaseStatusResponse,
                     parse_obj_as(
-                        type_=AgoraWebApiPublicV0ModelsDatabaseDataDatabaseStatusResponse,  # type: ignore
+                        type_=DatabaseStatusResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1038,7 +1036,7 @@ class AsyncRawDatabasesClient:
 
     async def get_status(
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[AgoraWebApiPublicV0ModelsDatabaseDataDatabaseStatusResponse]:
+    ) -> AsyncHttpResponse[DatabaseStatusResponse]:
         """
         Check if a database is running, suspended, or starting up. Poll this endpoint to determine when a serverless database is ready.
 
@@ -1058,7 +1056,7 @@ class AsyncRawDatabasesClient:
 
         Returns
         -------
-        AsyncHttpResponse[AgoraWebApiPublicV0ModelsDatabaseDataDatabaseStatusResponse]
+        AsyncHttpResponse[DatabaseStatusResponse]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -1069,9 +1067,9 @@ class AsyncRawDatabasesClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    AgoraWebApiPublicV0ModelsDatabaseDataDatabaseStatusResponse,
+                    DatabaseStatusResponse,
                     parse_obj_as(
-                        type_=AgoraWebApiPublicV0ModelsDatabaseDataDatabaseStatusResponse,  # type: ignore
+                        type_=DatabaseStatusResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

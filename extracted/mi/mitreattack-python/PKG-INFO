@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: mitreattack-python
-Version: 6.1.0
+Version: 6.2.0
 Summary: MITRE ATT&CK python library
 Author: MITRE ATT&CK
 Author-email: MITRE ATT&CK <attack@mitre.org>

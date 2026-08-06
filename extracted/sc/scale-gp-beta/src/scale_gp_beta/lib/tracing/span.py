@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from copy import deepcopy
-from typing import TYPE_CHECKING, Type, Optional
+from typing import TYPE_CHECKING, Type, Optional, cast
 from threading import RLock
 from typing_extensions import override
 
@@ -11,8 +11,8 @@ from scale_gp_beta.types.span_create_param import SpanCreateParam as SpanCreateR
 
 from .util import iso_timestamp, generate_span_id
 from .scope import Scope
-from .types import SpanInputParam, SpanOutputParam, SpanMetadataParam
-from .exceptions import ParamsCreationError
+from .types import ErrorCategory, SpanInputParam, SpanOutputParam, SpanMetadataParam
+from .exceptions import CategorizedError, ParamsCreationError
 
 if TYPE_CHECKING:
     import contextvars
@@ -21,6 +21,16 @@ if TYPE_CHECKING:
     from .trace_queue_manager import TraceQueueManager
 
 log: logging.Logger = logging.getLogger(__name__)
+
+_ERROR_CATEGORIES = frozenset({"application", "platform", "unknown"})
+
+
+def _normalize_error_category(value: object) -> ErrorCategory:
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in _ERROR_CATEGORIES:
+            return cast(ErrorCategory, normalized)
+    return "unknown"
 
 
 class BaseSpan:
@@ -168,15 +178,20 @@ class BaseSpan:
             error_type: Optional[str] = None,
             error_message: Optional[str] = None,
             exception: Optional[BaseException] = None,
+            error_category: Optional[ErrorCategory] = None,
     ) -> None:
         # Naively record details in metadata for now, note that error capture only supported in context manager
         with self._lock:
             exception_type = type(exception).__name__ if exception else None
             exception_message = str(exception) if exception else None
+            category = error_category
+            if category is None and isinstance(exception, CategorizedError):
+                category = exception.error_category
             self._status = "ERROR"
             self.metadata["error"] = True
             self.metadata["error_type"] = error_type or exception_type
             self.metadata["error_message"] = error_message or exception_message
+            self.metadata["error_category"] = _normalize_error_category(category)
 
     def __enter__(self) -> BaseSpan:
         self.start()

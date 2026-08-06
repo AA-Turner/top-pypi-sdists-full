@@ -68,6 +68,27 @@ class InputStream:
     codec: str = "h264"  # "h264" or "h265"
 
 
+def _mediamtx_host_is_authoritative() -> bool:
+    """True when MEDIAMTX_HOST must override per-camera instance IPs (F17).
+
+    Set by py_compute only for a managed-cluster install, where the media-server has
+    no host network and is therefore reachable solely through its Kubernetes Service
+    — making the compute-instance IPs from ``camera_instance_ips`` dead addresses.
+
+    Read at call time so the flag can be flipped on a running deployment without a
+    rebuilt image. Only the literal "true" counts: this suppresses a working
+    resolution path, so a half-remembered truthy spelling must not silently disable
+    per-camera routing on an appliance where those IPs are correct.
+
+    KNOWN LIMITATION: the host injected today is the namespace-wide ``media-server``
+    Service, whose selector matches every node's media-server, so on a MULTI-node
+    managed cluster it round-robins instead of reaching the node holding the camera.
+    Correct for the single-node managed clusters this targets; multi-node needs the
+    per-instance Service (F17-04) wired in first.
+    """
+    return os.getenv("MEDIAMTX_HOST_AUTHORITATIVE", "").strip().lower() == "true"
+
+
 def _parse_resolution(value: object) -> tuple[int, int]:
     """Parse a "<width>x<height>" demand string into a ``(w, h)`` int tuple.
 
@@ -665,6 +686,24 @@ class InstanceStreamingGatewayUtil:
         """
         if not camera_ids:
             return {}
+
+        # F17: on a cluster that forbids host networking, the per-camera addresses
+        # from camera_instance_ips are unusable. They are compute-instance (node)
+        # IPs, and the media-server no longer binds the node — it is reachable only
+        # through its Service. Worse, they would WIN over MEDIAMTX_HOST below, so
+        # injecting the Service DNS alone is silently defeated and every camera
+        # produces no frames with no error anywhere.
+        #
+        # MEDIAMTX_HOST_AUTHORITATIVE makes the injected host win. Set by py_compute
+        # only in managed-cluster mode; unset everywhere else, so VM mode and the
+        # appliance keep resolving per-camera IPs exactly as before (which is
+        # correct there — the node IP is where the media-server actually binds).
+        if _mediamtx_host_is_authoritative():
+            logger.info(
+                f"[Instance] MEDIAMTX_HOST is authoritative ({fallback_host}); "
+                f"skipping camera_instance_ips for all {len(camera_ids)} cameras"
+            )
+            return {cid: fallback_host for cid in camera_ids}
 
         try:
             camera_ips = self.get_camera_instance_ips(camera_ids)

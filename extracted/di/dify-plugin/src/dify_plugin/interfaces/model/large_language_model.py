@@ -719,8 +719,7 @@ class LargeLanguageModel(AIModel):
         delta: dict,
         is_reasoning: bool,
     ) -> tuple[str, bool]:
-        """If the reasoning response is from delta.get("reasoning_content"), we wrap
-        it with HTML think tag.
+        """Wrap streamed reasoning content with HTML think tags.
 
         :param delta: delta dictionary from LLM streaming response
         :param is_reasoning: is reasoning
@@ -730,7 +729,7 @@ class LargeLanguageModel(AIModel):
             The return value.
         """
         content = delta.get("content") or ""
-        reasoning_content = delta.get("reasoning_content")
+        reasoning_content = delta.get("reasoning_content") or delta.get("reasoning")
         output = content
         if reasoning_content:
             if not is_reasoning:
@@ -738,12 +737,12 @@ class LargeLanguageModel(AIModel):
                 is_reasoning = True
             else:
                 output = reasoning_content
+            if content or delta.get("tool_calls") or delta.get("function_call"):
+                is_reasoning = False
+                output += "\n</think>" + content
         elif is_reasoning:
             is_reasoning = False
-            if not reasoning_content:
-                output = "\n</think>"
-            if content:
-                output += content
+            output = "\n</think>" + content
 
         return output, is_reasoning
 

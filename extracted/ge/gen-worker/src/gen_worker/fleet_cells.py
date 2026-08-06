@@ -77,6 +77,10 @@ from .procsplit import broker
 # monkeypatch models.loading.pipeline_weight_lane; stay late-bound.
 from .models import loading, provision
 from .models.memory import low_vram_mode
+from .request_context._helpers import _decode_unverified_jwt_claims
+from .convert.hub import HubPublishError
+from .api.export_contract import export_declaration
+from .models import lora_lifted
 
 logger = logging.getLogger(__name__)
 
@@ -235,9 +239,52 @@ def finalized_in_process(key: str) -> Optional["SelfMint"]:
 ADOPTION_MARK = "equivalence_adopted"
 
 
+#: th#1423: the code a 401 gets when the credential we presented was ALREADY
+#: past its own `exp`. "Expired" and "revoked/wrong-worker" are different
+#: operator actions, and only the worker can tell them apart — the hub sees an
+#: unusable token either way.
+CREDENTIAL_EXPIRED_CODE = "worker_credential_expired"
+
+
 class CellPublishRefused(Exception):
     """Typed hub refusal (attestation / trust tier / quota). Terminal for
-    this publish attempt — never retried, never fatal to serving."""
+    this publish attempt — never retried, never fatal to serving.
+
+    Carries the hub's own ``status``/``code`` for the same reason
+    :class:`convert.hub.HubPublishError` does: a refusal reason re-derived from
+    ``str(exc)`` is prose that nothing can group by.
+    """
+
+    def __init__(self, message: str, *, status: int = 0, code: str = "") -> None:
+        super().__init__(message)
+        self.status = int(status or 0)
+        self.code = str(code or "")
+
+
+def _hub_error_code(body: Any) -> str:
+    """The hub's ``error.code``, accepting both envelope shapes it has used —
+    nested ``{"error": {"code": ...}}`` and the flat ``{"code": ...}`` the
+    worker-JWT refusals were observed with (th#1423)."""
+    if not isinstance(body, dict):
+        return ""
+    err = body.get("error")
+    if isinstance(err, dict):
+        return str(err.get("code") or "")
+    return str(body.get("code") or "")
+
+
+def _credential_lapse_s(token: str, *, now: float) -> float:
+    """Seconds ``token`` is PAST its own ``exp``; 0.0 when live or unreadable.
+
+    Not a timeout (gw#666): ``exp`` is an absolute instant the credential
+    itself carries, not a duration this code picked.
+    """
+
+    try:
+        exp = float(_decode_unverified_jwt_claims(token).get("exp") or 0)
+    except (TypeError, ValueError):
+        return 0.0
+    return max(0.0, now - exp) if exp > 0 else 0.0
 
 
 class CellPublisher:
@@ -284,11 +331,15 @@ class CellPublisher:
         # least-authority grant the child is explicitly allowed to hold. The
         # cell bytes still go child -> CAS directly under that token: the seam
         # carries control, not data.
+        # Read the credential ONCE: the bearer we present and the bearer whose
+        # expiry we blame must be the same string, or a rotation landing
+        # mid-call makes the diagnosis describe a token we never sent.
+        bearer = self._worker_jwt()
         resp = broker.request(
             "POST",
             path,
             base_url=self.base_url,
-            bearer=self._worker_jwt(),
+            bearer=bearer,
             json=payload,
             timeout=timeout,
         )
@@ -297,13 +348,26 @@ class CellPublisher:
             body = resp.json() if resp.text else {}
         except Exception:
             body = {}
+        code = _hub_error_code(body)
         if resp.status_code in (403, 429):
             # Typed refusals (cell_publish_forged_axis, _untrusted_tier,
             # _quota_exceeded, _family_undeclared): terminal by design.
             raise CellPublishRefused(
-                f"{path} refused ({resp.status_code}): {resp.text[:300]}")
+                f"{path} refused ({resp.status_code}): {resp.text[:300]}",
+                status=resp.status_code, code=code)
         if resp.status_code < 200 or resp.status_code >= 300:
-            raise RuntimeError(f"{path} failed ({resp.status_code}): {resp.text[:300]}")
+            # th#1423: this raised a BARE RuntimeError, so `_publish_failure_phase`
+            # had nothing to group by and three production 401s all landed under
+            # the phase `RuntimeError`. The typed carrier already exists.
+            lapse = (_credential_lapse_s(bearer, now=time.time())
+                     if resp.status_code == 401 else 0.0)
+            raise HubPublishError(
+                f"{path} failed ({resp.status_code}): {resp.text[:300]}"
+                + (f" — the credential presented was {lapse:.0f}s past its own exp"
+                   if lapse else ""),
+                status=resp.status_code,
+                code=CREDENTIAL_EXPIRED_CODE if lapse else code,
+            )
         return body if isinstance(body, dict) else {}
 
     # -- publish ------------------------------------------------------------
@@ -339,6 +403,14 @@ class CellPublisher:
             "image_digest": self.image_digest,
             "gen_worker": str(meta.get("gen_worker") or ""),
         }
+        # th#1423: a mint outliving its credential is only visible AFTER the
+        # compile, in a 401 nothing could group. The credential states its own
+        # `exp`, so the lapse is a MEASURED fact at the one moment it decides
+        # the outcome — on the wire before the intent, not inferred later.
+        lapse = _credential_lapse_s(self.worker_jwt(), now=time.time())
+        if lapse:
+            _publish_leg(family, key, "credential_expired",
+                         {"past_exp_s": int(lapse)})
         intent = self._post(
             "/v1/worker/cells/publish-intent",
             {
@@ -491,13 +563,13 @@ def _identity_axes(family: str, meta: dict) -> Dict[str, str]:
         if text:
             fallback[name] = text
     try:
-        base, observed = cc.lane_bucket(str(meta.get("weight_lane") or ""))
+        base, observed = cc.execution_lane_bucket(str(meta.get("weight_lane") or ""))
         bucket = observed or int(meta.get("lora_bucket") or 0)
-        token = cc.lane_token(base)
-        lane = f"{token}-lora{bucket}" if bucket and token else (
+        token = cc.execution_lane_token(base)
+        execution_lane = f"{token}-lora{bucket}" if bucket and token else (
             f"lora{bucket}" if bucket else token)
-        if lane:
-            fallback["lane"] = lane
+        if execution_lane:
+            fallback["lane"] = execution_lane
     except Exception:  # noqa: BLE001
         pass
     return fallback
@@ -863,7 +935,7 @@ def _arming_policy(
                     snapshot_digest=adopted.snapshot_digest,
                     artifact_kind=aot_serve.ARTIFACT_KIND,
                 )
-            except cc.CompiledLaneUnavailableError:
+            except cc.CompiledExecutionLaneUnavailableError:
                 # The AOT arm refused and the mandatory-lane no-artifact
                 # fallthrough raised — the ordinary policy below (with the
                 # delivered artifact) is still to run, so this is not
@@ -933,7 +1005,7 @@ def _arming_policy(
             "fleet-cells: cell_selection_bug (%s); self-minting instead of "
             "retrying the same unusable cell", exc)
         selection_bug = exc
-    except cc.CompiledLaneUnavailableError:
+    except cc.CompiledExecutionLaneUnavailableError:
         # Mandatory (w8a8/w4a4) miss: production used to fail closed here.
         # The whole point of self-mint is that this worker can produce the
         # cell itself.
@@ -981,7 +1053,7 @@ def _arming_policy(
     # the branch lane; the mint must key + trace the DECLARED graph family.
     bucket = int(getattr(cfg, "lora_bucket", 0) or 0)
     if bucket:
-        cc.apply_lora_lane(pipe, bucket)
+        cc.apply_lora_execution_lane(pipe, bucket)
 
     # ``cell_key`` is computable from STATIC axes (sku/torch/image/weight
     # lane/declared shapes+targets/module structure) — never the traced FX
@@ -998,7 +1070,7 @@ def _arming_policy(
     except Exception as exc:  # noqa: BLE001 — key axes must be computable
         logger.warning("fleet-cells: self-mint key computation failed (%s)", exc)
         if bucket:
-            cc.drop_lora_lane(pipe)
+            cc.drop_lora_execution_lane(pipe)
         return _fail_closed(
             pipe, f"self-mint key computation failed: {exc}", selection_bug,
             phase=EagerPhase.KEY_COMPUTATION_FAILED)
@@ -1015,7 +1087,7 @@ def _arming_policy(
             "was quarantined by a failed proof in this process; serving "
             "eager (pgw#672)", family, key)
         if bucket:
-            cc.drop_lora_lane(pipe)
+            cc.drop_lora_execution_lane(pipe)
         # pgw#824: the ONE eager exit in this function that never rode a typed
         # event — it returns before `_fail_closed` and only logged. A pod that
         # quarantined its own cell serves eager for the rest of its life, which
@@ -1080,7 +1152,7 @@ def _arming_policy(
             "pending for key=%s (one inductor capture dir per process)",
             family, key, conflict)
         if bucket:
-            cc.drop_lora_lane(pipe)
+            cc.drop_lora_execution_lane(pipe)
         return _fail_closed(
             pipe, f"another self-mint capture is pending (key {conflict})",
             selection_bug, phase=EagerPhase.CAPTURE_CONFLICT)
@@ -1164,7 +1236,7 @@ def _arming_policy(
             "worker runs %d execution groups in one process and the inductor "
             "capture env is process-global (pgw#777)", family, key, topo.execution_groups)
         if bucket:
-            cc.drop_lora_lane(pipe)
+            cc.drop_lora_execution_lane(pipe)
         return _fail_closed(
             pipe,
             f"in-process mint refused at groups={topo.execution_groups}: the inductor "
@@ -1178,7 +1250,7 @@ def _arming_policy(
         if existing is None:
             shutil.rmtree(mint_root, ignore_errors=True)
         if bucket:
-            cc.drop_lora_lane(pipe)
+            cc.drop_lora_execution_lane(pipe)
         return _fail_closed(
             pipe, f"self-mint arm failed: {exc}", selection_bug,
             phase=EagerPhase.CAPTURE_ARM_FAILED)
@@ -1725,8 +1797,6 @@ def mint_recipe(
                 "out-of-process minting is unavailable and an AOTI export "
                 "has no eager tier to serve from while it compiles"))
 
-    from .api.export_contract import export_declaration
-
     # pgw#853: THIS is where a declaration is allowed to refuse. A family with
     # open mint blockers (ltx/qwen/z-image) registers a THUNK, so its refusal
     # arrives here — as a typed `self_mint_skipped` carrying every word of the
@@ -1754,16 +1824,18 @@ def mint_recipe(
             f"`compile=` block carrying graph classes, pgw#739/#758) — the "
             f"class set a multi-graph cell covers is undeclared")
 
+    # CYCLE: aot_mint imports CellPublisher from this module at module scope,
+    # so this direction of the pair must stay deferred.
     from . import aot_mint
 
     spec = aot_export_spec(pipe, cfg)
-    # #730's hold is a MEASURED policy (plain/fp8 are 6.9-7.0% slower under
-    # AOTI), so a pod on a held lane must decline BY NAME rather than mint a
-    # regression — and must never be silent about it, which is what the five
-    # measured L4 pods were.
-    refusal = aot_mint.lane_admitted(spec, allow_regressed_lanes=False)
-    if refusal:
-        return _decline("aot_lane_regressed", refusal)
+    # pgw#850/#879: there is NO lane admission here. The lane this pod serves
+    # was chosen by the hub's resolution tree and observed off the composed
+    # pipeline; re-ranking it at mint time was a second opinion that composed
+    # with tensorhub's compiled-only `fp8-w8a8-dynamic` into a total block —
+    # the one lane the mint admitted was the one lane no AUTO pod could be on.
+    # Every check below answers "can this compile physically run", never
+    # "should this lane exist".
     refusal = aot_mint.lifted_torch_gap(spec)
     if refusal:
         return _decline("aot_lifted_torch_gap", refusal)
@@ -1814,16 +1886,17 @@ def aot_export_spec(pipe: Any, cfg: Any) -> "Any":
     (the class rows, coordinates, dynamic contracts and input bindings) — so
     nothing here is a per-pod guess.
     """
+    # CYCLE: aot_mint imports CellPublisher from this module at module scope,
+    # so this direction of the pair must stay deferred.
     from . import aot_mint
-    from .models import lora_lifted
 
-    lane = loading.pipeline_weight_lane(pipe)
+    execution_lane = loading.pipeline_weight_lane(pipe)
     bucket = int(getattr(cfg, "lora_bucket", 0) or 0)
     return aot_mint.ExportSpec(
         family=str(getattr(cfg, "family", "") or ""),
         target="",
-        weight_lane=lane,
-        precision=lane or "bf16",
+        weight_lane=execution_lane,
+        precision=execution_lane or "bf16",
         lora_bucket=bucket,
         shapes=tuple(
             tuple(int(v) for v in row) for row in (getattr(cfg, "shapes", ()) or ())),
@@ -1850,14 +1923,14 @@ def _fail_closed(
     ALSO followed a caught cell_selection_bug (th#1031) — chained onto the
     raised refusal so the caller's report is never dropped."""
 
-    lane = loading.pipeline_weight_lane(pipe)
+    execution_lane = loading.pipeline_weight_lane(pipe)
     # pgw#677 reopen: ONE serveability brain (cc.mandatory_serving) — the
     # hub-resolved execution lane outranks the weight-lane prefix, so an
     # eager-serveable mixed lane (sdxl #fp8-w8a8 storage on fp8-w8a16
     # execution) degrades to eager here instead of a typed refusal.
     if cc.mandatory_serving(pipe):
-        refusal = cc.CompiledLaneUnavailableError(
-            f"{lane[:4].upper()} requires a compile cell and the self-mint "
+        refusal = cc.CompiledExecutionLaneUnavailableError(
+            f"{execution_lane[:4].upper()} requires a compile cell and the self-mint "
             f"is unavailable ({reason})")
         if selection_bug is not None:
             raise refusal from selection_bug
@@ -1877,7 +1950,7 @@ def _fail_closed(
     logger.info("fleet-cells: serving eager (%s)", reason)
     activity_mod.emit_event(
         "self_mint_skipped",
-        f"lane={lane or 'plain'}: no cell and no mint — {reason}; this "
+        f"lane={execution_lane or 'plain'}: no cell and no mint — {reason}; this "
         f"worker serves eager and publishes nothing",
         phase=phase,
     )

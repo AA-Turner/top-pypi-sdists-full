@@ -208,6 +208,7 @@ class AopClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the AOP asset
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -225,7 +226,7 @@ class AopClient:
             api_key="YOUR_API_KEY",
         )
         client.aop.get_config(
-            asset_id="asset_id",
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
         )
         """
         _response = self._raw_client.get_config(asset_id, request_options=request_options)
@@ -253,6 +254,7 @@ class AopClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the AOP asset to update
 
         agent_id : typing.Optional[str]
             ID of the agent to use for execution
@@ -294,7 +296,7 @@ class AopClient:
             api_key="YOUR_API_KEY",
         )
         client.aop.update_config(
-            asset_id="asset_id",
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
             agent_id="research_agent",
             description="Generates market research reports",
             icon="ListTodo",
@@ -533,6 +535,7 @@ class AsyncAopClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the AOP asset
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -555,7 +558,7 @@ class AsyncAopClient:
 
         async def main() -> None:
             await client.aop.get_config(
-                asset_id="asset_id",
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
             )
 
 
@@ -586,6 +589,7 @@ class AsyncAopClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the AOP asset to update
 
         agent_id : typing.Optional[str]
             ID of the agent to use for execution
@@ -632,7 +636,7 @@ class AsyncAopClient:
 
         async def main() -> None:
             await client.aop.update_config(
-                asset_id="asset_id",
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
                 agent_id="research_agent",
                 description="Generates market research reports",
                 icon="ListTodo",

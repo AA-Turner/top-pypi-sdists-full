@@ -9,6 +9,7 @@ import copy
 import json
 from praisonaiagents._logging import get_logger
 import os
+import queue
 import sys
 import tempfile
 import threading
@@ -229,6 +230,15 @@ class SessionData:
             if last_compaction_data
             else None
         )
+        # Backward compatibility: `to_dict` mirrors select metadata keys to the
+        # top level, and older/externally-written session files may carry
+        # `model`/`llm` (etc.) only there. Fold those back into `metadata` so
+        # resume can recover the recorded model instead of silently reverting to
+        # the current default (Issue #3685). Existing metadata always wins.
+        metadata = dict(data.get("metadata") or {})
+        for key in ("model", "llm", "total_tokens", "token_count", "cost", "source"):
+            if key not in metadata and data.get(key) is not None:
+                metadata[key] = data[key]
         return cls(
             session_id=data.get("session_id", ""),
             messages=messages,
@@ -236,7 +246,7 @@ class SessionData:
             updated_at=data.get("updated_at", datetime.now(timezone.utc).isoformat()),
             agent_name=data.get("agent_name"),
             user_id=data.get("user_id"),
-            metadata=data.get("metadata", {}),
+            metadata=metadata,
             gateway_session_id=data.get("gateway_session_id"),
             agent_id=data.get("agent_id"),
             runtime_state=data.get("runtime_state") or {},
@@ -402,6 +412,122 @@ class FileLock:
                 # Note: We don't remove the lock file to avoid race conditions
                 # where another process has opened but not yet locked the file
 
+# Bounded queue for the optional background mirror writer (Issue #3646).
+# A mirror outage must never block the local turn, so appends are enqueued and
+# flushed on a daemon thread; the bound keeps a slow/broken mirror from growing
+# memory without limit (overflow is dropped-to-log, local disk is untouched).
+DEFAULT_MIRROR_QUEUE_SIZE = 1000
+DEFAULT_MIRROR_MAX_RETRIES = 3
+
+
+class _SessionMirrorWriter:
+    """Background, non-blocking writer that flushes records to a mirror.
+
+    Local-first guarantee (Issue #3646): the session store always writes local
+    disk first; this writer runs on a daemon thread and drains a bounded queue,
+    so a mirror's latency or outage never delays or fails a turn. On a full
+    queue we drop-to-log rather than block; on a permanent per-record failure
+    we log and move on. The local session file remains the source of truth.
+    """
+
+    def __init__(
+        self,
+        mirror: Any,
+        *,
+        max_queue: int = DEFAULT_MIRROR_QUEUE_SIZE,
+        max_retries: int = DEFAULT_MIRROR_MAX_RETRIES,
+    ):
+        self._mirror = mirror
+        self._max_retries = max_retries
+        self._queue: "queue.Queue" = queue.Queue(maxsize=max_queue)
+        self._stop = threading.Event()
+        self._thread = threading.Thread(
+            target=self._run, name="praisonai-session-mirror", daemon=True
+        )
+        self._thread.start()
+
+    def enqueue(self, session_id: str, records: List[Dict[str, Any]]) -> None:
+        """Queue records for the mirror without ever blocking the caller."""
+        if not records:
+            return
+        # After close() the draining thread has exited; queuing here would leave
+        # records stranded with no consumer while the local write reports
+        # success. Drop-to-log instead so the gap is observable (and `session
+        # sync` can reconcile) rather than silently lost (Issue #3646).
+        if self._stop.is_set():
+            logger.warning(
+                "session mirror is closed; dropping %d record(s) for %s "
+                "(local write unaffected; run `session sync` to reconcile)",
+                len(records),
+                session_id,
+            )
+            return
+        try:
+            self._queue.put_nowait((session_id, records))
+        except queue.Full:
+            # Never block the turn on a slow mirror; the local write already
+            # succeeded and `session sync` can reconcile the gap later.
+            logger.warning(
+                "session mirror queue full; dropping %d record(s) for %s "
+                "(local write unaffected; run `session sync` to reconcile)",
+                len(records),
+                session_id,
+            )
+
+    def _run(self) -> None:
+        while not self._stop.is_set() or not self._queue.empty():
+            try:
+                session_id, records = self._queue.get(timeout=0.25)
+            except queue.Empty:
+                continue
+            try:
+                self._flush_one(session_id, records)
+            finally:
+                self._queue.task_done()
+
+    def _flush_one(self, session_id: str, records: List[Dict[str, Any]]) -> None:
+        delay = 0.05
+        for attempt in range(1, self._max_retries + 1):
+            try:
+                self._mirror.append(session_id, records)
+                return
+            except Exception as e:  # pragma: no cover - defensive; mirror is external
+                if attempt >= self._max_retries:
+                    logger.error(
+                        "session mirror append failed for %s after %d attempts: %s "
+                        "(local write unaffected)",
+                        session_id,
+                        attempt,
+                        e,
+                    )
+                    return
+                time.sleep(delay)
+                delay = min(delay * 2, 1.0)
+
+    def flush(self, timeout: Optional[float] = None) -> bool:
+        """Block until queued records are flushed (test/`sync` convenience).
+
+        Waits for every enqueued item to be *processed* (``task_done``), not
+        merely dequeued, so a slow in-flight ``append`` is counted as pending.
+        """
+        deadline = None if timeout is None else time.time() + timeout
+        # queue.Queue exposes unfinished_tasks under its internal mutex; poll it
+        # so we honour the timeout without a blocking join() that can't be
+        # interrupted.
+        while True:
+            with self._queue.all_tasks_done:
+                if self._queue.unfinished_tasks == 0:
+                    return True
+            if deadline is not None and time.time() > deadline:
+                return False
+            time.sleep(0.01)
+
+    def close(self, timeout: float = 5.0) -> None:
+        """Stop the writer, draining any queued records first."""
+        self._stop.set()
+        self._thread.join(timeout=timeout)
+
+
 class DefaultSessionStore:
     """
     JSON-based session persistence with file locking.
@@ -436,6 +562,7 @@ class DefaultSessionStore:
         lock_timeout: float = DEFAULT_LOCK_TIMEOUT,
         retention: Optional[str] = None,
         active_window: Optional[int] = None,
+        mirror: Optional[Any] = None,
     ):
         """
         Initialize session store.
@@ -457,6 +584,11 @@ class DefaultSessionStore:
             active_window: Number of recent turns kept live in ``messages``
                 (defaults to ``max_messages``). Older turns are compacted or
                 truncated per ``retention``.
+            mirror: Optional :class:`~praisonaiagents.session.protocols.SessionMirrorProtocol`
+                sink (Issue #3646). When set, every persisted message is *also*
+                appended to the mirror on a background thread (local-first: the
+                local write always happens first and a mirror outage never
+                blocks or fails the turn). Left ``None`` there is zero overhead.
         """
         self.session_dir = session_dir or DEFAULT_SESSION_DIR
         self.max_messages = max_messages
@@ -482,9 +614,20 @@ class DefaultSessionStore:
 
         self._lock = threading.RLock()
         self._cache: Dict[str, SessionData] = {}
-        
-        # Ensure session directory exists
+
+        self._mirror = mirror
+
+        # Ensure session directory exists. Do this *before* spinning up the
+        # mirror writer so a construction failure on an unusable session dir
+        # never leaks an idle daemon thread for a store that won't exist.
         os.makedirs(self.session_dir, exist_ok=True)
+
+        # Optional local-first mirror (Issue #3646). Only spun up when a mirror
+        # is provided, so the default store keeps its zero-dependency, no-thread
+        # behaviour untouched.
+        self._mirror_writer: Optional[_SessionMirrorWriter] = (
+            _SessionMirrorWriter(mirror) if mirror is not None else None
+        )
     
     @staticmethod
     def _summarise_overflow(
@@ -641,6 +784,9 @@ class DefaultSessionStore:
                         if session_id in self._cache:
                             return self._cache[session_id]
                     return SessionData(session_id=session_id)
+                # Issue #3597: fold any turns spilled on a prior write failure
+                # back into the session, then delete the consumed spill files.
+                self._reingest_spill(session_id, session)
             with self._lock:
                 self._cache[session_id] = session
             return session
@@ -650,7 +796,13 @@ class DefaultSessionStore:
                 return self._cache[session_id]
             session = SessionData(session_id=session_id)
             self._cache[session_id] = session
-            return session
+        # Even with no on-disk file yet, a prior write failure may have spilled
+        # turns for this session — recover them on first load (Issue #3597).
+        with FileLock(filepath, self.lock_timeout):
+            self._reingest_spill(session_id, session)
+        with self._lock:
+            self._cache[session_id] = session
+        return session
 
     def _load_session_from_disk(self, session_id: str, filepath: str) -> SessionData:
         """Load session JSON from disk (caller must hold FileLock).
@@ -703,6 +855,8 @@ class DefaultSessionStore:
                     if session_id in self._cache:
                         return self._cache[session_id]
                 return SessionData(session_id=session_id)
+            # Issue #3597: recover any turns spilled on a prior write failure.
+            self._reingest_spill(session_id, session)
         with self._lock:
             self._cache[session_id] = session
         return session
@@ -733,6 +887,213 @@ class DefaultSessionStore:
             except (IOError, OSError):
                 pass
             return False
+
+    def _spill_dir(self) -> str:
+        """Directory for last-resort salvage files (Issue #3597)."""
+        from ..paths import get_session_spill_dir
+        return str(get_session_spill_dir())
+
+    def _spill(
+        self, session_id: str, messages: List["SessionMessage"]
+    ) -> Optional[str]:
+        """Salvage already-produced turns to an atomic fallback file.
+
+        On a durable-write failure the message survives only in memory; this
+        writes it to ``~/.praisonai/state/session_spill/*.json`` (0600, temp
+        file + ``os.replace`` + best-effort dir fsync) so a shutdown/crash does
+        not silently lose it. Stdlib-only and best-effort: any failure here is
+        swallowed (the caller already returns False and fires the hook).
+
+        Returns the spill file path on success, else ``None``.
+        """
+        if not messages:
+            return None
+        try:
+            spill_dir = self._spill_dir()
+            os.makedirs(spill_dir, exist_ok=True)
+            safe_id = "".join(
+                c if c.isalnum() or c in "-_" else "_" for c in session_id
+            )
+            # A monotonic ms timestamp keeps files sortable/attributable, but a
+            # short random token guarantees uniqueness so consecutive failures
+            # within the same PID+millisecond never overwrite an earlier spill
+            # (each unpersisted turn keeps its own recoverable file).
+            unique = os.urandom(4).hex()
+            filename = (
+                f"{safe_id}.{int(time.time() * 1000)}.{os.getpid()}.{unique}.json"
+            )
+            filepath = os.path.join(spill_dir, filename)
+            payload = {
+                "session_id": session_id,
+                "spilled_at": datetime.now(timezone.utc).isoformat(),
+                "messages": [m.to_dict() for m in messages],
+            }
+            fd, temp_path = tempfile.mkstemp(dir=spill_dir, suffix=".tmp")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(payload, f, ensure_ascii=False)
+                    f.flush()
+                    os.fsync(f.fileno())
+                try:
+                    os.chmod(temp_path, 0o600)
+                except OSError:
+                    pass
+                os.replace(temp_path, filepath)
+                temp_path = None
+            finally:
+                if temp_path is not None:
+                    try:
+                        os.remove(temp_path)
+                    except OSError:
+                        pass
+            # Best-effort directory fsync so the rename is durable.
+            try:
+                dir_fd = os.open(spill_dir, os.O_RDONLY)
+                try:
+                    os.fsync(dir_fd)
+                finally:
+                    os.close(dir_fd)
+            except OSError:
+                pass
+            return filepath
+        except (IOError, OSError, TypeError, ValueError) as e:
+            logger.error(f"Session spill failed for {session_id}: {e}")
+            return None
+
+    def _fire_persist_failed_hook(
+        self,
+        session_id: str,
+        message: "SessionMessage",
+        error: str,
+        spill_path: Optional[str],
+    ) -> None:
+        """Emit SESSION_PERSIST_FAILED so a silent failure is observable.
+
+        Best-effort and fully guarded: hooks are optional and must never turn a
+        persistence failure into a raised exception on the caller's hot path.
+        Skipped entirely when no such hook is registered (zero overhead).
+        """
+        try:
+            from ..hooks.registry import get_default_registry
+            from ..hooks.types import HookEvent
+
+            registry = get_default_registry()
+            if not registry.has_hooks(HookEvent.SESSION_PERSIST_FAILED):
+                return
+
+            from ..hooks.events import SessionPersistFailedInput
+            from ..hooks.runner import HookRunner
+
+            event_input = SessionPersistFailedInput(
+                session_id=session_id,
+                cwd=os.getcwd(),
+                event_name=HookEvent.SESSION_PERSIST_FAILED.value,
+                timestamp=datetime.now(timezone.utc).isoformat(),
+                role=message.role,
+                content=message.content,
+                error=error,
+                spilled=spill_path is not None,
+                spill_path=spill_path,
+            )
+            HookRunner(registry).execute_sync(
+                HookEvent.SESSION_PERSIST_FAILED, event_input
+            )
+        except Exception:  # pragma: no cover - observability must never break persistence
+            logger.debug("SESSION_PERSIST_FAILED hook failed", exc_info=True)
+
+    def _on_write_failure(
+        self, session_id: str, messages: List["SessionMessage"], error: str
+    ) -> None:
+        """Spill salvage + fire the observability hook on a durable-write failure."""
+        if not messages:
+            return
+        spill_path = self._spill(session_id, messages)
+        self._fire_persist_failed_hook(
+            session_id, messages[-1], error, spill_path
+        )
+
+    def _reingest_spill(self, session_id: str, session: SessionData) -> None:
+        """Re-ingest any spilled turns for a session on load (Issue #3597).
+
+        Merges salvaged messages that are not already present (matched on
+        role+content+timestamp) back into the loaded session, then persists and
+        deletes each spill file only after it is successfully folded in. Fully
+        guarded: a failure here must never break loading a session.
+        """
+        try:
+            spill_dir = self._spill_dir()
+            if not os.path.isdir(spill_dir):
+                return
+            safe_id = "".join(
+                c if c.isalnum() or c in "-_" else "_" for c in session_id
+            )
+            prefix = f"{safe_id}."
+            candidates = sorted(
+                f for f in os.listdir(spill_dir)
+                if f.startswith(prefix) and f.endswith(".json")
+            )
+        except (IOError, OSError):
+            return
+
+        seen = {
+            (m.role, m.content, m.timestamp) for m in session.messages
+        }
+        recovered: List[tuple] = []  # (filepath, [SessionMessage])
+        for filename in candidates:
+            filepath = os.path.join(spill_dir, filename)
+            try:
+                with open(filepath, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except (json.JSONDecodeError, IOError, OSError):
+                continue
+            # A syntactically valid spill can still carry an unexpected shape
+            # (non-object root, non-list messages, non-object message). Guard
+            # each level so one malformed spill can't raise AttributeError /
+            # TypeError and block recovery of the rest.
+            if not isinstance(data, dict):
+                continue
+            if data.get("session_id") != session_id:
+                continue
+            raw_messages = data.get("messages")
+            if not isinstance(raw_messages, list):
+                continue
+            msgs = []
+            for raw in raw_messages:
+                if not isinstance(raw, dict):
+                    continue
+                msg = SessionMessage.from_dict(raw)
+                key = (msg.role, msg.content, msg.timestamp)
+                if key in seen:
+                    continue
+                seen.add(key)
+                msgs.append(msg)
+            recovered.append((filepath, msgs))
+
+        if not recovered:
+            return
+
+        new_messages = [m for _, msgs in recovered for m in msgs]
+        if new_messages:
+            session.messages.extend(new_messages)
+            filepath = self._get_session_path(session_id)
+            session.updated_at = datetime.now(timezone.utc).isoformat()
+            # Recovered turns extend the active window like any other append, so
+            # they must go through the same retention policy (compact/truncate)
+            # every ordinary write uses — otherwise recovery could persist and
+            # expose an oversized transcript that stays inconsistent until a
+            # later mutation happens to compact it.
+            self._enforce_window(session)
+            if not self._atomic_write_json(filepath, session.to_dict()):
+                # Could not fold the salvage back in durably — leave the spill
+                # files in place so a later load can retry.
+                return
+
+        # Persisted (or nothing new to persist) — delete the consumed spills.
+        for filepath, _ in recovered:
+            try:
+                os.remove(filepath)
+            except OSError:
+                pass
 
     def _modify_session_locked(
         self,
@@ -824,10 +1185,14 @@ class DefaultSessionStore:
             # permanently destroy all prior history while reporting success.
             try:
                 session = self._load_session_from_disk(session_id, filepath)
-            except OSError:
+            except OSError as e:
                 logger.error(
                     f"Failed to save session {session_id}: could not read existing session"
                 )
+                # Issue #3597: the read failed, so the durable file is intact
+                # but this turn is unpersisted — salvage it and signal instead
+                # of losing it silently.
+                self._on_write_failure(session_id, [message], str(e))
                 return False
 
             # Add message
@@ -840,14 +1205,63 @@ class DefaultSessionStore:
             # Write atomically
             if not self._atomic_write_json(filepath, session.to_dict()):
                 logger.error(f"Failed to save session {session_id}")
+                # Issue #3597: durable write failed (disk-full / corruption).
+                # Spill just this turn to a fallback file and fire the
+                # SESSION_PERSIST_FAILED hook so the loss is observable and
+                # recoverable on next load.
+                self._on_write_failure(session_id, [message], "atomic write failed")
                 return False
 
             # Update cache
             with self._lock:
                 self._cache[session_id] = session
 
+        # Local write succeeded → mirror the new record (non-blocking, off the
+        # lock). A mirror outage never reaches here as a failure (Issue #3646).
+        self._mirror_append(session_id, [message])
+        return True
+
+    def _mirror_append(
+        self, session_id: str, messages: List["SessionMessage"]
+    ) -> None:
+        """Hand newly persisted messages to the background mirror writer.
+
+        No-op (zero overhead) when no mirror is configured. Records are the
+        message dicts tagged with a stable per-record id so re-appends are
+        idempotent (last-writer per id) — the append-only, conflict-free shape
+        the mirror protocol expects (Issue #3646).
+        """
+        writer = self._mirror_writer
+        if writer is None or not messages:
+            return
+        records = []
+        for m in messages:
+            record = m.to_dict()
+            record.setdefault(
+                "id", f"{session_id}:{record.get('timestamp', time.time())}"
+            )
+            record["session_id"] = session_id
+            records.append(record)
+        writer.enqueue(session_id, records)
+
+    def flush_mirror(self, timeout: Optional[float] = None) -> bool:
+        """Block until queued mirror records are flushed.
+
+        Returns ``True`` immediately when no mirror is configured; otherwise
+        drains the background queue (bounded by ``timeout`` when given). Handy
+        for a future ``session sync`` and for deterministic tests.
+        """
+        writer = self._mirror_writer
+        if writer is None:
             return True
-    
+        return writer.flush(timeout)
+
+    def close_mirror(self) -> None:
+        """Stop the background mirror writer, draining queued records first."""
+        writer = self._mirror_writer
+        if writer is not None:
+            writer.close()
+
     def add_user_message(
         self,
         session_id: str,
@@ -892,7 +1306,33 @@ class DefaultSessionStore:
     def get_session(self, session_id: str) -> SessionData:
         """Get full session data."""
         return self._read_session_fresh(session_id)
-    
+
+    def get_session_model(self, session_id: str) -> Optional[str]:
+        """Return the model a session was created / last run with (Issue #3685).
+
+        Resolves the session-level model recorded in metadata (written by the
+        wrapper's session-continuity path as ``metadata["model"]``); if absent,
+        falls back to the most recent turn that carried a ``model`` in its own
+        metadata. Returns ``None`` when no model was ever recorded, so a caller
+        can fall back to default model resolution.
+
+        This lets a resume read "the model this session used" without scanning
+        or re-resolving the current default, so a change to the user's default
+        between runs no longer silently switches the model mid-conversation.
+        """
+        try:
+            session = self._read_session_fresh(session_id)
+        except Exception:
+            return None
+        model = session.metadata.get("model") or session.metadata.get("llm")
+        if isinstance(model, str) and model:
+            return model
+        for message in reversed(session.messages):
+            recorded = (message.metadata or {}).get("model")
+            if isinstance(recorded, str) and recorded:
+                return recorded
+        return None
+
     def set_agent_info(
         self,
         session_id: str,
@@ -931,29 +1371,42 @@ class DefaultSessionStore:
     ) -> bool:
         """Replace session messages atomically (file-locked read-modify-write)."""
 
+        # Capture the built messages so a configured mirror sees whole-transcript
+        # replacements too (Issue #3646). The Session API's ``save_state`` and the
+        # bot session manager persist history through this path, not
+        # ``add_message`` — mirroring only there would omit that history remotely.
+        built: List["SessionMessage"] = []
+
         def _apply(session: SessionData) -> None:
             session.messages.clear()
+            built.clear()
             # Issue #2741: replacing the whole transcript invalidates any prior
             # compaction anchor (its message_index no longer maps to these
             # messages). Clear it so get_working_history returns the full new
             # history instead of clamping to an empty tail and dropping messages.
             session.last_compaction = None
             for msg in messages:
-                session.messages.append(
-                    SessionMessage(
-                        role=msg.get("role", "user"),
-                        content=msg.get("content", "") or "",
-                        timestamp=msg.get("timestamp", time.time()),
-                        metadata=msg.get("metadata", {}),
-                        # Preserve tool turns on whole-transcript saves (#3089).
-                        tool_calls=msg.get("tool_calls"),
-                        tool_call_id=msg.get("tool_call_id"),
-                    )
+                sm = SessionMessage(
+                    role=msg.get("role", "user"),
+                    content=msg.get("content", "") or "",
+                    timestamp=msg.get("timestamp", time.time()),
+                    metadata=msg.get("metadata", {}),
+                    # Preserve tool turns on whole-transcript saves (#3089).
+                    tool_calls=msg.get("tool_calls"),
+                    tool_call_id=msg.get("tool_call_id"),
                 )
+                session.messages.append(sm)
+                built.append(sm)
 
-        return self._modify_session_locked(
+        ok = self._modify_session_locked(
             session_id, _apply, error_label="set chat history"
         )
+        if ok:
+            # Mirror the replaced transcript (non-blocking, off the lock). Records
+            # carry a stable ``id`` so a re-append is idempotent last-writer per
+            # id — the append-only, conflict-free shape the mirror expects.
+            self._mirror_append(session_id, built)
+        return ok
 
     def append_compaction_checkpoint(
         self,

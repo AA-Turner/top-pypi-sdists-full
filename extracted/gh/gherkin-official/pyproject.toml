@@ -1,24 +1,21 @@
 [build-system]
-requires = ["uv_build>=0.11.0,<0.12.0"]
+requires = ["uv_build>=0.12.0,<0.13.0"]
 build-backend = "uv_build"
 
 [project]
 name = "gherkin-official"
-version = "42.0.0"
+version = "42.0.1"
 description = "Gherkin parser (official, by Cucumber team)"
 readme = "README.md"
 requires-python = ">=3.10"
-authors = [
-    { name = "Cucumber Ltd and Björn Rasmusson", email = "cukes@googlegroups.com" }
+dependencies = ["typing_extensions>=4"]
+keywords = [
+    "gherkin",
+    "cucumber",
+    "bdd",
 ]
-dependencies = [
-  "typing_extensions>=4",
-]
-keywords = ["gherkin", "cucumber", "bdd"]
 license = "MIT"
-license-files = [
-  "LICENSE",
-]
+license-files = ["LICENSE"]
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
@@ -28,6 +25,10 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
+
+[[project.authors]]
+name = "Cucumber Ltd and Björn Rasmusson"
+email = "cukes@googlegroups.com"
 
 [project.urls]
 Homepage = "https://github.com/cucumber/gherkin"
@@ -39,7 +40,7 @@ Changelog = "https://github.com/cucumber/gherkin/releases"
 [dependency-groups]
 dev = [
     "coverage>=7.2",
-    "pre-commit==4.6.0",
+    "pre-commit==4.6.1",
     "pytest>=6.1",
 ]
 
@@ -51,25 +52,52 @@ module-name = "gherkin"
 
 [tool.tox]
 requires = ["tox>=4.22"]
-env_list = ["3.14", "3.13", "3.12", "3.11", "3.10"]
+env_list = [
+    "3.14",
+    "3.13",
+    "3.12",
+    "3.11",
+    "3.10",
+]
 
 [tool.tox.env_run_base]
-dependency_groups = [
-  "dev",
-]
-commands = [["pytest", "{posargs}"]]
+dependency_groups = ["dev"]
+commands = [[
+    "pytest",
+    "{posargs}",
+]]
 
 [tool.tox.env.lint]
 description = "Run linting and formatting checks (and auto-fixes)"
 deps = ["pre-commit-uv>=4.1.1"]
-commands = [["pre-commit", "run", "--all-files", "--show-diff-on-failure"]]
+commands = [[
+    "pre-commit",
+    "run",
+    "--all-files",
+    "--show-diff-on-failure",
+]]
 
 [tool.tox.env.coverage]
 commands = [
-  ["coverage", "run", "-m", "pytest", "{posargs}"],
-  ["coverage", "combine"],
-  ["coverage", "report"],
-  ["coverage", "html"],
+    [
+    "coverage",
+    "run",
+    "-m",
+    "pytest",
+    "{posargs}",
+],
+    [
+    "coverage",
+    "combine",
+],
+    [
+    "coverage",
+    "report",
+],
+    [
+    "coverage",
+    "html",
+],
 ]
 
 [tool.mypy]
@@ -79,29 +107,28 @@ packages = ["gherkin"]
 
 [tool.ruff.lint]
 extend-select = [
-  "B",
-  "C4",
-  "COM",
-  "FURB",
-  "I",
-  "ISC",
-  "N",
-  "PERF",
-  "PIE",
-  "PTH",
-  "RET",
-  "TID",
-  "UP",
+    "B",
+    "C4",
+    "COM",
+    "FURB",
+    "I",
+    "ISC",
+    "N",
+    "PERF",
+    "PIE",
+    "PTH",
+    "RET",
+    "TID",
+    "UP",
 ]
 
 [tool.ruff.lint.extend-per-file-ignores]
-# Renaming exception suffixes to 'Error' impacts client code. Should fix in wider change.
 "src/gherkin/errors.py" = ["N818"]
-# Renaming matching functions to be PEP8 compliant could impact client code. Should fix in wider change.
 "src/gherkin/token_matcher*.py" = ["N"]
-# Nested `if` statements a result of parser generation method
-"src/gherkin/parser.py" = ["N", "SIM102"]
-# Require a refactor to use context managers
+"src/gherkin/parser.py" = [
+    "N",
+    "SIM102",
+]
 "src/gherkin/token_scanner.py" = ["SIM115"]
 "src/gherkin/stream/source_events.py" = ["SIM115"]
 
@@ -111,22 +138,14 @@ branch = true
 parallel = true
 
 [tool.coverage.report]
-# Regexes for lines to exclude from consideration
 exclude_also = [
-  # Don't complain about missing debug-only code:
-  "def __repr__",
-  "if self\\.debug",
-
-  # Don't complain if tests don't hit defensive assertion code:
-  "raise AssertionError",
-  "raise NotImplementedError",
-
-  # Don't complain if non-runnable code isn't run:
-  "if 0:",
-  "if __name__ == .__main__.:",
-
-  # Don't complain about abstract methods, they aren't run:
-  "@(abc\\.)?abstractmethod",
+    "def __repr__",
+    'if self\.debug',
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    '@(abc\.)?abstractmethod',
 ]
 ignore_errors = true
 

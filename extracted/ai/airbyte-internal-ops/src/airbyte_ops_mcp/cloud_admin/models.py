@@ -167,10 +167,6 @@ class ConnectionResourceRequirementsOperationResult(BaseModel):
         default_factory=list,
         description="Warnings raised by the operation.",
     )
-    reset_required: bool = Field(
-        default=True,
-        description="Whether the connection must be reset for new resources to take effect",
-    )
 
 
 class VersionOverrideOperationResult(BaseModel):

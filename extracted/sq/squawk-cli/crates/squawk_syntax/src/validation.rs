@@ -19,7 +19,10 @@ pub(crate) fn validate(root: &SyntaxNode, errors: &mut Vec<SyntaxError>) {
                 ast::BeginFuncOptionList(it) => validate_begin_func_option_list(it, errors),
                 ast::CreateAggregate(it) => validate_aggregate_params(it.param_list(), errors),
                 ast::CreateTable(it) => validate_create_table(it, errors),
+                ast::CreateViewLike(it) => validate_non_empty_column_list(it.column_list(), errors),
                 ast::CustomOp(it) => validate_custom_op_length(it, errors),
+                ast::FromAlias(it) => validate_non_empty_column_list(it.column_list(), errors),
+                ast::WithTable(it) => validate_non_empty_column_list(it.column_list(), errors),
                 ast::PrefixExpr(it) => validate_prefix_expr(it, errors),
                 ast::ArrayExpr(it) => validate_array_expr(it, errors),
                 ast::DropAggregate(it) => validate_drop_aggregate(it, errors),
@@ -42,6 +45,22 @@ pub(crate) fn validate(root: &SyntaxNode, errors: &mut Vec<SyntaxError>) {
             validate_unicode_esc_ident(&token, errors);
         }
     }
+}
+
+// an empty column list is only valid for a composite type:
+// `create type t as ()`
+fn validate_non_empty_column_list(column_list: Option<impl AstNode>, acc: &mut Vec<SyntaxError>) {
+    let Some(column_list) = column_list else {
+        return;
+    };
+    let syntax = column_list.syntax();
+    if syntax.children().next().is_some() {
+        return;
+    }
+    acc.push(SyntaxError::new(
+        "Expected at least one column",
+        syntax.text_range(),
+    ));
 }
 
 fn validate_begin_func_option_list(it: ast::BeginFuncOptionList, acc: &mut Vec<SyntaxError>) {
@@ -301,18 +320,22 @@ fn validate_set_single_column(it: ast::SetSingleColumn, acc: &mut Vec<SyntaxErro
     if set_expr.default_token().is_none() {
         return;
     }
-    let Some(column_ref) = it.column_ref() else {
+    let Some(column_target) = it.column_target() else {
         return;
     };
-    if column_ref.index_expr().is_some()
-        || column_ref.field_expr().is_some()
-        || column_ref.slice_expr().is_some()
-    {
-        acc.push(SyntaxError::new(
-            "DEFAULT may only assign to a simple column name",
-            column_ref.syntax().text_range(),
-        ));
-    }
+    let Some(accessor) = column_target.accessors().next() else {
+        return;
+    };
+    let message = match accessor {
+        ast::Accessor::FieldAccessor(_) => "cannot set a subfield to DEFAULT",
+        ast::Accessor::IndexAccessor(_) | ast::Accessor::SliceAccessor(_) => {
+            "cannot set an array element to DEFAULT"
+        }
+    };
+    acc.push(SyntaxError::new(
+        message,
+        column_target.syntax().text_range(),
+    ));
 }
 
 #[derive(Clone, Copy)]

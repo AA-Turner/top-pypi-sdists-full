@@ -1,13 +1,14 @@
 import atexit
 import logging
+import time
 import typing as t
 import uuid
 from datetime import timedelta
-import time
+
+from query_cache_common.models.services import client_telemetry_service_models
 
 from dbt_state.config import RunCacheConfig
 from dbt_state.dispatcher import TelemetryDispatcher
-from query_cache_common.models.services import client_telemetry_service_models
 from dbt_state.version import __version__, dbt_version, sqlglot_version
 
 logger = logging.getLogger(__name__)

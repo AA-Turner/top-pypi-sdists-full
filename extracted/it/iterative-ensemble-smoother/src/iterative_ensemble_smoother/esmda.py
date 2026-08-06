@@ -41,7 +41,6 @@ References
 
 import numbers
 from abc import ABC
-from typing import Union
 
 import numpy as np
 import numpy.typing as npt
@@ -65,8 +64,8 @@ class BaseESMDA(ABC):
         self,
         covariance: npt.NDArray[np.floating],
         observations: npt.NDArray[np.floating],
-        alpha: Union[int, npt.NDArray[np.floating]] = 5,
-        seed: Union[np.random.Generator, int, None] = None,
+        alpha: int | npt.NDArray[np.floating] = 5,
+        seed: np.random.Generator | int | None = None,
     ) -> None:
         """
         Parameters
@@ -214,7 +213,7 @@ class BaseESMDA(ABC):
         Y: npt.NDArray[np.floating],
         truncation: float = 0.99,
         overwrite: bool = False,
-        observation_perturbations: Union[npt.NDArray[np.floating], None] = None,
+        observation_perturbations: npt.NDArray[np.floating] | None = None,
     ) -> None:
         r"""Prepare assimilation of one or several batches of parameters.
 
@@ -247,8 +246,7 @@ class BaseESMDA(ABC):
 
         Returns
         -------
-        self
-            The instance with mutated state.
+        None
 
         Notes
         -----
@@ -280,14 +278,14 @@ class BaseESMDA(ABC):
                 f"'Y' must have dtype {self.observations.dtype}, got {Y.dtype}"
             )
 
-        if self.iteration >= self.num_assimilations():
-            raise Exception("No more assimilation steps to run.")
-
         if not overwrite:
             Y = Y.copy()
 
         self.truncation = truncation
         self.iteration += 1
+
+        if self.iteration >= self.num_assimilations():
+            raise Exception("No more assimilation steps to run.")
 
         D = Y  # Switch from API notation to paper notation
         N_d, N_e = D.shape  # (num_observations, ensemble_size)
@@ -327,7 +325,7 @@ class BaseESMDA(ABC):
         self,
         *,
         X: npt.NDArray[np.floating],
-        missing: Union[npt.NDArray[np.bool_], None] = None,
+        missing: npt.NDArray[np.bool_] | None = None,
     ) -> npt.NDArray[np.floating]:
         """Prepare delta_M := X - center(X), dealing with missing values
         as needed."""
@@ -387,7 +385,7 @@ class ESMDA(BaseESMDA):
         self,
         *,
         X: npt.NDArray[np.floating],
-        missing: Union[npt.NDArray[np.bool_], None] = None,
+        missing: npt.NDArray[np.bool_] | None = None,
         overwrite: bool = False,
     ) -> npt.NDArray[np.floating]:
         """Assimilate a batch of parameters against all observations.
@@ -425,16 +423,13 @@ class ESMDA(BaseESMDA):
         N_m, N_e = X.shape  # (num_parameters, ensemble_size)
         assert N_e == self.delta_DT.shape[0], "Dimension mismatch"
 
-        # In standard ESMDA, we compute the product in a good order.
-        # First compute the ensemble-space update in observation precision
-        # (small: N_e × N_e), then cast to X's dtype before multiplying with
-        # delta_M so that no parameter-sized float64 intermediate is created.
+        # Compute the product in a good order
         input_dtype = X.dtype
         delta_M = self._compute_delta_M(X=X, missing=missing)
         ensemble_update = np.linalg.multi_dot(
-            [self.delta_DT, self.term_diag, self.termT, self.D_obs_minus_D]
+            [delta_M, self.delta_DT, self.term_diag, self.termT, self.D_obs_minus_D]
         )
-        X += delta_M @ ensemble_update.astype(input_dtype)
+        X += ensemble_update.astype(input_dtype)
         return X
 
 

@@ -11,26 +11,31 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 import logging
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePath
 from tempfile import TemporaryDirectory
 from typing import List
 
 from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME, SOURCES_FOLDER
-from snowflake.cli._plugins.dcm.utils import collect_output
-from snowflake.cli._plugins.stage.diff import _to_diff_line
+from snowflake.cli._plugins.dcm.multistep_progress import StepProgressUpdater
+from snowflake.cli._plugins.dcm.progress import FileUploadProgress, upload_details
+from snowflake.cli._plugins.dcm.utils import (
+    RAW_ANALYZE_COMMAND_NAME,
+    collect_output,
+)
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.commands.utils import parse_key_value_variables
-from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
+from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
@@ -46,11 +51,15 @@ class FileUpload:
 class UploadPlan:
     artifacts: List[PathMapping] = field(default_factory=list)
     individual_files: List[FileUpload] = field(default_factory=list)
-    relative_paths_to_upload: List[str] = field(default_factory=list)
+    relative_paths_to_upload: List[PurePath] = field(default_factory=list)
 
 
 class DCMProjectManager(SqlExecutionMixin):
-    def deploy(
+    @property
+    def connection(self) -> SnowflakeConnection:
+        return self._conn
+
+    def deploy_async(
         self,
         project_identifier: FQN,
         from_stage: str,
@@ -58,9 +67,10 @@ class DCMProjectManager(SqlExecutionMixin):
         variables: List[str] | None = None,
         alias: str | None = None,
         skip_plan: bool = False,
-    ) -> SnowflakeCursor:
+        env_vars: dict[str, str] | None = None,
+    ) -> str:
         log.info(
-            "Running DCM deploy manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, skip_plan=%s).",
+            "Submitting DCM deploy async (project_identifier=%s, has_configuration=%s, variables_count=%d, skip_plan=%s).",
             project_identifier,
             bool(configuration),
             len(variables or []),
@@ -70,10 +80,18 @@ class DCMProjectManager(SqlExecutionMixin):
         if alias:
             query += f' AS "{alias}"'
         query += self._get_configuration_and_variables_query(configuration, variables)
+        if env_vars:
+            query += " ENVIRONMENT (?)"
         query += self._get_from_stage_query(from_stage)
         if skip_plan:
             query += f" SKIP PLAN"
-        return self.execute_query(query=query)
+        cursor = self._execute_with_optional_env_vars_async(query, env_vars)
+        log.info(
+            "DCM deploy async submitted (project_identifier=%s, sfqid=%s).",
+            project_identifier,
+            cursor.sfqid,
+        )
+        return cursor.sfqid
 
     def raw_analyze(
         self,
@@ -82,6 +100,7 @@ class DCMProjectManager(SqlExecutionMixin):
         configuration: str | None = None,
         variables: List[str] | None = None,
         save_output: bool = False,
+        env_vars: dict[str, str] | None = None,
     ):
         log.info(
             "Running DCM raw-analyze manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, save_output=%s).",
@@ -92,16 +111,19 @@ class DCMProjectManager(SqlExecutionMixin):
         )
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} ANALYZE"
         query += self._get_configuration_and_variables_query(configuration, variables)
+        if env_vars:
+            query += " ENVIRONMENT (?)"
         query += self._get_from_stage_query(from_stage)
 
         if save_output:
             with collect_output(
-                project_identifier, command_name="raw-analyze"
+                project_identifier,
+                command_name=RAW_ANALYZE_COMMAND_NAME,
             ) as output_stage:
                 query += f" OUTPUT_PATH {output_stage}"
-                result = self.execute_query(query=query)
+                result = self._execute_with_optional_env_vars(query, env_vars)
         else:
-            result = self.execute_query(query=query)
+            result = self._execute_with_optional_env_vars(query, env_vars)
         return result
 
     def plan(
@@ -112,6 +134,7 @@ class DCMProjectManager(SqlExecutionMixin):
         variables: List[str] | None = None,
         save_output: bool = False,
         delta: bool = False,
+        env_vars: dict[str, str] | None = None,
     ) -> SnowflakeCursor:
         log.info(
             "Running DCM plan manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, save_output=%s, delta=%s).",
@@ -125,16 +148,19 @@ class DCMProjectManager(SqlExecutionMixin):
         if delta:
             query += " DELTA"
         query += self._get_configuration_and_variables_query(configuration, variables)
+        if env_vars:
+            query += " ENVIRONMENT (?)"
         query += self._get_from_stage_query(from_stage)
 
         if save_output:
             with collect_output(
-                project_identifier, command_name="plan"
+                project_identifier,
+                command_name="plan",
             ) as output_stage:
                 query += f" OUTPUT_PATH {output_stage}"
-                result = self.execute_query(query=query)
+                result = self._execute_with_optional_env_vars(query, env_vars)
         else:
-            result = self.execute_query(query=query)
+            result = self._execute_with_optional_env_vars(query, env_vars)
         return result
 
     def create(self, project_identifier: FQN) -> None:
@@ -181,6 +207,7 @@ class DCMProjectManager(SqlExecutionMixin):
         configuration: str | None = None,
         variables: List[str] | None = None,
         limit: int | None = None,
+        env_vars: dict[str, str] | None = None,
     ) -> SnowflakeCursor:
         log.info(
             "Running DCM preview manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d).",
@@ -190,10 +217,12 @@ class DCMProjectManager(SqlExecutionMixin):
         )
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} PREVIEW {object_identifier.sql_identifier}"
         query += self._get_configuration_and_variables_query(configuration, variables)
+        if env_vars:
+            query += " ENVIRONMENT (?)"
         query += self._get_from_stage_query(from_stage)
         if limit is not None:
             query += f" LIMIT {limit}"
-        return self.execute_query(query=query)
+        return self._execute_with_optional_env_vars(query, env_vars)
 
     def refresh(self, project_identifier: FQN) -> SnowflakeCursor:
         log.info(
@@ -203,14 +232,14 @@ class DCMProjectManager(SqlExecutionMixin):
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} REFRESH ALL"
         return self.execute_query(query=query)
 
-    def purge(
+    def purge_async(
         self,
         project_identifier: FQN,
         alias: str | None = None,
         skip_plan: bool = False,
-    ) -> SnowflakeCursor:
+    ) -> str:
         log.info(
-            "Running DCM purge manager operation (project_identifier=%s, skip_plan=%s).",
+            "Submitting DCM purge async (project_identifier=%s, skip_plan=%s).",
             project_identifier,
             skip_plan,
         )
@@ -219,7 +248,13 @@ class DCMProjectManager(SqlExecutionMixin):
             query += f' AS "{alias}"'
         if skip_plan:
             query += " SKIP PLAN"
-        return self.execute_query(query=query)
+        cursor = self.execute_query_with_params_async(query=query)
+        log.info(
+            "DCM purge async submitted (project_identifier=%s, sfqid=%s).",
+            project_identifier,
+            cursor.sfqid,
+        )
+        return cursor.sfqid
 
     def test(self, project_identifier: FQN) -> SnowflakeCursor:
         log.info(
@@ -228,6 +263,21 @@ class DCMProjectManager(SqlExecutionMixin):
         )
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} TEST ALL"
         return self.execute_query(query=query)
+
+    def _execute_with_optional_env_vars(
+        self, query: str, env_vars: dict[str, str] | None
+    ) -> SnowflakeCursor:
+        if env_vars:
+            return self.execute_query_with_params(
+                query=query, params=[json.dumps(env_vars)]
+            )
+        return self.execute_query(query=query)
+
+    def _execute_with_optional_env_vars_async(
+        self, query: str, env_vars: dict[str, str] | None
+    ) -> SnowflakeCursor:
+        params = [json.dumps(env_vars)] if env_vars else None
+        return self.execute_query_with_params_async(query=query, params=params)
 
     @staticmethod
     def _get_from_stage_query(from_stage: str) -> str:
@@ -251,7 +301,9 @@ class DCMProjectManager(SqlExecutionMixin):
 
     @staticmethod
     def sync_local_files(
-        project_identifier: FQN, source_directory: str | None = None
+        project_identifier: FQN,
+        progress: StepProgressUpdater,
+        source_directory: str | None = None,
     ) -> str:
         source_path = (
             SecurePath(source_directory).resolve()
@@ -263,50 +315,53 @@ class DCMProjectManager(SqlExecutionMixin):
             project_identifier,
             source_path,
         )
+        stage_fqn = FQN.from_resource(
+            ObjectType.DCM_PROJECT, project_identifier, "TMP_STAGE"
+        )
+        plan = DCMProjectManager._build_upload_plan(
+            source_path.path, stage_fqn.identifier
+        )
 
-        with cli_console.phase("Uploading definition files"):
-            stage_fqn = FQN.from_resource(
-                ObjectType.DCM_PROJECT, project_identifier, "TMP_STAGE"
+        with TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            DCMProjectManager._bundle_definition_files(
+                project_root=source_path.path,
+                bundle_root=tmp_path,
+                artifacts=plan.artifacts,
             )
-            plan = DCMProjectManager._build_upload_plan(
-                source_path.path, stage_fqn.identifier
+
+            stage_manager = StageManager()
+            uploader = FileUploadProgress(progress, len(plan.relative_paths_to_upload))
+            progress.set_details(
+                upload_details(stage_fqn, plan.relative_paths_to_upload)
             )
 
-            with TemporaryDirectory() as tmp:
-                tmp_path = Path(tmp)
-                DCMProjectManager._bundle_definition_files(
-                    project_root=source_path.path,
-                    bundle_root=tmp_path,
-                    artifacts=plan.artifacts,
+            stage_manager.create(
+                fqn=FQN.from_stage(stage_fqn.identifier), temporary=True
+            )
+            for result in stage_manager.put_recursive(
+                local_path=tmp_path,
+                stage_path=stage_fqn.identifier,
+                temp_directory=tmp_path,
+                # DCM uploads many small files; spend the whole upload
+                # concurrency budget on directory fan-out rather than
+                # per-PUT PARALLEL (parallel=1 => fan-out == full budget).
+                parallel=1,
+            ):
+                uploader.advance()
+                log.info(
+                    "Uploaded %s to %s",
+                    result["source"],
+                    result["target"],
                 )
-
-                stage_manager = StageManager()
-                cli_console.step(f"Creating temporary stage {stage_fqn.identifier}.")
-                stage_manager.create(
-                    fqn=FQN.from_stage(stage_fqn.identifier), temporary=True
+            for entry in plan.individual_files:
+                stage_manager.put(local_path=entry.file, stage_path=entry.dest)
+                uploader.advance()
+                log.info(
+                    "Uploaded %s to %s",
+                    entry.file.relative_to(source_path.path),
+                    entry.dest,
                 )
-
-                DCMProjectManager._report_files_to_be_deployed(plan)
-
-                cli_console.step("Uploading files to temporary stage.")
-                for result in stage_manager.put_recursive(
-                    local_path=tmp_path,
-                    stage_path=stage_fqn.identifier,
-                    temp_directory=tmp_path,
-                ):
-                    log.info(
-                        "Uploaded %s to %s",
-                        result["source"],
-                        result["target"],
-                    )
-
-                for entry in plan.individual_files:
-                    stage_manager.put(local_path=entry.file, stage_path=entry.dest)
-                    log.info(
-                        "Uploaded %s to %s",
-                        entry.file.relative_to(source_path.path),
-                        entry.dest,
-                    )
 
         log.info(
             "Finished syncing DCM files (project_identifier=%s, stage=%s).",
@@ -347,7 +402,7 @@ class DCMProjectManager(SqlExecutionMixin):
     @staticmethod
     def _add_manifest(plan: UploadPlan) -> None:
         plan.artifacts.append(PathMapping(src=MANIFEST_FILE_NAME))
-        plan.relative_paths_to_upload.append(MANIFEST_FILE_NAME)
+        plan.relative_paths_to_upload.append(PurePath(MANIFEST_FILE_NAME))
 
     @staticmethod
     def _add_sources(plan: UploadPlan, source_path: Path, stage_root: str) -> None:
@@ -359,7 +414,9 @@ class DCMProjectManager(SqlExecutionMixin):
             if not file.is_file():
                 continue
             relative = file.relative_to(sources_path)
-            plan.relative_paths_to_upload.append(f"{SOURCES_FOLDER}/{relative}")
+            plan.relative_paths_to_upload.append(
+                DCMProjectManager._sources_relative_path(relative)
+            )
             if DCMProjectManager._is_in_hidden_path(relative):
                 dest_dir = DCMProjectManager._sources_stage_destination(
                     relative, stage_root
@@ -371,18 +428,12 @@ class DCMProjectManager(SqlExecutionMixin):
         return any(part.startswith(".") for part in relative.parts)
 
     @staticmethod
+    def _sources_relative_path(relative: PurePath) -> PurePath:
+        return PurePath(SOURCES_FOLDER, *relative.parts)
+
+    @staticmethod
     def _sources_stage_destination(relative: Path, stage_root: str) -> str:
         dest_dir = f"{stage_root}/{SOURCES_FOLDER}"
         if relative.parent != Path("."):
             dest_dir = f"{dest_dir}/{relative.parent.as_posix()}"
         return dest_dir
-
-    @staticmethod
-    def _report_files_to_be_deployed(plan: UploadPlan) -> None:
-        if not plan.relative_paths_to_upload:
-            return
-
-        cli_console.message("Local changes to be deployed:")
-        with cli_console.indented():
-            for rel in plan.relative_paths_to_upload:
-                cli_console.message(_to_diff_line("added", rel, rel))

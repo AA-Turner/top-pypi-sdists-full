@@ -46,6 +46,7 @@ class TestCostBreakdownSummary(unittest.TestCase):
                 margin_pct = 1.337,
                 total_margin_usd = 1.337,
                 platform_fee_usd = 1.337,
+                platform_fee_billed_externally = True,
                 total_invoice_usd = 1.337,
                 categories = [
                     mixpeek.models.cloud_cost_category_summary.CloudCostCategorySummary(

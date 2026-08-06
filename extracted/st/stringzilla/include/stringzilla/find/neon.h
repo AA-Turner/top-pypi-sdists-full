@@ -30,13 +30,14 @@ extern "C" {
  *  @brief Produce a movemask-style 64-bit value from a NEON comparison result.
  *      Each matching byte sets one bit in the result (bit spacing is 4 bits per byte).
  *
- *  @param vec A 16-byte NEON comparison vector (0xFF where matched, 0x00 otherwise).
+ *  @param vec_u8x16 A 16-byte NEON comparison vector (0xFF where matched, 0x00 otherwise).
  *  @return 64-bit mask with one set bit per matching byte (at bit positions 0, 4, 8, ..., 60).
  */
-SZ_HELPER_INLINE sz_u64_t sz_find_vreinterpretq_u8_u4_(uint8x16_t vec) {
+SZ_HELPER_INLINE sz_u64_t sz_find_vreinterpretq_u8_u4_(uint8x16_t vec_u8x16) {
     // Use `vshrn` to produce a bitmask, similar to `movemask` in SSE.
     // https://community.arm.com/arm-community-blogs/b/infrastructure-solutions-blog/posts/porting-x86-vector-bitmask-optimizations-to-arm-neon
-    return vget_lane_u64(vreinterpret_u64_u8(vshrn_n_u16(vreinterpretq_u16_u8(vec), 4)), 0) & 0x8888888888888888ull;
+    return vget_lane_u64(vreinterpret_u64_u8(vshrn_n_u16(vreinterpretq_u16_u8(vec_u8x16), 4)), 0) &
+           0x8888888888888888ull;
 }
 
 SZ_API_COMPTIME sz_cptr_t sz_find_byte_neon(sz_cptr_t haystack, sz_size_t haystack_length, sz_cptr_t needle) {
@@ -51,7 +52,7 @@ SZ_API_COMPTIME sz_cptr_t sz_find_byte_neon(sz_cptr_t haystack, sz_size_t haysta
         // But assuming the `vmaxvq` is cheap, we can use it to find the first match, by blending (bitwise
         // selecting) the vector with a relative offsets array.
         matches = sz_find_vreinterpretq_u8_u4_(matches_vec.u8x16);
-        if (matches) return haystack + sz_u64_ctz(matches) / 4;
+        if (matches) return haystack + sz_u64_ctz_neon_(matches) / 4;
 
         haystack += 16, haystack_length -= 16;
     }
@@ -68,7 +69,7 @@ SZ_API_COMPTIME sz_cptr_t sz_rfind_byte_neon(sz_cptr_t haystack, sz_size_t hayst
         haystack_vec.u8x16 = vld1q_u8((sz_u8_t const *)haystack + haystack_length - 16);
         matches_vec.u8x16 = vceqq_u8(haystack_vec.u8x16, needle_vec.u8x16);
         matches = sz_find_vreinterpretq_u8_u4_(matches_vec.u8x16);
-        if (matches) return haystack + haystack_length - 1 - sz_u64_clz(matches) / 4;
+        if (matches) return haystack + haystack_length - 1 - sz_u64_clz_neon_(matches) / 4;
         haystack_length -= 16;
     }
 
@@ -89,19 +90,19 @@ SZ_API_COMPTIME sz_u64_t sz_find_byteset_neon_register_( //
     // Once we've read the characters in the haystack, we want to
     // compare them against our bitset. The serial version of that code
     // would look like: `(set_->_u8s[c >> 3] & (1u << (c & 7u))) != 0`.
-    uint8x16_t byte_index_vec = vshrq_n_u8(haystack_vec.u8x16, 3);
-    uint8x16_t byte_mask_vec = vshlq_u8(vdupq_n_u8(1),
-                                        vreinterpretq_s8_u8(vandq_u8(haystack_vec.u8x16, vdupq_n_u8(7))));
-    uint8x16_t matches_top_vec = vqtbl1q_u8(set_top_vec_u8x16, byte_index_vec);
+    uint8x16_t byte_index_u8x16 = vshrq_n_u8(haystack_vec.u8x16, 3);
+    uint8x16_t byte_mask_u8x16 = vshlq_u8(vdupq_n_u8(1),
+                                          vreinterpretq_s8_u8(vandq_u8(haystack_vec.u8x16, vdupq_n_u8(7))));
+    uint8x16_t matches_top_u8x16 = vqtbl1q_u8(set_top_vec_u8x16, byte_index_u8x16);
     // The table lookup instruction in NEON replies to out-of-bound requests with zeros.
-    // The values in `byte_index_vec` all fall in [0; 32). So for values under 16, subtracting 16 will underflow
+    // The values in `byte_index_u8x16` all fall in [0; 32). So for values under 16, subtracting 16 will underflow
     // and map into interval [240, 256). Meaning that those will be populated with zeros and we can safely
-    // merge `matches_top_vec` and `matches_bottom_vec` with a bitwise OR.
-    uint8x16_t matches_bottom_vec = vqtbl1q_u8(set_bottom_vec_u8x16, vsubq_u8(byte_index_vec, vdupq_n_u8(16)));
-    uint8x16_t matches_vec = vorrq_u8(matches_top_vec, matches_bottom_vec);
+    // merge `matches_top_u8x16` and `matches_bottom_u8x16` with a bitwise OR.
+    uint8x16_t matches_bottom_u8x16 = vqtbl1q_u8(set_bottom_vec_u8x16, vsubq_u8(byte_index_u8x16, vdupq_n_u8(16)));
+    uint8x16_t matches_u8x16 = vorrq_u8(matches_top_u8x16, matches_bottom_u8x16);
     // Instead of pure `vandq_u8`, we can immediately broadcast a match presence across each 8-bit word.
-    matches_vec = vtstq_u8(matches_vec, byte_mask_vec);
-    return sz_find_vreinterpretq_u8_u4_(matches_vec);
+    matches_u8x16 = vtstq_u8(matches_u8x16, byte_mask_u8x16);
+    return sz_find_vreinterpretq_u8_u4_(matches_u8x16);
 }
 
 /**
@@ -152,7 +153,7 @@ SZ_API_COMPTIME sz_cptr_t sz_find_neon(sz_cptr_t haystack, sz_size_t haystack_le
             matches_vec.u8x16 = vandq_u8(vceqq_u8(h_first_vec.u8x16, n_first_vec.u8x16),
                                          vceqq_u8(h_last_vec.u8x16, n_last_vec.u8x16));
             matches = sz_find_vreinterpretq_u8_u4_(matches_vec.u8x16);
-            if (matches) return haystack + sz_u64_ctz(matches) / 4;
+            if (matches) return haystack + sz_u64_ctz_neon_(matches) / 4;
         }
     }
     else if (needle_length == 3) {
@@ -174,7 +175,7 @@ SZ_API_COMPTIME sz_cptr_t sz_find_neon(sz_cptr_t haystack, sz_size_t haystack_le
                     vceqq_u8(h_mid_vec.u8x16, n_mid_vec.u8x16)),
                 vceqq_u8(h_last_vec.u8x16, n_last_vec.u8x16));
             matches = sz_find_vreinterpretq_u8_u4_(matches_vec.u8x16);
-            if (matches) return haystack + sz_u64_ctz(matches) / 4;
+            if (matches) return haystack + sz_u64_ctz_neon_(matches) / 4;
         }
     }
     else {
@@ -199,7 +200,7 @@ SZ_API_COMPTIME sz_cptr_t sz_find_neon(sz_cptr_t haystack, sz_size_t haystack_le
                 vceqq_u8(h_last_vec.u8x16, n_last_vec.u8x16));
             matches = sz_find_vreinterpretq_u8_u4_(matches_vec.u8x16);
             while (matches) {
-                int potential_offset = sz_u64_ctz(matches) / 4;
+                int potential_offset = sz_u64_ctz_neon_(matches) / 4;
                 if (sz_find_verify_neon_(haystack + potential_offset, needle, needle_length))
                     return haystack + potential_offset;
                 matches &= matches - 1;
@@ -242,7 +243,7 @@ SZ_API_COMPTIME sz_cptr_t sz_rfind_neon(sz_cptr_t haystack, sz_size_t haystack_l
             vceqq_u8(h_last_vec.u8x16, n_last_vec.u8x16));
         matches = sz_find_vreinterpretq_u8_u4_(matches_vec.u8x16);
         while (matches) {
-            int potential_offset = sz_u64_clz(matches) / 4;
+            int potential_offset = sz_u64_clz_neon_(matches) / 4;
             if (sz_find_verify_neon_(haystack + haystack_length - needle_length - potential_offset, needle,
                                      needle_length))
                 return haystack + haystack_length - needle_length - potential_offset;
@@ -264,7 +265,7 @@ SZ_API_COMPTIME sz_cptr_t sz_find_byteset_neon(sz_cptr_t haystack, sz_size_t hay
     for (; haystack_length >= 16; haystack += 16, haystack_length -= 16) {
         haystack_vec.u8x16 = vld1q_u8((sz_u8_t const *)(haystack));
         matches = sz_find_byteset_neon_register_(haystack_vec, set_top_vec_u8x16, set_bottom_vec_u8x16);
-        if (matches) return haystack + sz_u64_ctz(matches) / 4;
+        if (matches) return haystack + sz_u64_ctz_neon_(matches) / 4;
     }
 
     return sz_find_byteset_serial(haystack, haystack_length, set);
@@ -281,7 +282,7 @@ SZ_API_COMPTIME sz_cptr_t sz_rfind_byteset_neon(sz_cptr_t haystack, sz_size_t ha
     for (; haystack_length >= 16; haystack_length -= 16) {
         haystack_vec.u8x16 = vld1q_u8((sz_u8_t const *)(haystack) + haystack_length - 16);
         matches = sz_find_byteset_neon_register_(haystack_vec, set_top_vec_u8x16, set_bottom_vec_u8x16);
-        if (matches) return haystack + haystack_length - 1 - sz_u64_clz(matches) / 4;
+        if (matches) return haystack + haystack_length - 1 - sz_u64_clz_neon_(matches) / 4;
     }
 
     return sz_rfind_byteset_serial(haystack, haystack_length, set);

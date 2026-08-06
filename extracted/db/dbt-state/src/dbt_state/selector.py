@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import typing as t
-
 from collections import defaultdict, deque
 from pathlib import Path
+
 from dbt.graph import UniqueId
 from dbt.graph.selector_methods import SelectorMethod
 
@@ -71,11 +71,13 @@ class GitSelectorMethod(SelectorMethod):
 
         return modified_macro_ids, reverse_deps
 
-    def _node_depends_on_changed_macro(self, node: t.Any, affected_macros: set[str]) -> bool:
+    @staticmethod
+    def _node_depends_on_changed_macro(node: t.Any, affected_macros: set[str]) -> bool:
         if not hasattr(node, "depends_on"):
             return False
         node_macro_deps = set(node.depends_on.macros)
         return bool(node_macro_deps & affected_macros)
 
-    def _is_source_node(self, node: t.Any) -> bool:
+    @staticmethod
+    def _is_source_node(node: t.Any) -> bool:
         return hasattr(node, "resource_type") and node.resource_type == "source"

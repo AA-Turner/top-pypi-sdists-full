@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aerich
-Version: 0.9.3
+Version: 0.10.0
 Summary: A database migrations tool for Tortoise ORM.
 Keywords: migrate,Tortoise-ORM,mysql,postgresql
 Author-Email: long2ice <long2ice@gmail.com>>
@@ -9,7 +9,6 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -27,10 +26,10 @@ Classifier: Operating System :: Microsoft :: Windows
 Project-URL: homepage, https://github.com/tortoise/aerich
 Project-URL: repository, https://github.com/tortoise/aerich.git
 Project-URL: documentation, https://github.com/tortoise/aerich
-Requires-Python: >=3.9
-Requires-Dist: tortoise-orm!=1.0.0,<2.0.0,>=0.21.0
+Requires-Python: >=3.10
+Requires-Dist: tortoise-orm!=1.0.0,<2.0.0,>=0.25.0
 Requires-Dist: dictdiffer<1.0.0,>=0.9.0
-Requires-Dist: asyncclick<9.0.0,>=8.1.7
+Requires-Dist: asyncclick<9.0.0,>=8.3.0
 Requires-Dist: anyio<5.0.0,>=3.6.2
 Provides-Extra: toml
 Requires-Dist: tomli-w<2.0.0,>=1.1.0; python_version >= "3.11" and extra == "toml"
@@ -49,8 +48,8 @@ Description-Content-Type: text/markdown
 
 [![image](https://img.shields.io/pypi/v/aerich.svg?style=flat)](https://pypi.python.org/pypi/aerich)
 [![image](https://img.shields.io/github/license/tortoise/aerich)](https://github.com/tortoise/aerich)
-[![image](https://github.com/tortoise/aerich/workflows/pypi/badge.svg)](https://github.com/tortoise/aerich/actions?query=workflow:pypi)
 [![image](https://github.com/tortoise/aerich/workflows/ci/badge.svg)](https://github.com/tortoise/aerich/actions?query=workflow:ci)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 ![Python Versions](https://img.shields.io/pypi/pyversions/aerich)
 
 > ⚠️ Warning
@@ -109,7 +108,7 @@ Commands:
 
 ## Usage
 
-You need to add `aerich.models` to your `Tortoise-ORM` config first. Example:
+First, you need to include `aerich.models` in your Tortoise‑ORM config. Example:
 
 ```python
 TORTOISE_ORM = {
@@ -122,6 +121,8 @@ TORTOISE_ORM = {
     },
 }
 ```
+
+* Note: This can be omitted if there is only one item in "apps". *
 
 ### Initialization
 
@@ -315,7 +316,7 @@ tortoise_orm = {
     },
     "apps": {
         "models": {"models": ["tests.models", "aerich.models"], "default_connection": "default"},
-        "models_second": {"models": ["tests.models_second"], "default_connection": "second", },
+        "models_second": {"models": ["tests.models_second"], "default_connection": "second"},
     },
 }
 ```
@@ -341,8 +342,8 @@ You can use `aerich` out of cli by use `Command` class.
 from aerich import Command
 from aerich.utils import load_tortoise_config
 
-async with Command(tortoise_config=load_tortoise_config(), app='models') as command:
-    await command.migrate('test')
+async with Command(tortoise_config=load_tortoise_config(), app="models") as command:
+    await command.migrate("test")
     await command.upgrade()
     print(await command.history())
 ```

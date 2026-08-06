@@ -364,7 +364,7 @@ UsageGroupByFieldType = Literal[
     "FLEET_ID", "INSTANCE_TYPE", "JOB_ID", "LICENSE_PRODUCT", "QUEUE_ID", "USAGE_TYPE", "USER_ID"
 ]
 UsageStatisticType = Literal["AVG", "MAX", "MIN", "SUM"]
-UsageTypeType = Literal["COMPUTE", "LICENSE"]
+UsageTypeType = Literal["COMPUTE", "LICENSE", "PERSISTENT_VOLUME"]
 VolumeStateType = Literal[
     "AVAILABLE", "IN_USE", "PENDING_ATTACHMENT", "PENDING_CREATION", "PENDING_DELETION"
 ]

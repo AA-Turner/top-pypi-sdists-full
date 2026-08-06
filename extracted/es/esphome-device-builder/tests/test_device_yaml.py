@@ -6,7 +6,10 @@ hand-rolled text scanning makes regression risk meaningful.
 
 from __future__ import annotations
 
+import json
 import logging
+import os
+import time
 from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
@@ -39,6 +42,7 @@ from esphome_device_builder.helpers.device_yaml import (
     parse_platform_from_yaml,
     pending_changes_via_hash,
 )
+from esphome_device_builder.helpers.device_yaml._loading import _snapshot_source_files
 from esphome_device_builder.helpers.device_yaml._parsing import (
     _is_valid_esphome_name,
     config_name_add_mac_suffix,
@@ -1154,6 +1158,87 @@ def test_load_device_from_storage_resolves_config_once_for_packages(tmp_path: Pa
     assert spy.call_count == 1
 
 
+def test_load_device_from_storage_shallow_skips_resolved_parse(tmp_path: Path) -> None:
+    """``shallow=True`` never parses the resolved config or reads the validated cache."""
+    yaml_file = tmp_path / "kitchen.yaml"
+    yaml_file.write_text("esphome:\n  name: kitchen\nesp32:\n  board: esp32dev\n", encoding="utf-8")
+    with (
+        mock.patch(
+            "esphome_device_builder.helpers.device_yaml._loading.load_device_yaml",
+            side_effect=AssertionError("resolved parse ran in shallow mode"),
+        ),
+        mock.patch(
+            "esphome_device_builder.helpers.device_yaml._loading."
+            "compiled_config_has_ota_partition_access",
+            side_effect=AssertionError("validated-config read ran in shallow mode"),
+        ),
+    ):
+        device = load_device_from_storage(yaml_file, shallow=True)
+    assert device.name == "kitchen"
+    assert device.target_platform == "esp32"
+    assert device.ota_partition_access is False
+
+
+def test_load_device_from_storage_shallow_matches_deep_for_inline_meta(tmp_path: Path) -> None:
+    """Inline meta and the network fingerprint come from raw text, identical either way."""
+    yaml_file = tmp_path / "kitchen.yaml"
+    yaml_file.write_text(
+        "substitutions:\n"
+        "  room: Kitchen\n"
+        "esphome:\n"
+        "  name: kitchen\n"
+        "  friendly_name: ${room} Sensor\n"
+        "  comment: window sill\n"
+        "  area: kitchen\n"
+        "wifi:\n"
+        "  use_address: 192.168.1.50\n",
+        encoding="utf-8",
+    )
+    shallow = load_device_from_storage(yaml_file, shallow=True)
+    deep = load_device_from_storage(yaml_file)
+    assert shallow.name == deep.name == "kitchen"
+    assert shallow.friendly_name == deep.friendly_name == "Kitchen Sensor"
+    assert shallow.comment == deep.comment == "window sill"
+    assert shallow.area == deep.area == "kitchen"
+    assert shallow.network_fingerprint == deep.network_fingerprint != ""
+
+
+def test_load_device_from_storage_shallow_degrades_package_fields(tmp_path: Path) -> None:
+    """Package-contributed blocks wait for the deep load; raw-text fields survive."""
+    (tmp_path / "board.yaml").write_text(
+        "esp32:\n  board: esp32dev\nmqtt:\n  broker: 10.0.0.5\n", encoding="utf-8"
+    )
+    yaml_file = tmp_path / "ble.yaml"
+    yaml_file.write_text(
+        "esphome:\n  name: ble\npackages:\n  board: !include board.yaml\n",
+        encoding="utf-8",
+    )
+    shallow = load_device_from_storage(yaml_file, shallow=True)
+    deep = load_device_from_storage(yaml_file)
+    assert shallow.name == deep.name == "ble"
+    assert shallow.target_platform == ""
+    assert deep.target_platform == "esp32"
+    assert shallow.uses_mqtt is False
+    assert deep.uses_mqtt is True
+    assert shallow.directly_referenced_integrations == []
+
+
+def test_load_device_from_storage_shallow_mqtt_extract_from_raw_text(tmp_path: Path) -> None:
+    """An inline ``mqtt:`` block still yields a usable extract without the resolved parse."""
+    yaml_file = tmp_path / "kitchen.yaml"
+    yaml_file.write_text("esphome:\n  name: kitchen\nmqtt:\n  broker: 10.0.0.5\n", encoding="utf-8")
+    device = load_device_from_storage(yaml_file, shallow=True)
+    assert device.uses_mqtt is True
+    assert device.mqtt_extract is not None
+    assert device.mqtt_extract.main_block == {"broker": "10.0.0.5"}
+    assert device.mqtt_extract.resolved_block is None
+    assert device.mqtt_extract.from_shallow_load is True
+
+    deep = load_device_from_storage(yaml_file)
+    assert deep.mqtt_extract is not None
+    assert deep.mqtt_extract.from_shallow_load is False
+
+
 def test_load_device_from_storage_detects_deep_sleep(tmp_path: Path) -> None:
     """A top-level ``deep_sleep:`` block sets ``uses_deep_sleep``; its absence clears it."""
     sleeper = tmp_path / "sleeper.yaml"
@@ -2211,28 +2296,20 @@ def _redirect_ext_storage(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> No
 def test_load_device_falls_back_to_empty_yaml_on_read_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """An OSError reading the YAML produces an empty content string, not a crash.
-
-    The scanner can race a file rename / unlink; if the YAML
-    disappears between ``Path.exists()`` (in the caller) and
-    ``read_text()``, the loader must still return a usable
-    Device rather than blowing up the whole rebuild. Pin the
-    catch so a regression that re-raised the OSError would
-    surface here as a hard failure.
-    """
+    """An OSError opening the YAML yields an empty-content Device, not a crash."""
     yaml_path = tmp_path / "kitchen.yaml"
     yaml_path.write_text("esphome:\n  name: kitchen\n", encoding="utf-8")
     write_storage_json(tmp_path, "kitchen.yaml")
 
-    real_read_text = Path.read_text
+    real_open = Path.open
 
-    def _failing_read(self: Path, *args: Any, **kwargs: Any) -> str:
+    def _failing_open(self: Path, *args: Any, **kwargs: Any) -> Any:
         if self.name == "kitchen.yaml":
             msg = "permission denied"
             raise OSError(msg)
-        return real_read_text(self, *args, **kwargs)
+        return real_open(self, *args, **kwargs)
 
-    monkeypatch.setattr(Path, "read_text", _failing_read)
+    monkeypatch.setattr(Path, "open", _failing_open)
 
     device = load_device_from_storage(yaml_path)
 
@@ -2240,6 +2317,29 @@ def test_load_device_falls_back_to_empty_yaml_on_read_error(
     # so the loader leans on StorageJSON for those fields.
     assert device.name == "kitchen"  # from StorageJSON.name (write_storage_json default)
     assert device.configuration == "kitchen.yaml"
+
+
+def test_snapshot_degrades_to_a_bare_stat_when_open_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A present-but-unreadable YAML keeps its mtime with empty content."""
+    path = tmp_path / "kitchen.yaml"
+    path.write_text("esphome:\n  name: kitchen\n", encoding="utf-8")
+    expected_mtime_ns = path.stat().st_mtime_ns
+
+    real_open = Path.open
+
+    def _denied(self: Path, *args: Any, **kwargs: Any) -> Any:
+        if self.name == "kitchen.yaml":
+            raise PermissionError("denied")
+        return real_open(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", _denied)
+    yaml_stat, yaml_content, _secrets_key = _snapshot_source_files(path)
+
+    assert yaml_content == ""
+    assert yaml_stat is not None
+    assert yaml_stat.st_mtime_ns == expected_mtime_ns
 
 
 @pytest.mark.usefixtures("_redirect_ext_storage")
@@ -2356,6 +2456,50 @@ def test_load_device_ota_partition_access_from_validated_cache(tmp_path: Path) -
     device = load_device_from_storage(yaml_path)
 
     assert device.ota_partition_access is True
+
+
+def test_load_device_ota_partition_access_from_json_cache(tmp_path: Path) -> None:
+    """The 2026.8+ JSON cache arms the flag the same way the YAML cache did."""
+    yaml_path = tmp_path / "lamp.yaml"
+    yaml_path.write_text("esphome:\n  name: lamp\n", encoding="utf-8")
+    write_storage_json(tmp_path, "lamp.yaml")
+    cache = tmp_path / ".esphome" / "storage" / "lamp.yaml.validated.json"
+    cache.write_text(
+        json.dumps(
+            {
+                "v": 1,
+                "esphome": "2026.8.0",
+                "config": {"ota": [{"platform": "esphome", "allow_partition_access": True}]},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    device = load_device_from_storage(yaml_path)
+
+    assert device.ota_partition_access is True
+
+
+def test_load_device_ota_partition_access_prefers_newer_json_cache(tmp_path: Path) -> None:
+    """With both formats on disk, the newer file decides."""
+    yaml_path = tmp_path / "lamp.yaml"
+    yaml_path.write_text("esphome:\n  name: lamp\n", encoding="utf-8")
+    write_storage_json(tmp_path, "lamp.yaml")
+    storage_dir = tmp_path / ".esphome" / "storage"
+    stale_yaml = storage_dir / "lamp.yaml.validated.yaml"
+    stale_yaml.write_text(
+        "ota:\n- platform: esphome\n  allow_partition_access: true\n", encoding="utf-8"
+    )
+    old = time.time() - 3600
+    os.utime(stale_yaml, (old, old))
+    fresh_json = storage_dir / "lamp.yaml.validated.json"
+    fresh_json.write_text(
+        json.dumps({"v": 1, "config": {"ota": [{"platform": "esphome"}]}}), encoding="utf-8"
+    )
+
+    device = load_device_from_storage(yaml_path)
+
+    assert device.ota_partition_access is False
 
 
 def test_load_device_ota_partition_access_cache_without_flag(tmp_path: Path) -> None:
@@ -3515,3 +3659,26 @@ def test_device_to_dict_emits_runtime_state_when_all_default() -> None:
         "api_encryption_active": None,
         "deployed_identity_live": False,
     }
+
+
+def test_secret_bearing_rebuild_compares_equal(tmp_path: Path) -> None:
+    """Two loads of a ``!secret`` mqtt device compare equal, so reload suppression engages."""
+    yaml_file = tmp_path / "kitchen.yaml"
+    yaml_file.write_text(
+        "esphome:\n  name: kitchen\nmqtt:\n  broker: 10.0.0.5\n  password: !secret mqtt_pass\n",
+        encoding="utf-8",
+    )
+    assert load_device_from_storage(yaml_file) == load_device_from_storage(yaml_file)
+
+
+def test_load_device_ota_partition_access_unreadable_cache(tmp_path: Path) -> None:
+    """A cache that stats but cannot be read stays off instead of raising."""
+    yaml_path = tmp_path / "lamp.yaml"
+    yaml_path.write_text("esphome:\n  name: lamp\n", encoding="utf-8")
+    write_storage_json(tmp_path, "lamp.yaml")
+    # A directory at the cache path: stat succeeds, read_text raises OSError.
+    (tmp_path / ".esphome" / "storage" / "lamp.yaml.validated.json").mkdir(parents=True)
+
+    device = load_device_from_storage(yaml_path)
+
+    assert device.ota_partition_access is False

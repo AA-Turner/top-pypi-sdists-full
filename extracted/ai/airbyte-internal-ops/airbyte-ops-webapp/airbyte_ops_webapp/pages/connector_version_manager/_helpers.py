@@ -17,7 +17,7 @@ from airbyte_ops_mcp.connector_ops.rollouts.constants import (
 )
 from prefab_ui.actions import AppendState, SetState, ShowToast
 from prefab_ui.actions.mcp import CallTool
-from prefab_ui.components import ComboboxOption, SelectOption
+from prefab_ui.components import ComboboxOption, Loader, Muted, Row, SelectOption
 from prefab_ui.rx import ERROR, RESULT, STATE
 
 from airbyte_ops_webapp.auth.mock_session import mock_oauth_is_authenticated
@@ -851,6 +851,13 @@ def render_select_options(options: list[dict[str, str]]) -> None:
 def render_combobox_options(options: list[dict[str, str]]) -> None:
     for option in options:
         ComboboxOption(option["label"], value=option["value"])
+
+
+def render_loading_feedback(label: str) -> None:
+    """Render a compact spinner and label for an in-flight load."""
+    with Row(gap=2, align="center"):
+        Loader(variant="spin", size="sm")
+        Muted(label)
 
 
 # ---------------------------------------------------------------------------

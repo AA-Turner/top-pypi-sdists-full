@@ -5,7 +5,7 @@ requires = [ "setuptools>=61" ]
 
 [project]
 name = "django-tenants"
-version = "3.13.0"
+version = "3.14.0"
 description = "Tenant support for Django using PostgreSQL schemas."
 readme = "README.rst"
 license = "MIT"
@@ -17,9 +17,9 @@ classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Environment :: Web Environment",
   "Framework :: Django",
-  "Framework :: Django :: 4.2",
   "Framework :: Django :: 5.2",
   "Framework :: Django :: 6.0",
+  "Framework :: Django :: 6.1",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.10",
@@ -29,7 +29,7 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-  "django>=2.1,<6.1",
+  "django>=5.2,<6.2",
 ]
 
 optional-dependencies.dev = [

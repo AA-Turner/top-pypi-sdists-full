@@ -11,7 +11,7 @@ from . import errors
 RE_INSERT_VALUES = re.compile(
     r"\s*((?:INSERT|REPLACE)\b.+\bVALUES?\s*)"
     + r"(\(\s*(?:%s|%\(.+\)s)\s*(?:,\s*(?:%s|%\(.+\)s)\s*)*\))"
-    + r"(\s*(?:ON DUPLICATE.*)?);?\s*\Z",
+    + r"(\s*(?:(?:AS|ON DUPLICATE).*)?);?\s*\Z",
     re.IGNORECASE | re.DOTALL,
 )
 logger = logging.getLogger(__package__)
@@ -34,10 +34,11 @@ cdef class Cursor:
     #: Max size of allowed statement is max_allowed_packet - packet_header_size.
     #: Default value of max_allowed_packet is 1048576.
     cdef:
-        public int max_stmt_length, rownumber, rowcount, arraysize, _echo
+        public int max_stmt_length, rownumber, arraysize, _echo
+        public object rowcount  # may hold 2**64-1 for unbuffered cursors
         public tuple description
         public connection, _loop, _executed, _result, _rows
-        public unsigned long lastrowid
+        public unsigned long long lastrowid
 
     def __init__(self, connection: "Connection", echo: bool = False):
         self.max_stmt_length = 1024000
@@ -175,12 +176,15 @@ cdef class Cursor:
             pass
 
         query = self.mogrify(query, args)
-        start = time.time()
-        result = await self._query(query)
-        end = time.time()
-        self._executed = query
         if self._echo:
+            start = time.time()
+            result = await self._query(query)
+            end = time.time()
+            self._executed = query
             logger.info(f"[{round((end - start) * 1000, 2)}ms] {query}")
+        else:
+            result = await self._query(query)
+            self._executed = query
         return result
 
     async def executemany(self, query: str, args):
@@ -230,28 +234,49 @@ cdef class Cursor:
     async def _do_execute_many(self, prefix, values, postfix, args, max_stmt_length, encoding):
         conn = self._get_db()
         escape = self._escape_args
+
+        # Pre-encode prefix and postfix once
         if isinstance(prefix, str):
             prefix = prefix.encode(encoding)
         if isinstance(postfix, str):
             postfix = postfix.encode(encoding)
-        sql = bytearray(prefix)
-        args = iter(args)
-        v = values % escape(next(args), conn)
-        if isinstance(v, str):
-            v = v.encode(encoding, "surrogateescape")
-        sql += v
-        rows = 0
+
+        # Process and encode all values upfront
+        # This avoids repeated isinstance() checks and encoding in the loop
+        encoded_values = []
         for arg in args:
             v = values % escape(arg, conn)
             if isinstance(v, str):
                 v = v.encode(encoding, "surrogateescape")
-            if len(sql) + len(v) + len(postfix) + 1 > max_stmt_length:
-                rows += await self.execute(sql + postfix)
-                sql = bytearray(prefix)
+            encoded_values.append(v)
+
+        if not encoded_values:
+            return 0
+
+        rows = 0
+        batch_parts = [prefix, encoded_values[0]]
+        current_length = len(prefix) + len(encoded_values[0])
+
+        # Build batches using list accumulation + join (faster than bytearray +=)
+        for v in encoded_values[1:]:
+            # Check if adding this value would exceed max statement length
+            if current_length + len(v) + len(postfix) + 1 > max_stmt_length:
+                # Execute current batch
+                sql = b''.join(batch_parts) + postfix
+                rows += await self.execute(sql)
+                # Start new batch
+                batch_parts = [prefix, v]
+                current_length = len(prefix) + len(v)
             else:
-                sql += b","
-            sql += v
-        rows += await self.execute(sql + postfix)
+                # Add to current batch
+                batch_parts.append(b",")
+                batch_parts.append(v)
+                current_length += 1 + len(v)
+
+        # Execute final batch
+        sql = b''.join(batch_parts) + postfix
+        rows += await self.execute(sql)
+
         self.rowcount = rows
         return rows
 
@@ -305,47 +330,38 @@ cdef class Cursor:
         self._executed = q
         return args
 
-    cpdef fetchone(self):
+    async def fetchone(self):
         """Fetch the next row."""
         self._check_executed()
-        fut = self._loop.create_future()
         if self._rows is None or self.rownumber >= len(self._rows):
-            fut.set_result(None)
-            return fut
+            return None
         result = self._rows[self.rownumber]
         self.rownumber += 1
-        fut.set_result(result)
-        return fut
+        return result
 
-    cpdef fetchmany(self, size=None):
+    async def fetchmany(self, size=None):
         """Fetch several rows."""
         self._check_executed()
-        fut = self._loop.create_future()
         if self._rows is None:
-            fut.set_result([])
-            return fut
+            return []
         end = self.rownumber + (size or self.arraysize)
         result = self._rows[self.rownumber: end]
         self.rownumber = min(end, len(self._rows))
-        fut.set_result(result)
-        return fut
+        return result
 
-    cpdef fetchall(self):
+    async def fetchall(self):
         """Fetch all the rows."""
         self._check_executed()
-        fut = self._loop.create_future()
         if self._rows is None:
-            fut.set_result([])
-            return fut
+            return []
         if self.rownumber:
             result = self._rows[self.rownumber:]
         else:
             result = self._rows
         self.rownumber = len(self._rows)
-        fut.set_result(result)
-        return fut
+        return result
 
-    cpdef scroll(self, value, mode="relative"):
+    def scroll(self, value, mode="relative"):
         self._check_executed()
         if mode == "relative":
             r = self.rownumber + value

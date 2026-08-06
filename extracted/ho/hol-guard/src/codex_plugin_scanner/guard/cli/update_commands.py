@@ -33,6 +33,7 @@ from ..adapters.opencode_pretool import (
     managed_plugin_path,
     pretool_plugin_source,
 )
+from ..adapters.pi import legacy_omp_managed_extension_is_verified
 from ..codex_hook_integrity import CodexHookIntegrityError, load_authenticated_hook_manifest
 from ..config import load_guard_config, resolve_guard_home
 from ..mdm.contracts import ManagedNetworkPolicy, ManagedPolicy
@@ -58,6 +59,34 @@ from .update_subprocess import (
 _ALREADY_CURRENT_HINTS = (
     "already at latest version",
     "already up-to-date",
+)
+_PIPX_LAUNCHER_FAILURE_HINTS = (
+    "ModuleNotFoundError: No module named 'pipx'",
+    'ModuleNotFoundError: No module named "pipx"',
+)
+_PYPI_PROPAGATION_FAILURE_HINTS = (
+    "No matching distribution found for hol-guard==",
+    "Could not find a version that satisfies the requirement hol-guard==",
+)
+_PYPI_PROPAGATION_EXCLUSION_HINTS = (
+    "401",
+    "403",
+    "authentication",
+    "certificate verify failed",
+    "connection error",
+    "connection refused",
+    "connection reset",
+    "could not fetch url",
+    "credential",
+    "forbidden",
+    "invalid index",
+    "name or service not known",
+    "ssl",
+    "temporary failure in name resolution",
+    "timed out",
+    "timeout",
+    "tls",
+    "unauthorized",
 )
 _PYPI_JSON_URL = "https://pypi.org/pypi/hol-guard/json"
 _PYPI_TIMEOUT_SECONDS = 3.0
@@ -477,6 +506,7 @@ def run_guard_update(
     active_command = execution_command
     active_display_command = command
     attempted_force_retry = False
+    attempted_pipx_recovery = False
     installer_execution_started = False
     while True:
         try:
@@ -521,25 +551,45 @@ def run_guard_update(
             )
         initial_version_check = payload.get("version_check")
         resulting_version = str(payload.get("resulting_version") or current_version)
-        if trusted_wheel is not None:
-            try:
-                if Version(resulting_version) != Version(trusted_wheel.version):
-                    return _trusted_update_failure(
-                        payload,
-                        UpdateSubprocessError("update_version_mismatch"),
-                        trusted_wheel=trusted_wheel,
-                        retain_trusted_wheel=installer_execution_started,
-                    )
-            except InvalidVersion:
-                return _trusted_update_failure(
-                    payload,
-                    UpdateSubprocessError("update_version_output_invalid"),
-                    trusted_wheel=trusted_wheel,
-                    retain_trusted_wheel=installer_execution_started,
-                )
         if result.returncode != 0:
+            installer_output = _installer_output_text(payload.get("stdout"), payload.get("stderr"))
+            if (
+                installer == "pipx"
+                and not attempted_pipx_recovery
+                and _contains_any(installer_output, _PIPX_LAUNCHER_FAILURE_HINTS)
+            ):
+                pip_display_command = _update_command(
+                    "pip",
+                    use_pypi=trusted_wheel is None,
+                    target_version=target_version,
+                    wheel_path=requested_wheel_path if trusted_wheel is not None else None,
+                )
+                pip_execution_display_command = _update_command(
+                    "pip",
+                    use_pypi=trusted_wheel is None,
+                    target_version=target_version,
+                    wheel_path=trusted_wheel.staged_path if trusted_wheel is not None else None,
+                )
+                try:
+                    active_command = update_context.build_python_pip_command(pip_execution_display_command)
+                except UpdateSubprocessError as error:
+                    return _trusted_update_failure(payload, error, trusted_wheel=trusted_wheel)
+                attempted_pipx_recovery = True
+                active_display_command = pip_display_command
+                payload["installer_recovery"] = "trusted_python_pip"
+                continue
+            if requested_wheel_path is None and _is_pypi_propagation_failure(installer_output):
+                payload["status"] = "deferred"
+                payload["changed"] = False
+                payload["reason_code"] = "update_release_propagating"
+                payload["message"] = (
+                    "The newest HOL Guard release is still reaching PyPI. "
+                    "Your current installation remains active; try the update again shortly."
+                )
+                payload.pop("retry_command", None)
+                return payload, 0
             conflict_message = _dependency_conflict_message(
-                _installer_output_text(payload.get("stdout"), payload.get("stderr")),
+                installer_output,
             )
             if conflict_message:
                 payload["status"] = "blocked"
@@ -557,6 +607,22 @@ def run_guard_update(
             if trusted_wheel is not None:
                 _retain_local_wheel_staging(payload)
             return payload, 1
+        if trusted_wheel is not None:
+            try:
+                if Version(resulting_version) != Version(trusted_wheel.version):
+                    return _trusted_update_failure(
+                        payload,
+                        UpdateSubprocessError("update_version_mismatch"),
+                        trusted_wheel=trusted_wheel,
+                        retain_trusted_wheel=installer_execution_started,
+                    )
+            except InvalidVersion:
+                return _trusted_update_failure(
+                    payload,
+                    UpdateSubprocessError("update_version_output_invalid"),
+                    trusted_wheel=trusted_wheel,
+                    retain_trusted_wheel=installer_execution_started,
+                )
         if trusted_wheel is not None:
             _record_verified_local_wheel_receipt(
                 payload,
@@ -1381,6 +1447,17 @@ def _installer_output_text(stdout: object, stderr: object) -> str:
     return "\n".join(part.strip() for part in (str(stdout or "").strip(), str(stderr or "").strip()) if part.strip())
 
 
+def _contains_any(value: str, candidates: tuple[str, ...]) -> bool:
+    return any(candidate in value for candidate in candidates)
+
+
+def _is_pypi_propagation_failure(installer_output: str) -> bool:
+    if not _contains_any(installer_output, _PYPI_PROPAGATION_FAILURE_HINTS):
+        return False
+    lowered = installer_output.lower()
+    return not _contains_any(lowered, _PYPI_PROPAGATION_EXCLUSION_HINTS)
+
+
 def _dependency_conflict_message(installer_output: str) -> str | None:
     lowered = installer_output.lower()
     if "resolutionimpossible" not in lowered and "conflicting dependencies" not in lowered:
@@ -2060,37 +2137,91 @@ def _repair_supported_harnesses_in_process(
         repaired_installs.append(repaired_cursor)
     if cursor_warning is not None:
         repair_notes.append(cursor_warning)
-    repaired_pi, pi_warning = _repair_pi_install(
+    legacy_omp_migration, legacy_omp_warning = _migrate_legacy_omp_install(
         context=context,
         store=store,
         workspace=workspace,
         now=now,
     )
-    if repaired_pi is not None:
-        repaired_installs.append(repaired_pi)
-    if pi_warning is not None:
-        repair_notes.append(pi_warning)
+    if legacy_omp_migration is not None:
+        repaired_installs.append(legacy_omp_migration)
+    if legacy_omp_warning is not None:
+        repair_notes.append(legacy_omp_warning)
+    for harness, display_name in (("pi", "Pi"), ("omp", "Oh My Pi")):
+        if harness == "omp" and legacy_omp_migration is not None:
+            continue
+        repaired_pi_family, pi_family_warning = _repair_pi_family_install(
+            harness=harness,
+            display_name=display_name,
+            context=context,
+            store=store,
+            workspace=workspace,
+            now=now,
+        )
+        if repaired_pi_family is not None:
+            repaired_installs.append(repaired_pi_family)
+        if pi_family_warning is not None:
+            repair_notes.append(pi_family_warning)
     opencode_note = _refresh_opencode_pretool_plugin(context=context, store=store)
     if opencode_note is not None:
         repair_notes.append(opencode_note)
     return repaired_installs, repair_notes
 
 
-def _repair_pi_install(
+def _migrate_legacy_omp_install(
     *,
     context: HarnessContext,
     store: GuardStore,
     workspace: str | None,
     now: str,
 ) -> tuple[dict[str, object] | None, str | None]:
-    """Rewrite the managed Pi extension after package updates.
+    """Split only a verified extension from the former combined Pi installation."""
+
+    try:
+        pi_install = store.get_managed_install("pi")
+        omp_install = store.get_managed_install("omp")
+    except (json.JSONDecodeError, sqlite3.Error):
+        return None, None
+    if omp_install is not None or pi_install is None:
+        return None, None
+    if not legacy_omp_managed_extension_is_verified(context, pi_install):
+        return None, None
+    try:
+        repair_context, repair_workspace = _repair_context_from_managed_install(context, pi_install)
+        payload = apply_managed_install(
+            "install",
+            "omp",
+            False,
+            repair_context,
+            store,
+            repair_workspace or workspace,
+            now,
+        )
+    except (OSError, RuntimeError, json.JSONDecodeError, sqlite3.Error) as error:
+        return None, f"Could not migrate verified Oh My Pi protection during update: {error}"
+    migrated = payload.get("managed_install")
+    if not isinstance(migrated, dict):
+        return None, "Could not migrate verified Oh My Pi protection during update: managed install was not recorded"
+    return migrated, None
+
+
+def _repair_pi_family_install(
+    *,
+    harness: str,
+    display_name: str,
+    context: HarnessContext,
+    store: GuardStore,
+    workspace: str | None,
+    now: str,
+) -> tuple[dict[str, object] | None, str | None]:
+    """Rewrite one managed Pi-family extension after package updates.
 
     The extension embeds timeout and daemon-compat constants. Refreshing it after
     update keeps the fast daemon path available and avoids cold CLI timeouts.
     """
 
     try:
-        managed_install = store.get_managed_install("pi")
+        managed_install = store.get_managed_install(harness)
     except (json.JSONDecodeError, sqlite3.Error):
         return None, None
     if managed_install is None or not bool(managed_install.get("active")):
@@ -2099,7 +2230,7 @@ def _repair_pi_install(
         repair_context, repair_workspace = _repair_context_from_managed_install(context, managed_install)
         payload = apply_managed_install(
             "install",
-            "pi",
+            harness,
             False,
             repair_context,
             store,
@@ -2107,10 +2238,10 @@ def _repair_pi_install(
             now,
         )
     except (OSError, RuntimeError, json.JSONDecodeError, sqlite3.Error) as error:
-        return None, f"Could not refresh Pi protection during update: {error}"
+        return None, f"Could not refresh {display_name} protection during update: {error}"
     repaired = payload.get("managed_install")
     if not isinstance(repaired, dict):
-        return None, "Could not refresh Pi protection during update: managed install was not recorded"
+        return None, f"Could not refresh {display_name} protection during update: managed install was not recorded"
     return repaired, None
 
 

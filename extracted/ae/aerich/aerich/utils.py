@@ -185,7 +185,7 @@ def get_models_describe(app: str) -> dict[str, dict[str, Any]]:
         if not is_tortoise_inited():
             raise NotInitedError("Tortoise not inited yet.") from e
         logger.debug(f"{Tortoise.apps.keys() = }")
-        raise e
+        raise
     for model in app_config.values():
         managed = getattr(model.Meta, "managed", None)
         describe = model.describe()
@@ -210,18 +210,22 @@ def file_module_info(path: str | Path, name: str) -> pkgutil.ModuleInfo:
 
 
 def import_py_file(file: str | Path) -> ModuleType:
-    module_name, file_ext = os.path.splitext(os.path.split(file)[-1])
+    module_name, _file_ext = os.path.splitext(os.path.split(file)[-1])
     spec = importlib.util.spec_from_file_location(module_name, file)
-    module = importlib.util.module_from_spec(spec)  # type:ignore[arg-type]
-    spec.loader.exec_module(module)  # type:ignore[union-attr]
+    if spec is None:
+        raise RuntimeError(f"Failed to load {module_name=}; {file=}")
+    module = importlib.util.module_from_spec(spec)
+    if spec.loader is None:
+        raise RuntimeError(f"Invalid loader for {module=}; {module_name=}; {file=}")
+    spec.loader.exec_module(module)
     return module
 
 
 def _load_py_spec(module_info: pkgutil.ModuleInfo):
     module_finder: FileFinder
     name: str
-    ispkg: bool
-    module_finder, name, ispkg = module_info  # type:ignore[assignment]
+    _ispkg: bool
+    module_finder, name, _ispkg = module_info  # type: ignore
     spec = None
     with contextlib.suppress(AttributeError):
         # 'nuitka_module_loader' object has no attribute 'invalidate_caches'
@@ -245,7 +249,7 @@ def _nuitka_module_loader(name: str, finder: FileFinder) -> ModuleType:
     if file is not None:
         filename = file.as_posix()
         try:
-            from imp import load_source  # type:ignore[import-not-found]
+            imp = importlib.import_module("imp")
         except ImportError:
             loader = importlib.machinery.SourceFileLoader(name, filename)
             spec = importlib.util.spec_from_file_location(name, filename, loader=loader)
@@ -254,7 +258,7 @@ def _nuitka_module_loader(name: str, finder: FileFinder) -> ModuleType:
                 loader.exec_module(module)
                 return module
         else:
-            return load_source(name, filename)
+            return imp.load_source(name, filename)
     raise ImportError(f"Failed to import {name} from {dirpath}")
 
 

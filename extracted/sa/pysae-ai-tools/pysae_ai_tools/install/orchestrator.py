@@ -7,7 +7,6 @@ classification helpers. Presentation lives in :mod:`render`; the declarative
 registry in :mod:`registry`.
 """
 
-import contextlib
 import os
 import shutil
 from dataclasses import dataclass, field
@@ -33,6 +32,20 @@ class Result:
         if self.error:
             out["error"] = self.error
         return out
+
+
+def _can_ask() -> bool:
+    """True when this run may put a question to the user.
+
+    A real terminal is the only condition — the same signal the tool checklist
+    uses. There is no flag to opt into being asked: a value the run needs is
+    asked for, or the run reports what it could not do. ``CI``, a non-TTY (pipes,
+    ``--json`` consumers, pytest) and ``--non-interactive`` all report False, so
+    unattended runs never block.
+    """
+    from .common.checklist import is_interactive
+
+    return is_interactive()
 
 
 def _ensure_system_deps(module_path: str) -> list[str]:
@@ -84,7 +97,7 @@ def uninstall_mcp_servers(*, dry_run: bool = False) -> list[str]:
     return removed
 
 
-def _configure_one(tool: Tool, *, interactive: bool, dry_run: bool) -> Result:
+def _configure_one(tool: Tool, *, dry_run: bool) -> Result:
     """Re-apply a tool's configuration only — no binary install or update.
 
     Resolves the tool's env vars (auth tokens, MCP keys — the values its
@@ -95,13 +108,15 @@ def _configure_one(tool: Tool, *, interactive: bool, dry_run: bool) -> Result:
     if env.pre:
         from .common.interactive import ensure_env_vars
 
-        if not ensure_env_vars(env.pre, tool.name, env.help, interactive=interactive):
+        if not ensure_env_vars(env.pre, tool.name, env.help, interactive=_can_ask()):
             return Result(name=tool.name, status="skipped", detail={"reason": "missing env vars"})
+
+    _resolve_optional_env(tool)
 
     instance = _instance(tool.module)
 
     if dry_run:
-        _resolve_post_configure(tool, interactive=interactive)
+        _resolve_post_configure(tool)
         return Result(name=tool.name, status="configured", detail={"dry_run": True})
 
     try:
@@ -109,7 +124,7 @@ def _configure_one(tool: Tool, *, interactive: bool, dry_run: bool) -> Result:
     except Exception as exc:  # noqa: BLE001
         return Result(name=tool.name, status="failed", error=str(exc))
 
-    _resolve_post_configure(tool, interactive=interactive)
+    _resolve_post_configure(tool)
 
     payload = report.to_dict()
     if payload.get("error"):
@@ -123,7 +138,6 @@ def _ensure_tool_deps(
     tool: Tool,
     *,
     dry_run: bool,
-    interactive: bool,
     install_only: bool,
 ) -> Result | None:
     """Install ``tool``'s declared tool dependencies that aren't already on the
@@ -140,7 +154,7 @@ def _ensure_tool_deps(
             return Result(name=tool.name, status="failed", error=f"unknown dependency '{dep_name}'")
         if dep_tool.installed:
             continue
-        dep_result = _install_one(dep_tool, dry_run=dry_run, interactive=interactive, install_only=install_only)
+        dep_result = _install_one(dep_tool, dry_run=dry_run, install_only=install_only)
         if dep_result.status == "failed":
             return Result(
                 name=tool.name,
@@ -154,7 +168,6 @@ def _install_one(
     tool: Tool,
     *,
     dry_run: bool,
-    interactive: bool = False,
     configure_only: bool = False,
     install_only: bool = False,
 ) -> Result:
@@ -179,7 +192,7 @@ def _install_one(
     are mutually exclusive; the CLI rejects passing both.
     """
     if configure_only:
-        return _configure_one(tool, interactive=interactive, dry_run=dry_run)
+        return _configure_one(tool, dry_run=dry_run)
 
     try:
         instance = _instance(tool.module)
@@ -193,17 +206,19 @@ def _install_one(
     if env.pre and not install_only:
         from .common.interactive import ensure_env_vars
 
-        if not ensure_env_vars(env.pre, tool.name, env.help, interactive=interactive):
+        if not ensure_env_vars(env.pre, tool.name, env.help, interactive=_can_ask()):
             return Result(name=tool.name, status="skipped", detail={"reason": "missing env vars"})
 
     state_payload: dict[str, Any] = {}
     was_installed = False
     needs_work = True
+    needs_binary_work = True
     try:
         state_obj = instance.get_state()
         state_payload = state_obj.to_dict()
         was_installed = state_obj.installed
         needs_work = state_obj.needs_work
+        needs_binary_work = state_obj.needs_binary_work
     except Exception:  # noqa: BLE001
         state_payload = {}
     if not needs_work:
@@ -211,10 +226,15 @@ def _install_one(
         # the user can complete (or update) configuration without
         # reinstalling — unless install-only, where config is off-limits.
         if not install_only:
-            _resolve_post_configure(tool, interactive=interactive)
+            _resolve_post_configure(tool)
         return Result(name=tool.name, status="up-to-date", detail=state_payload)
     if not was_installed:
         was_installed = shutil.which(tool.name) is not None
+
+    # Only a reconfigure is pending: the binary is present and current, so this
+    # run is a configuration pass and must report itself as one.
+    if not needs_binary_work:
+        return _configure_one(tool, dry_run=dry_run)
 
     success_status = "updated" if was_installed else "installed"
 
@@ -235,7 +255,7 @@ def _install_one(
     # installer needs on PATH). Only the missing ones, so an already-present
     # dependency costs nothing. install_only propagates so a build stays
     # binary-only end to end.
-    dep_failure = _ensure_tool_deps(tool, dry_run=dry_run, interactive=interactive, install_only=install_only)
+    dep_failure = _ensure_tool_deps(tool, dry_run=dry_run, install_only=install_only)
     if dep_failure is not None:
         return dep_failure
 
@@ -253,6 +273,11 @@ def _install_one(
     # a binary make do_install a no-op and carry their work here, so running
     # both is never double work. Skipped in install-only mode.
     if not install_only:
+        # Same offer the configure-only path makes: a value the configuration
+        # needs but that must not gate the tool is asked for here too, otherwise
+        # `tools install <name>` on a fresh machine installs the binary and then
+        # configures nothing for want of a credential it never requested.
+        _resolve_optional_env(tool)
         try:
             cfg = instance.do_configure()
         except Exception as exc:  # noqa: BLE001
@@ -271,15 +296,42 @@ def _install_one(
     # Phase 3 — post-configure env vars (best-effort, never blocks). Skipped in
     # install-only mode.
     if not install_only:
-        _resolve_post_configure(tool, interactive=interactive)
+        _resolve_post_configure(tool)
 
     return Result(name=tool.name, status=success_status, detail=payload if isinstance(payload, dict) else {})
 
 
-def _resolve_post_configure(tool: Tool, *, interactive: bool) -> None:
+def _resolve_optional_env(tool: Tool) -> None:
+    """Offer the tool's ``env_optional`` vars before its configuration runs.
+
+    ``_configure_one`` only enforces ``env.pre``, which gates the tool when
+    missing. A value that must not gate — a credential a tool poses when it has
+    one, and reports as skipped when it doesn't — therefore lives in
+    ``env.optional``, and nothing on the ``--configure-only`` path used to ask
+    for it: the configuration could only ever reuse a value already in the
+    environment or the cache, never obtain one.
+
+    Asks whenever the run may ask (:func:`_can_ask`). Answers are persisted, so
+    the next run finds them on its own.
+    """
+    env = tool.env
+    if not env.optional:
+        return
+
+    from ..env.resolve import try_auto_resolve
+    from .common.interactive import prompt_env_var
+
+    for var in env.optional:
+        if os.environ.get(var) or try_auto_resolve(var) is not None:
+            continue
+        if _can_ask():
+            prompt_env_var(var, tool.name, env.help.get(var, ""), persist=True)
+
+
+def _resolve_post_configure(tool: Tool) -> None:
     """Best-effort post-install env var resolution.
 
-    Auto-resolves what it can; prompts the user when ``interactive=True``.
+    Auto-resolves what it can; asks the user when the terminal can answer.
     Never gates the install — this runs *after* the binary is in place.
     Missing vars at the end are simply left unresolved; the tool's own
     runtime can complain or ask for them later.
@@ -289,13 +341,12 @@ def _resolve_post_configure(tool: Tool, *, interactive: bool) -> None:
         return
     from .common.interactive import ensure_env_vars
 
-    ensure_env_vars(env.post, tool.name, env.help, interactive=interactive)
+    ensure_env_vars(env.post, tool.name, env.help, interactive=_can_ask())
 
 
 def install_all(
     *,
     dry_run: bool = False,
-    interactive: bool = False,
     only: tuple[str, ...] = (),
     skip: tuple[str, ...] = (),
     configure_only: bool = False,
@@ -311,7 +362,6 @@ def install_all(
         result = _install_one(
             tool,
             dry_run=dry_run,
-            interactive=interactive,
             configure_only=configure_only,
             install_only=install_only,
         )
@@ -347,20 +397,19 @@ def _preload_secrets(names: tuple[str, ...], tools: tuple[Tool, ...]) -> None:
     secret_store.preload(ids)
 
 
-def _resolve_env_section(tools: tuple[Tool, ...], *, interactive: bool) -> None:
+def _resolve_env_section(tools: tuple[Tool, ...]) -> None:
     """Resolve every env var declared by ``tools`` upfront, in a dedicated section.
 
     Each distinct var is tried at most once (vars shared across tools are
-    deduplicated). Vars already in the environment are left as-is. Auto-
-    resolve runs unconditionally; the interactive prompt fires only when
-    ``interactive=True`` and stdin is a TTY.
+    deduplicated). Vars already in the environment are left as-is. Auto-resolve
+    runs unconditionally; a var left unresolved is asked for whenever the run may
+    ask (:func:`_can_ask`) — a terminal is enough, ``-i`` is not required.
 
     No gating / no skipping happens here — the per-tool install phase
     (``_install_one``) handles ``env.pre`` enforcement using whatever ended up
     in ``os.environ``.
     """
     from ..env.resolve import try_auto_resolve
-    from ..env.trace import assume_noninteractive
     from .common.interactive import prompt_env_var
     from .render import SECTION_ENV, _section_header
 
@@ -376,39 +425,31 @@ def _resolve_env_section(tools: tuple[Tool, ...], *, interactive: bool) -> None:
     if not seen:
         return
 
-    # Without ``-i`` this upfront pass is meant to be non-blocking
-    # auto-resolution. Resolvers that need a human (browser OAuth via
-    # ``slack get-token``, ``glab auth login``) would otherwise fire just
-    # because stdout is a TTY — launching a multi-minute interactive flow the
-    # user never asked for. Force them to self-skip; the user opts into them
-    # explicitly with ``tools install -i`` / ``tools configure`` or by
-    # resolving the var directly (``env resolve``).
-    resolve_ctx: contextlib.AbstractContextManager[object] = (
-        contextlib.nullcontext() if interactive else assume_noninteractive()
-    )
-
+    # Resolvers that need a human (browser OAuth via ``slack get-token``,
+    # ``glab auth login``) decide for themselves through ``env.trace``: they
+    # self-skip without a TTY, and ``--non-interactive`` sets that flag globally
+    # (see ``checklist.force_non_interactive``). Nothing to scope here.
     _section_header(SECTION_ENV)
     _preload_secrets(tuple(seen), tools)
-    with resolve_ctx:
-        for var, tool_name in seen.items():
-            if os.environ.get(var):
-                # Symmetric with the resolver-trace path: blank line + cyan
-                # ``$VAR`` heading + indented green status. The blank line is
-                # added by ``try_auto_resolve``'s ``_trace_header`` for the
-                # other branch — we mirror it manually here.
-                typer.echo("")
-                typer.secho(f"  ${var}", fg=typer.colors.CYAN)
-                typer.secho("    ✓ déjà défini dans l'environnement", fg=typer.colors.GREEN)
-                continue
-            if try_auto_resolve(var) is not None:
-                continue
-            if interactive:
-                help_text = help_by_var.get(var, "")
-                # ``persist=True`` writes the entered value to the on-disk env
-                # cache so subsequent runs (when the upstream source — AWS
-                # Secrets Manager, glab CLI, etc. — is still down) can reuse
-                # it via try_auto_resolve's last-resort cache fallback.
-                prompt_env_var(var, tool_name, help_text, persist=True)
+    for var, tool_name in seen.items():
+        if os.environ.get(var):
+            # Symmetric with the resolver-trace path: blank line + cyan
+            # ``$VAR`` heading + indented green status. The blank line is
+            # added by ``try_auto_resolve``'s ``_trace_header`` for the
+            # other branch — we mirror it manually here.
+            typer.echo("")
+            typer.secho(f"  ${var}", fg=typer.colors.CYAN)
+            typer.secho("    ✓ déjà défini dans l'environnement", fg=typer.colors.GREEN)
+            continue
+        if try_auto_resolve(var) is not None:
+            continue
+        if _can_ask():
+            help_text = help_by_var.get(var, "")
+            # ``persist=True`` writes the entered value to the on-disk env
+            # cache so subsequent runs (when the upstream source — AWS
+            # Secrets Manager, glab CLI, etc. — is still down) can reuse
+            # it via try_auto_resolve's last-resort cache fallback.
+            prompt_env_var(var, tool_name, help_text, persist=True)
 
 
 def _result_for_unselected(tool: Tool) -> Result:
@@ -430,7 +471,6 @@ def _result_for_unselected(tool: Tool) -> Result:
 def _install_pretty(
     *,
     skip: tuple[str, ...],
-    interactive: bool,
     selection: set[str] | None = None,
     configure_only: bool = False,
     install_only: bool = False,
@@ -460,7 +500,7 @@ def _install_pretty(
     # install-only mode: env vars only feed the configuration we won't run.
     selected_tools = tuple(t for t in tools_to_run if _is_selected(t.name))
     if not install_only:
-        _resolve_env_section(selected_tools, interactive=interactive)
+        _resolve_env_section(selected_tools)
 
     results: list[Result] = []
     for cat in CATEGORY_ORDER:
@@ -475,7 +515,6 @@ def _install_pretty(
                 result = _install_one(
                     tool,
                     dry_run=False,
-                    interactive=interactive,
                     configure_only=configure_only,
                     install_only=install_only,
                 )

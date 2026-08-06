@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import typing as t
-
 from functools import cached_property
+
 from dbt.config import Profile
-from dbt.config.runtime import RuntimeConfig
 from dbt.config.profile import read_profile
 from dbt.config.renderer import ProfileRenderer
+from dbt.config.runtime import RuntimeConfig
+
 from dbt_state.config import RunCacheConfig
 
 

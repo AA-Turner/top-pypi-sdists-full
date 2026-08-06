@@ -58,6 +58,7 @@ from angr.sim_type import (
     SimTypeReg,
     SimTypeShort,
     SimTypeWideChar,
+    SimUnion,
     TypeRef,
 )
 from angr.sim_variable import (
@@ -97,6 +98,16 @@ type RenderResult = tuple[str, PositionMapping, PositionMapping, InstructionMapp
 
 
 INDENT_DELTA = 4
+
+_CAST_TYPES_BY_BITS: dict[int, type[SimTypeInt | SimTypeChar]] = {
+    8: SimTypeChar,
+    16: SimTypeShort,
+    32: SimTypeInt,
+    64: SimTypeLongLong,
+    128: SimTypeInt128,
+    256: SimTypeInt256,
+    512: SimTypeInt512,
+}
 
 
 def qualifies_for_simple_cast(ty1, ty2):
@@ -233,6 +244,53 @@ def cextern_sort_key(cextern) -> tuple:
     return (1, str(addr) if addr is not None else "")
 
 
+def _iter_struct_union_member_types(ty):
+    """
+    Yield the member types of a struct or a union, flattening nested unions.
+    """
+    members = ty.members if isinstance(ty, SimUnion) else ty.fields
+    for member in members.values():
+        member = unpack_typeref(member)
+        if isinstance(member, SimUnion):
+            yield from _iter_struct_union_member_types(member)
+        else:
+            yield member
+
+
+def _is_anonymous_struct_or_union(ty) -> bool:
+    """
+    Returns True if ``ty`` is an anonymous struct or union.
+    """
+    if isinstance(ty, SimStruct):
+        return bool(ty.anonymous) or ty.name == "<anon>"
+    return isinstance(ty, SimUnion) and ty.name == "<anon>"
+
+
+def _anonymous_struct_union_to_c_repr_chunks(ty, name, name_type, indent_str: str, indent_delta: int):
+    """
+    Render an anonymous struct or union inline, as ``struct { ... } name``.
+    """
+    yield indent_str, None
+    yield ("union {\n" if isinstance(ty, SimUnion) else "struct {\n"), None
+
+    new_indent_str = (" " * indent_delta) + indent_str
+    members = ty.members if isinstance(ty, SimUnion) else ty.fields
+    for k, v in members.items():
+        yield from type_to_c_repr_chunks(
+            v,
+            name=k,
+            name_type=CStructFieldNameDef(k),
+            full=False,
+            indent_str=new_indent_str,
+            indent_delta=indent_delta,
+        )
+        yield ";\n", None
+
+    yield indent_str, None
+    yield "} ", None
+    yield name, name_type
+
+
 def type_to_c_repr_chunks(
     ty: SimType, name=None, name_type=None, full=False, indent_str="", indent_delta: int = INDENT_DELTA
 ):
@@ -241,7 +299,12 @@ def type_to_c_repr_chunks(
 
     :param indent_delta:    Number of space characters used to indent each struct field one level deeper.
     """
-    if isinstance(ty, SimStruct):
+    if not full and name is not None and _is_anonymous_struct_or_union(ty):
+        # anonymous structs and unions must be output inline
+        yield from _anonymous_struct_union_to_c_repr_chunks(
+            ty, name, name_type, indent_str=indent_str, indent_delta=indent_delta
+        )
+    elif isinstance(ty, SimStruct):
         if full:
             # struct def preamble
             yield indent_str, None
@@ -256,8 +319,14 @@ def type_to_c_repr_chunks(
             # fields should be indented
             new_indent_str = (" " * indent_delta) + indent_str
             for k, v in ty.fields.items():
-                yield new_indent_str, None
-                yield from type_to_c_repr_chunks(v, name=k, name_type=CStructFieldNameDef(k), full=False, indent_str="")
+                yield from type_to_c_repr_chunks(
+                    v,
+                    name=k,
+                    name_type=CStructFieldNameDef(k),
+                    full=False,
+                    indent_str=new_indent_str,
+                    indent_delta=indent_delta,
+                )
                 yield ";\n", None
 
             # struct def postamble
@@ -319,6 +388,9 @@ def _recursively_collect_referenced_structs(ty, out: dict[int, SimStruct], _seen
         out[id(ty)] = ty
         for ftype in ty.fields.values():
             _recursively_collect_referenced_structs(ftype, out, _seen=_seen)
+    elif isinstance(ty, SimUnion):
+        for mtype in ty.members.values():
+            _recursively_collect_referenced_structs(mtype, out, _seen=_seen)
     elif isinstance(ty, SimTypePointer):
         _recursively_collect_referenced_structs(ty.pts_to, out, _seen=_seen)
     elif isinstance(ty, (SimTypeArray, SimTypeFixedSizeArray)):
@@ -591,11 +663,24 @@ class CFunction(CConstruct):  # pylint:disable=abstract-method
                 key=lambda x, ct=count: (isinstance(x, (SimTypeChar, SimTypeInt, SimTypeFloat)), ct[x], repr(x)),
             )
 
+            vla_dim = self.codegen._array_length_cexprs.get(variable)
+
             for i, var_type in enumerate(vartypes):
                 if i == 0:
-                    yield from type_to_c_repr_chunks(var_type, name=name, name_type=cvariable)
+                    if vla_dim is not None and isinstance(var_type, SimTypeArray) and var_type.length is None:
+                        # variable-length array: render ``elem_type name[dim]`` with the runtime dimension
+                        yield from type_to_c_repr_chunks(var_type.elem_type, name=name, name_type=cvariable)
+                        yield "[", None
+                        yield from vla_dim.c_repr_chunks()
+                        yield "]", None
+                    else:
+                        yield from type_to_c_repr_chunks(var_type, name=name, name_type=cvariable)
                     yield ";  // ", None
-                    yield variable.loc_repr(self.codegen.project.arch), None
+                    if vla_dim is not None:
+                        # the buffer lives at a synthesized register slot; show its origin instead
+                        yield "alloca", None
+                    else:
+                        yield variable.loc_repr(self.codegen.project.arch), None
                 # multiple types
                 else:
                     if i == 1:
@@ -668,7 +753,7 @@ class CFunction(CConstruct):  # pylint:disable=abstract-method
             for ty in local_types:
                 if isinstance(ty, SimStruct):
                     name_to_structtypes[ty.name] = ty
-                    for field in ty.fields.values():
+                    for field in _iter_struct_union_member_types(ty):
                         if isinstance(field, SimTypePointer):
                             if isinstance(field.pts_to, (SimTypeArray, SimTypeFixedSizeArray)):
                                 field = field.pts_to.elem_type
@@ -696,12 +781,30 @@ class CFunction(CConstruct):  # pylint:disable=abstract-method
                 )
                 return (type_layout_key(ty), tiebreak)
 
+            emitted_struct_names: set[str] = set()
             for ty in sorted(local_types, key=_local_type_sort_key):
-                # drop unreferenced structs
-                if isinstance(ty, SimStruct) and ty.name in referenced_struct_names:
-                    yield from type_to_c_repr_chunks(
-                        ty, full=True, indent_str=indent_str, indent_delta=self.codegen.indent_delta
+                # drop unreferenced structs and anonymous ones
+                if (
+                    not isinstance(ty, SimStruct)
+                    or _is_anonymous_struct_or_union(ty)
+                    or ty.name not in referenced_struct_names
+                ):
+                    continue
+                if ty.name in emitted_struct_names:
+                    # multiple definitions share a name, which is probably because:
+                    # - we incorrectly inferred types of fields of a struct with a library definition;
+                    # - multiple types exist under the same name (from different libraries).
+                    # we will fix them when encountering these cases.
+                    l.warning(
+                        "Multiple definitions of struct %s in function %s. Only the first one is emitted.",
+                        ty.name,
+                        self.name,
                     )
+                    continue
+                emitted_struct_names.add(ty.name)
+                yield from type_to_c_repr_chunks(
+                    ty, full=True, indent_str=indent_str, indent_delta=self.codegen.indent_delta
+                )
 
         if self.codegen.show_externs and self.codegen.cexterns:
             # Emit struct definitions for types used by externs
@@ -1996,11 +2099,14 @@ class CUnaryOp(CExpression):
     #
 
     def _c_repr_chunks_not(self):
-        paren = CClosingObject("(")
         yield "!", self
-        yield "(", paren
-        yield from CExpression._try_c_repr_chunks(self.operand)
-        yield ")", paren
+        if isinstance(self.operand, CBinaryOp):
+            paren = CClosingObject("(")
+            yield "(", paren
+            yield from CExpression._try_c_repr_chunks(self.operand)
+            yield ")", paren
+        else:
+            yield from CExpression._try_c_repr_chunks(self.operand)
 
     def _c_repr_chunks_bitwiseneg(self):
         paren = CClosingObject("(")
@@ -2195,13 +2301,6 @@ class CBinaryOp(CExpression):
     #
 
     def _c_repr_chunks(self, op):
-        skip_op_and_rhs = False
-        if self._cstyle_null_cmp and self._has_const_null_rhs():
-            if self.op == "CmpEQ":
-                skip_op_and_rhs = True
-                yield "!", None
-            elif self.op == "CmpNE":
-                skip_op_and_rhs = True
         # lhs
         if isinstance(self.lhs, CBinaryOp) and self.op_precedence > self.lhs.op_precedence:
             paren = CClosingObject("(")
@@ -2211,19 +2310,19 @@ class CBinaryOp(CExpression):
         else:
             yield from self._try_c_repr_chunks(self.lhs)
 
-        if not skip_op_and_rhs:
-            # operator
-            yield op, self
-            # rhs
-            if isinstance(self.rhs, CBinaryOp) and self.op_precedence > self.rhs.op_precedence - (
-                1 if self.op in ["Sub", "Div"] else 0
-            ):
-                paren = CClosingObject("(")
-                yield "(", paren
-                yield from self._try_c_repr_chunks(self.rhs)
-                yield ")", paren
-            else:
-                yield from self._try_c_repr_chunks(self.rhs)
+        # operator
+        yield op, self
+
+        # rhs
+        if isinstance(self.rhs, CBinaryOp) and self.op_precedence > self.rhs.op_precedence - (
+            1 if self.op in ["Sub", "Div"] else 0
+        ):
+            paren = CClosingObject("(")
+            yield "(", paren
+            yield from self._try_c_repr_chunks(self.rhs)
+            yield ")", paren
+        else:
+            yield from self._try_c_repr_chunks(self.rhs)
 
     def _c_repr_chunks_opfirst(self, op):
         yield op, self
@@ -2323,10 +2422,16 @@ class CBinaryOp(CExpression):
         yield from self._c_repr_chunks(" >= ")
 
     def _c_repr_chunks_cmpeq(self):
-        yield from self._c_repr_chunks(" == ")
+        if self._cstyle_null_cmp and self._has_const_null_rhs():
+            yield from CUnaryOp("Not", self.lhs, codegen=self.codegen).c_repr_chunks()
+        else:
+            yield from self._c_repr_chunks(" == ")
 
     def _c_repr_chunks_cmpne(self):
-        yield from self._c_repr_chunks(" != ")
+        if self._cstyle_null_cmp and self._has_const_null_rhs():
+            yield from self._try_c_repr_chunks(self.lhs)
+        else:
+            yield from self._c_repr_chunks(" != ")
 
     def _c_repr_chunks_concat(self):
         yield from self._c_repr_chunks(" CONCAT ")
@@ -2932,6 +3037,7 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
         self.map_addr_to_label: dict[tuple[int, int | None], CLabel] = {}
         self.cfunc: CFunction | None = None
         self.cexterns: set[CVariable] | None = None
+        self._array_length_cexprs: dict[SimVariable, CExpression] = {}
         self.display_notes = display_notes
         self.max_str_len = max_str_len
         self.prettify_thiscall = prettify_thiscall
@@ -2978,6 +3084,13 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
 
         self.reset_ident_counters()
         obj = self._handle(self._sequence)
+
+        # render the runtime dimension of every variable-length array (e.g. ``blk[e->bs]``) through the
+        # regular expression handler, so the field name/type match the rest of the output
+        self._array_length_cexprs = {
+            var: self._handle(dim_expr)
+            for var, dim_expr in self.kb.dec_variables[self._func.addr].array_length_exprs.items()
+        }
 
         self.cnode2ailexpr = {v: k[0] for k, v in self.ailexpr2cnode.items()}
 
@@ -4223,29 +4336,20 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
         )
 
     def _handle_Expr_Convert(self, expr: Expr.Convert, **kwargs):
-        # width of converted type is easy
-        dst_type: SimTypeInt | SimTypeChar
-        if 512 >= expr.to_bits > 256:
-            dst_type = SimTypeInt512()
-        elif 256 >= expr.to_bits > 128:
-            dst_type = SimTypeInt256()
-        elif 128 >= expr.to_bits > 64:
-            dst_type = SimTypeInt128()
-        elif 64 >= expr.to_bits > 32:
-            dst_type = SimTypeLongLong()
-        elif 32 >= expr.to_bits > 16:
-            dst_type = SimTypeInt()
-        elif 16 >= expr.to_bits > 8:
-            dst_type = SimTypeShort()
-        elif 8 >= expr.to_bits > 1:
-            dst_type = SimTypeChar()
-        elif expr.to_bits == 1:
-            dst_type = SimTypeChar()  # FIXME: Add a SimTypeBit?
-        else:
-            raise UnsupportedNodeTypeError(f"Unsupported conversion bits {expr.to_bits}.")
-
-        # convert child
         child = self._handle(expr.operand)
+
+        # Use a mask to represent non-standard size conversions
+        if expr.to_bits < expr.from_bits and expr.to_bits not in _CAST_TYPES_BY_BITS:
+            const_type = child.type if child.type is not None else self.default_simtype_from_bits(expr.from_bits, False)
+            mask = CConstant((1 << expr.to_bits) - 1, const_type, codegen=self, tags=expr.tags)
+            return CBinaryOp("And", child, mask, codegen=self, tags=expr.tags)
+
+        # Cast to the smallest size that can hold the new value
+        dst_type_cls = next((cls for bits, cls in _CAST_TYPES_BY_BITS.items() if bits >= expr.to_bits), None)
+        if dst_type_cls is None or expr.to_bits < 1:
+            raise UnsupportedNodeTypeError(f"Unsupported conversion bits {expr.to_bits}.")
+        dst_type: SimTypeInt | SimTypeChar = dst_type_cls()
+
         orig_child_signed = getattr(child.type, "signed", False)
 
         # signedness of converted type is hard

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: late-sdk
-Version: 1.4.418
+Version: 1.4.432
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -336,6 +336,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `api_keys.list_api_keys()` | List keys |
 | `api_keys.create_api_key()` | Create key |
 | `api_keys.delete_api_key()` | Delete key |
+| `api_keys.verify_credential()` | Verify credential |
 
 ### Media
 | Method | Description |
@@ -441,12 +442,17 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_accounts.list_ads_business_centers()` | List TikTok Business Centers |
 | `ad_accounts.list_high_demand_periods()` | High demand periods / budget schedules |
 | `ad_accounts.list_meta_businesses()` | Businesses list |
+| `ad_accounts.list_value_rule_sets()` | List value rule sets |
+| `ad_accounts.create_value_rule_set()` | Create a value rule set |
 | `ad_accounts.get_ad_account_finance()` | Ad account finances |
 | `ad_accounts.get_ad_comments()` | List comments on an ad |
 | `ad_accounts.get_ads_activity_log()` | Ad account change / audit log |
 | `ad_accounts.get_dsa_defaults()` | Get ad account DSA defaults |
 | `ad_accounts.get_dsa_recommendations()` | List DSA beneficiary/payor suggestions |
+| `ad_accounts.get_value_rule_set()` | Read a value rule set |
 | `ad_accounts.update_ad_account()` | Update ad account settings |
+| `ad_accounts.update_value_rule_set()` | Replace a value rule set |
+| `ad_accounts.delete_value_rule_set()` | Delete a value rule set |
 
 ### Ad Audiences
 | Method | Description |
@@ -801,6 +807,11 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `sequences.enroll_contacts()` | Enroll contacts in a sequence |
 | `sequences.pause_sequence()` | Pause sequence |
 | `sequences.unenroll_contact()` | Unenroll contact |
+
+### Slack
+| Method | Description |
+|--------|-------------|
+| `slack.list_slack_members()` | List Slack workspace members |
 
 ### SMS
 | Method | Description |

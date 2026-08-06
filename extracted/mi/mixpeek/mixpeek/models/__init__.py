@@ -199,6 +199,7 @@ from mixpeek.models.cancel_migration_request import CancelMigrationRequest
 from mixpeek.models.cancel_migration_response import CancelMigrationResponse
 from mixpeek.models.cancel_subscription_request import CancelSubscriptionRequest
 from mixpeek.models.cancel_subscription_response import CancelSubscriptionResponse
+from mixpeek.models.change_event_response import ChangeEventResponse
 from mixpeek.models.chunk_strategy import ChunkStrategy
 from mixpeek.models.clarification_option import ClarificationOption
 from mixpeek.models.clone_collection_request import CloneCollectionRequest
@@ -600,6 +601,7 @@ from mixpeek.models.list_dlq_request import ListDLQRequest
 from mixpeek.models.list_documents_request import ListDocumentsRequest
 from mixpeek.models.list_documents_response import ListDocumentsResponse
 from mixpeek.models.list_domains_response import ListDomainsResponse
+from mixpeek.models.list_events_response import ListEventsResponse
 from mixpeek.models.list_executions_request import ListExecutionsRequest
 from mixpeek.models.list_executions_response import ListExecutionsResponse
 from mixpeek.models.list_folders_response import ListFoldersResponse

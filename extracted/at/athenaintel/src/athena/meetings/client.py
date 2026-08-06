@@ -99,7 +99,10 @@ class MeetingsClient:
         client = Athena(
             api_key="YOUR_API_KEY",
         )
-        response = client.meetings.list()
+        response = client.meetings.list(
+            limit=50,
+            offset=0,
+        )
         for item in response:
             yield item
         # alternatively, you can paginate page-by-page
@@ -128,6 +131,7 @@ class MeetingsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the meeting asset to retrieve
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -145,7 +149,7 @@ class MeetingsClient:
             api_key="YOUR_API_KEY",
         )
         client.meetings.get(
-            asset_id="asset_id",
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
         )
         """
         _response = self._raw_client.get(asset_id, request_options=request_options)
@@ -164,6 +168,7 @@ class MeetingsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the meeting asset to download
 
         artifact : typing.Optional[DownloadMeetingsRequestArtifact]
             Which artifact to download: 'zip' (full export), 'recording', 'transcript', 'formatted_transcript', or 'chat'
@@ -184,7 +189,7 @@ class MeetingsClient:
             api_key="YOUR_API_KEY",
         )
         client.meetings.download(
-            asset_id="asset_id",
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
         )
         """
         _response = self._raw_client.download(asset_id, artifact=artifact, request_options=request_options)
@@ -280,7 +285,10 @@ class AsyncMeetingsClient:
 
 
         async def main() -> None:
-            response = await client.meetings.list()
+            response = await client.meetings.list(
+                limit=50,
+                offset=0,
+            )
             async for item in response:
                 yield item
 
@@ -313,6 +321,7 @@ class AsyncMeetingsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the meeting asset to retrieve
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -335,7 +344,7 @@ class AsyncMeetingsClient:
 
         async def main() -> None:
             await client.meetings.get(
-                asset_id="asset_id",
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
             )
 
 
@@ -357,6 +366,7 @@ class AsyncMeetingsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the meeting asset to download
 
         artifact : typing.Optional[DownloadMeetingsRequestArtifact]
             Which artifact to download: 'zip' (full export), 'recording', 'transcript', 'formatted_transcript', or 'chat'
@@ -382,7 +392,7 @@ class AsyncMeetingsClient:
 
         async def main() -> None:
             await client.meetings.download(
-                asset_id="asset_id",
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
             )
 
 

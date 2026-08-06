@@ -7,8 +7,9 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .types import (
-        AgoraWebApiPublicV0ModelsDatabaseDataDatabaseStatusResponse,
-        AgoraWebApiPublicV0ModelsDatabaseDataDatabaseStatusResponseStatus,
+        ActivityClockRangeIn,
+        ActivityDeltaOut,
+        ActivityItemOut,
         AopAsyncExecuteResponseOut,
         AopConfigResponseOut,
         AopConfigUpdateResponseOut,
@@ -17,6 +18,8 @@ if typing.TYPE_CHECKING:
         AopExecuteResponseOut,
         ApprovalMode,
         ArchiveAssetResponseOut,
+        AssetActivityDeltaResponseOut,
+        AssetActivityResponseOut,
         AssetCapabilitiesResponseOut,
         AssetComment,
         AssetCommentThread,
@@ -60,6 +63,8 @@ if typing.TYPE_CHECKING:
         DatabaseDataResponse,
         DatabaseMutationResponse,
         DatabaseSqlResponse,
+        DatabaseStatusResponse,
+        DatabaseStatusResponseStatus,
         DatabaseTableInfo,
         DatabaseTableSchemaResponse,
         DatabaseTablesResponse,
@@ -199,8 +204,9 @@ if typing.TYPE_CHECKING:
     from .tools import DataFrameToolsRequestColumnsItem, DataFrameToolsRequestSheetName
     from .version import __version__
 _dynamic_imports: typing.Dict[str, str] = {
-    "AgoraWebApiPublicV0ModelsDatabaseDataDatabaseStatusResponse": ".types",
-    "AgoraWebApiPublicV0ModelsDatabaseDataDatabaseStatusResponseStatus": ".types",
+    "ActivityClockRangeIn": ".types",
+    "ActivityDeltaOut": ".types",
+    "ActivityItemOut": ".types",
     "AopAsyncExecuteResponseOut": ".types",
     "AopConfigResponseOut": ".types",
     "AopConfigUpdateResponseOut": ".types",
@@ -209,6 +215,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AopExecuteResponseOut": ".types",
     "ApprovalMode": ".types",
     "ArchiveAssetResponseOut": ".types",
+    "AssetActivityDeltaResponseOut": ".types",
+    "AssetActivityResponseOut": ".types",
     "AssetCapabilitiesResponseOut": ".types",
     "AssetComment": ".types",
     "AssetCommentThread": ".types",
@@ -261,6 +269,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DatabaseDataResponse": ".types",
     "DatabaseMutationResponse": ".types",
     "DatabaseSqlResponse": ".types",
+    "DatabaseStatusResponse": ".types",
+    "DatabaseStatusResponseStatus": ".types",
     "DatabaseTableInfo": ".types",
     "DatabaseTableSchemaResponse": ".types",
     "DatabaseTablesResponse": ".types",
@@ -408,8 +418,9 @@ def __dir__():
 
 
 __all__ = [
-    "AgoraWebApiPublicV0ModelsDatabaseDataDatabaseStatusResponse",
-    "AgoraWebApiPublicV0ModelsDatabaseDataDatabaseStatusResponseStatus",
+    "ActivityClockRangeIn",
+    "ActivityDeltaOut",
+    "ActivityItemOut",
     "AopAsyncExecuteResponseOut",
     "AopConfigResponseOut",
     "AopConfigUpdateResponseOut",
@@ -418,6 +429,8 @@ __all__ = [
     "AopExecuteResponseOut",
     "ApprovalMode",
     "ArchiveAssetResponseOut",
+    "AssetActivityDeltaResponseOut",
+    "AssetActivityResponseOut",
     "AssetCapabilitiesResponseOut",
     "AssetComment",
     "AssetCommentThread",
@@ -470,6 +483,8 @@ __all__ = [
     "DatabaseDataResponse",
     "DatabaseMutationResponse",
     "DatabaseSqlResponse",
+    "DatabaseStatusResponse",
+    "DatabaseStatusResponseStatus",
     "DatabaseTableInfo",
     "DatabaseTableSchemaResponse",
     "DatabaseTablesResponse",

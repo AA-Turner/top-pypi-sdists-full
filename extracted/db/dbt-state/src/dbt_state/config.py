@@ -1,14 +1,14 @@
 from __future__ import annotations
 
+import dataclasses
 import os
 import typing as t
-import dataclasses
-from dataclasses import dataclass, field, Field
+from dataclasses import Field, dataclass, field
 from enum import Enum
 from pathlib import Path
-import yaml
 
 import pytimeparse2
+import yaml
 
 try:
     from dbt.artifacts.resources.v1.config import TestConfig
@@ -17,6 +17,7 @@ except ImportError:
 
 from dbt.config.profile import read_profile
 from dbt.config.runtime import RuntimeConfig
+
 from dbt_state import events
 
 try:
@@ -26,8 +27,9 @@ except ImportError:
     from dbt.exceptions import DbtRuntimeError
 
 from query_cache_common.models import shared_models
-from dbt_state.utils import str_to_bool
 from query_cache_common.utils import to_bool
+
+from dbt_state.utils import str_to_bool
 
 if t.TYPE_CHECKING:
     from dbt.artifacts.resources.v1.model import ModelConfig
@@ -130,9 +132,9 @@ def _parse_enum(typ: type[TEnum], name: str, value: str) -> TEnum:
     normalized = value.upper()
     try:
         return typ(normalized)
-    except ValueError:
+    except ValueError as e:
         options = [e.value for e in typ]
-        raise ValueError(f"Invalid {name} value: '{value}'. Must be one of {options}")
+        raise ValueError(f"Invalid {name} value: '{value}'. Must be one of {options}") from e
 
 
 def _parse_clone_incremental_in_dev(value: str) -> CloneIncrementalInDev:
@@ -214,6 +216,7 @@ class RunCacheConfig:
     run_hooks_on_no_op: bool = False
     compare_unrendered_code: bool = False
     emit_reused_status: bool = False
+    adaptive_metadata_fetch: bool = True
     snowflake_get_view_ddl_override: t.Optional[str] = None
     snowflake_metadata_warehouse: t.Optional[str] = None
     cache_mode: CacheMode = field(
@@ -346,8 +349,8 @@ class RunCacheConfig:
         # note that the `dbt login` command produces this and it's only present in 1.12
         # so this is not relevant for dbt versions prior to 1.12
         try:
-            from dbt.auth.resolvers import OAuthPassiveResolver  # type: ignore[unresolved-import]
             from dbt.auth.credentials import PlatformCredential  # type: ignore[unresolved-import]
+            from dbt.auth.resolvers import OAuthPassiveResolver  # type: ignore[unresolved-import]
 
             # use the dbt core code to resolve a valid credential
             # rather than trying to parse oauth_sessions.json ourselves
@@ -375,7 +378,7 @@ class RunCacheConfig:
                     raise
             except Exception as e:
                 raise DbtRuntimeError(
-                    f"dbt_cloud.yml found at '{str(cloud_yml_path)}' but we are unable to interpret the contents.\n"
+                    f"dbt_cloud.yml found at '{cloud_yml_path!s}' but we are unable to interpret the contents.\n"
                     "Please ensure it's formatted correctly. For more information, see: https://docs.getdbt.com/docs/platform/configure-cloud-cli#configure-the-dbt-cli"
                 ) from e
 
@@ -433,13 +436,13 @@ class RunCacheConfig:
 
         target_field, target_type = field_and_type
 
-        if target_type == str:
+        if target_type is str:
             return value
 
         # Handle Optional types by checking whether the given type is a generic Union type with
         # one of its arguments being NoneType
         if t.get_origin(target_type) is t.Union:
-            non_none_types = [t for t in t.get_args(target_type) if t != type(None)]
+            non_none_types = [t for t in t.get_args(target_type) if t is not type(None)]
             if non_none_types:
                 return cls._convert_value(value, (target_field, non_none_types[0]))
 
@@ -447,11 +450,11 @@ class RunCacheConfig:
             custom_parser = target_field.metadata.get("parser")
             if callable(custom_parser):
                 return custom_parser(value)
-            if target_type == int:
+            if target_type is int:
                 return int(value)
-            if target_type == float:
+            if target_type is float:
                 return float(value)
-            if target_type == bool:
+            if target_type is bool:
                 return str_to_bool(value)
         except Exception as e:
             raise ValueError(f"Cannot convert value '{value}' to type {target_type}") from e
@@ -466,16 +469,16 @@ class RunCacheConfig:
 
     def to_json(self, exclude_sensitive: bool = True) -> dict:
         result = {}
-        for field in dataclasses.fields(self):
-            if exclude_sensitive and field.metadata.get("sensitive", False):
+        for field_info in dataclasses.fields(self):
+            if exclude_sensitive and field_info.metadata.get("sensitive", False):
                 continue
-            value = getattr(self, field.name)
-            result[field.name] = value.value if isinstance(value, Enum) else value
+            value = getattr(self, field_info.name)
+            result[field_info.name] = value.value if isinstance(value, Enum) else value
         return result
 
+    @staticmethod
     def _get_node_config_value(
-        self,
-        node_config: t.Union["ModelConfig", "SnapshotConfig", "SeedConfig", "TestConfig"],
+        node_config: t.Union[ModelConfig, SnapshotConfig, SeedConfig, TestConfig],
         key: str,
     ) -> t.Any:
         """Look up a per-model config key from config.meta, falling back to root-level config.
@@ -494,8 +497,9 @@ class RunCacheConfig:
             return value
         return node_config.get(prefixed_key)
 
+    @staticmethod
     def _get_node_config_state_value(
-        self, node_config: t.Union[ModelConfig, SnapshotConfig, SeedConfig, TestConfig], key: str
+        node_config: t.Union[ModelConfig, SnapshotConfig, SeedConfig, TestConfig], key: str
     ) -> t.Optional[t.Any]:
         """Similar to self._get_node_config_value() except looks for the key nested in a 'state' dict in the "extra" fields"""
 

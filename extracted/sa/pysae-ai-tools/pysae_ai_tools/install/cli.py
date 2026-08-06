@@ -224,12 +224,12 @@ def install(
         typer.Option("--skip", help="Skip these tools (repeatable)."),
     ] = None,
     json_output: Annotated[bool, typer.Option("--json", help="JSON output")] = False,
-    interactive: Annotated[bool, typer.Option("--interactive", "-i", help="Prompt for missing env vars")] = False,
     non_interactive: Annotated[
         bool,
         typer.Option(
             "--non-interactive",
-            help="Never prompt — no checklist, no env-var questions — even on a TTY. Uses the saved "
+            help="Never involve a human — no checklist, no env-var question, and no resolver that "
+            "would open a browser (Slack OAuth, `glab auth login`) — even on a TTY. Uses the saved "
             "selection (or defaults) and auto-resolves what it can. Implied in CI / non-TTY.",
         ),
     ] = False,
@@ -278,10 +278,6 @@ def install(
     if category and tool_names:
         typer.echo("FAILED: --category and positional tool names are mutually exclusive", err=True)
         raise typer.Exit(code=2)
-    if interactive and non_interactive:
-        typer.echo("FAILED: --interactive and --non-interactive are mutually exclusive", err=True)
-        raise typer.Exit(code=2)
-
     if non_interactive:
         from .common.checklist import force_non_interactive
 
@@ -300,7 +296,6 @@ def install(
             orchestrator._install_one(
                 t,
                 dry_run=False,
-                interactive=interactive,
                 configure_only=configure_only,
                 install_only=install_only,
             )
@@ -321,7 +316,6 @@ def install(
             orchestrator._install_one(
                 t,
                 dry_run=False,
-                interactive=interactive,
                 configure_only=configure_only,
                 install_only=install_only,
             )
@@ -386,7 +380,6 @@ def install(
             skip_set |= {t.name for t in TOOLS if t.name not in selection_set and t.mode is not Mode.REQUIRED}
         results = orchestrator.install_all(
             skip=tuple(skip_set),
-            interactive=interactive,
             configure_only=configure_only,
             install_only=install_only,
         )
@@ -405,7 +398,6 @@ def install(
     else:
         results = orchestrator._install_pretty(
             skip=tuple(skip or ()),
-            interactive=interactive,
             selection=selection_set,
             configure_only=configure_only,
             install_only=install_only,

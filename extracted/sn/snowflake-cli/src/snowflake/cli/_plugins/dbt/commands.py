@@ -14,7 +14,9 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 from typing import Optional
 
 import typer
@@ -34,6 +36,7 @@ from snowflake.cli._plugins.dbt.manager import (
 )
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
+from snowflake.cli._plugins.stage.commands import copy as stage_copy
 from snowflake.cli.api.commands.decorators import global_options_with_connection
 from snowflake.cli.api.commands.flags import identifier_argument, like_option
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
@@ -96,13 +99,104 @@ add_object_command_aliases(
     ommit_commands=["create"],
 )
 
+# Alias `snow stage copy` as `snow dbt copy` so users working with a dbt project's
+# stage don't have to switch command groups. This registers the exact same command
+# function under the dbt app (SnowTyperFactory.command returns the function
+# unchanged and builds an independent click command per app), so behavior and flags
+# are identical to `snow stage copy` with no side effects on it. The `help=` override
+# gives `snow dbt copy` its own description without touching `snow stage copy`.
+app.command(
+    "copy",
+    requires_connection=True,
+    help=(
+        "Copies files between a local directory and a stage, or between stages "
+        "(you provide the full @stage/… path). Behaves exactly like "
+        "`snow stage copy`; handy when working with a dbt project's files on a stage."
+    ),
+)(stage_copy)
+
 
 def _env_callback(value: Optional[str]) -> Optional[str]:
     return _reject_control_chars(value, "--env")
 
 
+def _import_callback(value: Optional[list[str]]) -> Optional[list[str]]:
+    # Validate each --import value at parse time (before the connection is
+    # established) so a malformed value fails fast. Runs the same renderer the
+    # SQL builder uses (discarding the result) so validation and rendering can't
+    # drift.
+    for entry in value or []:
+        DBTManager._render_import(entry)  # noqa: SLF001
+    return value
+
+
 def _default_env_callback(value: Optional[str]) -> Optional[str]:
     return _reject_control_chars(value, "--default-env")
+
+
+def _git_commit_callback(value: Optional[str]) -> Optional[str]:
+    return _reject_control_chars(value, "--git-commit")
+
+
+def _git_branch_callback(value: Optional[str]) -> Optional[str]:
+    return _reject_control_chars(value, "--git-branch")
+
+
+def _github_actions_git_metadata() -> tuple[Optional[str], Optional[str]]:
+    """Auto-detect ``(git_commit, git_branch)`` from GitHub Actions env vars.
+
+    Best-effort: returns ``(None, None)`` on any failure (or when not running under
+    GitHub Actions) so auto-detection can never block a deploy — an explicit
+    ``--git-commit``/``--git-branch`` can always supply the values instead.
+
+    On ``push`` events ``GITHUB_SHA`` / ``GITHUB_REF_NAME`` are the branch-tip
+    commit and branch name. On ``pull_request`` events ``GITHUB_SHA`` is an
+    ephemeral merge commit (PR branch merged into base) that is not the deployed
+    source, so it is never recorded; the commit comes only from the real PR head
+    SHA in the event payload (``.pull_request.head.sha``), and the branch from
+    ``GITHUB_HEAD_REF``. If the payload can't be read, the commit is left unset
+    (``None``) so an explicit ``--git-commit`` can supply it. ``pull_request_target``
+    is intentionally not special-cased: it runs in the base-branch context, so its
+    ``GITHUB_SHA`` (the base commit) already matches what is deployed.
+    """
+    if os.getenv("GITHUB_ACTIONS") != "true":
+        return None, None
+
+    try:
+        if os.getenv("GITHUB_EVENT_NAME") == "pull_request":
+            # Feature-branch deploy: the branch is GITHUB_HEAD_REF and the commit is
+            # the real PR head SHA from the event payload (GITHUB_SHA here is the
+            # ephemeral merge commit). If the payload is unavailable, leave the commit
+            # unset so an explicit --git-commit can supply it.
+            branch = os.getenv("GITHUB_HEAD_REF") or None
+            commit = None
+            event_path = os.getenv("GITHUB_EVENT_PATH")
+            if event_path and os.path.isfile(event_path):
+                with open(event_path, encoding="utf-8") as event_file:
+                    payload = json.load(event_file)
+                commit = (
+                    payload.get("pull_request", {}).get("head", {}).get("sha") or None
+                )
+        else:
+            # push — and everything else, including pull_request_target, which runs in
+            # the base-branch context: GITHUB_SHA/GITHUB_REF_NAME are the commit and
+            # branch that were actually deployed. On a tag push GITHUB_REF_NAME is the
+            # tag (not a branch), so leave the branch unset rather than record a tag.
+            commit = os.getenv("GITHUB_SHA") or None
+            if os.getenv("GITHUB_REF_TYPE") == "tag":
+                branch = None
+            else:
+                branch = os.getenv("GITHUB_REF_NAME") or None
+
+        return commit, branch
+    except Exception:
+        # Best-effort: never let auto-detection break the deploy.
+        cli_console.warning(
+            "Could not auto-detect git metadata from the GitHub Actions environment; "
+            "last_deployed_from will omit it. Pass --git-commit/--git-branch to set it "
+            "explicitly."
+        )
+        return None, None
 
 
 @app.command(
@@ -142,7 +236,7 @@ def deploy_dbt(
     ),
     force: Optional[bool] = typer.Option(
         False,
-        help="Overwrites conflicting files in the project, if any.",
+        help="Recreates the dbt project object with CREATE OR REPLACE DBT PROJECT. This removes all existing versions and run history.",
     ),
     default_target: Optional[str] = DefaultTargetOption(
         help="Default target for the dbt project. Mutually exclusive with --unset-default-target.",
@@ -182,6 +276,39 @@ def deploy_dbt(
         show_default=False,
         help="dbt Core version to use for the project, for example '1.10.15'. Full list of supported versions can be found at https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-dbt-core-versions",
     ),
+    default_writeback: Optional[bool] = typer.Option(
+        None,
+        "--default-writeback/--no-default-writeback",
+        show_default=False,
+        help="Set the writeback default persisted on the dbt project. Omit to leave "
+        "the existing setting unchanged.",
+        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_WRITEBACK.is_enabled(),
+    ),
+    auto_compile: Optional[bool] = typer.Option(
+        None,
+        "--auto-compile/--no-auto-compile",
+        show_default=False,
+        help="Set whether the dbt project is compiled on deploy; persisted on the "
+        "project and applied to subsequent deploys until changed. Omit to leave the "
+        "existing setting unchanged.",
+        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_AUTO_COMPILE.is_enabled(),
+    ),
+    git_commit: Optional[str] = typer.Option(
+        None,
+        "--git-commit",
+        show_default=False,
+        help="Git commit hash to record in last_deployed_from metadata when deploying from a plain stage (e.g. SnowCLI temp stage). In GitHub Actions it is auto-detected when not provided.",
+        hidden=not FeatureFlag.ENABLE_DBT_GIT_METADATA.is_enabled(),
+        callback=_git_commit_callback,
+    ),
+    git_branch: Optional[str] = typer.Option(
+        None,
+        "--git-branch",
+        show_default=False,
+        help="Git branch name to record in last_deployed_from metadata when deploying from a plain stage (e.g. SnowCLI temp stage). In GitHub Actions it is auto-detected when not provided.",
+        hidden=not FeatureFlag.ENABLE_DBT_GIT_METADATA.is_enabled(),
+        callback=_git_branch_callback,
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -189,11 +316,34 @@ def deploy_dbt(
 
     Examples:
         snow dbt deploy PROJECT
-        snow dbt deploy PROJECT --source=/Users/jdoe/project --force
+        snow dbt deploy PROJECT --source=/Users/jdoe/project
     """
     project_path = SecurePath(source) if source is not None else SecurePath.cwd()
     profiles_dir_path = SecurePath(profiles_dir) if profiles_dir else project_path
     env_file_path = SecurePath(env_file_dir) if env_file_dir else None
+
+    if not FeatureFlag.ENABLE_DBT_GIT_METADATA.is_enabled():
+        git_commit = None
+        git_branch = None
+    elif git_commit is None or git_branch is None:
+        # Explicit flags take precedence; only auto-detect when there's a gap to
+        # fill, so we never do needless work (or warn about auto-detection) when the
+        # caller already passed both values.
+        auto_commit, auto_branch = _github_actions_git_metadata()
+        detected = []
+        if git_commit is None and auto_commit is not None:
+            git_commit = auto_commit
+            detected.append(f"commit {auto_commit}")
+        if git_branch is None and auto_branch is not None:
+            git_branch = auto_branch
+            detected.append(f"branch {auto_branch}")
+        if detected:
+            cli_console.message(
+                "Auto-detected git metadata from the GitHub Actions environment ("
+                + ", ".join(detected)
+                + "); pass --git-commit/--git-branch to override."
+            )
+
     attrs = DBTDeployAttributes(
         default_target=default_target,
         unset_default_target=unset_default_target,
@@ -202,6 +352,10 @@ def deploy_dbt(
         external_access_integrations=external_access_integrations,
         install_local_deps=install_local_deps,
         dbt_version=dbt_version,
+        default_writeback=default_writeback,
+        auto_compile=auto_compile,
+        git_commit=git_commit,
+        git_branch=git_branch,
     )
     return QueryResult(
         DBTManager().deploy(
@@ -275,6 +429,28 @@ def before_callback(
         "confidential data in shell environment variables with the DBT_ "
         "prefix.",
     ),
+    writeback: Optional[bool] = typer.Option(
+        None,
+        "--writeback/--no-writeback",
+        show_default=False,
+        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_WRITEBACK.is_enabled(),
+        help="Whether to write dbt results back for this run. Must be placed before "
+        "the dbt command. Omit to use the project's default.",
+    ),
+    imports: list[str] = typer.Option(
+        [],
+        "--import",
+        show_default=False,
+        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_IMPORTS.is_enabled(),
+        callback=_import_callback,
+        help="Stage contents to import into the run, as an IMPORTS clause. "
+        "Repeatable. Each value is a stage path (@stage/s1), a dbt snow URL "
+        "(snow://dbt/db.schema.project/versions/live), or a SYSTEM$ function "
+        "(e.g. SYSTEM$DBT_GET_LAST_RUN_TARGET('proj')) — optionally with "
+        '"as folder" (an ASCII name of letters, digits, underscores, and '
+        "hyphens). Single-quote a value that contains spaces, e.g. "
+        "'@\"my stage\"/dir'.",
+    ),
     **options,
 ):
     """Handles global options passed before the command and takes pipeline name to be accessed through child context later."""
@@ -302,6 +478,8 @@ for cmd in DBT_COMMANDS:
         environment = ctx.parent.params.get("environment")
         env_vars = ctx.parent.params.get("env_vars")
         use_shell_env_vars = ctx.parent.params.get("use_shell_env_vars", False)
+        writeback = ctx.parent.params.get("writeback")
+        imports = ctx.parent.params.get("imports")
         execute_args = (
             dbt_command,
             name,
@@ -315,7 +493,10 @@ for cmd in DBT_COMMANDS:
 
         if run_async is True:
             result = dbt_manager.execute(
-                *execute_args, use_shell_env_vars=use_shell_env_vars
+                *execute_args,
+                use_shell_env_vars=use_shell_env_vars,
+                writeback=writeback,
+                imports=imports,
             )
             return MessageResult(
                 f"Command submitted. You can check the result with `snow sql -q \"select execution_status from table(information_schema.query_history_by_user()) where query_id in ('{result.sfqid}');\"`"
@@ -324,7 +505,10 @@ for cmd in DBT_COMMANDS:
         with cli_console.spinner() as spinner:
             spinner.add_task(description=f"Executing 'dbt {dbt_command}'", total=None)
             result = dbt_manager.execute(
-                *execute_args, use_shell_env_vars=use_shell_env_vars
+                *execute_args,
+                use_shell_env_vars=use_shell_env_vars,
+                writeback=writeback,
+                imports=imports,
             )
 
             try:

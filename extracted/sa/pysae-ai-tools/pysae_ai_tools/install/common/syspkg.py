@@ -22,14 +22,19 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+from .privileged import run_privileged
+
 # Package-manager binary -> install command prefix, in preference order.
 _MANAGERS: list[tuple[str, list[str]]] = [
-    ("apt-get", ["sudo", "apt-get", "install", "-y"]),
-    ("dnf", ["sudo", "dnf", "install", "-y"]),
-    ("yum", ["sudo", "yum", "install", "-y"]),
-    ("zypper", ["sudo", "zypper", "--non-interactive", "install"]),
-    ("pacman", ["sudo", "pacman", "-S", "--noconfirm"]),
-    ("apk", ["sudo", "apk", "add", "--no-cache"]),
+    # Commands are listed WITHOUT sudo: `run_privileged` decides whether it is
+    # needed and, when a password will be asked, announces it and lets the prompt
+    # reach the terminal instead of capturing it into a hang.
+    ("apt-get", ["apt-get", "install", "-y"]),
+    ("dnf", ["dnf", "install", "-y"]),
+    ("yum", ["yum", "install", "-y"]),
+    ("zypper", ["zypper", "--non-interactive", "install"]),
+    ("pacman", ["pacman", "-S", "--noconfirm"]),
+    ("apk", ["apk", "add", "--no-cache"]),
 ]
 
 _LIB_DIRS = (
@@ -103,30 +108,9 @@ def ensure_dep(dep: SystemDep) -> str:
     if not candidates:
         return "unsupported"
     if name == "apt-get":
-        subprocess.run(
-            ["sudo", "apt-get", "update"],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            stdin=subprocess.DEVNULL,
-            check=False,
-        )
+        run_privileged(["apt-get", "update"], what="Refreshing the apt package index", timeout=300)
     for pkg in candidates:
-        try:
-            # stdin=DEVNULL so a sudo password prompt fails fast instead of hanging
-            # invisibly (output is captured, so a prompt would never be seen).
-            subprocess.run(
-                [*install_cmd, pkg],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                stdin=subprocess.DEVNULL,
-                check=False,
-            )
-        except FileNotFoundError:
-            continue
+        run_privileged([*install_cmd, pkg], what=f"Installing the system package {pkg}")
         if dep.present():
             return "installed"
     return "missing"

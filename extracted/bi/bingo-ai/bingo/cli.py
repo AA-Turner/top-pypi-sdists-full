@@ -46,17 +46,18 @@ BANNER_SMALL = r"""[#00ff41]
   ╚═════╝ ╚═╝╚═╝  ╚═══╝ ╚═════╝  ╚═════╝[/#00ff41]"""
 
 
-def _print_banner_v7(cfg: BingoConfig, s: dict) -> None:
-    """Print v7 engine banner."""
+def _print_banner_v7(cfg: BingoConfig, s: dict, out=None) -> None:
+    """Print v7 engine banner. out 미지정 시 전역 console (TUI 모드는 ui.console 주입)."""
     from . import __version__
-    console.print(BANNER_SMALL)
+    out = out or console
+    out.print(BANNER_SMALL)
     model_name = ""
     mc = cfg.get_active_model_config()
     if mc:
         model_name = mc.display_name()
-    console.print(f"  [#546e7a]AI Terminal  ·  v{__version__}  ·  v7 Engine[/#546e7a]")
-    console.print()
-    console.print(Panel(
+    out.print(f"  [#546e7a]AI Terminal  ·  v{__version__}  ·  v7 Engine[/#546e7a]")
+    out.print()
+    out.print(Panel(
         f"  [#00ff41]⚡ model[/]  : [#00e5ff]{model_name}[/]\n"
         f"  [#00ff41]⚡ lang[/]   : [#00e5ff]{cfg.lang}[/]\n"
         f"  [#00ff41]⚡ engine[/] : [#ce93d8]v7 executor-owned · zero-drift · zero-hallucination[/]",
@@ -64,7 +65,7 @@ def _print_banner_v7(cfg: BingoConfig, s: dict) -> None:
         title="[#00ff41]⟪ BINGO ⟫[/]",
         subtitle="[#546e7a]pentest AI terminal[/]",
     ))
-    console.print()
+    out.print()
 
 
 def _onboarding(cfg: BingoConfig) -> BingoConfig:
@@ -533,51 +534,264 @@ def _run_silent_mode(target: str, cfg: "BingoConfig", extra_args: list, s: dict)
     sys.exit(1 if _fe.findings else 0)
 
 
-def _run_web_ide(cfg: BingoConfig, args: list[str]) -> None:
-    """`bingo` default entry: launch the local web IDE and open a browser.
+# ── 펜테스트 의도 감지 ────────────────────────────────────────────
+# 타겟이 이미 설정된 상태에서, 입력이 "지금 이 타겟을 공격/스캔하라"는
+# 지시인지 판별한다. 여기서 False면 일반 대화로 라우팅된다.
+_PENTEST_KEYWORDS = (
+    # 한국어
+    "스캔", "공격", "침투", "취약", "취약점", "펜테스트", "모의해킹", "해킹",
+    "익스플로잇", "페이로드", "우회", "탈취", "뚫", "터는", "털어", "점검",
+    "진단", "정찰", "수집해", "긁어", "덤프", "크롤",
+    # English
+    "scan", "attack", "exploit", "pentest", "penetration", "recon",
+    "vuln", "vulnerab", "payload", "bypass", "inject", "sqli", "xss",
+    "ssrf", "rce", "lfi", "rfi", "brute", "fuzz", "enumerate", "dump",
+    "crawl", "probe", "waf", "subdomain", "port scan",
+)
 
-    The engine (AgentLoop), skills, tools, and reporting are unchanged — the
-    web layer only replaces the presentation surface. The session token in the
-    URL is the auth gate; the server binds loopback (0.0.0.0 only on WSL2).
+
+# 설명/질문 신호 — 기법 이름이 나와도 "공격 지시"가 아니라 "설명 요청"인 경우.
+_EXPLAIN_SIGNALS = (
+    "뭐야", "뭔데", "무엇", "뭐임", "뭐죠", "설명", "알려줘", "알려주", "가르쳐",
+    "차이", "어떻게 동작", "원리", "개념", "예시", "example", "explain", "what is",
+    "what's", "what are", "how does", "difference", "meaning", "define",
+    "왜", "이유", "궁금",
+)
+
+
+def _looks_like_pentest(text: str) -> bool:
+    """타겟 설정 상태에서 입력이 공격/스캔 지시인지 감지.
+
+    기법 이름(sqli/xss 등)이 들어가도 "~가 뭐야", "explain ~" 같은
+    설명 요청이면 대화로 라우팅한다 (공격 지시가 아님).
     """
-    import time
-    import webbrowser
-    from pathlib import Path
+    low = text.lower()
+    if not any(kw in low for kw in _PENTEST_KEYWORDS):
+        return False
+    # 설명/질문 신호가 있으면 공격 지시로 보지 않는다.
+    if any(sig in low for sig in _EXPLAIN_SIGNALS):
+        return False
+    return True
 
-    from .web.session import WebSession
-    from .web.security import SESSION_TOKEN
-    from .web.server import start_web_server, _is_wsl2
 
-    root = Path.cwd()
-    session = WebSession(root, cfg)
+def _chat_reply(cfg, console, history: list, user_input: str, cancel=None) -> str:
+    """일반 대화: 활성 모델로 스트리밍 응답을 출력하고 전체 텍스트를 반환.
 
-    os.system("cls" if os.name == "nt" else "clear")
-    console.print(BANNER_SMALL)
-    console.print()
+    펜테스트 파이프라인(AgentLoop/executor/findings)을 타지 않는
+    순수 대화 경로. 멀티턴 히스토리를 유지한다.
 
-    try:
-        port = start_web_server(session)
-    except Exception as exc:
-        console.print(f"[#ff5c57]Web IDE failed to start: {exc}[/]")
-        return
+    cancel: CancelToken (선택) — 세팅되면 스트리밍 청크 경계에서 협조적 중단.
+    """
+    from rich.text import Text
 
-    host = "localhost" if _is_wsl2() else "127.0.0.1"
-    url = f"http://{host}:{port}/?token={SESSION_TOKEN}"
-    console.print(f"  [#00ff41]⚡ Bingo IDE:[/] [#00e5ff]{url}[/]")
-    console.print(f"  [#546e7a]workspace: {root}[/]")
-    console.print("  [#546e7a](Ctrl-C to stop)[/]\n")
+    model_cfg = cfg.get_active_model_config()
+    if not model_cfg:
+        console.print("[yellow]모델이 설정되지 않았습니다. /model 로 먼저 설정하세요.[/]")
+        return ""
 
-    if "--no-open" not in args and not _is_wsl2():
+    from .models.registry import ModelRegistry
+    model = ModelRegistry.build(model_cfg)
+
+    # 대화용 시스템 프롬프트 — 펜테스트 전용 프롬프트 대신 범용 어시스턴트로.
+    _chat_system = (
+        "You are Bingo, a helpful and knowledgeable assistant with deep "
+        "expertise in security, software engineering, and general topics. "
+        "Answer conversationally and directly. Only run penetration tests "
+        "when the user explicitly provides a target URL or asks you to attack "
+        "or scan a target. For everything else, just have a normal conversation. "
+        "Respond in the same language the user writes in."
+    )
+
+    messages: list[dict] = [{"role": "system", "content": _chat_system}]
+    messages.extend(history[-16:])  # 최근 8턴 유지
+    messages.append({"role": "user", "content": user_input})
+
+    parts: list[str] = []
+    console.print("[#00d4aa]│[/] ", end="")
+    for chunk in model.chat_stream(messages):
+        # 협조적 취소 — 청크 경계에서 폴링 (TUI Stop).
+        if cancel is not None and cancel.is_set():
+            console.print("\n[#ffaa00]⚡ 중단됨[/]")
+            break
+        if getattr(chunk, "error", None):
+            console.print(Text(f"\n[error] {chunk.error}", style="red"))
+            break
+        if chunk.text:
+            parts.append(chunk.text)
+            console.print(Text(chunk.text, style="white"), end="")
+    console.print()  # 줄바꿈
+
+    reply = "".join(parts)
+    if reply:
+        history.append({"role": "user", "content": user_input})
+        history.append({"role": "assistant", "content": reply})
+    return reply
+
+
+class _SessionState:
+    """TUI/REPL 공유 세션 상태 — cfg·타겟·히스토리·세션로그·이벤트버스."""
+    __slots__ = ("cfg", "s", "event_bus", "target", "session_log", "chat_history")
+
+    def __init__(self, cfg, s, event_bus) -> None:
+        self.cfg = cfg
+        self.s = s
+        self.event_bus = event_bus
+        self.target: str = ""
+        self.session_log: list[str] = []
+        self.chat_history: list[dict] = []
+
+
+_HELP_TEXT = """[#00d4aa]Usage:[/]
+  그냥 입력       — 일반 대화 (질문/설명/코딩 등)
+  URL 포함 입력   — 해당 타겟 펜테스트 실행
+  (타겟 설정 후 "스캔해줘/공격해줘" 등도 펜테스트로 실행)
+
+[#00d4aa]Commands:[/]
+  /target <url>  — 타겟 설정/변경
+  /model         — 모델 설정
+  /status        — 현재 상태 표시
+  /clear         — 화면 초기화
+  /session       — 세션 로그 경로 표시
+  /exit          — 종료
+
+[#546e7a]Keys (TUI):[/] Esc/Ctrl-C 중단 · PgUp/PgDn 스크롤 · Ctrl-L 클리어 · Ctrl-D 종료
+[#546e7a]Flags (startup):[/] --no-web · --no-tui"""
+
+
+def _dispatch_input(user_input: str, out, state: "_SessionState", cancel=None, ui=None) -> str | None:
+    """한 줄 처리: 슬래시 명령 또는 펜테스트/대화 라우팅.
+
+    out    : 출력 콘솔 (전역 console 또는 ui.console)
+    state  : _SessionState (cfg/target/history 공유·변경)
+    cancel : CancelToken | None (TUI Stop)
+    ui     : BingoTUI | None — 있으면 /model·/clear 등 UI-의존 처리
+    반환   : "__exit__" 이면 호출측 루프 종료.
+    """
+    from .engine.loop import AgentLoop
+    from pathlib import Path as _Path
+    from datetime import datetime as _dt
+    import re as _re
+
+    _cmd = user_input.strip().lower()
+
+    # ── 슬래시 명령어 ──────────────────────────────────────
+    if _cmd in ("/exit", "/quit", "exit", "quit"):
+        return "__exit__"
+    if _cmd == "/help":
+        out.print(_HELP_TEXT)
+        return None
+    if _cmd == "/clear":
+        if ui is not None:
+            ui.clear()
+            _print_banner_v7(state.cfg, state.s, out=out)
+        else:
+            os.system("cls" if os.name == "nt" else "clear")
+            _print_banner_v7(state.cfg, state.s)
+        return None
+    if _cmd == "/status":
+        out.print(f"  [#00d4aa]target[/] : {state.target or '(not set)'}")
+        mc = state.cfg.get_active_model_config()
+        _mn = mc.display_name() if mc else "(none)"
+        out.print(f"  [#00d4aa]model[/]  : {_mn}")
+        out.print(f"  [#00d4aa]lang[/]   : {state.cfg.lang}")
+        return None
+    if _cmd == "/session":
+        if state.session_log:
+            _sess_dir = _Path.home() / ".bingo" / "sessions"
+            _sess_dir.mkdir(parents=True, exist_ok=True)
+            _sess_path = _sess_dir / f"session_{_dt.now().strftime('%Y%m%d_%H%M%S')}.md"
+            _sess_path.write_text("\n".join(state.session_log), encoding="utf-8")
+            out.print(f"  [dim]Session saved: {_sess_path}[/]")
+        else:
+            out.print("  [dim]No session data yet.[/]")
+        return None
+    if _cmd.startswith("/target"):
+        _parts = user_input.strip().split(None, 1)
+        if len(_parts) > 1:
+            state.target = _parts[1].strip()
+            if ui is not None:
+                ui.target = state.target
+            out.print(f"  [#00e5ff]Target set: {state.target}[/]")
+        else:
+            out.print("  [yellow]Usage: /target https://example.com[/]")
+        return None
+    if _cmd == "/model":
+        def _do_model() -> None:
+            from .ui.terminal import BingoTerminal
+            _t = BingoTerminal.__new__(BingoTerminal)
+            _t.config = state.cfg
+            _t.console = console  # 실제 stdout — 대화형 프롬프트 표시용
+            _t.s = state.s
+            _t._cmd_model()
+            state.cfg = BingoConfig.load()
+            if ui is not None:
+                ui.config = state.cfg
+        if ui is not None:
+            # TUI 를 잠시 벗어나 일반 터미널에서 대화형 입력 처리
+            ui.run_in_terminal(_do_model)
+        else:
+            _do_model()
+        return None
+
+    # ── 입력에서 URL 추출 (있으면 타겟 갱신) ────────────────
+    _url_m = _re.search(r'https?://[^\s]+', user_input)
+    if _url_m:
+        state.target = _url_m.group(0).rstrip(".,;")
+        if ui is not None:
+            ui.target = state.target
+
+    # ── 의도 분기: 펜테스트 vs 일반 대화 ────────────────────
+    _wants_pentest = bool(_url_m) or (
+        bool(state.target) and _looks_like_pentest(user_input)
+    )
+
+    state.session_log.append(f"## [{_dt.now().strftime('%H:%M:%S')}] User: {user_input}")
+
+    if _wants_pentest:
+        # ── 에이전트 루프 실행 (펜테스트) ──────────────────
         try:
-            webbrowser.open(url)
-        except Exception:
-            pass
+            loop = AgentLoop(
+                target=state.target, config=state.cfg, console=out,
+                event_bus=state.event_bus, cancel_token=cancel,
+            )
+            loop.run(user_input)
+            state.session_log.append(f"  Findings: {len(loop.findings._findings)}")
+        except KeyboardInterrupt:
+            out.print("\n[yellow]중단됨[/]")
+        except Exception as e:
+            import traceback
+            from rich.text import Text
+            out.print(Text(f"Error: {e}", style="red"))
+            out.print(Text(traceback.format_exc()[-500:], style="dim"))
+            state.session_log.append(f"  Error: {e}")
+    else:
+        # ── 일반 대화 (모델 스트리밍) ──────────────────────
+        try:
+            _reply = _chat_reply(state.cfg, out, state.chat_history, user_input, cancel=cancel)
+            state.session_log.append(f"  Assistant: {_reply[:200]}")
+        except KeyboardInterrupt:
+            out.print("\n[yellow]중단됨[/]")
+        except Exception as e:
+            from rich.text import Text
+            out.print(Text(f"Error: {e}", style="red"))
+            state.session_log.append(f"  Error: {e}")
+    return None
 
-    try:
-        while True:
-            time.sleep(3600)
-    except KeyboardInterrupt:
-        console.print("\n[dim]Bye.[/]")
+
+def _save_session(state: "_SessionState") -> None:
+    """세션 자동 저장 (종료 시)."""
+    from pathlib import Path as _Path
+    from datetime import datetime as _dt
+    if not state.session_log:
+        return
+    _sess_dir = _Path.home() / ".bingo" / "sessions"
+    _sess_dir.mkdir(parents=True, exist_ok=True)
+    _sess_path = _sess_dir / f"session_{_dt.now().strftime('%Y%m%d_%H%M%S')}.md"
+    _sess_path.write_text(
+        f"# Bingo Session — {state.target or 'no target'}\n\n" + "\n".join(state.session_log),
+        encoding="utf-8",
+    )
+    console.print(f"\n[dim]📝 Session auto-saved: {_sess_path}[/]")
 
 
 def main() -> None:
@@ -729,9 +943,90 @@ def main() -> None:
             cfg = BingoConfig()
         cfg = _onboarding(cfg)
 
-    # ── 기본 진입: 로컬 웹 IDE (files · Monaco editor · chat) ──────
-    # `bingo` → 브라우저 웹 IDE. 헤드리스(scan/waf/--silent/--update)는 그대로.
-    _run_web_ide(cfg, args)
+    # ── v7 엔진 실행 ─────────────────────────────────────────────
+    s = get_strings(cfg.lang)
+    from .web.event_bus import EventBus as _EventBus
+    from .web.server import start_web_server as _start_web, _is_wsl2 as _wsl2
+
+    # ── Web UI 시작 (TUI 진입 전 — 배너/링크는 stdout 로) ─────────
+    _no_web = "--no-web" in args
+    _event_bus: "_EventBus | None" = None
+    _web_port = None
+    if not _no_web:
+        try:
+            _event_bus = _EventBus()
+            _web_port = _start_web(_event_bus)
+        except Exception as _web_err:
+            console.print(f"  [#546e7a]Web UI unavailable: {_web_err}[/]")
+
+    state = _SessionState(cfg, s, _event_bus)
+
+    # ── TUI vs 폴백 REPL 결정 ─────────────────────────────────────
+    # 풀스크린 TUI: 하단 고정 입력창 + 실행 중 반응. 비TTY/--no-tui/
+    # 초기화 실패 시 기존 단순 REPL 로 폴백.
+    _want_tui = ("--no-tui" not in args) and sys.stdout.isatty() and sys.stdin.isatty()
+
+    def _on_start(ui) -> None:
+        """TUI 시작 직후 1회 — 배너/웹링크를 출력 버퍼로."""
+        ui.target = state.target
+        _print_banner_v7(state.cfg, state.s, out=ui.console)
+        if _web_port is not None:
+            ui.console.print(f"  [#00ff41]⚡ Web UI:[/] [#00e5ff]http://127.0.0.1:{_web_port}[/]  [#546e7a](--no-web to disable)[/]")
+            if _wsl2():
+                ui.console.print(f"  [#546e7a]WSL2: Windows 브라우저에서 [/][#00e5ff]http://localhost:{_web_port}[/][#546e7a] 접속[/]")
+        ui.console.print("  [#546e7a]입력창은 하단 고정 · Esc/Ctrl-C 중단 · /help[/]")
+        ui.console.print()
+
+    if _want_tui:
+        try:
+            from .ui.tui import run_tui
+
+            def _handle(text: str, ui) -> None:
+                r = _dispatch_input(text, ui.console, state, cancel=ui.cancel_token, ui=ui)
+                if r == "__exit__":
+                    ui.exit_app()
+
+            run_tui(state.cfg, _handle, on_start=_on_start)
+            _save_session(state)
+            return
+        except Exception as _tui_err:
+            # TUI 초기화 실패 → 폴백 REPL (사유 표시)
+            console.print(f"  [#546e7a]TUI unavailable ({_tui_err}) — falling back to REPL[/]")
+
+    # ── 폴백: 기존 단순 REPL ──────────────────────────────────────
+    os.system("cls" if os.name == "nt" else "clear")
+    _print_banner_v7(state.cfg, state.s)
+    if _web_port is not None:
+        console.print(f"  [#00ff41]⚡ Web UI:[/] [#00e5ff]http://127.0.0.1:{_web_port}[/]  [#546e7a](--no-web to disable)[/]")
+        if _wsl2():
+            console.print(f"  [#546e7a]WSL2: Windows 브라우저에서 [/][#00e5ff]http://localhost:{_web_port}[/][#546e7a] 접속[/]")
+        console.print()
+
+    from prompt_toolkit import PromptSession
+    from prompt_toolkit.history import InMemoryHistory
+    from prompt_toolkit.completion import WordCompleter
+    _slash_commands = [
+        "/target", "/model", "/status", "/clear", "/session", "/help", "/exit",
+    ]
+    _slash_completer = WordCompleter(_slash_commands, sentence=True)
+    _pt_session = PromptSession(history=InMemoryHistory(), completer=_slash_completer)
+
+    while True:
+        try:
+            _prompt_label = f"┌─[bingo]─[{state.target}]─▶ " if state.target else "┌─[bingo]─▶ "
+            user_input = _pt_session.prompt(_prompt_label)
+        except (KeyboardInterrupt, EOFError):
+            console.print("\n[dim]Bye.[/]")
+            break
+        if not user_input.strip():
+            continue
+        try:
+            if _dispatch_input(user_input, console, state) == "__exit__":
+                break
+        except KeyboardInterrupt:
+            console.print("\n[yellow]중단됨[/]")
+
+    _save_session(state)
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@ members = ["wheel"]
 
 [package]
 name = "clvmr"
-version = "0.18.0"
+version = "0.19.0"
 authors = ["Richard Kiss <him@richardkiss.com>"]
 edition = "2024"
 license = "Apache-2.0"
@@ -45,8 +45,8 @@ lto = "thin"
 
 [workspace.dependencies]
 bitflags = "2.10"
-clvmr = { path = ".", version = "0.18.0" }
-clvm-fuzzing = { path = "./clvm-fuzzing", version = "0.18.0" }
+clvmr = { path = ".", version = "0.19.0" }
+clvm-fuzzing = { path = "./clvm-fuzzing", version = "0.19.0" }
 lazy_static = "1.5.0"
 num-bigint = "0.4.6"
 num-traits = "0.2.19"
@@ -66,11 +66,11 @@ getrandom = "0.2.16"
 libfuzzer-sys = "0.4.10"
 rand = "0.9"
 sha1 = "0.10.6"
-linreg = "0.2.0"
 serde = "1.0.228"
 serde_json = "1.0.145"
 clap = "4.5.52"
 rand_chacha = "0.9.0"
+gnuplot = "0.0.46"
 bitvec = "1.0.1"
 arbitrary = { version = "1.4.2", features = ["derive"] }
 bumpalo = "3.19.0"

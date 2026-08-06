@@ -80,7 +80,7 @@ class SplitConformalClassifier:
         A custom score function inheriting from BaseClassificationScore may also
         be provided.
 
-        See [theoretical description (classification)](../theory/classification.md).
+        See [theory (classification)](../content/conformal-prediction/classification.md).
 
     prefit : bool, default=True
         If True, the base classifier must be fitted, and the `fit`
@@ -324,7 +324,7 @@ class SplitConformalClassifier:
             "conformalize",
             self._is_conformalized,
         )
-        return self._mapie_classifier.conformity_scores_
+        return cast(NDArray, self._mapie_classifier.conformity_scores_)
 
 
 class CrossConformalClassifier:
@@ -358,7 +358,7 @@ class CrossConformalClassifier:
         A custom score function inheriting from BaseClassificationScore may also
         be provided.
 
-        See [theoretical description (classification)](../theory/classification.md).
+        See [theory (classification)](../content/conformal-prediction/classification.md).
 
     cv : Union[int, BaseCrossValidator], default=5
         The cross-validator used to compute conformity scores.
@@ -617,7 +617,7 @@ class CrossConformalClassifier:
             "fit_conformalize",
             self.is_fitted_and_conformalized,
         )
-        return self._mapie_classifier.conformity_scores_
+        return cast(NDArray, self._mapie_classifier.conformity_scores_)
 
 
 class _MapieClassifier(ClassifierMixin, BaseEstimator):

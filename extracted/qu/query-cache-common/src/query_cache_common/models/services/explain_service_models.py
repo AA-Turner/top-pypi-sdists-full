@@ -3,10 +3,11 @@ from __future__ import annotations
 import typing as t
 from dataclasses import field
 
+from query_cache_protobuf.query_cache.services import explain_service_pb2
+
 from query_cache_common.decorators import proto_dataclass, proto_enum
 from query_cache_common.models.base import BaseSerDeEnum, BaseSerDeModel
 from query_cache_common.models.shared_models import SubmitSQLResultType
-from query_cache_protobuf.query_cache.services import explain_service_pb2
 
 
 @proto_enum(explain_service_pb2.ExplainMarker)

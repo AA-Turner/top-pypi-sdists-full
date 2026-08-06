@@ -396,6 +396,7 @@ class RawAopClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the AOP asset
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -480,6 +481,7 @@ class RawAopClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the AOP asset to update
 
         agent_id : typing.Optional[str]
             ID of the agent to use for execution
@@ -961,6 +963,7 @@ class AsyncRawAopClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the AOP asset
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1045,6 +1048,7 @@ class AsyncRawAopClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the AOP asset to update
 
         agent_id : typing.Optional[str]
             ID of the agent to use for execution

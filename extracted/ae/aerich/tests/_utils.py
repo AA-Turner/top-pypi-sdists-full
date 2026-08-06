@@ -8,17 +8,17 @@ import shlex
 import shutil
 import subprocess
 import sys
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import Callable, Literal
+from typing import Literal
 
 import pytest
+import tortoise
 from tortoise import Tortoise, generate_schema_for_client
 from tortoise.exceptions import DBConnectionError, OperationalError
 from tortoise.indexes import Index
 
 from aerich import Command
-from aerich._compat import tortoise_version_less_than
 
 if sys.version_info >= (3, 11):
     from contextlib import chdir
@@ -39,7 +39,7 @@ else:
             os.chdir(self._old_cwd.pop())
 
 
-IS_TORTOISE_V1 = not tortoise_version_less_than("1")
+IS_TORTOISE_V1 = tortoise.__version__ >= "1"
 
 
 async def drop_db(tortoise_orm) -> None:
@@ -102,7 +102,9 @@ def run_in_subprocess(command: str, capture_output=True, **kw) -> tuple[bool, st
             command = f"{py} " + command[len(s) :]
     if (env := kw.get("env")) is not None:
         kw["env"] = {**os.environ, **env}
-    r = subprocess.run(shlex.split(command), capture_output=capture_output, encoding="utf-8", **kw)
+    check = kw.pop("check", False)
+    kw.setdefault("encoding", "utf-8")
+    r = subprocess.run(shlex.split(command), capture_output=capture_output, check=check, **kw)
     ok = r.returncode == 0
     out = (r.stdout or "") if ok else (r.stderr or r.stdout or "")
     return ok, out
@@ -182,8 +184,8 @@ def requires_dialect(
 ) -> Callable:
     if more:
         vals = {name, *more}
-        for name in vals:
-            if Dialect.check(name):
+        for dialect_name in vals:
+            if Dialect.check(dialect_name):
                 return pytest.mark.skipif(False, reason="")
         return pytest.mark.skipif(True, reason=f"Capability dialect not in {list(vals)}")
     return pytest.mark.skipif(not Dialect.check(name), reason=f"Capability dialect != {name}")
@@ -214,10 +216,5 @@ def tmp_daily_db(env_name="AERICH_DONT_DROP_TMP_DB") -> Generator[None]:
                 raise OperationalError(out)
 
 
-def describe_index(idx: Index) -> Index | dict:
-    # tortoise-orm>=0.24 changes Index describe to be dict
-    if tortoise_version_less_than("0.24"):
-        return idx
-    if hasattr(idx, "describe"):
-        return idx.describe()
-    return idx
+def describe_index(idx: Index) -> dict:
+    return idx.describe()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistral-vibe
-Version: 2.23.3
+Version: 2.24.0
 Summary: Minimal CLI coding agent by Mistral
 Project-URL: Homepage, https://github.com/mistralai/mistral-vibe
 Project-URL: Repository, https://github.com/mistralai/mistral-vibe
@@ -27,7 +27,7 @@ Requires-Dist: anyio==4.14.1
 Requires-Dist: attrs==26.1.0
 Requires-Dist: beautifulsoup4==4.14.3
 Requires-Dist: cachetools==7.0.6
-Requires-Dist: certifi==2026.6.17
+Requires-Dist: certifi==2026.7.22
 Requires-Dist: cffi==2.0.0
 Requires-Dist: charset-normalizer==3.4.7
 Requires-Dist: click==8.3.3; sys_platform != 'emscripten'
@@ -35,7 +35,7 @@ Requires-Dist: colorama==0.4.6; sys_platform == 'win32'
 Requires-Dist: cryptography==48.0.1
 Requires-Dist: eval-type-backport==0.3.1
 Requires-Dist: gitdb==4.0.12
-Requires-Dist: gitpython==3.1.53
+Requires-Dist: gitpython==3.1.57
 Requires-Dist: giturlparse==0.15.0
 Requires-Dist: google-auth==2.49.2
 Requires-Dist: googleapis-common-protos==1.74.0
@@ -276,7 +276,7 @@ The `task` tool allows the agent to delegate work to subagents:
 > task(task="Analyze the project structure and architecture", agent="explore")
 ```
 
-Create custom subagents by adding `agent_type = "subagent"` to your agent configuration. Vibe comes with a built-in subagent called `explore`, a read-only subagent for codebase exploration used internally for delegation.
+Create custom subagents by adding `agent_type = "subagent"` to your agent configuration. Vibe comes with a built-in subagent called `explore`, a read-only subagent for codebase exploration and skill loading used internally for delegation.
 
 ### Interactive User Questions
 
@@ -361,6 +361,11 @@ Simply run `vibe` to enter the interactive chat loop.
 - **Debug Console**: Press `Ctrl+\` to toggle the debug console.
 - **Agent Selection**: Press `Shift+Tab` to cycle through agents (default, plan, ...).
 - **Exit**: Type `/exit`, `exit`, `quit`, `:q`, or `:quit` in the input box, or press `Ctrl+C` / `Ctrl+D` twice within ~1 second. Set `ask_confirmation_on_exit = false` (or toggle it in `/config`) to make `Ctrl+D` quit on the first press; `Ctrl+C` always requires confirmation.
+
+### Copying & Text Selection
+
+- **Copy**: Use `Ctrl+Y` or `Ctrl+Shift+C` to copy the current selection to clipboard. With autocopy enabled (default via `autocopy_to_clipboard = true`), mouse selection automatically copies on release and shows a brief confirmation.
+- **Multi-click selection**: Double-click selects a word, triple-click selects the paragraph. Dragging extends the selection at the same granularity.
 
 You can start Vibe with a prompt using the following command:
 
@@ -659,9 +664,10 @@ Note: This implies that you have set up a redteam prompt named `~/.vibe/prompts/
 
 ### Tool Management
 
-The built-in shell surface is controlled by the `vibe_cli_managed_shell_tools`
-experiment. The default variant keeps the legacy one-shot `bash` tool, including
-its existing Windows behavior. The managed variant exposes OS-native shell tools:
+The built-in shell surface is controlled by the `managed_shell_tools_enabled` config
+field and the `vibe_cli_managed_shell_tools` GrowthBook experiment. The default variant
+keeps the legacy one-shot `bash` tool, including its existing Windows behavior.
+The managed variant exposes OS-native shell tools:
 POSIX systems, including WSL where Vibe runs as Linux, get managed `bash`,
 `bash_output`, `bash_stdin`, `bash_sessions`, and `bash_log_file`; native Windows
 gets `git_bash`, `git_bash_output`, `git_bash_stdin`, `git_bash_sessions`, and

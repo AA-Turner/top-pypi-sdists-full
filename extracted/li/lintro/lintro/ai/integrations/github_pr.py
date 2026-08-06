@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -21,6 +22,42 @@ from loguru import logger
 from lintro.ai.enums import ConfidenceLevel
 from lintro.ai.models import AIFixSuggestion, AISummary
 from lintro.ai.paths import OUTSIDE_WORKSPACE_SENTINEL, to_provider_path
+from lintro.ai.review.models.review_thread import ReviewThread
+
+#: Lists every review thread with its root comment's REST id, so a stored
+#: comment id can be joined to the thread node id the mutation requires.
+_REVIEW_THREADS_QUERY = """
+query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100, after: $cursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id
+          isResolved
+          comments(first: 1) { nodes { databaseId } }
+        }
+      }
+    }
+  }
+}
+"""
+
+#: Marks a thread resolved. There is deliberately no unresolve counterpart:
+#: a regression opens a new thread rather than reopening a settled one (#1912).
+_RESOLVE_THREAD_MUTATION = """
+mutation($threadId: ID!) {
+  resolveReviewThread(input: { threadId: $threadId }) {
+    thread { isResolved }
+  }
+}
+"""
+
+#: Commit shas are interpolated into a compare URL, so only hex refs are
+#: accepted — a branch name or user-supplied ref must not reach path building.
+#: Matched with ``fullmatch``: ``$`` alone would admit a trailing newline, and
+#: a control character in the URL makes ``Request`` raise outside the handler.
+_SHA_RE = re.compile(r"[0-9a-fA-F]{4,40}")
 
 
 class GitHubPRReporter:
@@ -68,6 +105,43 @@ class GitHubPRReporter:
         else:
             gh_ws = os.environ.get("GITHUB_WORKSPACE", "")
             self.workspace_root = Path(gh_ws) if gh_ws else _detect_repo_root()
+
+    def _authorized_request(
+        self,
+        *,
+        url: str,
+        method: str,
+        data: bytes | None = None,
+        content_type: str = "",
+    ) -> urllib.request.Request:
+        """Build an API request whose token cannot leak to a redirect target.
+
+        ``urllib`` copies ordinary headers onto redirected requests without
+        re-checking the scheme or the host, so a ``302`` to ``http://…`` would
+        replay the ``Authorization`` header in cleartext to an arbitrary origin
+        (CWE-319). Adding it as an *unredirected* header is urllib's mechanism
+        for exactly this: the token is sent to the URL validated here and to no
+        other. A redirected GitHub endpoint (a renamed repository, say) then
+        answers 401 and the caller degrades — the token stays put either way.
+
+        Args:
+            url: Fully-built request URL. The caller validates its scheme.
+            method: HTTP method.
+            data: Optional request body.
+            content_type: Optional ``Content-Type`` for a request with a body.
+
+        Returns:
+            The prepared request.
+        """
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        if content_type:
+            headers["Content-Type"] = content_type
+        req = urllib.request.Request(url, data=data, method=method, headers=headers)
+        req.add_unredirected_header("Authorization", f"Bearer {self.token}")
+        return req
 
     def is_available(self) -> bool:
         """Check whether all required context is present.
@@ -204,17 +278,9 @@ class GitHubPRReporter:
         page = 1
         while True:
             url = f"{base_url}?per_page=100&page={page}"
-            req = urllib.request.Request(
-                url,
-                method="GET",
-                headers={
-                    "Authorization": f"Bearer {self.token}",
-                    "Accept": "application/vnd.github+json",
-                    "X-GitHub-Api-Version": "2022-11-28",
-                },
-            )
+            req = self._authorized_request(url=url, method="GET")
             try:
-                with urllib.request.urlopen(  # noqa: S310 — HTTPS-only validated above  # nosemgrep: dynamic-urllib-use-detected  # nosec B310
+                with urllib.request.urlopen(  # noqa: S310 — HTTPS-only validated above  # nosemgrep: dynamic-urllib-use-detected — HTTPS-only validated above  # nosec B310 — HTTPS-only validated above
                     req,
                     timeout=30,
                 ) as resp:
@@ -232,14 +298,108 @@ class GitHubPRReporter:
                 break
             page += 1
 
-        result: dict[str, set[int]] = {}
-        for f in all_files:
-            filename = f.get("filename", "")
-            patch = f.get("patch", "")
-            if not filename or not patch:
-                continue
-            result[filename] = _parse_patch_lines(patch)
-        return result
+        return _files_to_lines(files=all_files)
+
+    def fetch_compare_lines(
+        self,
+        *,
+        base: str,
+        head: str,
+    ) -> dict[str, set[int]] | None:
+        """Fetch the changed lines between two commits.
+
+        Used to establish *this round's* posted diff (#1911): a committable
+        ``suggestion`` block is only valid on lines the round actually pushed,
+        which is a strictly smaller set than the PR's cumulative diff.
+
+        Args:
+            base: Base commit sha (the previously reviewed head).
+            head: Head commit sha for this round.
+
+        Returns:
+            Mapping of ``{file_path: {line_numbers...}}`` for right-side lines,
+            or ``None`` when the shas are unusable or the comparison cannot be
+            fetched. ``None`` is a refusal, not an empty diff: callers must not
+            read it as "nothing changed".
+
+            Deliberately a single unpaginated request. Unlike the PR *files*
+            endpoint, the compare endpoint paginates its ``commits`` array, not
+            its ``files`` array, which GitHub caps server-side at 300 entries.
+            Walking ``page`` here would re-request commits and tell us nothing
+            new about files. A comparison wider than that cap simply yields
+            fewer committable suggestions, which is the safe direction: those
+            findings fall back to a described fix.
+        """
+        if not _SHA_RE.fullmatch(base) or not _SHA_RE.fullmatch(head):
+            logger.debug("Refusing to compare non-sha refs: {}...{}", base, head)
+            return None
+        url = f"{self.api_base}/repos/{self.repo}/compare/{base}...{head}"
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme != "https":
+            return None
+
+        req = self._authorized_request(url=url, method="GET")
+        try:
+            with urllib.request.urlopen(  # noqa: S310 — HTTPS-only validated above  # nosemgrep: dynamic-urllib-use-detected — HTTPS-only validated above  # nosec B310 — HTTPS-only validated above
+                req,
+                timeout=30,
+            ) as resp:
+                payload = json.loads(resp.read().decode())
+        except (urllib.error.URLError, json.JSONDecodeError, OSError):
+            logger.debug(
+                "Failed to compare {}...{}; treating this round's diff as unknown",
+                base,
+                head,
+            )
+            return None
+
+        files = payload.get("files") if isinstance(payload, dict) else None
+        if not isinstance(files, list):
+            return None
+        return _files_to_lines(files=files)
+
+    def fetch_pr_commit_shas(self) -> list[str] | None:
+        """Fetch the PR's commit shas, oldest first.
+
+        Used to state how many commits arrived since the previous review round.
+        Failures return ``None`` so callers can omit the count rather than
+        report a fabricated one.
+
+        Returns:
+            Commit shas in chronological order, or ``None`` when the listing
+            could not be fetched.
+        """
+        base_url = f"{self.api_base}/repos/{self.repo}/pulls/{self.pr_number}/commits"
+        parsed = urllib.parse.urlparse(base_url)
+        if parsed.scheme != "https":
+            return None
+
+        shas: list[str] = []
+        page = 1
+        while True:
+            url = f"{base_url}?per_page=100&page={page}"
+            req = self._authorized_request(url=url, method="GET")
+            try:
+                with urllib.request.urlopen(  # noqa: S310 — HTTPS-only validated above  # nosemgrep: dynamic-urllib-use-detected — HTTPS-only validated above  # nosec B310 — HTTPS-only validated above
+                    req,
+                    timeout=30,
+                ) as resp:
+                    commits_page = json.loads(resp.read().decode())
+            except (urllib.error.URLError, json.JSONDecodeError, OSError):
+                logger.debug("Failed to fetch PR commits; omitting commit count")
+                return None
+
+            if not isinstance(commits_page, list) or not commits_page:
+                break
+            shas.extend(
+                str(commit.get("sha", ""))
+                for commit in commits_page
+                if isinstance(commit, dict) and commit.get("sha")
+            )
+            if len(commits_page) < 100:
+                break
+            page += 1
+        return shas
 
     def find_issue_comment(self, *, marker: str) -> tuple[int, str] | None:
         """Find an existing issue comment containing a hidden marker.
@@ -263,17 +423,9 @@ class GitHubPRReporter:
         page = 1
         while True:
             url = f"{base_url}?per_page=100&page={page}"
-            req = urllib.request.Request(
-                url,
-                method="GET",
-                headers={
-                    "Authorization": f"Bearer {self.token}",
-                    "Accept": "application/vnd.github+json",
-                    "X-GitHub-Api-Version": "2022-11-28",
-                },
-            )
+            req = self._authorized_request(url=url, method="GET")
             try:
-                with urllib.request.urlopen(  # noqa: S310 — HTTPS-only validated above  # nosemgrep: dynamic-urllib-use-detected  # nosec B310
+                with urllib.request.urlopen(  # noqa: S310 — HTTPS-only validated above  # nosemgrep: dynamic-urllib-use-detected — HTTPS-only validated above  # nosec B310 — HTTPS-only validated above
                     req,
                     timeout=30,
                 ) as resp:
@@ -292,6 +444,196 @@ class GitHubPRReporter:
             if len(comments_page) < 100:
                 return None
             page += 1
+
+    def fetch_review_comments(self) -> list[dict[str, Any]] | None:
+        """Fetch the PR's inline review comments, oldest first.
+
+        Used to recover the comment id of a freshly posted inline finding: the
+        review-submission endpoint answers with the review, not with the
+        comments it created, so the ids are only discoverable by listing.
+
+        Returns:
+            The raw comment mappings, or ``None`` when the listing failed.
+            ``None`` is a refusal, not an empty PR: a caller must not read it
+            as "this PR has no inline comments".
+        """
+        base_url = f"{self.api_base}/repos/{self.repo}/pulls/{self.pr_number}/comments"
+        parsed = urllib.parse.urlparse(base_url)
+        if parsed.scheme != "https":
+            return None
+
+        comments: list[dict[str, Any]] = []
+        page = 1
+        while True:
+            url = f"{base_url}?per_page=100&page={page}"
+            req = self._authorized_request(url=url, method="GET")
+            try:
+                with urllib.request.urlopen(  # noqa: S310 — HTTPS-only validated above  # nosemgrep: dynamic-urllib-use-detected — HTTPS-only validated above  # nosec B310 — HTTPS-only validated above
+                    req,
+                    timeout=30,
+                ) as resp:
+                    page_items = json.loads(resp.read().decode())
+            except (urllib.error.URLError, json.JSONDecodeError, OSError):
+                logger.debug("Failed to list PR review comments")
+                return None
+
+            if not isinstance(page_items, list) or not page_items:
+                break
+            comments.extend(item for item in page_items if isinstance(item, dict))
+            if len(page_items) < 100:
+                break
+            page += 1
+        return comments
+
+    def update_review_comment(self, *, comment_id: int, body: str) -> bool:
+        """Edit an existing inline review comment in place.
+
+        Args:
+            comment_id: Numeric id of the review comment to edit.
+            body: New Markdown body.
+
+        Returns:
+            True if the update succeeded.
+        """
+        url = f"{self.api_base}/repos/{self.repo}/pulls/comments/{comment_id}"
+        return self.api_request("PATCH", url, {"body": body})
+
+    @property
+    def graphql_url(self) -> str:
+        """Return the GraphQL endpoint matching this reporter's REST base.
+
+        Returns:
+            ``https://api.github.com/graphql`` for github.com; the sibling
+            ``/api/graphql`` endpoint for a GitHub Enterprise ``/api/v3`` base.
+        """
+        if self.api_base.endswith("/api/v3"):
+            return f"{self.api_base.removesuffix('/v3')}/graphql"
+        return f"{self.api_base}/graphql"
+
+    def graphql_request(
+        self,
+        *,
+        query: str,
+        variables: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """Execute a GraphQL query or mutation against the GitHub API.
+
+        Args:
+            query: GraphQL document to execute.
+            variables: Variable bindings for the document.
+
+        Returns:
+            The ``data`` object of a successful response, or ``None`` when the
+            request failed, returned unparsable JSON, or carried GraphQL
+            ``errors`` — GraphQL answers 200 for a failed mutation, so the
+            error array is the only signal that it did not take effect.
+        """
+        url = self.graphql_url
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme != "https":
+            logger.warning("Refusing non-HTTPS GraphQL URL: {}", url)
+            return None
+
+        req = self._authorized_request(
+            url=url,
+            method="POST",
+            data=json.dumps({"query": query, "variables": variables}).encode(),
+            content_type="application/json",
+        )
+        try:
+            with urllib.request.urlopen(  # noqa: S310 — HTTPS-only validated above  # nosemgrep: dynamic-urllib-use-detected — HTTPS-only validated above  # nosec B310 — HTTPS-only validated above
+                req,
+                timeout=30,
+            ) as resp:
+                payload = json.loads(resp.read().decode())
+        except (urllib.error.URLError, json.JSONDecodeError, OSError) as exc:
+            logger.debug("GitHub GraphQL request failed: {}", exc)
+            return None
+
+        if not isinstance(payload, dict):
+            return None
+        if payload.get("errors"):
+            logger.warning(
+                "GitHub GraphQL request returned errors: {}",
+                payload["errors"],
+            )
+            return None
+        data = payload.get("data")
+        return data if isinstance(data, dict) else None
+
+    def fetch_review_threads(self) -> dict[int, ReviewThread] | None:
+        """Map each review thread's root comment id to the thread itself.
+
+        ``resolveReviewThread`` takes a thread node id, and the state blob only
+        stores REST comment ids, so the two must be joined. The join key is the
+        thread's *first* comment: that is the comment lintro posted to open the
+        thread, and it is the id persisted for the finding.
+
+        Returns:
+            Mapping of root comment database id to thread, or ``None`` when the
+            query failed — the caller then skips resolution rather than
+            guessing at thread identity.
+        """
+        if not self.repo or "/" not in self.repo:
+            return None
+        owner, _, name = self.repo.partition("/")
+
+        threads: dict[int, ReviewThread] = {}
+        cursor: str | None = None
+        while True:
+            data = self.graphql_request(
+                query=_REVIEW_THREADS_QUERY,
+                variables={
+                    "owner": owner,
+                    "name": name,
+                    "number": self.pr_number,
+                    "cursor": cursor,
+                },
+            )
+            if data is None:
+                return None
+            container = _dig(data, "repository", "pullRequest", "reviewThreads")
+            if container is None:
+                return None
+            for node in container.get("nodes") or []:
+                if not isinstance(node, dict):
+                    continue
+                node_id = node.get("id")
+                comments = (node.get("comments") or {}).get("nodes") or []
+                root = comments[0] if comments and isinstance(comments[0], dict) else {}
+                database_id = root.get("databaseId")
+                if isinstance(node_id, str) and isinstance(database_id, int):
+                    threads[database_id] = ReviewThread(
+                        node_id=node_id,
+                        is_resolved=bool(node.get("isResolved")),
+                    )
+            page_info = container.get("pageInfo") or {}
+            if not page_info.get("hasNextPage"):
+                return threads
+            next_cursor = page_info.get("endCursor")
+            if not isinstance(next_cursor, str) or next_cursor == cursor:
+                # A server that repeats its cursor would loop forever; stop with
+                # what has been collected instead.
+                return threads
+            cursor = next_cursor
+
+    def resolve_review_thread(self, *, thread_id: str) -> bool:
+        """Resolve a PR review thread via the GraphQL mutation.
+
+        Args:
+            thread_id: GraphQL node id of the thread to resolve.
+
+        Returns:
+            True when GitHub reports the thread as resolved.
+        """
+        data = self.graphql_request(
+            query=_RESOLVE_THREAD_MUTATION,
+            variables={"threadId": thread_id},
+        )
+        if data is None:
+            return False
+        thread = _dig(data, "resolveReviewThread", "thread")
+        return bool(thread and thread.get("isResolved"))
 
     def update_issue_comment(self, *, comment_id: int, body: str) -> bool:
         """Update an existing issue comment in place.
@@ -335,16 +677,11 @@ class GitHubPRReporter:
             True if the request succeeded (2xx status).
         """
         data = json.dumps(payload).encode()
-        req = urllib.request.Request(
-            url,
-            data=data,
+        req = self._authorized_request(
+            url=url,
             method=method,
-            headers={
-                "Authorization": f"Bearer {self.token}",
-                "Accept": "application/vnd.github+json",
-                "Content-Type": "application/json",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
+            data=data,
+            content_type="application/json",
         )
         parsed = urllib.parse.urlparse(url)
         if parsed.scheme != "https":
@@ -352,7 +689,7 @@ class GitHubPRReporter:
             return False
 
         try:
-            with urllib.request.urlopen(  # noqa: S310 — HTTPS-only validated above  # nosemgrep: dynamic-urllib-use-detected  # nosec B310
+            with urllib.request.urlopen(  # noqa: S310 — HTTPS-only validated above  # nosemgrep: dynamic-urllib-use-detected — HTTPS-only validated above  # nosec B310 — HTTPS-only validated above
                 req,
                 timeout=30,
             ) as resp:
@@ -430,6 +767,25 @@ class GitHubPRReporter:
         return self.api_request(method, url, payload)
 
 
+def _dig(payload: dict[str, Any], *keys: str) -> dict[str, Any] | None:
+    """Walk a chain of mapping keys in an untrusted GraphQL response.
+
+    Args:
+        payload: Decoded response object.
+        *keys: Successive keys to follow.
+
+    Returns:
+        The nested mapping, or ``None`` as soon as a level is missing or is not
+        a mapping — a partial GraphQL response must degrade, not raise.
+    """
+    current: Any = payload
+    for key in keys:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    return current if isinstance(current, dict) else None
+
+
 def _detect_repo_root() -> Path | None:
     """Detect the git repository root via ``git rev-parse``.
 
@@ -456,6 +812,37 @@ def _detect_repo_root() -> Path | None:
         return None
 
 
+def _files_to_lines(*, files: Sequence[dict[str, Any]]) -> dict[str, set[int]]:
+    """Reduce a GitHub files listing to right-side changed lines per path.
+
+    Args:
+        files: Entries from a ``files`` array (PR files or a comparison).
+
+    Returns:
+        Mapping of file path to the right-side line numbers it changed. Entries
+        that are not mappings are skipped rather than raising — the caller's
+        error handling does not wrap this reduction. Entries without a path or
+        without a patch (binary files, or files too large for GitHub to render)
+        are omitted. A filename appearing on more than one page has its line
+        sets merged, not overwritten.
+    """
+    result: dict[str, set[int]] = {}
+    for entry in files:
+        if not isinstance(entry, dict):
+            continue
+        filename = entry.get("filename", "")
+        patch = entry.get("patch", "")
+        # Type, not merely truthiness: a list ``filename`` is unhashable and a
+        # non-string ``patch`` has no ``split``. Either would raise from outside
+        # the caller's handler instead of degrading to a described fix.
+        if not isinstance(filename, str) or not isinstance(patch, str):
+            continue
+        if not filename or not patch:
+            continue
+        result.setdefault(filename, set()).update(_parse_patch_lines(patch))
+    return result
+
+
 def _parse_patch_lines(patch: str) -> set[int]:
     """Extract right-side (new) line numbers from a unified diff patch.
 
@@ -465,8 +852,6 @@ def _parse_patch_lines(patch: str) -> set[int]:
     Returns:
         Set of line numbers on the right side of the diff.
     """
-    import re
-
     lines: set[int] = set()
     current_line = 0
     for raw_line in patch.split("\n"):

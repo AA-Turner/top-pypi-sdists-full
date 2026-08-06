@@ -410,6 +410,7 @@ TargetTypeType = Literal[
     "AGENTCORE_RUNTIME",
     "API_GATEWAY",
     "CONNECTOR",
+    "HTTP_CONNECTOR",
     "LAMBDA",
     "MCP_SERVER",
     "OPEN_API_SCHEMA",

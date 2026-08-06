@@ -83,6 +83,8 @@ if TYPE_CHECKING:
         ScalingGroupResourceRequest,
     )
     from chalk.testing import FeatureAssertion, StreamMessage, UploadFeatures
+    from chalk.workflows import WorkflowDefinition
+    from chalk.workflows._remote import WorkflowRunHandle
 
     QueryInput = Mapping[FeatureReference, Any] | pd.DataFrame | pl.DataFrame | DataFrame
 
@@ -318,8 +320,12 @@ class ChalkClient:
             See https://docs.chalk.ai/api-docs#ChalkContext for more information.
         trace
             Force tracing on the query. Requests using `trace=True` will be slower
-            than requests using `trace=False`. Requires Datadog tracing to be installed
-            for this to have any effect
+            than requests using `trace=False`. Requires `opentelemetry-api` and
+            `opentelemetry-sdk` to be installed (for example via the `chalkpy[tracing]`
+            extra) for this to have any effect. When enabled, the query is traced
+            regardless of the server's default trace sampling rate, and the query run
+            records a trace ID that you can filter for on the Online Queries page in
+            the Chalk dashboard.
         translate_fqns
             If `True`, rewrite windowed feature names in the response from their internal
             FQN format (e.g. `user.login_count__86400__`) to a human-readable format
@@ -479,6 +485,7 @@ class ChalkClient:
         request_timeout: Optional[float] = None,
         headers: Mapping[str, str] | None = None,
         translate_fqns: bool = False,
+        trace: bool = False,
     ) -> BulkOnlineQueryResponse:
         """Compute features values for many rows of inputs using online resolvers.
         See https://docs.chalk.ai/docs/query-basics for more information on online query.
@@ -559,6 +566,15 @@ class ChalkClient:
             If `True`, rewrite windowed feature column names in each result from their
             internal FQN format (e.g. `user.login_count__86400__`) to a human-readable
             format (e.g. `user.login_count["1d"]`).
+        trace
+            Force tracing on the query. Requests using `trace=True` will be slower
+            than requests using `trace=False`. Requires `opentelemetry-api` and
+            `opentelemetry-sdk` to be installed (for example via the `chalkpy[tracing]`
+            extra) for this to have any effect. When enabled, the query is traced
+            regardless of the server's default trace sampling rate, and the query run
+            records a trace ID that you can filter for on the Online Queries page in
+            the Chalk dashboard.
+
 
         Returns
         -------
@@ -3385,6 +3401,102 @@ class ChalkClient:
         -------
         list
             A list of aggregate backfill job responses, one per planned backfill job.
+        """
+        ...
+
+    def trigger_workflow(
+        self,
+        workflow: WorkflowDefinition | str,
+        input: Optional[Mapping[str, Any]] = None,
+        *,
+        workflow_id: Optional[str] = None,
+        environment: Optional[EnvironmentId] = None,
+        wait: bool = False,
+    ) -> Union[WorkflowRunHandle, Any]:
+        """Start a `@workflow` on this environment's workflow orchestrator.
+
+        The workflow must be part of the environment's active deployment: its tasks
+        execute on the deployment's workflow workers. To execute a workflow defined
+        in a local file that has not been deployed, use `run_workflow` instead.
+
+        Requires the `temporalio` package (`pip install chalkpy[workflows]`).
+
+        Parameters
+        ----------
+        workflow
+            The workflow to run: a `@workflow`-decorated function or its name.
+        input
+            Keyword arguments for the workflow function. Values must be
+            JSON-serializable.
+        workflow_id
+            Idempotency key identifying this run. Defaults to a generated id.
+        environment
+            The environment under which to run the workflow.
+        wait
+            If `True`, block until the workflow completes and return its result.
+
+        Returns
+        -------
+        Union[WorkflowRunHandle, Any]
+            A handle for the started run, or the workflow's return value if
+            `wait=True`.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> client = ChalkClient()
+        >>> client.trigger_workflow("nightly_scoring", input={"segment": "us"})
+        """
+        ...
+
+    def run_workflow(
+        self,
+        workflow: WorkflowDefinition,
+        input: Optional[Mapping[str, Any]] = None,
+        *,
+        workflow_id: Optional[str] = None,
+        environment: Optional[EnvironmentId] = None,
+    ) -> Any:
+        """Run a locally defined `@workflow` against this environment's workflow
+        orchestrator, and block until it completes.
+
+        Coordination (durable state, retries, timers) happens on the environment's
+        workflow orchestrator, while the workflow and its tasks execute in this
+        process — the workflow does not need to be deployed first. This is intended
+        for local development; use `trigger_workflow` to run deployed workflows on
+        the environment's workflow workers.
+
+        Requires the `temporalio` package (`pip install chalkpy[workflows]`).
+
+        Parameters
+        ----------
+        workflow
+            A `@workflow`-decorated function defined in this process.
+        input
+            Keyword arguments for the workflow function. Values must be
+            JSON-serializable.
+        workflow_id
+            Idempotency key identifying this run. Defaults to a generated id.
+        environment
+            The environment under which to run the workflow.
+
+        Returns
+        -------
+        Any
+            The workflow's return value.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> from chalk.workflows import task, workflow
+        >>> @task
+        ... def add(x: int, y: int) -> int:
+        ...     return x + y
+        >>> @workflow
+        ... async def add_workflow(x: int, y: int) -> int:
+        ...     return await add(x, y)
+        >>> client = ChalkClient()
+        >>> client.run_workflow(add_workflow, input={"x": 1, "y": 2})
         """
         ...
 

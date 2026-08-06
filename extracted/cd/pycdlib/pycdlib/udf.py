@@ -29,7 +29,7 @@ from pycdlib import utils
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import List, Optional, Tuple, Type, Union  # noqa: F401
+    from typing import Dict, List, Optional, Tuple, Type, Union  # noqa: F401
     # NOTE: this import has to be here to avoid circular deps
     from pycdlib import inode  # noqa: F401
 
@@ -1431,13 +1431,13 @@ class UDFPrimaryVolumeDescriptor:
             return self.orig_extent_loc
         return self.new_extent_loc
 
-    def new(self):
-        # type: () -> None
+    def new(self, vol_ident):
+        # type: (str) -> None
         """
         Create a new UDF Primary Volume Descriptor.
 
         Parameters:
-         None.
+         vol_ident - The volume identifier string to use for this descriptor.
         Returns:
          Nothing.
         """
@@ -1449,7 +1449,7 @@ class UDFPrimaryVolumeDescriptor:
 
         self.vol_desc_seqnum = 0  # FIXME: let the user set this
         self.desc_num = 0  # FIXME: let the user set this
-        self.vol_ident = _ostaunicode_zero_pad('CDROM', 32)
+        self.vol_ident = _ostaunicode_zero_pad(vol_ident, 32)
         # According to UDF 2.60, 2.2.2.5, the VolumeSetIdentifier should have
         # at least the first 16 characters be a unique value.  Further, the
         # first 8 bytes of that should be a time value in ASCII hexadecimal
@@ -1576,14 +1576,14 @@ class UDFImplementationUseVolumeDescriptorImplementationUse:
                            self.lv_info1, self.lv_info2, self.lv_info3,
                            self.impl_ident.record(), self.impl_use)
 
-    def new(self):
-        # type: () -> None
+    def new(self, vol_ident):
+        # type: (str) -> None
         """
         Create a new UDF Implementation Use Volume Descriptor Implementation Use
         field.
 
         Parameters:
-         None:
+         vol_ident - The logical volume identifier string to use for this field.
         Returns:
          Nothing.
         """
@@ -1592,7 +1592,7 @@ class UDFImplementationUseVolumeDescriptorImplementationUse:
 
         self.char_set = UDFCharspec()
         self.char_set.new(0, b'OSTA Compressed Unicode')  # FIXME: let the user set this
-        self.log_vol_ident = _ostaunicode_zero_pad('CDROM', 128)
+        self.log_vol_ident = _ostaunicode_zero_pad(vol_ident, 128)
         self.lv_info1 = b'\x00' * 36
         self.lv_info2 = b'\x00' * 36
         self.lv_info3 = b'\x00' * 36
@@ -1698,13 +1698,13 @@ class UDFImplementationUseVolumeDescriptor:
             return self.orig_extent_loc
         return self.new_extent_loc
 
-    def new(self):
-        # type: () -> None
+    def new(self, vol_ident):
+        # type: (str) -> None
         """
         Create a new UDF Implementation Use Volume Descriptor.
 
         Parameters:
-         None:
+         vol_ident - The logical volume identifier string to use for this descriptor.
         Returns:
          Nothing.
         """
@@ -1720,7 +1720,7 @@ class UDFImplementationUseVolumeDescriptor:
         self.impl_ident.new(0, b'*UDF LV Info', b'\x02\x01')
 
         self.impl_use = UDFImplementationUseVolumeDescriptorImplementationUse()
-        self.impl_use.new()
+        self.impl_use.new(vol_ident)
 
         self._initialized = True
 
@@ -2769,13 +2769,13 @@ class UDFLogicalVolumeDescriptor:
             return self.orig_extent_loc
         return self.new_extent_loc
 
-    def new(self):
-        # type: () -> None
+    def new(self, vol_ident):
+        # type: (str) -> None
         """
         Create a new UDF Logical Volume Descriptor.
 
         Parameters:
-         None.
+         vol_ident - The logical volume identifier string to use for this descriptor.
         Returns:
          Nothing.
         """
@@ -2789,7 +2789,7 @@ class UDFLogicalVolumeDescriptor:
         self.desc_char_set = UDFCharspec()
         self.desc_char_set.new(0, b'OSTA Compressed Unicode')  # FIXME: let the user set this
 
-        self.logical_vol_ident = _ostaunicode_zero_pad('CDROM', 128)
+        self.logical_vol_ident = _ostaunicode_zero_pad(vol_ident, 128)
 
         self.domain_ident = UDFEntityID()
         self.domain_ident.new(0, b'*OSTA UDF Compliant', b'\x02\x01\x03')
@@ -3558,13 +3558,14 @@ class UDFFileSetDescriptor:
             return self.orig_extent_loc
         return self.new_extent_loc
 
-    def new(self):
-        # type: () -> None
+    def new(self, vol_ident):
+        # type: (str) -> None
         """
         Create a new UDF File Set Descriptor.
 
         Parameters:
-         None.
+         vol_ident - The logical volume / file set identifier string to use for
+                     this descriptor.
         Returns:
          Nothing.
         """
@@ -3586,10 +3587,10 @@ class UDFFileSetDescriptor:
         self.file_set_num = 0
         self.log_vol_char_set = UDFCharspec()
         self.log_vol_char_set.new(0, b'OSTA Compressed Unicode')  # FIXME: let the user set this
-        self.log_vol_ident = _ostaunicode_zero_pad('CDROM', 128)
+        self.log_vol_ident = _ostaunicode_zero_pad(vol_ident, 128)
         self.file_set_char_set = UDFCharspec()
         self.file_set_char_set.new(0, b'OSTA Compressed Unicode')  # FIXME: let the user set this
-        self.file_set_ident = _ostaunicode_zero_pad('CDROM', 32)
+        self.file_set_ident = _ostaunicode_zero_pad(vol_ident, 32)
         self.copyright_file_ident = b'\x00' * 32  # FIXME: let the user set this
         self.abstract_file_ident = b'\x00' * 32  # FIXME: let the user set this
 
@@ -3785,7 +3786,12 @@ class UDFFileEntry:
     def __init__(self):
         # type: () -> None
         self.alloc_descs = []  # type: List[Union[UDFShortAD, UDFLongAD, UDFInlineAD]]
-        self.fi_descs = []  # type: List[UDFFileIdentifierDescriptor]
+        # Insertion-ordered: dict (Python 3.7+) preserves insertion order, so
+        # iteration via .values() gives the same sequence the on-disk record
+        # cares about.  The dict key is the descriptor's raw on-disk `fi`
+        # field, which is in whatever encoding the descriptor uses (latin-1
+        # or utf-16_be).  Lookup is O(1); ordered iteration via .values().
+        self.fi_descs = {}  # type: Dict[bytes, UDFFileIdentifierDescriptor]
         self._initialized = False
         self.parent = None  # type: Optional[UDFFileEntry]
         self.hidden = False
@@ -4031,7 +4037,7 @@ class UDFFileEntry:
         if self.icb_tag.file_type != 4:
             raise pycdlibexception.PyCdlibInvalidInput('Can only add a UDF File Identifier to a directory')
 
-        self.fi_descs.append(new_fi_desc)
+        self.fi_descs[new_fi_desc.fi] = new_fi_desc
 
         num_bytes_to_add = UDFFileIdentifierDescriptor.length(len(new_fi_desc.fi))
 
@@ -4066,20 +4072,10 @@ class UDFFileEntry:
         if not self._initialized:
             raise pycdlibexception.PyCdlibInternalError('UDF File Entry not initialized')
 
-        tmp_fi_desc = UDFFileIdentifierDescriptor()
-        tmp_fi_desc.isparent = False
-        tmp_fi_desc.fi = name
-
-        # If flags bit 3 is set, the entries are sorted.
-        desc_index = len(self.fi_descs)
-        for index, fi_desc in enumerate(self.fi_descs):
-            if fi_desc.fi == name:
-                desc_index = index
-                break
-        if desc_index == len(self.fi_descs) or self.fi_descs[desc_index].fi != name:
+        this_desc = self.fi_descs.get(name)
+        if this_desc is None:
             raise pycdlibexception.PyCdlibInvalidInput('Cannot find file to remove')
 
-        this_desc = self.fi_descs[desc_index]
         if this_desc.is_dir():
             if this_desc.file_entry is None:
                 raise pycdlibexception.PyCdlibInternalError('No UDF File Entry for UDF File Descriptor')
@@ -4092,7 +4088,7 @@ class UDFFileEntry:
         new_num_extents = utils.ceiling_div(self.info_len, logical_block_size)
         self.alloc_descs[0].extent_length = self.info_len
 
-        del self.fi_descs[desc_index]
+        del self.fi_descs[name]
 
         return old_num_extents - new_num_extents
 
@@ -4246,24 +4242,23 @@ class UDFFileEntry:
         if self.icb_tag.file_type != 4 or not self.fi_descs:
             raise pycdlibexception.PyCdlibInvalidInput('Could not find path')
 
+        # fi_descs is keyed on the raw on-disk fi bytes, which can be either
+        # latin-1 or utf-16_be depending on what the descriptor uses.  Try
+        # both encodings of currpath; whichever matches an entry in this
+        # directory wins.  Latin-1 is tried first to preserve the original
+        # linear-scan precedence (a latin-1 entry was matched ahead of a
+        # utf-16_be entry with the same logical name).
         tmp = currpath.decode('utf-8')
         try:
             latin1_currpath = tmp.encode('latin-1')
         except (UnicodeDecodeError, UnicodeEncodeError):
             latin1_currpath = b''
-        ucs2_currpath = tmp.encode('utf-16_be')
 
         child = None
-
-        for fi_desc in self.fi_descs:
-            if latin1_currpath and fi_desc.encoding == 'latin-1':
-                eq = fi_desc.fi == latin1_currpath
-            else:
-                eq = fi_desc.fi == ucs2_currpath
-
-            if eq:
-                child = fi_desc
-                break
+        if latin1_currpath:
+            child = self.fi_descs.get(latin1_currpath)
+        if child is None:
+            child = self.fi_descs.get(tmp.encode('utf-16_be'))
 
         if child is None:
             raise pycdlibexception.PyCdlibInvalidInput('Could not find path')
@@ -4286,7 +4281,7 @@ class UDFFileEntry:
         if not self._initialized:
             raise pycdlibexception.PyCdlibInternalError('UDF File Entry not initialized')
 
-        self.fi_descs.append(file_ident)
+        self.fi_descs[file_ident.fi] = file_ident
 
     def is_dot(self):
         # type: () -> bool

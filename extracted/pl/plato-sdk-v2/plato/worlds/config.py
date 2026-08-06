@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, Field, JsonValue, PrivateAttr, TypeAdapter
 
 from plato._generated.models import (
     EnvFromArtifact,
@@ -384,6 +384,22 @@ class RunConfig(BaseModel):
 
     model_config = {"extra": "allow"}
 
+    # The world VM's own runtime config (the `world.runtime` block of the launch
+    # config). Populated by `from_file`; a private attr so it stays out of the
+    # world's config schema and serialized dumps.
+    _world_runtime: RuntimeConfig | None = PrivateAttr(default=None)
+
+    @property
+    def world_vm_timeout(self) -> int | None:
+        """The world VM's own sandbox timeout in seconds, when known.
+
+        None when the config was not loaded through ``from_file`` or the launch
+        config carried no ``world.runtime`` block (e.g. non-VM runtimes).
+        """
+        if isinstance(self._world_runtime, VMRuntimeConfig):
+            return self._world_runtime.vm.timeout
+        return None
+
     @classmethod
     def get_field_annotations(cls) -> dict[str, FieldMarker | WorkspaceMarker | None]:
         """Get FieldMarker annotations for each field."""
@@ -423,7 +439,12 @@ class RunConfig(BaseModel):
 
         # Read from world.config if present
         data = full
+        world_runtime_data: Any = None
         if "world" in data and isinstance(data["world"], dict) and "config" in data["world"]:
+            world_runtime_data = data["world"].get("runtime")
             data = data["world"]["config"]
 
-        return cls.model_validate(data)
+        config = cls.model_validate(data)
+        if world_runtime_data is not None:
+            config._world_runtime = TypeAdapter(RuntimeConfig).validate_python(world_runtime_data)
+        return config

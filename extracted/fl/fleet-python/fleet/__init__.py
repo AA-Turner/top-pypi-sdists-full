@@ -26,8 +26,6 @@ from .exceptions import (
 )
 from .client import Fleet, SyncEnv, Session
 from ._async.client import AsyncFleet, AsyncEnv, AsyncSession
-from .browser import BrowserLease, host_from_url
-from ._async.browser import AsyncBrowserLease
 from .models import InstanceResponse, Environment, Run
 from .instance.models import Resource, ResetResponse
 
@@ -40,6 +38,9 @@ from .verifiers import (
     SnapshotDiff,
     TASK_FAILED_SCORE,
     TASK_SUCCESSFUL_SCORE,
+    execute_verifier_local,
+    LocalEnvironment,
+    diff_dbs,
 )
 
 # Import async verifiers (default verifier is async for modern usage)
@@ -78,7 +79,7 @@ from . import env
 from . import global_client as _global_client
 from ._async import global_client as _async_global_client
 
-__version__ = "0.2.132"
+__version__ = "0.2.133"
 
 __all__ = [
     # Core classes
@@ -86,10 +87,6 @@ __all__ = [
     "SyncEnv",
     "AsyncFleet",
     "AsyncEnv",
-    # Browser lease (orchestrator-managed /v1/browser)
-    "BrowserLease",
-    "AsyncBrowserLease",
-    "host_from_url",
     # Models
     "InstanceResponse",
     "SyncEnv",
@@ -120,6 +117,9 @@ __all__ = [
     "SnapshotDiff",
     "TASK_FAILED_SCORE",
     "TASK_SUCCESSFUL_SCORE",
+    "execute_verifier_local",
+    "LocalEnvironment",
+    "diff_dbs",
     # Environment module
     "env",
     # Global client helpers

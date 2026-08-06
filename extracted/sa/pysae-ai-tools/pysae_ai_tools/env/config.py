@@ -32,6 +32,9 @@ from dataclasses import dataclass
 
 import typer
 
+from ..common.browser import announce_delegated_flow
+from ..common.glab.runner import DEFAULT_HOST as DEFAULT_GITLAB_HOST
+from ..common.registry_auth import pat as registry_pat
 from . import trace
 
 
@@ -297,6 +300,13 @@ class GlabAuthResolver(Resolver):
         if shutil.which("glab") is None:
             trace.failure(label, "glab not installed")
             return None
+
+        # glab mints and opens its own URL, so we cannot print it — announce the
+        # hand-over instead, or a browser tab appears mid-install from nowhere.
+        announce_delegated_flow(
+            f"glab auth login --hostname {self.host}",
+            what=f"GitLab authentication ({self.host})",
+        )
 
         # Pre-answer every glab prompt that has a sensible default — host, git
         # protocol, API protocol, container-registry domains. The only prompts
@@ -605,6 +615,23 @@ ENV_CONFIG: dict[str, EnvVarSpec] = {
                 ),
             ),
         ),
+    ),
+    "GITLAB_REGISTRY_TOKEN": EnvVarSpec(
+        # No AWS resolver: the developer creates and holds their own PAT — the
+        # infrastructure never distributes this secret. ``cache=True`` is the
+        # legitimate case for it (same as SLACK_USER_TOKEN): the value is only
+        # obtainable by hand, and the sole thing that rotates it is this CLI,
+        # which rewrites the cache itself — so caching hides no upstream change.
+        description=(
+            "PAT GitLab en lecture pour les registries privées (paquets Python, npm, images de conteneurs) — "
+            f"scopes {', '.join(registry_pat.REQUIRED_SCOPES)}"
+        ),
+        resolvers=(
+            ManualResolver(
+                instructions=f"Crée-le (nom et scopes pré-remplis) : {registry_pat.creation_url(DEFAULT_GITLAB_HOST)}",
+            ),
+        ),
+        cache=True,
     ),
     "POSTMAN_API_KEY": EnvVarSpec(
         description="Postman API Key",

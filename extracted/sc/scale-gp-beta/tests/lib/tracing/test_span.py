@@ -7,6 +7,7 @@ from typing_extensions import Generator
 import pytest
 
 from scale_gp_beta.lib.tracing.span import Span, BaseSpan, NoOpSpan
+from scale_gp_beta.lib.tracing.exceptions import PlatformError
 from scale_gp_beta.lib.tracing.trace_queue_manager import TraceQueueManager
 
 
@@ -84,9 +85,25 @@ class TestBaseSpan:
         assert span.metadata["error"] is True
         assert span.metadata["error_type"] == "ValueError"
         assert span.metadata["error_message"] == "Test error"
+        assert span.metadata["error_category"] == "unknown"
         assert span.start_time == "start-ts"
         assert span.end_time == "end-ts"
         assert span.status == "ERROR"
+
+    def test_set_error_records_explicit_category(self, mock_queue_manager: Mock):
+        span = BaseSpan(name="error_test", trace_id="trace_error", queue_manager=mock_queue_manager)
+
+        span.set_error(error_message="bad input", error_category="application")
+
+        assert span.status == "ERROR"
+        assert span.metadata["error_category"] == "application"
+
+    def test_set_error_uses_exception_category(self, mock_queue_manager: Mock):
+        span = BaseSpan(name="error_test", trace_id="trace_error", queue_manager=mock_queue_manager)
+
+        span.set_error(exception=PlatformError("unavailable"))
+
+        assert span.metadata["error_category"] == "platform"
 
     def test_to_request_params_basic(
             self, mock_queue_manager: Mock, patched_utils: Dict[str, Mock] # noqa: ARG002
@@ -327,4 +344,29 @@ class TestSpan:
         assert span.metadata["error"] is True
         assert span.metadata["error_type"] == "RuntimeError"
         assert span.metadata["error_message"] == "Operational error"
+        assert span.metadata["error_category"] == "unknown"
         assert span.status == "ERROR"
+
+    def test_exception_category_descriptor_cannot_break_finalization(
+            self,
+            mock_queue_manager: Mock,
+            patched_utils: Dict[str, Mock],  # noqa: ARG002
+            mock_scope_set_current_span: MagicMock,
+            mock_scope_reset_current_span: MagicMock,
+    ):
+        class DescriptorError(RuntimeError):
+            @property
+            def error_category(self):
+                raise AssertionError("descriptor must not be accessed")
+
+        span = Span(name="op_ctx_exc", trace_id="t_ctx_op_exc", queue_manager=mock_queue_manager)
+        mock_token = mock_scope_set_current_span.return_value
+
+        with pytest.raises(DescriptorError, match="Operational error"):
+            with span:
+                raise DescriptorError("Operational error")
+
+        assert span.end_time == "end-ts"
+        mock_queue_manager.report_span_end.assert_called_once_with(span)
+        mock_scope_reset_current_span.assert_called_once_with(mock_token)
+        assert span.metadata["error_category"] == "unknown"

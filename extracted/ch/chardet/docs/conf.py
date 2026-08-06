@@ -18,10 +18,12 @@ extensions = [
 autosummary_generate = True
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "plans"]
+exclude_patterns = ["_build", "plans", "adr"]
 
 html_theme = "furo"
-html_static_path = ["_static"]
+# No custom static assets; docs/_static/ is gitignored, and pointing
+# html_static_path at a missing directory fails `sphinx-build -W` on a
+# fresh checkout.
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),

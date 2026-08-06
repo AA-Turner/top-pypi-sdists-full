@@ -95,6 +95,7 @@ from xpander_sdk.modules.tools_repository.models.mcp import (
     MCPOAuthGetTokenResponse,
     MCPServerDetails,
 )
+from xpander_sdk.utils.answer_guards import ends_with_question
 from xpander_sdk.utils.event_loop import run_sync
 from xpander_sdk.models.compactization import TaskCompactizationEvent
 
@@ -794,7 +795,7 @@ class Task(XPanderSharedModel):
             if deep_planning_backup and deep_planning_backup.tasks:
                 self.deep_planning = deep_planning_backup
 
-            if not self.deep_planning.question_raised:
+            if not ends_with_question(self.result):
                 uncompleted_tasks = [
                     task for task in self.deep_planning.tasks if not task.completed
                 ]
@@ -804,11 +805,6 @@ class Task(XPanderSharedModel):
                         uncompleted_tasks=uncompleted_tasks,
                         retry_count=retry_count,
                     )
-            else:
-                self.deep_planning.question_raised = (
-                    False  # reset question raised indicator
-                )
-                self.save(with_deep_plan_update=True)
 
         return message
 
@@ -1189,8 +1185,8 @@ class Task(XPanderSharedModel):
                 and self.deep_planning.enforce
             ):
 
-                # allow early exit to ask question
-                if self.deep_planning.question_raised:
+                # a run that ends by asking the user something must not be re-driven
+                if ends_with_question(self.result):
                     return PlanFollowingStatus(can_finish=True)
 
                 uncompleted_tasks = [

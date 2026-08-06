@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import chardet
 from chardet.enums import EncodingEra
-from chardet.equivalences import is_correct, is_equivalent_detection
+from chardet.evaluation import is_correct, is_equivalent_detection
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 

@@ -1,0 +1,2 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./index.umd-Ry4itQ-J.js","./plotly-CrTaWLEP.js"])))=>i.map(i=>d[i]);
+import{_ as o,a as n,b as a}from"./index-y1BHtx-l.js";import"./plotly-CrTaWLEP.js";import"./recharts-CVHly1uX.js";function l(i){return o(this,void 0,void 0,function(){var t;return n(this,function(r){switch(r.label){case 0:return[4,a(()=>import("./index.umd-Ry4itQ-J.js").then(e=>e.i),__vite__mapDeps([0,1]),import.meta.url)];case 1:return t=r.sent(),i._plugins=t,[2]}})})}export{l as loadLegacyVideoPlugins};

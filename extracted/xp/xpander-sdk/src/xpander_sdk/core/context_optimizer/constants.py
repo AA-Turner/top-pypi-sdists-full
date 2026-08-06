@@ -60,8 +60,12 @@ STAGNANT_COMPACTION_WARN_AT = 2
 # restarts and plan retries. WARN_AT injects a tool-result warning;
 # MAX_REPEATED_TOOL_CALLS aborts via Finalize-Only Mode on the next
 # identical call.
-REPEATED_TOOL_CALL_WARN_AT = 5
-MAX_REPEATED_TOOL_CALLS = 7
+# Chunked writes and per-item lookups never count here: the signature hashes the
+# arguments, so a different chunk/content/item is a different signature. Only
+# CONSECUTIVE byte-identical calls advance this - the headroom above the warn is
+# for transient-failure retries of the same call.
+REPEATED_TOOL_CALL_WARN_AT = 3
+MAX_REPEATED_TOOL_CALLS = 5
 
 # Consecutive-error circuit breaker. Unlike the identical-args stuck
 # detector above, this counts consecutive ERRORED calls of the same tool
@@ -331,3 +335,9 @@ MAX_TOTAL_TOOL_CALLS_PER_TOOL = _env_int("XPANDER_MAX_TOTAL_TOOL_CALLS_PER_TOOL"
 # Counts consecutive planning/reasoning calls; any other tool resets it.
 PLAN_CHURN_WARN_AT = _env_int("XPANDER_PLAN_CHURN_WARN_AT", 10)
 MAX_PLAN_CHURN = _env_int("XPANDER_MAX_PLAN_CHURN", 16)
+
+# Plan-less wrap-up budget: non-mutating calls since the last mutation - nudge, then finalize.
+WRAPUP_GRACE_CALLS = _env_int("XPANDER_WRAPUP_GRACE_CALLS", 5)
+WRAPUP_MAX_CALLS = _env_int("XPANDER_WRAPUP_MAX_CALLS", 10)
+# Safe-read allowance inside finalize mode; past it even reads gate.
+FINALIZE_SAFE_READS_CAP = _env_int("XPANDER_FINALIZE_SAFE_READS_CAP", 5)

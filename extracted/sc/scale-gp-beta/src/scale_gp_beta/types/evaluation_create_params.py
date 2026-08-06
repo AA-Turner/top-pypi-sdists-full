@@ -36,6 +36,9 @@ class EvaluationEvaluationStandaloneCreateRequest(TypedDict, total=False):
     metadata: Dict[str, object]
     """Optional metadata key-value pairs for the evaluation"""
 
+    skip_prefilled_rows: bool
+    """Do not queue a contributor task for prefilled questions"""
+
     tags: SequenceNotStr[str]
     """The tags associated with the entity"""
 
@@ -70,6 +73,9 @@ class EvaluationEvaluationFromDatasetCreateRequest(TypedDict, total=False):
 
     metadata: Dict[str, object]
     """Optional metadata key-value pairs for the evaluation"""
+
+    skip_prefilled_rows: bool
+    """Do not queue a contributor task for prefilled questions"""
 
     tags: SequenceNotStr[str]
     """The tags associated with the entity"""
@@ -117,6 +123,9 @@ class EvaluationEvaluationWithDatasetCreateRequest(TypedDict, total=False):
 
     metadata: Dict[str, object]
     """Optional metadata key-value pairs for the evaluation"""
+
+    skip_prefilled_rows: bool
+    """Do not queue a contributor task for prefilled questions"""
 
     tags: SequenceNotStr[str]
     """The tags associated with the entity"""

@@ -348,7 +348,7 @@ fn table_query_columns_with_types(
     let Some((schema, table_name)) = name::schema_and_name_path(&path) else {
         return vec![];
     };
-    let Some(name_ref) = path.segment().and_then(|s| s.name_ref()) else {
+    let Some(name_ref) = path.segment() else {
         return vec![];
     };
     let position = name_ref.syntax().text_range().start();
@@ -470,8 +470,8 @@ pub(crate) fn view_like_columns_with_types(
     let alias_columns: Vec<Name> = create_view
         .column_list()
         .into_iter()
-        .flat_map(|column_list| column_list.columns())
-        .filter_map(|column| column.name().map(|name| Name::from_node(&name)))
+        .flat_map(|column_list| column_list.column_names())
+        .map(|name| Name::from_node(&name))
         .collect();
 
     let mut base_columns = vec![];
@@ -508,8 +508,8 @@ pub(crate) fn with_table_columns_with_types(
     let alias_columns: Vec<Name> = with_table
         .column_list()
         .into_iter()
-        .flat_map(|column_list| column_list.columns())
-        .filter_map(|column| column.name().map(|name| Name::from_node(&name)))
+        .flat_map(|column_list| column_list.column_names())
+        .map(|name| Name::from_node(&name))
         .collect();
 
     let mut base_columns = vec![];
@@ -649,8 +649,8 @@ pub(crate) fn column_name_from_node(node: &SyntaxNode) -> Option<Name> {
             .map(|(name, _)| name)
     } else if let Some(column_name) = ast::ColumnName::cast(node.clone()) {
         Some(Name::from_node(&column_name))
-    } else if let Some(name) = ast::Name::cast(node.clone()) {
-        Some(Name::from_node(&name))
+    } else if let Some(segment) = ast::PathSegment::cast(node.clone()) {
+        Some(Name::from_node(&segment))
     } else {
         let target = node.ancestors().find_map(ast::Target::cast)?;
         let (col_name, _) = ColumnName::from_target(target)?;
@@ -708,8 +708,8 @@ pub(crate) fn columns_for_star_from_alias(
     let alias_columns: Vec<Name> = alias
         .column_list()
         .into_iter()
-        .flat_map(|column_list| column_list.columns())
-        .filter_map(|column| column.name().map(|name| Name::from_node(&name)))
+        .flat_map(|column_list| column_list.column_names())
+        .map(|name| Name::from_node(&name))
         .collect();
 
     let Some(table_ptr) = table_ptr_from_from_item(db, InFile::new(file, from_item)) else {
@@ -835,8 +835,8 @@ pub(crate) fn star_column_names(db: &dyn Db, file: File, table_ptr: &SyntaxNodeP
         Some(ast_nav::ParentSouce::Alias(alias)) => alias
             .column_list()
             .into_iter()
-            .flat_map(|column_list| column_list.columns())
-            .filter_map(|column| column.name().map(|name| Name::from_node(&name)))
+            .flat_map(|column_list| column_list.column_names())
+            .map(|name| Name::from_node(&name))
             .collect(),
         Some(ast_nav::ParentSouce::WithTable(with_table)) => {
             for file in list_files(db, file) {

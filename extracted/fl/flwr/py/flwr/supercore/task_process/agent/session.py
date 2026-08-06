@@ -17,30 +17,41 @@
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Sequence
-from typing import cast
+from typing import Literal, cast
 
-from flwr.agentapp import AgentResponses, AgentSession
+from google.protobuf.json_format import ParseDict
+
+from flwr.agentapp import AgentConnectors, AgentResponses, AgentSession
 from flwr.app import Context, Message
 from flwr.common.serde import message_from_proto, message_to_proto
 from flwr.proto.appio_pb2 import (  # pylint: disable=E0611
     CreateTaskRequest,
     PullTaskMessageRequest,
+    PushTaskEventsRequest,
     PushTaskMessageRequest,
 )
+from flwr.proto.control_pb2 import (  # pylint: disable=E0611
+    StartAutomationRequest,
+    StartRunRequest,
+)
 from flwr.proto.serverappio_pb2_grpc import ServerAppIoStub  # pylint: disable=E0611
+from flwr.proto.task_pb2 import TaskEvent  # pylint: disable=E0611
 from flwr.supercore.constant import TaskType
 from flwr.supercore.json_message.connector_message import (
     ConnectorRequest,
     ConnectorResponse,
 )
 from flwr.supercore.json_message.model_message import ModelRequest, ModelResponse
-from flwr.supercore.task_process.connector.tool_call import (
-    ConnectorToolCall,
-    extract_builtin_connector_tool_calls,
-    with_builtin_connector_tools,
+from flwr.supercore.task_process.connector.automation import START_AUTOMATION_TOOL_NAME
+from flwr.supercore.task_process.connector.registry import (
+    get_builtin_connector_tool,
+    get_connector_ref,
+    has_builtin_connector,
 )
+from flwr.supercore.task_process.connector.web_fetch import WEB_FETCH_CONNECTOR_NAME
 from flwr.supercore.typing import JSONObject, JSONValue
 from flwr.supercore.utils import strict_json_dumps
 
@@ -53,13 +64,51 @@ _DEFAULT_MODEL_REPLY_POLL_INTERVAL = 0.25
 class RuntimeAgentSession(AgentSession):
     """AgentSession bound to one AgentApp task."""
 
-    def __init__(self, responses: AgentResponses) -> None:
+    def __init__(self, responses: AgentResponses, connectors: AgentConnectors) -> None:
         self._responses = responses
+        self._connectors = connectors
 
     @property
     def responses(self) -> AgentResponses:
         """Model response creation API."""
         return self._responses
+
+    @property
+    def connectors(self) -> AgentConnectors:
+        """Connector tool schema and execution API."""
+        return self._connectors
+
+
+class RuntimeAgentConnectors(AgentConnectors):
+    """AgentConnectors implementation for built-in model tools."""
+
+    def __init__(self, responses: RuntimeAgentResponses) -> None:
+        self._responses = responses
+
+    def tools(self, names: Sequence[str]) -> list[JSONObject]:
+        """Return model-facing schemas for built-in tools."""
+        return [get_builtin_connector_tool(name) for name in names]
+
+    def call(self, tool_call: JSONObject) -> JSONObject:
+        """Execute one model function_call and return a function_call_output item."""
+        arguments = tool_call["arguments"]
+        if isinstance(arguments, str):
+            arguments = json.loads(arguments)
+
+        name = cast(str, tool_call["name"])
+        call_id = cast(str, tool_call["call_id"])
+        arguments_obj = cast(JSONObject, arguments)
+
+        if name == START_AUTOMATION_TOOL_NAME:
+            return self._responses.call_automation_with_events(
+                call_id=call_id,
+                arguments=arguments_obj,
+            )
+        return self._responses.call_connector_with_events(
+            name=name,
+            call_id=call_id,
+            arguments=arguments_obj,
+        )
 
 
 class RuntimeAgentResponses(AgentResponses):
@@ -72,60 +121,17 @@ class RuntimeAgentResponses(AgentResponses):
         run_id: int,
         task_id: int,
         context: Context,
+        start_run_request: StartRunRequest,
     ) -> None:
         self._stub = stub
         self._context = context
         self._run_id = run_id
         self._task_id = task_id
+        self._start_run_request = start_run_request
 
     def create(self, request: JSONObject) -> JSONObject:
-        """Create a model response through child model and connector tasks."""
-        # Expand requested built-in connector names into function tools while
-        # keeping track of which names this request explicitly enabled.
-        prepared_tools = with_builtin_connector_tools(request)
-        model_request = prepared_tools.request
-        response_payload = self._create_model_response(model_request)
-
-        tool_calls = extract_builtin_connector_tool_calls(
-            response_payload, prepared_tools.enabled_builtin_connectors
-        )
-        if tool_calls:
-            # Execute one connector batch; further tool-call loops stay in AgentApp.
-            followup_input: list[JSONObject] = []
-            for tool_call in tool_calls:
-                output = self._create_connector_response(tool_call)
-                followup_input.append(
-                    {
-                        "type": "function_call_output",
-                        "call_id": tool_call.call_id,
-                        "output": strict_json_dumps(output, compact=True),
-                    }
-                )
-
-            # Continue with caller-defined tools only; runtime built-ins were only
-            # advertised for the hidden connector-planning turn.
-            followup_request = dict(model_request)
-            followup_request.pop("tool_choice", None)
-            if prepared_tools.followup_tools is None:
-                followup_request.pop("tools", None)
-            else:
-                followup_request["tools"] = prepared_tools.followup_tools
-            if request.get("stream") is True:
-                followup_request["stream"] = True
-
-            previous_response_id = response_payload.get("id")
-            if isinstance(previous_response_id, str) and previous_response_id:
-                followup_request["input"] = followup_input
-                followup_request["previous_response_id"] = previous_response_id
-            else:
-                output = response_payload.get("output")
-                prior_output: list[JSONObject] = []
-                if _is_json_object_list(output):
-                    prior_output = cast(list[JSONObject], output)
-                # Some providers do not return a reusable response id, so replay
-                # the first response output with the connector results appended.
-                followup_request["input"] = [*prior_output, *followup_input]
-            response_payload = self._create_model_response(followup_request)
+        """Create a model response through a child model task."""
+        response_payload = self._create_model_response(request)
 
         output = response_payload.get("output")
         if _is_json_object_list(output):
@@ -165,11 +171,15 @@ class RuntimeAgentResponses(AgentResponses):
         response = ModelResponse.from_message(response_message)
         return response.payload
 
-    def _create_connector_response(self, tool_call: ConnectorToolCall) -> JSONValue:
+    def create_connector_response(
+        self, *, name: str, call_id: str, arguments: JSONObject
+    ) -> JSONValue:
         """Create one connector response through a child connector task."""
-        name = tool_call.name
+        name = name.strip().lower()
         create_res = self._stub.CreateTask(
-            CreateTaskRequest(type=TaskType.CONNECTOR, connector_ref=name)
+            CreateTaskRequest(
+                type=TaskType.CONNECTOR, connector_ref=get_connector_ref(name)
+            )
         )
         if not create_res.HasField("task_id"):
             raise RuntimeError("Connector task could not be created.")
@@ -178,8 +188,8 @@ class RuntimeAgentResponses(AgentResponses):
         message = ConnectorRequest(
             dst_task_id=connector_task_id,
             name=name,
-            call_id=tool_call.call_id,
-            arguments=tool_call.arguments,
+            call_id=call_id,
+            arguments=arguments,
         )
         response_message = self._send_and_receive(message)
         response = ConnectorResponse.from_message(response_message)
@@ -192,6 +202,153 @@ class RuntimeAgentResponses(AgentResponses):
             raise RuntimeError(f"Connector '{name}' failed.")
 
         return response_payload["output"]
+
+    def call_connector_with_events(
+        self, *, name: str, call_id: str, arguments: JSONObject
+    ) -> JSONObject:
+        """Call a connector and emit/persist its activity events."""
+
+        def connector_event(
+            status: Literal["started", "completed", "failed"],
+            *,
+            output: JSONValue = None,
+            message: str | None = None,
+        ) -> list[JSONObject]:
+            if not has_builtin_connector(name):
+                return []
+
+            event: JSONObject = {
+                "type": f"response.tool_call.{status}",
+                "tool_call_id": call_id,
+                "connector_ref": name,
+                "arguments": arguments,
+            }
+
+            query = arguments.get("query")
+            if isinstance(query, str) and query:
+                event["query"] = query
+
+            url = arguments.get("url")
+            if name == WEB_FETCH_CONNECTOR_NAME and isinstance(url, str) and url:
+                event["links"] = [url]
+
+            if status == "completed":
+                event["output"] = output
+            elif status == "failed" and message is not None:
+                event["error"] = {"code": "connector_error", "message": message}
+
+            return [event]
+
+        self.append_and_push_run_events(connector_event("started"))
+
+        try:
+            output = self.create_connector_response(
+                name=name,
+                call_id=call_id,
+                arguments=arguments,
+            )
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            self.append_and_push_run_events(connector_event("failed", message=str(exc)))
+            raise
+
+        output_item: JSONObject = {
+            "type": "function_call_output",
+            "call_id": call_id,
+            "output": strict_json_dumps(output, compact=True),
+        }
+        self.append_and_push_run_events(connector_event("completed", output=output))
+        self.append_context_items([output_item])
+        return output_item
+
+    def call_automation_with_events(
+        self, *, call_id: str, arguments: JSONObject
+    ) -> JSONObject:
+        """Create an automation and emit/persist its activity events."""
+
+        def automation_event(
+            status: Literal["started", "completed", "failed"],
+            *,
+            output: JSONValue = None,
+            message: str | None = None,
+        ) -> JSONObject:
+            event: JSONObject = {
+                "type": f"response.tool_call.{status}",
+                "tool_call_id": call_id,
+                "tool_name": START_AUTOMATION_TOOL_NAME,
+                "arguments": arguments,
+            }
+            if status == "completed":
+                event["output"] = output
+            elif status == "failed" and message is not None:
+                event["error"] = {
+                    "code": "automation_error",
+                    "message": message,
+                }
+            return event
+
+        self.append_and_push_run_events([automation_event("started")])
+        try:
+            input_value = arguments.get("input")
+            if not isinstance(input_value, str) or not input_value.strip():
+                raise ValueError("Automation input must be a non-empty string.")
+            start_at = arguments.get("start_at")
+            if not isinstance(start_at, str) or not start_at.strip():
+                raise ValueError("Automation start_at must be a non-empty string.")
+            request_data = dict(arguments)
+            del request_data["input"]
+            request = ParseDict(
+                request_data,
+                StartAutomationRequest(
+                    start_run_request=self._start_run_request,
+                ),
+            )
+            request.start_run_request.override_config["agent.input"].string = (
+                input_value.strip()
+            )
+            response = self._stub.StartAutomation(request)
+            output: JSONObject = {
+                "automation_id": response.automation_id,
+                "series_id": response.series_id,
+                "next_run_at": response.next_run_at,
+            }
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            self.append_and_push_run_events(
+                [automation_event("failed", message=str(exc))]
+            )
+            raise
+
+        output_item: JSONObject = {
+            "type": "function_call_output",
+            "call_id": call_id,
+            "output": strict_json_dumps(output, compact=True),
+        }
+        self.append_and_push_run_events([automation_event("completed", output=output)])
+        self.append_context_items([output_item])
+        return output_item
+
+    def push_run_events(self, events: Sequence[JSONObject]) -> None:
+        """Push structured run events for `StreamRunEvents` clients."""
+        if not events:
+            return
+        task_events = [
+            TaskEvent(
+                event=cast(str, event["type"]),
+                data=strict_json_dumps(event, compact=True),
+            )
+            for event in events
+        ]
+        self._stub.PushTaskEvents(PushTaskEventsRequest(events=task_events))
+
+    def append_and_push_run_events(self, events: list[JSONObject]) -> None:
+        """Append run events to context and push them to `StreamRunEvents` clients."""
+        if not events:
+            return
+        append_items(self._context, events)
+        self.push_run_events(events)
+
+    def append_context_items(self, items: list[JSONObject]) -> None:
+        """Append OpenResponses items to the AgentApp context."""
+        append_items(self._context, items)
 
     def _push_task_message(self, message: Message) -> None:
         """Push one task message and return its message ID."""

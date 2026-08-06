@@ -362,6 +362,31 @@ def _uninstall_shell_init(dry_run: bool) -> None:
         print(f"{prefix} {rc}", file=sys.stderr)
 
 
+def _uninstall_registry_credential(dry_run: bool) -> None:
+    """Strip the GitLab registry credential from every ecosystem the CLI posed it in."""
+    from .install import registry_credential
+
+    try:
+        if dry_run:
+            removed = {
+                name: registry_credential.CONSUMERS_BY_NAME[name].state(registry_credential.targets()).locations
+                for name in registry_credential.CONSUMERS_BY_NAME
+            }
+        else:
+            removed = registry_credential.remove_everywhere()
+    except Exception as exc:  # noqa: BLE001
+        print(f"  Could not clean the registry credential: {exc}", file=sys.stderr)
+        return
+
+    cleaned = {name: locations for name, locations in removed.items() if locations}
+    if not cleaned:
+        print("  No registry credential configured, skipping.", file=sys.stderr)
+        return
+    prefix = "  [dry-run] would clean" if dry_run else "  cleaned"
+    for name, locations in cleaned.items():
+        print(f"{prefix} {name}: {', '.join(locations)}", file=sys.stderr)
+
+
 def main(
     keep_plugin: Annotated[
         bool,
@@ -395,6 +420,10 @@ def main(
     # Step 1d: Clean settings.json (mcp-cleanup hook + default allow-list).
     print("Cleaning Claude settings.json...", file=sys.stderr)
     _uninstall_claude_settings(dry_run)
+
+    # Step 1e: Remove the GitLab registry credential from uv, Node and Docker.
+    print("Removing the GitLab registry credential...", file=sys.stderr)
+    _uninstall_registry_credential(dry_run)
 
     # Step 2: Remove Python package via uv
     print(f"Removing {PACKAGE}...", file=sys.stderr)

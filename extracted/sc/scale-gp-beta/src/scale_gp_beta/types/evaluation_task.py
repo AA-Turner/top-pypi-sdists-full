@@ -700,6 +700,9 @@ class ContributorEvaluationQuestionTaskConfiguration(BaseModel):
 
     question_id: str
 
+    prefill_from: Optional[str] = None
+    """Dataset column to prefill contributor question task result"""
+
     queue_id: Optional[str] = None
     """The contributor annotation queue to include this task in. Defaults to `default`"""
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: earthkit-meteo
-Version: 1.0.0
+Version: 1.1.0
 Summary: A Python library for meteorological computations
 Author-email: "European Centre for Medium-Range Weather Forecasts (ECMWF)" <software.support@ecmwf.int>
 License-Expression: Apache-2.0
@@ -48,6 +48,8 @@ Requires-Dist: sphinx-issues; extra == "docs"
 Provides-Extra: gpu
 Requires-Dist: cupy; extra == "gpu"
 Requires-Dist: torch; extra == "gpu"
+Provides-Extra: lunar
+Requires-Dist: astropy; extra == "lunar"
 Provides-Extra: samples
 Requires-Dist: requests; extra == "samples"
 Provides-Extra: scores
@@ -57,6 +59,7 @@ Requires-Dist: xarray; extra == "scores"
 Provides-Extra: stats
 Requires-Dist: scipy>=1.15; extra == "stats"
 Provides-Extra: test
+Requires-Dist: astropy; extra == "test"
 Requires-Dist: earthkit-data; extra == "test"
 Requires-Dist: netcdf4; extra == "test"
 Requires-Dist: pytest; extra == "test"

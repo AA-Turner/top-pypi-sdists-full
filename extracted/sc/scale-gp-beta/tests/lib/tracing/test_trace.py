@@ -85,6 +85,10 @@ class TestBaseTrace:
             with trace:
                 raise ValueError("Test error in trace")
         trace.end.assert_called_once()
+        assert trace.status == "ERROR"
+        assert trace.metadata["error_type"] == "ValueError"
+        assert trace.metadata["error_message"] == "Test error in trace"
+        assert trace.metadata["error_category"] == "unknown"
 
 
 class TestNoOpTrace:
@@ -298,6 +302,11 @@ class TestTrace:
         trace = Trace(queue_manager=mock_queue_manager, name="request_123")
         e = AttributeError("this is a test")
         assert trace.metadata == {}
-        trace.set_error(exception=e)
+        trace.set_error(exception=e, error_category="application")
 
-        assert trace.metadata == {"error": True, "error_message": "this is a test", "error_type": "AttributeError"}
+        assert trace.metadata == {
+            "error": True,
+            "error_category": "application",
+            "error_message": "this is a test",
+            "error_type": "AttributeError",
+        }

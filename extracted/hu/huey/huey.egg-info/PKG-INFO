@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: huey
-Version: 3.3.3
+Version: 3.3.4
 Summary: a little task queue
 Author-email: Charles Leifer <coleifer@gmail.com>
 Project-URL: Repository, https://github.com/coleifer/huey

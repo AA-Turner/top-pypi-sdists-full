@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mfa-servicenow-mcp
-Version: 1.24.6
+Version: 1.24.9
 Summary: A Model Context Protocol (MCP) server implementation for ServiceNow
 Author: jshsakura
 License:                                  Apache License

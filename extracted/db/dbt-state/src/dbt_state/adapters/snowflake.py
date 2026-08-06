@@ -1,43 +1,72 @@
 from __future__ import annotations
 
+import re
+import time
 import typing as t
+from collections import defaultdict
 from concurrent.futures import Future
 from datetime import datetime, timezone
 
-from sqlglot import exp
-from collections import defaultdict
 from dbt.adapters.base.relation import BaseRelation
+from query_cache_common.utils import extract_fqn_parts
+from sqlglot import exp
+from typing_extensions import override
+
 from dbt_state import events
 from dbt_state.adapters.base import BaseAdapterExtension
 from dbt_state.adapters.common import (
+    ViewDefinition,
     ViewFetchResult,
     build_information_schema_filter,
-    ViewDefinition,
     group_tables_by_catalog,
 )
 from dbt_state.utils import set_invocation_context
-from query_cache_common.utils import extract_fqn_parts
-import re
-import time
 
+if t.TYPE_CHECKING:
+    from dbt.contracts.graph.nodes import ManifestNode
 
 # A broad `table_schema IN (...)` / `(...) OR (...)` INFORMATION_SCHEMA fetch taking longer than this
 # triggers a one-time hint that a dedicated `snowflake_metadata_warehouse` would speed it up.
 _SLOW_METADATA_QUERY_WARNING_THRESHOLD_SECONDS = 15.0
 
 
-if t.TYPE_CHECKING:
-    from dbt.contracts.graph.nodes import ManifestNode
+# When prefetching last-modified metadata across several schemas we can either issue one broad
+# `table_schema IN (...)` scan or one pruned `table_schema = 'S'` point query per schema. A
+# `table_schema IN (...)` predicate loses single-schema pruning and forces a full scan of the whole
+# database, so its cost grows with the DB's *schema count* (not the
+# number of schemas we asked for), while each single-eq point query prunes and stays flat regardless
+# of DB size. The two measured curves are:
+#   - POINT_QUERY_SECONDS: one pruned `table_schema = 'S'` query is ~0.71s, flat at any DB size.
+#   - IN_SCAN_SECONDS_PER_1000_SCHEMAS: the broad `IN (...)` full scan grows ~2.5s per 1,000 schemas
+#     present in the database.
+# Fetching D schemas one-by-one costs ~D * POINT_QUERY_SECONDS, so it beats the single `IN` scan once
+# the database holds more than ~(POINT_QUERY_SECONDS / IN_SCAN_SECONDS_PER_SCHEMA) schemas per fetched
+# schema. That per-fetched-schema crossover is CROSSOVER_N_PER_FETCHED_SCHEMA (~284); the probe simply
+# asks "does this database have at least CROSSOVER_N_PER_FETCHED_SCHEMA * D schemas?".
+POINT_QUERY_SECONDS = 0.71  # measured: one `table_schema = 'S'` query, flat
+IN_SCAN_SECONDS_PER_1000_SCHEMAS = 2.5  # measured: broad `IN (...)` scan slope, per 1,000 schemas
+IN_SCAN_SECONDS_PER_SCHEMA = IN_SCAN_SECONDS_PER_1000_SCHEMAS / 1000
+CROSSOVER_N_PER_FETCHED_SCHEMA = round(POINT_QUERY_SECONDS / IN_SCAN_SECONDS_PER_SCHEMA)  # 284
+MAX_SHOW_LIMIT = 10000  # Snowflake hard cap on SHOW ... LIMIT
+# At or below this many fetched schemas, D point queries cost at most ~D * POINT_QUERY_SECONDS (a
+# few seconds) — cheap and bounded — so we always fetch sequentially and skip the schema-count probe
+# entirely, sidestepping both the probe round-trip and any risk of a broad IN scan on a large DB.
+ALWAYS_SEQUENTIAL_MAX_SCHEMAS = 4
+
+
+def _schema_probe_limit(num_schemas: int) -> int:
+    return min(CROSSOVER_N_PER_FETCHED_SCHEMA * num_schemas, MAX_SHOW_LIMIT)
 
 
 class SnowflakeAdapterExtension(BaseAdapterExtension):
     DEFAULT_SCHEMA_NAME: str | None = "public"
-    SYSTEM_METADATA_CATALOGS: t.List[str] = ["snowflake"]
+    SYSTEM_METADATA_CATALOGS: t.ClassVar[t.List[str]] = ["snowflake"]
 
     def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
         super().__init__(*args, **kwargs)
         self._get_view_ddl_override: t.Optional[str] = kwargs.get("get_view_ddl_override")
         self._metadata_warehouse: t.Optional[str] = kwargs.get("metadata_warehouse")
+        self._adaptive_metadata_fetch: bool = kwargs.get("adaptive_metadata_fetch", True)
 
         # Emit the "slow metadata query" hint at most once per run. Fired from executor threads, so a
         # rare race may surface a single duplicate, which is harmless for an informational warning.
@@ -50,11 +79,11 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
     def current_timestamp_utc(self) -> datetime:
         return self.execute("SELECT SYSDATE()", fetch=True).rows[0][0].replace(tzinfo=timezone.utc)
 
+    @override
     def get_relation_table_type(
         self, node: ManifestNode, relation: BaseRelation
     ) -> t.Optional[str]:
-        from dbt.adapters.snowflake.relation import SnowflakeRelation
-        from dbt.adapters.snowflake.relation import SnowflakeRelationType
+        from dbt.adapters.snowflake.relation import SnowflakeRelation, SnowflakeRelationType
 
         assert isinstance(relation, SnowflakeRelation)
 
@@ -133,7 +162,7 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
                 fqn = self._sql(table)
                 if cache.claim_if_available(fqn):
                     claimed_fqns_by_catalog[table.catalog].append(fqn)
-                    claimed_fqns_by_schema[(table.catalog, table.db)].append(fqn)
+                    claimed_fqns_by_schema[table.catalog, table.db].append(fqn)
                     schemas_by_catalog[table.catalog].add(table.db)
 
         if not claimed_fqns_by_catalog:
@@ -145,11 +174,30 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
             set_invocation_context()
             try:
                 self._ensure_thread_connection("prefetch_last_modified_timestamps")
+
+                start = time.monotonic()
+                if self._adaptive_metadata_fetch and self._should_fetch_schemas_sequentially(
+                    catalog, len(schemas)
+                ):
+                    raw = {}
+                    for schema in sorted(schemas):
+                        raw.update(
+                            self._fetch_last_modified_epochs_from_schemas_in_catalog(
+                                catalog, [schema]
+                            )
+                        )
+                else:
+                    raw = self._fetch_last_modified_epochs_from_schemas_in_catalog(catalog, schemas)
+
+                # Warn (once) when the *cumulative* metadata fetch is slow — a single broad scan or the
+                # full sequence of per-schema point queries. Timing lives here rather than inside
+                # _fetch_last_modified_epochs_from_schemas_in_catalog so the sequential loop is judged by
+                # its total runtime, not by each individually-fast per-schema query.
+                self._maybe_warn_slow_metadata_query(time.monotonic() - start)
+
                 result = {
                     fqn: last_modified
-                    for fqn, last_modified in self._fetch_last_modified_epochs_from_schemas_in_catalog(
-                        catalog, schemas
-                    ).items()
+                    for fqn, last_modified in raw.items()
                     if fqn not in fqns_with_custom_last_modified
                 }
 
@@ -218,8 +266,59 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
         # error handling if executor.submit() throws an exception in an interation of the loop above
         return self._executor.submit(_wait_all)
 
+    def _should_fetch_schemas_sequentially(self, catalog: str, num_schemas: int) -> bool:
+        """Decide whether to run per-schema point queries sequentially instead of one broad IN scan.
+
+        Runs `SHOW TERSE SCHEMAS IN DATABASE "<catalog>" LIMIT T` (T = _schema_probe_limit).
+        Returns True when the probe returns exactly T rows (the database has N >= T schemas, so
+        sequential point queries are expected to be cheaper); returns False otherwise. On any
+        exception, returns False (fall back to the IN scan). Emits one fire_debug_event describing
+        the decision (sequential / IN / probe-failed) including num_schemas, T, and the observed row
+        count. Returns True without probing when num_schemas <= ALWAYS_SEQUENTIAL_MAX_SCHEMAS.
+        """
+        if num_schemas <= ALWAYS_SEQUENTIAL_MAX_SCHEMAS:
+            return True
+
+        threshold = _schema_probe_limit(num_schemas)
+        query = f'SHOW TERSE SCHEMAS IN DATABASE "{catalog}" LIMIT {threshold}'
+
+        try:
+            observed = len(self.execute(query, fetch=True).rows)
+        except Exception as e:
+            events.fire_debug_event(
+                "Schema-count probe failed for catalog {} (fetching {} schemas, threshold {}); "
+                "falling back to a single IN scan: {}",
+                catalog,
+                num_schemas,
+                threshold,
+                str(e),
+            )
+            return False
+
+        # Cap behavior: when CROSSOVER_N_PER_FETCHED_SCHEMA * num_schemas exceeds MAX_SHOW_LIMIT
+        # (num_schemas above ~35), `threshold` is clamped to MAX_SHOW_LIMIT, so a saturated probe
+        # only proves the database has >= MAX_SHOW_LIMIT schemas — not the full
+        # CROSSOVER_N_PER_FETCHED_SCHEMA * num_schemas crossover. We deliberately still choose
+        # sequential there: the database is very large and its true schema count is unknown, so the
+        # broad IN scan's cost grows without bound in that count while sequential stays bounded at
+        # ~POINT_QUERY_SECONDS * num_schemas. In the narrow band where N sits between MAX_SHOW_LIMIT
+        # and the true crossover this can pick sequential when a scan would have been marginally
+        # cheaper, but that overpay is bounded and small next to the unbounded cost of scanning a
+        # genuinely huge database.
+        sequential = observed == threshold
+        events.fire_debug_event(
+            "Schema-count probe for catalog {} (fetching {} schemas, threshold {}) observed {} "
+            "schemas; using {} strategy",
+            catalog,
+            num_schemas,
+            threshold,
+            observed,
+            "sequential point-query" if sequential else "single IN scan",
+        )
+        return sequential
+
     def _maybe_warn_slow_metadata_query(self, elapsed_seconds: float) -> None:
-        """Hint (once per run) that a dedicated metadata warehouse would speed up slow broad
+        """Hint (once per run) that a dedicated metadata warehouse would speed up slow
         INFORMATION_SCHEMA fetches. Only fires when one is not already configured, since setting it
         is the fix: it routes these queries to an isolated warehouse and fans them out per schema.
         """
@@ -265,9 +364,7 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
             {self._sql(schema_filter)}
         """
 
-        start = time.monotonic()
         rows = self.execute(query, fetch=True).rows
-        self._maybe_warn_slow_metadata_query(time.monotonic() - start)
 
         result: dict[str, t.Optional[int]] = {}
         for catalog, schema, name, last_modified_epoch in rows:
@@ -286,7 +383,7 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
         # per schema (parallelized across the executor), mirroring prefetch_last_modified_epochs.
         tables_by_schema: t.Dict[t.Tuple[str, str], t.List[exp.Table]] = defaultdict(list)
         for table in tables:
-            tables_by_schema[(table.catalog, table.db)].append(table)
+            tables_by_schema[table.catalog, table.db].append(table)
         return list(tables_by_schema.values())
 
     def _fetch_last_modified_epochs(

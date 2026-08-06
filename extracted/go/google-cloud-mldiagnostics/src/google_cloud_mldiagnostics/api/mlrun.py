@@ -65,6 +65,8 @@ def machinelearning_run(
     environment: str = "prod",
     framework: mlrun_types.Framework = mlrun_types.Framework.JAX,
     serving_engine: mlrun_types.ServingEngine = mlrun_types.ServingEngine.NONE,
+    run_workload_id: str | None = None,
+    metric_only_run: bool = False,
 ) -> mlrun_types.MLRun:
   """Create a new machine learning run.
 
@@ -90,6 +92,9 @@ def machinelearning_run(
       environment: The environment to use for the control plane client
         (autopush, staging, prod). Default is prod.
       framework: The framework used for the ML run. Default is JAX.
+      run_workload_id: Optional shared workload identifier for GCE/Custom
+        Orchestrator workloads.
+      metric_only_run: Whether to create a metric-only run. Default is False.
 
   Returns:
       MLRun: A new ML run instance
@@ -126,6 +131,7 @@ def machinelearning_run(
       name=name,
       on_demand_xprof=on_demand_xprof,
       log_system_metrics=log_system_metrics,
+      metric_only_run=metric_only_run,
       environment=environment,
       run_group=run_group,
       configs=configs,
@@ -135,4 +141,5 @@ def machinelearning_run(
       metrics_record_interval_sec=metrics_record_interval_sec,
       framework=framework,
       serving_engine=serving_engine,
+      run_workload_id=run_workload_id,
   )

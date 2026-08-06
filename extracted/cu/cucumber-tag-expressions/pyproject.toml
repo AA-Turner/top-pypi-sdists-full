@@ -1,19 +1,20 @@
 [build-system]
 build-backend = "uv_build"
-requires = ["uv_build>=0.11.0,<0.12.0"]
+requires = ["uv_build>=0.12.0,<0.13.0"]
 
 [project]
 name = "cucumber-tag-expressions"
-authors = [
-    {name = "Jens Engel", email = "jenisys@noreply.github.com"},
-]
 description = "Provides a tag-expression parser and evaluation logic for cucumber/behave"
-version = "11.0.0"
-keywords= ["BDD", "testing", "cucumber", "tag-expressions", "behave"]
-license = "MIT"
-license-files = [
-    "LICENSE"
+version = "11.0.1"
+keywords = [
+    "BDD",
+    "testing",
+    "cucumber",
+    "tag-expressions",
+    "behave",
 ]
+license = "MIT"
+license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
@@ -32,6 +33,10 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
+[[project.authors]]
+name = "Jens Engel"
+email = "jenisys@noreply.github.com"
+
 [project.urls]
 Homepage = "https://github.com/cucumber/tag-expressions"
 Download = "https://pypi.org/project/cucumber-tag-expressions"
@@ -49,22 +54,21 @@ dev = [
 
 [tool.ruff.lint]
 extend-select = [
-  "B",
-  "C4",
-  "FURB",
-  "I",
-  "ISC",
-  "N",
-  "PERF",
-  "PIE",
-  "RET",
-  "S",
-  "TID",
-  "UP"
+    "B",
+    "C4",
+    "FURB",
+    "I",
+    "ISC",
+    "N",
+    "PERF",
+    "PIE",
+    "RET",
+    "S",
+    "TID",
+    "UP",
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# Allow assert statements in tests
 "tests/**" = ["S101"]
 
 [tool.pytest.ini_options]
@@ -80,22 +84,14 @@ source = ["cucumber_tag_expressions"]
 branch = true
 
 [tool.coverage.report]
-# Regexes for lines to exclude from consideration
 exclude_also = [
-  # Don't complain about missing debug-only code:
-  "def __repr__",
-  "if self\\.debug",
-
-  # Don't complain if tests don't hit defensive assertion code:
-  "raise AssertionError",
-  "raise NotImplementedError",
-
-  # Don't complain if non-runnable code isn't run:
-  "if 0:",
-  "if __name__ == .__main__.:",
-
-  # Don't complain about abstract methods, they aren't run:
-  "@(abc\\.)?abstractmethod",
+    "def __repr__",
+    'if self\.debug',
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    '@(abc\.)?abstractmethod',
 ]
 ignore_errors = true
 show_missing = true

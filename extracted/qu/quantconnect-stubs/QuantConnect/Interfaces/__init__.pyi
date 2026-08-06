@@ -359,6 +359,12 @@ class IRegressionAlgorithmDefinition(metaclass=abc.ABCMeta):
         """This is used by the regression test system to indicate what the expected statistics are from running the algorithm"""
         ...
 
+    @property
+    @abc.abstractmethod
+    def custom_configurations(self) -> System.Collections.Generic.Dictionary[str, str]:
+        """Optional custom configuration values required by this regression algorithm."""
+        ...
+
 
 class IDataProviderEvents(metaclass=abc.ABCMeta):
     """Events related to data providers"""

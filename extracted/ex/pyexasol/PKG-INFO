@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyexasol
-Version: 2.3.0
+Version: 2.3.1
 Summary: Exasol python driver with extra features
 License-Expression: MIT
 License-File: LICENSE.txt
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Database
 Provides-Extra: all
@@ -44,7 +45,7 @@ Requires-Dist: python-rapidjson (>=1.21.0,<2.0.0) ; extra == "rapidjson"
 Requires-Dist: ujson (>=5.10.0,<6.0.0) ; extra == "all"
 Requires-Dist: ujson (>=5.10.0,<6.0.0) ; extra == "ujson"
 Requires-Dist: websocket-client (>=1.0.1,<2)
-Project-URL: Changelog, https://github.com/exasol/pyexasol/blob/master/CHANGELOG.md
+Project-URL: Changelog, https://exasol.github.io/pyexasol/master/changes/changelog.html
 Project-URL: Documentation, https://github.com/exasol/pyexasol/
 Project-URL: Homepage, https://www.exasol.com/
 Project-URL: Issues, https://github.com/exasol/pyexasol/issues

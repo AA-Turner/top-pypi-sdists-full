@@ -139,6 +139,9 @@ class SandboxState(BaseModel):
     session_id: str
     job_id: str
     public_url: str | None = None
+    # Browser RDP viewer URL, set when the sandbox was started with
+    # --manual-control (Windows/qemu VMs only).
+    rdp_url: str | None = None
 
     # Mode and service
     mode: str  # "blank", "config", "artifact", "simulator"

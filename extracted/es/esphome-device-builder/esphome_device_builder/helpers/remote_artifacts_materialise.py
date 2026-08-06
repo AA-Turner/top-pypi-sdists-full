@@ -7,9 +7,11 @@ filesystem looks as if a local compile produced the build:
 ``<data_dir>/storage/<basename>.json`` is the rewritten StorageJSON
 sidecar, ``<data_dir>/idedata/<name>.json`` is the rewritten idedata
 cache (touched so ``_load_idedata``'s mtime gate hits), and -- when
-the receiver-side esphome shipped one -- ``<basename>.validated.yaml``
-sits next to the JSON sidecar so the next local ``esphome upload`` /
-``esphome logs`` skips ``read_config()`` via esphome's fast path.
+the receiver-side esphome shipped one -- the validated-config cache
+(``<basename>.validated.json``, or ``.validated.yaml`` from pre-2026.8
+receivers) sits next to the JSON sidecar so the next local
+``esphome upload`` / ``esphome logs`` skips ``read_config()`` via
+esphome's fast path.
 """
 
 from __future__ import annotations
@@ -18,7 +20,6 @@ import io
 import logging
 import os
 import re
-import sys
 import tarfile
 import time
 from collections.abc import Iterator
@@ -26,7 +27,8 @@ from contextlib import contextmanager
 from pathlib import Path, PurePath
 from typing import Any, NamedTuple
 
-from esphome.helpers import rmtree
+from esphome.core import EsphomeError
+from esphome.helpers import rmtree, write_file
 from esphome.storage_json import StorageJSON
 from esphome.writer import storage_should_clean
 
@@ -35,18 +37,21 @@ from ..controllers.remote_build.artifacts_tarball import (
     IDEDATA_MEMBER_NAME,
     PLATFORMIO_INI_MEMBER_NAME,
     STORAGE_MEMBER_NAME,
-    VALIDATED_YAML_MEMBER_NAME,
 )
 from .build_artifacts import iter_flash_images
 from .cross_os_path import receiver_pure_path_cls
 from .json import dumps_indent
 from .storage_path import (
-    resolve_compiled_config_path,
     resolve_data_dir,
     resolve_idedata_path,
     resolve_storage_path,
 )
 from .tarball_read import check_member_size, parse_json_object, read_member
+from .validated_config_cache import (
+    CACHE_MEMBER_NAMES,
+    path_for_member,
+    unlink_validated_cache,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -72,8 +77,9 @@ class _ExtractedTarball(NamedTuple):
     receiver_build_path: PurePath
     build_path: Path
     # Optional: present when receiver-side esphome wrote a
-    # validated-config cache (>= 2026.6.0).
-    validated_yaml_bytes: bytes | None
+    # validated-config cache (>= 2026.6.0); ``(member_name, payload)``
+    # so staging lands the format the receiver shipped.
+    validated_cache: tuple[str, bytes] | None
 
 
 def materialise_remote_artifacts(tarball: bytes, configuration: str) -> Path:
@@ -101,10 +107,12 @@ def materialise_remote_artifacts(tarball: bytes, configuration: str) -> Path:
             platformio_ini=extracted.build_path / PLATFORMIO_INI_MEMBER_NAME,
             cached_idedata=cached_idedata_path,
         )
-    if extracted.validated_yaml_bytes is not None:
-        _stage_offloader_validated_yaml(
+    if extracted.validated_cache is not None:
+        member_name, payload = extracted.validated_cache
+        _stage_offloader_validated_cache(
             configuration=configuration,
-            payload=extracted.validated_yaml_bytes,
+            member_name=member_name,
+            payload=payload,
         )
     return extracted.build_path
 
@@ -128,9 +136,14 @@ def _open_and_extract_build_tree(tarball: bytes, configuration: str) -> _Extract
             idedata_bytes, total_bytes = _read_member_optional(
                 tar, IDEDATA_MEMBER_NAME, total_so_far=total_bytes
             )
-            validated_yaml_bytes, total_bytes = _read_member_optional(
-                tar, VALIDATED_YAML_MEMBER_NAME, total_so_far=total_bytes
-            )
+            validated_cache: tuple[str, bytes] | None = None
+            for cache_member in CACHE_MEMBER_NAMES:
+                cache_bytes, total_bytes = _read_member_optional(
+                    tar, cache_member, total_so_far=total_bytes
+                )
+                if cache_bytes is not None:
+                    validated_cache = (cache_member, cache_bytes)
+                    break
             receiver_storage = _parse_storage_json(storage_bytes)
             device_name = _device_name_from_storage(receiver_storage)
             receiver_build_path = _receiver_build_path_from_storage(receiver_storage)
@@ -169,7 +182,7 @@ def _open_and_extract_build_tree(tarball: bytes, configuration: str) -> _Extract
                     exclude={
                         STORAGE_MEMBER_NAME,
                         IDEDATA_MEMBER_NAME,
-                        VALIDATED_YAML_MEMBER_NAME,
+                        *CACHE_MEMBER_NAMES,
                     },
                     initial_total_bytes=total_bytes,
                 )
@@ -199,7 +212,7 @@ def _open_and_extract_build_tree(tarball: bytes, configuration: str) -> _Extract
         idedata_bytes=idedata_bytes,
         receiver_build_path=receiver_build_path,
         build_path=build_path,
-        validated_yaml_bytes=validated_yaml_bytes,
+        validated_cache=validated_cache,
     )
 
 
@@ -379,36 +392,28 @@ def _remap_idedata_toolchain_path(data: dict[str, Any]) -> None:
         data["cc_path"] = remapped
 
 
-def _stage_offloader_validated_yaml(
+def _stage_offloader_validated_cache(
     *,
     configuration: str,
+    member_name: str,
     payload: bytes,
 ) -> None:
-    """Stage the receiver's validated-config cache at the offloader's path.
-
-    Written 0600 because the cache resolves !secret references inline.
-    mtime is touched to "now" so esphome's fast path (which gates on
-    cache mtime >= source YAML mtime) takes the cache instead of
-    re-running read_config.
     """
-    path = resolve_compiled_config_path(configuration)
+    Stage the receiver's validated-config cache, atomically and 0600.
+
+    Best-effort drops both formats first; raises
+    :class:`MaterialiseError` when the write fails.
+    """
+    path = path_for_member(member_name, configuration)
     path.parent.mkdir(parents=True, exist_ok=True)
-    # Open with 0600 at creation time so the file is never momentarily
-    # readable at the process umask between write_bytes() and chmod().
-    # O_CREAT honours an existing inode's mode bits, so tighten with
-    # an explicit chmod afterwards too (no-op on Windows). O_BINARY
-    # only exists on Windows where it disables the CRLF translation
-    # that would otherwise corrupt the YAML bytes.
-    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_BINARY", 0)
-    fd = os.open(path, flags, 0o600)
+    unlink_validated_cache(configuration)
     try:
-        os.write(fd, payload)
-    finally:
-        os.close(fd)
-    if sys.platform != "win32":
-        path.chmod(0o600)
-    now = time.time()
-    os.utime(path, (now, now))
+        write_file(path, payload, private=True)
+    except EsphomeError as err:
+        # write_file wraps OSError; translate so the runner's IO seam
+        # keeps its "materialise IO error" framing.
+        msg = f"could not stage validated-config cache: {err}"
+        raise MaterialiseError(msg) from err
 
 
 @contextmanager

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "foundry-platform-sdk"
-version = "1.101.0"
+version = "1.102.0"
 description = "The official Python library for the Foundry API"
 license = "Apache-2.0"
 readme = "README.md"

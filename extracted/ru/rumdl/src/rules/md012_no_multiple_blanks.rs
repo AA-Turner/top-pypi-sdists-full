@@ -6,7 +6,6 @@ use crate::utils::range_utils::calculate_line_range;
 use std::collections::HashSet;
 
 use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
-use crate::rule_config_serde::RuleConfig;
 
 mod md012_config;
 use md012_config::MD012Config;
@@ -316,6 +315,26 @@ impl Rule for MD012NoMultipleBlanks {
         // which aren't truly "trailing blanks". We need to verify the actual last line is blank.
         let last_line_is_blank = lines.last().is_some_and(|l| l.trim().is_empty());
 
+        // Blanks left over before a skipped region that runs to EOF are mid-document
+        // blanks, so they use the same limits as the skip handling inside the loop.
+        if blank_count > 0 && !last_line_is_blank {
+            let effective_max = if prev_content_line_num.is_some_and(|idx| is_heading_context(ctx, idx)) {
+                self.effective_max_below()
+            } else {
+                self.config.maximum.get()
+            };
+            if blank_count > effective_max {
+                warnings.extend(self.generate_excess_warnings(
+                    blank_start,
+                    blank_count,
+                    effective_max,
+                    lines,
+                    &lines_to_check,
+                    line_index,
+                ));
+            }
+        }
+
         // Check for trailing blank lines
         // EOF semantics: ANY blank line at EOF should be flagged (stricter than mid-document)
         // Only fire if the actual last line(s) of the file are blank
@@ -371,21 +390,7 @@ impl Rule for MD012NoMultipleBlanks {
         ctx.content.is_empty() || !ctx.has_char('\n')
     }
 
-    fn default_config_section(&self) -> Option<(String, toml::Value)> {
-        let default_config = MD012Config::default();
-        let json_value = serde_json::to_value(&default_config).ok()?;
-        let toml_value = crate::rule_config_serde::json_to_toml_value(&json_value)?;
-
-        if let toml::Value::Table(table) = toml_value {
-            if !table.is_empty() {
-                Some((MD012Config::RULE_NAME.to_string(), toml::Value::Table(table)))
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
+    crate::impl_rule_config_sections!(MD012Config);
 
     fn from_config(config: &crate::config::Config) -> Box<dyn Rule>
     where

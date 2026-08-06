@@ -74,6 +74,8 @@ float8_e4m3b11fnuz: dtype
 "8-bit floating-point data type.\n\nDetails in https://github.com/jax-ml/ml_dtypes#float8_e4m3b11fnuz\n\nGroup:\n  Data types\n"
 float8_e5m2: dtype
 "8-bit floating-point data type.\n\nDetails in https://github.com/jax-ml/ml_dtypes#float8_e5m2\n\nGroup:\n  Data types\n"
+float8_e8m0fnu: dtype
+"8-bit floating-point data type.\n\nDetails in https://github.com/jax-ml/ml_dtypes#float8_e8m0fnu\n\nGroup:\n  Data types\n"
 float8_e5m2fnuz: dtype
 "8-bit floating-point data type.\n\nDetails in https://github.com/jax-ml/ml_dtypes#float8_e5m2fnuz\n\nGroup:\n  Data types\n"
 float4_e2m1fn: dtype
@@ -179,6 +181,7 @@ __all__ = [
     "float8_e4m3fnuz",
     "float8_e5m2",
     "float8_e5m2fnuz",
+    "float8_e8m0fnu",
     "inf",
     "int16",
     "int2",
@@ -8936,7 +8939,7 @@ class Spec(Indexable):
           ...     }
           ... })
           >>> spec.codec
-          CodecSpec({'compressor': None, 'driver': 'zarr'})
+          CodecSpec({'compressor': None, 'driver': 'zarr', 'filters': None})
 
         Note:
 
@@ -9218,7 +9221,7 @@ class Spec(Indexable):
               'read_chunk': {'shape': [100, 200, 300]},
               'write_chunk': {'shape': [100, 200, 300]},
             },
-            'codec': {'driver': 'zarr'},
+            'codec': {'driver': 'zarr', 'filters': None},
             'domain': {
               'exclusive_max': [[1000], [2000], [3000]],
               'inclusive_min': [0, 0, 0],

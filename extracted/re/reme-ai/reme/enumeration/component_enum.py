@@ -35,3 +35,7 @@ class ComponentEnum(str, Enum):
     TOKENIZER = "tokenizer"
 
     AGENT_WRAPPER = "agent_wrapper"
+
+    MAIL = "mail"
+
+    OUTBOUND_PROXY = "outbound_proxy"

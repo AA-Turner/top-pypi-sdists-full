@@ -11,10 +11,19 @@ __all__ = ["DmiDecoder"]
 class DmiDecoder:
     """This is a simple dmiparser wrapper"""
 
-    def __init__(self, arguments: Optional[str] = None, command: str = "dmidecode", **kwargs) -> None:
+    def __init__(
+        self,
+        arguments: Optional[str] = None,
+        command: str = "dmidecode",
+        pretty: bool = False,
+        format: str = "json",
+        **kwargs,
+    ) -> None:
         """
         @param arguments: command's extra arguments like "-t 4"
         @param command: an executable dmidecode command
+        @param pretty: human-friendly pretty output
+        @param format: output format - "json", "jsonc", "yaml", "xml"
         @param kwargs: these will pass to dmiparser
         """
         argv: List[str] = shlex.split(command)
@@ -23,21 +32,21 @@ class DmiDecoder:
             argv.extend(shlex.split(arguments))
 
         text = check_output(argv, shell=False, encoding="utf8")
-        parser = DmiParser(text, **kwargs)
+        parser = DmiParser(text, pretty=pretty, format=format, **kwargs)
         self._text = str(parser)
-        self._data = json.loads(self._text)
+        self._data = parser.data
 
     @property
     def text(self) -> str:
         """
-        @return: dmidecode output parsed JSON text
+        @return: dmidecode output formatted text
         """
         return self._text
 
     @property
     def data(self) -> list:
         """
-        @return: dmidecode output parsed JSON object
+        @return: parsed DMI data as a list of dictionaries
         """
         return self._data
 

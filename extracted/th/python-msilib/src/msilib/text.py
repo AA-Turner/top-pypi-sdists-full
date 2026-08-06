@@ -1,12 +1,16 @@
-"""Definitions for the UIText and ActionText tables, for the standard installer
-actions.
+"""Definitions for the UIText and ActionText tables.
+
+For the standard installer actions.
 """
 
+from __future__ import annotations
+
 import os
+from typing import Final
 
-dirname = os.path.dirname(__file__)
+dirname: str = os.path.dirname(__file__)
 
-ActionText = [
+ActionText: Final[list[tuple[str, str, str | None]]] = [
     ("InstallValidate", "Validating install", None),
     (
         "InstallFiles",
@@ -183,7 +187,7 @@ ActionText = [
     ("UnpublishProduct", "Unpublishing product information", None),
 ]
 
-UIText = [
+UIText: Final[list[tuple[str, str | None]]] = [
     ("AbsentPath", None),
     ("bytes", "bytes"),
     ("GB", "GB"),
@@ -293,4 +297,4 @@ UIText = [
     ("VolumeCostVolume", "Volume"),
 ]
 
-tables = ["ActionText", "UIText"]
+tables: Final[list[str]] = ["ActionText", "UIText"]

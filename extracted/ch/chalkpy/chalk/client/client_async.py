@@ -249,8 +249,12 @@ class AsyncChalkClient:
             See https://docs.chalk.ai/api-docs#ChalkContext for more information.
         trace
             Force tracing on the query. Requests using `trace=True` will be slower
-            than requests using `trace=False`. Requires Datadog tracing to be installed
-            for this to have any effect
+            than requests using `trace=False`. Requires `opentelemetry-api` and
+            `opentelemetry-sdk` to be installed (for example via the `chalkpy[tracing]`
+            extra) for this to have any effect. When enabled, the query is traced
+            regardless of the server's default trace sampling rate, and the query run
+            records a trace ID that you can filter for on the Online Queries page in
+            the Chalk dashboard.
         value_metrics_tag_by_features
             If your environment has feature value metrics enabled, this parameter specifies a list
             of features by which to tag these metrics. For example, if
@@ -407,6 +411,7 @@ class AsyncChalkClient:
         request_timeout: Optional[float] = None,
         headers: Mapping[str, str] | None = None,
         translate_fqns: bool = False,
+        trace: bool = False,
     ) -> BulkOnlineQueryResponse:
         """Compute features values for many rows of inputs using online resolvers.
         See https://docs.chalk.ai/docs/query-basics for more information on online query.
@@ -473,6 +478,15 @@ class AsyncChalkClient:
             than requests using `explain=False`.
         headers
             Additional headers to provide with the request
+        trace
+            Force tracing on the query. Requests using `trace=True` will be slower
+            than requests using `trace=False`. Requires `opentelemetry-api` and
+            `opentelemetry-sdk` to be installed (for example via the `chalkpy[tracing]`
+            extra) for this to have any effect. When enabled, the query is traced
+            regardless of the server's default trace sampling rate, and the query run
+            records a trace ID that you can filter for on the Online Queries page in
+            the Chalk dashboard.
+
 
         Returns
         -------

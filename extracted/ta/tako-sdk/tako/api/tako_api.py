@@ -352,7 +352,7 @@ class TakoApi:
     ) -> ContentsResponse:
         """Download content
 
-        Download the content behind a search result: a CSV of a Tako card's underlying data, or the full text of a web page. Returns a short-lived presigned download URL. Protected-source cards (data export not available) return 403. Send `quote_only: true` to get only the export's price (`cost` + `export_pricing`) with an empty payload. A quote is free: Tako fetches nothing and charges nothing.
+        Download the content behind a search result: a CSV of a Tako card's underlying data, or the full text of a web page. Returns a short-lived presigned download URL. Send `content_format: card_json` for a rich, card-type-specific JSON object under `card_data` (for example a weather forecast with hourly and daily records). A card_json export is never truncated, so it bills for every record row, and a card type without a card_json shape returns 422. Protected-source cards (data export not available) return 403. Send `quote_only: true` to get only the export's price (`cost` + `export_pricing`) with an empty payload. A quote charges nothing. A quote of a row-based format also fetches nothing. A card_json quote is the one exception: its price needs the real record-row count, so Tako builds the payload and can call the data provider. The price is then exact instead of an upper bound. That quote requires a funded account, and it still charges nothing.
 
         :param contents_request:
         :type contents_request: ContentsRequest
@@ -392,6 +392,7 @@ class TakoApi:
             '401': "BaseAPIError",
             '403': "BaseAPIError",
             '404': "BaseAPIError",
+            '422': "BaseAPIError",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -423,7 +424,7 @@ class TakoApi:
     ) -> ApiResponse[ContentsResponse]:
         """Download content
 
-        Download the content behind a search result: a CSV of a Tako card's underlying data, or the full text of a web page. Returns a short-lived presigned download URL. Protected-source cards (data export not available) return 403. Send `quote_only: true` to get only the export's price (`cost` + `export_pricing`) with an empty payload. A quote is free: Tako fetches nothing and charges nothing.
+        Download the content behind a search result: a CSV of a Tako card's underlying data, or the full text of a web page. Returns a short-lived presigned download URL. Send `content_format: card_json` for a rich, card-type-specific JSON object under `card_data` (for example a weather forecast with hourly and daily records). A card_json export is never truncated, so it bills for every record row, and a card type without a card_json shape returns 422. Protected-source cards (data export not available) return 403. Send `quote_only: true` to get only the export's price (`cost` + `export_pricing`) with an empty payload. A quote charges nothing. A quote of a row-based format also fetches nothing. A card_json quote is the one exception: its price needs the real record-row count, so Tako builds the payload and can call the data provider. The price is then exact instead of an upper bound. That quote requires a funded account, and it still charges nothing.
 
         :param contents_request:
         :type contents_request: ContentsRequest
@@ -463,6 +464,7 @@ class TakoApi:
             '401': "BaseAPIError",
             '403': "BaseAPIError",
             '404': "BaseAPIError",
+            '422': "BaseAPIError",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -494,7 +496,7 @@ class TakoApi:
     ) -> RESTResponseType:
         """Download content
 
-        Download the content behind a search result: a CSV of a Tako card's underlying data, or the full text of a web page. Returns a short-lived presigned download URL. Protected-source cards (data export not available) return 403. Send `quote_only: true` to get only the export's price (`cost` + `export_pricing`) with an empty payload. A quote is free: Tako fetches nothing and charges nothing.
+        Download the content behind a search result: a CSV of a Tako card's underlying data, or the full text of a web page. Returns a short-lived presigned download URL. Send `content_format: card_json` for a rich, card-type-specific JSON object under `card_data` (for example a weather forecast with hourly and daily records). A card_json export is never truncated, so it bills for every record row, and a card type without a card_json shape returns 422. Protected-source cards (data export not available) return 403. Send `quote_only: true` to get only the export's price (`cost` + `export_pricing`) with an empty payload. A quote charges nothing. A quote of a row-based format also fetches nothing. A card_json quote is the one exception: its price needs the real record-row count, so Tako builds the payload and can call the data provider. The price is then exact instead of an upper bound. That quote requires a funded account, and it still charges nothing.
 
         :param contents_request:
         :type contents_request: ContentsRequest
@@ -534,6 +536,7 @@ class TakoApi:
             '401': "BaseAPIError",
             '403': "BaseAPIError",
             '404': "BaseAPIError",
+            '422': "BaseAPIError",
         }
         response_data = self.api_client.call_api(
             *_param,

@@ -5,8 +5,8 @@ import time
 import typing as t
 from datetime import datetime, timedelta
 
-from dbt_state.adapters.base import BaseAdapterExtension
 from dbt_state import events
+from dbt_state.adapters.base import BaseAdapterExtension
 
 
 class EngineHeuristicsClock:

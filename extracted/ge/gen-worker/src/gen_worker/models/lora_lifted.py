@@ -57,6 +57,7 @@ from .w8a8_lora import (
     branch_targets,
     clear_branch_adapters,
 )
+import inspect
 
 logger = logging.getLogger(__name__)
 
@@ -327,7 +328,6 @@ class LiftedLoraBinding:
 
 def _positional_arity(forward: Any) -> int:
     """How many positional parameters the denoiser's OWN forward takes."""
-    import inspect
 
     try:
         params = inspect.signature(forward).parameters.values()
@@ -351,7 +351,6 @@ def _lifted_signature(forward: Any) -> Any:
     landed it in ``*args`` while the branch bound ``None`` and refused. So the
     call convention is stated in the signature instead of being implied.
     """
-    import inspect
 
     try:
         sig = inspect.signature(forward)
@@ -464,7 +463,7 @@ def adapter_active(model: Any) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def install_lifted_lora_lanes(pipe: Any, bucket: int = 0) -> Dict[str, LiftedLoraBinding]:
+def install_lifted_lora_execution_lanes(pipe: Any, bucket: int = 0) -> Dict[str, LiftedLoraBinding]:
     """Install the lifted signature on every branch-capable denoiser.
 
     Requires the canonical branch CONTAINERS to be allocated already — the
@@ -475,7 +474,7 @@ def install_lifted_lora_lanes(pipe: Any, bucket: int = 0) -> Dict[str, LiftedLor
             for comp, model in branch_targets(pipe).items()}
 
 
-def arm_lifted_lora_lanes(
+def arm_lifted_lora_execution_lanes(
     pipe: Any, bucket: int,
 ) -> Dict[str, LiftedLoraBinding]:
     """Put a pipeline on the LIFTED branch-bearing graph family: canonical
@@ -495,16 +494,16 @@ def arm_lifted_lora_lanes(
     """
     if not int(bucket or 0):
         return {}
-    w8a8_lora.enable_branch_lanes(pipe, int(bucket))
-    return install_lifted_lora_lanes(pipe, int(bucket))
+    w8a8_lora.enable_branch_execution_lanes(pipe, int(bucket))
+    return install_lifted_lora_execution_lanes(pipe, int(bucket))
 
 
-def remove_lifted_lora_lanes(pipe: Any) -> None:
+def remove_lifted_lora_execution_lanes(pipe: Any) -> None:
     for model in branch_targets(pipe).values():
         remove_lifted_lora_forward(model)
 
 
-def lifted_lane_kwargs(pipe: Any) -> Dict[str, Dict[str, Any]]:
+def lifted_execution_lane_kwargs(pipe: Any) -> Dict[str, Dict[str, Any]]:
     """component -> the two call kwargs for that component's compiled unit."""
     out: Dict[str, Dict[str, Any]] = {}
     for comp, model in branch_targets(pipe).items():
@@ -514,7 +513,7 @@ def lifted_lane_kwargs(pipe: Any) -> Dict[str, Dict[str, Any]]:
     return out
 
 
-def swap_lifted_lane_set(
+def swap_lifted_execution_lane_set(
     pipe: Any,
     routed: Mapping[str, Sequence[Tuple[Dict[str, Any], float, str]]],
     *,
@@ -668,7 +667,7 @@ def assert_no_baked_adapter(compiled: Any, *, label: str = "") -> None:
 __all__ = [
     "LIFTED_INPUT_NAMES",
     "adapter_active",
-    "arm_lifted_lora_lanes",
+    "arm_lifted_lora_execution_lanes",
     "LiftedLoraBinding",
     "LiftedLoraPlan",
     "ResolvedSlots",
@@ -677,15 +676,15 @@ __all__ = [
     "bind_views",
     "build_plan",
     "install_lifted_lora_forward",
-    "install_lifted_lora_lanes",
+    "install_lifted_lora_execution_lanes",
     "lifted_binding",
     "lifted_input_names",
-    "lifted_lane_kwargs",
+    "lifted_execution_lane_kwargs",
     "is_exported_program",
     "lora_constant_fqns",
     "package_constant_audit",
     "remove_lifted_lora_forward",
-    "remove_lifted_lora_lanes",
-    "swap_lifted_lane_set",
+    "remove_lifted_lora_execution_lanes",
+    "swap_lifted_execution_lane_set",
     "unbind_views",
 ]

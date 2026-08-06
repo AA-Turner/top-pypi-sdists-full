@@ -142,6 +142,7 @@ from airbyte_ops_mcp.regression_tests.regression import (
     ComparisonResult,
     RecordComparisonSummary,
     compare_catalog_schemas,
+    compare_final_states,
     compare_specs,
     run_record_comparisons_from_files,
 )
@@ -1018,10 +1019,11 @@ def _annotate_run_verdict(command: str, result: dict[str, Any]) -> dict[str, Any
     }
 
 
-# The checks the declared-output comparisons contribute, named for the row a
-# reviewer reads in the report and in the step summary.
+# The checks the output comparisons contribute, named for the row a reviewer
+# reads in the report and in the step summary.
 _SPEC_CHECK = "Spec compatibility"
 _CATALOG_SCHEMA_CHECK = "Catalog schema"
+_FINAL_STATE_CHECK = "Final state per stream"
 
 # How many individual changes a check's one-line summary names before it says
 # how many more there are. The full list is in the report and in the run's JSON
@@ -1047,38 +1049,41 @@ _MAX_PAYLOAD_STREAMS = 100
 _MAX_DIFF_PAYLOAD_CHARS = 50_000
 
 
-def _compare_declared_outputs(
+def _compare_outputs(
     *,
     command: str,
     outcome: ComparisonOutcome,
     control_outputs: ComparableOutputs,
     target_outputs: ComparableOutputs,
 ) -> tuple[tuple[CheckResult, ...], tuple[DiffBlock, ...], dict[str, Any]]:
-    """Compare what the two versions declared, for the commands that declare it.
+    """Compare what the two versions produced, for the commands that produce it.
 
-    This is the content check for `spec` and `discover`: without it their
-    verdict is the exit code, and a connector that drops a config field or
-    changes a stream's schema exits 0 all the way to a release. `check` reports
-    its own status and `read` is compared on its records, so neither has a
-    declared object to diff here.
+    This is the content check for `spec`, `discover` and `read`: without it their
+    verdict is the exit code, and a connector that drops a config field, changes
+    a stream's schema or corrupts the state the next sync resumes from exits 0
+    all the way to a release. `check` reports its own status, so it is the one
+    command with nothing to diff here.
 
     Only runs when both commands succeeded. A failed run has nothing to compare,
     and reporting "no spec to compare" beside the command failure that caused it
     would state the same problem twice, in weaker terms the second time.
 
-    A comparator that raises is left to propagate. Both comparators normalise
-    what they are given, so the only ways here are a programming error in a
-    future caller or a schema nested past the recursion limit -- and the
-    workflow already has the right vocabulary for both: a step that dies is an
+    A comparator that raises is left to propagate. The comparators normalise what
+    they are given, so the only ways here are a programming error in a future
+    caller or a schema nested past the recursion limit -- and the workflow
+    already has the right vocabulary for both: a step that dies is an
     `internal_failure`, reported as infrastructure rather than as a regression,
     with the connector's artifacts uploaded either way. Catching it here would
     only let a tooling bug read as "the new version broke its spec".
 
     Args:
-        command: The Airbyte command that was run.
+        command: The Airbyte command that was run, as the CLI names it. This is
+            always `"read"` for a read, including one given a state file: the
+            `READ` -> `READ_WITH_STATE` upgrade only changes the `Command` the
+            container is run with.
         outcome: The already-evaluated command outcome.
-        control_outputs: What the control version declared.
-        target_outputs: What the target version declared.
+        control_outputs: What the control version produced.
+        target_outputs: What the target version produced.
 
     Returns:
         The checks to fold into the verdict, the diff blocks that show what they
@@ -1093,6 +1098,11 @@ def _compare_declared_outputs(
 
     if command == "discover":
         return _catalog_comparison(control_outputs.catalog, target_outputs.catalog)
+
+    if command == "read":
+        return _final_state_comparison(
+            control_outputs.final_states, target_outputs.final_states
+        )
 
     return (), (), {}
 
@@ -1150,15 +1160,77 @@ def _catalog_comparison(
     # The findings themselves are the check's `details`, which the report renders
     # under the check row: a stream that is missing or new has no schema diff, so
     # that list is the only place it appears.
-    blocks: list[DiffBlock] = []
+    blocks = _stream_diff_blocks(
+        result,
+        block_title="Schema diff",
+        omission_title="Schema diffs omitted for size",
+        artifact_hint=(
+            "Both discovered catalogs are in the artifact, under "
+            "airbyte_messages/catalog.jsonl."
+        ),
+    )
 
-    # One block per changed stream, in catalog order -- only a *changed*
-    # stream has a diff, so there is no severity left to sort by here -- and
-    # within the same budget the payload uses: a report that inlines every schema
-    # of a 200-stream source is not a report anyone reads. What the budget drops
-    # is named rather than skipped.
+    return (check,), blocks, {"catalog_schema": _catalog_schema_detail(result)}
+
+
+def _final_state_comparison(
+    control_states: dict[tuple[str | None, str], Any] | None,
+    target_states: dict[tuple[str | None, str], Any] | None,
+) -> tuple[tuple[CheckResult, ...], tuple[DiffBlock, ...], dict[str, Any]]:
+    """Run the final-state comparison and shape it for every surface."""
+    result = compare_final_states(control_states, target_states)
+
+    # Structural findings first, then the value-only ones: the check lists
+    # everything it found, and the summary quotes the front of that list.
+    findings = [*result.errors, *result.warnings]
+
+    check = CheckResult(
+        name=_FINAL_STATE_CHECK,
+        passed=result.passed,
+        # Two ways a non-passing state check does not gate. A cursor that only
+        # advanced: until HTTP replay lands, the two versions call the live API
+        # in separate runs and a timestamp cursor moves between them on its own.
+        # And a read with no state on either side, where there was nothing to
+        # compare rather than something wrong.
+        severity=(
+            "diagnostic" if result.value_only or result.inconclusive else "strict"
+        ),
+        summary=_change_summary(result.message, findings),
+        details=tuple(findings),
+    )
+
+    blocks = _stream_diff_blocks(
+        result,
+        block_title="Final state diff",
+        omission_title="Final state diffs omitted for size",
+        artifact_hint=(
+            "Both versions' state messages are in the artifact, under "
+            "airbyte_messages/state.jsonl."
+        ),
+    )
+
+    return (check,), blocks, {"final_state": _final_state_detail(result)}
+
+
+def _stream_diff_blocks(
+    result: ComparisonResult,
+    *,
+    block_title: str,
+    omission_title: str,
+    artifact_hint: str,
+) -> tuple[DiffBlock, ...]:
+    """One block per changed stream, within the report's diff budget.
+
+    In comparison order -- only a *changed* stream has a diff, so there is no
+    severity left to sort by here -- and within the same budget the payload uses:
+    a report that inlines every schema of a 200-stream source is not a report
+    anyone reads. What the budget drops is named rather than skipped, since a
+    block that is simply absent reads as "there was nothing to see".
+    """
+    blocks: list[DiffBlock] = []
     budget = _MAX_DIFF_PAYLOAD_CHARS
     dropped: list[str] = []
+
     for name in result.failed_streams:
         stream = result.stream_results[name]
         if not stream.schema_diff:
@@ -1170,19 +1242,18 @@ def _catalog_comparison(
             continue
 
         budget -= len(payload)
-        blocks.append(build_json_block(f"Schema diff — {name}", payload))
+        blocks.append(build_json_block(f"{block_title} — {name}", payload))
 
     if dropped:
         blocks.append(
             build_diff_block(
-                "Schema diffs omitted for size",
+                omission_title,
                 [
                     DiffLine(
                         kind="meta",
                         text=(
-                            "These streams changed, and their diffs were too large "
-                            "for this report. Both discovered catalogs are in the "
-                            "artifact, under airbyte_messages/catalog.jsonl."
+                            "These streams changed, and their diffs were too "
+                            f"large for this report. {artifact_hint}"
                         ),
                     ),
                     *(DiffLine(kind="del", text=name) for name in dropped),
@@ -1191,7 +1262,7 @@ def _catalog_comparison(
             )
         )
 
-    return (check,), tuple(blocks), {"catalog_schema": _catalog_schema_detail(result)}
+    return tuple(blocks)
 
 
 def _change_block(title: str, changes: list[str], kind: str) -> DiffBlock | None:
@@ -1243,7 +1314,64 @@ def _spec_detail(result: ComparisonResult) -> dict[str, Any]:
 
 
 def _catalog_schema_detail(result: ComparisonResult) -> dict[str, Any]:
-    """The catalog comparison, for the run's JSON payload.
+    """The catalog comparison, for the run's JSON payload."""
+    streams, omitted, dropped = _bounded_stream_diffs(
+        result,
+        omission_note="Too large for this payload; diff the catalogs",
+        artifact_hint="Both discovered catalogs are in the saved artifacts.",
+    )
+
+    detail: dict[str, Any] = {
+        "passed": result.passed,
+        # Why a `passed: false` did not fail the run: everything found was an
+        # addition, which is reported as a warning rather than a regression.
+        "additive_only": result.additive_only,
+        "message": result.message,
+        "changed_streams": _bounded_changes(result.failed_streams),
+        "streams": streams,
+    }
+    if omitted:
+        detail["streams_with_omitted_diffs"] = omitted
+    if dropped:
+        detail["streams_omitted"] = dropped
+
+    return detail
+
+
+def _final_state_detail(result: ComparisonResult) -> dict[str, Any]:
+    """The final-state comparison, for the run's JSON payload."""
+    streams, omitted, dropped = _bounded_stream_diffs(
+        result,
+        omission_note="Too large for this payload; diff the state messages",
+        artifact_hint="Both versions' state messages are in the saved artifacts.",
+    )
+
+    detail: dict[str, Any] = {
+        "passed": result.passed,
+        # The two reasons a `passed: false` did not fail the run, kept apart so
+        # the payload never says "every state that moved moved in value only"
+        # about a read where nothing moved because nothing was compared.
+        "value_only": result.value_only,
+        "inconclusive": result.inconclusive,
+        "message": result.message,
+        "changed_streams": _bounded_changes(result.failed_streams),
+        "streams": streams,
+    }
+    if omitted:
+        detail["streams_with_omitted_diffs"] = omitted
+    if dropped:
+        detail["streams_omitted"] = dropped
+
+    return detail
+
+
+def _bounded_stream_diffs(
+    result: ComparisonResult,
+    *,
+    omission_note: str,
+    artifact_hint: str,
+) -> tuple[dict[str, Any], list[str], int]:
+    """A comparison's per-stream verdicts and diffs, sized for the JSON payload.
 
     Every stream that changed is named with its verdict -- so the payload says
     what moved, not just that something did -- while the diffs themselves are
@@ -1274,7 +1402,7 @@ def _catalog_schema_detail(result: ComparisonResult) -> dict[str, Any]:
         rendered = len(json.dumps(stream.schema_diff, separators=(",", ":")))
         if rendered > budget:
             omitted.append(name)
-            entry["diff_omitted"] = "Too large for this payload; diff the catalogs"
+            entry["diff_omitted"] = omission_note
             continue
 
         budget -= rendered
@@ -1284,31 +1412,17 @@ def _catalog_schema_detail(result: ComparisonResult) -> dict[str, Any]:
         print_warning(
             f"Comparison detail for {len(omitted)} streams was too large for the "
             f"run's JSON output ({', '.join(omitted)}); their diffs are omitted "
-            "there. Both discovered catalogs are in the saved artifacts."
+            f"there. {artifact_hint}"
         )
 
     if dropped_entries:
         print_warning(
             f"The run's JSON output lists {_MAX_PAYLOAD_STREAMS} of "
-            f"{len(ordered)} streams, changed ones first. The report and the "
-            "saved catalogs carry them all."
+            f"{len(ordered)} streams, changed ones first. The report carries "
+            f"them all. {artifact_hint}"
         )
 
-    detail: dict[str, Any] = {
-        "passed": result.passed,
-        # Why a `passed: false` did not fail the run: everything found was an
-        # addition, which is reported as a warning rather than a regression.
-        "additive_only": result.additive_only,
-        "message": result.message,
-        "changed_streams": _bounded_changes(result.failed_streams),
-        "streams": streams,
-    }
-    if omitted:
-        detail["streams_with_omitted_diffs"] = omitted
-    if dropped_entries:
-        detail["streams_omitted"] = len(dropped_entries)
-
-    return detail
+    return streams, omitted, len(dropped_entries)
 
 
 def _build_connector_image_from_source(
@@ -2236,7 +2350,7 @@ def regression_test(
             comparison_checks,
             comparison_diff_blocks,
             comparison_detail,
-        ) = _compare_declared_outputs(
+        ) = _compare_outputs(
             command=command,
             outcome=outcome,
             control_outputs=control_outputs,

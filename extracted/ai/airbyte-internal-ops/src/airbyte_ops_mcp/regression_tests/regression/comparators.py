@@ -34,6 +34,13 @@ from airbyte_protocol.models import Type as AirbyteMessageType
 from deepdiff import DeepDiff
 from pydantic import ValidationError
 
+from airbyte_ops_mcp.regression_tests.normalization import (
+    stream_label,
+    to_plain_dict,
+    to_stream_id,
+    unique_label,
+)
+
 logger = logging.getLogger(__name__)
 
 # Fields to exclude when comparing records (timestamps vary between runs)
@@ -167,6 +174,21 @@ class ComparisonResult:
     is false for an unchanged run, which has no differences to classify: the
     caller uses it to decide whether a change is worth blocking a release over,
     and "nothing changed" is not that question.
+
+    `value_only` is the same kind of flag for the state comparison: every
+    difference found is a scalar value under an identical shape, a cursor that
+    moved rather than a state that was restructured. Until HTTP replay lands
+    (airbyte-internal-issues#16837) the two versions call the live API in
+    separate runs, so a timestamp cursor can legitimately advance between them;
+    failing on that would redden every incremental read. Like `additive_only`,
+    it is false for a run with no differences at all.
+
+    `inconclusive` says the comparison had nothing to compare -- not a pass, and
+    not a difference either. It is a separate flag from `value_only` because the
+    two answer different questions: `value_only` classifies differences that were
+    found, so reporting "nothing was compared" through it would say every
+    difference was benign drift when there were no differences at all. Both make
+    a `passed=False` non-gating, and only one of them can be true.
     """
 
     passed: bool
@@ -175,6 +197,8 @@ class ComparisonResult:
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     additive_only: bool = False
+    value_only: bool = False
+    inconclusive: bool = False
 
     @property
     def failed_streams(self) -> list[str]:
@@ -608,13 +632,32 @@ def compare_catalog_schemas(
     for stream_id in sorted(
         set(control_streams) | set(target_streams),
         # `None` sorts against `str` otherwise; the label is what a reader
-        # sees, so order by that.
-        key=_stream_label,
+        # sees, so order by that -- with the identity as a tie-breaker, because
+        # two streams can render the same label and the label alone leaves their
+        # order to set iteration, which string hashing randomises per process.
+        # Which of the two then got the bare label and which got `(2)` would
+        # change between runs of the same comparison.
+        #
+        # Namespace before name in the tie-break, matching the order
+        # `compare_final_states` sorts by, so a collision is qualified the same
+        # way on both surfaces. Breaking the tie by name instead would agree with
+        # it only where the combined label happens to sort like the bare name:
+        # for a stream `z.a` beside `a` in namespace `z`, name-first hands the
+        # bare `z.a` to the namespaced stream while the state comparison hands it
+        # to the other, so one report's two tables would point at each other's
+        # stream. Colliding ids tie on the label, so this orders exactly as the
+        # state comparison does.
+        key=lambda stream_id: (
+            stream_label(*stream_id),
+            stream_id[0] or "",
+            stream_id[1],
+            stream_id[0] is not None,
+        ),
     ):
         # Two distinct streams can render the same label -- `public.users`
         # the name beside `users` in the `public` namespace -- and a shared
         # label must not collapse them into one result either.
-        label = _unique_label(_stream_label(stream_id), stream_results)
+        label = unique_label(stream_label(*stream_id), stream_results)
         control_stream = control_streams.get(stream_id)
         target_stream = target_streams.get(stream_id)
 
@@ -631,7 +674,17 @@ def compare_catalog_schemas(
             # discovered catalog is a real difference -- `default_cursor_field`
             # and `source_defined_primary_key` are paths, where order is the
             # meaning.
-            diff = DeepDiff(control_stream, target_stream)
+            # `ignore_private_variables=False` for the reason
+            # `compare_final_states` passes it: DeepDiff's default drops every
+            # key beginning with `__`, and a connector's own `__`-prefixed
+            # field -- `__v` on a Mongo-shaped source, `__typename` passed
+            # through from a GraphQL API -- is data it declared, not a Python
+            # private. On the default a stream that added, removed or retyped
+            # such a field would compare equal and the check would report the
+            # schema unchanged.
+            diff = DeepDiff(
+                control_stream, target_stream, ignore_private_variables=False
+            )
             if diff and not _is_additive_diff(diff):
                 destructive = True
             rank, message = (
@@ -834,6 +887,212 @@ def _catalog_change_message(tally: dict[int, int], unreadable: int) -> str:
     return f"Discovered catalog: {', '.join(clauses)}"
 
 
+def compare_final_states(
+    control_states: dict[tuple[str | None, str], Any] | None,
+    target_states: dict[tuple[str | None, str], Any] | None,
+) -> ComparisonResult:
+    """Compare the last state each version emitted per stream.
+
+    The state a `read` leaves behind is what the next incremental sync resumes
+    from, and nothing else in the run checks it: a target version that drops a
+    cursor key, renames it or changes its type exits 0 like any other, and the
+    damage only shows up as missed or duplicated records on a customer's next
+    sync.
+
+    The verdict is deliberately two-tiered:
+
+    - A *structural* difference -- a stream with state on only one side, or a
+      key or type added or removed inside the state blob -- fails. The shape of
+      a state blob is a contract between a version and its own future runs.
+    - A *value-only* difference under an identical shape is reported and does
+      not gate, via `value_only`. Until HTTP replay lands
+      (airbyte-internal-issues#16837) the two versions hit the live API in
+      separate runs, so a timestamp cursor legitimately advances between them;
+      failing on that would redden every incremental read and train reviewers to
+      click past the check.
+
+    Args:
+        control_states: The control version's final state per stream identity,
+            as `ExecutionResult.get_final_state_per_stream` returns it -- keyed
+            by `(namespace, name)`, not by the label it displays as, so two
+            streams that render the same label stay two streams here.
+        target_states: The same, for the target version.
+
+    Returns:
+        A per-stream result whose `schema_diff` holds the diff for that stream.
+    """
+    control = control_states or {}
+    target = target_states or {}
+
+    if not control and not target:
+        # Not a pass, and not a failure either. Emitting no state at all is
+        # unusual rather than impossible -- note it is *not* what a
+        # full-refresh-only read does, since the Python CDK emits a terminal
+        # sentinel state per stream even there -- but a connector old enough to
+        # predate that, or one that died before its first checkpoint, has
+        # nothing here through no fault of the target version. So this cannot
+        # hard-fail the way a `discover` with no catalog does, while a check
+        # that went green over something it never looked at is how a silent
+        # state regression ships. The message is the whole finding, so it is
+        # not repeated as an error the summary would print twice.
+        return ComparisonResult(
+            passed=False,
+            message="Neither version emitted any state; nothing was compared",
+            inconclusive=True,
+        )
+
+    stream_results: dict[str, StreamComparisonResult] = {}
+    findings: list[tuple[int, str]] = []
+    warnings: list[str] = []
+    tally = {_MISSING_STATE: 0, _CHANGED_STATE: 0}
+    value_changes = 0
+    structural = False
+
+    for stream_id in sorted(
+        set(control) | set(target),
+        # By identity, not by the label: `None` sorts against `str` otherwise,
+        # and two streams can render the same label -- ordering by that would
+        # let emission order decide which of them is labelled first, so the two
+        # sides could disagree about which stream a label refers to. The third
+        # component keeps the order total where the first two tie, which is how
+        # a stream named `(shared)` sorts against the shared-state key: without
+        # it the tie would fall to set iteration order, and which of the two got
+        # the unqualified label would change between runs.
+        key=lambda stream_id: (
+            stream_id[0] or "",
+            stream_id[1],
+            stream_id[0] is not None,
+        ),
+    ):
+        # A shared label must not collapse two streams into one result, for the
+        # reason the catalog comparison qualifies its own: `public.users` the
+        # name beside `users` in the `public` namespace.
+        label = unique_label(stream_label(*stream_id), stream_results)
+
+        if stream_id not in control or stream_id not in target:
+            structural = True
+            side = "control" if stream_id in target else "target"
+            message = f"State for {label} is missing on the {side}"
+            tally[_MISSING_STATE] += 1
+            findings.append((_MISSING_STATE, message))
+            stream_results[label] = StreamComparisonResult(
+                stream_name=label, passed=False, message=message
+            )
+            continue
+
+        # No `ignore_order`, for the same reason the catalog comparison uses
+        # none: a reordered list is a difference worth seeing, not noise to
+        # normalise away. It does not *gate*, though -- DeepDiff encodes a pure
+        # reorder of same-shaped elements as `values_changed`, which the
+        # classifier treats as value-only, so a reorder warns rather than fails.
+        # That is deliberate: a substream's partition list can legitimately come
+        # back in a different order from two live-API runs, and failing on it
+        # would redden those runs exactly the way failing on a moved cursor
+        # would. Without `ignore_order` it is at least visible as a change; with
+        # it the reorder would vanish entirely.
+        #
+        # `ignore_private_variables=False` because DeepDiff defaults it to
+        # True, which drops every key beginning with `__` -- and the terminal
+        # state of a full-refresh stream is nothing but such a key:
+        # `{"__ab_no_cursor_state_message": true}` for a plain full refresh,
+        # `{"__ab_full_refresh_sync_complete": true}` once the stream is
+        # resumable. On the default, every full-refresh stream's state
+        # normalises to `{}` on both sides and the check reports "unchanged"
+        # over a state it never looked at -- including a swap from one sentinel
+        # to the other, which is a real change to what the next sync resumes
+        # from. These are the connector's own keys, not Python privates.
+        diff = DeepDiff(
+            control[stream_id], target[stream_id], ignore_private_variables=False
+        )
+        if not diff:
+            stream_results[label] = StreamComparisonResult(
+                stream_name=label, passed=True
+            )
+            continue
+
+        if _is_value_only_diff(diff):
+            value_changes += 1
+            message = f"State for {label} changed value"
+            warnings.append(message)
+        else:
+            structural = True
+            message = f"State for {label} changed shape"
+            tally[_CHANGED_STATE] += 1
+            findings.append((_CHANGED_STATE, message))
+
+        stream_results[label] = StreamComparisonResult(
+            stream_name=label,
+            passed=False,
+            schema_diff=_jsonable_diff(diff),
+            message=message,
+        )
+
+    all_passed = all(result.passed for result in stream_results.values())
+    # Severity first: a summary that names only the first few findings must not
+    # spend them on a moved cursor while a dropped state key waits below.
+    errors = [message for _rank, message in sorted(findings, key=lambda f: f[0])]
+
+    return ComparisonResult(
+        passed=all_passed,
+        stream_results=stream_results,
+        message=(
+            f"Final state unchanged across {_count(len(stream_results), 'stream')}"
+            if all_passed
+            else _final_state_change_message(tally, value_changes)
+        ),
+        errors=errors,
+        warnings=warnings,
+        value_only=not all_passed and not structural,
+    )
+
+
+# How the final-state findings are ordered before anything truncates them. A
+# stream whose state exists on only one side comes first: the next sync has
+# nothing to resume from, or resumes from something the other version never had.
+_MISSING_STATE = 0
+_CHANGED_STATE = 1
+
+# The one DeepDiff verdict that means "the same shape holds a different scalar".
+# Every other verdict -- `dictionary_item_added`, `dictionary_item_removed`,
+# `type_changes`, `iterable_item_added`, `iterable_item_removed`, and anything
+# DeepDiff grows later -- restructures the blob, so the check fails closed on
+# keys it does not recognise rather than waving them through as drift.
+_VALUE_DIFF_KEY = "values_changed"
+
+
+def _is_value_only_diff(diff: DeepDiff) -> bool:
+    """Whether a state's diff is a cursor that moved, not a state redeclared."""
+    return set(diff.keys()) == {_VALUE_DIFF_KEY}
+
+
+def _final_state_change_message(tally: dict[int, int], value_changes: int) -> str:
+    """Say what moved in the state, by kind.
+
+    A moved cursor and a dropped cursor key are one sentence apart and several
+    severities apart, so the summary never calls them both "changed".
+    """
+    clauses = [
+        clause
+        for count, clause in (
+            (
+                tally[_MISSING_STATE],
+                f"{_count(tally[_MISSING_STATE], 'stream')} with state on one side only",
+            ),
+            (
+                tally[_CHANGED_STATE],
+                f"{_count(tally[_CHANGED_STATE], 'stream')} whose state changed shape",
+            ),
+            (
+                value_changes,
+                f"{_count(value_changes, 'stream')} whose state changed value",
+            ),
+        )
+        if count
+    ]
+
+    return f"Final state: {', '.join(clauses)}"
+
+
 def compare_specs(
     control_spec: Any,
     target_spec: Any,
@@ -858,8 +1117,8 @@ def compare_specs(
         A result whose `errors` are the breaking changes and whose `warnings`
         are the compatible ones, both as reviewer-readable sentences.
     """
-    control = _to_plain_dict(control_spec)
-    target = _to_plain_dict(target_spec)
+    control = to_plain_dict(control_spec)
+    target = to_plain_dict(target_spec)
 
     missing_side = _missing_sides(control, target)
     if missing_side:
@@ -1527,26 +1786,6 @@ def _missing_sides(control: Any, target: Any) -> str:
     return f"missing on the {' and '.join(missing)}"
 
 
-def _to_plain_dict(value: Any) -> dict[str, Any] | None:
-    """Normalise a protocol object to plain JSON-compatible data.
-
-    Accepts the pydantic models an `ExecutionResult` yields as well as the plain
-    dicts saved artifacts and tests carry, so a comparator never depends on
-    which of the two it was handed.
-    """
-    if value is None:
-        return None
-
-    if isinstance(value, dict):
-        return value
-
-    model_dump = getattr(value, "model_dump", None)
-    if callable(model_dump):
-        return model_dump(mode="json", exclude_none=True)
-
-    raise TypeError(f"Cannot compare a {type(value).__name__} as JSON data")
-
-
 def _streams_by_id(
     catalog: Any,
 ) -> tuple[dict[tuple[str | None, str], dict[str, Any]] | None, list[str]]:
@@ -1558,13 +1797,15 @@ def _streams_by_id(
     change in the shadowed stream with it. It is a pair rather than the
     `namespace.name` string it displays as, so a stream literally named
     `public.users` is not the same key as `users` in the `public` namespace.
+    The state comparison keys streams the same way, so both agree on what a
+    stream is.
 
     Returns:
         The index and the problems found, or `(None, [])` when there is no
         catalog at all. A stream that cannot be indexed is reported rather than
         dropped: an unreadable entry is not an unchanged one.
     """
-    plain = _to_plain_dict(catalog)
+    plain = to_plain_dict(catalog)
     if plain is None:
         return None, []
 
@@ -1581,39 +1822,17 @@ def _streams_by_id(
             problems.append(f"stream at position {position} has no name")
             continue
 
-        namespace = stream.get("namespace")
-        stream_id = (str(namespace) if namespace else None, str(name))
+        stream_id = to_stream_id(stream.get("namespace"), name)
 
         if stream_id in indexed:
             problems.append(
-                f"stream {_stream_label(stream_id)} is declared more than once"
+                f"stream {stream_label(*stream_id)} is declared more than once"
             )
             continue
 
         indexed[stream_id] = stream
 
     return indexed, problems
-
-
-def _stream_label(stream_id: tuple[str | None, str]) -> str:
-    """How a stream is named in everything a reviewer reads."""
-    namespace, name = stream_id
-
-    return f"{namespace}.{name}" if namespace else name
-
-
-def _unique_label(label: str, taken: dict[str, Any]) -> str:
-    """`label`, or a qualified form of it when another stream got there first."""
-    if label not in taken:
-        return label
-
-    qualified = f"{label} (2)"
-    suffix = 2
-    while qualified in taken:
-        suffix += 1
-        qualified = f"{label} ({suffix})"
-
-    return qualified
 
 
 def _jsonable_diff(diff: DeepDiff) -> dict[str, Any]:
@@ -1709,10 +1928,15 @@ def _compare_records_with_pk(
             if key not in exclude_paths
         }:
             continue
+        # `ignore_private_variables=False`: see `compare_catalog_schemas`. Note
+        # the fast path above uses plain equality, so a pair differing only in a
+        # `__`-prefixed field does reach here -- and on DeepDiff's default it
+        # comes back empty, so the difference is silently not counted.
         diff = DeepDiff(
             control_record,
             target_record,
             ignore_order=True,
+            ignore_private_variables=False,
             exclude_paths=[f"root['{p}']" for p in exclude_paths],
         )
         if diff:
@@ -1761,10 +1985,12 @@ def _compare_records_without_pk(
         json.loads(msg.record.model_dump_json()) for msg in target_msgs if msg.record
     ]
 
+    # `ignore_private_variables=False`: see `compare_catalog_schemas`.
     diff = DeepDiff(
         control_records,
         target_records,
         ignore_order=True,
+        ignore_private_variables=False,
         exclude_paths=[f"root[*]['{p}']" for p in exclude_paths],
     )
 

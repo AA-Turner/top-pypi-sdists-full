@@ -69,6 +69,8 @@ __all__ = (
     "ExecutionClassType",
     "ExecutionStatusType",
     "ExistConditionType",
+    "ExportSettingType",
+    "ExportStatusType",
     "FieldDataTypeType",
     "FieldFilterOperatorType",
     "FieldNameType",
@@ -430,6 +432,8 @@ EnableHybridValuesType = Literal["FALSE", "TRUE"]
 ExecutionClassType = Literal["FLEX", "STANDARD"]
 ExecutionStatusType = Literal["FAILED", "STARTED"]
 ExistConditionType = Literal["MUST_EXIST", "NONE", "NOT_EXIST"]
+ExportSettingType = Literal["DISABLED", "ENABLED"]
+ExportStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING", "FAILED"]
 FieldDataTypeType = Literal[
     "ARRAY",
     "BIGINT",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-django
-Version: 4.12.0
+Version: 4.13.0
 Summary: A Django plugin for pytest.
 Author-email: Andreas Pelme <andreas@pelme.se>
 Maintainer-email: Andreas Pelme <andreas@pelme.se>
@@ -64,8 +64,6 @@ Project-URL: Repository, https://github.com/pytest-dev/pytest-django
 Project-URL: Changelog, https://pytest-django.readthedocs.io/en/latest/changelog.html
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
@@ -85,6 +83,9 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS
 Requires-Dist: pytest>=7.0.0
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx-rtd-theme; extra == "docs"
 Dynamic: license-file
 
 .. image:: https://img.shields.io/pypi/v/pytest-django.svg?style=flat
@@ -121,7 +122,7 @@ pytest-django allows you to test your Django project/applications with the
   <https://pytest-django.readthedocs.io/en/latest/contributing.html>`_
 * Version compatibility:
 
-  * Django: 4.2, 5.1, 5.2, 6.0 and latest main branch (compatible at the time
+  * Django: 5.2, 6.0 and latest main branch (compatible at the time
     of each release)
   * Python: CPython>=3.10 or PyPy 3
   * pytest: >=7.0

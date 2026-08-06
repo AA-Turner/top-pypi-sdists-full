@@ -13,6 +13,7 @@ from ..core.request_options import RequestOptions
 from ..core.serialization import convert_and_respect_annotation_metadata
 from ..errors.bad_request_error import BadRequestError
 from ..errors.content_too_large_error import ContentTooLargeError
+from ..errors.forbidden_error import ForbiddenError
 from ..errors.internal_server_error import InternalServerError
 from ..errors.not_found_error import NotFoundError
 from ..errors.unauthorized_error import UnauthorizedError
@@ -718,10 +719,11 @@ class RawToolsClient:
         *,
         file: core.File,
         parent_folder_id: typing.Optional[str] = None,
+        workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[SaveAssetRequestOut]:
         """
-        Save a file as an asset in the user's workspace.
+        Save a file as an asset in the target workspace.
 
         Parameters
         ----------
@@ -730,6 +732,9 @@ class RawToolsClient:
 
         parent_folder_id : typing.Optional[str]
             Identifier of the folder into which the asset should be saved
+
+        workspace_id : typing.Optional[str]
+            Identifier of the workspace to save the asset into. Defaults to the caller's current workspace. The caller must be a member of the specified workspace.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -744,6 +749,7 @@ class RawToolsClient:
             method="POST",
             params={
                 "parent_folder_id": parent_folder_id,
+                "workspace_id": workspace_id,
             },
             data={},
             files={
@@ -765,6 +771,17 @@ class RawToolsClient:
                 return HttpResponse(response=_response, data=_data)
             if _response.status_code == 400:
                 raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Optional[typing.Any],
@@ -1487,10 +1504,11 @@ class AsyncRawToolsClient:
         *,
         file: core.File,
         parent_folder_id: typing.Optional[str] = None,
+        workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[SaveAssetRequestOut]:
         """
-        Save a file as an asset in the user's workspace.
+        Save a file as an asset in the target workspace.
 
         Parameters
         ----------
@@ -1499,6 +1517,9 @@ class AsyncRawToolsClient:
 
         parent_folder_id : typing.Optional[str]
             Identifier of the folder into which the asset should be saved
+
+        workspace_id : typing.Optional[str]
+            Identifier of the workspace to save the asset into. Defaults to the caller's current workspace. The caller must be a member of the specified workspace.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1513,6 +1534,7 @@ class AsyncRawToolsClient:
             method="POST",
             params={
                 "parent_folder_id": parent_folder_id,
+                "workspace_id": workspace_id,
             },
             data={},
             files={
@@ -1534,6 +1556,17 @@ class AsyncRawToolsClient:
                 return AsyncHttpResponse(response=_response, data=_data)
             if _response.status_code == 400:
                 raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Optional[typing.Any],

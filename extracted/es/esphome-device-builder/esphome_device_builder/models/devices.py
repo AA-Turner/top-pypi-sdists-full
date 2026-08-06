@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, fields
 from enum import StrEnum
-from typing import Literal, TypedDict
+from typing import Any, Literal, NamedTuple, TypedDict
 
 from .common import DashboardModel
 
@@ -109,6 +109,46 @@ class DeviceRuntimeState(DashboardModel):
 RUNTIME_STATE_FIELD_NAMES = frozenset(f.name for f in fields(DeviceRuntimeState))
 
 
+class MqttFreshnessStamp(NamedTuple):
+    """Freshness key for a scan-time ``mqtt:`` extraction."""
+
+    yaml_mtime_ns: int
+    yaml_size: int
+    secrets_mtime_ns: int
+    secrets_size: int
+
+
+@dataclass(repr=False)
+class DeviceMqttExtract:
+    """
+    Scan-time ``mqtt:`` extraction consumed by the MQTT coordinator.
+
+    ``main_block`` keeps ``!secret`` markers unresolved; ``resolved_block``
+    is the package-merged config's block with secrets baked in, valid only
+    while both files' ``(mtime_ns, size)`` stamps match the disk.
+    """
+
+    yaml_mtime_ns: int
+    yaml_size: int
+    secrets_mtime_ns: int
+    secrets_size: int
+    main_block: dict[str, Any] | None
+    main_substitutions: dict[str, str]
+    resolved_block: dict[str, Any] | None
+    resolved_substitutions: dict[str, str]
+    # Distinguishes "shallow load, a deep reload will fill
+    # ``resolved_block``" from "deep parse ran and failed" — the
+    # coordinator only requests a reload for the former.
+    from_shallow_load: bool = False
+
+    @property
+    def stamp(self) -> MqttFreshnessStamp:
+        """Return the freshness key this extraction was built at."""
+        return MqttFreshnessStamp(
+            self.yaml_mtime_ns, self.yaml_size, self.secrets_mtime_ns, self.secrets_size
+        )
+
+
 @dataclass
 class Device(DashboardModel):
     """A configured ESPHome device."""
@@ -166,6 +206,11 @@ class Device(DashboardModel):
     pending_changes_via_hash: bool = False
     update_available: bool = False  # True if compiled with older ESPHome version
     uses_mqtt: bool = False  # True if the YAML declares a top-level mqtt: block
+    # Server-side only; ``repr=False`` because the resolved block can
+    # carry baked-in credentials.
+    mqtt_extract: DeviceMqttExtract | None = field(
+        default=None, repr=False, metadata={"serialize": "omit"}
+    )
     uses_deep_sleep: bool = False  # True if the YAML declares a top-level deep_sleep: block
     # Truthy esphome.name_add_mac_suffix; status tracking is unavailable for such configs.
     name_add_mac_suffix: bool = False

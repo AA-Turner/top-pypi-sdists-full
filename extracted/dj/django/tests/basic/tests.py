@@ -290,6 +290,13 @@ class ModelTest(TestCase):
         )
         self.assertEqual(Article.objects.get(headline="Article 10"), a10)
 
+    def test_create_method_propagates_fetch_mode(self):
+        article = Article.objects.fetch_mode(models.FETCH_PEERS).create(
+            headline="Article 10",
+            pub_date=datetime(2005, 7, 31, 12, 30, 45),
+        )
+        self.assertEqual(article._state.fetch_mode, models.FETCH_PEERS)
+
     def test_year_lookup_edge_case(self):
         # Edge-case test: A year lookup should retrieve all objects in
         # the given year, including Jan. 1 and Dec. 31.
@@ -547,6 +554,7 @@ class ModelTest(TestCase):
         cases = [
             Article(),
             Article(id=None),
+            PrimaryKeyWithDbDefault(),
         ]
         for case in cases:
             with self.subTest(case=case):
@@ -807,6 +815,7 @@ class ManagerTest(SimpleTestCase):
         "alatest",
         "aupdate",
         "aupdate_or_create",
+        "fetch_mode",
     ]
 
     def test_manager_methods(self):
@@ -1090,3 +1099,24 @@ class ModelRefreshTests(TestCase):
         with self.assertNumQueries(1):
             a.refresh_from_db(fields=["headline"], from_queryset=from_queryset)
             self.assertEqual(a.headline, headline)
+
+    def test_refresh_copies_fetch_mode_from_plucked_instance(self):
+        a = Article.objects.create(pub_date=datetime.now())
+        fa = FeaturedArticle.objects.fetch_mode(models.FETCH_PEERS).create(article=a)
+
+        from_queryset = FeaturedArticle.objects.fetch_mode(
+            models.FETCH_RAISE
+        ).select_related("article")
+        fa.refresh_from_db(from_queryset=from_queryset)
+        self.assertEqual(fa._state.fetch_mode, models.FETCH_PEERS)
+        self.assertEqual(fa.article._state.fetch_mode, models.FETCH_RAISE)
+
+    def test_refresh_ignores_fetch_mode_if_no_instance_plucked(self):
+        a = Article.objects.create(pub_date=datetime.now())
+        fa = FeaturedArticle.objects.fetch_mode(models.FETCH_PEERS).create(article=a)
+
+        # This queryset's fetch mode is not used because no fields are plucked.
+        from_queryset = FeaturedArticle.objects.fetch_mode(models.FETCH_RAISE)
+        fa.refresh_from_db(from_queryset=from_queryset)
+        self.assertEqual(fa._state.fetch_mode, models.FETCH_PEERS)
+        self.assertEqual(fa.article._state.fetch_mode, models.FETCH_PEERS)

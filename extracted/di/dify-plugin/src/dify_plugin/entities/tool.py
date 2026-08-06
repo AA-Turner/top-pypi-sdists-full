@@ -15,6 +15,7 @@ from dify_plugin.core.utils.yaml_loader import load_yaml_file
 from dify_plugin.entities import I18nObject, ParameterOption
 from dify_plugin.entities.invoke_message import InvokeMessage
 from dify_plugin.entities.model.message import PromptMessageTool
+from dify_plugin.entities.model.provider import FormShowOnObject
 from dify_plugin.entities.oauth import OAuthSchema
 from dify_plugin.entities.provider_config import (
     CommonParameterType,
@@ -47,7 +48,10 @@ class ToolIdentity(BaseModel):
     description="The option of the tool parameter",
 )
 class ToolParameterOption(ParameterOption):
-    pass
+    show_on: list[FormShowOnObject] = Field(
+        default_factory=list,
+        description="The conditions that control whether the option is shown",
+    )
 
 
 @docs(
@@ -88,6 +92,22 @@ class ToolParameter(BaseModel):
         OBJECT = CommonParameterType.OBJECT.value
         ARRAY = CommonParameterType.ARRAY.value
         DYNAMIC_SELECT = CommonParameterType.DYNAMIC_SELECT.value
+        DATE = CommonParameterType.DATE.value
+        DATE_PICKER = CommonParameterType.DATE_PICKER.value
+
+        def to_prompt_schema(self, description: str) -> dict[str, Any]:
+            if self in {self.SELECT, self.SECRET_INPUT, self.DATE}:
+                return {"type": self.STRING.value, "description": description}
+            if self == self.DATE_PICKER:
+                return {
+                    "type": self.OBJECT.value,
+                    "description": description,
+                    "properties": {
+                        "start": {"type": self.STRING.value},
+                        "end": {"type": self.STRING.value},
+                    },
+                }
+            return {"type": self.value, "description": description}
 
     class ToolParameterForm(Enum):
         SCHEMA = "schema"  # should be set while adding tool
@@ -130,6 +150,10 @@ class ToolParameter(BaseModel):
     options: list[ToolParameterOption] | None = None
     # MCP object and array type parameters use this field to store the schema
     input_schema: Mapping[str, Any] | None = None
+    show_on: list[FormShowOnObject] = Field(
+        default_factory=list,
+        description="The conditions that control whether the parameter is shown",
+    )
 
     @model_validator(mode="after")
     def validate_multiple(self) -> "ToolParameter":
@@ -376,16 +400,16 @@ class ToolSelector(BaseModel):
         )
 
         for name, parameter in self.tool_parameters.items():
-            tool.parameters[name] = {
-                "type": parameter.type.value,
-                "description": parameter.description or "",
-            }
+            parameter_schema = parameter.type.to_prompt_schema(
+                parameter.description or "",
+            )
+            tool.parameters["properties"][name] = parameter_schema
 
             if parameter.required:
                 tool.parameters["required"].append(name)
 
             if parameter.options:
-                tool.parameters[name]["enum"] = [
+                parameter_schema["enum"] = [
                     option.value for option in parameter.options
                 ]
 

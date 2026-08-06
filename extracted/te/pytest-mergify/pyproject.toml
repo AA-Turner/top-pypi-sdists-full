@@ -1,0 +1,80 @@
+[project]
+name = "pytest-mergify"
+version = "2026.8.5.3"
+description = "Pytest plugin for Mergify"
+authors = [{ name = "Julien Danjou", email = "jd@mergify.com" }]
+license = "Apache-2.0"
+readme = "README.md"
+
+requires-python = ">=3.8"
+dependencies = [
+    # The OpenTelemetry SDK, its OTLP exporter, and requests are gone: CI
+    # detection, the API fetches, and span build + OTLP upload all run through
+    # the bundled Rust binding now.
+    "pytest>=6.0.0",
+    "pytest-timeout>=2.4.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.9",
+    "mypy>=1.13.0",
+    "poethepoet>=0.30.0",
+    "codespell==2.4.3; python_version >= '3.9'",
+    "yamllint>=1.35.1",
+    "anys>=0.3.1",
+    # Decodes the OTLP protobuf the binding uploads, for the span tests.
+    "opentelemetry-proto>=1.29",
+    # https://github.com/pytest-dev/pytest-asyncio/issues/706#issuecomment-2082788963
+    "pytest-asyncio>=0.24.0",
+    "freezegun>=1.5.5",
+    "pytest-xdist>=3.0",
+]
+
+# Compiled build (maturin): the wheel now bundles the Rust binding as
+# `pytest_mergify._mergify_ci` (abi3-py38 -- one wheel per platform works across
+# all CPython 3.8+). The static `version` above is a placeholder: the release
+# workflow stamps it from the git tag before maturin runs. hatch-vcs was a
+# hatchling plugin and no longer applies, so versioning moves to that build-time
+# stamp -- the same swap mergify-cli made on its Rust port. The CalVer scheme
+# (YYYY.M.D.N) and the GitHub-Releases flow are unchanged.
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[project.entry-points.pytest11]
+pytest_mergify = "pytest_mergify"
+
+# Mixed project: the Python sources live under python/ and the compiled
+# extension is packaged inside the pytest_mergify package as `_mergify_ci`.
+[tool.maturin]
+module-name = "pytest_mergify._mergify_ci"
+features = ["pyo3/extension-module"]
+# Keep dev-only files out of the source distribution -- they are useless to a
+# consumer building from source and only bloat the tarball (uv.lock alone is
+# ~64 KiB). The test suite is deliberately kept: it ships in the sdist so
+# downstream packagers can run it (its deps are the pyproject dev group).
+exclude = ["uv.lock", "poe.toml"]
+manifest-path = "clients/pytest-mergify/Cargo.toml"
+python-source = "python"
+
+[tool.poe]
+include = ["poe.toml"]
+
+[tool.mypy]
+strict = true
+warn_unreachable = true
+files = ["python/pytest_mergify", "tests"]
+mypy_path = "python"
+show_error_codes = true
+
+[tool.ruff]
+target-version = "py38"
+
+[[tool.mypy.overrides]]
+module = [
+  "pytest_opentelemetry.*",
+  "pytest_timeout.*",
+  "requests"
+]
+ignore_missing_imports = true

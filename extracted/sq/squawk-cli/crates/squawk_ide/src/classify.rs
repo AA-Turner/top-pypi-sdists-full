@@ -11,8 +11,7 @@ pub(crate) enum NameRefClass {
     AlterColumn,
     Channel,
     Collation,
-    CompositeTypeAttribute,
-    CompositeTypeField,
+    CompositeField,
     Constraint,
     ConstraintColumn,
     Conversion,
@@ -103,12 +102,14 @@ fn classify_object_definition(kind: SyntaxKind) -> Option<LocationKind> {
         SyntaxKind::CURSOR => LocationKind::Cursor,
         SyntaxKind::DATABASE => LocationKind::Database,
         SyntaxKind::DOMAIN => LocationKind::Type,
+        SyntaxKind::ELEMENT_TABLE_ALIAS => LocationKind::ElementTable,
         SyntaxKind::EVENT_TRIGGER => LocationKind::EventTrigger,
         SyntaxKind::EXTENSION => LocationKind::Extension,
         SyntaxKind::FOREIGN_DATA_WRAPPER => LocationKind::ForeignDataWrapper,
         SyntaxKind::FUNCTION_NAME => LocationKind::Function,
         SyntaxKind::INDEX => LocationKind::Index,
         SyntaxKind::JSON_PATH_NAME => LocationKind::JsonPath,
+        SyntaxKind::LABEL => LocationKind::Label,
         SyntaxKind::LANGUAGE => LocationKind::Language,
         SyntaxKind::OP_CLASS_NAME => LocationKind::OperatorClass,
         SyntaxKind::OP_FAMILY_NAME => LocationKind::OperatorFamily,
@@ -116,6 +117,7 @@ fn classify_object_definition(kind: SyntaxKind) -> Option<LocationKind> {
         SyntaxKind::PREPARED_STATEMENT => LocationKind::PreparedStatement,
         SyntaxKind::PROCEDURE_NAME => LocationKind::Procedure,
         SyntaxKind::PROPERTY_GRAPH => LocationKind::PropertyGraph,
+        SyntaxKind::PROPERTY_NAME => LocationKind::Property,
         SyntaxKind::PUBLICATION => LocationKind::Publication,
         SyntaxKind::RULE => LocationKind::Rule,
         SyntaxKind::SAVEPOINT => LocationKind::Savepoint,
@@ -143,6 +145,7 @@ fn classify_object_ref(kind: SyntaxKind) -> Option<NameRefClass> {
         SyntaxKind::ACCESS_METHOD_REF => NameRefClass::AccessMethod,
         SyntaxKind::CHANNEL_REF => NameRefClass::Channel,
         SyntaxKind::COLLATION_REF => NameRefClass::Collation,
+        SyntaxKind::COMPOSITE_FIELD_REF => NameRefClass::CompositeField,
         SyntaxKind::CONSTRAINT_NAME_REF => NameRefClass::Constraint,
         SyntaxKind::CONVERSION_REF => NameRefClass::Conversion,
         SyntaxKind::CURSOR_REF => NameRefClass::Cursor,
@@ -288,11 +291,10 @@ fn is_search_path(config_parameter: Option<ast::ConfigParameterRef>) -> bool {
         return false;
     }
     path.segment()
-        .and_then(|segment| segment.name_ref())
         .is_some_and(|name_ref| Name::from_node(&name_ref).0.as_str() == "search_path")
 }
 
-fn is_rule_old_new_ref(name_ref: &ast::NameRef) -> bool {
+fn is_rule_old_new_ref(name_ref: &impl ast::NameLike) -> bool {
     name_ref
         .syntax()
         .first_token()
@@ -363,7 +365,7 @@ fn classify_object_column_path(node: &SyntaxNode) -> Option<NameRefClass> {
     let mut name_refs = Vec::new();
 
     loop {
-        if let Some(name_ref) = path.segment().and_then(|segment| segment.name_ref()) {
+        if let Some(name_ref) = path.segment() {
             name_refs.push(name_ref);
         }
         let Some(qualifier) = path.qualifier() else {
@@ -477,6 +479,7 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
         let mut in_on_clause = false;
         let mut in_returning_clause = false;
         let mut in_set_clause = false;
+        let mut in_set_expr = false;
         let mut in_where_clause = false;
         let mut in_when_clause = false;
         let mut in_when_condition = false;
@@ -502,6 +505,9 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
             if ast::SetClause::can_cast(ancestor.kind()) {
                 in_set_clause = true;
             }
+            if ast::SetExpr::can_cast(ancestor.kind()) {
+                in_set_expr = true;
+            }
             if ast::WhereClause::can_cast(ancestor.kind()) {
                 in_where_clause = true;
             }
@@ -509,6 +515,11 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
                 in_when_clause = true;
             }
             if ast::Update::can_cast(ancestor.kind()) {
+                // a set target can't be qualified with the relation name, so
+                // `a` in `update t set a.b = 1` is a composite type column
+                if in_set_clause && !in_set_expr {
+                    return Some(NameRefClass::UpdateColumn);
+                }
                 if in_returning_clause || in_set_clause || in_where_clause || in_from_clause {
                     if is_function_call || is_schema_table_col {
                         return Some(NameRefClass::Schema);
@@ -596,7 +607,7 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
 
         // i.e., `(expr).field`
         if !is_base_of_outer_field_expr && let Some(ast::Expr::ParenExpr(_)) = field_expr.base() {
-            return Some(NameRefClass::CompositeTypeField);
+            return Some(NameRefClass::CompositeField);
         }
 
         let mut in_from_clause = false;
@@ -605,6 +616,8 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
         let mut in_when_clause = false;
         let mut in_when_condition = false;
         let mut in_returning_clause = false;
+        let mut in_set_clause = false;
+        let mut in_set_expr = false;
         for ancestor in parent.ancestors() {
             if ast::OnClause::can_cast(ancestor.kind()) {
                 in_on_clause = true;
@@ -626,6 +639,17 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
             }
             if ast::ReturningClause::can_cast(ancestor.kind()) {
                 in_returning_clause = true;
+            }
+            if ast::SetClause::can_cast(ancestor.kind()) {
+                in_set_clause = true;
+            }
+            if ast::SetExpr::can_cast(ancestor.kind()) {
+                in_set_expr = true;
+            }
+            // `x` in `update t set a.x = 1` is a field of the composite type of
+            // the column `a`
+            if ast::Update::can_cast(ancestor.kind()) && in_set_clause && !in_set_expr {
+                return Some(NameRefClass::CompositeField);
             }
             if ast::Merge::can_cast(ancestor.kind())
                 && (in_on_clause || in_when_clause || in_returning_clause)
@@ -680,9 +704,8 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
 
     // %type clause paths (max 3 segments):
     //   column%type, table.column%type, schema.table.column%type
-    if let Some(parent) = node.parent()
-        && let Some(mut path) = ast::PathSegmentRef::cast(parent)
-            .and_then(|p| p.syntax().parent().and_then(ast::PathRef::cast))
+    if ast::PathSegmentRef::can_cast(node.kind())
+        && let Some(mut path) = node.parent().and_then(ast::PathRef::cast)
     {
         let mut hops_up = 0;
         while let Some(next) = path.syntax().parent().and_then(ast::PathRef::cast) {
@@ -715,9 +738,8 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
         }
     }
 
-    if let Some(parent) = node.parent()
-        && let Some(inner_path) = ast::PathSegmentRef::cast(parent)
-            .and_then(|p| p.syntax().parent().and_then(ast::PathRef::cast))
+    if ast::PathSegmentRef::can_cast(node.kind())
+        && let Some(inner_path) = node.parent().and_then(ast::PathRef::cast)
         && let Some(outer_path) = inner_path.syntax().parent().and_then(|p| {
             ast::PathRef::cast(p.clone())
                 .and_then(|p| p.qualifier())
@@ -800,9 +822,7 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
         if ast::CreateStatistics::can_cast(ancestor.kind()) {
             return Some(NameRefClass::StatisticsColumn);
         }
-        if let Some(publication_object) = ast::PublicationObject::cast(ancestor.clone())
-            && publication_object.table_token().is_some()
-        {
+        if ast::PublicationObjectTable::can_cast(ancestor.kind()) {
             return Some(if has_table_name_ref {
                 NameRefClass::Table
             } else {
@@ -818,12 +838,6 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
             || ast::RenameColumn::can_cast(ancestor.kind())
         {
             return Some(NameRefClass::AlterColumn);
-        }
-        if ast::RenameAttribute::can_cast(ancestor.kind())
-            || ast::DropAttribute::can_cast(ancestor.kind())
-            || ast::AlterAttribute::can_cast(ancestor.kind())
-        {
-            return Some(NameRefClass::CompositeTypeAttribute);
         }
         if ast::ObjectAggregate::can_cast(ancestor.kind()) {
             return Some(NameRefClass::Aggregate);
@@ -969,8 +983,10 @@ pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
         {
             return Some(NameRefClass::SelectOrderByAliasOrColumn);
         }
-        if ast::ColumnList::can_cast(ancestor.kind())
-            || ast::ColumnRefList::can_cast(ancestor.kind())
+        if ast::ColumnRefList::can_cast(ancestor.kind())
+            || ast::ColumnTargetList::can_cast(ancestor.kind())
+            || ast::ConstraintColumnRefList::can_cast(ancestor.kind())
+            || ast::ForeignKeyColumnList::can_cast(ancestor.kind())
         {
             in_column_list = true;
         }
@@ -1097,7 +1113,7 @@ pub(crate) fn classify_def_node(def_node: &SyntaxNode) -> Option<LocationKind> {
         if let Some(class) = classify_object_definition(ancestor.kind()) {
             return Some(class);
         }
-        if ast::Column::can_cast(ancestor.kind()) {
+        if ast::Column::can_cast(ancestor.kind()) || ast::AliasColumn::can_cast(ancestor.kind()) {
             in_column = true;
         }
         if ast::ColumnList::can_cast(ancestor.kind()) {
@@ -1106,10 +1122,10 @@ pub(crate) fn classify_def_node(def_node: &SyntaxNode) -> Option<LocationKind> {
         if ast::Param::can_cast(ancestor.kind()) {
             return Some(LocationKind::NamedArgParameter);
         }
-        if in_column
-            && (ast::CreateTableLike::can_cast(ancestor.kind())
-                || ast::CreateType::can_cast(ancestor.kind()))
-        {
+        if ast::CompositeFieldDef::can_cast(ancestor.kind()) {
+            return Some(LocationKind::Column);
+        }
+        if in_column && ast::CreateTableLike::can_cast(ancestor.kind()) {
             return Some(LocationKind::Column);
         }
         if ast::WithTable::can_cast(ancestor.kind()) {

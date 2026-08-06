@@ -1,6 +1,7 @@
 import logging
 
 from django.contrib.gis import gdal
+from django.contrib.gis.gdal import GDALException
 from django.contrib.gis.geometry import json_regex
 from django.contrib.gis.geos import GEOSException, GEOSGeometry
 from django.contrib.gis.geos.prototypes.io import MAX_GEOM_COLLECTIONS
@@ -38,7 +39,7 @@ class BaseGeometryWidget(Widget):
     def deserialize(self, value):
         try:
             return GEOSGeometry(value, max_geom_collections=self.max_geom_collections)
-        except (GEOSException, ValueError, TypeError) as err:
+        except (GEOSException, GDALException, ValueError, TypeError) as err:
             logger.error("Error creating geometry from value '%s' (%s)", value, err)
         return None
 
@@ -79,12 +80,12 @@ class OpenLayersWidget(BaseGeometryWidget):
     class Media:
         css = {
             "all": (
-                "https://cdn.jsdelivr.net/npm/ol@v7.2.2/ol.css",
+                "https://cdn.jsdelivr.net/npm/ol@v10.9.0/ol.css",
                 "gis/css/ol3.css",
             )
         }
         js = (
-            "https://cdn.jsdelivr.net/npm/ol@v7.2.2/dist/ol.js",
+            "https://cdn.jsdelivr.net/npm/ol@v10.9.0/dist/ol.js",
             "gis/js/OLMapWidget.js",
         )
 

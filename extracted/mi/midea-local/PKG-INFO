@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: midea-local
-Version: 6.11.1
+Version: 7.0.0
 Summary: Control your Midea M-Smart appliances via local area network
 Home-page: https://github.com/midea-lan/midea-local
 Author: rokam
@@ -113,7 +113,7 @@ cd midea-local
 ./scripts/setup.sh          # Linux / macOS / WSL2  (Windows: scripts\setup.ps1)
 ```
 
-This creates a `.venv`, installs all dependencies, and sets up the pre-commit hooks.
+This creates a `.venv`, installs all dependencies, and sets up the prek hooks.
 Run tools with `uv run`, e.g. `uv run python -m pytest ./tests/`. See the contributing
 guide for the full workflow and per-OS uv install instructions.
 

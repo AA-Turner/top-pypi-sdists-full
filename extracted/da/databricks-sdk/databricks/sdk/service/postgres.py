@@ -4,19 +4,16 @@
 # to strip the fat-import header below; ignoring F401 would defeat that.
 
 from __future__ import annotations
-
-import logging
-import uuid
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Dict, List, Any, Iterator, Optional
 
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from databricks.sdk.common import lro
-from databricks.sdk.common.types.fieldmask import FieldMask
-from databricks.sdk.retries import RetryError, poll
+import logging
+import uuid
+
 from databricks.sdk.service._internal import (
     _duration,
     _enum,
@@ -25,6 +22,10 @@ from databricks.sdk.service._internal import (
     _repeated_enum,
     _timestamp,
 )
+from databricks.sdk.common.types.fieldmask import FieldMask
+from databricks.sdk.common import lro
+from databricks.sdk.retries import RetryError, poll
+
 
 _LOG = logging.getLogger("databricks.sdk")
 
@@ -6512,8 +6513,9 @@ class PostgresAPI:
           Timestamp in UTC of when this credential should expire. Must be at least 300 seconds (5 minutes) and
           at most 1 hour from the current time.
         :param group_name: str (optional)
-          Databricks workspace group name. When provided, credentials are generated with permissions scoped to
-          this group.
+          The display name of a ``Databricks`` workspace group. When set, the returned credential is scoped to
+          this group, so the caller connects directly as the group's Postgres role. The caller must be a
+          member of the group. When omitted, the credential is scoped to the caller's own identity.
         :param ttl: Duration (optional)
           The requested time-to-live for the generated credential token. Must be at least 300 seconds (5
           minutes) and at most 3600 seconds (1 hour).

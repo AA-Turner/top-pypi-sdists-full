@@ -909,6 +909,32 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
                             .as_ref()
                             .map(|_| Arc::clone(&replication_notify)),
                     ))
+                    // The graded admin-op ladder (CIRISServer#346, tiers 0–4):
+                    // preview → annotate / throttle / quarantine / descend /
+                    // de-admit, each committing the hash its preview returned.
+                    // Owner-gated on the same spine as peering, and gated a
+                    // second time on a persist-side delegation scope
+                    // (`review` / `moderate` / `slash`) re-walked from this
+                    // node's own verified state.
+                    .merge(crate::admin_ops::router(
+                        Arc::clone(&engine),
+                        cfg.key_id.clone(),
+                    ))
+                    // THE MESH CONFIGURATION SURFACE (CIRISServer#346, the
+                    // fourth tab): GET /v1/mesh-config (effective values,
+                    // provenance, counting-down TTLs, the closed key registry)
+                    // + GET /v1/mesh-config/history + the two write paths,
+                    // POST /v1/mesh-config/durable and
+                    // POST /v1/mesh-config/relief. The key registry, the
+                    // emergency TTL bound and the durability ruling are all
+                    // read from persist; this node restates none of them, so a
+                    // substrate reversal needs no edit here. Reads are gated on
+                    // the delegatable `read_node_state` verb; writes on the
+                    // never-delegatable `wipe` verb, as the graded ladder is.
+                    .merge(crate::mesh_config_surface::router(
+                        Arc::clone(&engine),
+                        cfg.key_id.clone(),
+                    ))
                     // CONFIG-AS-CEG (Server 0.5): the owner-gated /v1/config
                     // surface over the signed GraphConfig store. A write is gated
                     // the SAME way peering is (serve-only floor + SYSTEM_ADMIN owner
@@ -1007,6 +1033,22 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
                         Arc::clone(&engine),
                         cfg.key_id.clone(),
                         Arc::clone(&edge),
+                    ))
+                    // THE OPERATOR SURFACE (CIRISServer#356): GET /v1/node/state
+                    // — one owner-gated read composing persist's node-state
+                    // signals (trust root + drill freshness, key standing,
+                    // quarantine, consent SLA, peer quota) with edge's carriage
+                    // counters (the withhold ledger, apply refusals). Both
+                    // sources already existed and nothing called them. Every
+                    // zero on it names its own cause: an idle node and a
+                    // withholding one do not render alike, and "could not read"
+                    // is never "nothing to report". Read-only on every arm —
+                    // persist's fold uses the read-only overdue query, so a
+                    // dashboard may poll it at any rate without writing a row.
+                    .merge(crate::operator_surface::router(
+                        Arc::clone(&engine),
+                        cfg.key_id.clone(),
+                        Some(edge.metrics()),
                     ))
                     // MEMORY READ SURFACE (agent-compat Memory + GraphMemory cards):
                     // GET /v1/memory/stats, GET /v1/memory/timeline, POST /v1/memory/query,

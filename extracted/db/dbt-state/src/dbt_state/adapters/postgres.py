@@ -13,9 +13,9 @@ from sqlglot import exp
 from dbt_state import events
 from dbt_state.adapters.base import BaseAdapterExtension
 from dbt_state.adapters.common import (
+    ViewDefinition,
     ViewFetchResult,
     build_information_schema_filter,
-    ViewDefinition,
 )
 from dbt_state.errors import AdapterExtensionError
 

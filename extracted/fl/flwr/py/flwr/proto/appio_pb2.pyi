@@ -152,6 +152,8 @@ class PushAppMessagesResponse(google.protobuf.message.Message):
 
     MESSAGE_IDS_FIELD_NUMBER: builtins.int
     OBJECTS_TO_PUSH_FIELD_NUMBER: builtins.int
+    SESSION_ID_FIELD_NUMBER: builtins.int
+    session_id: builtins.str
     @property
     def message_ids(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
     @property
@@ -161,8 +163,9 @@ class PushAppMessagesResponse(google.protobuf.message.Message):
         *,
         message_ids: collections.abc.Iterable[builtins.str] | None = ...,
         objects_to_push: collections.abc.Iterable[builtins.str] | None = ...,
+        session_id: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["message_ids", b"message_ids", "objects_to_push", b"objects_to_push"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["message_ids", b"message_ids", "objects_to_push", b"objects_to_push", "session_id", b"session_id"]) -> None: ...
 
 global___PushAppMessagesResponse = PushAppMessagesResponse
 
@@ -328,6 +331,68 @@ class PullTaskMessageResponse(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["messages", b"messages"]) -> None: ...
 
 global___PullTaskMessageResponse = PullTaskMessageResponse
+
+@typing.final
+class RecordTaskUsageRequest(google.protobuf.message.Message):
+    """RecordTaskUsage messages"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    TASK_USAGE_FIELD_NUMBER: builtins.int
+    @property
+    def task_usage(self) -> flwr.proto.task_pb2.TaskUsage: ...
+    def __init__(
+        self,
+        *,
+        task_usage: flwr.proto.task_pb2.TaskUsage | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["task_usage", b"task_usage"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["task_usage", b"task_usage"]) -> None: ...
+
+global___RecordTaskUsageRequest = RecordTaskUsageRequest
+
+@typing.final
+class RecordTaskUsageResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___RecordTaskUsageResponse = RecordTaskUsageResponse
+
+@typing.final
+class GetConnectorRequest(google.protobuf.message.Message):
+    """GetConnector messages"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___GetConnectorRequest = GetConnectorRequest
+
+@typing.final
+class GetConnectorResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CONNECTOR_REF_FIELD_NUMBER: builtins.int
+    CREDENTIALS_JSON_FIELD_NUMBER: builtins.int
+    CONFIG_JSON_FIELD_NUMBER: builtins.int
+    connector_ref: builtins.str
+    credentials_json: builtins.str
+    config_json: builtins.str
+    def __init__(
+        self,
+        *,
+        connector_ref: builtins.str = ...,
+        credentials_json: builtins.str = ...,
+        config_json: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["config_json", b"config_json", "connector_ref", b"connector_ref", "credentials_json", b"credentials_json"]) -> None: ...
+
+global___GetConnectorResponse = GetConnectorResponse
 
 @typing.final
 class PullTaskInputRequest(google.protobuf.message.Message):

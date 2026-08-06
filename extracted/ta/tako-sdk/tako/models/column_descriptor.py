@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from tako.models.tako_dataset_column_type import TakoDatasetColumnType
 from typing import Optional, Set
@@ -28,11 +28,11 @@ class ColumnDescriptor(BaseModel):
     """
     Structured description of one exported value column.  Producers set the semantic parts they know (``metric``, ``entity``, ``unit``). ``name`` and ``dtype`` are filled centrally: ``name`` is the rendered canonical header (set by ``apply_descriptor_names``), and ``dtype`` is inferred from the real column data in ``finalize_export_frame``. A producer-set ``dtype`` would drift from the cells, and a producer cannot know the disambiguated ``name`` before the whole frame is rendered.  In the exported manifest ``name`` equals the column's actual header, and the manifest is positionally aligned with the exported columns (manifest entry ``i`` describes column ``i``).
     """ # noqa: E501
-    name: Optional[StrictStr] = None
-    metric: Optional[StrictStr] = None
-    entity: Optional[StrictStr] = None
-    unit: Optional[StrictStr] = None
-    dtype: Optional[TakoDatasetColumnType] = None
+    name: Optional[StrictStr] = Field(default=None, description="The column header as exported. This is the CSV header, the json_records key, and the dataset column label for this column.")
+    metric: Optional[StrictStr] = Field(default=None, description="What the column measures, for example 'Median Sales Price'.")
+    entity: Optional[StrictStr] = Field(default=None, description="What the column is measured FOR: the resolved values of every dimension the series is filtered to, joined with an em dash — for example 'Austin, TX — Condo'. A card filtered on one dimension reports that one value. This field reports resolved display values only and never an internal identifier.")
+    unit: Optional[StrictStr] = Field(default=None, description="The unit of every value in the column, for example 'USD'.")
+    dtype: Optional[TakoDatasetColumnType] = Field(default=None, description="The data type of the column, inferred from the exported values.")
     __properties: ClassVar[List[str]] = ["name", "metric", "entity", "unit", "dtype"]
 
     model_config = ConfigDict(

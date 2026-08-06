@@ -31,12 +31,6 @@ from optimum.utils import is_diffusers_available
 from optimum.utils.save_utils import maybe_load_preprocessors, maybe_save_preprocessors
 
 
-logger = logging.getLogger(__name__)
-
-
-InputInfo = namedtuple("InputInfo", ["name", "shape", "type", "example"])
-
-
 if is_torch_available():
     import torch
     import torch.nn as nn
@@ -44,6 +38,12 @@ if is_torch_available():
 
 if is_diffusers_available():
     from diffusers import ModelMixin
+
+
+logger = logging.getLogger(__name__)
+
+
+InputInfo = namedtuple("InputInfo", ["name", "shape", "type", "example"])
 
 
 OV_XML_FILE_NAME = "openvino_model.xml"
@@ -328,7 +328,9 @@ MULTI_MODAL_TEXT_GENERATION_MODELS = [
     "qwen3_5_moe",
     "got_ocr2",
     "gemma3",
+    "gemma3n",
     "gemma4",
+    "gemma4_unified",
     "idefics3",
     "smolvlm",
     "phi4mm",
@@ -336,6 +338,7 @@ MULTI_MODAL_TEXT_GENERATION_MODELS = [
     "llama4",
     "minicpmo",
     "videochat_flash_qwen",
+    "qwen3_omni_moe",
 ]
 
 SSM_MODELS = [
@@ -393,7 +396,6 @@ ONNX_SUPPORTED_ARCHITECTURES = {
     "rt_detr",
     "rt_detr_v2",
     "siglip_vision_model",
-    "smollm3",
     "speech_to_text",
     "splinter",
     "swin2sr",
@@ -484,6 +486,7 @@ def save_preprocessors(
                 processor.save_pretrained(output)
             except Exception as ex:
                 logger.error(f"Saving {type(processor)} failed with {ex}")
+
         # phi4mm does not allow loading chat template in processor, it uses chat_template from tokenizer
         if model_type == "phi4mm" and (Path(output) / "chat_template.json").exists():
             (Path(output) / "chat_template.json").unlink()

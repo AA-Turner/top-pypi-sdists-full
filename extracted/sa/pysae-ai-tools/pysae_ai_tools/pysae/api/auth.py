@@ -16,6 +16,7 @@ from typing import Annotated
 
 import typer
 
+from ...common.browser import open_and_announce
 from .common import oauth, tokens
 from .common.config import OAUTH_SCOPE, get_env, resolve_client_id, set_client_id
 
@@ -59,11 +60,18 @@ def login(
             )
             token_set = oauth.poll_device_code(auth0, cid, code)
         else:
+
+            def announce(url: str) -> None:
+                open_and_announce(url, what="Auth0 login page")
+
+            # ``open_and_announce`` opens the browser itself, after printing the
+            # URL, so the flow must not open a second one.
             token_set = oauth.login_authorization_code(
                 auth0,
                 cid,
                 timeout=timeout,
-                on_url=lambda url: _err(f"Opening the Auth0 login page in your browser...\nIf it does not open: {url}"),
+                open_browser=False,
+                on_url=announce,
             )
     except oauth.OAuthError as e:
         _err(f"FAILED: {e}")

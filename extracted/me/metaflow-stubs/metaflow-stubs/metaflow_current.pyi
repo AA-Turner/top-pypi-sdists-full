@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.35                                                                                #
-# Generated on 2026-06-24T22:10:38.970224                                                            #
+# MF version: 2.19.36                                                                                #
+# Generated on 2026-08-05T18:17:36.351878                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,10 +9,10 @@ from __future__ import annotations
 import typing
 if typing.TYPE_CHECKING:
     import metaflow
-    import metaflow.plugins.cards.component_serializer
-    import typing
-    import metaflow.events
     import metaflow.metaflow_current
+    import typing
+    import metaflow.plugins.cards.component_serializer
+    import metaflow.events
 
 
 TYPE_CHECKING: bool
@@ -272,19 +272,6 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def trigger(self) -> "metaflow.events.Trigger":
-        """
-        (only in the presence of the @trigger_on_finish, or @trigger decorators)
-        
-        Returns `Trigger` if the current run is triggered by an event
-        
-        Returns
-        -------
-        Trigger
-            `Trigger` if triggered by an event
-        """
-        ...
-    @property
     def project_name(self) -> str:
         """
         (only in the presence of the @project decorator)
@@ -349,6 +336,19 @@ class Current(object, metaclass=type):
         -------
         bool
             True if the flow is deployed with `--production`.
+        """
+        ...
+    @property
+    def trigger(self) -> "metaflow.events.Trigger":
+        """
+        (only in the presence of the @trigger_on_finish, or @trigger decorators)
+        
+        Returns `Trigger` if the current run is triggered by an event
+        
+        Returns
+        -------
+        Trigger
+            `Trigger` if triggered by an event
         """
         ...
     ...

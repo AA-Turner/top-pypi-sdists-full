@@ -133,8 +133,9 @@ def set_connection_resource_requirements(
     defaults for that dimension. Setting CPU above the current value requires
     `cpu_impact_acknowledged=True` because each data worker consumes shared
     capacity. The production profile called `Boosted` corresponds to selecting
-    4 CPU and 4Gi memory. The connection must be reset for new resources to take effect.
-    Clearing sends an empty resource-requirements object.
+    4 CPU and 4Gi memory. Changes apply to the next sync attempt; an in-flight
+    attempt keeps its current pod sizing. Clearing sends an empty
+    resource-requirements object.
     """
     return set_connection_resource_requirements_core(
         auth=resolve_cloud_auth(ctx),

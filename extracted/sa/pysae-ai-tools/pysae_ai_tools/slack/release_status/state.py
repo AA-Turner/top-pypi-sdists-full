@@ -10,12 +10,15 @@ Independent status tracks, each shown only once a status was sent for it
 
     web      : building → awaiting-deploy → deploying → deployed
     service  : building → awaiting-deploy → deploying → deployed
+    package  : building → awaiting-publish → publishing → published
     apple    : building → awaiting-publish → awaiting-store-review → deployed
     android  : building → awaiting-publish → awaiting-store-review → deployed
 
 ``web`` and ``service`` share the same deploy states; they differ only in how
 they render (``service`` is the non-web backend track — schedulers, workers,
 converters, APIs… — that ship through a plain build → deploy pipeline).
+``package`` mirrors that shape for an artifact that is *published to a registry*
+rather than deployed, so its states speak of publication throughout.
 
 A ``failed`` state is accepted on any track. A message may also carry just the
 release content (the primary-language release notes) with no track at all.
@@ -44,6 +47,15 @@ TRACKS: dict[str, list[tuple[str, str]]] = {
         ("awaiting-deploy", "En attente de déploiement"),
         ("deploying", "Déploiement en cours"),
         ("deployed", "Déployé"),
+    ],
+    # Internal package track (a library shipped to a registry — PyPI, npm, GitLab
+    # Package Registry): built, then published; never "deployed".
+    "package": [
+        ("pending", "En attente"),
+        ("building", "En cours de build"),
+        ("awaiting-publish", "En attente de publication"),
+        ("publishing", "Publication en cours"),
+        ("published", "Publié"),
     ],
     "apple": [
         ("pending", "En attente"),

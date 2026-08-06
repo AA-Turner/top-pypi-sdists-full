@@ -49,22 +49,20 @@ class ProjectService:
                 provider="Amazon SageMaker",
             ).get("items", [])
 
-            if len(tooling_blueprints) == 0:
-                raise ValueError("Tooling environment blueprint not found")
+            if len(tooling_blueprints) > 0:
+                tooling_env_blueprint = list(
+                    filter(lambda blueprint: blueprint["name"] == "Tooling", tooling_blueprints)
+                )[0]
 
-            tooling_env_blueprint = list(
-                filter(lambda blueprint: blueprint["name"] == "Tooling", tooling_blueprints)
-            )[0]
+                tooling_environments = self.datazone_api.list_environments(  # type: ignore
+                    domainIdentifier=domain_identifier,
+                    projectIdentifier=project_identifier,
+                    environmentBlueprintIdentifier=tooling_env_blueprint.get("id"),
+                ).get("items", [])
 
-            tooling_environments = self.datazone_api.list_environments(  # type: ignore
-                domainIdentifier=domain_identifier,
-                projectIdentifier=project_identifier,
-                environmentBlueprintIdentifier=tooling_env_blueprint.get("id"),
-            ).get("items", [])
-
-            default_environment = find_default_tooling_environment(tooling_environments)
-            if default_environment:
-                return default_environment
+                default_environment = find_default_tooling_environment(tooling_environments)
+                if default_environment:
+                    return default_environment
 
             tooling_lite_blueprints = self.datazone_api.list_environment_blueprints(
                 domainIdentifier=domain_identifier,
@@ -73,28 +71,48 @@ class ProjectService:
                 provider="Amazon SageMaker",
             ).get("items", [])
 
-            if len(tooling_lite_blueprints) == 0:
-                raise ValueError("ToolingLite environment blueprint not found")
+            if len(tooling_lite_blueprints) > 0:
+                tooling_lite_env_blueprint = tooling_lite_blueprints[0]
 
-            tooling_lite_env_blueprint = tooling_lite_blueprints[0]
+                tooling_lite_environments = self.datazone_api.list_environments(  # type: ignore
+                    domainIdentifier=domain_identifier,
+                    projectIdentifier=project_identifier,
+                    environmentBlueprintIdentifier=tooling_lite_env_blueprint.get("id"),
+                ).get("items", [])
 
-            tooling_lite_environments = self.datazone_api.list_environments(  # type: ignore
-                domainIdentifier=domain_identifier,
-                projectIdentifier=project_identifier,
-                environmentBlueprintIdentifier=tooling_lite_env_blueprint.get("id"),
-            ).get("items", [])
+                default_environment = find_default_tooling_environment(tooling_lite_environments)
+                if default_environment:
+                    return default_environment
 
-            default_environment = find_default_tooling_environment(tooling_lite_environments)
-            if not default_environment:
-                raise ValueError("ToolingLite environment not found")
+            # Custom Blueprints as Tooling: resolve environment via IAM connection
+            # when no managed Tooling/ToolingLite blueprint exists.
+            # Try default.iam (EXPRESS) then project.iam (STANDARD).
+            for connection_name in ("default.iam", "project.iam"):
+                connections = self.datazone_api.list_connections(
+                    domainIdentifier=domain_identifier,
+                    projectIdentifier=project_identifier,
+                    type="IAM",
+                    name=connection_name,
+                ).get("items", [])
+                if connections:
+                    env_id = connections[0].get("environmentId")
+                    if env_id:
+                        return self.datazone_api.get_environment(
+                            domainIdentifier=domain_identifier,
+                            identifier=env_id,
+                        )
+
+            raise ValueError(
+                "No tooling environment could be resolved: no deployed Tooling/ToolingLite "
+                "environment and no default IAM connection with an associated environment "
+                "was found in this project."
+            )
 
         except ClientError as e:
             if e.response["Error"]["Code"] == "ValidationException":
                 raise ValueError(f"Invalid input parameters: {AWSClientException(e)}")
             else:
                 raise AWSClientException(e)
-
-        return default_environment
 
     def get_project_sagemaker_environment(
         self, domain_identifier: Optional[str], project_identifier: Optional[str]

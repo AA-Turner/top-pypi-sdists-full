@@ -96,7 +96,6 @@ fn inlay_hint_insert(
         .relation_name_ref()?
         .path_ref()?
         .segment()?
-        .name_ref()?
         .syntax()
         .text_range()
         .start();
@@ -118,12 +117,12 @@ fn inlay_hint_insert(
     });
 
     let columns: Vec<(Name, Option<InFile<TextRange>>)> =
-        if let Some(column_list) = insert.column_ref_list() {
+        if let Some(column_list) = insert.column_target_list() {
             // `insert into t(a, b, c) values (1, 2, 3)`
             column_list
-                .column_refs()
+                .column_targets()
                 .filter_map(|col| {
-                    let col_name = col.name_ref().map(|x| Name::from_node(&x))?;
+                    let col_name = col.name().map(|x| Name::from_node(&x))?;
                     let target = create_table
                         .as_ref()
                         .and_then(|x| {

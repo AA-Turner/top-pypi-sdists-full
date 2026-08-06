@@ -97,6 +97,9 @@ class TaskUpdateEventType(str, Enum):
     # agent gateway
     AgentGatewayDecision = "agent_gateway_decision"
 
+    # a steer reached this task's model at a tool-call boundary
+    GatewaySteerApplied = "gateway_steer_applied"
+
     # omni gateway asks the user one or more questions, rendered as an
     # interactive card; the turn ends and resumes when answers are submitted
     AskUserQuestions = "ask_user_questions"

@@ -3,16 +3,15 @@ from __future__ import annotations
 import contextlib
 import functools
 import importlib
-import inspect
 import os
 import pkgutil
 import re
-from collections.abc import Awaitable, Iterable, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, Literal, cast, overload
+from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
 import asyncclick as click
 from dictdiffer import diff
@@ -20,7 +19,7 @@ from tortoise import BaseDBAsyncClient, Model, Tortoise
 from tortoise.exceptions import ConfigurationError, OperationalError
 from tortoise.indexes import Index
 
-from aerich._compat import is_tortoise_inited, tortoise_version_less_than
+from aerich._compat import is_tortoise_inited
 from aerich.coder import load_index
 from aerich.ddl import BaseDDL
 from aerich.enums import Color
@@ -37,6 +36,9 @@ from aerich.utils import (
     py_module_path,
     run_async,
 )
+
+if TYPE_CHECKING:
+    from aerich.ddl.postgres import PostgresDDL
 
 MIGRATE_TEMPLATE = """from tortoise import BaseDBAsyncClient
 
@@ -108,7 +110,8 @@ class Migrate:
 
     @classmethod
     def _get_model(cls, model: str) -> type[Model]:
-        return Tortoise.apps[cls.app].get(model)  # type: ignore
+        model_class = Tortoise.apps[cls.app].get(model)
+        return cast(type[Model], model_class)
 
     @classmethod
     async def get_last_version(cls, fields: Sequence[str] | None = None) -> Aerich | None:
@@ -119,7 +122,7 @@ class Migrate:
             return None
         else:
             if isinstance(res, dict):
-                res = Aerich(**res)
+                return Aerich(**cast(dict[str, Any], res))
             return res
 
     @classmethod
@@ -253,18 +256,12 @@ class Migrate:
                 tip = f"Migration file exists({[py_module_path(m) for m in conflict_modules]}). Do you want to remove them?"
             overwrite = no_input
             if not overwrite:
-                confirm = functools.partial(
-                    click.prompt,
+                overwrite = await click.prompt(
                     tip,
                     default=False,
                     type=bool,
                     show_choices=True,
                 )
-                if inspect.iscoroutinefunction(click.prompt):
-                    # For asyncclick>=8.3
-                    overwrite = await confirm()
-                else:
-                    overwrite = bool(confirm())
                 if not overwrite:
                     return None
             # delete same version files
@@ -433,27 +430,10 @@ class Migrate:
 
     @classmethod
     def _handle_indexes(cls, model: type[Model], indexes: list[tuple[str] | Index]) -> list:
-        if not tortoise_version_less_than("0.23.0"):
-            # tortoise>=0.23.0 have __eq__/__hash__ with Index class since 313ee76.
-            return indexes
-        if index_classes := set(index.__class__ for index in indexes if isinstance(index, Index)):
-            # Leave magic patch here to compare with older version of tortoise-orm
-            # TODO: limit tortoise>0.22.2 in pyproject.toml and remove this function when v0.10.0 released
-            for index_cls in index_classes:
-                if index_cls(fields=("id",)) != index_cls(fields=("id",)):
-
-                    def _hash(self) -> int:
-                        return hash((tuple(sorted(self.fields)), self.name, self.expressions))
-
-                    def _eq(self, other) -> bool:
-                        return type(self) is type(other) and self.__dict__ == other.__dict__
-
-                    setattr(index_cls, "__hash__", _hash)
-                    setattr(index_cls, "__eq__", _eq)
         return indexes
 
     @classmethod
-    def _get_indexes(cls, model, model_describe: dict) -> set[Index | tuple[str, ...]]:
+    def _get_indexes(cls, model: type[Model], model_describe: dict) -> set[Index | tuple[str, ...]]:
         indexes: set[Index | tuple[str, ...]] = set()
         for x in cls._handle_indexes(model, model_describe.get("indexes", [])):
             if isinstance(x, Index):
@@ -471,7 +451,12 @@ class Migrate:
 
     @classmethod
     def _handle_m2m_fields(
-        cls, old_model_describe: dict, new_model_describe: dict, model, new_models, upgrade=True
+        cls,
+        old_model_describe: dict,
+        new_model_describe: dict,
+        model: type[Model],
+        new_models: dict[str, dict],
+        upgrade=True,
     ) -> None:
         old_m2m_fields = cast("list[dict]", old_model_describe.get("m2m_fields", []))
         new_m2m_fields = cast("list[dict]", new_model_describe.get("m2m_fields", []))
@@ -513,13 +498,17 @@ class Migrate:
                 if not change:
                     continue
             new_value = change[0][1]
+            table: str | None = None
             if isinstance(new_value, str):
                 for new_m2m_field in new_m2m_fields:
                     if new_m2m_field["name"] == new_value:
-                        table = cast(str, new_m2m_field.get("through"))
+                        table = new_m2m_field.get("through")
                         break
             else:
                 table = new_value.get("through")
+            if table is None:
+                click.secho(f"Failed to parse table name for {new_value = }", fg=Color.yellow)
+                continue
             if action == "add":
                 add = False
                 if upgrade:
@@ -533,12 +522,11 @@ class Migrate:
                         cls._downgrade_m2m.append(table)
                         add = True
                 if add:
-                    ref_desc = cast(dict, new_models.get(new_value.get("model_name")))
-                    cls._add_operator(
-                        cls.create_m2m(model, new_value, ref_desc),
-                        upgrade,
-                        fk_m2m_index=True,
-                    )
+                    field_describe = cast(dict[str, Any], new_value)
+                    model_name = cast(str, field_describe.get("model_name"))
+                    ref_desc = cast(dict, new_models.get(model_name))
+                    create_m2m_sql = cls.create_m2m(model, field_describe, ref_desc)
+                    cls._add_operator(create_m2m_sql, upgrade, fk_m2m_index=True)
             elif action == "remove":
                 add = False
                 if upgrade and table not in cls._upgrade_m2m:
@@ -657,7 +645,8 @@ class Migrate:
             module = import_py_module(filename)
             upgrade_sql = run_async(module.upgrade, None)
             if pattern.search(upgrade_sql):
-                line = [i for i in upgrade_sql.splitlines() if pattern.search(i)][0]
+                match_lines = [i for i in upgrade_sql.splitlines() if pattern.search(i)]
+                line = match_lines[0]
                 prefix_words = pattern.split(line)[0].lower().split()
                 if "drop" in prefix_words:
                     # The migrate file may be generated by `aerich migrate` without applied by `aerich upgrade`
@@ -669,7 +658,7 @@ class Migrate:
     def _handle_add_models(
         cls,
         upgrade: bool,
-        new_models,
+        new_models: dict[str, dict],
         new_table_items: list[tuple[str, dict, type[Model]]],
         other_table_items: list[tuple[str, dict, type[Model]]] | None = None,
     ) -> None:
@@ -757,8 +746,8 @@ class Migrate:
                 cls._add_operator(cls.rename_table(model, old_table, new_table), upgrade)
             _old_uniques = cast("list[Iterable[str]]", old_model_describe.get("unique_together"))
             _new_uniques = cast("list[Iterable[str]]", new_model_describe.get("unique_together"))
-            old_unique_together = set(map(lambda x: tuple(x), _old_uniques))
-            new_unique_together = set(map(lambda x: tuple(x), _new_uniques))
+            old_unique_together = {tuple(x) for x in _old_uniques}
+            new_unique_together = {tuple(x) for x in _new_uniques}
             old_indexes = cls._get_indexes(model, old_model_describe)
             new_indexes = cls._get_indexes(model, new_model_describe)
             # pk field
@@ -858,11 +847,7 @@ class Migrate:
                                         type=bool,
                                         show_choices=True,
                                     )
-                                    if inspect.iscoroutinefunction(click.prompt):
-                                        # For asyncclick>=8.3
-                                        is_rename = run_async(confirm, tip)
-                                    elif isinstance(r := confirm(tip), bool):
-                                        is_rename = r
+                                    is_rename = run_async(confirm, tip)
                                 if is_rename:
                                     if rename_fields is None:
                                         rename_fields = cls._rename_fields[new_model_str] = {}
@@ -887,8 +872,9 @@ class Migrate:
                                         upgrade,
                                     )
                                 else:
+                                    old_value, new_value = cast(tuple[str, str], changes[1][2])
                                     cls._add_operator(
-                                        cls._rename_field(model, *changes[1][2]),  # type: ignore
+                                        cls._rename_field(model, old_value, new_value),
                                         upgrade,
                                     )
                 if not is_rename:
@@ -922,12 +908,9 @@ class Migrate:
                     upgrade,
                 )
                 if old_data_field["indexed"] and old_data_field["db_column"] not in old_o2o_columns:
-                    is_unique_field = old_data_field.get("unique")
-                    cls._add_operator(
-                        cls._drop_index(model, {db_column}, is_unique_field),
-                        upgrade,
-                        True,
-                    )
+                    is_unique_field = bool(old_data_field.get("unique"))
+                    drop_index_sql = cls._drop_index(model, {db_column}, is_unique_field)
+                    cls._add_operator(drop_index_sql, upgrade, True)
 
             # change fields
             for field_name in set(new_data_fields_name).intersection(set(old_data_fields_name)):
@@ -1008,11 +991,11 @@ class Migrate:
             if option == "indexed":
                 # change index
                 if old_new[0] is False and old_new[1] is True:
-                    unique = new_data_field.get("unique")
-                    cls._add_operator(cls._add_index(model, (field_name,), unique), upgrade, True)
+                    unique = bool(new_data_field.get("unique"))
+                    add_index_sql = cls._add_index(model, (field_name,), unique)
+                    cls._add_operator(add_index_sql, upgrade, True)
                 else:
-                    unique = old_data_field.get("unique")
-                    if unique:
+                    if old_data_field.get("unique"):
                         for sql in cls._drop_unique_index(model, field_name):
                             cls._add_operator(sql, upgrade, True)
                     else:
@@ -1097,13 +1080,7 @@ class Migrate:
         if isinstance(fields_name, Index):
             if cls.dialect == "mysql":
                 # schema_generator of MySQL return a empty index sql
-                if hasattr(fields_name, "field_names"):
-                    # tortoise>=0.24
-                    fields = fields_name.field_names
-                else:
-                    # TODO: remove else when drop support for tortoise<0.24
-                    if not (fields := fields_name.fields):
-                        fields = [getattr(i, "get_sql")() for i in fields_name.expressions]
+                fields = fields_name.field_names
                 return cls.ddl.drop_index(model, fields, unique, name=fields_name.name)
             return cls.ddl.drop_index_by_name(
                 model, fields_name.index_name(cls.ddl.schema_generator, model)
@@ -1115,7 +1092,8 @@ class Migrate:
     def _drop_unique_index(cls, model: type[Model], field_name: str) -> list[str]:
         field_name, *_ = cls._resolve_fk_fields_name(model, (field_name,))
         if hasattr(cls.ddl, "drop_unique_index"):
-            return cls.ddl.drop_unique_index(model, field_name)
+            ddl = cast("PostgresDDL", cls.ddl)
+            return ddl.drop_unique_index(model, field_name)
         return [cls.ddl.drop_index(model, [field_name], unique=True)]
 
     @classmethod
@@ -1125,13 +1103,7 @@ class Migrate:
         if isinstance(fields_name, Index):
             if cls.dialect == "mysql":
                 # schema_generator of MySQL return a empty index sql
-                if hasattr(fields_name, "field_names"):
-                    # tortoise>=0.24
-                    fields = fields_name.field_names
-                else:
-                    # TODO: remove else when drop support for tortoise<0.24
-                    if not (fields := fields_name.fields):
-                        fields = [getattr(i, "get_sql")() for i in fields_name.expressions]
+                fields = fields_name.field_names
                 return cls.ddl.add_index(
                     model,
                     fields,
@@ -1139,13 +1111,7 @@ class Migrate:
                     index_type=fields_name.INDEX_TYPE,
                     extra=fields_name.extra,
                 )
-            sql = fields_name.get_sql(cls.ddl.schema_generator, model, safe=True)
-            if tortoise_version_less_than("0.24.0"):
-                sql = sql.replace("  ", " ")
-                if cls.dialect == "postgres" and (exists := "IF NOT EXISTS ") not in sql:
-                    idx = " INDEX "
-                    sql = sql.replace(idx, idx + exists)
-            return sql
+            return fields_name.get_sql(cls.ddl.schema_generator, model, safe=True)
         field_names = cls._resolve_fk_fields_name(model, fields_name)
         return cls.ddl.add_index(model, field_names, unique)
 
@@ -1224,11 +1190,14 @@ class Migrate:
                     for index, sql in enumerate(cls.upgrade_operators[:-1]):
                         if pattern.search(sql):
                             sqls = sql.split(";")
-                            for i, s in enumerate(sqls):
+                            idx = 0
+                            s = ""
+                            for s in sqls:
                                 if pattern.search(s):
                                     break
+                                idx += 1
                             comment_sql = s.strip()
-                            sqls.pop(i)
+                            sqls.pop(idx)
                             cls.upgrade_operators[index] = ";".join(sqls)
                             # Put comment of this table behind the create sql
                             cls.upgrade_operators.append(comment_sql)

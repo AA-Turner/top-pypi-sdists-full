@@ -1,21 +1,22 @@
 from __future__ import annotations
 
 import abc
-import agate
 import functools
-import time
+import os
 import threading
+import time
 import typing as t
 from collections import deque
-from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED, Future
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from datetime import datetime
 
+import agate
+from dbt.adapters.base import BaseRelation
+from dbt.adapters.sql import SQLAdapter
 from sqlglot import exp, parse_one
 from sqlglot.dialects.dialect import Dialect
-from sqlglot.optimizer.qualify_columns import quote_identifiers
 from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
-from dbt.adapters.sql import SQLAdapter
-from dbt.adapters.base import BaseRelation
+from sqlglot.optimizer.qualify_columns import quote_identifiers
 
 from dbt_state.utils import set_invocation_context
 
@@ -28,18 +29,18 @@ except ImportError:
 
 from dbt_state import events
 from dbt_state.adapters.common import (
+    EventualCache,
+    ViewDefinition,
     ViewFetchResult,
     ViewTraversalResult,
-    ViewDefinition,
-    EventualCache,
     map_future_payload,
 )
 from dbt_state.errors import AdapterExtensionError
 from dbt_state.utils import find_tables
 
 if t.TYPE_CHECKING:
-    from dbt.contracts.graph.nodes import ManifestNode
     from dbt.contracts.graph.manifest import SourceDefinition
+    from dbt.contracts.graph.nodes import ManifestNode
 
 
 class BaseAdapterExtension(abc.ABC):
@@ -50,9 +51,9 @@ class BaseAdapterExtension(abc.ABC):
     for the duration of the thread's lifetime (until close() is called)."""
     SHOULD_RELEASE_CONNECTION: bool = False
 
-    SYSTEM_METADATA_CATALOGS: t.List[str] = []
+    SYSTEM_METADATA_CATALOGS: t.ClassVar[t.List[str]] = []
     """Catalogs that should not have their last modified / view definition tracked"""
-    SYSTEM_METADATA_SCHEMAS: t.List[str] = ["information_schema"]
+    SYSTEM_METADATA_SCHEMAS: t.ClassVar[t.List[str]] = ["information_schema"]
     """Schemas that should not have their last modified / view definition tracked"""
     IMPLEMENTS_CUSTOM_CLONE: bool = False
     """When True, the adapter extension handles clone execution via clone() rather than
@@ -82,9 +83,8 @@ class BaseAdapterExtension(abc.ABC):
         self._last_modified_epoch_cache: EventualCache[str, t.Optional[int]] = EventualCache(
             ttl_seconds=cache_ttl_seconds, cache_name="last_modified_epoch_cache"
         )
-        self._executor = ThreadPoolExecutor(
-            thread_name_prefix="drc", max_workers=max_worker_threads
-        )
+        self._max_workers = max_worker_threads or min(32, (os.cpu_count() or 1) + 4)
+        self._executor = ThreadPoolExecutor(thread_name_prefix="drc", max_workers=self._max_workers)
         self._timeout = worker_thread_timeout_seconds
         self._thread_local = threading.local()
         self._known_unresolvable_fqns: t.Set[str] = set()
@@ -155,7 +155,7 @@ class BaseAdapterExtension(abc.ABC):
         if not self.REQUIRES_NAMED_CONNECTION or self.SHOULD_RELEASE_CONNECTION:
             return
 
-        num_workers = self._executor._max_workers
+        num_workers = self._max_workers
         barrier = threading.Barrier(num_workers)
 
         def _prewarm_connection(name: str) -> None:
@@ -187,8 +187,9 @@ class BaseAdapterExtension(abc.ABC):
     def rollback(self) -> None:
         self.adapter.connections.rollback_if_open()
 
+    @staticmethod
     def _release_orphaned_claims(
-        self, cache: EventualCache[str, t.Any], claimed_fqns: t.Set[str]
+        cache: EventualCache[str, t.Any], claimed_fqns: t.Set[str]
     ) -> None:
         """Cancel any keys claimed in ``cache`` that were never fulfilled.
 
@@ -423,8 +424,8 @@ class BaseAdapterExtension(abc.ABC):
 
         return results
 
+    @staticmethod
     def prefetch_last_modified_epochs(
-        self,
         table_fqns: t.Collection[str],
         table_overrides: t.Optional[t.Dict[str, t.Callable[[], int]]] = None,
     ) -> Future[None]:
@@ -802,9 +803,8 @@ class BaseAdapterExtension(abc.ABC):
         )
         return exp.table_(catalog=database, db=schema, table=identifier, quoted=True)
 
-    def get_relation_table_type(
-        self, node: ManifestNode, relation: BaseRelation
-    ) -> t.Optional[str]:
+    @staticmethod
+    def get_relation_table_type(node: ManifestNode, relation: BaseRelation) -> t.Optional[str]:
         """Given a dbt model node and its corresponding relation, identify if it is a special / non-standard table type.
 
         This is intended for when the user specifies things like `transient=True` on the model.
@@ -816,8 +816,9 @@ class BaseAdapterExtension(abc.ABC):
         """
         return None
 
+    @staticmethod
     def _batch_table_names(
-        self, tables: t.Collection[exp.Table]
+        tables: t.Collection[exp.Table],
     ) -> t.Collection[t.Collection[exp.Table]]:
         """Given a list of tables, decide the best way of chunking them up to fetch table information (such as last modified or view definitions) *in parallel*.
 
@@ -917,7 +918,7 @@ class BaseAdapterExtension(abc.ABC):
         if not self.REQUIRES_NAMED_CONNECTION:
             return
 
-        num_workers = self._executor._max_workers
+        num_workers = self._max_workers
         barrier = threading.Barrier(num_workers)
 
         def _release_on_thread() -> None:

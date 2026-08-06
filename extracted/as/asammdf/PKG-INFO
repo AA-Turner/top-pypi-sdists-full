@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: asammdf
-Version: 8.8.22
+Version: 8.8.23
 Summary: ASAM MDF measurement data file parser
 Keywords: read,reader,edit,editor,parse,parser,asam,mdf,measurement
 Author-Email: Daniel Hrisca <daniel.hrisca@gmail.com>
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Project-URL: Documentation, https://asammdf.readthedocs.io/en/master
 Project-URL: Issues, https://github.com/danielhrisca/asammdf/issues
 Project-URL: Source, https://github.com/danielhrisca/asammdf

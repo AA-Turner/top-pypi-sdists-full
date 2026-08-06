@@ -34,7 +34,7 @@ class ThinVizCard(BaseModel):
     image_url: Optional[StrictStr] = Field(default=None, description="Static preview image URL for the card.")
     embed_url: Optional[StrictStr] = Field(default=None, description="Embeddable URL for the card.")
     card_type: Optional[StrictStr] = Field(default=None, description="The card's chart type (for example, 'bar').")
-    visualization_data: Optional[Dict[str, Any]] = Field(default=None, description="JSON Schema for structured output. The agent writes the synthesized fields. Dataset slots (marked with x-tako-dataset: true) receive exact retrieved rows as a TakoDataset. Supported subset: the object, array, string, number, integer, and boolean types, plus enum, required, and description. Caps: 16KB, depth 5, 64 properties, 4 dataset slots. Violations return 400 output_schema_invalid.")
+    visualization_data: Optional[Dict[str, Any]] = Field(default=None, description="Inline chart config + data for rendering the card.")
     embed_mode: Optional[StrictStr] = Field(default=None, description="How Tako delivers the embed: 'postmessage' for postMessage embeds, and 'post' otherwise.")
     __properties: ClassVar[List[str]] = ["card_id", "title", "description", "webpage_url", "image_url", "embed_url", "card_type", "visualization_data", "embed_mode"]
 

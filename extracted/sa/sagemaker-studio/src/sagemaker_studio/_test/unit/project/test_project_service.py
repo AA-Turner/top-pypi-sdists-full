@@ -160,10 +160,11 @@ class TestProjectService(unittest.TestCase):
 
     def test_get_project_default_environment_throws_value_error_when_no_tooling_blueprint(self):
         self.mock_datazone_api.list_environment_blueprints.return_value = {"items": []}
+        self.mock_datazone_api.list_connections.return_value = {"items": []}
 
         with self.assertRaises(ValueError) as context:
             self.project_service.get_project_default_environment("dzd_1234", "abc1244")
-            self.assertTrue("Tooling environment blueprint not found" in context.exception)
+        self.assertIn("No tooling environment could be resolved", str(context.exception))
 
     def test_get_project_default_environment_regular_domain(self):
         self.mock_datazone_api.list_environment_blueprints.return_value = {
@@ -230,10 +231,11 @@ class TestProjectService(unittest.TestCase):
         ]
 
         self.mock_datazone_api.list_environments.side_effect = [{"items": []}]
+        self.mock_datazone_api.list_connections.return_value = {"items": []}
 
         with self.assertRaises(ValueError) as context:
             self.project_service.get_project_default_environment("dzd_1234", "abc1244")
-            self.assertTrue("ToolingLite environment blueprint not found" in context.exception)
+        self.assertIn("No tooling environment could be resolved", str(context.exception))
 
     def test_get_project_default_environment_tooling_lite_default_env_not_found(self):
         self.mock_datazone_api.list_environment_blueprints.side_effect = [
@@ -250,7 +252,67 @@ class TestProjectService(unittest.TestCase):
             {"items": []},
             {"items": []},
         ]
+        self.mock_datazone_api.list_connections.return_value = {"items": []}
 
         with self.assertRaises(ValueError) as context:
             self.project_service.get_project_default_environment("dzd_1234", "abc1244")
-            self.assertTrue("ToolingLite environment  not found" in context.exception)
+        self.assertIn("No tooling environment could be resolved", str(context.exception))
+
+    def test_get_project_default_environment_fallback_via_default_iam_connection(self):
+        self.mock_datazone_api.list_environment_blueprints.return_value = {"items": []}
+        self.mock_datazone_api.list_connections.return_value = {
+            "items": [
+                {
+                    "connectionId": "conn-123",
+                    "environmentId": "env-456",
+                    "name": "default.iam",
+                }
+            ]
+        }
+        self.mock_datazone_api.get_environment.return_value = {
+            "id": "env-456",
+            "awsAccountRegion": "us-east-1",
+            "provisionedResources": [],
+        }
+
+        result = self.project_service.get_project_default_environment("dzd_1234", "abc1244")
+
+        self.assertEqual(result["id"], "env-456")
+        self.mock_datazone_api.get_environment.assert_called_with(
+            domainIdentifier="dzd_1234", identifier="env-456"
+        )
+
+    def test_get_project_default_environment_fallback_via_project_iam_connection(self):
+        self.mock_datazone_api.list_environment_blueprints.return_value = {"items": []}
+        self.mock_datazone_api.list_connections.side_effect = [
+            {"items": []},
+            {
+                "items": [
+                    {
+                        "connectionId": "conn-789",
+                        "environmentId": "env-012",
+                        "name": "project.iam",
+                    }
+                ]
+            },
+        ]
+        self.mock_datazone_api.get_environment.return_value = {
+            "id": "env-012",
+            "awsAccountRegion": "us-west-2",
+            "provisionedResources": [],
+        }
+
+        result = self.project_service.get_project_default_environment("dzd_1234", "abc1244")
+
+        self.assertEqual(result["id"], "env-012")
+
+    def test_get_project_default_environment_fallback_skips_connection_without_environment_id(self):
+        self.mock_datazone_api.list_environment_blueprints.return_value = {"items": []}
+        self.mock_datazone_api.list_connections.side_effect = [
+            {"items": [{"connectionId": "conn-bad", "name": "default.iam"}]},
+            {"items": []},
+        ]
+
+        with self.assertRaises(ValueError) as context:
+            self.project_service.get_project_default_environment("dzd_1234", "abc1244")
+        self.assertIn("No tooling environment could be resolved", str(context.exception))

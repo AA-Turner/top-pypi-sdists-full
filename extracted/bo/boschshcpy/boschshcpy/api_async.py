@@ -269,6 +269,8 @@ class SHCAPIAsync:
         """Async PUT — mirrors sync ``_put_api_or_fail``."""
         import aiohttp
 
+        logger.debug("PUT %s body=%s", api_url, body)
+
         async def _attempt() -> Any:
             async with self._session.put(
                 api_url,
@@ -280,6 +282,9 @@ class SHCAPIAsync:
                 if not resp.ok:
                     await self._process_nok_result(resp)
                 content = await resp.read()
+                logger.debug(
+                    "PUT %s -> status=%s body=%s", api_url, resp.status, content
+                )
                 return json.loads(content) if content else {}
 
         return await self._retry_once_on_connection_drop(api_url, _attempt)
@@ -293,6 +298,8 @@ class SHCAPIAsync:
         """Async POST — mirrors sync ``_post_api_or_fail``."""
         import aiohttp
 
+        logger.debug("POST %s body=%s", api_url, body)
+
         async def _attempt() -> Any:
             async with self._session.post(
                 api_url,
@@ -304,6 +311,9 @@ class SHCAPIAsync:
                 if not resp.ok:
                     await self._process_nok_result(resp)
                 content = await resp.read()
+                logger.debug(
+                    "POST %s -> status=%s body=%s", api_url, resp.status, content
+                )
                 return json.loads(content) if content else {}
 
         return await self._retry_once_on_connection_drop(api_url, _attempt)
@@ -355,6 +365,29 @@ class SHCAPIAsync:
         return await self._get_api_result_or_fail(
             api_url, expected_element_type="userDefinedState"
         )
+
+    async def post_userdefinedstate(self, state_data: Any) -> Any:
+        """Async mirror of the sync client's ``post_userdefinedstate``."""
+        api_url = f"{self._api_root}/userdefinedstates"
+        return await self._post_api_or_fail(api_url, state_data)
+
+    async def delete_userdefinedstate(self, userdefinedstate_id: str) -> None:
+        """Async mirror of the sync client's ``delete_userdefinedstate``."""
+        import aiohttp
+
+        api_url = f"{self._api_root}/userdefinedstates/{urllib.parse.quote(userdefinedstate_id, safe='')}"
+
+        async def _attempt() -> None:
+            async with self._session.delete(
+                api_url,
+                headers=self._headers,
+                ssl=self._ssl_ctx,
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
+                if not resp.ok:
+                    await self._process_nok_result(resp)
+
+        await self._retry_once_on_connection_drop(api_url, _attempt)
 
     async def get_messages(self) -> Any:
         api_url = f"{self._api_root}/messages"
@@ -430,6 +463,11 @@ class SHCAPIAsync:
         return await self._get_api_result_or_fail(
             api_url, expected_element_type="automationRule"
         )
+
+    async def post_automation_rule(self, rule_data: Any) -> Any:
+        """Async mirror of the sync client's ``post_automation_rule``."""
+        api_url = f"{self._api_root}/automation/rules"
+        return await self._post_api_or_fail(api_url, rule_data)
 
     async def get_automation_rule(self, rule_id: str) -> Any:
         api_url = (

@@ -2,16 +2,14 @@ from __future__ import annotations
 
 import logging
 import os
-import sys
-import typing as t
 import signal
+import sys
 import types
+import typing as t
 
 from aenum import extend_enum
-
-
 from dbt.flags import get_flags
-from dbt.graph.selector_methods import MethodName, MethodManager
+from dbt.graph.selector_methods import MethodManager, MethodName
 from dbt.plugins import dbtPlugin
 from dbt.task import test as dbt_test
 from dbt.task.compile import CompileRunner, CompileTask
@@ -19,9 +17,10 @@ from dbt.task.run import ModelRunner, RunTask
 from dbt.task.runnable import GraphRunnableTask
 from dbt.task.seed import SeedRunner
 from dbt.task.test import TestRunner
+from typing_extensions import override
 
 try:
-    from dbt.task.run import MicrobatchModelRunner, MicrobatchBatchRunner
+    from dbt.task.run import MicrobatchBatchRunner, MicrobatchModelRunner
 except ImportError:
     # dbt < 1.9 has no microbatch runners
     MicrobatchModelRunner = MicrobatchBatchRunner = None  # type: ignore[assignment,misc]
@@ -73,8 +72,9 @@ def is_supported_command() -> bool:
 
 
 def set_runner_overrides() -> None:
-    from dbt_state.runner import RunnerOverride
     from query_cache_common.models.services.client_telemetry_service_models import ClientResult
+
+    from dbt_state.runner import RunnerOverride
 
     runner_override = RunnerOverride(
         ORIGINALS["ModelRunner.execute"],
@@ -99,7 +99,7 @@ def set_runner_overrides() -> None:
         return runner_override.generate_runtime_model_context_override(model, config, manifest)
 
     def microbatch_execute_override(
-        self: "MicrobatchModelRunner", node: ModelNode, manifest: Manifest
+        self: MicrobatchModelRunner, node: ModelNode, manifest: Manifest
     ) -> RunResult:
         return runner_override.microbatch_execute_override(self, node, manifest)
 
@@ -133,7 +133,7 @@ def set_runner_overrides() -> None:
         # called when SIGINT (ctrl+c) or SIGTERM (kill <pid>) is sent
         signal_type = "SIGINT" if signum == signal.SIGINT else "SIGTERM"
 
-        if session_manager := runner_override._session:
+        if session_manager := runner_override._session:  # noqa: SLF001
             if not cancelled:
                 session_manager.end(
                     result=ClientResult.CANCELLED,
@@ -144,7 +144,7 @@ def set_runner_overrides() -> None:
                 # ensure telemetry is flushed
                 # this shutdown handler is normally called by an `atexit` handler registered in SessionManager.start(),
                 # but atexit handlers only run on normal program termination, not termination via OS signals
-                session_manager._close()
+                session_manager._close()  # noqa: SLF001
 
                 # prevent a user hammering ctrl+c from triggering duplicate session end events
                 cancelled = True
@@ -237,7 +237,7 @@ def install_state_config_support() -> None:
         return updated
 
     BaseConfig.update_from = patched_update_from  # ty: ignore[invalid-assignment]
-    setattr(BaseConfig, "_run_cache_state_patch_installed", True)
+    BaseConfig._run_cache_state_patch_installed = True  # ty: ignore[unresolved-attribute]  # noqa: SLF001
 
 
 _LEGACY_PACKAGES: t.Tuple[str, ...] = ("run-cache", "dbt-run-cache")
@@ -274,6 +274,7 @@ def _check_for_legacy_packages() -> None:
 
 
 class RunCachePlugin(dbtPlugin):
+    @override
     def initialize(self) -> None:
         """
         Initialize the dbt run cache plugin.
@@ -316,8 +317,8 @@ class RunCachePlugin(dbtPlugin):
         install_state_config_support()
 
         from dbt_state import events
-        from dbt_state.version import __version__
         from dbt_state.selector import GitSelectorMethod
+        from dbt_state.version import __version__
 
         # the plugin can be registered multiple times, particularly using dbtRunner in tests
         # so ensure we only monkeypatch this enum once

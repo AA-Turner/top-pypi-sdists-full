@@ -4,7 +4,10 @@ import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
+from ..types.activity_clock_range_in import ActivityClockRangeIn
 from ..types.archive_asset_response_out import ArchiveAssetResponseOut
+from ..types.asset_activity_delta_response_out import AssetActivityDeltaResponseOut
+from ..types.asset_activity_response_out import AssetActivityResponseOut
 from ..types.convert_excel_to_sheet_response_out import ConvertExcelToSheetResponseOut
 from ..types.creatable_asset_type import CreatableAssetType
 from ..types.create_asset_response_out import CreateAssetResponseOut
@@ -84,7 +87,10 @@ class AssetsClient:
         client = Athena(
             api_key="YOUR_API_KEY",
         )
-        client.assets.list()
+        client.assets.list(
+            limit=50,
+            offset=0,
+        )
         """
         _response = self._raw_client.list(
             limit=limit,
@@ -345,6 +351,7 @@ class AssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to retrieve
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -362,7 +369,7 @@ class AssetsClient:
             api_key="YOUR_API_KEY",
         )
         client.assets.get(
-            asset_id="asset_id",
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
         )
         """
         _response = self._raw_client.get(asset_id, request_options=request_options)
@@ -377,6 +384,7 @@ class AssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to rename
 
         title : str
             New display title for the asset
@@ -397,11 +405,145 @@ class AssetsClient:
             api_key="YOUR_API_KEY",
         )
         client.assets.rename(
-            asset_id="asset_id",
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
             title="Clara Substantive Run - July 2026",
         )
         """
         _response = self._raw_client.rename(asset_id, title=title, request_options=request_options)
+        return _response.data
+
+    def list_activity(
+        self,
+        asset_id: str,
+        *,
+        limit: typing.Optional[int] = None,
+        to_clock: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AssetActivityResponseOut:
+        """
+        Admin only. List the edit history of a collaborative asset, newest first: who edited it, when, and under which agent/session attribution. Works for every collaborative asset type. Each item's from_clock/to_clock identify the edit for the companion delta endpoint, which reports what actually changed.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        limit : typing.Optional[int]
+            Maximum items to return.
+
+        to_clock : typing.Optional[int]
+            Return only items at or before this clock. Pass the previous response's next_page_to_clock to page backwards through history.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AssetActivityResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.assets.list_activity(
+            asset_id="asset_id",
+        )
+        """
+        _response = self._raw_client.list_activity(
+            asset_id, limit=limit, to_clock=to_clock, request_options=request_options
+        )
+        return _response.data
+
+    def get_activity_delta(
+        self, asset_id: str, *, from_: int, to: int, request_options: typing.Optional[RequestOptions] = None
+    ) -> AssetActivityDeltaResponseOut:
+        """
+        Admin only. Report what changed between two Keryx clocks — for spreadsheets, the per-cell before/after values; for documents, the inserted and deleted text; for presentations, the affected slides. Take the clocks from the activity endpoint. Computed by the same differ the in-app Activity pane renders, so the payload matches what a user sees. Always inspect delta.coverage: caps and non-decodable bulk regions are reported there rather than silently omitted.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        from_ : int
+            Start clock, from an activity item's from_clock.
+
+        to : int
+            End clock, from the same activity item's to_clock.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AssetActivityDeltaResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.assets.get_activity_delta(
+            asset_id="asset_id",
+            from_=1,
+            to=1,
+        )
+        """
+        _response = self._raw_client.get_activity_delta(asset_id, from_=from_, to=to, request_options=request_options)
+        return _response.data
+
+    def get_activity_deltas(
+        self,
+        asset_id: str,
+        *,
+        ranges: typing.Sequence[ActivityClockRangeIn],
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AssetActivityDeltaResponseOut:
+        """
+        Admin only. Batch form of the activity-delta endpoint: diff several clock ranges in one request. Prefer this when walking a whole log — one call computes every range in a single pass over the document instead of one request each (up to 25 per call). Results come back in request order, and a range that could not be read carries its own `error` instead of failing the batch. Same payload and `coverage` semantics as the single-range endpoint.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        ranges : typing.Sequence[ActivityClockRangeIn]
+            Activity clock ranges to diff, at most 25 per call. Results are returned in request order.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AssetActivityDeltaResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import ActivityClockRangeIn, Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.assets.get_activity_deltas(
+            asset_id="asset_id",
+            ranges=[
+                ActivityClockRangeIn(
+                    from_=1752694811020,
+                    to=1752694813551,
+                ),
+                ActivityClockRangeIn(
+                    from_=1752691402184,
+                    to=1752691409776,
+                ),
+            ],
+        )
+        """
+        _response = self._raw_client.get_activity_deltas(asset_id, ranges=ranges, request_options=request_options)
         return _response.data
 
     def archive(
@@ -413,6 +555,7 @@ class AssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to archive
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -430,7 +573,7 @@ class AssetsClient:
             api_key="YOUR_API_KEY",
         )
         client.assets.archive(
-            asset_id="asset_id",
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
         )
         """
         _response = self._raw_client.archive(asset_id, request_options=request_options)
@@ -445,6 +588,7 @@ class AssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to download
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
@@ -482,6 +626,7 @@ class AssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to move
 
         parent_folder_id : typing.Optional[str]
             ID of the destination folder. Pass null or omit the field to move the asset to the workspace root.
@@ -505,7 +650,7 @@ class AssetsClient:
             api_key="YOUR_API_KEY",
         )
         client.assets.move(
-            asset_id="asset_id",
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
             parent_folder_id="asset_folder_12345",
         )
         """
@@ -533,6 +678,7 @@ class AssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to share
 
         recipients : typing.Sequence[ShareRecipient]
             List of users to share the asset with. Each entry specifies an email address and the permission level to grant.
@@ -562,7 +708,7 @@ class AssetsClient:
             api_key="YOUR_API_KEY",
         )
         client.assets.share(
-            asset_id="asset_id",
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
             message="Here's the document we discussed.",
             notify=True,
             recipients=[
@@ -600,6 +746,7 @@ class AssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset
 
         workspace_access : WorkspaceShareAccess
             Permission level to grant to the entire workspace. Set to 'view' or 'edit'.
@@ -620,7 +767,7 @@ class AssetsClient:
             api_key="YOUR_API_KEY",
         )
         client.assets.update_workspace_access(
-            asset_id="asset_id",
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
             workspace_access="view",
         )
         """
@@ -695,7 +842,10 @@ class AsyncAssetsClient:
 
 
         async def main() -> None:
-            await client.assets.list()
+            await client.assets.list(
+                limit=50,
+                offset=0,
+            )
 
 
         asyncio.run(main())
@@ -991,6 +1141,7 @@ class AsyncAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to retrieve
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1013,7 +1164,7 @@ class AsyncAssetsClient:
 
         async def main() -> None:
             await client.assets.get(
-                asset_id="asset_id",
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
             )
 
 
@@ -1031,6 +1182,7 @@ class AsyncAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to rename
 
         title : str
             New display title for the asset
@@ -1056,7 +1208,7 @@ class AsyncAssetsClient:
 
         async def main() -> None:
             await client.assets.rename(
-                asset_id="asset_id",
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
                 title="Clara Substantive Run - July 2026",
             )
 
@@ -1064,6 +1216,166 @@ class AsyncAssetsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.rename(asset_id, title=title, request_options=request_options)
+        return _response.data
+
+    async def list_activity(
+        self,
+        asset_id: str,
+        *,
+        limit: typing.Optional[int] = None,
+        to_clock: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AssetActivityResponseOut:
+        """
+        Admin only. List the edit history of a collaborative asset, newest first: who edited it, when, and under which agent/session attribution. Works for every collaborative asset type. Each item's from_clock/to_clock identify the edit for the companion delta endpoint, which reports what actually changed.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        limit : typing.Optional[int]
+            Maximum items to return.
+
+        to_clock : typing.Optional[int]
+            Return only items at or before this clock. Pass the previous response's next_page_to_clock to page backwards through history.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AssetActivityResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.assets.list_activity(
+                asset_id="asset_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.list_activity(
+            asset_id, limit=limit, to_clock=to_clock, request_options=request_options
+        )
+        return _response.data
+
+    async def get_activity_delta(
+        self, asset_id: str, *, from_: int, to: int, request_options: typing.Optional[RequestOptions] = None
+    ) -> AssetActivityDeltaResponseOut:
+        """
+        Admin only. Report what changed between two Keryx clocks — for spreadsheets, the per-cell before/after values; for documents, the inserted and deleted text; for presentations, the affected slides. Take the clocks from the activity endpoint. Computed by the same differ the in-app Activity pane renders, so the payload matches what a user sees. Always inspect delta.coverage: caps and non-decodable bulk regions are reported there rather than silently omitted.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        from_ : int
+            Start clock, from an activity item's from_clock.
+
+        to : int
+            End clock, from the same activity item's to_clock.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AssetActivityDeltaResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.assets.get_activity_delta(
+                asset_id="asset_id",
+                from_=1,
+                to=1,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_activity_delta(
+            asset_id, from_=from_, to=to, request_options=request_options
+        )
+        return _response.data
+
+    async def get_activity_deltas(
+        self,
+        asset_id: str,
+        *,
+        ranges: typing.Sequence[ActivityClockRangeIn],
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AssetActivityDeltaResponseOut:
+        """
+        Admin only. Batch form of the activity-delta endpoint: diff several clock ranges in one request. Prefer this when walking a whole log — one call computes every range in a single pass over the document instead of one request each (up to 25 per call). Results come back in request order, and a range that could not be read carries its own `error` instead of failing the batch. Same payload and `coverage` semantics as the single-range endpoint.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        ranges : typing.Sequence[ActivityClockRangeIn]
+            Activity clock ranges to diff, at most 25 per call. Results are returned in request order.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AssetActivityDeltaResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import ActivityClockRangeIn, AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.assets.get_activity_deltas(
+                asset_id="asset_id",
+                ranges=[
+                    ActivityClockRangeIn(
+                        from_=1752694811020,
+                        to=1752694813551,
+                    ),
+                    ActivityClockRangeIn(
+                        from_=1752691402184,
+                        to=1752691409776,
+                    ),
+                ],
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_activity_deltas(asset_id, ranges=ranges, request_options=request_options)
         return _response.data
 
     async def archive(
@@ -1075,6 +1387,7 @@ class AsyncAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to archive
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1097,7 +1410,7 @@ class AsyncAssetsClient:
 
         async def main() -> None:
             await client.assets.archive(
-                asset_id="asset_id",
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
             )
 
 
@@ -1115,6 +1428,7 @@ class AsyncAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to download
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
@@ -1161,6 +1475,7 @@ class AsyncAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to move
 
         parent_folder_id : typing.Optional[str]
             ID of the destination folder. Pass null or omit the field to move the asset to the workspace root.
@@ -1189,7 +1504,7 @@ class AsyncAssetsClient:
 
         async def main() -> None:
             await client.assets.move(
-                asset_id="asset_id",
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
                 parent_folder_id="asset_folder_12345",
             )
 
@@ -1220,6 +1535,7 @@ class AsyncAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset to share
 
         recipients : typing.Sequence[ShareRecipient]
             List of users to share the asset with. Each entry specifies an email address and the permission level to grant.
@@ -1254,7 +1570,7 @@ class AsyncAssetsClient:
 
         async def main() -> None:
             await client.assets.share(
-                asset_id="asset_id",
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
                 message="Here's the document we discussed.",
                 notify=True,
                 recipients=[
@@ -1295,6 +1611,7 @@ class AsyncAssetsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the asset
 
         workspace_access : WorkspaceShareAccess
             Permission level to grant to the entire workspace. Set to 'view' or 'edit'.
@@ -1320,7 +1637,7 @@ class AsyncAssetsClient:
 
         async def main() -> None:
             await client.assets.update_workspace_access(
-                asset_id="asset_id",
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
                 workspace_access="view",
             )
 

@@ -94,7 +94,6 @@ def test_data_shaped_tools_are_offload_eligible(tool_name):
         "xp_list_tools",
         "xp_get_tool",
         "xpcreate_agent_plan",
-        "xpask_for_information",
         "xpworkspace-file-write",
         "xpworkspace-context-retrieve",
     ],

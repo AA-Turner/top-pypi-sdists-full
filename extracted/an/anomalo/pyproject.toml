@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "anomalo"
-version = "0.47.1"
+version = "0.47.2"
 description = "Python bindings for the Anomalo API"
 readme = "README.public.md"
 license = "Apache-2.0"
@@ -37,6 +37,7 @@ packages = ["anomalo"]
 
 [tool.uv]
 exclude-newer = "4 days"
+exclude-newer-package = {pyopenssl = false}
 
 [tool.ruff]
 extend = "../../pyproject.toml"

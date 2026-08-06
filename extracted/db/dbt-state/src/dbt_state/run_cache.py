@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import json
 import sys
 import threading
 import typing as t
-import json
 import uuid
 from concurrent.futures import Future
 from dataclasses import dataclass, replace
@@ -14,11 +14,9 @@ from time import perf_counter
 import agate
 import grpc
 import humanize
-
+from dbt.adapters.base.relation import BaseRelation, RelationType
 from sqlglot import exp, parse_one
 from sqlglot.errors import SqlglotError
-
-from dbt.adapters.base.relation import BaseRelation, RelationType
 
 try:
     from dbt.adapters.contracts.connection import AdapterResponse
@@ -29,59 +27,60 @@ except ImportError:
 
 from dbt.clients.jinja import get_rendered
 from dbt.config.runtime import RuntimeConfig
-from dbt.contracts.results import RunResult, RunStatus
-from dbt.context.providers import generate_runtime_model_context, RuntimeProvider
+from dbt.context.providers import RuntimeProvider, generate_runtime_model_context
 from dbt.contracts.graph.manifest import Manifest, SourceDefinition
 from dbt.contracts.graph.nodes import (
     GenericTestNode,
-    ModelNode,
     ManifestNode,
     ManifestSQLNode,
+    ModelNode,
     SeedNode,
-    SnapshotNode,
     SingularTestNode,
+    SnapshotNode,
 )
+from dbt.contracts.results import RunResult, RunStatus
 
 try:
     from dbt_common.clients import agate_helper
 except ImportError:
     from dbt.clients import agate_helper  # type: ignore
 
+from query_cache_common.constants import NO_OP_STATUS, SUPPORTED_DIALECT_TIME_TRAVEL_DEFAULTS
+from query_cache_common.models import shared_models
+from query_cache_common.models.services import (
+    client_telemetry_service_models,
+    clone_service_models,
+    execution_service_models,
+    sql_service_models,
+)
+from query_cache_common.models.services.clone_service_models import TableProperties
+from query_cache_common.models.services.explain_service_models import ExplainMessageEntry
+
 from dbt_state import events
-from dbt_state.adapters import create_adapter_extension, BaseAdapterExtension
-from dbt_state.adapters.common import ViewTraversalResult
+from dbt_state.adapters import BaseAdapterExtension, create_adapter_extension
 from dbt_state.adapters.clock import EngineHeuristicsClock
+from dbt_state.adapters.common import ViewTraversalResult
 from dbt_state.config import RunCacheConfig
+from dbt_state.decision_logger import BaseDecisionLogger, create_decision_logger
 from dbt_state.dev_cloner import DevCloner
 from dbt_state.dispatcher import TelemetryDispatcher
-from dbt_state.session import SessionManager
 from dbt_state.grpc.client import QueryCacheGrpcClient
+from dbt_state.node_hash_calculator import (
+    ModelNodeHashCalculator,
+    create_node_hash_calculator,
+)
 from dbt_state.profiles import Profiles
 from dbt_state.relation import DeferredRelationResolver
+from dbt_state.session import SessionManager
 from dbt_state.utils import (
+    DBT_VERSION,
     get_dbt_command_name,
     is_custom_materialization,
     is_full_refresh,
     is_incremental_or_snapshot,
     is_table,
     is_view,
-    DBT_VERSION,
 )
-from dbt_state.decision_logger import create_decision_logger, BaseDecisionLogger
-from dbt_state.node_hash_calculator import (
-    ModelNodeHashCalculator,
-    create_node_hash_calculator,
-)
-from query_cache_common.constants import NO_OP_STATUS, SUPPORTED_DIALECT_TIME_TRAVEL_DEFAULTS
-from query_cache_common.models import shared_models
-from query_cache_common.models.services import (
-    client_telemetry_service_models,
-    sql_service_models,
-    clone_service_models,
-    execution_service_models,
-)
-from query_cache_common.models.services.explain_service_models import ExplainMessageEntry
-from query_cache_common.models.services.clone_service_models import TableProperties
 
 # Feature-detect RunStatus.Reused. dbt-core added this member in
 # https://github.com/dbt-labs/dbt-core/pull/12912 (target: 1.11.0); older clients
@@ -94,6 +93,7 @@ if t.TYPE_CHECKING:
     from dbt.artifacts.resources.v1.config import TestConfig
     from dbt.artifacts.resources.v1.model import ModelConfig
     from dbt.artifacts.resources.v1.snapshot import SnapshotConfig
+
     from dbt_state._typing import (
         ModelOrSnapshotNode,
         ModelOrSnapshotOrSeedNode,
@@ -181,7 +181,7 @@ def _serialize_semantic_extra(key: str, value: t.Any) -> str:
     try:
         return json.dumps(normalized_value, sort_keys=True)
     except TypeError as e:
-        raise TypeError(f"Failed to serialize semantic extra {key}:", str(e))
+        raise TypeError(f"Failed to serialize semantic extra {key}:", str(e)) from e
 
 
 SEED_SEMANTIC_EXTRAS_CONFIG_KEYS = (
@@ -296,6 +296,7 @@ class RunCache:
             cache_ttl_seconds=run_cache_config.metadata_cache_ttl,
             get_view_ddl_override=run_cache_config.snowflake_get_view_ddl_override,
             metadata_warehouse=run_cache_config.snowflake_metadata_warehouse,
+            adaptive_metadata_fetch=run_cache_config.adaptive_metadata_fetch,
         )
         if profiles.has_defer_to_profile:
             deferred_relation_resolver: t.Optional[DeferredRelationResolver] = (
@@ -1338,7 +1339,8 @@ class RunCache:
                 "Failed to emit enriched SQL telemetry: {} ({})", type(e).__name__, str(e)
             )
 
-    def _log_submit_sql_error(self, e: Exception, node: ModelOrSnapshotOrTestNode) -> None:
+    @staticmethod
+    def _log_submit_sql_error(e: Exception, node: ModelOrSnapshotOrTestNode) -> None:
         node_type = (
             "test"
             if isinstance(node, (GenericTestNode, SingularTestNode))
@@ -1705,10 +1707,10 @@ class RunCache:
         return last_modified_epoch
 
     def _node_to_table(self, node: ManifestNode | SourceDefinition) -> exp.Table:
-        return self._adapter_ext._node_to_table(node)
+        return self._adapter_ext._node_to_table(node)  # noqa: SLF001
 
     def _sql(self, expr: exp.Expr, copy: bool = False) -> str:
-        return self._adapter_ext._sql(expr, copy=copy)
+        return self._adapter_ext._sql(expr, copy=copy)  # noqa: SLF001
 
     def _node_to_deferred_table(self, node: ManifestNode) -> exp.Table:
         assert self._deferred_relation_resolver is not None
@@ -1716,7 +1718,7 @@ class RunCache:
         schema = self._deferred_relation_resolver.get_deferred_schema(node) or node.schema
         identifier = self._deferred_relation_resolver.get_deferred_identifier(node) or node.alias
 
-        return self._adapter_ext._node_to_table(
+        return self._adapter_ext._node_to_table(  # noqa: SLF001
             node, override_database=database, override_schema=schema, override_identifier=identifier
         )
 
@@ -1809,7 +1811,7 @@ class RunCache:
             elif defn.loaded_at_field is None:
                 continue
 
-            relation = self._adapter_ext._node_to_relation(defn)
+            relation = self._adapter_ext._node_to_relation(defn)  # noqa: SLF001
 
             # note: these are deliberately bound as defaults so that the correct value is captured in each _run_freshness() function
             def _run_freshness(
@@ -1907,7 +1909,7 @@ class RunCache:
     def _no_op_status_and_message(
         self,
         is_stale: bool,
-        node_config: t.Union["ModelConfig", "SnapshotConfig", "TestConfig"],
+        node_config: t.Union[ModelConfig, SnapshotConfig, TestConfig],
     ) -> t.Tuple[RunStatus, str]:
         """Return (status, message) for cache-hit no-op results.
 
@@ -1994,8 +1996,8 @@ class _DataTestAdapterProxy:
     ) -> None:
         self._node = node
         self._run_cache = run_cache
-        self._adapter = run_cache._adapter
-        self._adapter_ext = self._run_cache._adapter_ext
+        self._adapter = run_cache._adapter  # noqa: SLF001
+        self._adapter_ext = self._run_cache._adapter_ext  # noqa: SLF001
         self._relation_to_drop: t.Optional[BaseRelation] = None
 
     def __getattr__(self, name: str) -> t.Any:
@@ -2013,7 +2015,7 @@ class _DataTestAdapterProxy:
                 parsed_test_sql.named_selects if isinstance(parsed_test_sql, exp.Select) else []
             )
             if sorted(named_selects) == ["failures", "should_error", "should_warn"]:
-                return self._run_cache._on_data_test_query(
+                return self._run_cache._on_data_test_query(  # noqa: SLF001
                     self._node,
                     sql,
                     lambda: self._adapter.execute(sql, *args, **kwargs),
@@ -2023,10 +2025,10 @@ class _DataTestAdapterProxy:
                 cached_run_result = None
                 query_cache_response = None
                 try:
-                    query_cache_response = self._run_cache._submit_sql_request(
+                    query_cache_response = self._run_cache._submit_sql_request(  # noqa: SLF001
                         self._node, sql=sql, execution_type=shared_models.ModelExecutionType.FULL
                     )
-                    cached_run_result = self._run_cache._process_query_cache_response(
+                    cached_run_result = self._run_cache._process_query_cache_response(  # noqa: SLF001
                         self._node, query_cache_response
                     )
                     if isinstance(cached_run_result, RunResult):
@@ -2060,9 +2062,9 @@ class _DataTestAdapterProxy:
 
                 if isinstance(query_cache_response, CacheBypassedResponse):
                     table_type, last_modified_epoch = (
-                        self._run_cache._get_target_table_type_and_last_modified_epoch(self._node)
+                        self._run_cache._get_target_table_type_and_last_modified_epoch(self._node)  # noqa: SLF001
                     )
-                    self._run_cache._publish_write_only_execution(
+                    self._run_cache._publish_write_only_execution(  # noqa: SLF001
                         bypass_response=query_cache_response,
                         outcome=execution_service_models.ExecutionOutcome(
                             last_modified_epoch=last_modified_epoch,

@@ -2,7 +2,6 @@
 
 import os
 import shutil
-import subprocess
 import sys
 import tarfile
 import tempfile
@@ -10,6 +9,8 @@ import zipfile
 from pathlib import Path
 
 import httpx
+
+from .privileged import run_privileged
 
 
 def default_install_prefix() -> Path:
@@ -143,10 +144,15 @@ def install_binary(source: Path, name: str, prefix: str | Path | None = None, mo
     if _is_user_writable(prefix_path):
         return _copy_executable(source, target, mode)
 
-    # System prefix (e.g. /usr/local/bin): privileged install.
-    cmd = ["sudo", "install", "-m", oct(mode)[2:], str(source), str(target)]
-    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
-    if result.returncode == 0:
+    # System prefix (e.g. /usr/local/bin): privileged install. Goes through
+    # run_privileged so a sudo password prompt is announced and visible instead
+    # of being swallowed by a captured stream.
+    result = run_privileged(
+        ["install", "-m", oct(mode)[2:], str(source), str(target)],
+        what=f"Installing {target_name} into {prefix_path}",
+        timeout=120,
+    )
+    if result.ok:
         return target
 
     # Last resort: the per-user ~/.local/bin never needs sudo. Keeps the

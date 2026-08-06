@@ -7329,6 +7329,9 @@ class Currencies(System.Object):
     JPY: str = "JPY"
     """JPY (Japanese yen) currency string"""
 
+    KRW: str = "KRW"
+    """KRW (South Korean won) currency string"""
+
     NULL_CURRENCY: str = "QCC"
     """Null currency used when a real one is not required"""
 

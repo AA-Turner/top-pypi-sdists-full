@@ -276,6 +276,7 @@ from .type_defs import (
     GetDatabasesResponseTypeDef,
     GetDataCatalogEncryptionSettingsRequestTypeDef,
     GetDataCatalogEncryptionSettingsResponseTypeDef,
+    GetDataCatalogExportConfigurationOutputTypeDef,
     GetDataflowGraphRequestTypeDef,
     GetDataflowGraphResponseTypeDef,
     GetDataQualityModelRequestTypeDef,
@@ -471,6 +472,8 @@ from .type_defs import (
     PutAttachmentRequestTypeDef,
     PutAttachmentResponseTypeDef,
     PutDataCatalogEncryptionSettingsRequestTypeDef,
+    PutDataCatalogExportConfigurationInputTypeDef,
+    PutDataCatalogExportConfigurationOutputTypeDef,
     PutDataQualityProfileAnnotationRequestTypeDef,
     PutFormTypeRequestTypeDef,
     PutFormTypeResponseTypeDef,
@@ -1905,6 +1908,16 @@ class GlueClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_data_catalog_encryption_settings)
         """
 
+    def get_data_catalog_export_configuration(
+        self,
+    ) -> GetDataCatalogExportConfigurationOutputTypeDef:
+        """
+        Retrieves the current export configuration for the Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_data_catalog_export_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_data_catalog_export_configuration)
+        """
+
     def get_data_quality_model(
         self, **kwargs: Unpack[GetDataQualityModelRequestTypeDef]
     ) -> GetDataQualityModelResponseTypeDef:
@@ -2905,6 +2918,16 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/put_data_catalog_encryption_settings.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#put_data_catalog_encryption_settings)
+        """
+
+    def put_data_catalog_export_configuration(
+        self, **kwargs: Unpack[PutDataCatalogExportConfigurationInputTypeDef]
+    ) -> PutDataCatalogExportConfigurationOutputTypeDef:
+        """
+        Creates or updates the export configuration for the Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/put_data_catalog_export_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#put_data_catalog_export_configuration)
         """
 
     def put_data_quality_profile_annotation(

@@ -1348,6 +1348,20 @@ class AgentTeam(SpawnAnnounceProtocol):
             task.status = "failed"  # Set failed status to match sync behavior
             logger.info(f"Task {task_id} failed after {task_max} retries.")
 
+    @staticmethod
+    async def _gather_with_isolation(coros):
+        """Gather async tasks with exception isolation.
+
+        Uses return_exceptions=True so a single failure does not orphan its
+        siblings (leaving them running in the background to mutate shared state).
+        The first exception is re-raised after all siblings have settled.
+        """
+        results = await asyncio.gather(*coros, return_exceptions=True)
+        for result in results:
+            if isinstance(result, BaseException):
+                raise result
+        return results
+
     async def arun_all_tasks(self):
         """Async version of run_all_tasks method"""
         process = Process(
@@ -1366,7 +1380,7 @@ class AgentTeam(SpawnAnnounceProtocol):
                 else:
                     # If we encounter a sync task, we must wait for the previous async tasks to finish.
                     if tasks_to_run:
-                        await asyncio.gather(*tasks_to_run)
+                        await self._gather_with_isolation(tasks_to_run)
                         tasks_to_run = []
                     
                     # Run sync task in an executor to avoid blocking the event loop
@@ -1376,7 +1390,7 @@ class AgentTeam(SpawnAnnounceProtocol):
                     await loop.run_in_executor(None, copy_context_to_callable(lambda tid=task_id: self.run_task(tid)))
 
             if tasks_to_run:
-                await asyncio.gather(*tasks_to_run)
+                await self._gather_with_isolation(tasks_to_run)
                 
         elif self.process == "sequential":
             async_tasks_to_run = []
@@ -1385,7 +1399,7 @@ class AgentTeam(SpawnAnnounceProtocol):
                 """Execute all pending async tasks"""
                 nonlocal async_tasks_to_run
                 if async_tasks_to_run:
-                    await asyncio.gather(*async_tasks_to_run)
+                    await self._gather_with_isolation(async_tasks_to_run)
                     async_tasks_to_run = []
             
             async for task_id in process.asequential():
@@ -1932,38 +1946,100 @@ class AgentTeam(SpawnAnnounceProtocol):
             
             return self._state[key]
     
-    def save_session_state(self, session_id: str, include_memory: bool = True) -> None:
-        """Save current state to memory for session persistence"""
-        if self.shared_memory and include_memory:
-            state_data = {
-                "session_id": session_id,
-                "user_id": self.user_id,
-                "run_id": self.run_id,
-                "state": self._state,
-                "agents": [agent.display_name for agent in self.agents],
-                "process": self.process
-            }
-            self.shared_memory.store_short_term(
-                text=f"Session state for {session_id}",
-                metadata={
-                    "type": "session_state",
-                    "session_id": session_id,
-                    "user_id": self.user_id,
-                    "state_data": state_data
-                }
+    def _team_state_payload(self, session_id: str) -> Dict[str, Any]:
+        """Build the serialisable team-state payload for durable persistence."""
+        with self._state_lock:
+            state_copy = dict(self._state)
+        return {
+            "session_id": session_id,
+            "user_id": self.user_id,
+            "run_id": self.run_id,
+            "state": state_copy,
+            "agents": [agent.display_name for agent in self.agents],
+            "process": self.process,
+        }
+
+    def save_session_state(self, session_id: str, include_memory: bool = True) -> bool:
+        """Persist team session state for deterministic resume (Issue #3635).
+
+        Writes the shared team ``_state`` (plus run bookkeeping) to the durable,
+        project-scoped ``SessionStore`` — the same store single ``Agent`` resume
+        uses — keyed deterministically by ``session_id``. This gives multi-agent
+        runs the same locked, atomic, memory-independent continuity as a single
+        agent: it works even with ``memory=False``.
+
+        ``shared_memory`` is kept as an *optional enrichment* (not a gate) so
+        legacy semantic-recall lookups still find the state when memory is on.
+
+        Returns ``True`` when the durable write succeeded, ``False`` otherwise,
+        so callers can tell whether a resumable state actually reached disk.
+        """
+        state_data = self._team_state_payload(session_id)
+
+        # Primary, durable path: SessionStore (locked, atomic, memory-independent).
+        durable_saved = False
+        try:
+            from ..session.store import get_default_session_store
+            durable_saved = bool(
+                get_default_session_store().update_session_metadata(
+                    session_id, team_session_state=state_data
+                )
             )
-    
+            if not durable_saved:
+                logger.warning(
+                    f"Durable team session save reported no write for {session_id}"
+                )
+        except Exception as e:  # never fail a completed run on save
+            logger.warning(f"Durable team session save failed for {session_id}: {e}")
+
+        # Optional enrichment: mirror into shared memory for semantic recall.
+        if self.shared_memory and include_memory:
+            try:
+                self.shared_memory.store_short_term(
+                    text=f"Session state for {session_id}",
+                    metadata={
+                        "type": "session_state",
+                        "session_id": session_id,
+                        "user_id": self.user_id,
+                        "state_data": state_data,
+                    },
+                )
+            except Exception as e:
+                logger.debug(f"Shared-memory session enrichment failed: {e}")
+
+        return durable_saved
+
     def restore_session_state(self, session_id: str) -> bool:
-        """Restore state from memory for session persistence. Returns True if restored."""
+        """Restore team session state for deterministic resume. Returns True if restored.
+
+        Reads first from the durable ``SessionStore`` keyed by ``session_id``
+        (no fuzzy search, no memory requirement). Falls back to the legacy
+        ``shared_memory`` semantic lookup only for sessions written before this
+        durable path existed, preserving backward compatibility.
+        """
+        # Primary, durable path: SessionStore lookup by exact session_id.
+        try:
+            from ..session.store import get_default_session_store
+            store = get_default_session_store()
+            if store.session_exists(session_id):
+                metadata = store.get_session(session_id).metadata or {}
+                state_data = metadata.get("team_session_state")
+                if isinstance(state_data, dict) and "state" in state_data:
+                    with self._state_lock:
+                        self._state.update(state_data["state"])
+                    return True
+        except Exception as e:
+            logger.debug(f"Durable team session restore failed for {session_id}: {e}")
+
+        # Legacy fallback: shared-memory semantic lookup (pre-#3635 sessions).
         if not self.shared_memory:
             return False
-        
-        # Use metadata-based search for better SQLite compatibility
+
         results = self.shared_memory.search_short_term(
-            query=f"type:session_state",
+            query="type:session_state",
             limit=10  # Get more results to filter by session_id
         )
-        
+
         # Filter results by session_id in metadata
         for result in results:
             metadata = result.get("metadata", {})

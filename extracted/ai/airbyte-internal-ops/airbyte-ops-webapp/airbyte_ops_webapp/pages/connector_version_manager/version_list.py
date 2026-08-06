@@ -28,6 +28,7 @@ from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
     EMPTY_PIN_STATE,
     fail_tool_call,
     finish_tool_call,
+    render_loading_feedback,
     start_tool_call,
 )
 from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import (
@@ -102,7 +103,7 @@ def render_pin_detail(css_class: str = "") -> None:
     responsive width.
     """
     with (
-        If(STATE.selected_version_tag),
+        If(STATE.selected_version_tag.__or__(STATE.context_loading)),
         AbCard(css_class=css_class),
     ):
         with CardHeader():
@@ -110,7 +111,7 @@ def render_pin_detail(css_class: str = "") -> None:
         with CardContent():
             # Loading state while connector context is being fetched
             with If(STATE.context_loading.__eq__(True)):
-                Muted("Loading version pins…")
+                render_loading_feedback("Loading version pins…")
 
             # Populated state
             with If(STATE.context_loading.__eq__(False)):

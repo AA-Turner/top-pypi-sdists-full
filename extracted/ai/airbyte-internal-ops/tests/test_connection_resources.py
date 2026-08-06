@@ -314,7 +314,7 @@ def test_set_happy_path() -> None:
 
     assert result.success is True
     assert result.new_cpu_request == "2"
-    assert result.reset_required is True
+    assert "apply to the next sync attempt" in result.message
 
 
 @pytest.mark.unit

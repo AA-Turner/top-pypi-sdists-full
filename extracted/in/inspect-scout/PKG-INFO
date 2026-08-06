@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_scout
-Version: 0.4.45
+Version: 0.4.46
 Summary: Transcript Analysis for AI Agents
 Project-URL: Source Code, https://github.com/meridianlabs-ai/inspect_scout
 Project-URL: Issue Tracker, https://github.com/meridianlabs-ai/inspect_scout/issues
@@ -9,14 +9,14 @@ License: MIT License
 License-File: LICENSE
 Requires-Python: >=3.10
 Requires-Dist: anyio>=4.8.0
-Requires-Dist: click!=8.2.0,<8.2.2,>=8.1.3
+Requires-Dist: click!=8.2.0,!=8.2.2,!=8.3.0,!=8.3.1,>=8.1.3
 Requires-Dist: cloudpickle>=3.0.0
 Requires-Dist: dill>=0.4.0
 Requires-Dist: duckdb>=1.4.0
 Requires-Dist: fastapi>=0.128.1
 Requires-Dist: ijson>=3.2.0
 Requires-Dist: importlib-metadata
-Requires-Dist: inspect-ai>=0.3.249
+Requires-Dist: inspect-ai>=0.3.252
 Requires-Dist: inspect-swe>=0.2.56
 Requires-Dist: jinja2>=3.0.0
 Requires-Dist: jsonlines>=3.0.0

@@ -2,4 +2,4 @@
 
 import typing
 
-GeneralAgentConfigEnabledToolsItemZero = typing.Union[typing.Literal["search", "browse"], typing.Any]
+GeneralAgentConfigEnabledToolsItemZero = typing.Union[typing.Literal["search", "tavily_search", "browse"], typing.Any]

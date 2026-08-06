@@ -1,23 +1,20 @@
-from dbt.config.runtime import RuntimeConfig
-from abc import ABC, abstractmethod
-
-import typing as t
-import json
 import hashlib
+import json
+import typing as t
+from abc import ABC, abstractmethod
 from collections import deque
 from functools import cached_property
+from pathlib import Path
 
+from dbt.config.runtime import RuntimeConfig
 from dbt.contracts.graph.manifest import Manifest
-
-from dbt_state._typing import ModelOrSnapshotOrTestOrSeedNode
-
 from dbt.contracts.graph.nodes import (
     GenericTestNode,
     ModelNode,
     SeedNode,
 )
 
-from pathlib import Path
+from dbt_state._typing import ModelOrSnapshotOrTestOrSeedNode
 
 _HASH_READ_CHUNK_SIZE = 64 * 1024
 

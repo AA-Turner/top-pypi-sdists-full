@@ -1161,6 +1161,66 @@ def _add_calendar_columns(df, season_bounds=None):
     return df
 
 
+_MONTHLY_HISTORY_COLS = [
+    "Crop", "Region", "Season", "Harvest Year",
+    "Planting Month", "Prediction Month", "Harvest Month",
+    "Predicted Yield (tn per ha)", "Observed Yield (tn per ha)",
+    "lower CI", "upper CI", "Area (ha)", "Stage Window Display",
+]
+
+
+def _write_monthly_history(df_pred_store, season_bounds, dir_outlook):
+    """Write the full per-model forecast history, one row per time step.
+
+    The headline ``yield_outlook_*.csv`` collapses to the live forecast year,
+    so the hindcast series that every skill metric is computed from is only
+    recoverable by stitching the per-stage files back together. This writes it
+    directly: one row per crop x region x season x harvest year x prediction
+    month, predicted alongside observed, as
+    ``{country}_{model}_monthly_{first}_{last}.csv``.
+
+    Rows are ordered by months-since-planting rather than calendar month so a
+    season that wraps the new year stays in forecast order. Returns the paths
+    written.
+    """
+    by_country_model = {}
+    for (country, crop, model), df in df_pred_store.items():
+        if df is None or df.empty or "Stage Window Display" not in df.columns:
+            continue
+        part = df.copy()
+        part["Crop"] = crop
+        by_country_model.setdefault((country, model), []).append(part)
+
+    written = []
+    for (country, model), parts in by_country_model.items():
+        out = _add_calendar_columns(pd.concat(parts, ignore_index=True), season_bounds)
+        for col in _MONTHLY_HISTORY_COLS:
+            if col not in out.columns:
+                out[col] = pd.NA
+        out = out[_MONTHLY_HISTORY_COLS]
+
+        years = pd.to_numeric(out["Harvest Year"], errors="coerce")
+        if years.dropna().empty:
+            continue
+
+        plant_num = out["Planting Month"].map(_MONTH_NUM)
+        pred_num = out["Prediction Month"].map(_MONTH_NUM)
+        out = out.assign(
+            _yr=years,
+            _step=(pred_num - plant_num) % 12,  # season-relative, wrap-safe
+        ).sort_values(
+            ["Crop", "Region", "Season", "_yr", "_step"], kind="mergesort"
+        ).drop(columns=["_yr", "_step"])
+
+        path = (dir_outlook /
+                f"{country}_{model}_monthly_"
+                f"{int(years.min())}_{int(years.max())}.csv")
+        out.to_csv(path, index=False)
+        logger.info(f"Monthly history CSV saved to {path} ({len(out):,} rows)")
+        written.append(path)
+    return written
+
+
 def _stage_sort_key(name, planting_month=None):
     """Sort stage names chronologically.
 
@@ -4602,6 +4662,14 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     _pb = _season_bounds_from_windows(_sub["Stage Window Display"])
                 season_bounds[_key] = _pb
         logger.info(f"Calendar planting/harvest bounds (Country,Crop,Season): {season_bounds}")
+
+        # Full hindcast+forecast series, one row per time step. Written from
+        # df_pred_store (every year/stage the DB returned) rather than df_all,
+        # which is already narrowed to the live forecast year.
+        try:
+            _write_monthly_history(df_pred_store, season_bounds, dir_outlook)
+        except Exception as e:  # never let an export kill a completed run
+            logger.warning(f"Monthly history CSV export failed: {e}")
 
         # Long-format CSV — one row per (region, year, model) including
         # ensemble + every active blend

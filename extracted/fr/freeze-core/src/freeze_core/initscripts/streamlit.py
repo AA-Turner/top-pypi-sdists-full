@@ -7,10 +7,10 @@ import sys
 from importlib import import_module
 from tempfile import TemporaryDirectory
 
-sys.frozen = True
+sys.frozen = True  # ty: ignore[unresolved-attribute]
 
 
-def run(name) -> None:
+def run(name: str) -> None:
     """Execute the main script of the streamlit frozen application."""
     cli = import_module("streamlit.web.cli")
     with TemporaryDirectory() as tmpdir:

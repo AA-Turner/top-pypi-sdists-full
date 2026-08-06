@@ -49,6 +49,10 @@ class ENV:
 
     HCLI_VERSION: str = os.getenv("HCLI_VERSION", __version__)
     HCLI_BINARY_NAME: str = os.getenv("HCLI_BINARY_NAME", "hcli")
+    # Namespace used for the stored auth keys (credentials, login.email). Defaults
+    # to the binary name so each binary keeps its own login, but can be set
+    # explicitly to let sibling binaries share a single credential store.
+    HCLI_CONFIG_NAMESPACE: str = os.getenv("HCLI_CONFIG_NAMESPACE", HCLI_BINARY_NAME)
     HCLI_VERSION_EXTRA: str = os.getenv("HCLI_VERSION_EXTRA", "")
     HCLI_MODE: str = os.getenv("HCLI_MODE", "user")
     QUIET: bool = False
@@ -64,6 +68,7 @@ class ENV:
     HCLI_CURRENT_IDA_PLATFORM: str | None = os.getenv("HCLI_CURRENT_IDA_PLATFORM")
     HCLI_CURRENT_IDA_VERSION: str | None = os.getenv("HCLI_CURRENT_IDA_VERSION")
     HCLI_CURRENT_IDA_PYTHON_EXE: str | None = os.getenv("HCLI_CURRENT_IDA_PYTHON_EXE")
+    IDAPYTHON_VENV_EXECUTABLE: str | None = os.getenv("IDAPYTHON_VENV_EXECUTABLE")
 
     # KE download settings
     HCLI_KE_DOWNLOADS_DIR: str | None = os.getenv("HCLI_KE_DOWNLOADS_DIR")

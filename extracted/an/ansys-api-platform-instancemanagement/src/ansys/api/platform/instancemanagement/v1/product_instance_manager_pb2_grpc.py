@@ -28,7 +28,7 @@ if _version_not_supported:
 
 class ProductInstanceManagerStub(object):
     """Manages the creation and deletion of product instances.
-    Note: product instance is the name given to a stateful process starting one or several services.
+    Note: A product instance is the name given to a stateful process starting one or several services.
     """
 
     def __init__(self, channel):
@@ -71,35 +71,35 @@ class ProductInstanceManagerStub(object):
 
 class ProductInstanceManagerServicer(object):
     """Manages the creation and deletion of product instances.
-    Note: product instance is the name given to a stateful process starting one or several services.
+    Note: A product instance is the name given to a stateful process starting one or several services.
     """
 
     def CreateInstance(self, request, context):
-        """Creates a new instance of a product.
+        """Create a new instance of a product.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def DeleteInstance(self, request, context):
-        """Removes a running instance of a product.
+        """Remove a running instance of a product.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def ListInstances(self, request, context):
-        """Lists all running product instances.
+        """List all running product instances.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def GetInstance(self, request, context):
-        """Gets an instance of a product.
-        The caller must check that the instance is ready
-        from the return before using it.
-        Returns an error if the instance failed
+        """Get a running instance of a product.
+        The caller must check what is returned to ensure that
+        the instance is ready before using it.
+        An error is returned if the instance failed
         to start, crashed, or does not exist.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -107,14 +107,14 @@ class ProductInstanceManagerServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def ListDefinitions(self, request, context):
-        """Lists all available products that can be started using this product instance manager.
+        """List all available products that can be started using this product instance manager.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def GetDefinition(self, request, context):
-        """Gets a product definition.
+        """Get a product definition.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -163,7 +163,7 @@ def add_ProductInstanceManagerServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class ProductInstanceManager(object):
     """Manages the creation and deletion of product instances.
-    Note: product instance is the name given to a stateful process starting one or several services.
+    Note: A product instance is the name given to a stateful process starting one or several services.
     """
 
     @staticmethod

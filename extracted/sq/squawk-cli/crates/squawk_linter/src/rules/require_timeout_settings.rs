@@ -22,7 +22,13 @@ fn create_stmt_timeout_fix(file: &SourceFile) -> Fix {
     let at = find_insert_pos(file);
     Fix::new(
         "Add statement timeout",
-        vec![Edit::insert("set statement_timeout = '5s';\n", at)],
+        vec![Edit::insert(
+            format!(
+                "set statement_timeout = '5s';{}",
+                file.line_ending().as_str()
+            ),
+            at,
+        )],
     )
 }
 
@@ -30,7 +36,10 @@ fn create_lock_timeout_fix(file: &SourceFile) -> Fix {
     let at = find_insert_pos(file);
     Fix::new(
         "Add lock timeout",
-        vec![Edit::insert("set lock_timeout = '1s';\n", at)],
+        vec![Edit::insert(
+            format!("set lock_timeout = '1s';{}", file.line_ending().as_str()),
+            at,
+        )],
     )
 }
 
@@ -338,10 +347,8 @@ pub(crate) fn require_timeout_settings(ctx: &mut Linter, parse: &Parse<SourceFil
                     if path.qualifier().is_some() {
                         continue;
                     }
-                    if let Some(segment) = path.segment()
-                        && let Some(name_ref) = segment.name_ref()
-                    {
-                        let name = name_ref.text();
+                    if let Some(segment) = path.segment() {
+                        let name = segment.text();
                         if name == "lock_timeout" {
                             lock_timeout = ReportOnce::Present;
                         } else if name == "statement_timeout" {
@@ -414,6 +421,17 @@ mod test {
         let mut table = builder.build();
         table.with(Style::psql());
         table.to_string()
+    }
+
+    #[test]
+    fn fixes_preserve_cr_line_endings() {
+        assert_snapshot!(
+            format!(
+                "{:?}",
+                fix("ALTER TABLE t ADD COLUMN c BOOLEAN;\rSELECT 1;")
+            ),
+            @r#""set statement_timeout = '5s';\rset lock_timeout = '1s';\rALTER TABLE t ADD COLUMN c BOOLEAN;\rSELECT 1;""#
+        );
     }
 
     #[test]

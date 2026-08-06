@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.35                                                                                #
-# Generated on 2026-06-24T22:10:38.866892                                                            #
+# MF version: 2.19.36                                                                                #
+# Generated on 2026-08-05T18:17:36.275660                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,11 +10,11 @@ import typing
 import metaflow
 if typing.TYPE_CHECKING:
     import metaflow.decorators
+    import metaflow.user_decorators.mutable_step
+    import typing
     import metaflow.flowspec
     import metaflow.datastore.inputs
     import metaflow.user_decorators.user_step_decorator
-    import metaflow.user_decorators.mutable_step
-    import typing
 
 from ..exception import MetaflowException as MetaflowException
 from ..user_configs.config_parameters import resolve_delayed_evaluator as resolve_delayed_evaluator

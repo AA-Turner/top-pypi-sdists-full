@@ -1,27 +1,26 @@
 from __future__ import annotations
 
+import threading
+import time
+import typing as t
 from collections import defaultdict
 from concurrent.futures import Future
 from dataclasses import replace
 from datetime import datetime, timezone
 from functools import cached_property
 from multiprocessing import get_context
-import threading
-import time
-import typing as t
+
 from dbt.adapters.sql import SQLAdapter
-from sqlglot import TokenType, tokenize
+from sqlglot import TokenType, exp, tokenize
 from sqlglot.dialects.dialect import Dialect
-
-
-from sqlglot import exp
+from typing_extensions import override
 
 from dbt_state import events
 from dbt_state.adapters.base import BaseAdapterExtension
 from dbt_state.adapters.common import (
+    ViewDefinition,
     ViewFetchResult,
     build_information_schema_filter,
-    ViewDefinition,
     group_tables_by_catalog,
 )
 from dbt_state.utils import set_invocation_context
@@ -30,7 +29,7 @@ from dbt_state.utils import set_invocation_context
 class RedshiftAdapterExtension(BaseAdapterExtension):
     DEFAULT_SCHEMA_NAME = "public"
     SHOULD_RELEASE_CONNECTION: bool = True
-    SYSTEM_METADATA_SCHEMAS: t.List[str] = ["information_schema", "pg_catalog"]
+    SYSTEM_METADATA_SCHEMAS: t.ClassVar[t.List[str]] = ["information_schema", "pg_catalog"]
     IMPLEMENTS_CUSTOM_CLONE: bool = True
 
     _SYS_QUERY_DETAIL_LOOKBACK_MINUTES = 30
@@ -111,7 +110,7 @@ class RedshiftAdapterExtension(BaseAdapterExtension):
         Only warms the default catalog. Non-default catalog adapters
         are created lazily and cannot be pre-warmed at this stage.
         """
-        num_workers = self._executor._max_workers
+        num_workers = self._max_workers
         barrier = threading.Barrier(num_workers)
 
         def _prewarm_connection(name: str) -> None:
@@ -308,7 +307,7 @@ class RedshiftAdapterExtension(BaseAdapterExtension):
                 fqn = self._sql(table)
                 if cache.claim_if_available(fqn):
                     claimed_fqns.append(fqn)
-                    tables_by_schema[(table.catalog, table.db)].append(table)
+                    tables_by_schema[table.catalog, table.db].append(table)
 
         if not claimed_fqns:
             return super().prefetch_last_modified_epochs(table_fqns, table_overrides)
@@ -406,7 +405,7 @@ class RedshiftAdapterExtension(BaseAdapterExtension):
         tables_by_schema: dict[tuple[str, str], list[exp.Table]] = defaultdict(list)
         tables_by_catalog: dict[str, list[exp.Table]] = defaultdict(list)
         for fqn in table_fqns:
-            tables_by_schema[(fqn.catalog, fqn.db)].append(fqn)
+            tables_by_schema[fqn.catalog, fqn.db].append(fqn)
             tables_by_catalog[fqn.catalog].append(fqn)
 
         for (catalog, schema), schema_tables in tables_by_schema.items():
@@ -583,6 +582,7 @@ class RedshiftAdapterExtension(BaseAdapterExtension):
 
         return ViewFetchResult(definitions=view_definitions)
 
+    @override
     def cache_view_definition(self, table: exp.Table, definition: str, default_schema: str) -> None:
         # Redshift uses early-binding views by default: at CREATE VIEW time it
         # fully resolves the view body and stores the resolved form. Reading the

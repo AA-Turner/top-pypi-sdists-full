@@ -3,6 +3,7 @@
 Provides env.judge.grade() for async verifier scripts.
 """
 
+import os
 from typing import Dict, List, Optional, Union, TYPE_CHECKING
 
 # Import shared classes and helpers from the sync module
@@ -13,7 +14,6 @@ from ..judge import (
     JudgeResult,
     Rubric,
     _build_grade_request,
-    _build_judge_headers,
     _collect_file_from_env_async,
     _collect_image_from_env_async,
     _guess_file_media_type,
@@ -63,6 +63,7 @@ class AsyncJudge:
         agentic: bool = False,
         collect: Optional[Dict[str, List[str]]] = None,
         task_id: Optional[str] = None,
+        max_turns: Optional[int] = None,
     ) -> JudgeResult:
         """Grade a submission using LLM-as-judge via the orchestrator API.
 
@@ -84,6 +85,9 @@ class AsyncJudge:
             agentic: If True, the orchestrator collects artifacts from the instance.
             collect: File patterns for orchestrator to collect (agentic mode).
             task_id: Optional task ID for tracking.
+            max_turns: Agentic tool-turn budget (1-50). None keeps the
+                orchestrator default; ignored when agentic is False and by
+                orchestrators that predate the field.
         """
         # Resolve Image.from_env images asynchronously before building request
         resolved_images = images
@@ -146,15 +150,15 @@ class AsyncJudge:
             agentic=agentic,
             collect=collect,
             task_id=task_id,
+            max_turns=max_turns,
         )
 
-        _print_judge_call_start(
-            rubric, resolved_images, agentic, model, files=resolved_files
-        )
+        _print_judge_call_start(rubric, resolved_images, agentic, model, files=resolved_files)
+        extra_headers = None
+        token = os.environ.get("FLEET_JUDGE_TOKEN")
+        if token:
+            extra_headers = {"X-Fleet-Judge-Token": token}
         response = await self._client.request(
-            "POST",
-            "/v1/judge/grade",
-            json=body,
-            extra_headers=_build_judge_headers(),
+            "POST", "/v1/judge/grade", json=body, extra_headers=extra_headers
         )
         return _parse_grade_response(response.json())

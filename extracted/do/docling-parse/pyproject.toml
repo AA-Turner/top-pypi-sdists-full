@@ -1,6 +1,6 @@
 [project]
 name = "docling-parse"
-version = "7.9.0"
+version = "7.10.0"
 description = "Simple package to extract text with coordinates from programmatic PDFs"
 license = "MIT"
 keywords = ["docling", "pdf", "parser"]
@@ -167,7 +167,8 @@ python_version = "3.10"
 module = [
     "tabulate.*",
     "botocore.*",
-    "boto3.*"
+    "boto3.*",
+    "pypdfium2.*"
 ]
 ignore_missing_imports = true
 

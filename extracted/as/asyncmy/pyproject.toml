@@ -1,13 +1,13 @@
 [project]
 authors = [{ name = "long2ice", email = "long2ice@gmail.com" }]
-description = "A fast asyncio MySQL driver"
+description = "The fastest asyncio MySQL/MariaDB driver for Python"
 keywords = ["driver", "asyncio", "mysql"]
 license = "Apache-2.0"
 name = "asyncmy"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = []
-version = "0.2.11"
+version = "0.2.12"
 
 [project.urls]
 documentation = "https://github.com/long2ice/asyncmy"
@@ -20,28 +20,30 @@ packages = [
     { include = "asyncmy" },
 ]
 
-[tool.poetry.group.dev.dependencies]
-cython = "*"
-mypy = "*"
-rich = "*"
-ruff = "*"
-
-[tool.poetry.group.test.dependencies]
-pytest = "*"
-mysqlclient = "*"
-pymysql = ">=0.8.1"
-aiomysql = "*"
-# Breaking change in 0.23.*
-# https://github.com/pytest-dev/pytest-asyncio/issues/706
-pytest-asyncio = "^0.21.2"
-pytest-mock = "*"
-pytest-xdist = "*"
-cryptography = "*"
-uvloop = { version = "*", markers = "sys_platform != 'win32'" }
+[dependency-groups]
+dev = [
+    "cython",
+    "mypy",
+    "rich",
+    "ruff",
+]
+test = [
+    "pytest",
+    "mysqlclient",
+    "pymysql >=0.8.1",
+    "aiomysql",
+    # Breaking change in 0.23.*
+    # https://github.com/pytest-dev/pytest-asyncio/issues/706
+    "pytest-asyncio >=0.21.2,<0.22",
+    "pytest-mock",
+    "pytest-xdist",
+    "cryptography",
+    "uvloop; sys_platform != 'win32' and implementation_name == 'cpython'",
+]
 
 [tool.poetry.build]
 generate-setup-file = true
-script = "build.py"
+script = "build_cython.py"
 
 [build-system]
 build-backend = "poetry.core.masonry.api"

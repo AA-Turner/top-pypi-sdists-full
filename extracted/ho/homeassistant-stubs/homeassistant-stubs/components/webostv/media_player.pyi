@@ -6,7 +6,7 @@ from aiowebostv import WebOsTvState as WebOsTvState
 from collections.abc import Callable as Callable, Coroutine
 from homeassistant import util as util
 from homeassistant.components.media_player import MediaPlayerDeviceClass as MediaPlayerDeviceClass, MediaPlayerEntity as MediaPlayerEntity, MediaPlayerEntityFeature as MediaPlayerEntityFeature, MediaPlayerState as MediaPlayerState, MediaType as MediaType
-from homeassistant.const import ATTR_SUPPORTED_FEATURES as ATTR_SUPPORTED_FEATURES
+from homeassistant.const import EntityStateAttribute as EntityStateAttribute
 from homeassistant.core import HomeAssistant as HomeAssistant, ServiceResponse as ServiceResponse
 from homeassistant.exceptions import HomeAssistantError as HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession as async_get_clientsession
@@ -49,6 +49,8 @@ class LgWebOSMediaPlayerEntity(RestoreEntity, MediaPlayerEntity):
     @override
     async def async_will_remove_from_hass(self) -> None: ...
     async def async_handle_state_update(self, tv_state: WebOsTvState) -> None: ...
+    _attr_extra_state_attributes: Incomplete
+    _attr_device_info: Incomplete
     _attr_state: Incomplete
     _attr_is_volume_muted: Incomplete
     _attr_volume_level: Incomplete
@@ -57,8 +59,6 @@ class LgWebOSMediaPlayerEntity(RestoreEntity, MediaPlayerEntity):
     _attr_media_content_type: Incomplete
     _attr_media_title: Incomplete
     _attr_media_image_url: Incomplete
-    _attr_device_info: Incomplete
-    _attr_extra_state_attributes: Incomplete
     def _update_states(self) -> None: ...
     def _update_sources(self) -> None: ...
     _attr_available: Incomplete

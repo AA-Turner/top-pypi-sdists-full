@@ -23,7 +23,7 @@ from posthog.capture_compression import (
 )
 from posthog.capture_mode import CaptureMode, _resolve_capture_mode
 from posthog.capture_v1 import _send_v1_batch
-from posthog.consumer import AI_MAX_MSG_SIZE, MAX_MSG_SIZE, Consumer
+from posthog.consumer import AI_MAX_MSG_SIZE, MAX_MSG_SIZE, Consumer, _DrainSignal
 from posthog.contexts import (
     _get_current_context,
     get_capture_exception_code_variables_context,
@@ -244,6 +244,20 @@ def _parse_has_experiment(value: Any) -> Optional[bool]:
     return value if isinstance(value, bool) else None
 
 
+def _parse_flag_payload(raw_payload: Any) -> Optional[Any]:
+    """Flag payloads are stored as JSON strings, both in the ``/flags`` response
+    metadata and in the local-evaluation flag definitions, so decode them before
+    handing them to callers. A string that isn't valid JSON is passed through as-is."""
+    if isinstance(raw_payload, str):
+        if not raw_payload:
+            return None
+        try:
+            return json.loads(raw_payload)
+        except (json.JSONDecodeError, TypeError):
+            return raw_payload
+    return raw_payload
+
+
 def _metadata_has_experiment(metadata: Any) -> Optional[bool]:
     """Server-reported experiment linkage from flag metadata; ``None`` when absent
     (e.g. ``LegacyFlagMetadata``, which doesn't carry the field)."""
@@ -308,6 +322,7 @@ class _Lane:
         self._active_sync_sends = 0
         self._start_lock = threading.Lock()
         self._sync_sends_done = threading.Condition(self._start_lock)
+        self._drain_signal = _DrainSignal(self.queue)
         if eager_start:
             self.start()
 
@@ -331,6 +346,7 @@ class _Lane:
                 capture_mode=self.capture_mode,
                 capture_compression=self.capture_compression,
             )
+            consumer._set_drain_signal(self._drain_signal)
             self.consumers.append(consumer)
 
             if self.send:
@@ -386,38 +402,54 @@ class _Lane:
                 self._sync_sends_done.wait()
 
     def flush(self, timeout_seconds: Optional[float]) -> None:
-        """Block until this lane's queue drains, or until `timeout_seconds` elapse."""
-        queue = self.queue
-        size = queue.qsize()
-        if timeout_seconds is None:
-            queue.join()
-        else:
-            deadline = time.monotonic() + timeout_seconds
-            with queue.all_tasks_done:
-                while queue.unfinished_tasks:
-                    remaining = deadline - time.monotonic()
-                    if remaining <= 0:
-                        self.log.warning(
-                            "%s lane flush ran out of budget (%.1fs granted) with %s items pending.",
-                            self.name,
-                            timeout_seconds,
-                            queue.unfinished_tasks,
-                        )
-                        return
-                    queue.all_tasks_done.wait(remaining)
+        """Block until this lane's queue drains, or until `timeout_seconds` elapse.
 
-        # Note that this message may not be precise, because of threading.
-        self.log.debug("successfully flushed about %s items.", size)
+        Signals the consumers first so a partial batch is delivered now instead
+        of waiting out `flush_at` / `flush_interval`.
+        """
+        queue = self.queue
+        # Keep the request active only while this flush is waiting. This avoids
+        # an empty flush changing how events captured after it are batched.
+        self._drain_signal.request()
+        try:
+            size = queue.qsize()
+            if timeout_seconds is None:
+                queue.join()
+            else:
+                deadline = time.monotonic() + timeout_seconds
+                with queue.all_tasks_done:
+                    while queue.unfinished_tasks:
+                        remaining = deadline - time.monotonic()
+                        if remaining <= 0:
+                            self.log.warning(
+                                "%s lane flush ran out of budget (%.1fs granted) with %s items pending.",
+                                self.name,
+                                timeout_seconds,
+                                queue.unfinished_tasks,
+                            )
+                            return
+                        queue.all_tasks_done.wait(remaining)
+
+            # Note that this message may not be precise, because of threading.
+            self.log.debug("successfully flushed about %s items.", size)
+        finally:
+            self._drain_signal.complete()
 
     def join(self) -> None:
         """Pause this lane's consumers and wait for them to exit; a never-started lane is a no-op."""
-        for consumer in self.consumers:
-            consumer.pause()
-            try:
-                consumer.join()
-            except RuntimeError:
-                # consumer thread has not started
-                pass
+        # Teardown bypasses the batching wait too, so a consumer holding a
+        # partial batch delivers it instead of exiting `flush_interval` later.
+        self._drain_signal.request()
+        try:
+            for consumer in self.consumers:
+                consumer.pause()
+                try:
+                    consumer.join()
+                except RuntimeError:
+                    # consumer thread has not started
+                    pass
+        finally:
+            self._drain_signal.complete()
 
     def reset_sync_send_state_after_fork(self) -> None:
         """Replace sync-send state inherited from threads that did not survive fork."""
@@ -436,6 +468,7 @@ class _Lane:
         """
         self.queue = Queue(self._max_queue_size)
         self.reset_sync_send_state_after_fork()
+        self._drain_signal = _DrainSignal(self.queue)
         self.consumers = []
         self._started = False
         if self._eager_start:
@@ -1668,7 +1701,7 @@ class Client(object):
     @no_throw()
     def alias(
         self,
-        previous_id: str,
+        previous_id: ID_TYPES,
         distinct_id: Optional[str],
         timestamp: Optional[Union[datetime, str]] = None,
         uuid: Optional[str] = None,
@@ -1678,8 +1711,11 @@ class Client(object):
         Create an alias between two distinct IDs.
 
         Args:
-            previous_id: The previous distinct ID.
-            distinct_id: The new distinct ID to alias to.
+            previous_id: The previous distinct ID. Required - the call is dropped
+                with a warning if it is missing or empty.
+            distinct_id: The new distinct ID to alias to. Falls back to the
+                context distinct ID; the call is dropped with a warning if
+                neither is available.
             timestamp: The timestamp of the event.
             uuid: A unique identifier for the event. If provided, it must be a
                 valid UUID string or uuid.UUID instance; invalid values are
@@ -1696,10 +1732,21 @@ class Client(object):
 
         Note: This method will not raise exceptions. Errors are logged.
         """
+        previous_id = stringify_id(previous_id)
+        if not previous_id:
+            self.log.warning(
+                "alias() called without a previous_id, dropping the $create_alias event"
+            )
+            return None
+
         (distinct_id, personless) = get_identity_state(distinct_id)
 
         if personless:
-            return None  # Personless alias() does nothing - should this throw?
+            # No alias target was passed and none is available from context.
+            self.log.warning(
+                "alias() called without a distinct_id, dropping the $create_alias event"
+            )
+            return None
 
         msg: Dict[str, Any] = {
             "properties": {
@@ -3525,7 +3572,7 @@ class Client(object):
                 key=key,
                 enabled=value is not False,
                 variant=value if isinstance(value, str) else None,
-                payload=local_payloads.get(key),
+                payload=_parse_flag_payload(local_payloads.get(key)),
                 id=flag_def.get("id"),
                 # The local-evaluation flag definition does not carry a version field;
                 # only the remote ``/flags`` response does via ``metadata.version``.
@@ -3564,19 +3611,11 @@ class Client(object):
                 for key, detail in response.get("flags", {}).items():
                     if key in locally_evaluated_keys:
                         continue
-                    payload: Optional[Any] = None
-                    raw_payload = (
+                    payload = _parse_flag_payload(
                         detail.metadata.payload
                         if isinstance(detail.metadata, FlagMetadata)
                         else getattr(detail.metadata, "payload", None)
                     )
-                    if isinstance(raw_payload, str) and raw_payload:
-                        try:
-                            payload = json.loads(raw_payload)
-                        except (json.JSONDecodeError, TypeError):
-                            payload = raw_payload
-                    elif raw_payload is not None:
-                        payload = raw_payload
                     records[key] = _EvaluatedFlagRecord(
                         key=key,
                         enabled=detail.enabled,

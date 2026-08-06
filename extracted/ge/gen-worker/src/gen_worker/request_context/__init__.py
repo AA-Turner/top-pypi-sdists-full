@@ -167,6 +167,10 @@ from ._helpers import (
 from ._stream import _RequestOutputStream
 
 from typing import Generic, TypeVar
+from typing import cast as _cast
+from ..view import for_request as _view_for_request
+from ..callout import CalloutClient
+from ..callout import ChildRequest
 
 D = TypeVar("D", bound=GenerationDefaults)
 
@@ -226,7 +230,7 @@ class RequestContext(Generic[D]):
             self._deadline = self._started_at + (timeout_ms / 1000.0)
         self._canceled = False
         self._boot_warmup = bool(boot_warmup)
-        self._lane = ""  # th#1050: executing lane, set by the executor
+        self._execution_lane = ""  # th#1050: executing lane, set by the executor
         self._config: Dict[str, Any] = {}  # th#1087: effective config params
         self._config_snapshot: Optional[bytes] = None
         self._cancel_event = threading.Event()
@@ -260,6 +264,10 @@ class RequestContext(Generic[D]):
         # blocking uploads release the GPU slot while they wait on the
         # network. None for CPU jobs and local (CLI) runs.
         self._gpu_slot_lease: Optional[Any] = None
+        # pgw#943: may a CHILD-CALL wait yield the GPU slot? Stamped per job
+        # by the executor: True only when this job holds no instance gate and
+        # no per-request adapters — see _child_call_wait for why both matter.
+        self._child_call_slot_yieldable: bool = False
         # gw#516: executor callback fired on the TERMINAL slot release at the
         # decode->finalize handoff, so the worker's finalizing-job count (and
         # the hub's StateDelta view of it) tracks the encode/upload tail.
@@ -293,16 +301,16 @@ class RequestContext(Generic[D]):
         return self._deadline
 
     @property
-    def lane(self) -> str:
+    def execution_lane(self) -> str:
         """The EXECUTING precision lane of this call (th#1050), a full
         descriptor id like ``"fp8-w8a8-dynamic+compiled"`` — post-degrade
         truth, the same value JobMetrics.lane reports (th#1043 consistent).
         Read-only; always available. Handlers that declared
         ``handles=[...]`` branch on it; everyone else may ignore it."""
-        return self._lane or "bf16-w16a16+eager"
+        return self._execution_lane or "bf16-w16a16+eager"
 
-    def _set_lane(self, lane: str) -> None:
-        self._lane = str(lane or "").strip()
+    def _set_execution_lane(self, execution_lane: str) -> None:
+        self._execution_lane = str(execution_lane or "").strip()
 
     @property
     def config(self) -> Dict[str, Any]:
@@ -485,7 +493,6 @@ class RequestContext(Generic[D]):
         instance mutation two concurrent requests corrupt each other
         through, and a module swap the compiled graph guards against.
         """
-        from ..view import for_request as _view_for_request
 
         objective = ""
         resolved = None
@@ -700,7 +707,6 @@ class RequestContext(Generic[D]):
     # -- th#826 call-out primitive ------------------------------------------
 
     def _callout_client(self) -> "CalloutClient":
-        from ..callout import CalloutClient
 
         if not self._file_api_base_url:
             from ..api.errors import ChildCallError
@@ -743,6 +749,13 @@ class RequestContext(Generic[D]):
         :class:`~gen_worker.callout.ChildRequest` handle
         (``.status()`` / ``.result()`` / ``.cancel()``).
 
+        While parked on the child (``wait=True`` here, or the handle's
+        ``.result()``), the job's GPU slot is YIELDED when that is safe
+        (pgw#943, see :meth:`_child_call_wait`) so the worker pipelines:
+        another request — or a background mint turn — runs on the permit
+        instead of the accelerator idling on a network round trip, and the
+        wait re-acquires before returning to this handler.
+
         Raises ``ChildCallRefusedError`` (typed admission refusals),
         ``ChildRequestFailedError`` / ``ChildRequestCanceledError``,
         ``ChildCallTimeoutError``, and ``CanceledError`` when this invocation
@@ -751,9 +764,8 @@ class RequestContext(Generic[D]):
         self.raise_if_cancelled()
         client = self._callout_client()
         request_id = client.submit(endpoint, function, payload, tag=tag, tier=tier)
-        from ..callout import ChildRequest
 
-        handle = ChildRequest(client, request_id)
+        handle = ChildRequest(client, request_id, wait_guard=self._child_call_wait)
         if not wait:
             return handle
         return handle.result(timeout_s, poll_interval_s=poll_interval_s)
@@ -786,6 +798,11 @@ class RequestContext(Generic[D]):
         re-acquired slot is released again immediately: the executor's final
         release already saw ``held == False`` and skipped, so the balance
         stays exact and the freed slot isn't captured by a dying job.
+
+        pgw#738: ``reacquire`` raises ``GpuSlotUnreachable`` when the permit
+        provably cannot come back. That refusal only ever REPLACES a clean
+        exit — a failure raised by the block owns the outcome and is never
+        masked by it.
         """
         lease = self._gpu_slot_lease
         if lease is None or not lease.yield_slot():
@@ -793,10 +810,47 @@ class RequestContext(Generic[D]):
             return
         try:
             yield
-        finally:
-            lease.reacquire()
+        except BaseException:
+            try:
+                lease.reacquire()
+            except Exception:
+                logger.exception(
+                    "request %s: GPU permit unreachable while unwinding; the "
+                    "block's own failure stands", self.request_id)
             if self._canceled:
                 lease.yield_slot()
+            raise
+        lease.reacquire()
+        if self._canceled:
+            lease.yield_slot()
+
+    @contextmanager
+    def _child_call_wait(self) -> "Iterator[None]":
+        """Worker-internal: park for a child request's result with the GPU
+        slot YIELDED (pgw#943) — a parent waiting on a network round trip
+        must not rent the accelerator, so another request (or a background
+        mint turn) runs on the permit and the wait re-acquires before
+        returning to tenant code. Same lease discipline as ``save_bytes``
+        (#382); the wait itself stays on the handler thread, so heartbeats
+        and StateDeltas ride the free event loop exactly as before.
+
+        Gate-holding class endpoints yield too (pgw#954): every permit
+        acquirer now takes the instance gate FIRST, so a same-instance
+        follower queues on ``run_lock`` holding no permit and the re-acquire
+        cannot wedge. What remains SCOPED out is a job with per-request
+        adapters active — a follower on the shared pipeline would
+        deactivate/replace this request's adapter state mid-handler, which
+        is a data race no lock order fixes. Those jobs keep the permit
+        across the wait. The wait is bracketed as its own stage so the child
+        park shows up as GPU-idle time in the stage map instead of
+        masquerading as compute.
+        """
+        with self._stages.stage("child_call_wait"):
+            if not self._child_call_slot_yieldable:
+                yield
+                return
+            with self._gpu_slot_yielded():
+                yield
 
     def _release_gpu_slot_for_finalize(self) -> None:
         """Worker-internal: TERMINAL GPU-slot release at the decode->finalize
@@ -947,6 +1001,8 @@ class RequestContext(Generic[D]):
         payload is not a signable media format; raises when signing is
         configured but fails (an unlabeled asset must not ship silently).
         """
+        # Deferred: content_credentials (c2pa) is +132 modules on the
+        # `import gen_worker` path.
         from .. import content_credentials
 
         with self._stages.stage("credential_stamp"):
@@ -956,6 +1012,8 @@ class RequestContext(Generic[D]):
     def _c2pa_sign_file(self, ref: str, src: str) -> Optional[str]:
         """File variant of :meth:`_c2pa_sign_bytes` — returns a signed temp
         path (caller unlinks) or None when signing doesn't apply."""
+        # Deferred: content_credentials (c2pa) is +132 modules on the
+        # `import gen_worker` path.
         from .. import content_credentials
 
         with self._stages.stage("credential_stamp"):
@@ -1170,7 +1228,6 @@ class RequestContext(Generic[D]):
             logger.debug("save_video: metadata probe failed", exc_info=True)
         return asset
 
-
     def save_file(
         self,
         ref: str,
@@ -1265,7 +1322,6 @@ class RequestContext(Generic[D]):
     # were deleted as a hard cut. They were not used by any worker-author
     # endpoint; visibility flips belong in cozyctl / the tensorhub UI, not on
     # a per-request object.
-
 
 
 # ---------------------------------------------------------------------------
@@ -1520,7 +1576,6 @@ class _PublisherMixin:
         """Open a chunk-writable output stream that finalizes to Tensors."""
         ref = _normalize_output_ref(ref)
         self._require_repo_job_scope_for_tensors(ref)
-        from typing import cast as _cast
 
         return _RequestOutputStream(
             ctx=_cast("RequestContext", self),
@@ -1547,7 +1602,10 @@ class _PublisherMixin:
         only thing that decides how a terminal miss classifies. See
         :data:`REF_ORIGIN_PAYLOAD`.
         """
+        # lazy: request_context is on the `import gen_worker` path, which the
+        # `python -m gen_worker.discover` build step must keep requests-free.
         import requests
+
         base = (self._file_api_base_url or "").strip().rstrip("/")
         token = self._get_worker_capability_token()
         # Normalize digest format for URL.
@@ -1665,6 +1723,7 @@ class _PublisherMixin:
         empty manifest, a silent hub, an exhausted download) is the
         platform's and still raises ``RuntimeError``.
         """
+        # Deferred: _datasets is +129 modules on the `import gen_worker` path.
         from ._datasets import (
             DatasetRefNotFound,
             download_entries,
@@ -1815,6 +1874,7 @@ class DatasetContext(_PublisherMixin, RequestContext):
         HTTP failure. The hub-API plumbing lives next to ``HubClient``
         (``gen_worker.convert.hub.publish_dataset_revision``).
         """
+        # Deferred: convert.hub is +267 modules on the `import gen_worker` path.
         from ..convert.hub import publish_dataset_revision
 
         return publish_dataset_revision(

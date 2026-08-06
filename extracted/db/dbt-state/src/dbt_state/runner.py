@@ -1,25 +1,27 @@
 from __future__ import annotations
 
+import threading
 import time
 import typing as t
-import threading
-
+from copy import deepcopy
 from dataclasses import replace
 from datetime import datetime
 
 from dbt.adapters.factory import get_adapter
 from dbt.config.runtime import RuntimeConfig
-from dbt.contracts.results import RunResult, RunStatus
 from dbt.contracts.graph.manifest import Manifest
 from dbt.contracts.graph.nodes import (
     GenericTestNode,
+    ManifestNode,
     ModelNode,
     SeedNode,
-    ManifestNode,
     SingularTestNode,
     SnapshotNode,
 )
-from dbt.events.types import LogTestResult as DbtLogTestResult, green, red, yellow
+from dbt.contracts.results import RunResult, RunStatus
+from dbt.events.types import LogTestResult as DbtLogTestResult
+from dbt.events.types import green, red, yellow
+
 from dbt_state.auth.sso import Org
 from dbt_state.errors import (
     AuthenticationError,
@@ -44,36 +46,36 @@ except ImportError:
     # dbt < 1.9 has no microbatch batch runner
     MicrobatchBatchRunner = None  # type: ignore[assignment,misc]
 
+from query_cache_common.constants import NO_OP_STATUS
+
 from dbt_state import events
 from dbt_state.adapters import ADAPTER_EXTENSION_MAPPING
 from dbt_state.auth import sso_auth
-from dbt_state.config import RunCacheConfig, DBT_RUN_CACHE_PATH
-from dbt_state.grpc.client import QueryCacheGrpcClient
+from dbt_state.config import DBT_RUN_CACHE_PATH, RunCacheConfig
 from dbt_state.dispatcher import (
-    TelemetryDispatcher,
     AsyncTelemetryDispatcher,
     NoOpTelemetryDispatcher,
+    TelemetryDispatcher,
 )
+from dbt_state.grpc.client import QueryCacheGrpcClient
+from dbt_state.run_cache import NoRunResult, RunCache
+from dbt_state.session import SessionManager
 from dbt_state.system_info import (
     get_cloud_run_id,
     get_invocation_id,
     get_os_name,
     get_system_user_id,
 )
-from dbt_state.run_cache import RunCache, NoRunResult
-from dbt_state.session import SessionManager
 from dbt_state.utils import (
+    DBT_VERSION,
+    format_time_saved,
     is_ci_environment,
     is_non_interactive_environment,
-    format_time_saved,
-    DBT_VERSION,
 )
 from dbt_state.version import __version__
-from query_cache_common.constants import NO_OP_STATUS
 
 if t.TYPE_CHECKING:
     from dbt.adapters.sql import SQLAdapter
-    from dbt.contracts.graph.nodes import ManifestNode
     from dbt.task.compile import CompileRunner
     from dbt.task.run import MicrobatchModelRunner, ModelRunner
     from dbt.task.runnable import GraphRunnableTask
@@ -303,8 +305,9 @@ class RunnerOverride:
         finally:
             self.flush_logger(node.name)
 
+    @staticmethod
     def _ensure_microbatch_model_compiled(
-        self, runner: MicrobatchModelRunner, node: ModelNode, manifest: Manifest
+        runner: MicrobatchModelRunner, node: ModelNode, manifest: Manifest
     ) -> None:
         """Populates node.compiled_code with the model body compiled without any
         batch/event-time context, so the model-level query hash is stable across
@@ -313,22 +316,35 @@ class RunnerOverride:
         The helper must not set node.batch or the __dbt_internal_microbatch_event_time_*
         config keys, otherwise the compiled body would carry a batch-specific event-time
         filter and the cache key would differ per batch.
+
+        Compilation runs against a throwaway deep copy of the node rather than the
+        live node. ``compile_node`` injects ephemeral CTEs and latches
+        ``extra_ctes_injected = True`` on whatever node it touches, and dbt never
+        resets that flag; if we compiled the live node, dbt's later per-batch
+        recompiles would overwrite ``compiled_code`` from ``raw_code`` but skip
+        re-prepending the CTE definitions (the latch is still set), leaving the
+        batch SQL referencing undefined ``__dbt__cte__*`` names. Compiling a copy
+        keeps the live node's compilation state pristine so the per-batch pipeline
+        works normally; we then copy only the window-independent ``compiled_code``
+        back onto the live node for the cache hash.
         """
         if getattr(node, "compiled_code", None):
             return
         compiler = runner.compiler if hasattr(runner, "compiler") else runner.adapter.get_compiler()
-        compiler.compile_node(node, manifest, {})
+        node_copy = deepcopy(node)
+        compiler.compile_node(node_copy, manifest, {})
+        node.compiled_code = node_copy.compiled_code
 
     def compile_override(self, runner: CompileRunner, manifest: Manifest) -> t.Any:
         run_cache = self._run_cache_get_or_create(runner.config, runner.adapter, manifest)
         if run_cache is not None:
             try:
-                run_cache._decision_logger.log_node_start(runner.node)
+                run_cache._decision_logger.log_node_start(runner.node)  # noqa: SLF001
                 run_cache.on_compile(runner.node)
                 for dep_id in getattr(runner.node.depends_on, "nodes", []):
                     dep_node = manifest.nodes.get(dep_id)
                     if dep_node and (defer_rel := getattr(dep_node, "defer_relation", None)):
-                        run_cache._decision_logger.log_deferral(
+                        run_cache._decision_logger.log_deferral(  # noqa: SLF001
                             node_name=runner.node.name,
                             relation_name=dep_node.name,
                             deferred_to_fqn=defer_rel.relation_name,
@@ -415,14 +431,14 @@ class RunnerOverride:
         if not isinstance(node, (GenericTestNode, SingularTestNode)):
             return context
 
-        adapter = context["adapter"]._adapter
+        adapter = context["adapter"]._adapter  # noqa: SLF001
         run_cache = self._run_cache_get_or_create(config, adapter, manifest)
         if run_cache is None or not run_cache.run_cache_config.enable_data_tests:
             return context
 
         try:
-            run_cache._decision_logger.log_node_start(node)
-            context["adapter"]._adapter = run_cache.data_test_adapter_proxy(node)
+            run_cache._decision_logger.log_node_start(node)  # noqa: SLF001
+            context["adapter"]._adapter = run_cache.data_test_adapter_proxy(node)  # noqa: SLF001
         except Exception as e:
             events.fire_warn_event_with_cache_bypass(
                 "generate_runtime_model_context: dbt State failed for node {}:\n{}",
@@ -434,7 +450,7 @@ class RunnerOverride:
     def flush_logger(self, node_name: str) -> None:
         if rc := self._run_cache:
             try:
-                rc._decision_logger.log_node_end(node_name)
+                rc._decision_logger.log_node_end(node_name)  # noqa: SLF001
             except Exception as e:
                 events.fire_debug_event(
                     "Failed to flush explainer log entry for {}: {}", node_name, str(e)
@@ -445,7 +461,7 @@ class RunnerOverride:
             self._session = SessionManager()
             self._query_cache_client = QueryCacheGrpcClient.create(
                 run_cache_config=run_cache_config,
-                session_id=self._session._session_id,
+                session_id=self._session._session_id,  # noqa: SLF001
                 system_user_id=get_system_user_id(DBT_RUN_CACHE_PATH),
                 os_name=get_os_name(),
                 invocation_id=get_invocation_id(),
@@ -552,11 +568,13 @@ class RunnerOverride:
             node.database, node.schema, node.identifier
         )
 
-    def _favor_state(self, config: RuntimeConfig) -> bool:
+    @staticmethod
+    def _favor_state(config: RuntimeConfig) -> bool:
         return getattr(config.args, "favor_state", False)
 
+    @staticmethod
     def _resolve_microbatch_window(
-        self, runner: MicrobatchModelRunner, node: ModelNode
+        runner: MicrobatchModelRunner, node: ModelNode
     ) -> t.Optional[t.Tuple[datetime, datetime]]:
         """Resolves the effective event-time window for a whole microbatch model run.
 

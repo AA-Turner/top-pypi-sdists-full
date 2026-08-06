@@ -3,9 +3,61 @@ import re
 from enum import Enum, auto
 from typing import Optional
 
-__all__ = ["DmiParser"]
+__all__ = ["DmiParser", "format_output"]
 
 _HANDLE_RE = re.compile(r"^Handle\s(.+?),\sDMI\stype\s(\d+?),\s(\d+?)\sbytes\s*$")
+
+
+def format_output(data, fmt: str = "json", pretty: bool = False) -> str:
+    """Format parsed DMI data as a string.
+
+    @param data: parsed DMI data (list of dicts)
+    @param fmt: output format - "json", "jsonc", "yaml", "xml"
+    @param pretty: human-friendly pretty output
+    @return: formatted string
+    """
+    if "json" == fmt:
+        return json.dumps(data, sort_keys=True, indent=2) if pretty else json.dumps(data)
+    if "jsonc" == fmt:
+        return (
+            json.dumps(data, sort_keys=True, indent=2, separators=(",", ":"))
+            if pretty
+            else json.dumps(data, sort_keys=True, separators=(",", ":"))
+        )
+    if "yaml" == fmt:
+        try:
+            from yaml import dump as yaml_dump
+        except ImportError:
+            raise ValueError("yaml format requires PyYAML (pip install pyyaml)")
+
+        return (
+            yaml_dump(data, sort_keys=True, default_flow_style=False).rstrip("\n")
+            if pretty
+            else yaml_dump(data, sort_keys=True, default_flow_style=True, width=float("inf")).rstrip("\n")
+        )
+    if "xml" == fmt:
+        import xml.etree.ElementTree as ET
+
+        root = ET.Element("sections")
+        for sect in data:
+            s = ET.SubElement(root, "section")
+            h = ET.SubElement(s, "handle")
+            for attr in ("id", "type", "bytes"):
+                h.set(attr, sect["handle"][attr])
+            ET.SubElement(s, "name").text = sect["name"]
+            p = ET.SubElement(s, "props")
+            for k, v in sorted(sect["props"].items()):
+                prop = ET.SubElement(p, "prop", {"name": k})
+                vals = ET.SubElement(prop, "values")
+                for val in v["values"]:
+                    ET.SubElement(vals, "value").text = val
+
+        if pretty and hasattr(ET, "indent"):
+            ET.indent(root, "  ")
+
+        return ET.tostring(root, encoding="unicode")
+
+    raise ValueError("unknown type: {!r} (supported: json, jsonc, yaml, xml)".format(fmt))
 
 
 class DmiParserState(Enum):
@@ -93,21 +145,36 @@ class DmiParserSection:
 
 
 class DmiParser:
-    """This parse dmidecode output to JSON text"""
+    """This parses dmidecode output to formatted text"""
 
-    def __init__(self, text: str, **kwargs) -> None:
+    def __init__(self, text: str, pretty: bool = False, format: str = "json", **kwargs) -> None:
         """
         @param text: output of command dmidecode
+        @param pretty: human-friendly pretty output
+        @param format: output format - "json", "jsonc", "yaml", "xml"
         @param kwargs: these will pass to json.dumps()
         """
         if not isinstance(text, str):
             raise TypeError("text must be a str, got {}".format(type(text).__name__))
 
+        if pretty:
+            kwargs.setdefault("sort_keys", True)
+            kwargs.setdefault("indent", 2)
+
         self._text = text
         self._kwargs = kwargs
         self._sections = []
+        self._pretty = pretty
+        self._format = format
 
         self._parse()
+
+    @property
+    def data(self) -> list:
+        """
+        @return: parsed DMI data as a list of dictionaries
+        """
+        return self._sections
 
     @staticmethod
     def _indent_lv(line: str) -> int:
@@ -116,9 +183,13 @@ class DmiParser:
 
     def __str__(self) -> str:
         """
-        @return: JSON dump string
+        @return: formatted string (json, jsonc, yaml, or xml)
         """
-        return json.dumps(self._sections, **self._kwargs)
+        return (
+            format_output(self._sections, self._format, self._pretty)
+            if (self._format != "json")
+            else json.dumps(self._sections, **self._kwargs)
+        )
 
     def _parse(self) -> None:
         state: DmiParserState = DmiParserState.NONE
@@ -145,6 +216,7 @@ class DmiParser:
                     section.append(k, json.loads(str(prop)))
                     prop = None
                     k = None
+
                 self._sections.append(json.loads(str(section)))
                 section = None
 

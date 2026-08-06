@@ -49,6 +49,7 @@ FinalizeReason = Literal[
     "plan_churn",
     "no_progress",
     "plan_complete",
+    "wrapup_budget",
 ]
 
 # System-prompt override appended to the agent's instructions while
@@ -348,7 +349,7 @@ def build_finalize_tool(task: Any) -> Any:
                             "properties": {
                                 "toolcallreasoningtitle": {
                                     "type": "string",
-                                    "description": "Action-oriented title (max 5 words).",
+                                    "description": "The concrete action this call performs (max 5 words).",
                                 },
                                 "toolcallreasoningdescription": {
                                     "type": "string",

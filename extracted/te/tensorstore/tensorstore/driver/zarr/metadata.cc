@@ -428,6 +428,7 @@ ZarrMetadataPtr ZarrMetadata::GetVoidMetadata() const {
 constexpr auto MetadataJsonBinder = [](auto maybe_optional) {
   return [=](auto is_loading, const auto& options, auto* obj, auto* j) {
     using T = absl::remove_cvref_t<decltype(*obj)>;
+    // rank is validated by ShapeVector and ChunkShapeVector during loading.
     DimensionIndex* rank = nullptr;
     if constexpr (is_loading) {
       rank = &obj->rank;
@@ -670,7 +671,8 @@ Result<absl::Cord> EncodeChunk(
     absl::Cord encoded;
     riegeli::CordWriter<absl::Cord*> base_writer(&encoded);
     auto writer = metadata.compressor->GetWriter(
-        base_writer, metadata.dtype.bytes_per_outer_element);
+        base_writer, metadata.dtype.bytes_per_outer_element,
+        static_cast<int64_t>(output.size()));
     TENSORSTORE_RETURN_IF_ERROR(
         riegeli::Write(std::move(output), std::move(writer)));
     if (!base_writer.Close()) return base_writer.status();

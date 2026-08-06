@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-documentai-toolbox
-Version: 0.17.1
+Version: 0.17.2
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-documentai-toolbox
 Author: Google LLC
 Author-email: googleapis-packages@google.com
@@ -19,17 +19,16 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: google-api-core<3.0.0,>=2.15.0
+Requires-Dist: google-api-core<3.0.0,>=2.25.0
 Requires-Dist: pandas[gcp,performance]<3.0.0,>=2.0.0
 Requires-Dist: pyarrow<23.0.0,>=15.0.0
 Requires-Dist: tabulate<1.0.0,>=0.9.0
-Requires-Dist: proto-plus<2.0.0,>=1.22.3
-Requires-Dist: proto-plus<2.0.0,>=1.25.0; python_version >= "3.13"
-Requires-Dist: grpc-google-iam-v1<1.0.0,>=0.12.6
+Requires-Dist: proto-plus<2.0.0,>=1.26.1
+Requires-Dist: grpc-google-iam-v1<1.0.0,>=0.14.2
 Requires-Dist: google-cloud-bigquery<4.0.0,>=3.14.0
-Requires-Dist: google-cloud-documentai<4.0.0,>=2.29.2
+Requires-Dist: google-cloud-documentai<4.0.0,>=3.2.1
 Requires-Dist: google-cloud-storage<4.0.0,>=2.3.0
-Requires-Dist: google-cloud-vision<4.0.0,>=3.2.0
+Requires-Dist: google-cloud-vision<4.0.0,>=3.10.1
 Requires-Dist: numpy<3.0.0,>=1.23.5
 Requires-Dist: intervaltree>=3.0.0
 Requires-Dist: pikepdf<11.0.0,>=8.0.0

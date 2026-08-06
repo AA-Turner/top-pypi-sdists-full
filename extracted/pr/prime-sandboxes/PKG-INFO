@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prime-sandboxes
-Version: 0.2.34
+Version: 0.2.35
 Summary: Prime Intellect Sandboxes SDK - Manage remote code execution environments
 Project-URL: Homepage, https://github.com/PrimeIntellect-ai/prime
 Project-URL: Documentation, https://github.com/PrimeIntellect-ai/prime/tree/main/packages/prime-sandboxes
@@ -61,7 +61,7 @@ pip install prime-sandboxes
 ## Quick Start
 
 ```python
-from prime_sandboxes import APIClient, SandboxClient, CreateSandboxRequest
+from prime_sandboxes import APIClient, SandboxClient, CreateSandboxRequest, StartCommand
 
 # Initialize
 client = APIClient(api_key="your-api-key")
@@ -77,6 +77,17 @@ request = CreateSandboxRequest(
 
 sandbox = sandbox_client.create(request)
 print(f"Created: {sandbox.id}")
+
+# VM workloads use a structured argv contract; no shell is implied.
+vm = sandbox_client.create(CreateSandboxRequest(
+    name="vm-workload",
+    docker_image="user-1/vm-image:latest",
+    vm=True,
+    start_command=StartCommand(
+        executable="/worker",
+        args=["--platform", "linux/amd64"],
+    ),
+))
 
 # Wait for it to be ready
 sandbox_client.wait_for_creation(sandbox.id)

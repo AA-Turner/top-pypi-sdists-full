@@ -64,6 +64,9 @@ from nemo_relay._native import (
     LLMAttributes as LLMAttributes,
 )
 from nemo_relay._native import (
+    LlmCodecIdentity as LlmCodecIdentity,
+)
+from nemo_relay._native import (
     LLMHandle as LLMHandle,
 )
 from nemo_relay._native import (
@@ -73,13 +76,19 @@ from nemo_relay._native import (
     LLMRequestInterceptOutcome as LLMRequestInterceptOutcome,
 )
 from nemo_relay._native import (
+    LlmSanitizeRequestCodec as LlmSanitizeRequestCodec,
+)
+from nemo_relay._native import (
+    LlmSanitizeRequestContext as LlmSanitizeRequestContext,
+)
+from nemo_relay._native import (
+    LlmSanitizeResponseCodec as LlmSanitizeResponseCodec,
+)
+from nemo_relay._native import (
+    LlmSanitizeResponseContext as LlmSanitizeResponseContext,
+)
+from nemo_relay._native import (
     MarkEvent as MarkEvent,
-)
-from nemo_relay._native import (
-    OpenInferenceConfig as OpenInferenceConfig,
-)
-from nemo_relay._native import (
-    OpenInferenceSubscriber as OpenInferenceSubscriber,
 )
 from nemo_relay._native import (
     OpenTelemetryConfig as OpenTelemetryConfig,
@@ -89,6 +98,9 @@ from nemo_relay._native import (
 )
 from nemo_relay._native import (
     PendingMarkSpec as PendingMarkSpec,
+)
+from nemo_relay._native import (
+    PropagationContext as PropagationContext,
 )
 from nemo_relay._native import (
     ScopeAttributes as ScopeAttributes,
@@ -149,8 +161,7 @@ class EventSanitizeFields(TypedDict):
     category_profile: JsonObject | None
     metadata: Json | None
 
-ToolSanitizeGuardrail: TypeAlias = Callable[[str, Json], Json]
-EventSanitizeGuardrail: TypeAlias = Callable[[Event, EventSanitizeFields], EventSanitizeFields]
+ToolSanitizeGuardrail: TypeAlias = Callable[[str, Json], Json | Awaitable[Json]]
 """Guardrail callback that sanitizes emitted tool request or response payloads.
 
 Arguments:
@@ -160,10 +171,26 @@ Return:
     JSON payload recorded on the emitted lifecycle event.
 
 Exceptional flow:
-    Exceptions raised by the callback propagate through the lifecycle operation
-    that invoked the guardrail.
+    Exceptions fail closed, omit the observability payload, and stop the
+    remaining sanitizer chain.
 """
-ToolConditionalExecutionGuardrail: TypeAlias = Callable[[str, Json], Optional[str]]
+EventSanitizeGuardrail: TypeAlias = Callable[
+    [Event, EventSanitizeFields],
+    EventSanitizeFields | Awaitable[EventSanitizeFields],
+]
+"""Guardrail callback that sanitizes emitted mark or scope event fields.
+
+Arguments:
+    The immutable event snapshot and its mutable observability fields.
+
+Return:
+    Observability fields recorded on the asynchronously published event.
+
+Exceptional flow:
+    Exceptions fail closed, clear the mutable observability fields, and stop
+    the remaining sanitizer chain.
+"""
+ToolConditionalExecutionGuardrail: TypeAlias = Callable[[str, Json], Optional[str] | Awaitable[Optional[str]]]
 """Guardrail callback that can block tool execution.
 
 Arguments:
@@ -172,25 +199,47 @@ Arguments:
 Return:
     ``None`` to allow execution, or a rejection message to block it.
 """
-LlmSanitizeRequestGuardrail: TypeAlias = Callable[[LLMRequest], LLMRequest]
+LlmSanitizeRequestGuardrail: TypeAlias = Callable[
+    [LLMRequest, "LlmSanitizeRequestContext"],
+    Optional[LLMRequest] | Awaitable[Optional[LLMRequest]],
+]
 """Guardrail callback that sanitizes an ``LLMRequest`` used for emitted events.
 
 Arguments:
-    The current LLM request.
+    The current LLM request and a context object containing a tagged ``codec``
+    identity. Its ``kind`` is ``none``, ``builtin``, ``runtime``, or ``opaque``;
+    ``builtin`` and ``runtime`` identities include ``id``. Use
+    ``context.resolve_codec()`` to access the active in-process codec.
 
 Return:
-    Request object recorded on the emitted lifecycle event.
+    Request object recorded on the emitted lifecycle event, or ``None`` to omit
+    the LLM observability payload and annotation.
+
+Exceptional flow:
+    Exceptions fail closed, omit the payload and annotation, and stop the
+    remaining sanitizer chain.
 """
-LlmSanitizeResponseGuardrail: TypeAlias = Callable[[JsonObject], JsonObject]
+LlmSanitizeResponseGuardrail: TypeAlias = Callable[
+    [Json, "LlmSanitizeResponseContext"],
+    Optional[Json] | Awaitable[Optional[Json]],
+]
 """Guardrail callback that sanitizes an emitted JSON LLM response payload.
 
 Arguments:
-    The response object to sanitize for observability.
+    The response object and a context object containing a tagged ``codec``
+    identity. Its ``kind`` is ``none``, ``builtin``, ``runtime``, or ``opaque``;
+    ``builtin`` and ``runtime`` identities include ``id``. Use
+    ``context.resolve_codec()`` to access the active in-process codec.
 
 Return:
-    Response object recorded on the emitted lifecycle event.
+    Response object recorded on the emitted lifecycle event, or ``None`` to
+    omit the LLM observability payload and annotation.
+
+Exceptional flow:
+    Exceptions fail closed, omit the payload and annotation, and stop the
+    remaining sanitizer chain.
 """
-LlmConditionalExecutionGuardrail: TypeAlias = Callable[[LLMRequest], Optional[str]]
+LlmConditionalExecutionGuardrail: TypeAlias = Callable[[LLMRequest], Optional[str] | Awaitable[Optional[str]]]
 """Guardrail callback that can block an LLM call.
 
 Arguments:
@@ -199,7 +248,7 @@ Arguments:
 Return:
     ``None`` to allow execution, or a rejection message to block it.
 """
-ToolRequestIntercept: TypeAlias = Callable[[str, Json], Json]
+ToolRequestIntercept: TypeAlias = Callable[[str, Json], Json | Awaitable[Json]]
 """Request intercept callback that rewrites tool arguments before execution.
 
 Arguments:
@@ -226,7 +275,7 @@ Exceptional flow:
 """
 LlmRequestIntercept: TypeAlias = Callable[
     [str, LLMRequest, AnnotatedLLMRequest | None],
-    LLMRequestInterceptOutcome,
+    LLMRequestInterceptOutcome | Awaitable[LLMRequestInterceptOutcome],
 ]
 """Request intercept callback that rewrites raw and annotated LLM requests.
 
@@ -270,6 +319,7 @@ Description:
 """
 
 _scope_stack_var: contextvars.ContextVar[ScopeStack]
+_propagation_parent_var: contextvars.ContextVar[str | None]
 
 def get_scope_stack() -> ScopeStack:
     """Return the current task's active scope stack, creating one if needed.
@@ -344,6 +394,21 @@ def create_scope_stack() -> ScopeStack:
     """
     ...
 
+def capture_propagation_context() -> PropagationContext: ...
+def capture_propagation_context_with_root(root_uuid: str | None) -> PropagationContext: ...
+def create_scope_stack_from_propagation(context: PropagationContext) -> ScopeStack: ...
+def fork_asyncio_context() -> contextvars.Context:
+    """Create a child asyncio context with an isolated Relay scope stack.
+
+    The returned context preserves the current Relay causal parent and all
+    unrelated context variables, but does not transfer scope-local middleware
+    or subscribers. Pass it to ``asyncio.create_task(..., context=...)`` or
+    ``asyncio.TaskGroup.create_task(..., context=...)`` before the child task
+    starts.
+    """
+    ...
+
+def use_scope_stack(stack: ScopeStack): ...
 def set_thread_scope_stack(stack: ScopeStack) -> None:
     """Install a scope stack into the current thread's native runtime context.
 

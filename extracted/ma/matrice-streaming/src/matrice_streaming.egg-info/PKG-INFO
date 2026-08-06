@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: matrice_streaming
-Version: 1.0.1
+Version: 1.0.2
 Summary: Common server utilities for Matrice.ai services
 Author-email: "Matrice.ai" <dipendra@matrice.ai>
 License: MIT

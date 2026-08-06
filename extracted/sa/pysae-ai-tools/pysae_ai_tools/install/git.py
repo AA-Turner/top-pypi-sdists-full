@@ -20,6 +20,7 @@ import typer
 
 from .common import binary, platform
 from .common.base import BaseTool, InstallReport, ToolState
+from .common.privileged import run_privileged
 
 GITLAB_HOST = "https://gitlab.com"
 CREDENTIAL_KEY = f"credential.{GITLAB_HOST}.helper"
@@ -122,25 +123,28 @@ def _check_gitlab_access() -> tuple[bool, str]:
 
 
 def _install_linux_pkg(pkg: str) -> InstallReport:
+    # Commands carry no `sudo` of their own — run_privileged owns that decision,
+    # so a password prompt is announced and answerable instead of being captured
+    # into a hang.
     managers: list[tuple[str, list[str]]] = [
-        ("apt-get", ["sudo", "apt-get", "update"]),
-        ("apt-get", ["sudo", "apt-get", "install", "-y", pkg]),
-        ("dnf", ["sudo", "dnf", "install", "-y", pkg]),
-        ("yum", ["sudo", "yum", "install", "-y", pkg]),
-        ("pacman", ["sudo", "pacman", "-S", "--noconfirm", pkg]),
-        ("apk", ["sudo", "apk", "add", "--no-cache", pkg]),
+        ("apt-get", ["apt-get", "update"]),
+        ("apt-get", ["apt-get", "install", "-y", pkg]),
+        ("dnf", ["dnf", "install", "-y", pkg]),
+        ("yum", ["yum", "install", "-y", pkg]),
+        ("pacman", ["pacman", "-S", "--noconfirm", pkg]),
+        ("apk", ["apk", "add", "--no-cache", pkg]),
     ]
     tried: list[str] = []
     for name, cmd in managers:
         if not shutil.which(name):
             continue
         tried.append(name)
-        r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", check=False)
-        if r.returncode != 0:
+        result = run_privileged(cmd, what=f"Installing {pkg} with {name}")
+        if not result.ok:
             # For apt, the update step may fail on sandboxed envs — keep going to install.
             if name == "apt-get" and cmd[-1] == "update":
                 continue
-            return InstallReport(error=f"{name}: {r.stderr.strip() or r.stdout.strip()}")
+            return InstallReport(error=f"{name}: {result.error}")
         # Skip ahead once a package manager has run the install step.
         if name == "apt-get" and cmd[-1] != pkg:
             continue

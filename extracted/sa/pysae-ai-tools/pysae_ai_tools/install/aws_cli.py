@@ -15,6 +15,7 @@ from ..common import winpath
 from .common import binary, github, platform
 from .common.base import BinaryTool, InstallReport
 from .common.download import download, extract
+from .common.privileged import run_privileged
 
 # AWS CLI v2's documented symlink location on Linux and macOS. Used only as a
 # fallback when the freshly installed binary isn't yet on the process PATH.
@@ -100,15 +101,14 @@ class AwsCliTool(BinaryTool):
                 return InstallReport(error=f"download/extract failed: {exc}")
             installer = tmp / "awscli" / "aws" / "install"
             installer.chmod(0o755)
-            r = subprocess.run(
-                ["sudo", str(installer), "--update"], capture_output=True, text=True, encoding="utf-8", check=False
-            )
-            if r.returncode != 0:
-                r = subprocess.run(
-                    ["sudo", str(installer)], capture_output=True, text=True, encoding="utf-8", check=False
-                )
-            if r.returncode != 0:
-                return InstallReport(error=r.stderr.strip() or r.stdout.strip())
+            # --update first (an existing install refuses a plain run), falling
+            # back to a fresh install. Both go through run_privileged so a sudo
+            # password prompt is announced and answerable rather than captured.
+            result = run_privileged([str(installer), "--update"], what="Installing the AWS CLI")
+            if not result.ok:
+                result = run_privileged([str(installer)], what="Installing the AWS CLI")
+            if not result.ok:
+                return InstallReport(error=result.error or "AWS CLI installer failed")
         # The installer symlinks aws into /usr/local/bin; make sure it is on the
         # process PATH so in-process `aws` calls later in the same run (e.g.
         # `current_aws_username` during `install all`) find the fresh binary
@@ -123,16 +123,12 @@ class AwsCliTool(BinaryTool):
                 download("https://awscli.amazonaws.com/AWSCLIV2.pkg", pkg)
             except Exception as exc:  # noqa: BLE001
                 return InstallReport(error=f"download failed: {exc}")
-            r = subprocess.run(
-                ["sudo", "installer", "-pkg", str(pkg), "-target", "/"],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                check=False,
+            result = run_privileged(
+                ["installer", "-pkg", str(pkg), "-target", "/"],
+                what="Installing the AWS CLI package",
             )
-            if r.returncode != 0:
-                return InstallReport(error=r.stderr.strip() or r.stdout.strip())
+            if not result.ok:
+                return InstallReport(error=result.error or "AWS CLI package install failed")
         # The pkg symlinks aws into /usr/local/bin; make sure it wins over any
         # pre-existing aws (e.g. a Homebrew one under /opt/homebrew/bin, which
         # precedes /usr/local/bin in PATH on Apple Silicon) when we read the

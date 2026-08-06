@@ -22,18 +22,19 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
+from sentry_protos.billing.v1.common.v1 import pending_change_pb2 as sentry__protos_dot_billing_dot_v1_dot_common_dot_v1_dot_pending__change__pb2
 from sentry_protos.billing.v1.services.contract.v1 import invoice_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v1_dot_invoice__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nQsentry_protos/billing/v1/services/invoicer/v1/endpoint_preview_next_invoice.proto\x12-sentry_protos.billing.v1.services.invoicer.v1\x1a;sentry_protos/billing/v1/services/contract/v1/invoice.proto\"0\n\x19PreviewNextInvoiceRequest\x12\x13\n\x0b\x63ontract_id\x18\x01 \x01(\x04\"\x8d\x01\n\x1aPreviewNextInvoiceResponse\x12R\n\nline_items\x18\x01 \x03(\x0b\x32>.sentry_protos.billing.v1.services.contract.v1.InvoiceLineItem\x12\x1b\n\x13\x61mount_billed_cents\x18\x02 \x01(\x04\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nQsentry_protos/billing/v1/services/invoicer/v1/endpoint_preview_next_invoice.proto\x12-sentry_protos.billing.v1.services.invoicer.v1\x1a\x37sentry_protos/billing/v1/common/v1/pending_change.proto\x1a;sentry_protos/billing/v1/services/contract/v1/invoice.proto\"\x83\x01\n\x19PreviewNextInvoiceRequest\x12\x13\n\x0b\x63ontract_id\x18\x01 \x01(\x04\x12\x46\n\x06\x63hange\x18\x02 \x01(\x0b\x32\x31.sentry_protos.billing.v1.common.v1.PendingChangeH\x00\x88\x01\x01\x42\t\n\x07_change\"\x8d\x01\n\x1aPreviewNextInvoiceResponse\x12R\n\nline_items\x18\x01 \x03(\x0b\x32>.sentry_protos.billing.v1.services.contract.v1.InvoiceLineItem\x12\x1b\n\x13\x61mount_billed_cents\x18\x02 \x01(\x04\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.invoicer.v1.endpoint_preview_next_invoice_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_PREVIEWNEXTINVOICEREQUEST']._serialized_start=193
-  _globals['_PREVIEWNEXTINVOICEREQUEST']._serialized_end=241
-  _globals['_PREVIEWNEXTINVOICERESPONSE']._serialized_start=244
-  _globals['_PREVIEWNEXTINVOICERESPONSE']._serialized_end=385
+  _globals['_PREVIEWNEXTINVOICEREQUEST']._serialized_start=251
+  _globals['_PREVIEWNEXTINVOICEREQUEST']._serialized_end=382
+  _globals['_PREVIEWNEXTINVOICERESPONSE']._serialized_start=385
+  _globals['_PREVIEWNEXTINVOICERESPONSE']._serialized_end=526
 # @@protoc_insertion_point(module_scope)

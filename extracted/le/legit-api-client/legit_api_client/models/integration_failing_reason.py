@@ -29,6 +29,7 @@ class IntegrationFailingReason(str, Enum):
     UNKNOWN = 'Unknown'
     INVALIDURL = 'InvalidUrl'
     FAILEDCONNECTIVITY = 'FailedConnectivity'
+    SAVEFAILED = 'SaveFailed'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

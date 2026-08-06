@@ -122,7 +122,6 @@ _PLAN_TOOLS = frozenset(
         "xpupdate_agent_plan_item",
         "xpdelete_agent_plan_item",
         "xpcomplete_agent_plan_items",
-        "xpask_for_information",
         "xpstart_execution_plan",
     }
 )

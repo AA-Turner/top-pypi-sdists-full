@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import grpc
 import logging
 
-from dbt_state.auth.sso import SsoAuth
+import grpc
 
+from dbt_state.auth.sso import SsoAuth
 
 logger = logging.getLogger(__name__)
 

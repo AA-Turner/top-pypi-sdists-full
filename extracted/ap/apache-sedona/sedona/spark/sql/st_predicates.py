@@ -32,13 +32,18 @@ _call_predicate_function = partial(call_sedona_function, "st_predicates")
 
 @validate_argument_types
 def ST_Contains(a: ColumnOrName, b: ColumnOrName) -> Column:
-    """Check whether geometry a contains geometry b.
+    """Check whether a contains b. Polymorphic over input type:
 
-    :param a: Geometry column to check containment for.
+    - Geometry / Geometry — topological containment via JTS.
+    - Geography / Geography — topological containment via S2.
+    - Box2D / Box2D — closed-interval bbox containment on both axes (PostGIS ``~`` on box2d).
+    - Box3D / Box3D — closed-interval bbox containment on all three axes.
+
+    :param a: Outer geometry or Box2D / Box3D column.
     :type a: ColumnOrName
-    :param b: Geometry column to check containment of.
+    :param b: Inner geometry or Box2D / Box3D column.
     :type b: ColumnOrName
-    :return: True if geometry a contains geometry b and False otherwise as a boolean column.
+    :return: True if a contains b, false otherwise.
     :rtype: Column
     """
     return _call_predicate_function("ST_Contains", (a, b))
@@ -87,14 +92,42 @@ def ST_Equals(a: ColumnOrName, b: ColumnOrName) -> Column:
 
 
 @validate_argument_types
-def ST_Intersects(a: ColumnOrName, b: ColumnOrName) -> Column:
-    """Check whether two geometries intersect.
+def ST_EqualsExact(
+    a: ColumnOrName,
+    b: ColumnOrName,
+    tolerance: Union[ColumnOrName, float, int],
+) -> Column:
+    """Check whether two geometries have the same structure and coordinate ordering
+    within a tolerance.
+
+    The comparison uses x and y coordinates. Z and M coordinates are ignored.
 
     :param a: One geometry column to check.
     :type a: ColumnOrName
     :param b: Other geometry column to check.
     :type b: ColumnOrName
-    :return: True if a and b intersect and False otherwise, as a boolean column.
+    :param tolerance: Maximum distance allowed between corresponding coordinates.
+    :type tolerance: ColumnOrName or float or int
+    :return: True if a and b are exactly equal within tolerance, otherwise False.
+    :rtype: Column
+    """
+    return _call_predicate_function("ST_EqualsExact", (a, b, tolerance))
+
+
+@validate_argument_types
+def ST_Intersects(a: ColumnOrName, b: ColumnOrName) -> Column:
+    """Check whether a and b intersect. Polymorphic over input type:
+
+    - Geometry / Geometry — topological intersection via JTS.
+    - Geography / Geography — topological intersection via S2.
+    - Box2D / Box2D — closed-interval bbox intersection on both axes (PostGIS ``&&`` on box2d).
+    - Box3D / Box3D — closed-interval bbox intersection on all three axes (PostGIS ``&&&``).
+
+    :param a: One geometry or Box2D / Box3D column.
+    :type a: ColumnOrName
+    :param b: Other geometry or Box2D / Box3D column.
+    :type b: ColumnOrName
+    :return: True if a and b intersect, false otherwise.
     :rtype: Column
     """
     return _call_predicate_function("ST_Intersects", (a, b))
@@ -243,6 +276,31 @@ def ST_DWithin(
         )
     )
     return _call_predicate_function("ST_DWithin", args)
+
+
+@validate_argument_types
+def ST_3DDWithin(
+    a: ColumnOrName,
+    b: ColumnOrName,
+    distance: Union[ColumnOrName, float],
+) -> Column:
+    """Check whether two geometries (or two Box3D values) are within ``distance`` units using 3D
+    Euclidean distance.
+
+    Mirrors PostGIS ``ST_3DDWithin``. Coordinates without a Z dimension are treated as
+    ``z = 0``. For Box3D inputs the test is a closed-interval 3D distance between the two
+    cuboids; inverted bounds raise ``IllegalArgumentException``. NULL on null input.
+
+    :param a: First geometry or Box3D column.
+    :type a: ColumnOrName
+    :param b: Second geometry or Box3D column.
+    :type b: ColumnOrName
+    :param distance: Distance threshold.
+    :type distance: Union[ColumnOrName, float]
+    :return: True if the 3D distance between a and b is ≤ ``distance``.
+    :rtype: Column
+    """
+    return _call_predicate_function("ST_3DDWithin", (a, b, distance))
 
 
 # Automatically populate __all__

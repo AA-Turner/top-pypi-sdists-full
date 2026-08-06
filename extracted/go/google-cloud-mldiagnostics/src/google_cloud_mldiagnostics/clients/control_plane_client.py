@@ -31,6 +31,7 @@ import requests
 logger = logging.getLogger(__name__)
 _MAX_RETRIES = 3
 _ERROR_CODE_ALREADY_EXISTS = 6
+_CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
 
 
 def _extract_run_id_from_error(err: Exception) -> Optional[str]:
@@ -92,7 +93,7 @@ class ControlPlaneClient:
     self.ml_runs_path = f"{base_url}/projects/{project_id}/locations/{location}/machineLearningRuns"
 
     # Initialize Google Cloud credentials
-    self.credentials, _ = google.auth.default()
+    self.credentials, _ = google.auth.default(scopes=[_CLOUD_PLATFORM_SCOPE])
 
   def _get_access_token(self) -> str:
     """Get Google Cloud access token for authentication."""
@@ -272,12 +273,20 @@ class ControlPlaneClient:
             "create_time": workload_details["create_time"],
         }
         payload["workloadDetails"] = {"gce": gce_workload_details}  # pyrefly: ignore[bad-assignment]
+      elif orchestrator == "SLURM" and workload_details:
+        slurm_workload_details = {
+            "jobId": workload_details.get("job_id"),
+            "cluster": workload_details.get("cluster"),
+            "displayName": workload_details.get("display_name"),
+            "submitTime": workload_details.get("submit_time"),
+        }
+        payload["workloadDetails"] = {"slurm": slurm_workload_details}  # pyrefly: ignore[bad-assignment]
 
     if workload_targets:
       if not payload.get("workloadDetails", None):
-        payload["workloadDetails"] = {}
+        payload["workloadDetails"] = {}  # pyrefly: ignore[bad-assignment]
 
-      payload["workloadDetails"]["targets"] = workload_targets  # pyrefly: ignore[bad-assignment]
+      payload["workloadDetails"]["targets"] = workload_targets  # pyrefly: ignore[bad-assignment, unsupported-operation]
 
     # Sanitize the name for machineLearningRunId
     sanitized_name = host_utils.sanitize_identifier(name)
@@ -326,6 +335,7 @@ class ControlPlaneClient:
               run_phase=run_phase,
               labels=labels,
               configs=configs,
+              workload_targets=workload_targets,
           )
         raise
     else:
@@ -630,6 +640,7 @@ class ControlPlaneClient:
       artifacts: Optional[Dict[str, str]] = None,
       labels: Optional[Dict[str, str]] = None,
       configs: Optional[Dict[str, Any]] = None,
+      workload_targets: Optional[List[Dict[str, Any]]] = None,
       update_mask: str = "*",
   ) -> Dict[str, Any]:
     """Update an existing ML run.
@@ -646,6 +657,7 @@ class ControlPlaneClient:
         artifacts: Optional new artifacts configuration (e.g., gcsPath)
         labels: Optional new dictionary of labels to merge
         configs: Optional new dictionary of configs to merge
+        workload_targets: Optional new list of workload targets
         update_mask: Update mask for the ML run
 
     Returns:
@@ -666,6 +678,7 @@ class ControlPlaneClient:
             artifacts=artifacts,
             labels=labels,
             configs=configs,
+            workload_targets=workload_targets,
             update_mask=update_mask,
         )
       except requests.exceptions.HTTPError as e:
@@ -697,6 +710,7 @@ class ControlPlaneClient:
       artifacts: Optional[Dict[str, str]] = None,
       labels: Optional[Dict[str, str]] = None,
       configs: Optional[Dict[str, Any]] = None,
+      workload_targets: Optional[List[Dict[str, Any]]] = None,
       update_mask: str = "*",
   ) -> Dict[str, Any]:
     """Attempt to update an existing ML run once."""
@@ -752,6 +766,53 @@ class ControlPlaneClient:
           configs_modified = True
       if configs_modified:
         payload["configs"] = existing_configs
+        need_update = True
+
+    if workload_targets is not None:
+      logger.info("check and update workload_targets: %s", workload_targets)
+      workload_details = payload.get("workloadDetails")
+      if not isinstance(workload_details, dict):
+        workload_details = {}
+
+      existing_targets = workload_details.get("targets")
+      if not isinstance(existing_targets, list):
+        existing_targets = []
+
+      targets_modified = False
+      for new_target in workload_targets:
+        if not isinstance(new_target, dict):
+          continue
+        target_key = (
+            new_target.get("instance_id")
+            or new_target.get("hostname")
+            or new_target.get("display_name")
+        )
+        if not target_key:
+          continue
+        matched_idx = -1
+        for idx, existing_target in enumerate(existing_targets):
+          if not isinstance(existing_target, dict):
+            continue
+          existing_key = (
+              existing_target.get("instance_id")
+              or existing_target.get("hostname")
+              or existing_target.get("display_name")
+          )
+          if existing_key and existing_key == target_key:
+            matched_idx = idx
+            break
+
+        if matched_idx >= 0:
+          if existing_targets[matched_idx] != new_target:
+            existing_targets[matched_idx].update(new_target)
+            targets_modified = True
+        else:
+          existing_targets.append(new_target)
+          targets_modified = True
+
+      if targets_modified:
+        workload_details["targets"] = existing_targets
+        payload["workloadDetails"] = workload_details
         need_update = True
 
     if not need_update:

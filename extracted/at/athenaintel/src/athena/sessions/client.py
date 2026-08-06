@@ -113,7 +113,12 @@ class SessionsClient:
         client = Athena(
             api_key="YOUR_API_KEY",
         )
-        response = client.sessions.list()
+        response = client.sessions.list(
+            include_sub_sessions=False,
+            include_task_sessions=False,
+            limit=50,
+            offset=0,
+        )
         for item in response:
             yield item
         # alternatively, you can paginate page-by-page
@@ -146,6 +151,7 @@ class SessionsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the session asset to retrieve
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -163,7 +169,7 @@ class SessionsClient:
             api_key="YOUR_API_KEY",
         )
         client.sessions.get(
-            asset_id="asset_id",
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
         )
         """
         _response = self._raw_client.get(asset_id, request_options=request_options)
@@ -182,6 +188,7 @@ class SessionsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the session asset to download
 
         export_format : typing.Optional[DownloadSessionsRequestExportFormat]
             Which representation to download: 'trace' (full trace with all tool calls), 'messages' (user/agent turns only), 'markdown' (readable transcript), or 'stats' (aggregate metrics)
@@ -202,7 +209,7 @@ class SessionsClient:
             api_key="YOUR_API_KEY",
         )
         client.sessions.download(
-            asset_id="asset_id",
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
         )
         """
         _response = self._raw_client.download(asset_id, export_format=export_format, request_options=request_options)
@@ -314,7 +321,12 @@ class AsyncSessionsClient:
 
 
         async def main() -> None:
-            response = await client.sessions.list()
+            response = await client.sessions.list(
+                include_sub_sessions=False,
+                include_task_sessions=False,
+                limit=50,
+                offset=0,
+            )
             async for item in response:
                 yield item
 
@@ -351,6 +363,7 @@ class AsyncSessionsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the session asset to retrieve
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -373,7 +386,7 @@ class AsyncSessionsClient:
 
         async def main() -> None:
             await client.sessions.get(
-                asset_id="asset_id",
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
             )
 
 
@@ -395,6 +408,7 @@ class AsyncSessionsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the session asset to download
 
         export_format : typing.Optional[DownloadSessionsRequestExportFormat]
             Which representation to download: 'trace' (full trace with all tool calls), 'messages' (user/agent turns only), 'markdown' (readable transcript), or 'stats' (aggregate metrics)
@@ -420,7 +434,7 @@ class AsyncSessionsClient:
 
         async def main() -> None:
             await client.sessions.download(
-                asset_id="asset_id",
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
             )
 
 

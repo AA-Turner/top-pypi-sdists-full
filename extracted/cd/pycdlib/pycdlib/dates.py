@@ -135,6 +135,28 @@ class DirectoryRecordDate:
                            self.day_of_month, self.hour, self.minute,
                            self.second, self.gmtoffset)
 
+    @classmethod
+    def from_fields(cls, years, month, day, hour, minute, second, gmtoffset):
+        # type: (int, int, int, int, int, int, int) -> DirectoryRecordDate
+        """
+        Build a DirectoryRecordDate from already-unpacked field values.
+
+        This bypasses __init__ and the per-instance struct.unpack_from used
+        by parse(), letting a caller (typically RRTFRecord.parse) batch the
+        struct decode for multiple consecutive 7-byte DR dates and then hand
+        each 7-tuple slice to this constructor.
+        """
+        d = cls.__new__(cls)
+        d.years_since_1900 = years
+        d.month = month
+        d.day_of_month = day
+        d.hour = hour
+        d.minute = minute
+        d.second = second
+        d.gmtoffset = gmtoffset
+        d._initialized = True
+        return d
+
     def __ne__(self, other):
         return self.years_since_1900 != other.years_since_1900 or \
             self.month != other.month or self.day_of_month != other.day_of_month or \

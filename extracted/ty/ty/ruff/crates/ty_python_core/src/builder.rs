@@ -8,7 +8,6 @@ use rustc_hash::{FxHashMap, FxHashSet};
 
 use ruff_db::parsed::ParsedModuleRef;
 
-use ruff_db::PythonFile;
 use ruff_db::source::{SourceText, source_text};
 use ruff_index::IndexVec;
 use ruff_python_ast::name::Name;
@@ -20,9 +19,10 @@ use ruff_python_parser::semantic_errors::{
 };
 use ruff_text_size::{Ranged, TextRange};
 use smallvec::SmallVec;
-use ty_module_resolver::{ModuleName, resolve_module};
+use ty_module_resolver::{ImportingFile, ModuleName, ResolverEnvironment, resolve_module};
 
 use crate::HasTrackedScope;
+use crate::ProgramFile;
 use crate::ast_ids::node_key::ExpressionNodeKey;
 use crate::ast_ids::{AstIdsBuilder, ScopedUseId};
 use crate::ast_node_ref::AstNodeRef;
@@ -229,7 +229,7 @@ impl ConditionFlowSnapshot {
 pub(super) struct SemanticIndexBuilder<'db, 'ast> {
     // Builder state
     db: &'db dyn Db,
-    file: PythonFile<'db>,
+    file: ProgramFile<'db>,
     source_type: PySourceType,
     module: &'ast ParsedModuleRef,
     scope_stack: Vec<ScopeInfo<'ast>>,
@@ -253,6 +253,7 @@ pub(super) struct SemanticIndexBuilder<'db, 'ast> {
     in_type_checking_block: bool,
 
     // Used for checking semantic syntax errors
+    resolver_environment: ResolverEnvironment<'db>,
     python_version: PythonVersion,
     source_text: OnceCell<SourceText>,
     semantic_checker: SemanticSyntaxChecker,
@@ -302,7 +303,7 @@ pub(super) struct SemanticIndexBuilder<'db, 'ast> {
 impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
     pub(super) fn new(
         db: &'db dyn Db,
-        file: PythonFile<'db>,
+        file: ProgramFile<'db>,
         module_ref: &'ast ParsedModuleRef,
     ) -> Self {
         let mut builder = Self {
@@ -344,6 +345,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
 
             enclosing_snapshots: FxHashMap::default(),
 
+            resolver_environment: file.resolver_environment(db),
             python_version: file.python_version(db),
             source_text: OnceCell::new(),
             semantic_checker: SemanticSyntaxChecker::default(),
@@ -977,7 +979,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                                     symbol.name().to_string(),
                                 ),
                                 range: declaration.range,
-                                python_version: self.python_version,
+                                python_version: self.python_version(),
                             });
                         }
                         // This `nonlocal` is resolved.
@@ -1040,7 +1042,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                         self.report_semantic_error(SemanticSyntaxError {
                             kind: SemanticSyntaxErrorKind::NonlocalWithoutBinding(name.to_string()),
                             range: declaration.range,
-                            python_version: self.python_version,
+                            python_version: self.python_version(),
                         });
                     }
                 }
@@ -2166,6 +2168,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                     PredicateNode::SubjectElementPattern(_)
                     | PredicateNode::IsNonTerminalCall(_)
                     | PredicateNode::IsNonEmptyIterable(_)
+                    | PredicateNode::OrPatternAlternative(_)
                     | PredicateNode::StarImportPlaceholder(_) => {
                         // These predicates don't narrow any places
                         PossiblyNarrowedPlaces::default()
@@ -2275,6 +2278,40 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
 
     fn current_statement_mut(&mut self) -> Option<&mut CurrentStatement<'ast, 'db>> {
         self.current_statements.last_mut()
+    }
+
+    /// Return whether a pattern contains any capture that changes the current flow state.
+    fn pattern_has_bindings(pattern: &ast::Pattern) -> bool {
+        match pattern {
+            ast::Pattern::MatchValue(_) | ast::Pattern::MatchSingleton(_) => false,
+            ast::Pattern::MatchSequence(ast::PatternMatchSequence { patterns, .. })
+            | ast::Pattern::MatchOr(ast::PatternMatchOr { patterns, .. }) => {
+                patterns.iter().any(Self::pattern_has_bindings)
+            }
+            ast::Pattern::MatchMapping(pattern) => {
+                pattern.rest.is_some() || pattern.patterns.iter().any(Self::pattern_has_bindings)
+            }
+            ast::Pattern::MatchClass(pattern) => pattern
+                .arguments
+                .patterns
+                .iter()
+                .chain(
+                    pattern
+                        .arguments
+                        .keywords
+                        .iter()
+                        .map(|keyword| &keyword.pattern),
+                )
+                .any(Self::pattern_has_bindings),
+            ast::Pattern::MatchStar(pattern) => pattern.name.is_some(),
+            ast::Pattern::MatchAs(pattern) => {
+                pattern.name.is_some()
+                    || pattern
+                        .pattern
+                        .as_deref()
+                        .is_some_and(Self::pattern_has_bindings)
+            }
+        }
     }
 
     fn predicate_kind(&mut self, pattern: &ast::Pattern) -> PatternPredicateKind<'db> {
@@ -3166,14 +3203,18 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                 // in one function is visible in another function.
                 let mut is_self_import = false;
                 let source_file = self.file.file(self.db);
+                let resolver_environment = self.resolver_environment;
                 if source_file.is_package(self.db)
                     && let Ok(module_name) = ModuleName::from_identifier_parts(
                         self.db,
-                        self.file,
+                        ImportingFile::File(source_file, resolver_environment),
                         node.module.as_deref(),
                         node.level,
                     )
-                    && let Ok(thispackage) = ModuleName::package_for_file(self.db, self.file)
+                    && let Ok(thispackage) = ModuleName::package_for_file(
+                        self.db,
+                        ImportingFile::File(source_file, resolver_environment),
+                    )
                 {
                     // Record whether this is equivalent to `from . import ...`
                     is_self_import = module_name == thispackage;
@@ -3246,19 +3287,27 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                             continue;
                         }
 
-                        let Ok(module_name) =
-                            ModuleName::from_import_statement(self.db, self.file, node)
-                        else {
+                        let Ok(module_name) = ModuleName::from_import_statement(
+                            self.db,
+                            ImportingFile::File(source_file, resolver_environment),
+                            node,
+                        ) else {
                             continue;
                         };
 
-                        let Some(module) = resolve_module(self.db, self.file, &module_name) else {
+                        let Some(module) = resolve_module(
+                            self.db,
+                            ImportingFile::File(source_file, resolver_environment),
+                            &module_name,
+                        ) else {
                             continue;
                         };
 
-                        let Some(referenced_parse_file) = module.python_file(self.db) else {
+                        let Some(referenced_file) = module.file(self.db) else {
                             continue;
                         };
+                        let referenced_program_file =
+                            ProgramFile::new(self.db, referenced_file, self.file.program(self.db));
                         // In order to understand the reachability of definitions created by a `*` import,
                         // we need to know the reachability of the global-scope definitions in the
                         // `referenced_module` the symbols imported from. Much like predicates for `if`
@@ -3273,14 +3322,14 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                         // ```
                         //
                         // For more details, see the doc-comment on `StarImportPlaceholderPredicate`.
-                        for export in exported_names(self.db, referenced_parse_file) {
+                        for export in exported_names(self.db, referenced_program_file) {
                             let symbol_id = self.add_symbol(export.clone());
                             let node_ref = StarImportDefinitionNodeRef { node, symbol_id };
                             let star_import = StarImportPlaceholderPredicate::new(
                                 self.db,
                                 self.file,
                                 symbol_id,
-                                referenced_parse_file,
+                                referenced_program_file,
                             );
 
                             let star_import_predicate = self.add_predicate(star_import.into());
@@ -3461,7 +3510,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                         self.report_semantic_error(SemanticSyntaxError {
                             kind: SemanticSyntaxErrorKind::AnnotatedGlobal(name.id.as_str().into()),
                             range: name.range,
-                            python_version: self.python_version,
+                            python_version: self.python_version(),
                         });
                     }
                     // Check whether the variable has been declared nonlocal.
@@ -3471,7 +3520,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                                 name.id.as_str().into(),
                             ),
                             range: name.range,
-                            python_version: self.python_version,
+                            python_version: self.python_version(),
                         });
                     }
                 }
@@ -4230,7 +4279,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                                 start: name.range.start(),
                             },
                             range: name.range,
-                            python_version: self.python_version,
+                            python_version: self.python_version(),
                         });
                     }
                     // Check whether the variable has also been declared nonlocal.
@@ -4238,7 +4287,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                         self.report_semantic_error(SemanticSyntaxError {
                             kind: SemanticSyntaxErrorKind::NonlocalAndGlobal(name.to_string()),
                             range: name.range,
-                            python_version: self.python_version,
+                            python_version: self.python_version(),
                         });
                         // Never mark a symbol both global and nonlocal, even in this error case.
                         continue;
@@ -4283,7 +4332,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                                 start: name.range.start(),
                             },
                             range: name.range,
-                            python_version: self.python_version,
+                            python_version: self.python_version(),
                         });
                     }
                     // Check whether the variable has also been declared global.
@@ -4291,7 +4340,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                         self.report_semantic_error(SemanticSyntaxError {
                             kind: SemanticSyntaxErrorKind::NonlocalAndGlobal(name.to_string()),
                             range: name.range,
-                            python_version: self.python_version,
+                            python_version: self.python_version(),
                         });
                         // Never mark a symbol both global and nonlocal, even in this error case.
                         continue;
@@ -4935,6 +4984,38 @@ impl<'ast> Visitor<'ast> for SemanticIndexBuilder<'_, 'ast> {
     }
 
     fn visit_pattern(&mut self, pattern: &'ast ast::Pattern) {
+        if let ast::Pattern::MatchOr(ast::PatternMatchOr { patterns, .. }) = pattern
+            && let Some((last, alternatives)) = patterns.split_last()
+            // Capture-free alternatives do not affect bindings and need no flow merge.
+            && patterns.iter().any(Self::pattern_has_bindings)
+        {
+            // Start each alternative without earlier captures so repeated names do not shadow one
+            // another. Complementary predicates preserve possible missing captures while all
+            // alternatives together recover the incoming reachability.
+            let mut successful_alternatives = None;
+            for alternative in alternatives {
+                let remaining_alternatives = self.flow_snapshot();
+                let selected_alternative =
+                    self.record_reachability_constraint(PredicateOrLiteral::Predicate(Predicate {
+                        node: PredicateNode::OrPatternAlternative(self.current_scope_id()),
+                        is_positive: true,
+                    }));
+                self.visit_pattern(alternative);
+                if let Some(previous_alternatives) = successful_alternatives.take() {
+                    self.flow_merge(previous_alternatives);
+                }
+                successful_alternatives = Some(self.flow_snapshot());
+                self.flow_restore(remaining_alternatives);
+                self.record_negated_reachability_constraint(selected_alternative);
+            }
+
+            self.visit_pattern(last);
+            if let Some(successful_alternative) = successful_alternatives {
+                self.flow_merge(successful_alternative);
+            }
+            return;
+        }
+
         if let ast::Pattern::MatchStar(ast::PatternMatchStar {
             name: Some(name),
             range: _,

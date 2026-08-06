@@ -47,6 +47,18 @@ def assume_noninteractive() -> Iterator[None]:
         _noninteractive.reset(token)
 
 
+def set_noninteractive(enabled: bool) -> None:
+    """Force resolvers to treat the run as non-interactive for the rest of it.
+
+    The un-scoped form of :func:`assume_noninteractive`, for a CLI flag that
+    applies to a whole invocation rather than a block. Wired to the install
+    framework's ``--non-interactive`` (see
+    ``install.common.checklist.force_non_interactive``) so that one flag silences
+    both layers: the prompts *and* the resolvers that would open a browser.
+    """
+    _noninteractive.set(enabled)
+
+
 def is_silent() -> bool:
     """True when the trace is suppressed (``--set`` / ``--json`` mode)."""
     return _silent.get()

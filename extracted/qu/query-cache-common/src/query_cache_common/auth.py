@@ -3,7 +3,6 @@ from __future__ import annotations
 import typing as t
 from functools import cached_property
 
-
 RUNCACHE_ORG_SCOPE_PREFIX = "runcache:scope:org"
 LEGACY_ORG_SCOPE_PREFIX = "conway:scope:org"
 ORG_SCOPE_PREFIXES = (RUNCACHE_ORG_SCOPE_PREFIX, LEGACY_ORG_SCOPE_PREFIX)
@@ -67,7 +66,7 @@ class Scope:
             raise ValueError(f"Only one organization scope is supported, got multiple: {org_ids}.")
         org_id = org_ids[0]
         if org_id == "*":
-            raise ValueError(f"Wildcard organization ID is not allowed.")
+            raise ValueError("Wildcard organization ID is not allowed.")
         return org_id
 
     @cached_property

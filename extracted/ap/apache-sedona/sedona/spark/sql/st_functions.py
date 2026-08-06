@@ -650,6 +650,36 @@ def ST_EndPoint(line_string: ColumnOrName) -> Column:
 
 
 @validate_argument_types
+def ST_Box2D(geometry: ColumnOrName) -> Column:
+    """Get the planar bounding box (Box2D) of a geometry.
+
+    Returns NULL for null or empty input.
+
+    :param geometry: Geometry column to compute the bounding box of.
+    :type geometry: ColumnOrName
+    :return: Box2D bounding box of the geometry.
+    :rtype: Column
+    """
+    return _call_st_function("ST_Box2D", geometry)
+
+
+@validate_argument_types
+def ST_Box3D(geometry: ColumnOrName) -> Column:
+    """Get the 3D bounding box (Box3D) of a geometry.
+
+    Geometries without a Z dimension are treated as having ``z = 0``, matching
+    PostGIS's flat-XY-treated-as-XY[Z=0] convention. Returns NULL for null or
+    empty input.
+
+    :param geometry: Geometry column to compute the 3D bounding box of.
+    :type geometry: ColumnOrName
+    :return: Box3D bounding box of the geometry.
+    :rtype: Column
+    """
+    return _call_st_function("ST_Box3D", geometry)
+
+
+@validate_argument_types
 def ST_Envelope(geometry: ColumnOrName) -> Column:
     """Calculate the envelope boundary of a geometry column.
 
@@ -1087,13 +1117,16 @@ def ST_InteriorRingN(polygon: ColumnOrName, n: Union[ColumnOrName, int]) -> Colu
 
 @validate_argument_types
 def ST_Intersection(a: ColumnOrName, b: ColumnOrName) -> Column:
-    """Calculate the intersection of two geometry columns.
+    """Calculate the intersection of two Geometry columns or two Geography columns.
 
-    :param a: One geometry column to use in the calculation.
+    Inputs must have the same spatial type. Geography intersections use geodesic edges and
+    return a Geography.
+
+    :param a: One Geometry or Geography column to use in the calculation.
     :type a: ColumnOrName
-    :param b: Other geometry column to use in the calculation.
+    :param b: Other Geometry or Geography column to use in the calculation.
     :type b: ColumnOrName
-    :return: Intersection of a and b as a geometry column.
+    :return: Intersection of a and b with the same spatial type as the inputs.
     :rtype: Column
     """
     return _call_st_function("ST_Intersection", (a, b))
@@ -1112,6 +1145,22 @@ def ST_IsClosed(geometry: ColumnOrName) -> Column:
 
 
 @validate_argument_types
+def ST_IsLineStringCCW(line_string: ColumnOrName) -> Column:
+    """Check whether a LineString coordinate sequence has counter-clockwise ring orientation.
+
+    Open LineStrings are evaluated as supplied, without appending the start
+    coordinate. Non-LineString geometries and LineStrings with fewer than four
+    points return False.
+
+    :param line_string: LineString geometry column to check.
+    :type line_string: ColumnOrName
+    :return: True if the coordinate sequence is counter-clockwise and False otherwise.
+    :rtype: Column
+    """
+    return _call_st_function("ST_IsLineStringCCW", line_string)
+
+
+@validate_argument_types
 def ST_IsEmpty(geometry: ColumnOrName) -> Column:
     """Check if the geometry in a geometry column is an empty geometry.
 
@@ -1125,12 +1174,12 @@ def ST_IsEmpty(geometry: ColumnOrName) -> Column:
 
 @validate_argument_types
 def ST_IsPolygonCW(geometry: ColumnOrName) -> Column:
-    """Check if the Polygon or MultiPolygon use a clockwise orientation for exterior ring and counter-clockwise
-    orientation for interior ring.
+    """Check whether polygon rings use clockwise exterior orientation.
 
     :param geometry: Geometry column to check.
     :type geometry: ColumnOrName
-    :return: True if the geometry is empty and False otherwise as a boolean column.
+    :return: True if every exterior ring is clockwise and every interior ring
+        is counter-clockwise. Empty Polygon and MultiPolygon values return True.
     :rtype: Column
     """
     return _call_st_function("ST_IsPolygonCW", geometry)
@@ -1614,15 +1663,22 @@ def ST_MakeValid(
 
 
 @validate_argument_types
-def ST_MaximumInscribedCircle(geometry: ColumnOrName) -> Column:
+def ST_MaximumInscribedCircle(
+    geometry: ColumnOrName,
+    tolerance: Optional[ColumnOrNameOrNumber] = None,
+) -> Column:
     """Finds the largest circle that is contained within a geometry, or which does not overlap any lines and points
 
-    :param geometry:
+    :param geometry: Input geometry column.
     :type geometry: ColumnOrName
+    :param tolerance: Optional search tolerance. Zero uses the per-geometry
+        default of ``max(width, height) / 1000``.
+    :type tolerance: Optional[ColumnOrNameOrNumber]
     :return: Row of center point, nearest point and radius
     :rtype: Column
     """
-    return _call_st_function("ST_MaximumInscribedCircle", geometry)
+    args = (geometry,) if tolerance is None else (geometry, tolerance)
+    return _call_st_function("ST_MaximumInscribedCircle", args)
 
 
 @validate_argument_types
@@ -1978,11 +2034,12 @@ def ST_Snap(
 
 @validate_argument_types
 def ST_IsPolygonCCW(geometry: ColumnOrName) -> Column:
-    """Check if the Polygon or MultiPolygon use a counter-clockwise orientation for exterior ring and clockwise
-    orientation for interior ring.
+    """Check whether polygon rings use counter-clockwise exterior orientation.
+
     :param geometry: Geometry column to check.
     :type geometry: ColumnOrName
-    :return: True if the geometry is empty and False otherwise as a boolean column.
+    :return: True if every exterior ring is counter-clockwise and every interior
+        ring is clockwise. Empty Polygon and MultiPolygon values return True.
     :rtype: Column
     """
     return _call_st_function("ST_IsPolygonCCW", geometry)
@@ -1990,10 +2047,14 @@ def ST_IsPolygonCCW(geometry: ColumnOrName) -> Column:
 
 @validate_argument_types
 def ST_ForcePolygonCCW(geometry: ColumnOrName) -> Column:
-    """
-    Returns a geometry with counter-clockwise oriented exterior ring and clockwise oriented interior rings
-    :param geometry: Geometry column to change orientation
-    :return: counter-clockwise oriented geometry
+    """Orient polygonal components with counter-clockwise exterior rings.
+
+    Interior rings are oriented clockwise. Polygonal members of
+    GeometryCollections are processed recursively, while non-polygonal members
+    are preserved unchanged.
+
+    :param geometry: Geometry column to orient.
+    :return: Geometry with counter-clockwise polygon exterior rings.
     """
     return _call_st_function("ST_ForcePolygonCCW", geometry)
 
@@ -2474,20 +2535,28 @@ def ST_ForceCollection(geometry: ColumnOrName) -> Column:
 
 @validate_argument_types
 def ST_ForcePolygonCW(geometry: ColumnOrName) -> Column:
-    """
-    Returns
-    :param geometry: Geometry column to change orientation
-    :return: Clockwise oriented geometry
+    """Orient polygonal components with clockwise exterior rings.
+
+    Interior rings are oriented counter-clockwise. Polygonal members of
+    GeometryCollections are processed recursively, while non-polygonal members
+    are preserved unchanged.
+
+    :param geometry: Geometry column to orient.
+    :return: Geometry with clockwise polygon exterior rings.
     """
     return _call_st_function("ST_ForcePolygonCW", geometry)
 
 
 @validate_argument_types
 def ST_ForceRHR(geometry: ColumnOrName) -> Column:
-    """
-    Returns
-    :param geometry: Geometry column to change orientation
-    :return: Clockwise oriented geometry
+    """Apply right-hand-rule orientation to polygonal components.
+
+    This is an alias for :func:`ST_ForcePolygonCW`. Polygonal members of
+    GeometryCollections are processed recursively, while non-polygonal members
+    are preserved unchanged.
+
+    :param geometry: Geometry column to orient.
+    :return: Geometry with clockwise polygon exterior rings.
     """
     return _call_st_function("ST_ForceRHR", geometry)
 

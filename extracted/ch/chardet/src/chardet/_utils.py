@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import codecs
 import warnings
+from collections.abc import Callable
 
 #: Default maximum number of bytes to examine during detection.
 DEFAULT_MAX_BYTES: int = 200_000
@@ -13,6 +15,20 @@ MINIMUM_THRESHOLD: float = 0.20
 #: Default chunk_size value (deprecated, kept for backward-compat signatures).
 _DEFAULT_CHUNK_SIZE: int = 65_536
 
+#: Cache of incremental-decoder classes, keyed by encoding name.
+#:
+#: :func:`decodes_without_error` is called once per candidate encoding per
+#: detection -- roughly 86 times for :attr:`~chardet.enums.EncodingEra.ALL` --
+#: and the factory lookup is a sixth of each call.  The class is immutable and
+#: shared; only the per-call *instance* carries decoder state, so caching the
+#: class is thread-safe while caching an instance would not be.
+#:
+#: Only successful lookups are cached, which bounds the cache by the number of
+#: installed codecs.  A failed lookup returns ``False`` without storing
+#: anything, so an unbounded stream of bogus names (a charset declaration in
+#: markup is attacker-controlled) cannot grow it.
+_INCREMENTAL_DECODERS: dict[str, Callable[..., codecs.IncrementalDecoder]] = {}
+
 
 def _warn_deprecated_chunk_size(chunk_size: int, stacklevel: int = 3) -> None:
     """Emit a deprecation warning if *chunk_size* differs from the default."""
@@ -22,6 +38,45 @@ def _warn_deprecated_chunk_size(chunk_size: int, stacklevel: int = 3) -> None:
             DeprecationWarning,
             stacklevel=stacklevel,
         )
+
+
+def decodes_without_error(data: bytes, encoding: str) -> bool:
+    """Return ``True`` if *data* decodes cleanly under *encoding*.
+
+    Equivalent to ``data.decode(encoding, errors="strict")`` except that an
+    incomplete multi-byte sequence at the *end* of *data* is accepted instead of
+    raising.
+
+    Detection input is nearly always a prefix of a larger whole.  Callers pass
+    the first N bytes of a file, and chardet slices further on its own.
+    For a two-byte encoding any of those cuts lands mid-character roughly half
+    the time.
+
+    A one-shot strict decode cannot tell a truncated tail from corrupt data: it
+    raises either way, so the candidate is discarded and every CJK encoding can
+    disappear from the candidate set over a single dangling lead byte. An
+    incremental decoder with ``final=False`` defers the partial tail instead,
+    while still raising on genuine corruption anywhere before it.
+
+    :param data: The raw byte data to test.
+    :param encoding: Name of the codec to test *data* against.
+    :returns: ``True`` if *data* decodes without error, ``False`` otherwise.
+    """
+    decoder_class = _INCREMENTAL_DECODERS.get(encoding)
+    if decoder_class is None:
+        try:
+            decoder_class = codecs.getincrementaldecoder(encoding)
+        except LookupError:
+            return False
+        _INCREMENTAL_DECODERS[encoding] = decoder_class
+    try:
+        decoder_class().decode(data, final=False)
+    except (UnicodeError, LookupError):
+        # UnicodeError rather than UnicodeDecodeError: the utf-16/utf-32
+        # incremental decoders raise a bare UnicodeError when the stream does
+        # not start with a BOM.
+        return False
+    return True
 
 
 def _validate_max_bytes(max_bytes: int) -> None:

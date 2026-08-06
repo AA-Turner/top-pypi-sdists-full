@@ -1,8 +1,8 @@
-import sys
 import importlib
 import pkgutil
-
+import sys
 from importlib.metadata import version as _get_version
+
 from packaging.version import Version as _Version
 
 PROTOBUF_MAJOR_VERSION = _Version(_get_version("protobuf")).major

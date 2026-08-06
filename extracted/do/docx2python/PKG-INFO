@@ -1,23 +1,25 @@
 Metadata-Version: 2.4
 Name: docx2python
-Version: 3.6.2
+Version: 3.7.1
 Summary: Extract content from docx files
+Author: Shay Hill
 Author-email: Shay Hill <shay_public@hotmail.com>
-License: MIT
-Requires-Python: >=3.10.0
-Description-Content-Type: text/markdown
+License-Expression: MIT
 License-File: LICENSE.txt
-Requires-Dist: lxml
-Requires-Dist: paragraphs
-Requires-Dist: typing_extensions
-Requires-Dist: types-lxml
-Provides-Extra: dev
-Requires-Dist: commitizen; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: tox; extra == "dev"
-Requires-Dist: types-lxml; extra == "dev"
-Dynamic: license-file
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Typing :: Typed
+Requires-Dist: lxml>=6.1.1
+Requires-Dist: paragraphs>=1.0.1
+Requires-Dist: typing-extensions
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
 
 
 # New in docx2python Version 3

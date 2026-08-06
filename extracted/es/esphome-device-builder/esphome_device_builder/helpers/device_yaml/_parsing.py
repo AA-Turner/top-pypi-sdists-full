@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+from pathlib import Path
 from typing import NamedTuple
 
 from esphome import const
@@ -868,6 +869,15 @@ def _resolve_substitutions(value: str | None, subs: dict[str, str]) -> str | Non
             break
 
     return value
+
+
+def safe_stat_key(path: Path) -> tuple[int, int]:
+    """Return *path*'s ``(mtime_ns, size)``, or ``(0, 0)`` when the file is missing."""
+    try:
+        st = path.stat()
+    except OSError:
+        return (0, 0)
+    return (st.st_mtime_ns, st.st_size)
 
 
 def _extract_resolved_substitutions(config: dict | None) -> dict[str, str]:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: reme-ai
-Version: 0.4.1.3
+Version: 0.4.1.4
 Summary: Remember Me, Refine Me.
 Author-email: EconML team of Alibaba Tongyi Lab <jinli.yl@alibaba-inc.com>
 License-Expression: Apache-2.0
@@ -22,7 +22,7 @@ Requires-Dist: aiofiles>=24.1.0
 Requires-Dist: croniter>=2.0
 Requires-Dist: fastapi>=0.135.1
 Requires-Dist: fastmcp>=3.1.0
-Requires-Dist: httpx>=0.28.1
+Requires-Dist: httpx[socks]>=0.28.1
 Requires-Dist: loguru>=0.7.3
 Requires-Dist: mistletoe>=1.5.1
 Requires-Dist: numpy>=2.2.6
@@ -36,17 +36,23 @@ Requires-Dist: uvicorn>=0.41.0
 Requires-Dist: watchfiles>=1.1.1
 Requires-Dist: zstandard>=0.23.0
 Provides-Extra: core
-Requires-Dist: agentscope==2.0.4; extra == "core"
-Requires-Dist: claude-agent-sdk>=0.2.91; extra == "core"
+Requires-Dist: agentscope==2.0.4.post1; extra == "core"
+Requires-Dist: claude-agent-sdk>=0.2.126; extra == "core"
+Requires-Dist: dingtalk-stream>=0.24.3; extra == "core"
+Requires-Dist: openai-codex>=0.144.4; extra == "core"
+Requires-Dist: pproxy<3,>=2.7.9; extra == "core"
 Requires-Dist: faiss-cpu>=1.13.2; extra == "core"
+Requires-Dist: zvec>=0.6.0; extra == "core"
 Requires-Dist: jieba>=0.42.1; extra == "core"
 Requires-Dist: rjieba>=0.2.1; extra == "core"
 Requires-Dist: neo4j>=6.2.0; extra == "core"
 Requires-Dist: networkx>=3.4.2; extra == "core"
-Requires-Dist: openai-codex>=0.1.0b3; extra == "core"
+Requires-Dist: pypdf>=5.0.0; extra == "core"
+Requires-Dist: polars>=1.43.0; extra == "core"
+Requires-Dist: tushare>=1.4.29; extra == "core"
 Provides-Extra: dev
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: pre-commit>=4.6.1; extra == "dev"
+Requires-Dist: pytest>=9.1.1; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.23; extra == "dev"
 Provides-Extra: full
 Requires-Dist: reme-ai[core]; extra == "full"
@@ -63,6 +69,7 @@ Dynamic: license-file
   <a href="https://pepy.tech/project/reme-ai/"><img src="https://img.shields.io/pypi/dm/reme-ai" alt="PyPI Downloads"></a>
   <a href="https://github.com/agentscope-ai/ReMe"><img src="https://img.shields.io/github/commit-activity/m/agentscope-ai/ReMe?style=flat-square" alt="GitHub commit activity"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-black" alt="License"></a>
+  <a href="https://docs.agentscope.io/reme"><img src="https://img.shields.io/badge/docs-ReMe-blue" alt="Documentation"></a>
   <a href="./README.md"><img src="https://img.shields.io/badge/English-Click-yellow" alt="English"></a>
   <a href="./README_ZH.md"><img src="https://img.shields.io/badge/简体中文-点击查看-orange" alt="简体中文"></a>
   <a href="https://github.com/agentscope-ai/ReMe"><img src="https://img.shields.io/github/stars/agentscope-ai/ReMe?style=social" alt="GitHub Stars"></a>
@@ -104,15 +111,20 @@ memory, then continuously indexes, links, and consolidates that memory for futur
 - **Personal assistants**: Give personal assistants such as
   [QwenPaw](https://github.com/agentscope-ai/QwenPaw), [OpenClaw](https://github.com/openclaw/openclaw), and
   [Hermes](https://github.com/nousresearch/hermes-agent) a user-editable long-term memory layer.
-- **Coding agents**: Preserve coding style, project background, repository decisions, and workflow
-  experience across sessions when integrating with coding agents such as [Claude Code](plugins/reme).
-- **LLM Wiki**: Turn conversations, notes, and resources into a searchable, traceable, and linked Markdown
-  knowledge base that both users and agents can maintain.
+- **Coding agents**: Preserve coding style, project background, repository decisions, and workflow experience across
+  sessions when integrating with coding agents such as [Claude Code](plugins/reme).
+- **LLM Wiki**: Turn conversations, notes, and resources into a searchable, traceable, and linked Markdown knowledge
+  base that both users and agents can maintain.
 - **Self-evolving agents**: Support agents that learn from experience by saving successful paths, failed attempts,
   reusable procedures, and periodic reflections as memory.
 
 ## 📰 News
 
+- [2026.08] - [Experience-driven enhancement method](benchmark/toolmemory/README.md) of agent tool-use
+  execution built on ReMe is available on [arXiv:2608.03403](https://arxiv.org/abs/2608.03403).
+- [2026.07] - Introduced optional Cookbooks: [Daily Paper](cookbook/daily_paper/README.md) for paper discovery and
+  analysis, and [Auto Fin](cookbook/auto-fin/README.md) for file-native ETF event research based on CLS news and
+  historical market reactions.
 - [2026.07] - Our
   paper [Remember Me, Refine Me: A Dynamic Procedural Memory Framework for Experience-Driven Agent Evolution](https://aclanthology.org/2026.findings-acl.829/)
   has been accepted to Findings of ACL 2026.
@@ -215,6 +227,17 @@ ReMe stores agent memory as readable Markdown.
 
 Related: [[digest/wiki/memory-as-file.md]]
 ```
+
+## 🧑‍🍳 Cookbooks
+
+Cookbooks are optional, end-to-end workflows assembled from ReMe jobs and steps. They are not enabled by the default
+configuration; select the cookbook's standalone configuration when starting ReMe. Each new cookbook will be added as
+another row in this table.
+
+| Cookbook                                      | Capability                                                                                                    |
+|-----------------------------------------------|---------------------------------------------------------------------------------------------------------------|
+| [Daily Paper](cookbook/daily_paper/README.md) | Discover and rank papers, analyze PDFs with an agent, and generate file-native notes and a five-minute brief. |
+| [Auto Fin](cookbook/auto-fin/README.md)       | Match CLS events to liquid ETFs, study historical reactions, and generate file-native research reports.       |
 
 ## 📁 Memory System
 
@@ -356,8 +379,8 @@ are mainly for maintenance, debugging, or advanced integration. Run `reme help` 
 - **Issues and requests**: Check [Open Issues](https://github.com/agentscope-ai/ReMe/issues) first. If there is no
   related discussion, open a new issue with background, expected behavior, and impact scope.
 - **Code contributions**: Before making changes, read
-  the [contribution guide](https://docs.agentscope.io/reme/stable/en/contributing). Source,
-  schemas, and tests are the authoritative architecture and extension guide.
+  the [contribution guide](https://docs.agentscope.io/reme/latest/en/contribution). Source, schemas, and tests are the
+  authoritative architecture and extension guide.
 - **Documentation contributions**: Submit user-facing documentation changes to the
   [unified documentation repository](https://github.com/agentscope-ai/docs) under `reme/<version>/{en,zh}/`.
 - **Commit convention**: Conventional Commits are recommended, for example `feat(search): add link expansion option` or
@@ -365,7 +388,7 @@ are mainly for maintenance, debugging, or advanced integration. Run `reme help` 
 - **Pre-submit checks**: Before submitting a PR, try to run `pre-commit run --all-files` and `pytest`. If tests that
   depend on LLMs, embeddings, or external services cannot run, explain that in the PR.
 - **Get help**: Use [GitHub Issues](https://github.com/agentscope-ai/ReMe/issues) for bugs and feature requests. Project
-  documentation is available at [https://docs.agentscope.io/](https://docs.agentscope.io/reme/stable/en/).
+  documentation is available at [https://docs.agentscope.io/reme](https://docs.agentscope.io/reme).
 
 ### Contributors
 

@@ -8,7 +8,7 @@ classification using the Learn-Then-Test (LTT) procedure implemented in MAPIE.
 
 """
 
-# sphinx_gallery_thumbnail_number = 4
+# mkdocs_gallery_thumbnail_number = 4
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -137,7 +137,7 @@ clf.fit(X_train, y_train)
 # - RCPS (Risk-Controlling Prediction Sets), which provides a probabilistic guarantee,
 # - CRC (Conformal Risk Control), which provides a guarantee in expectation.
 #
-# Please refer to the theoretical description of risk control in the MAPIE
+# Please refer to the theory of risk control in the MAPIE
 # documentation for more details.
 
 target_precision = 0.8

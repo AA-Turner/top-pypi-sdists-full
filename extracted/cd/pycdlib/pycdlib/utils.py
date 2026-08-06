@@ -157,17 +157,13 @@ def encode_space_pad(instr, length, encoding):
     if len(output) > length:
         raise pycdlibexception.PyCdlibInvalidInput('Input string too long!')
 
+    # Pad to `length` bytes with encoded spaces in a single concat.
+    # `encoded_space` may be multi-byte (e.g. utf-16_be), so we
+    # over-allocate the padding and trim to length; in practice this
+    # wastes at most len(encoded_space)-1 bytes and is still vastly
+    # faster than the per-character concat loop this replaced.
     encoded_space = ' '.encode(encoding)
-
-    left = length - len(output)
-    while left > 0:
-        output += encoded_space
-        left -= len(encoded_space)
-
-    if left < 0:
-        output = output[:left]
-
-    return output
+    return (output + encoded_space * (length - len(output)))[:length]
 
 
 def normpath(path):

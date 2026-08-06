@@ -95,14 +95,13 @@ class MintTask:
     pipe: Any
     function: str
     modules: Tuple[str, ...]
-    snapshots: Dict[str, str] = field(default_factory=dict)
-    # pgw#816: the parent's RESOLVED component overrides, slot -> comp ->
-    # local tree. Part of the composition, not a detail: the base snapshot is
-    # fetched with these components EXCLUDED (th#1330 B2), so a child handed
-    # only `snapshots` is handed a tree that cannot load.
-    component_paths: Dict[str, Dict[str, str]] = field(default_factory=dict)
+    # pgw#974: the parent's resolution of each setup slot — identity, bytes and
+    # pgw#617 composition in ONE value, resolved together in
+    # `_setup_locked_inner` and carried together from here to the child. See
+    # `mint_process.MintSlot`.
+    slots: Dict[str, mint_process.MintSlot] = field(default_factory=dict)
     weight_lane: str = ""
-    lane: str = ""
+    execution_lane: str = ""
     configs: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     device: Optional[int] = None
 
@@ -196,14 +195,10 @@ def build_request(
         # later boot — finds the same bank.
         resume=str(aot_resume.bank_root(pending.cell_key)),
         cfg=cfg_spec(pending.cfg),
-        snapshots=dict(task.snapshots),
-        component_paths={
-            slot: dict(comps)
-            for slot, comps in task.component_paths.items() if comps
-        },
+        slots=dict(task.slots),
         device=-1 if task.device is None else int(task.device),
         vram_cap_bytes=int(cap_bytes),
-        lane=task.lane,
+        execution_lane=task.execution_lane,
         configs={k: dict(v) for k, v in task.configs.items()},
         # pgw#805: the recipe rides the pending the arming brain built. The
         # child never decides it — the recipe determines the artifact KIND,
@@ -374,10 +369,10 @@ async def build_cell(
             family, task.weight_lane,
             _pool_stat(outcome.partial_phases, "peak_child_device_bytes"))
         if str(getattr(pending, "recipe", "")) == fleet_cells.RECIPE_AOT:
-            _emit_aot_phases(outcome, family=family, lane=task.weight_lane)
+            _emit_aot_phases(outcome, family=family, execution_lane=task.weight_lane)
         else:
             _emit_jit_compile(
-                outcome, family=family, lane=task.weight_lane,
+                outcome, family=family, execution_lane=task.weight_lane,
                 key=str(pending.cell_key), attempt=attempts)
 
         if outcome.status == mint_process.ABANDONED:
@@ -421,7 +416,7 @@ async def build_cell(
 
 
 def _emit_aot_phases(
-    outcome: MintOutcome, *, family: str, lane: str,
+    outcome: MintOutcome, *, family: str, execution_lane: str,
 ) -> None:
     """pgw#805: one delegated AOT mint's phase table, re-emitted PARENT-side.
 
@@ -474,14 +469,14 @@ def _emit_aot_phases(
         if table:
             table["terminus"] = terminus or table.get("terminus") or ""
             aot_mint.emit_phase_events(
-                family=family, lane=lane, table=table, terminus=terminus)
+                family=family, execution_lane=execution_lane, table=table, terminus=terminus)
         if outcome.minted or table:
             return
         if total_s <= 0:
             return
         activity_mod.emit_event(
             activity_mod.KIND_AOT_MINT,
-            f"family={family} lane={lane or 'plain'} status={outcome.status} "
+            f"family={family} lane={execution_lane or 'plain'} status={outcome.status} "
             f"total_s={round(total_s, 2)} — no cell produced",
             phase="aborted",
             duration_ms=int(round(total_s * 1000)),
@@ -492,7 +487,7 @@ def _emit_aot_phases(
 
 
 def _emit_jit_compile(
-    outcome: MintOutcome, *, family: str, lane: str, key: str, attempt: int,
+    outcome: MintOutcome, *, family: str, execution_lane: str, key: str, attempt: int,
 ) -> None:
     """th#1322: one delegated JIT mint's duration, as typed NUMERIC events.
 
@@ -512,7 +507,7 @@ def _emit_jit_compile(
     """
     report = outcome.report
     try:
-        head = f"family={family} lane={lane or 'plain'} key={key} attempt={attempt}"
+        head = f"family={family} lane={execution_lane or 'plain'} key={key} attempt={attempt}"
         phases: Dict[str, float] = dict(
             report.phases) if report is not None else {}
         for name, seconds in sorted(phases.items()):

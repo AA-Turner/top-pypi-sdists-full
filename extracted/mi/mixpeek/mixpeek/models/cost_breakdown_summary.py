@@ -39,10 +39,11 @@ class CostBreakdownSummary(BaseModel):
     margin_pct: Optional[Union[StrictFloat, StrictInt]] = 0.2
     total_margin_usd: Optional[Union[StrictFloat, StrictInt]] = 0.0
     platform_fee_usd: Optional[Union[StrictFloat, StrictInt]] = 0.0
+    platform_fee_billed_externally: Optional[StrictBool] = False
     total_invoice_usd: Optional[Union[StrictFloat, StrictInt]] = 0.0
     categories: Optional[List[CloudCostCategorySummary]] = None
     all_line_items: Optional[List[CloudCostLineItem]] = None
-    __properties: ClassVar[List[str]] = ["billing_month", "cloud_provider", "data_as_of", "data_delay_note", "cost_unavailable", "attribution_scope", "total_cloud_cost_usd", "margin_pct", "total_margin_usd", "platform_fee_usd", "total_invoice_usd", "categories", "all_line_items"]
+    __properties: ClassVar[List[str]] = ["billing_month", "cloud_provider", "data_as_of", "data_delay_note", "cost_unavailable", "attribution_scope", "total_cloud_cost_usd", "margin_pct", "total_margin_usd", "platform_fee_usd", "platform_fee_billed_externally", "total_invoice_usd", "categories", "all_line_items"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -119,6 +120,7 @@ class CostBreakdownSummary(BaseModel):
             "margin_pct": obj.get("margin_pct") if obj.get("margin_pct") is not None else 0.2,
             "total_margin_usd": obj.get("total_margin_usd") if obj.get("total_margin_usd") is not None else 0.0,
             "platform_fee_usd": obj.get("platform_fee_usd") if obj.get("platform_fee_usd") is not None else 0.0,
+            "platform_fee_billed_externally": obj.get("platform_fee_billed_externally") if obj.get("platform_fee_billed_externally") is not None else False,
             "total_invoice_usd": obj.get("total_invoice_usd") if obj.get("total_invoice_usd") is not None else 0.0,
             "categories": [CloudCostCategorySummary.from_dict(_item) for _item in obj["categories"]] if obj.get("categories") is not None else None,
             "all_line_items": [CloudCostLineItem.from_dict(_item) for _item in obj["all_line_items"]] if obj.get("all_line_items") is not None else None

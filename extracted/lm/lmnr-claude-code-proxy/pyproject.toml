@@ -6,7 +6,9 @@ description = "Thin proxy server for Claude Code and Laminar tracing"
 name = "lmnr-claude-code-proxy"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "0.1.23"
+version = "0.1.24"
+license = "LicenseRef-Proprietary"
+license-files = ["LICENSE.md"]
 
 [dependency-groups]
 dev = [

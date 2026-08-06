@@ -1,6 +1,28 @@
 """Schema"""
 
 from .application_config import ApplicationConfig, ComponentConfig, JobConfig
+from .auto_fin import (
+    AutoFinEtfEventReference,
+    AutoFinEtfHistoryDetail,
+    AutoFinEtfHistoricalEvents,
+    AutoFinEtfHistoricalResearch,
+    AutoFinEtfSelection,
+    AutoFinEtfsOutput,
+    AutoFinDailyEntry,
+    AutoFinForecastReturnPoint,
+    AutoFinFutureReturnPoint,
+    AutoFinHistoricalEvent,
+    AutoFinHistoricalEventReference,
+    AutoFinHistoricalDirectionReference,
+    AutoFinHistoricalMatch,
+    AutoFinMarketSelection,
+    AutoFinMarketSample,
+    AutoFinReportOutput,
+    AutoFinSelectedEvent,
+    AutoFinSelectedEtfAnalysis,
+    AutoFinWeightedForecast,
+)
+from .daily_paper import DailyBriefOutput, PaperInfo, PaperNoteOutput, PaperSelection, SelectedPaper
 from .dream import (
     DreamExtractOutput,
     DreamState,
@@ -13,16 +35,38 @@ from .dream import (
 from .emb_node import EmbNode
 from .file_chunk import FileChunk
 from .file_front_matter import FileFrontMatter
+from .graph_snapshot import GraphSnapshot, GraphSnapshotEdge, GraphSnapshotNode
 from .file_link import FileLink
 from .file_node import FileNode
 from .request import Request
 from .response import Response
 from .stream_chunk import StreamChunk
+from .token_usage import TokenUsage
+from .traverse_graph import TraverseGraph, TraverseGraphEdge, TraverseGraphNode
 
 __all__ = [
     "ApplicationConfig",
+    "AutoFinEtfEventReference",
+    "AutoFinEtfHistoryDetail",
+    "AutoFinEtfHistoricalEvents",
+    "AutoFinEtfHistoricalResearch",
+    "AutoFinEtfSelection",
+    "AutoFinEtfsOutput",
+    "AutoFinDailyEntry",
+    "AutoFinForecastReturnPoint",
+    "AutoFinFutureReturnPoint",
+    "AutoFinHistoricalEvent",
+    "AutoFinHistoricalEventReference",
+    "AutoFinHistoricalDirectionReference",
+    "AutoFinHistoricalMatch",
+    "AutoFinMarketSelection",
+    "AutoFinMarketSample",
+    "AutoFinReportOutput",
+    "AutoFinSelectedEvent",
+    "AutoFinSelectedEtfAnalysis",
+    "AutoFinWeightedForecast",
     "ComponentConfig",
-    "JobConfig",
+    "DailyBriefOutput",
     "DreamExtractOutput",
     "DreamState",
     "DreamTopic",
@@ -32,10 +76,22 @@ __all__ = [
     "FileFrontMatter",
     "FileLink",
     "FileNode",
+    "GraphSnapshot",
+    "GraphSnapshotEdge",
+    "GraphSnapshotNode",
     "IntegrateOutcome",
+    "JobConfig",
+    "PaperInfo",
+    "PaperNoteOutput",
+    "PaperSelection",
     "ProactiveResult",
     "Request",
     "Response",
+    "SelectedPaper",
     "StreamChunk",
+    "TokenUsage",
     "TopicSelectionOutput",
+    "TraverseGraph",
+    "TraverseGraphEdge",
+    "TraverseGraphNode",
 ]

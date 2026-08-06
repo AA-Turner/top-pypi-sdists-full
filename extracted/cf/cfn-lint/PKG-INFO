@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cfn-lint
-Version: 1.53.3
+Version: 1.54.0
 Summary: Checks CloudFormation templates for practices and behaviour that could potentially be improved
 Author: Kevin DeJong
 Author-email: kddejong@amazon.com
@@ -26,7 +26,6 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: pyyaml>=6.0.3
-Requires-Dist: aws-sam-translator>=1.111.0
 Requires-Dist: jsonpatch
 Requires-Dist: networkx<4,>=2.4
 Requires-Dist: sympy>=1.14.0
@@ -395,7 +394,7 @@ If you'd like cfn-lint to be run automatically when making changes to files in y
 ```yaml
 repos:
   - repo: https://github.com/aws-cloudformation/cfn-lint
-    rev: v1.53.3 # The version of cfn-lint to use
+    rev: v1.54.0 # The version of cfn-lint to use
     hooks:
       - id: cfn-lint
         files: path/to/cfn/dir/.*\.(json|yml|yaml)$
@@ -406,7 +405,7 @@ If you are using a `.cfnlintrc` and specifying the `templates` or `ignore_templa
 ```yaml
 repos:
   - repo: https://github.com/aws-cloudformation/cfn-lint
-    rev: v1.53.3 # The version of cfn-lint to use
+    rev: v1.54.0 # The version of cfn-lint to use
     hooks:
       - id: cfn-lint-rc
 ```

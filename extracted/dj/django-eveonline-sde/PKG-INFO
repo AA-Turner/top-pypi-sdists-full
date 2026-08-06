@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-eveonline-sde
-Version: 0.0.1
+Version: 0.0.2
 Summary: Eve Online SDE Export in Django Model form
 Project-URL: Issue / Bug Reports, https://github.com/Solar-Helix-Independent-Transport/django-eveonline-sde/issues
 Project-URL: Changelog, https://github.com/Solar-Helix-Independent-Transport/django-eveonline-sde/releases

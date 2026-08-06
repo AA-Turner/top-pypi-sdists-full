@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-import dacite
 import dataclasses
 import datetime
-import json
 import glob
+import json
 import os
 import threading
 import typing as t
-
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
+
+import dacite
 from dbt.config.runtime import RuntimeConfig
 from dbt.contracts.graph.nodes import (
     CompiledNode,
@@ -20,8 +20,8 @@ from dbt.contracts.graph.nodes import (
     SeedNode,
 )
 
-from dbt_state.config import RunCacheConfig, CloneIncrementalInDev
 import dbt_state.utils as utils
+from dbt_state.config import CloneIncrementalInDev, RunCacheConfig
 
 
 class DataclassEncoder(json.JSONEncoder):

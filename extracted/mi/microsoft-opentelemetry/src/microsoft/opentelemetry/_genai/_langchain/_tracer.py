@@ -55,6 +55,7 @@ from microsoft.opentelemetry._genai._langchain._utils import (
     GEN_AI_PROVIDER_NAME_KEY,
     GEN_AI_REQUEST_CHOICE_COUNT_KEY,
     GEN_AI_REQUEST_MODEL_KEY,
+    GEN_AI_SYSTEM_INSTRUCTIONS_KEY,
     GEN_AI_TOOL_DEFINITIONS_KEY,
     GEN_AI_USAGE_INPUT_TOKENS_KEY,
     GEN_AI_USAGE_OUTPUT_TOKENS_KEY,
@@ -69,10 +70,11 @@ from microsoft.opentelemetry._genai._langchain._utils import (
     llm_provider,
     metadata,
     model_name,
-    prompts,
+    output_has_modern_tool_calls,
     _extract_structured_output_messages,
     _extract_agent_input_messages,
     _extract_agent_output_messages,
+    _extract_system_instruction,
     _output_message_to_input,
     _is_structured_output_run,
     _seed_initial_messages,
@@ -194,7 +196,17 @@ class LangChainTracer(BaseTracer):  # pylint: disable=too-many-ancestors, too-ma
         # Nested agents (sub-agents with an agent ancestor) must NOT inherit
         # their identity from the shared ``_agent_config`` — that describes
         # the top-level agent only.
-        is_nested_agent = is_agent and self._find_agent_ancestor(run) is not None
+        ancestor_id = self._find_agent_ancestor(run) if is_agent else None
+        is_nested_agent = ancestor_id is not None
+
+        if is_nested_agent:
+            ancestor_run = self.run_map.get(str(ancestor_id))
+            ancestor_name = (
+                self._resolve_agent_name(ancestor_run, use_config=False) if ancestor_run else None
+            )
+            this_name = self._resolve_agent_name(run, use_config=False)
+            if this_name and ancestor_name and this_name.lower() == ancestor_name.lower():
+                return
 
         # Determine span name based on run type
         if is_agent:
@@ -260,6 +272,7 @@ class LangChainTracer(BaseTracer):  # pylint: disable=too-many-ancestors, too-ma
                     "output_messages": [],
                     "pending_assistant": None,
                     "seeded_initial": False,
+                    "system_instruction": None,
                     "model": None,
                     "provider": None,
                     "request_choice_count": None,
@@ -495,7 +508,7 @@ class LangChainTracer(BaseTracer):  # pylint: disable=too-many-ancestors, too-ma
                     break
 
             if run_type in ("llm", "chat_model"):
-                for key, val in invocation_parameters(run):
+                for key, val in invocation_parameters(run, self._enable_sensitive_data):
                     if key == GEN_AI_REQUEST_CHOICE_COUNT_KEY and isinstance(val, int) and val > 0:
                         previous = content.get("request_choice_count")
                         if not isinstance(previous, int) or val > previous:
@@ -524,6 +537,10 @@ class LangChainTracer(BaseTracer):  # pylint: disable=too-many-ancestors, too-ma
             # (e.g. a routing decision), not a conversational turn, and folding
             # it into the transcript pollutes ``gen_ai.input.messages``.
             if run_type in ("llm", "chat_model") and not _is_structured_output_run(run):
+                if not content.get("system_instruction"):
+                    system_instruction = _extract_system_instruction(run.inputs)
+                    if system_instruction:
+                        content["system_instruction"] = system_instruction
                 # Seed system/user messages from the agent's top-level inputs
                 # on the first LLM call.
                 if not content.get("seeded_initial"):
@@ -634,6 +651,11 @@ class LangChainTracer(BaseTracer):  # pylint: disable=too-many-ancestors, too-ma
 
         # Set aggregated input/output messages only when content capture is enabled
         if _should_capture_content_on_spans(self._enable_sensitive_data):
+            if system_instruction := content.get("system_instruction"):
+                span.set_attribute(
+                    GEN_AI_SYSTEM_INSTRUCTIONS_KEY,
+                    safe_json_dumps([asdict(p) for p in system_instruction]),
+                )
             if tool_defs := content.get("tool_definitions"):
                 span.set_attribute(GEN_AI_TOOL_DEFINITIONS_KEY, tool_defs)
             if msgs := content.get("input_messages"):
@@ -707,19 +729,20 @@ def _update_span(span: Span, run: Run, enable_sensitive_data: bool = False) -> L
                     GEN_AI_OUTPUT_MESSAGES_KEY,
                     safe_json_dumps([asdict(m) for m in invocation.output_messages]),
                 )
-        # Extras not covered by LLMInvocation
-        span.set_attributes(
-            dict(
-                flatten(
-                    chain(
-                        prompts(run.inputs, enable_sensitive_data),
-                        invocation_parameters(run),
-                        function_calls(run.outputs, enable_sensitive_data),
-                        metadata(run),
-                    )
+            if invocation.system_instruction:
+                span.set_attribute(
+                    GEN_AI_SYSTEM_INSTRUCTIONS_KEY,
+                    safe_json_dumps([asdict(p) for p in invocation.system_instruction]),
                 )
-            )
-        )
+        # Extras not covered by LLMInvocation
+        extras = [
+            invocation_parameters(run, enable_sensitive_data),
+            metadata(run),
+        ]
+
+        if not output_has_modern_tool_calls(run.outputs):
+            extras.append(function_calls(run.outputs, enable_sensitive_data))
+        span.set_attributes(dict(flatten(chain(*extras))))
         return invocation
 
     # --- Tool / chain / other runs ---

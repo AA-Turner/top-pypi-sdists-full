@@ -65,6 +65,10 @@ dev = [
     "python-dotenv",
     "sqlalchemy2-stubs",
     "sqlglot>=19.0.0,<21.2.0",
+    # Not in `all` -- deliberately kept out of the default customer install -- but required here so
+    # pyright can resolve chalk.workflows._temporal and so the Temporal compilation tests actually
+    # run in CI instead of skipping.
+    "temporalio>=1.7,<2",
     "types-protobuf<6",
     "types-psycopg2",
     "types-pymysql",
@@ -106,7 +110,7 @@ sentence-transformers = [
 
 # Direct scaling-group model calls via chalkcompute's native client.
 compute = [
-    "chalkcompute>=2.3.2",
+    "chalkcompute>=2.3.2; python_version >= '3.11'",
 ]
 
 # SQL-specific
@@ -442,6 +446,10 @@ tracing = [
 
 torch = [
     "torch>=1.7,<3",
+]
+
+workflows = [
+    "temporalio>=1.7,<2",
 ]
 
 all = [

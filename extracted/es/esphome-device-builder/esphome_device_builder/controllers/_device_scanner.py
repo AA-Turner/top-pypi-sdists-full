@@ -13,6 +13,7 @@ import asyncio
 import logging
 from collections.abc import Callable, Iterable, Mapping
 from enum import StrEnum
+from functools import partial
 from pathlib import Path
 from types import MappingProxyType
 from typing import NamedTuple
@@ -28,6 +29,10 @@ _LOGGER = logging.getLogger(__name__)
 
 # (inode, device, mtime, size) — combined cache key for change detection.
 _CacheKey = tuple[int, int, float, int]
+
+# Never matches a real stat: assigning it forces the next scan to
+# re-read the file.
+_POISONED_CACHE_KEY: _CacheKey = (-1, -1, -1.0, -1)
 
 
 class DeviceFileMetadata(NamedTuple):
@@ -82,6 +87,10 @@ ScanCallback = Callable[[ScanChange, Device, Device | None], None]
 # Callback that resolves the persisted sidecar metadata for a device
 # file. Called once per (added or updated) file during a scan.
 MetadataResolver = Callable[[Path, str], DeviceFileMetadata]
+
+# Called once per scan batch (in the executor) so the resolver can
+# snapshot shared state instead of re-reading it per file.
+MetadataResolverFactory = Callable[[], MetadataResolver]
 
 
 class _DeviceIndex:
@@ -158,6 +167,10 @@ class _DeviceIndex:
     def get_by_configuration(self, configuration: str) -> Device | None:
         """Return the Device whose YAML filename equals *configuration*, or ``None``."""
         return self._devices_by_configuration.get(configuration)
+
+    def poisoned_configurations(self) -> list[str]:
+        """Filenames carrying the poisoned cache key."""
+        return [p.name for p, key in self._cache_keys.items() if key == _POISONED_CACHE_KEY]
 
     def cache_key(self, path: Path) -> _CacheKey:
         """Return the change-detection cache key for a tracked *path*.
@@ -271,12 +284,12 @@ class DeviceScanner(WakeWorker[str]):
     def __init__(
         self,
         config_dir: Path,
-        get_metadata: MetadataResolver,
+        make_metadata_resolver: MetadataResolverFactory,
         on_change: ScanCallback,
     ) -> None:
         super().__init__()
         self._config_dir = config_dir
-        self._get_metadata = get_metadata
+        self._make_metadata_resolver = make_metadata_resolver
         self._on_change = on_change
         self._index = _DeviceIndex()
         self._lock = asyncio.Lock()
@@ -316,10 +329,19 @@ class DeviceScanner(WakeWorker[str]):
         """Return the configured device for YAML filename *configuration*, or ``None``."""
         return self._index.get_by_configuration(configuration)
 
-    async def scan(self) -> None:
-        """Refresh the device cache from disk, emitting per-file change events."""
+    def poisoned_configurations(self) -> list[str]:
+        """Filenames whose last reload failed and await a re-read."""
+        return self._index.poisoned_configurations()
+
+    async def scan(self, *, shallow: bool = False) -> None:
+        """
+        Rescan the config dir, emitting change events; *shallow* skips the resolved parse.
+
+        Shallow rows keep their fresh cache key, so later scans skip
+        them until a ``reload`` / ``request`` deepens the row.
+        """
         async with self._lock:
-            await self._do_scan()
+            await self._do_scan(shallow=shallow)
 
     async def reload(self, filename: str) -> bool:
         """
@@ -333,8 +355,8 @@ class DeviceScanner(WakeWorker[str]):
         reload.
 
         Returns True when the device exists and was re-read; False if
-        the file isn't tracked. Fires ``ScanChange.RELOADED`` on
-        success (the YAML itself is unchanged here).
+        the file isn't tracked. Fires ``ScanChange.RELOADED`` when the
+        re-read changed any field (the YAML itself is unchanged here).
         """
         async with self._lock:
             path = self._index.find_path_by_filename(filename)
@@ -349,10 +371,16 @@ class DeviceScanner(WakeWorker[str]):
             # makes a miss here impossible since
             # ``find_path_by_filename`` just located *path*.
             previous_cache_key = self._index.cache_key(path)
-            previous = self._index.by_path.get(path)
+            previous = self._index.by_path[path]
             loaded = await run_in_executor(self._load_devices, {path})
             device = loaded.get(path)
             if device is None:
+                # Poison the cache key so the next scan re-reads the
+                # file instead of trusting the stale row — a shallow
+                # seed would otherwise stay shallow forever.
+                self._index.set(path, previous, _POISONED_CACHE_KEY)
+                # ``_load_devices`` already warned for this failure.
+                _LOGGER.debug("Reload of %s failed; will retry on the next scan", filename)
                 return False
             # Refresh the cache key; if the YAML disappears in the
             # race window between load and re-stat, keep the
@@ -369,7 +397,10 @@ class DeviceScanner(WakeWorker[str]):
             except OSError:
                 cache_key = previous_cache_key
             self._index.set(path, device, cache_key)
-            self._on_change(ScanChange.RELOADED, device, previous)
+            # Dataclass eq spans every field the wire serializes (and
+            # more), so an equal rebuild is a guaranteed no-op frame.
+            if device != previous:
+                self._on_change(ScanChange.RELOADED, device, previous)
             return True
 
     # ------------------------------------------------------------------
@@ -378,24 +409,21 @@ class DeviceScanner(WakeWorker[str]):
 
     async def _drain(self) -> None:
         """Reload every filename currently queued."""
-        pending, self.pending = self.pending, set()
-        for filename in pending:
+        pending = self.swap_pending()
+        while pending:
+            filename = pending.pop()
             try:
                 reloaded = await self.reload(filename)
             except Exception:
                 _LOGGER.exception("Background reload of %s failed", filename)
                 continue
             if not reloaded:
-                # Tracked at request time but gone by drain time
-                # (concurrent delete / atomic-save mid-flight).
-                # Debug-level: the drain doesn't fail, but the
-                # vanished save is otherwise invisible.
-                _LOGGER.debug(
-                    "Background reload skipped: %s is no longer tracked",
-                    filename,
-                )
+                # Untracked (concurrent delete / atomic-save mid-flight)
+                # or a failed load — the latter already warned and
+                # poisoned its cache key in ``reload``.
+                _LOGGER.debug("Background reload of %s returned no update", filename)
 
-    async def _do_scan(self) -> None:
+    async def _do_scan(self, *, shallow: bool = False) -> None:
         path_to_cache_key = await run_in_executor(self._build_cache_keys)
 
         old_paths = set(self._index.by_path.keys())
@@ -410,7 +438,9 @@ class DeviceScanner(WakeWorker[str]):
 
         paths_to_load = added_paths | updated_paths
         if paths_to_load:
-            loaded = await run_in_executor(self._load_devices, paths_to_load)
+            loaded = await run_in_executor(
+                partial(self._load_devices, paths_to_load, shallow=shallow)
+            )
             for path, device in loaded.items():
                 kind = ScanChange.ADDED if path in added_paths else ScanChange.UPDATED
                 previous = self._index.by_path.get(path)
@@ -440,12 +470,13 @@ class DeviceScanner(WakeWorker[str]):
             result[file] = (stat.st_ino, stat.st_dev, stat.st_mtime, stat.st_size)
         return result
 
-    def _load_devices(self, paths: set[Path]) -> dict[Path, Device]:
+    def _load_devices(self, paths: set[Path], *, shallow: bool = False) -> dict[Path, Device]:
         """Materialise Device models for *paths*. Logs and skips on failure."""
         result: dict[Path, Device] = {}
+        get_metadata = self._make_metadata_resolver()
         for path in paths:
             try:
-                metadata = self._get_metadata(self._config_dir, path.name)
+                metadata = get_metadata(self._config_dir, path.name)
                 result[path] = load_device_from_storage(
                     path,
                     metadata.board_id,
@@ -459,6 +490,7 @@ class DeviceScanner(WakeWorker[str]):
                     queued_update=metadata.queued_update,
                     api_encryption_active=metadata.api_encryption_active,
                     previous=self._index.by_path.get(path),
+                    shallow=shallow,
                 )
             except Exception:  # noqa: BLE001 — best-effort scan; one bad YAML mustn't kill the sweep
                 _LOGGER.warning("Failed to load device from %s", path.name)

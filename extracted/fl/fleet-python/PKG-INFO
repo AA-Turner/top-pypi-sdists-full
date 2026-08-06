@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fleet-python
-Version: 0.2.132
+Version: 0.2.133
 Summary: Python SDK for Fleet environments
 Author-email: Fleet AI <nic@fleet.so>
 License: Apache-2.0
@@ -29,9 +29,16 @@ Requires-Dist: cloudpickle==3.1.1
 Provides-Extra: cli
 Requires-Dist: typer>=0.9.0; extra == "cli"
 Requires-Dist: rich>=10.0.0; extra == "cli"
+Requires-Dist: watchdog>=4.0.0; extra == "cli"
+Requires-Dist: textual>=0.50.0; extra == "cli"
+Requires-Dist: tomlkit>=0.13.0; extra == "cli"
+Requires-Dist: mcp==1.24.0; python_version >= "3.10" and extra == "cli"
+Provides-Extra: fleetcode
+Requires-Dist: mcp==1.24.0; python_version >= "3.10" and extra == "fleetcode"
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.14.0; extra == "dev"
 Requires-Dist: black>=22.0.0; extra == "dev"
 Requires-Dist: isort>=5.0.0; extra == "dev"
 Requires-Dist: mypy>=1.0.0; extra == "dev"
@@ -40,6 +47,7 @@ Requires-Dist: unasync>=0.6.0; extra == "dev"
 Requires-Dist: python-dotenv>=1.1.1; extra == "dev"
 Requires-Dist: typer>=0.9.0; extra == "dev"
 Requires-Dist: rich>=10.0.0; extra == "dev"
+Requires-Dist: textual>=0.50.0; extra == "dev"
 Provides-Extra: playwright
 Requires-Dist: playwright>=1.40.0; extra == "playwright"
 Provides-Extra: eval
@@ -78,15 +86,28 @@ To install a specific alpha version:
 pip install fleet-python==0.2.64-alpha1
 ```
 
-## API Key Setup
+## Authentication
 
-Fleet requires an API key for authentication. You can obtain one from the [Fleet Platform](https://fleetai.com/dashboard/api-keys).
+Fleet supports browser login for local CLI use and API keys for scripts,
+services, and CI.
 
-Set your API key as an environment variable:
+For local CLI use:
+
+```bash
+flt login
+```
+
+The CLI stores browser-login credentials in `~/.fleet/credentials.json` and
+sends JWT auth headers scoped to the selected team.
+
+For API-key auth, obtain a key from the
+[Fleet Platform](https://fleetai.com/dashboard/api-keys) and set:
 
 ```bash
 export FLEET_API_KEY="sk_your_key_here"
 ```
+
+When both are present, `FLEET_API_KEY` takes precedence.
 
 ## Basic Usage
 

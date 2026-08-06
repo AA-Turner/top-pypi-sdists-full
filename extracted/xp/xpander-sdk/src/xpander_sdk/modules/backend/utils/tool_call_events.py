@@ -51,7 +51,7 @@ TOOL_CALL_REASONING_DESCRIPTION = "toolcallreasoningdescription"
 TOOL_CALL_PLAN_TASK_ID = "toolcallplantaskid"
 
 # Deep-planning tool ids. These manage plan lifecycle (create/get/update/
-# complete/ask/start) and are considered internal orchestration — they
+# complete/start) and are considered internal orchestration — they
 # should NOT produce tool-call activity entries.
 PLANNING_TOOLS = frozenset(
     [
@@ -61,7 +61,6 @@ PLANNING_TOOLS = frozenset(
         "xpupdate_agent_plan_item",
         "xpdelete_agent_plan_item",
         "xpcomplete_agent_plan_items",
-        "xpask_for_information",
         "xpstart_execution_plan",
     ]
 )
@@ -737,3 +736,24 @@ async def report_tool_call_result(
             )
     except Exception as exc:
         logger.warning(f"[tool-call-events] failed to build ToolCallResult: {exc}")
+
+
+async def report_steer_applied(task: "Task", messages: list) -> None:
+    """Report that a steer reached this task's model. Fire-and-forget.
+
+    Emitted from the point of consumption, not from wherever the message was
+    routed: the UI must never be told a steer landed on a task that never read it.
+    """
+    for message in messages or []:
+        payload = message.model_dump() if hasattr(message, "model_dump") else dict(message or {})
+        await _push_event(
+            task,
+            TaskUpdateEventType.GatewaySteerApplied,
+            {
+                "conversation_id": getattr(task, "parent_execution", None) or getattr(task, "id", ""),
+                "message_id": str(payload.get("id") or ""),
+                "at": "child",
+                "execution_id": getattr(task, "id", ""),
+                "message": payload,
+            },
+        )

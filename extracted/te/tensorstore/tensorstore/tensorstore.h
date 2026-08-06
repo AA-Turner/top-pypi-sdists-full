@@ -20,6 +20,8 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/base/macros.h"
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/chunk_layout.h"
@@ -178,6 +180,7 @@ class TensorStore {
   ///
   /// \pre `valid()`
   DataType dtype() const {
+    ABSL_HARDENING_ASSERT(valid());
     return StaticDataTypeCast<ElementType, unchecked>(handle_.driver->dtype());
   }
 
@@ -185,11 +188,13 @@ class TensorStore {
   ///
   /// \pre `valid()`
   RankType rank() const {
+    ABSL_HARDENING_ASSERT(valid());
     return StaticRankCast<Rank, unchecked>(handle_.transform.input_rank());
   }
 
   /// Returns the domain.
   IndexDomainView<Rank> domain() const {
+    ABSL_HARDENING_ASSERT(valid());
     return IndexDomainView<Rank>(unchecked, handle_.transform.domain());
   }
 
@@ -224,7 +229,7 @@ class TensorStore {
   ///   re-open the TensorStore using the identical context resources.
   ///
   /// \param option Any option compatible with `SpecRequestOptions`.
-  /// \pre `valid()`
+  /// \error `absl::StatusCode::kInvalidArgument` if `!valid()`.
   Result<Spec> spec(SpecRequestOptions&& options) const {
     return internal::GetSpec(handle_, std::move(options));
   }
@@ -239,6 +244,8 @@ class TensorStore {
   }
 
   /// Returns the URL representation of the spec, if supported.
+  ///
+  /// \error `absl::StatusCode::kInvalidArgument` if `!valid()`.
   Result<std::string> ToUrl() const { return internal::GetUrl(handle_); }
 
   /// Returns the storage layout of this TensorStore, which can be used to
@@ -247,14 +254,14 @@ class TensorStore {
   /// If the layout of the TensorStore cannot be described by a hierarchical
   /// regular grid, the returned chunk layout may be incomplete.
   ///
-  /// \pre `valid()`
+  /// \error `absl::StatusCode::kInvalidArgument` if `!valid()`.
   Result<ChunkLayout> chunk_layout() const {
     return internal::GetChunkLayout(handle_);
   }
 
   /// Returns the codec spec.
   ///
-  /// \pre `valid()`
+  /// \error `absl::StatusCode::kInvalidArgument` if `!valid()`.
   Result<CodecSpec> codec() const { return internal::GetCodec(handle_); }
 
   /// Returns the fill value.
@@ -266,6 +273,8 @@ class TensorStore {
   /// Otherwise, the returned array has a non-null data pointer, a shape
   /// broadcastable to `this->domain()` and a data type equal to
   /// `this->dtype()`.
+  ///
+  /// \error `absl::StatusCode::kInvalidArgument` if `!valid()`.
   Result<SharedArray<const Element>> fill_value() const {
     return internal::GetFillValue<Element>(handle_);
   }
@@ -286,6 +295,8 @@ class TensorStore {
   ///     EXPECT_THAT(store.dimension_units(),
   ///                 ::testing::Optional(::testing::ElementsAre(
   ///                     tensorstore::Unit(4, "nm"))));
+  ///
+  /// \error `absl::StatusCode::kInvalidArgument` if `!valid()`.
   Result<DimensionUnitsVector> dimension_units() const {
     return internal::GetDimensionUnits(handle_);
   }
@@ -308,6 +319,8 @@ class TensorStore {
   ///
   /// Note that the schema reflects any index transforms that have been applied
   /// to the base driver.
+  ///
+  /// \error `absl::StatusCode::kInvalidArgument` if `!valid()`.
   Result<Schema> schema() const { return internal::GetSchema(handle_); }
 
   /// "Pipeline" operator.
@@ -499,6 +512,9 @@ ResolveBounds(StoreResult store, ResolveBoundsOptions options) {
   return MapResult(
       [&](auto&& store) -> Future<Store> {
         auto& handle = internal::TensorStoreAccess::handle(store);
+        if (!handle.driver) {
+          return absl::InvalidArgumentError("TensorStore is not valid");
+        }
         auto driver = handle.driver.get();
         TENSORSTORE_ASSIGN_OR_RETURN(
             auto open_transaction,

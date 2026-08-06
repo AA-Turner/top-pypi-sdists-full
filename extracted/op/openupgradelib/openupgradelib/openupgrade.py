@@ -3192,10 +3192,17 @@ def disable_invalid_filters(env, verbose=True):
             with savepoint(env.cr):
                 # Strange artifact found in a filter
                 domain = f.domain.replace("%%", "%")
-                model.search(
-                    safe_eval(domain, globaldict),
-                    limit=1,
-                )
+                if version_info[0] < 16:
+                    model.search(
+                        safe_eval(domain, globaldict),
+                        limit=1,
+                        count=True,
+                    )
+                else:
+                    model.search_count(
+                        safe_eval(domain, globaldict),
+                        limit=1,
+                    )
         except Exception as e:
             logger.warning(
                 format_message(f) + "as it contains an invalid domain %s. Detail: %s",
@@ -3216,7 +3223,13 @@ def disable_invalid_filters(env, verbose=True):
             )
             f.active = False
             continue
-        keys = ["group_by", "col_group_by"]
+        keys = [
+            "group_by",
+            "col_group_by",
+            "pivot_measures",
+            "pivot_row_groupby",
+            "pivot_column_groupby",
+        ]
         for key in keys:
             if not context.get(key):
                 continue

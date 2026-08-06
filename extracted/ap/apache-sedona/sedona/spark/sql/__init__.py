@@ -30,7 +30,13 @@ from sedona.spark.sql.st_aggregates import *
 from sedona.spark.sql.st_constructors import *
 from sedona.spark.sql.st_functions import *
 from sedona.spark.sql.st_predicates import *
-from sedona.spark.sql.types import GeometryType, GeographyType, RasterType
+from sedona.spark.sql.types import (
+    Box2DType,
+    Box3DType,
+    GeometryType,
+    GeographyType,
+    RasterType,
+)
 
 __all__ = (
     [

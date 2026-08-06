@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import contextlib
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Callable, TypedDict
+from typing import Any, TypedDict
 
 from tortoise import BaseDBAsyncClient
 
@@ -110,7 +111,7 @@ class Inspect:
     ) -> None:
         self.conn = conn
         with contextlib.suppress(AttributeError):
-            self.database = conn.database  # type:ignore[attr-defined]
+            self.database = conn.database  # type:ignore
         self.tables = tables
         self._special_fields = special_fields
 

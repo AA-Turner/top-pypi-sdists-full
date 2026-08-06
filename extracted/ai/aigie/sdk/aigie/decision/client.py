@@ -166,9 +166,12 @@ class DecisionClient:
         """Advertise the executor's supported verbs and return the accepted count."""
         if self._step_executor is None:
             return None
+        from aigie import __version__ as _sdk_version
+
         request = pb.RegisterCapabilitiesRequest(
             schema_version=schema_version,
             verbs=[_verb_spec_proto(s) for s in self._step_executor.capabilities()],
+            sdk_version=_sdk_version,
         )
         response = await self._register_with_retry(
             "RegisterCapabilities",

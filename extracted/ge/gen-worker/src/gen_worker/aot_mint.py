@@ -21,14 +21,29 @@ module riding the compile-cache rails, and the dynamo mint stays live and
 fully-forced in parallel during rollout (#722: nothing retires before sdxl AOT
 is live in prod).
 
-Why the w8a8 lane first
------------------------
-pgw#704 measured w8a8 at 276.2 vs 274.6 ms — latency PARITY with dynamo, and
-numerics identical. The plain and fp8-storage lanes both carry an unexplained
-systematic ~7% AOTI regression (#730 owns it), so they mint only behind
-``allow_regressed_lanes``. That is not a preference: shipping a lane we
-measured 7% slower, while calling the migration a win, would be a regression
-sold as progress.
+The mint does not judge the lane (pgw#879, pgw#850)
+---------------------------------------------------
+Paul's ruling: *"here is the code, here is the lane, please compile this for
+all graphs we have declared. That's it."* The lane is an INPUT — chosen once,
+by the hub's resolution tree, and observed on the composed pipeline by
+``loading.pipeline_weight_lane``. This module compiles what it is handed.
+
+The refusal that used to live here (``lane_admitted`` / ``PARITY_LANES``, a
+one-member allowlist holding ``w8a8``) is deleted because it was a SECOND
+opinion about an already-resolved fact, and the two opinions composed into a
+total block: tensorhub's lane table makes ``fp8-w8a8-dynamic``
+compiled-only, so the hub withholds that lane from AUTO until a cell exists
+(th#1123/th#1127), and only a pod already serving the lane can mint one. The
+one lane the mint admitted was the one lane no pod could ever be on, and every
+lane a pod COULD be on (``bf16-w16a16``, ``fp8-w8a16``, ``svdq-*-w4a4``) was
+refused — quoting a 6.9-7.0% AOTI regression pgw#704 Q4 measured on sdxl's
+lanes at families and lanes it never measured. Measured result: zero fleet
+families reached the mint gate on AUTO, on any card (pgw#850).
+
+The pgw#704 Q4 / #730 measurement is not discarded — it is a RANKING input to
+the lane/execution choice (``+compiled`` vs ``+eager``), which lives in the
+hub. A lane held on dynamo is simply never asked for a cell; if one IS asked
+for, the mint compiles it.
 
 Where minting runs (#724 REJECTED — Paul, 2026-07-28)
 -----------------------------------------------------
@@ -85,7 +100,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 from . import activity as activity_mod
 from . import (
     aot_compile_pool, aot_export_parallel, aot_export_reuse, aot_package,
-    aot_serve, aot_wrapper_split, cell_key, graph_hash)
+    aot_serve, aot_wrapper_split, cell_key, graph_hash, kernel_path)
 from .aot_contract import (  # re-exported: the declaration layer's vocabulary
     ADAPTER_FORK,
     DynamicDim,
@@ -94,30 +109,21 @@ from .aot_contract import (  # re-exported: the declaration layer's vocabulary
 )
 from .compile_cache import (
     _resolve_target,
-    lane_bucket,
-    lane_token,
     toolchain_present,
 )
+from dataclasses import replace
+import inspect
+from .models.memory import is_cuda_oom
+from . import aot_inputs
+from . import aot_declaration as _decl
+from .api.export_contract import export_declaration
+from .models import lora_lifted
+from . import compile_cache as cc
+from . import env_seal
+from . import config, worker_credential
+from .fleet_cells import CellPublisher
 
 logger = logging.getLogger(__name__)
-
-#: Lane TOKENS measured at latency parity under AOTI (pgw#704 Q4). Everything
-#: else needs ``allow_regressed_lanes`` — see the module docstring.
-#:
-#: pgw#918: ``"w8a8-rowwise"`` was deleted. No loader ever stamped it and
-#: neither ``lane_token`` nor ``lane_bucket`` can synthesize it, so half of a
-#: two-member allowlist was a string ``lane_admitted`` could never be handed —
-#: which is why nobody noticed the sibling constant
-#: (``executor._SPECULATIVE_CELL_BASE_LANES``) was missing two lanes that CAN
-#: be stamped. Membership is proven against
-#: ``loading.STAMPABLE_BASE_LANES`` by
-#: ``tests/test_speculative_lane_completeness_pgw918.py``.
-#:
-#: The companion ``REGRESSED_LANES`` tuple was deleted with it: it had no
-#: reader anywhere in ``src/`` (``lane_admitted`` decides by absence from this
-#: tuple, never by presence in that one) and it too named an unstampable lane
-#: (``"fp8-storage"`` — loaders stamp ``"fp8-hooks"``).
-PARITY_LANES: Tuple[str, ...] = ("w8a8",)
 
 #: The inductor config that makes the package code-only. Not a knob: B1.
 CODE_ONLY_CONFIGS: Dict[str, Any] = {
@@ -168,7 +174,6 @@ def raise_if_device_oom(exc: BaseException, where: str) -> None:
     every one of these sites was converting it to the verdict that guarantees
     it never will be.
     """
-    from .models.memory import is_cuda_oom
 
     if not is_cuda_oom(exc):
         return
@@ -226,22 +231,6 @@ def lifted_torch_gap(spec: ExportSpec) -> str:
             f"2.13 prod floor is a mint PRECONDITION for this lane, not a "
             f"preference")
     return ""
-
-
-def lane_admitted(spec: ExportSpec, *, allow_regressed_lanes: bool) -> str:
-    """'' when this lane may be minted, else the named refusal reason."""
-    base, _bucket = lane_bucket(spec.weight_lane)
-    token = lane_token(base)
-    if token in PARITY_LANES:
-        return ""
-    if allow_regressed_lanes:
-        return ""
-    return (
-        f"lane {token or '(plain)'!r} measured 6.9-7.0% SLOWER under AOTI than "
-        f"dynamo (pgw#704 Q4) and is HELD on dynamo by #730 until explained; "
-        f"mint the w8a8 lane first, or pass allow_regressed_lanes to override "
-        f"deliberately"
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -909,7 +898,6 @@ def declared_fork(fork: Sequence[Tuple[str, Any]]) -> Dict[str, Any]:
 def with_adapter_arm(plan: Any, arm: bool) -> Any:
     """One mint plan pinned to an adapter arm (a fork coordinate, so it names
     the entry and lands in the class hash like every other fork)."""
-    from dataclasses import replace
 
     return replace(
         plan,
@@ -921,9 +909,6 @@ def with_adapter_arm(plan: Any, arm: bool) -> Any:
 def _entry_spec(spec: ExportSpec, plan: Any, decl: Any) -> ExportSpec:
     """The per-entry :class:`ExportSpec` one mint plan derives from the
     cell-level request."""
-    from dataclasses import replace
-
-    from . import aot_declaration as _decl  # deferred: aot_declaration imports us
 
     specialization = dict(spec.specialization)
     specialization.setdefault(
@@ -1000,8 +985,6 @@ def _export_entry(
     entry with no files: pgw#809's pool then compiles every entry K-wide out
     of process. Export must stay here and stay SERIAL — it runs against the
     one live pipeline, on the one card, inside the one branch-arm toggle."""
-    from . import aot_declaration as _decl  # deferred: aot_declaration imports us
-    from . import aot_inputs
 
     espec = _entry_spec(spec, plan, decl)
     entry = _decl.plan_entry_name(plan)
@@ -1029,9 +1012,6 @@ def _export_entry(
     # and a branch-capable target whose lifting was not installed still fails
     # the lifted-input gate by name, never silently mints bucket-0.
     if espec.lora_bucket or espec.lifted_inputs or espec.lora_fqns:
-        from dataclasses import replace
-
-        from .models import lora_lifted
 
         branch_owners = {
             id(m) for m in lora_lifted.branch_targets(pipeline).values()}
@@ -1126,7 +1106,6 @@ def _export_entry(
     # package-side scan a false PASS. Free here, unsound there.
     if espec.lora_bucket or espec.lifted_inputs or espec.lora_fqns:
         from .api.errors import ValidationError
-        from .models import lora_lifted
 
         try:
             lora_lifted.assert_no_baked_adapter(
@@ -1164,12 +1143,53 @@ def _export_entry(
         timings=timings)
 
 
-def replace_spec(spec: ExportSpec, **changes: Any) -> ExportSpec:
-    """``dataclasses.replace`` on an :class:`ExportSpec`, named so the
-    deferred-import dance does not have to repeat at every call site."""
-    from dataclasses import replace
+def bench_step(pipeline: Any, spec: ExportSpec) -> Callable[[], Any]:
+    """A zero-argument callable running ONE forward of this family's DOMINANT
+    declared graph class, in the PRODUCTION (compiled) posture (pgw#947).
 
-    return replace(spec, **changes)
+    The dominant class is the declaration's FIRST target — the denoiser,
+    which runs once per step while the VAE runs once per image — so "ms/step"
+    means what the pgw#862/#863 benchmark tables mean by it. A cell-level spec
+    that names a target (the operator CLI path) overrides that. Its inputs are
+    the family's OWN declared example feed (``aot_inputs.builder_for``), i.e.
+    the same representative shape the mint is about to export against, not a
+    shape invented here.
+
+    COMPILED, deliberately: pgw#863's whole finding is that the eager ranking
+    and the compiled ranking disagree — inductor fuses the baseline lane's
+    open elementwise chain and cannot fuse across our custom ops — and the
+    compiled posture is the only one production serves from.
+    """
+    import torch
+
+    decl = export_declaration(spec.family)
+    if decl is None:
+        raise MintRefused(
+            f"family {spec.family!r} has no export declaration — nothing to "
+            f"benchmark a kernel lane against")
+    plans = list(_decl.cell_plans(decl))
+    if not plans:
+        raise MintRefused(f"family {spec.family!r} declares no graph classes")
+    want = str(spec.target or "") or str(decl.targets[0])
+    dominant = next(
+        (p for p in plans if str(p.target) == want), plans[0])
+    espec = _entry_spec(spec, dominant, decl)
+    resolved = _resolve_target(pipeline, espec.target)
+    if resolved is None:
+        raise MintRefused(
+            f"pipeline {type(pipeline).__name__} has no compile target "
+            f"{espec.target!r} to benchmark")
+    owner, attr, _fn = resolved
+    module = owner if attr == "forward" else _CallableTarget(owner, attr)
+    builder = aot_inputs.builder_for(espec.family, espec.target)
+    args, kwargs = builder(owner, espec)
+    compiled = torch.compile(module)
+
+    def step() -> Any:
+        with torch.no_grad():
+            return compiled(*args, **kwargs)
+
+    return step
 
 
 def adapter_arm_plans(
@@ -1189,7 +1209,6 @@ def adapter_arm_plans(
     """
     if not int(spec.lora_bucket or 0):
         return [(plan, None) for plan in plans]
-    from .models import lora_lifted
 
     branch_owners = {
         id(m) for m in lora_lifted.branch_targets(pipeline).values()}
@@ -1237,8 +1256,6 @@ def declaration_module_gaps(
     Never raises — an unreadable declaration is itself a gap, and the caller
     is deciding whether to mint, not whether to serve.
     """
-    from . import aot_declaration as _decl  # deferred: aot_declaration imports us
-    from .models import lora_lifted
 
     gaps: List[str] = []
     try:
@@ -1324,10 +1341,10 @@ def _disarm_branches(pipeline: Any) -> None:
     the zeroed branch containers on every leaf, and the trace would still emit
     the branch — the exact arithmetic-over-zeros this fork exists to delete.
     """
-    from .models import lora_lifted, w8a8_lora
+    from .models import w8a8_lora
 
-    lora_lifted.remove_lifted_lora_lanes(pipeline)
-    w8a8_lora.disable_branch_lanes(pipeline)
+    lora_lifted.remove_lifted_lora_execution_lanes(pipeline)
+    w8a8_lora.disable_branch_execution_lanes(pipeline)
     logger.info(
         "aot-mint: branch containers dropped — exporting the adapter=false "
         "graph class(es)")
@@ -1354,9 +1371,8 @@ def _arm_branches(pipeline: Any, bucket: int) -> None:
     to serve or re-mint, and a pipeline left branchless would silently be a
     different graph family.
     """
-    from .models import lora_lifted
 
-    lora_lifted.arm_lifted_lora_lanes(pipeline, int(bucket or 0))
+    lora_lifted.arm_lifted_lora_execution_lanes(pipeline, int(bucket or 0))
 
 
 # pgw#824: the phase tokens the in-mint progress callback reports under.
@@ -1427,13 +1443,13 @@ def mint(
     spec: ExportSpec,
     out_dir: Path,
     *,
-    allow_regressed_lanes: bool = False,
     inductor_configs: Optional[Mapping[str, Any]] = None,
     entry_workers: int = 0,
     entry_peak_rss_bytes: int = 0,
     entry_device_peak_bytes: int = 0,
     on_progress: Optional[Callable[[str, int, int, str], None]] = None,
     phase_snapshot: Optional[Path] = None,
+    execution_lane_verdict: Optional[kernel_path.Verdict] = None,
 ) -> MintResult:
     """:func:`_mint_cell`, with the phase table attached to EVERY terminus.
 
@@ -1483,11 +1499,11 @@ def mint(
     try:
         return _mint_cell(
             pipeline, spec, out_dir,
-            allow_regressed_lanes=allow_regressed_lanes,
             inductor_configs=inductor_configs,
             entry_workers=entry_workers,
             entry_peak_rss_bytes=entry_peak_rss_bytes,
             entry_device_peak_bytes=entry_device_peak_bytes,
+            execution_lane_verdict=execution_lane_verdict,
             progress=progress)
     except BaseException as exc:
         _attach_partial_phases(exc, progress)
@@ -1671,15 +1687,22 @@ def _mint_cell(
     spec: ExportSpec,
     out_dir: Path,
     *,
-    allow_regressed_lanes: bool = False,
     inductor_configs: Optional[Mapping[str, Any]] = None,
     entry_workers: int = 0,
     entry_peak_rss_bytes: int = 0,
     entry_device_peak_bytes: int = 0,
+    execution_lane_verdict: Optional[kernel_path.Verdict] = None,
     progress: Optional[MintProgress] = None,
 ) -> MintResult:
     """Export + compile EVERY declared graph class and pack them as ONE
     multi-graph cell (pgw#758).
+
+    ``lane_verdict`` (pgw#947) is the MEASURED serving-kernel lane for this
+    card, produced by the mint driver before the pipeline was loaded — only
+    the loader can swap the linears, so the A/B happens one level up
+    (``mint_child.lane_verdict_for``). The discrete verdict is packed into
+    the envelope so serving reads it instead of an SM tuple; the numbers ride
+    the result metadata beside ``mint_phases``, never the artifact.
 
     ``entry_workers`` CAPS pgw#809's compile pool; it never widens it. The
     width is derived from the pod (see :func:`aot_compile_pool.entry_workers`),
@@ -1702,11 +1725,7 @@ def _mint_cell(
     inspected, byte-compared (#699 double-mint), or produced on a box with no
     hub credentials.
     """
-    from .api.export_contract import export_declaration
 
-    refusal = lane_admitted(spec, allow_regressed_lanes=allow_regressed_lanes)
-    if refusal:
-        raise MintRefused(refusal)
     refusal = lifted_torch_gap(spec)
     if refusal:
         raise MintRefused(refusal)
@@ -1733,8 +1752,6 @@ def _mint_cell(
     timings = progress.timings
     t_mint = time.monotonic()
     progress.t_mint = t_mint
-
-    from . import aot_declaration as _decl  # deferred: aot_declaration imports us
 
     # pgw#846 (Paul's ruling): the exported cell is always WHOLE-GRAPH.
     # Regional (block-class) export is retired for production — a
@@ -1959,6 +1976,12 @@ def _mint_cell(
         raise MintRefused(
             f"envelope refused the declared contract: {exc}") from exc
     meta.update(shared_identity_blocks(spec))
+    if execution_lane_verdict is not None:
+        # pgw#947: the DISCRETE verdict only. Milliseconds in metadata.json
+        # would break the #699 double-mint byte-compare — the artifact
+        # deliberately carries no wall clocks — and the margin threshold is
+        # what makes the discrete answer reproducible across two mints.
+        meta[kernel_path.META_KEY] = kernel_path.envelope_block(execution_lane_verdict)
     mode_drift = aot_package.strict_mode_drift(meta, spec.strict)
     if mode_drift:
         raise MintRefused("trace-mode drift: " + "; ".join(mode_drift))
@@ -1978,11 +2001,18 @@ def _mint_cell(
     # metadata.json would break the #699 double-mint byte-compare — the
     # artifact deliberately carries no timestamps and no wall clocks.
     meta["mint_phases"] = phase_table
+    if execution_lane_verdict is not None:
+        # The EVIDENCE: both lanes' ms/step and peak bytes, the margin, the
+        # headroom terms, and the device it was all measured on. Same channel
+        # as the phase table (published checkpoint metadata + the typed
+        # event), so a verdict is auditable long after the pod is gone.
+        meta[kernel_path.EVIDENCE_KEY] = kernel_path.evidence_block(
+            execution_lane_verdict)
 
     logger.info(
         "aot-mint: %s lane=%s -> %s (%d entr%s across %d target(s), %.1f MB "
         "package, combined=%s, %s)",
-        spec.family, spec.lane_label() or "(plain)", key,
+        spec.family, spec.execution_lane_label() or "(plain)", key,
         len(minted), "y" if len(minted) == 1 else "ies",
         len({row.spec.target for row in minted}),
         package.stat().st_size / 1e6, meta.get("combined_graph_hash"),
@@ -2025,7 +2055,7 @@ def _entry_device_bytes(
 
         budget = mint_budget.co_residency(
             family=str(spec.family or ""),
-            weight_lane=str(spec.lane_label() or ""))
+            weight_lane=str(spec.execution_lane_label() or ""))
     except Exception:  # noqa: BLE001
         return 0, "unmeasured"
     if not budget.probed:
@@ -2180,7 +2210,6 @@ def _entry_ingress_declaration(
         # The NEGATIVE half of a branchless class's contract, exactly as
         # `_gate_and_declare_entry` will pack it (pgw#790). Without it here the
         # gate would ask a question the serve path never asks.
-        from .models import lora_lifted
 
         meta["excluded_inputs"] = list(lora_lifted.LIFTED_INPUT_NAMES)
     contract = aot_serve.contract_from_meta(meta)
@@ -2464,7 +2493,6 @@ def _gate_and_declare_entry(
         # sees two admitting entries and refuses `entry_ambiguous` — and the
         # cell serves the whole attach lane eagerly. Declared, so the refusal
         # is the right one and it names the input.
-        from .models import lora_lifted
 
         block["excluded_inputs"] = list(lora_lifted.LIFTED_INPUT_NAMES)
     return block
@@ -2563,11 +2591,11 @@ def _emit_phase_event(spec: ExportSpec, table: Mapping[str, Any]) -> None:
     telemetry.
     """
     try:
-        family, lane = spec.family, spec.lane_label() or "plain"
+        family, execution_lane = spec.family, spec.execution_lane_label() or "plain"
     except Exception:  # pragma: no cover — telemetry never fails a mint
         logger.debug("aot-mint: phase event emission failed", exc_info=True)
         return
-    emit_phase_events(family=family, lane=lane, table=table)
+    emit_phase_events(family=family, execution_lane=execution_lane, table=table)
 
 
 #: pgw#842: the mint's WIDTH decision, as its own hub row.
@@ -2575,7 +2603,7 @@ POOL_PHASE = "pool"
 
 
 def _emit_pool_event(
-    *, family: str, lane: str, table: Mapping[str, Any],
+    *, family: str, execution_lane: str, table: Mapping[str, Any],
 ) -> None:
     """pgw#842: one event that says what K was, what chose it, and what it
     bought — the standing "no silent decisions" rule applied to the mint's
@@ -2594,14 +2622,13 @@ def _emit_pool_event(
     pool = dict(table.get("pool") or {})
     if not pool:
         return
-    from . import activity as activity_mod
 
     workers = int(pool.get("entry_workers") or 1)
     binding = str(pool.get("binding") or "unknown")
     under = int(pool.get("underwidth") or 0)
     wall_s = float(pool.get("pool_wall_s") or 0.0)
     head = (
-        f"family={family} lane={lane} entry_workers={workers} "
+        f"family={family} lane={execution_lane} entry_workers={workers} "
         f"binding={binding} underwidth={under}")
     if under > 0:
         # Named in the FIRST line, so a narrow pool is legible without
@@ -2617,7 +2644,7 @@ def _emit_pool_event(
 
 
 def emit_phase_events(
-    *, family: str, lane: str, table: Mapping[str, Any],
+    *, family: str, execution_lane: str, table: Mapping[str, Any],
     terminus: str = "",
 ) -> None:
     """Typed telemetry event — the phase table must reach observability,
@@ -2635,10 +2662,9 @@ def emit_phase_events(
     which entries the extra minutes are in, not just that there are more.
     """
     try:
-        from . import activity as activity_mod
 
         totals = dict(table.get("totals") or {})
-        lane = lane or "plain"
+        execution_lane = execution_lane or "plain"
         total_s = float(totals.get("total_s") or 0.0)
         # pgw#825: the roll-up's PHASE is the mint's terminus. An aborted mint
         # measured real entries and must report them — under `aborted`, never
@@ -2648,7 +2674,7 @@ def emit_phase_events(
             or activity_mod.PHASE_MINTED
         activity_mod.emit_event(
             MINT_PHASES_KIND,
-            f"family={family} lane={lane} status={roll_up} "
+            f"family={family} lane={execution_lane} status={roll_up} "
             f"n_entries={table.get('n_entries')} totals={totals} "
             f"phases={dict(table.get('phases') or {})} "
             f"overlays={dict(table.get('overlays') or {})} "
@@ -2656,7 +2682,7 @@ def emit_phase_events(
             phase=roll_up,
             duration_ms=int(round(total_s * 1000)),
         )
-        _emit_pool_event(family=family, lane=lane, table=table)
+        _emit_pool_event(family=family, execution_lane=execution_lane, table=table)
         for name, timings in sorted((table.get("entries") or {}).items()):
             if not isinstance(timings, Mapping):
                 continue
@@ -2665,7 +2691,7 @@ def emit_phase_events(
                 continue
             activity_mod.emit_event(
                 MINT_PHASES_KIND,
-                f"family={family} lane={lane} entry={name} "
+                f"family={family} lane={execution_lane} entry={name} "
                 f"timings={dict(timings)}",
                 phase=f"entry:{name}",
                 duration_ms=int(round(entry_s * 1000)),
@@ -2725,8 +2751,6 @@ def shared_identity_blocks(spec: ExportSpec) -> Dict[str, Any]:
     and are unaffected). Per-entry graph facts live in the ``entries`` blocks
     (:func:`entry_graph_block`) and reach the key through the combined hash.
     """
-    from . import compile_cache as cc
-    from . import env_seal
 
     return {
         "weight_lane": str(spec.weight_lane or ""),
@@ -2806,7 +2830,6 @@ def cell_identity(meta: Mapping[str, Any], spec: ExportSpec) -> cell_key.CellKey
     and the ``mode`` axis ``""`` — the whole-graph key is byte-identical to
     what it was before and after pgw#817, so nothing re-keys.
     """
-    from . import env_seal
 
     sm = str(meta.get("sm") or "")
     if not sm:
@@ -2846,7 +2869,7 @@ def cell_identity(meta: Mapping[str, Any], spec: ExportSpec) -> cell_key.CellKey
         "format": str(meta.get("format") or ""),
         "kind": aot_serve.ARTIFACT_KIND,
         "family": str(meta.get("family") or ""),
-        "lane": spec.lane_label(),
+        "lane": spec.execution_lane_label(),
         # pgw#846: an exported cell is always whole-graph again; "" is the
         # optional-axis value `from_axes` omits, matching every pre-regional
         # whole-graph key.
@@ -2921,7 +2944,6 @@ def _input_names(
     form can key on the same names whether a caller passed a tensor
     positionally or by keyword.
     """
-    import inspect
 
     forward = getattr(module, "forward", module)
     try:
@@ -3047,7 +3069,6 @@ class _CallableTarget:
     """
 
     def __init__(self, owner: Any, attr: str) -> None:
-        import inspect
 
         import torch.nn as nn
 
@@ -3187,9 +3208,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--model", type=str, default="",
                         help="model path/ref to compose (default: the "
                              "request's source_ref)")
-    parser.add_argument("--allow-regressed-lanes", action="store_true",
-                        help="mint a lane #730 holds on dynamo (plain / "
-                             "fp8) — deliberate override")
     parser.add_argument("--publish", action="store_true",
                         help="publish through the fleet CellPublisher")
     parser.add_argument("--require-toolchain", action="store_true",
@@ -3227,10 +3245,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 3
     try:
         pipeline, _build_inputs = compose_for_mint(model, spec, body)
-        result = mint(
-            pipeline, spec, Path(args.out),
-            allow_regressed_lanes=args.allow_regressed_lanes,
-        )
+        result = mint(pipeline, spec, Path(args.out))
     except MintRefused as exc:
         print(f"REFUSED: {exc}", file=sys.stderr)
         return 2
@@ -3261,7 +3276,6 @@ def compose_for_mint(
     is called (SDXL's ``added_cond_kwargs``, z-image's ragged lists, #729), and
     that knowledge must live with the family, not in the mint driver.
     """
-    from . import aot_inputs
 
     return aot_inputs.compose(model, spec, request)
 
@@ -3276,26 +3290,32 @@ def _publisher_from_settings() -> Any:
     from settings. Refuses by name when either is absent rather than attempting
     an unauthenticated publish.
     """
-    from . import config, worker_credential
-    from .fleet_cells import CellPublisher
 
     settings = config.current()
     base_url = str(
         settings.tensorhub_public_url or settings.tensorhub_url or "").strip()
-    # pgw#876 §2: this read `getattr(settings, "worker_jwt", "")`, a field
-    # pgw#848 RENAMED — the getattr default swallowed the AttributeError the
-    # rename exists to raise, so WORKER_JWT was silently invisible here and
-    # `--publish` refused on every pod that had one and no TENSORHUB_TOKEN.
-    token = str(worker_credential.current()
-                or getattr(settings, "tensorhub_token", "") or "").strip()
-    if not base_url or not token:
+    # th#1423: `worker_credential.current()` only answers once someone HANDS it
+    # the boot token, and only `entrypoint` / the procsplit parent do — never
+    # this CLI. So pgw#876 §2's stated effect (WORKER_JWT visible here) was not
+    # actually reached in this process; the fallback was doing all the work.
+    worker_credential.install_bootstrap(settings)
+
+    def credential() -> str:
+        # th#1423: this was `lambda: token`, a token CAPTURED at construction.
+        # A mint runs for tens of minutes and the credential's TTL does not
+        # pause for it — the publisher must read the freshest one at USE time,
+        # which is the whole reason `CellPublisher` takes a provider.
+        return str(worker_credential.current()
+                   or getattr(settings, "tensorhub_token", "") or "").strip()
+
+    if not base_url or not credential():
         raise MintRefused(
             "cannot publish: TENSORHUB_PUBLIC_URL/TENSORHUB_URL and "
             "WORKER_JWT/TENSORHUB_TOKEN must both be set on a mint pod (the "
             "artifact was produced and is on disk)")
     publisher = CellPublisher(
         base_url=base_url,
-        worker_jwt=lambda: token,
+        worker_jwt=credential,
         image_digest=str(getattr(settings, "worker_image_digest", "") or ""),
     )
     if not publisher.enabled():
@@ -3319,8 +3339,8 @@ __all__ = [
     "write_phase_snapshot",
     "MINT_COMPILE_THREADS",
     "MintResult",
-    "PARITY_LANES",
     "autotune_posture",
+    "bench_step",
     "cell_identity",
     "compile_entry_files",
     "compose_for_mint",
@@ -3332,7 +3352,6 @@ __all__ = [
     "export_program",
     "shared_identity_blocks",
     "LIFTED_LORA_TORCH_FLOOR",
-    "lane_admitted",
     "lifted_input_gaps",
     "lifted_torch_gap",
     "main",

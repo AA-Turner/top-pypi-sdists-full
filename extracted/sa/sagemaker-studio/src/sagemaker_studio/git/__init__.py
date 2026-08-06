@@ -28,6 +28,11 @@ class GitService:
         self.project_identifier = project_identifier
         git_client = self._resolve_client()
         repository_id = self._get_repository_id()
+        if not repository_id:
+            raise ValueError(
+                "No git repository provisioned for this project. "
+                "Custom tooling blueprints may not include git resources."
+            )
         try:
             clone_url = git_client.get_clone_url(repository_id)
             return clone_url

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pywizlight
-Version: 0.6.5
+Version: 0.6.6
 Summary: A python connector for WiZ light bulbs (e.g SLV Play)
 Home-page: https://github.com/sbidy/pywizlight
 Author: Stephan Traub

@@ -29,11 +29,13 @@
 
 use rustc_hash::FxHashSet;
 
-use rowan::{Direction, NodeOrToken, TextRange};
+use rowan::{NodeOrToken, SyntaxText, TextRange};
 use salsa::Database as Db;
+use squawk_line_index::find_newline;
 use squawk_syntax::SyntaxKind;
 use squawk_syntax::ast::{self, AstNode, AstToken};
 
+use crate::comments::line_comment_group;
 use crate::db::{File, parse};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,6 +49,7 @@ pub enum FoldKind {
     Statement,
     Subquery,
     Tuple,
+    WhereClause,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -78,7 +81,7 @@ pub fn folding_ranges(db: &dyn Db, file: File) -> Vec<Fold> {
             }
             NodeOrToken::Node(node) => {
                 if let Some(kind) = fold_kind(node.kind()) {
-                    if !node.text().contains_char('\n') {
+                    if !contains_newline(&node.text()) {
                         continue;
                     }
                     // skip any leading whitespace / comments
@@ -105,6 +108,17 @@ pub fn folding_ranges(db: &dyn Db, file: File) -> Vec<Fold> {
     folds
 }
 
+fn contains_newline(text: &SyntaxText) -> bool {
+    text.try_for_each_chunk(|chunk| {
+        if find_newline(chunk).is_some() {
+            Err(())
+        } else {
+            Ok(())
+        }
+    })
+    .is_err()
+}
+
 fn fold_kind(kind: SyntaxKind) -> Option<FoldKind> {
     if ast::Stmt::can_cast(kind) {
         return Some(FoldKind::Statement);
@@ -119,7 +133,9 @@ fn fold_kind(kind: SyntaxKind) -> Option<FoldKind> {
         SyntaxKind::JOIN => Some(FoldKind::Join),
         SyntaxKind::PAREN_SELECT => Some(FoldKind::Subquery),
         SyntaxKind::TUPLE_EXPR => Some(FoldKind::Tuple),
+        SyntaxKind::WHERE_CLAUSE => Some(FoldKind::WhereClause),
         SyntaxKind::WHEN_CLAUSE_LIST
+        | SyntaxKind::ALIAS_COLUMN_LIST
         | SyntaxKind::ALTER_OPTION_LIST
         | SyntaxKind::ALTER_TYPE_ATTRIBUTE_ACTION_LIST
         | SyntaxKind::ATTRIBUTE_LIST
@@ -127,13 +143,17 @@ fn fold_kind(kind: SyntaxKind) -> Option<FoldKind> {
         | SyntaxKind::CHECKPOINT_OPTION_LIST
         | SyntaxKind::COLUMN_LIST
         | SyntaxKind::COLUMN_REF_LIST
+        | SyntaxKind::COLUMN_TARGET_LIST
+        | SyntaxKind::COMPOSITE_FIELD_LIST
         | SyntaxKind::CONFLICT_INDEX_ITEM_LIST
+        | SyntaxKind::CONSTRAINT_COLUMN_REF_LIST
         | SyntaxKind::CONSTRAINT_EXCLUSION_LIST
         | SyntaxKind::COPY_OPTION_LIST
         | SyntaxKind::DATABASE_OPTION_LIST
         | SyntaxKind::EXPLAIN_OPTION_LIST
         | SyntaxKind::DROP_OP_CLASS_OPTION_LIST
         | SyntaxKind::FDW_OPTION_LIST
+        | SyntaxKind::FOREIGN_KEY_COLUMN_LIST
         | SyntaxKind::FUNCTION_SIG_LIST
         | SyntaxKind::PROCEDURE_SIG_LIST
         | SyntaxKind::ROUTINE_SIG_LIST
@@ -182,50 +202,28 @@ fn fold_kind(kind: SyntaxKind) -> Option<FoldKind> {
 }
 
 fn contiguous_range_for_comment(
-    first: ast::Comment,
+    comment: ast::Comment,
     visited: &mut FxHashSet<ast::Comment>,
 ) -> Option<TextRange> {
-    visited.insert(first.clone());
+    visited.insert(comment.clone());
 
     // Only fold comments of the same flavor
-    let group_kind = first.kind();
-    if !group_kind.is_line() {
+    if !comment.kind().is_line() {
         return None;
     }
 
-    let mut last = first.clone();
-    for element in first.syntax().siblings_with_tokens(Direction::Next) {
-        match element {
-            NodeOrToken::Token(token) => {
-                if let Some(ws) = ast::Whitespace::cast(token.clone())
-                    && !ws.spans_multiple_lines()
-                {
-                    // Ignore whitespace without blank lines
-                    continue;
-                }
-                if let Some(c) = ast::Comment::cast(token) {
-                    visited.insert(c.clone());
-                    last = c;
-                    continue;
-                }
-                // The comment group ends because either:
-                // * An element of a different kind was reached
-                // * A comment of a different flavor was reached
-                break;
-            }
-            NodeOrToken::Node(_) => break,
-        }
-    }
+    let group = line_comment_group(&comment);
+    visited.extend(group.iter().cloned());
 
-    if first != last {
-        Some(TextRange::new(
-            first.syntax().text_range().start(),
-            last.syntax().text_range().end(),
-        ))
-    } else {
-        // The group consists of only one element, therefore it cannot be folded
-        None
-    }
+    // A group of one element cannot be folded
+    let [first, .., last] = group.as_slice() else {
+        return None;
+    };
+
+    Some(TextRange::new(
+        first.syntax().text_range().start(),
+        last.syntax().text_range().end(),
+    ))
 }
 
 #[cfg(test)]
@@ -247,6 +245,7 @@ mod tests {
             FoldKind::Statement => "statement",
             FoldKind::Subquery => "subquery",
             FoldKind::Tuple => "tuple",
+            FoldKind::WhereClause => "where_clause",
         }
     }
 
@@ -355,6 +354,58 @@ select 1;"), @"
     }
 
     #[test]
+    fn fold_comments_does_not_apply_when_block_comment_follows() {
+        assert_snapshot!(check("
+-- first part
+/* second part */
+select 1;"), @"
+        -- first part
+        /* second part */
+        select 1;
+        ");
+    }
+
+    #[test]
+    fn fold_comments_groups_across_statements() {
+        assert_snapshot!(check("
+select 1; -- a
+-- b
+select 2;"), @"
+        select 1; <fold comment>-- a
+        -- b</fold>
+        select 2;
+        ");
+    }
+
+    #[test]
+    fn fold_comments_groups_nested_in_a_list() {
+        assert_snapshot!(check("
+select 1, -- a
+  -- b
+  2;"), @"
+        <fold statement>select <fold list>1, <fold comment>-- a
+          -- b</fold>
+          2</fold>;</fold>
+        ");
+    }
+
+    #[test]
+    fn fold_comments_with_cr_line_endings() {
+        assert_snapshot!(check(&"
+-- this is
+-- a comment
+
+-- separate
+select 1;".replace('\n', "\r")).replace('\r', "\n"), @"
+        <fold comment>-- this is
+        -- a comment</fold>
+
+        -- separate
+        select 1;
+        ");
+    }
+
+    #[test]
     fn fold_comments_and_multi_statements() {
         assert_snapshot!(check("
 -- this is
@@ -400,6 +451,47 @@ select 1;"), @"
         -- a comment</fold>
         select 1;
         ");
+    }
+
+    #[test]
+    fn fold_multiline_comments_with_windows_line_endings() {
+        assert_snapshot!(
+            format!(
+                "{:?}",
+                check("-- this is\r\n-- a comment\r\nselect 1;")
+            ),
+            @r#""<fold comment>-- this is\r\n-- a comment</fold>\r\nselect 1;""#
+        );
+    }
+
+    #[test]
+    fn fold_multiline_comments_with_cr_line_endings() {
+        assert_snapshot!(
+            format!(
+                "{:?}",
+                check("-- this is\r-- a comment\rselect 1;")
+            ),
+            @r#""<fold comment>-- this is\r-- a comment</fold>\rselect 1;""#
+        );
+    }
+
+    #[test]
+    fn fold_comments_with_cr_line_endings_does_not_apply_when_whitespace_between() {
+        assert_snapshot!(
+            format!(
+                "{:?}",
+                check("-- this is\r\r-- a comment\r-- with some more\rselect 1;")
+            ),
+            @r#""-- this is\r\r<fold comment>-- a comment\r-- with some more</fold>\rselect 1;""#
+        );
+    }
+
+    #[test]
+    fn fold_statement_with_cr_line_endings() {
+        assert_snapshot!(
+            format!("{:?}", check("select\r  id,\r  name\rfrom t;")),
+            @r#""<fold statement>select\r  <fold list>id,\r  name</fold>\rfrom t;</fold>""#
+        );
     }
 
     #[test]
@@ -452,6 +544,22 @@ join b
     }
 
     #[test]
+    fn fold_where_clause() {
+        assert_snapshot!(check("
+select *
+from t
+where
+  a = 1
+  and b = 2;"), @"
+        <fold statement>select *
+        from t
+        <fold where_clause>where
+          a = 1
+          and b = 2</fold>;</fold>
+        ");
+    }
+
+    #[test]
     fn fold_array_literal() {
         assert_snapshot!(check("
 select * from t where
@@ -460,12 +568,12 @@ select * from t where
     2,
     3
   ]);"), @"
-        <fold statement>select * from t where
+        <fold statement>select * from t <fold where_clause>where
           x = <fold function_call>any(<fold array>array[
             1,
             2,
             3
-          ]</fold>)</fold>;</fold>
+          ]</fold>)</fold></fold>;</fold>
         ");
     }
 
@@ -498,13 +606,13 @@ select * from x
   );
 "), @"
         <fold statement>select * from x
-          where z in <fold tuple>(
+          <fold where_clause>where z in <fold tuple>(
             1,
             2,
             3,
             4,
             5
-          )</fold>;</fold>
+          )</fold></fold>;</fold>
         ");
     }
 

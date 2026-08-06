@@ -16,6 +16,7 @@ import typer
 from .common import desktop, platform
 from .common.base import BaseTool, InstallReport, ToolState
 from .common.download import download, extract
+from .common.privileged import run_privileged
 
 
 def detect_status() -> dict[str, object]:
@@ -67,18 +68,18 @@ def _install_linux(arch: str) -> InstallReport:
         except Exception as exc:  # noqa: BLE001
             return InstallReport(error=f"download failed: {exc}")
 
-        # Extract to /opt/Postman via sudo
-        try:
-            subprocess.run(["sudo", "rm", "-rf", "/opt/Postman"], check=True, capture_output=True)
-            subprocess.run(["sudo", "tar", "-xzf", str(archive), "-C", "/opt/"], check=True, capture_output=True)
-            subprocess.run(
-                ["sudo", "ln", "-sf", "/opt/Postman/Postman", "/usr/local/bin/postman"],
-                check=True,
-                capture_output=True,
-            )
-        except subprocess.CalledProcessError as exc:
-            err = exc.stderr.decode() if exc.stderr else str(exc)
-            return InstallReport(error=f"install failed: {err}")
+        # Extract to /opt/Postman with root privileges. Through run_privileged, so
+        # a sudo password prompt is announced and answerable rather than captured
+        # into a silent wait.
+        steps: list[list[str]] = [
+            ["rm", "-rf", "/opt/Postman"],
+            ["tar", "-xzf", str(archive), "-C", "/opt/"],
+            ["ln", "-sf", "/opt/Postman/Postman", "/usr/local/bin/postman"],
+        ]
+        for step in steps:
+            result = run_privileged(step, what="Installing Postman into /opt")
+            if not result.ok:
+                return InstallReport(error=f"install failed: {result.error}")
 
     # Desktop entry. Declare the postman:// URL scheme (MimeType + %u) so the
     # OAuth2 "Authorize using browser" flow can return the auth code to the app,

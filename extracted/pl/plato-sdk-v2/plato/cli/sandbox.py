@@ -639,6 +639,13 @@ def sandbox_start(
         "--provider",
         help="VM provider for blank/config modes: firecracker or qemu. Use qemu for Windows VMs.",
     ),
+    manual_control: bool = typer.Option(
+        False,
+        "--manual-control",
+        help="Windows (qemu) VMs: human RDP override. Once the VM boots and is SSH-reachable, "
+        "disable the console auto-logon reclaim (Winlogon ForceAutoLogon=0) that otherwise "
+        "bounces an RDP session seconds after it connects, then print the browser RDP URL.",
+    ),
     attach_session: bool = typer.Option(
         False,
         "--attach-session/--no-attach-session",
@@ -674,9 +681,24 @@ def sandbox_start(
         plato sandbox start -a <uuid>            # From artifact
         plato sandbox start -b --cpus 4          # Blank VM
         plato sandbox start -b --provider qemu   # Blank Windows VM
+        plato sandbox start -b --provider qemu --manual-control   # Windows VM a human can RDP into
+        plato sandbox start -a <uuid> --manual-control            # Same, resuming a Windows artifact
         plato sandbox start -s espocrm -n crm-a  # Into a named slot
         plato sandbox start -s espocrm --attach-session   # Track under the current Chronos session
     """
+    if manual_control:
+        # SSH (which applies the guest-side registry change) rides the sandbox
+        # network, and for blank/config modes the provider is known up front —
+        # fail fast instead of after a full VM boot.
+        err_console = Console(stderr=True)
+        if not connect_network:
+            err_console.print(
+                "[red]--manual-control needs SSH, which needs the sandbox network; drop --no-network[/red]"
+            )
+            raise typer.Exit(1)
+        if (blank or from_config) and provider != "qemu":
+            err_console.print("[red]--manual-control needs a Windows VM: pass --provider qemu[/red]")
+            raise typer.Exit(1)
     # Explicit --chronos-session must attach or fail; the ambient env-var
     # default (on every Chronos VM) degrades to a standalone sandbox with a
     # warning so legacy flows keep working on sessions that can't attach.
@@ -748,6 +770,15 @@ def sandbox_start(
         else:
             out.error("Must specify a mode: --blank, --artifact-id, --simulator, or --from-config.")
             raise typer.Exit(1)
+
+        if manual_control:
+            try:
+                client.enable_manual_control(state)
+            except Exception as e:
+                # The sandbox itself is up — surface that alongside the failure
+                # so the user doesn't assume the whole start needs redoing.
+                out.error(f"Sandbox started, but manual-control setup failed: {e}")
+                raise typer.Exit(1) from e
 
         out.success(state, "Sandbox started")
 

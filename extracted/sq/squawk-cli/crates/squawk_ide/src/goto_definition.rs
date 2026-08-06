@@ -78,6 +78,7 @@ pub fn goto_definition(db: &dyn Db, position: InFile<TextSize>) -> SmallVec<[Loc
             ast::AnyName::AccessMethod(_)
                 | ast::AnyName::Channel(_)
                 | ast::AnyName::ColumnName(_)
+                | ast::AnyName::CompositeField(_)
                 | ast::AnyName::ConstraintName(_)
                 | ast::AnyName::CteName(_)
                 | ast::AnyName::Cursor(_)
@@ -87,8 +88,8 @@ pub fn goto_definition(db: &dyn Db, position: InFile<TextSize>) -> SmallVec<[Loc
                 | ast::AnyName::ForeignDataWrapper(_)
                 | ast::AnyName::JsonPathName(_)
                 | ast::AnyName::Language(_)
-                | ast::AnyName::Name(_)
                 | ast::AnyName::ParamName(_)
+                | ast::AnyName::PathSegment(_)
                 | ast::AnyName::Policy(_)
                 | ast::AnyName::PreparedStatement(_)
                 | ast::AnyName::Publication(_)
@@ -126,7 +127,12 @@ pub fn goto_definition(db: &dyn Db, position: InFile<TextSize>) -> SmallVec<[Loc
             }
             ast::AnyNameRef::ColumnNameRef(name_ref) => {
                 resolve_in_files(db, file, |definition_file| {
-                    resolve::resolve_column_name_ref(db, InFile::new(definition_file, &name_ref))
+                    resolve::resolve_name_ref(db, InFile::new(definition_file, &name_ref))
+                })
+            }
+            ast::AnyNameRef::CompositeFieldRef(name_ref) => {
+                resolve_in_files(db, file, |definition_file| {
+                    resolve::resolve_name_ref(db, InFile::new(definition_file, &name_ref))
                 })
             }
             ast::AnyNameRef::CursorRef(name_ref) => resolve_in_files(db, file, |definition_file| {
@@ -137,6 +143,7 @@ pub fn goto_definition(db: &dyn Db, position: InFile<TextSize>) -> SmallVec<[Loc
                     resolve::resolve_database_ref(db, InFile::new(definition_file, &name_ref))
                 })
             }
+            ast::AnyNameRef::ElementTableRef(_) => None,
             ast::AnyNameRef::EventTriggerRef(name_ref) => {
                 resolve_in_files(db, file, |definition_file| {
                     resolve::resolve_event_trigger_ref(db, InFile::new(definition_file, &name_ref))
@@ -158,6 +165,7 @@ pub fn goto_definition(db: &dyn Db, position: InFile<TextSize>) -> SmallVec<[Loc
             ast::AnyNameRef::JsonPathNameRef(name_ref) => {
                 return resolve::resolve_json_path_name_ref(file, &name_ref).unwrap_or_default();
             }
+            ast::AnyNameRef::LabelRef(_) => None,
             ast::AnyNameRef::LanguageRef(name_ref) => {
                 resolve_in_files(db, file, |definition_file| {
                     resolve::resolve_language_ref(db, InFile::new(definition_file, &name_ref))
@@ -171,6 +179,11 @@ pub fn goto_definition(db: &dyn Db, position: InFile<TextSize>) -> SmallVec<[Loc
                     resolve::resolve_param_name_ref(db, InFile::new(definition_file, &name_ref))
                 })
             }
+            ast::AnyNameRef::PathSegmentRef(name_ref) => {
+                resolve_in_files(db, file, |definition_file| {
+                    resolve::resolve_name_ref(db, InFile::new(definition_file, &name_ref))
+                })
+            }
             ast::AnyNameRef::PolicyRef(name_ref) => resolve_in_files(db, file, |definition_file| {
                 resolve::resolve_policy_ref(db, InFile::new(definition_file, &name_ref))
             }),
@@ -182,6 +195,7 @@ pub fn goto_definition(db: &dyn Db, position: InFile<TextSize>) -> SmallVec<[Loc
                     )
                 })
             }
+            ast::AnyNameRef::PropertyNameRef(_) => None,
             ast::AnyNameRef::PublicationRef(name_ref) => {
                 resolve_in_files(db, file, |definition_file| {
                     resolve::resolve_publication_ref(db, InFile::new(definition_file, &name_ref))
@@ -5495,6 +5509,23 @@ select ((((member))).name$0) from team;
           ‡
         6 │ select ((((member))).name) from team;
           ╰╴                        ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_nested_composite_type_field() {
+        assert_snapshot!(goto("
+create type inner_t as (x int);
+create type outer_t as (i inner_t);
+create table t (v outer_t);
+select ((v).i).x$0 from t;
+"), @"
+          ╭▸ 
+        2 │ create type inner_t as (x int);
+          │                         ─ 2. destination
+          ‡
+        5 │ select ((v).i).x from t;
+          ╰╴               ─ 1. source
         ");
     }
 
@@ -12661,15 +12692,70 @@ returning t$0.*;"
 
     #[test]
     fn goto_update_alias_in_set_clause() {
-        assert_snapshot!(goto("
+        // Query 1: ERROR:  column "f" of relation "t" does not exist
+        // LINE 1: update t as f set f.a = 10;
+        //                           ^
+        // HINT:  SET target columns cannot be qualified with the relation name.
+        goto_not_found(
+            "
 create table t(a int, b int);
-update t as f set f$0.a = 10;"
-        ), @r"
-          ╭▸ 
-        3 │ update t as f set f.a = 10;
-          │             ┬     ─ 1. source
-          │             │
-          ╰╴            2. destination
+update t as f set f$0.a = 10;",
+        );
+    }
+
+    #[test]
+    fn goto_update_set_clause_subfield() {
+        // point isn't a composite type so we can't update it like this
+        goto_not_found(
+            "
+create table t(a point, b int);
+update t set a.x$0 = 10;",
+        );
+    }
+
+    #[test]
+    fn goto_update_set_clause_composite_type_subfield() {
+        assert_snapshot!(goto(
+            "
+create type coordinate as (
+  x double precision,
+  y double precision
+); 
+create table t (
+  a coordinate,
+  b integer
+);
+update t set a.x$0 = 10;",
+        ), @"
+           ╭▸ 
+         3 │   x double precision,
+           │   ─ 2. destination
+           ‡
+        10 │ update t set a.x = 10;
+           ╰╴               ─ 1. source
+        ");
+    }
+
+    #[test]
+    fn goto_update_set_clause_composite_type_col_name() {
+        assert_snapshot!(goto(
+            "
+create type coordinate as (
+  x double precision,
+  y double precision
+); 
+create table t (
+  a coordinate,
+  b integer
+);
+update t set a$0.x = 10;",
+        ), @"
+           ╭▸ 
+         7 │   a coordinate,
+           │   ─ 2. destination
+           ‡
+        10 │ update t set a.x = 10;
+           ╰╴             ─ 1. source
         ");
     }
 

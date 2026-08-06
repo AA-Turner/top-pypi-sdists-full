@@ -33,6 +33,7 @@ from .transport import (
 from .api.binding import wire_ref
 # module import: tests monkeypatch worker_fatal.report_worker_error_async; stay late-bound.
 from . import worker_fatal
+from .topology import delivered_topology
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +129,6 @@ def _worst_group_free_vram_bytes() -> int:
     not being served, so reporting from it makes the reported and served
     topologies disagree.
     """
-    from .topology import delivered_topology
 
     groups = delivered_topology().all_groups()
     return int(min((g.free_vram_bytes() for g in groups), default=0))
@@ -181,7 +181,7 @@ def _warn_once_if_gpus_are_invisible() -> None:
     try:
         import torch
 
-        from .topology import ENV_VAR, delivered_topology
+        from .topology import ENV_VAR
 
         if os.environ.get(ENV_VAR):
             return
@@ -648,6 +648,17 @@ class Lifecycle:
             and getattr(self, "_residency_model_key", None) == model_key
         ):
             self._desired_residency = desired
+            # pgw#955: not cancelling is not the same as doing nothing. The
+            # ack already opened a republish epoch (replace_desired_snapshots),
+            # and only a reconcile pass reads it — so returning silently here
+            # dropped the hub's redrive on the floor, with no cancel, no
+            # restart, and no later event to heal it. Signal the level-
+            # triggered loop instead: it finishes the item it is on (gw#614
+            # intact) and then re-converges, which re-announces the held
+            # identities under the new epoch. The re-pass is cheap and cannot
+            # spam — satisfied refs short-circuit, and the epoch guard emits
+            # at most one re-report per ref per applied ack.
+            self._signal_residency_restart()
             wanted = {instance.function_name for instance in desired.hot if instance.function_name}
             if wanted.issubset(set(self.executor.available_functions())):
                 self.intent_registry.bindings_applied(int(desired.config_generation))

@@ -3,17 +3,19 @@ from __future__ import annotations
 import typing as t
 from collections import defaultdict
 from datetime import datetime, timezone
+
+from query_cache_common.utils import extract_fqn_parts
 from sqlglot import exp
-from dbt_state.adapters.base import BaseAdapterExtension
+
 from dbt_state import events
+from dbt_state.adapters.base import BaseAdapterExtension
 from dbt_state.adapters.common import (
+    ViewDefinition,
     ViewFetchResult,
     build_information_schema_filter,
-    ViewDefinition,
     group_tables_by_catalog,
 )
 from dbt_state.utils import find_tables
-from query_cache_common.utils import extract_fqn_parts
 
 try:
     from dbt.adapters.contracts.relation import RelationType

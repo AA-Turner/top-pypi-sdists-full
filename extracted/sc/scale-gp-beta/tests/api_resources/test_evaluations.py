@@ -41,6 +41,7 @@ class TestEvaluations:
                 "description": "description",
                 "files": [{"foo": "string"}],
                 "metadata": {"foo": "bar"},
+                "skip_prefilled_rows": True,
                 "tags": ["string"],
                 "tasks": [
                     {
@@ -471,6 +472,7 @@ class TestAsyncEvaluations:
                 "description": "description",
                 "files": [{"foo": "string"}],
                 "metadata": {"foo": "bar"},
+                "skip_prefilled_rows": True,
                 "tags": ["string"],
                 "tasks": [
                     {

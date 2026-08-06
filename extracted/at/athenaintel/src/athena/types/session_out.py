@@ -47,6 +47,11 @@ class SessionOut(UniversalBaseModel):
     Unique identifier of the user who created this session
     """
 
+    failure_reason_v2: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Canonical failure reason for failed runs; null for non-failed runs
+    """
+
     id: str = pydantic.Field()
     """
     Unique identifier of the session asset (e.g., 'asset_abc123')
@@ -77,6 +82,16 @@ class SessionOut(UniversalBaseModel):
     Asset ID of the parent session for sub-sessions
     """
 
+    run_status_v2: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Canonical latest-run status: scheduled, queued, running, needs_input, completed, failed, or canceled
+    """
+
+    session_status_v2: str = pydantic.Field()
+    """
+    Canonical user-facing session status: idle, active, needs_input, or error
+    """
+
     session_type: typing.Optional[str] = pydantic.Field(default=None)
     """
     Kind of session: 'session' (chat), 'video_session', 'desktop_session', or 'mobile_session'
@@ -89,7 +104,7 @@ class SessionOut(UniversalBaseModel):
 
     state: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Execution state of the session (e.g., 'running', 'completed')
+    Deprecated legacy execution state. Use session_status_v2, run_status_v2, and failure_reason_v2 for status UI.
     """
 
     thread_id: str = pydantic.Field()

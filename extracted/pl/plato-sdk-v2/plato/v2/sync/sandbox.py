@@ -7,6 +7,7 @@ creating sandboxes, managing SSH, syncing files, running flows, etc.
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
 import os
@@ -43,6 +44,7 @@ from plato._generated.api.v2.jobs import checkpoint as jobs_checkpoint
 from plato._generated.api.v2.jobs import get_flows as jobs_get_flows
 from plato._generated.api.v2.jobs import get_job_info as jobs_get_job_info
 from plato._generated.api.v2.jobs import public_url as jobs_public_url
+from plato._generated.api.v2.jobs import rdp_url as jobs_rdp_url
 from plato._generated.api.v2.jobs import reset as jobs_reset
 from plato._generated.api.v2.jobs import snapshot as jobs_snapshot
 from plato._generated.api.v2.jobs import state as jobs_state
@@ -278,6 +280,21 @@ def _run_ssh_command(
         cwd=cwd,
     )
     return result.returncode, result.stdout, result.stderr
+
+
+#: PowerShell run on Windows guests by ``SandboxClient.enable_manual_control``.
+#: Clears Winlogon ``ForceAutoLogon`` (the console auto-logon reclaim that
+#: bounces human RDP sessions) and verifies the write; ``AutoAdminLogon`` is
+#: left untouched so the agent user still auto-logs on at boot. Sent via
+#: ``powershell -EncodedCommand`` so no quoting survives the ssh → cmd.exe →
+#: powershell chain.
+_MANUAL_CONTROL_PS = """
+$winlogon = 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon'
+Set-ItemProperty -Path $winlogon -Name ForceAutoLogon -Value '0' -Type String
+$value = (Get-ItemProperty -Path $winlogon).ForceAutoLogon
+if ($value -ne '0') { Write-Error "ForceAutoLogon is '$value' after update"; exit 1 }
+Write-Output 'ForceAutoLogon=0'
+""".strip()
 
 
 # =============================================================================
@@ -1440,6 +1457,81 @@ class SandboxClient:
             elif service:
                 return str(service)
         return None
+
+    def enable_manual_control(self, state: SandboxState, wait_seconds: int = 300) -> str:
+        """Prepare a Windows (qemu) sandbox for a human RDP session.
+
+        Windows sandbox images auto-logon the agent user at the console with
+        Winlogon ``ForceAutoLogon=1`` so the desktop agent always has a live
+        interactive session. On a client-SKU guest (one active session), that
+        same setting re-logs the console back on the moment an RDP client
+        takes over the session — bouncing the human off seconds after the
+        "Welcome" screen. This waits until the guest is SSH-reachable, clears
+        ``ForceAutoLogon`` (``AutoAdminLogon`` stays on, so boot behavior is
+        unchanged), then resolves and returns the browser RDP viewer URL.
+
+        Args:
+            state: The started sandbox's state (needs SSH configured and
+                provider ``qemu``).
+            wait_seconds: How long to keep retrying SSH before giving up —
+                snapshot-resumed Windows guests can take a while to accept
+                connections.
+
+        Returns:
+            The browser RDP viewer URL for the sandbox's job.
+
+        Raises:
+            ValueError: If the sandbox is not a qemu (Windows) VM.
+            RuntimeError: If SSH was never configured, the registry update
+                fails on the guest, or the RDP URL lookup fails.
+            TimeoutError: If the guest is not SSH-reachable in time.
+        """
+        assert self.api_key is not None
+        if state.provider != "qemu":
+            raise ValueError(
+                f"--manual-control needs a Windows (qemu) VM; this sandbox's provider is {state.provider or 'unknown'}"
+            )
+        if not state.ssh_config_path or not state.ssh_host:
+            raise RuntimeError("--manual-control needs SSH, but SSH setup did not complete for this sandbox")
+
+        encoded = base64.b64encode(_MANUAL_CONTROL_PS.encode("utf-16-le")).decode("ascii")
+        remote_cmd = f"powershell -NoProfile -EncodedCommand {encoded}"
+
+        self.console.print("[yellow]Enabling manual control (waiting for guest SSH)...[/yellow]")
+        step_start = time.time()
+        deadline = step_start + wait_seconds
+        while True:
+            returncode, stdout, stderr = _run_ssh_command(
+                state.ssh_config_path, state.ssh_host, remote_cmd, cwd=self.working_dir
+            )
+            if returncode == 0:
+                break
+            # 255 is ssh's own "could not connect / transport failed" code;
+            # anything else means the command ran on the guest and failed.
+            if returncode != 255:
+                raise RuntimeError(
+                    f"manual-control registry update failed on the guest (exit {returncode}): "
+                    f"{stderr.strip() or stdout.strip()}"
+                )
+            if time.time() >= deadline:
+                raise TimeoutError(f"guest not SSH-reachable within {wait_seconds}s; last ssh error: {stderr.strip()}")
+            time.sleep(5)
+
+        elapsed = time.time() - step_start
+        self.console.print(
+            f"[green]Manual control enabled:[/green] console auto-logon reclaim disabled "
+            f"(ForceAutoLogon=0) [dim]({elapsed:.1f}s)[/dim]"
+        )
+
+        rdp_response = jobs_rdp_url.sync(client=self._http, job_id=state.job_id, x_api_key=self.api_key)
+        if not rdp_response.success or not rdp_response.url:
+            raise RuntimeError(f"RDP URL lookup failed for job {state.job_id}: {rdp_response.error}")
+        state.rdp_url = rdp_response.url
+        if state.name:
+            with suppress(Exception):
+                self.store.update(state.name, rdp_url=rdp_response.url)
+        self.console.print(f"[bold green]RDP URL:[/bold green] {rdp_response.url}")
+        return rdp_response.url
 
     def pull_config(self, artifact_id: str, dataset: str) -> dict[str, bool]:
         """Download plato-config.yml and flows.yml from the artifact API.

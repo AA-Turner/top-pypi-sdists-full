@@ -25,12 +25,12 @@ from pydantic_core import to_jsonable_python
 
 class ExportPricing(BaseModel):
     """
-    Card-CSV export pricing RATE, published so a caller can compute an export's cost before fetching. Full charge = baseline_usd + row_cpm_usd * max(0, rows - free_rows) / 1000, rows <= max_rows_ceiling. row_cpm_usd is the card-level total (sum of the card's distinct priced sources' per-1,000-row rate); no per-source breakdown.
+    Card-CSV export pricing RATE for the /contents endpoint, published so a caller can compute an export's cost before fetching. A /contents export charge = baseline_usd + row_cpm_usd * max(0, rows - free_rows) / 1000, rows <= max_rows_ceiling. row_cpm_usd is the card-level total (sum of the card's distinct priced sources' per-1,000-row rate); no per-source breakdown.  This formula reproduces a /contents export charge ONLY. `free_rows` here is always the /contents free row allowance. It does not reproduce the `cost` of a billed inline card on a search or answer response, because that charge uses the caller's own inline free row allowance, which can be larger.
     """ # noqa: E501
     baseline_usd: Union[StrictFloat, StrictInt] = Field(description="Flat USD charged once per card export, independent of row count.")
     row_cpm_usd: Union[StrictFloat, StrictInt] = Field(description="USD charged per 1,000 rows on rows beyond the free allowance (free_rows). Card-level total across the card's priced sources; no per-source breakdown.")
-    free_rows: StrictInt = Field(description="Rows included at the baseline price before the per-1,000-row rate (row_cpm_usd) begins to apply.")
-    max_rows_ceiling: StrictInt = Field(description="Hard cap on rows a single export can return and bill; a larger requested max_rows is clamped to this.")
+    free_rows: StrictInt = Field(description="Rows included at the baseline price before the per-1,000-row rate (row_cpm_usd) begins to apply. This is the /contents free row allowance. It is not the inline free row allowance of a search or answer response, which can be larger.")
+    max_rows_ceiling: StrictInt = Field(description="Hard cap on rows a single export can return and bill; a larger requested max_rows is clamped to this. Applies to the row-based formats (csv, json_records, json_compact) only. A card_json export is a semantic document with no row cap: it bills every record row, so above this number the formula understates the charge. Send quote_only for an exact card_json price.")
     __properties: ClassVar[List[str]] = ["baseline_usd", "row_cpm_usd", "free_rows", "max_rows_ceiling"]
 
     model_config = ConfigDict(

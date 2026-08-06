@@ -1348,12 +1348,38 @@ fn sync_non_project_dev_dependencies() -> Result<()> {
      + urllib3==2.2.1
     ");
 
-    // Selecting a member still includes the non-project root's default dependency group.
+    // Selecting a member excludes the non-project root's default dependency group.
     uv_snapshot!(context.filters(), context.sync().arg("--package").arg("child"), @"
     exit_code: 0 (success)
     ----- stderr -----
     Resolved 11 packages in [TIME]
-    Checked 10 packages in [TIME]
+    Uninstalled 8 packages in [TIME]
+     - anyio==4.3.0
+     - certifi==2024.2.2
+     - charset-normalizer==3.3.2
+     - idna==3.6
+     - pysocks==1.7.1
+     - requests==2.31.0
+     - sniffio==1.3.1
+     - urllib3==2.2.1
+    ");
+
+    // Explicitly requesting the root's group still includes its dependencies.
+    uv_snapshot!(context.filters(), context.sync()
+        .arg("--package").arg("child")
+        .arg("--group").arg("dev"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 11 packages in [TIME]
+    Installed 8 packages in [TIME]
+     + anyio==4.3.0
+     + certifi==2024.2.2
+     + charset-normalizer==3.3.2
+     + idna==3.6
+     + pysocks==1.7.1
+     + requests==2.31.0
+     + sniffio==1.3.1
+     + urllib3==2.2.1
     ");
 
     Ok(())
@@ -4660,6 +4686,48 @@ fn sync_group_non_project_member() -> Result<()> {
      + child==0.1.0 (from file://[TEMP_DIR]/child)
      + iniconfig==2.0.0
      + typing-extensions==4.10.0
+    ");
+
+    Ok(())
+}
+
+/// Regression test for: <https://github.com/astral-sh/uv/issues/20877>
+#[test]
+fn sync_group_transitive_self() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    context.temp_dir.child("pyproject.toml").write_str(
+        r#"
+        [project]
+        name = "idna"
+        version = "3.6"
+        requires-python = ">=3.12"
+
+        [dependency-groups]
+        foo = ["anyio"]
+
+        [build-system]
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
+        "#,
+    )?;
+    context
+        .temp_dir
+        .child("src")
+        .child("idna")
+        .child("__init__.py")
+        .touch()?;
+
+    context.lock().assert().success();
+
+    uv_snapshot!(context.filters(), context.sync().arg("--frozen").arg("--only-group").arg("foo"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Prepared 3 packages in [TIME]
+    Installed 3 packages in [TIME]
+     + anyio==4.3.0
+     + idna==3.6 (from file://[TEMP_DIR]/)
+     + sniffio==1.3.1
     ");
 
     Ok(())

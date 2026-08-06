@@ -1,14 +1,13 @@
 Metadata-Version: 2.4
 Name: dmiparser
-Version: 6.0
-Summary: This parse dmidecode output to JSON text
+Version: 7.2
+Summary: This parses dmidecode output to Python objects. The Python module supports multiple output formats (JSON, JSONC, YAML, XML) via the format parameter, and provides CLI tools with the same capabilities
 Home-page: https://github.com/Arondight/python-dmiparser
 Download-URL: https://github.com/Arondight/python-dmiparser/tags
 Author: Qin Fandong
 Author-email: shell_way@foxmail.com
-License: MIT License
+License: MIT
 Platform: Any
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -16,14 +15,22 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: pyyaml
 Dynamic: download-url
 Dynamic: license-file
 
 # python-dmiparser
 
+> **Breaking Changes in 7.0:**
+>
+> 1. The Python API changes: `DmiParser` and `DmiDecoder` gain `pretty` and `format` parameters, and `DmiParser` gains a `.data` property. The old `sort_keys=True, indent=2` kwargs pattern is replaced by `pretty=True`.
+> 2. The CLI changes: `--format` (`-f`) now takes a value (`json`, `jsonc`, `yaml`) instead of being a boolean pretty-print toggle; use `--pretty` (`-p`) for human-friendly output.
+>
+> See [Migration Guide](#migration-from-6x-to-7x) below.
+
 ## About
 
-This parse `dmidecode` output to JSON text.
+This parses `dmidecode` output to Python objects. The Python module supports multiple output formats (JSON, JSONC, YAML, XML) via the `format` parameter, and provides CLI tools with the same capabilities.
 
 ## Installation
 
@@ -50,11 +57,10 @@ sudo dnf install ./dist/dmiparser-*.noarch.rpm
 
 #### DmiParser
 
-This accepts a `str` (with the output of `dmidecode`) as argument and converts it to JSON text.
+This accepts a `str` (with the output of `dmidecode`) as argument and converts it to formatted text. The `format` parameter selects output format (`json`, `jsonc`, `yaml`, `xml`), `pretty` enables human-friendly output, and the `.data` property provides parsed Python objects.
 
 ```python
 #!/usr/bin/env python3
-import json
 from dmiparser import DmiParser
 from functools import partial
 
@@ -105,18 +111,24 @@ if "__main__" == __name__:
         "\n"
     )
 
-    # parser = DmiParser(text)
-    parser = DmiParser(text, sort_keys=True, indent=2)
+    parser = DmiParser(text)                                # compact JSON
+    # parser = DmiParser(text, pretty=True)                 # pretty JSON
+    # parser = DmiParser(text, format="jsonc")              # compact JSONC
+    # parser = DmiParser(text, format="jsonc", pretty=True) # pretty JSONC
+    # parser = DmiParser(text, format="yaml")               # compact YAML
+    # parser = DmiParser(text, format="yaml", pretty=True)  # pretty YAML
+    # parser = DmiParser(text, format="xml")                # compact XML
+    # parser = DmiParser(text, format="xml", pretty=True)   # pretty XML
 
     parsedStr = str(parser)  # get str
-    parsedObj = json.loads(str(parser))  # get object
+    parsedObj = parser.data  # get parsed objects
 
     report(parsedStr, parsedObj)
 ```
 
 #### DmiDecoder (the default wrapper)
 
-This run `dmidecode` and converting the output of the command to JSON text.
+This runs `dmidecode` and converts the output to formatted text. Supports `format` and `pretty` parameters like `DmiParser`.
 
 ```python
 from dmiparser.dmidecoder import DmiDecoder
@@ -181,8 +193,14 @@ def getCpuInfo(dmidecoder) -> str:
 
 
 if "__main__" == __name__:
-    # dmidecoder = DmiDecoder()
-    dmidecoder4 = DmiDecoder("-t 4", sort_keys=True, indent=2)  # Type 4 is Processor
+    dmidecoder4 = DmiDecoder("-t 4")                                # compact JSON
+    # dmidecoder4 = DmiDecoder("-t 4", pretty=True)                 # pretty JSON
+    # dmidecoder4 = DmiDecoder("-t 4", format="jsonc")              # compact JSONC
+    # dmidecoder4 = DmiDecoder("-t 4", format="jsonc", pretty=True) # pretty JSONC
+    # dmidecoder4 = DmiDecoder("-t 4", format="yaml")               # compact YAML
+    # dmidecoder4 = DmiDecoder("-t 4", format="yaml", pretty=True)  # pretty YAML
+    # dmidecoder4 = DmiDecoder("-t 4", format="xml")                # compact XML
+    # dmidecoder4 = DmiDecoder("-t 4", format="xml", pretty=True)   # pretty XML
 
     report(dmidecoder4.text, str(dmidecoder4.data), getCpuInfo(dmidecoder4))
 ```
@@ -193,11 +211,17 @@ if "__main__" == __name__:
 
 #### dmiparser
 
-This read output of `dmidecode` from pipe and print it as JSON text.
+This reads `dmidecode` output from stdin and outputs in multiple formats (JSON, JSONC, YAML, XML).
 
 ```shell
-sudo dmidecode | dmiparser
-sudo dmidecode -t 4 | dmiparser --format
+sudo dmidecode | dmiparser              # compact JSON
+sudo dmidecode | dmiparser -p           # pretty JSON
+sudo dmidecode | dmiparser -f jsonc     # compact JSONC
+sudo dmidecode | dmiparser -f jsonc -p  # pretty JSONC
+sudo dmidecode | dmiparser -f yaml      # compact YAML
+sudo dmidecode | dmiparser -f yaml -p   # pretty YAML
+sudo dmidecode | dmiparser -f xml       # compact XML
+sudo dmidecode | dmiparser -f xml -p    # pretty XML
 ```
 
 ```shell
@@ -209,15 +233,53 @@ dmiparser </tmp/dmidecode.txt
 
 #### dmidecoder
 
-This run `dmidecode` and print the output as JSON text.
+This runs `dmidecode` and outputs in multiple formats (JSON, JSONC, YAML, XML).
 
 ```shell
-sudo dmidecoder
-sudo dmidecoder --arguments "-t 4" --format
+sudo env "PATH=$PATH" dmidecoder                # compact JSON
+sudo env "PATH=$PATH" dmidecoder -p             # pretty JSON
+sudo env "PATH=$PATH" dmidecoder -f jsonc       # compact JSONC
+sudo env "PATH=$PATH" dmidecoder -f jsonc -p    # pretty JSONC
+sudo env "PATH=$PATH" dmidecoder -f yaml        # compact YAML
+sudo env "PATH=$PATH" dmidecoder -f yaml -p     # pretty YAML
+sudo env "PATH=$PATH" dmidecoder -f xml         # compact XML
+sudo env "PATH=$PATH" dmidecoder -f xml -p      # pretty XML
 ```
 
-> Tip: you can run `dmiparser.dmidecoder` module as a script (use `python3 -m dmiparser.dmidecoder` instead
-> of `dmidecoder` command).
+> Tips:
+>
+> 1. `sudo` resets `PATH` via `secure_path`, so pip-installed commands like `dmidecoder` may not be found. Use `sudo env "PATH=$PATH" dmidecoder` to preserve it.
+> 2. You can run `dmiparser.dmidecoder` module as a script (use `python3 -m dmiparser.dmidecoder` instead of `dmidecoder` command).
+
+## Migration from 6.x to 7.x
+
+In 7.0, **both the Python API and CLI introduce breaking changes**.
+
+1. **Python API:** `DmiParser` and `DmiDecoder` gain `pretty` and `format` parameters. The old `sort_keys=True, indent=2` kwargs pattern is replaced by `pretty=True`. `DmiParser` also gains a `.data` property for direct access to parsed objects.
+2. **CLI:** The `-f` / `--format` flag was repurposed: it now takes a format value (`json`, `jsonc`, `yaml`) instead of being a pretty-print toggle. The old pretty-print behavior moved to a new `-p` / `--pretty` flag.
+
+**Parameter changes:**
+
+| Type | 6.x                        | 7.x               | What changed                                 |
+| ---- | -------------------------- | ----------------- | -------------------------------------------- |
+| API  | `sort_keys=True, indent=2` | `pretty=True`     | Pretty-print via parameter instead of kwargs |
+| CLI  | `-f` / `--format`          | `-p` / `--pretty` | Pretty-print is now a separate flag          |
+
+**Python API migration examples:**
+
+| 6.x                                            | 7.x                               |
+| ---------------------------------------------- | --------------------------------- |
+| `DmiParser(text, sort_keys=True, indent=2)`    | `DmiParser(text, pretty=True)`    |
+| `DmiDecoder("-t 4", sort_keys=True, indent=2)` | `DmiDecoder("-t 4", pretty=True)` |
+| `json.loads(str(parser))`                      | `parser.data`                     |
+
+**Command migration examples:**
+
+| 6.x                                      | 7.x                                      |
+| ---------------------------------------- | ---------------------------------------- |
+| `dmiparser --format`                     | `dmiparser --pretty`                     |
+| `dmidecoder --format`                    | `dmidecoder --pretty`                    |
+| `dmidecoder --arguments "-t 4" --format` | `dmidecoder --arguments "-t 4" --pretty` |
 
 ## Development
 

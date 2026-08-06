@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "deepteam"
-version = "1.0.7"
+version = "1.0.8"
 description = "The LLM Red Teaming Framework"
 authors = ["Jeffrey Ip <jeffreyip@confident-ai.com>"]
 license = "Apache-2.0"
@@ -23,7 +23,7 @@ cursor-sdk = { version = "*", optional = true, python = ">=3.10" }
 
 [tool.poetry.extras]
 codex = ["openai-codex"]
-claude = ["claude-agent-sdk"]
+claude-code = ["claude-agent-sdk"]
 cursor = ["cursor-sdk"]
 harnesses = ["openai-codex", "claude-agent-sdk", "cursor-sdk"]
 

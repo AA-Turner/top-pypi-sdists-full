@@ -17,10 +17,29 @@ from typing import IO, Any, Iterator
 from airbyte_protocol.models import (
     AirbyteCatalog,
     AirbyteMessage,
+    AirbyteStateType,
+    AirbyteStreamState,
     ConfiguredAirbyteCatalog,
 )
 from airbyte_protocol.models import Type as AirbyteMessageType
 from pydantic import ValidationError
+
+from airbyte_ops_mcp.regression_tests.normalization import to_plain_dict, to_stream_id
+
+# The labels the two states that belong to no single stream are compared under.
+# Parenthesised so they read as not-a-stream -- and because they are keyed like
+# any other stream, a connector that names one of these anyway is disambiguated
+# when the comparison labels it rather than silently merged into it.
+SHARED_STATE_LABEL = "(shared)"
+LEGACY_STATE_LABEL = "(legacy)"
+
+# The identities those two are keyed by, alongside the real streams. The empty
+# namespace is what makes them unreachable as a stream: `to_stream_id` maps a falsy
+# namespace to `None`, so no connector-declared stream can key here, not even one
+# that names itself `(shared)`. It still *labels* as the bare sentinel, because
+# `stream_label` treats an empty namespace as no namespace.
+SHARED_STATE_KEY: tuple[str | None, str] = ("", SHARED_STATE_LABEL)
+LEGACY_STATE_KEY: tuple[str | None, str] = ("", LEGACY_STATE_LABEL)
 
 
 class Command(Enum):
@@ -195,6 +214,81 @@ class ExecutionResult:
         for message in self.airbyte_messages:
             if message.type is AirbyteMessageType.STATE:
                 yield message
+
+    def get_final_state_per_stream(self) -> dict[tuple[str | None, str], Any]:
+        """The state each stream would resume from, keyed by stream identity.
+
+        A connector emits state as it goes, so only the last message for a
+        stream describes where the next sync starts -- earlier ones are
+        checkpoints it has already moved past. Messages are walked in emission
+        order and later ones overwrite earlier ones, which is exactly how the
+        platform stores them.
+
+        Keyed by `(namespace, name)` rather than by the `namespace.name` label it
+        displays as, for the reason the catalog index is: a stream literally
+        called `public.users` must not share a key with `users` in the `public`
+        namespace and silently take the other's state with it. The comparison
+        turns these into the labels a reviewer reads, qualifying the collision
+        instead of collapsing it.
+
+        The three state types are all kept, because all three are what a
+        connector resumes from:
+
+        - `STREAM` -- one entry per stream, under its own identity.
+        - `GLOBAL` -- unpacked into one entry per stream, plus the shared state
+          under `SHARED_STATE_KEY`.
+        - `LEGACY` -- the protocol carries no stream identity here, so the whole
+          blob is one entry under `LEGACY_STATE_KEY`. Skipping it would let a
+          comparison report "state unchanged" over a state nothing looked at.
+
+        `sourceStats` and `destinationStats` are left out: they live beside the
+        state rather than in it, and `recordCount` legitimately differs between
+        two runs -- record counts are compared in their own table.
+
+        Returns:
+            Stream identity to state value, empty when the run emitted no state.
+        """
+        final_states: dict[tuple[str | None, str], Any] = {}
+
+        for message in self.get_states():
+            state = message.state
+            if state is None:
+                continue
+
+            if state.type is AirbyteStateType.GLOBAL and state.global_ is not None:
+                for stream_state in state.global_.stream_states or []:
+                    stream_id, value = self._stream_state_entry(stream_state)
+                    final_states[stream_id] = value
+                if state.global_.shared_state is not None:
+                    final_states[SHARED_STATE_KEY] = to_plain_dict(
+                        state.global_.shared_state, exclude_none=False
+                    )
+            elif state.type is AirbyteStateType.STREAM and state.stream is not None:
+                stream_id, value = self._stream_state_entry(state.stream)
+                final_states[stream_id] = value
+            elif state.data is not None:
+                # LEGACY, and a message that declared no type at all: the
+                # protocol's own default, and still what the connector resumes
+                # from.
+                final_states[LEGACY_STATE_KEY] = state.data
+
+        return final_states
+
+    @staticmethod
+    def _stream_state_entry(
+        stream_state: AirbyteStreamState,
+    ) -> tuple[tuple[str | None, str], Any]:
+        """One stream's state, under the identity comparisons key streams by."""
+        descriptor = stream_state.stream_descriptor
+
+        return (
+            to_stream_id(descriptor.namespace, descriptor.name),
+            # `exclude_none=False`: a `null` inside a state blob is the
+            # connector's own data, not an unset protocol optional. Dropping the
+            # key would report a cursor one version emits as `null` and the
+            # other omits as an unchanged state.
+            to_plain_dict(stream_state.stream_state, exclude_none=False),
+        )
 
     def get_message_count_per_type(self) -> dict[AirbyteMessageType, int]:
         """Count messages by type."""
@@ -426,19 +520,41 @@ class ComparableOutputs:
 
     An `ExecutionResult` holds every message the run emitted -- for a `read`,
     the whole dataset -- so keeping one alive per side while the other version
-    runs would double a comparison's peak memory for the sake of two small
-    objects. These two are bounded, so this is what outlives the run: the flat
+    runs would double a comparison's peak memory for the sake of three small
+    objects. These three are bounded, so this is what outlives the run: the flat
     result dict several consumers already read stays about counts and exit
-    status, and the comparison gets the protocol objects themselves.
+    status, and the comparison gets the protocol objects themselves. The spec,
+    the discovered catalog, and the final state per stream -- one state blob per
+    stream, not the checkpoints that led to it.
 
-    Both are `None` for a command that does not emit them, and for a run that
-    failed before it could.
+    All three are `None` for a command that does not emit them, and for a run
+    that failed before it could. `final_states` distinguishes the two absences a
+    `read` can have: `None` is "nothing collected this", `{}` is "the run
+    emitted no state", and only the second is something to report. That
+    distinction is why `from_execution_result` collects it for a `read` and
+    leaves it `None` otherwise -- extracting `{}` from a `spec` run would make
+    the two absences indistinguishable, and "this command emits no state" would
+    read as "this read resumed from nothing".
     """
 
     spec: Any | None = None
     catalog: AirbyteCatalog | None = None
+    final_states: dict[tuple[str | None, str], Any] | None = None
 
     @classmethod
     def from_execution_result(cls, result: ExecutionResult) -> ComparableOutputs:
-        """Lift the comparable objects out of a finished run."""
-        return cls(spec=result.get_spec(), catalog=result.get_catalog())
+        """Lift the comparable objects out of a finished run.
+
+        `get_spec` and `get_catalog` return `None` on a run that emitted no such
+        message, so they carry the "not this command" case themselves.
+        `get_final_state_per_stream` returns `{}` instead, which is a finding for
+        a `read` and meaningless anywhere else -- so the command decides whether
+        it is collected at all.
+        """
+        emits_state = result.command in (Command.READ, Command.READ_WITH_STATE)
+
+        return cls(
+            spec=result.get_spec(),
+            catalog=result.get_catalog(),
+            final_states=(result.get_final_state_per_stream() if emits_state else None),
+        )

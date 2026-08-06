@@ -76,6 +76,18 @@ class ToolState:
         orchestrator leaves it up-to-date."""
         return self.needs_install or self.needs_update or self.needs_reconfigure
 
+    @property
+    def needs_binary_work(self) -> bool:
+        """True when the **binary** itself must be installed or updated.
+
+        Distinct from :attr:`needs_work` on purpose: ``needs_reconfigure`` means a
+        config or secret step must re-run, which is no reason to touch the binary.
+        Conflating the two made a stale credential re-run the installer — for
+        Docker, an ``apt`` install behind ``sudo``, on a machine where Docker was
+        already present.
+        """
+        return self.needs_install or self.needs_update
+
     def to_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {
             "needs_install": self.needs_install,

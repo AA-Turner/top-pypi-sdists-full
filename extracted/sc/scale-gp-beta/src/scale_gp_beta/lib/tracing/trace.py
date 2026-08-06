@@ -9,7 +9,7 @@ from scale_gp_beta.types import SpanType, SpanStatus
 from .span import Span, BaseSpan, NoOpSpan
 from .util import generate_trace_id
 from .scope import Scope
-from .types import SpanInputParam, SpanOutputParam, SpanMetadataParam
+from .types import ErrorCategory, SpanInputParam, SpanOutputParam, SpanMetadataParam
 from .trace_queue_manager import TraceQueueManager
 
 log: logging.Logger = logging.getLogger(__name__)
@@ -93,8 +93,14 @@ class BaseTrace:
             error_type: Optional[str] = None,
             error_message: Optional[str] = None,
             exception: Optional[BaseException] = None,
+            error_category: Optional[ErrorCategory] = None,
     ) -> None:
-        self.root_span.set_error(error_type=error_type, error_message=error_message, exception=exception)
+        self.root_span.set_error(
+            error_type=error_type,
+            error_message=error_message,
+            exception=exception,
+            error_category=error_category,
+        )
 
     def __enter__(self) -> "BaseTrace":
         self.start()
@@ -106,6 +112,8 @@ class BaseTrace:
         exc_value: Optional[BaseException] = None,
         traceback: Optional[TracebackType] = None,
     ) -> None:
+        if exc_type is not None:
+            self.set_error(exception=exc_value)
         self.end()
 
     @override

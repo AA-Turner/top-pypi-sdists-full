@@ -1489,6 +1489,150 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="List value rule sets",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_accounts_list_value_rule_sets(
+        account_id: str, ad_account_id: str, limit: int = 25, after: str | None = None
+    ) -> str:
+        """List value rule sets
+
+        Args:
+            account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
+            ad_account_id: Meta ad account id (act_<n>). (required)
+            limit: Rows per page
+            after: Cursor from paging.after of the previous page. Meta does not document paging on this edge; `after` comes back null when it omits cursors."""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.list_value_rule_sets(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                limit=limit,
+                after=after,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a value rule set",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_create_value_rule_set(
+        account_id: str,
+        ad_account_id: str,
+        name: str,
+        rules: list[dict[str, Any]] | None,
+    ) -> str:
+        """Create a value rule set
+
+        Args:
+            account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
+            ad_account_id: Meta ad account id (act_<n>). (required)
+            name: (required)
+            rules: Evaluated in order; the first matching rule wins. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.create_value_rule_set(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                name=name,
+                rules=rules,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Read a value rule set",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_accounts_get_value_rule_set(value_rule_set_id: str, account_id: str) -> str:
+        """Read a value rule set
+
+        Args:
+            value_rule_set_id: Platform value rule set id. (required)
+            account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.get_value_rule_set(
+                value_rule_set_id=value_rule_set_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Replace a value rule set",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_update_value_rule_set(
+        value_rule_set_id: str,
+        account_id: str,
+        name: str,
+        rules: list[dict[str, Any]] | None,
+    ) -> str:
+        """Replace a value rule set
+
+        Args:
+            value_rule_set_id: Platform value rule set id. (required)
+            account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
+            name: Required: the update replaces the whole set. (required)
+            rules: The COMPLETE rule list. Omitting a rule deletes it on Meta. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.update_value_rule_set(
+                value_rule_set_id=value_rule_set_id,
+                account_id=account_id,
+                name=name,
+                rules=rules,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a value rule set",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_delete_value_rule_set(
+        value_rule_set_id: str, account_id: str
+    ) -> str:
+        """Delete a value rule set
+
+        Args:
+            value_rule_set_id: Platform value rule set id. (required)
+            account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.delete_value_rule_set(
+                value_rule_set_id=value_rule_set_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Ad account finances",
             readOnlyHint=True,
             destructiveHint=False,
@@ -2306,6 +2450,8 @@ def register_generated_tools(mcp, _get_client):
         bid_strategy: str | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
+        value_rule_set_id: str | None = None,
+        value_rules_applied: bool | None = None,
         platform_specific_data: dict[str, Any] | None = None,
     ) -> str:
         """Update an ad set
@@ -2330,6 +2476,14 @@ def register_generated_tools(mcp, _get_client):
                 roas_average_floor: Minimum ROAS as a decimal multiplier (2.0 = 2.0x). Required when bidStrategy is
         LOWEST_COST_WITH_MIN_ROAS. Sent to Meta as `bid_constraints.roas_average_floor` × 10000.
         Not supported on OpenAI (422).
+                value_rule_set_id: Meta only (other platforms return 501). Value rule set to attach to this ad
+        set, from `/v1/ads/value-rule-sets`. Sending a different id replaces the
+        current association. To DETACH, send `valueRulesApplied: false` and omit
+        this field.
+                value_rules_applied: Meta only (other platforms return 501). `false` DETACHES the ad set's value
+        rule set and must be sent WITHOUT `valueRuleSetId`; the combination returns
+        400. `true` is optional when attaching, since attachment is driven by
+        `valueRuleSetId`, and requires it to be present.
                 platform_specific_data: Platform-specific post-launch delivery settings. The platform is implied by the
         `platform` body param. Meta only; other platforms return 400. Unknown keys are rejected."""
         client = _get_client()
@@ -2343,6 +2497,8 @@ def register_generated_tools(mcp, _get_client):
                 bid_strategy=bid_strategy,
                 bid_amount=bid_amount,
                 roas_average_floor=roas_average_floor,
+                value_rule_set_id=value_rule_set_id,
+                value_rules_applied=value_rules_applied,
                 platform_specific_data=platform_specific_data,
             )
             return _format_response(response)
@@ -2416,7 +2572,7 @@ def register_generated_tools(mcp, _get_client):
             from_date: Start of the METRICS date range (YYYY-MM-DD). Affects only the spend/impression numbers overlaid on each node, NOT which campaigns are returned. Defaults to 90 days ago.
             to_date: End of metrics date range (YYYY-MM-DD). Defaults to today. Max 730-day range.
             sort: Campaign-level sort order. `newest` (default) / `oldest` order by the campaign's newest-ad createdAt. `spend_desc` / `spend_asc` order by aggregated spend in the requested date range; campaigns with no spend land at the end.
-            time_increment: Set to `1` to also return a daily breakdown. Mirrors Meta Insights' `time_increment=1`: each node gains a `daily[]` array of per-day metrics (same fields as the aggregated `metrics`) alongside the range total, so you get per-entity daily trends in ONE call instead of calling the tree once per day. Only `1` (daily) is supported. The daily series covers the same date range and uses the same source data as `metrics`, except Meta `reach`: the range total is Meta's de-duplicated value, so daily reach does not sum to it. See `dailyLevel` to control which levels carry it.
+            time_increment: Set to `1` to also return a daily breakdown. Mirrors Meta Insights' `time_increment=1`: each node gains a `daily[]` array of per-day metrics (same fields as the aggregated `metrics`) alongside the range total, so you get per-entity daily trends in ONE call instead of calling the tree once per day. Only `1` (daily) is supported. The daily series covers the same date range and uses the same source data as `metrics`, except `reach` on Meta and TikTok: the range total is the platform's de-duplicated value, so daily reach does not sum to it. See `dailyLevel` to control which levels carry it.
             daily_level: Which tree levels get the `daily[]` series when `timeIncrement=1`. `campaign` (default) attaches it on campaign nodes only — the common per-campaign-trend case, and the smallest payload. `adset` adds it on ad sets too; `ad` adds it on every ad in `ads[]` as well (heaviest — a long range × up to 100 ads per ad set). Scope with `campaignId` to keep `ad`-level responses small. Ignored when `timeIncrement` is unset."""
         client = _get_client()
         try:
@@ -2617,6 +2773,7 @@ def register_generated_tools(mcp, _get_client):
         spark_auth_code: str | None = None,
         dsa_beneficiary: str | None = None,
         dsa_payor: str | None = None,
+        optimization_goal: str | None = None,
     ) -> str:
         """Boost post as ad
 
@@ -2692,7 +2849,15 @@ def register_generated_tools(mcp, _get_client):
                 dsa_payor: Legal entity that pays for the ad. Can differ from `dsaBeneficiary`
         (for example, an agency paying for a client's ads). Same rules as
         `dsaBeneficiary`: required for EU targeting unless the ad account has
-        a default payor."""
+        a default payor.
+                optimization_goal: Meta only. Explicit ad-set `optimization_goal` override. When omitted,
+        defaults to the value derived from `goal`. The value must be compatible
+        with the objective Meta derives from `goal`, not with the objective used
+        by `POST /v1/ads/create` for the same `goal` name: boost maps `goal:
+        "engagement"` to objective `OUTCOME_AWARENESS`, which accepts
+        `REACH`, `IMPRESSIONS`, `AD_RECALL_LIFT`, or THRUPLAY-class values, and
+        rejects `POST_ENGAGEMENT` (that value is only valid under
+        `OUTCOME_ENGAGEMENT`, which create uses for the same goal name)."""
         client = _get_client()
         try:
             response = client.ad_campaigns.boost_post(
@@ -2719,6 +2884,7 @@ def register_generated_tools(mcp, _get_client):
                 spark_auth_code=spark_auth_code,
                 dsa_beneficiary=dsa_beneficiary,
                 dsa_payor=dsa_payor,
+                optimization_goal=optimization_goal,
             )
             return _format_response(response)
         except Exception as e:
@@ -2806,6 +2972,8 @@ def register_generated_tools(mcp, _get_client):
         bid_strategy: str | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
+        value_rule_set_id: str | None = None,
+        value_rules_applied: bool | None = None,
         platform_specific_data: dict[str, Any] | None = None,
         dsa_beneficiary: str | None = None,
         dsa_payor: str | None = None,
@@ -3078,6 +3246,24 @@ def register_generated_tools(mcp, _get_client):
                 roas_average_floor: Minimum ROAS as a decimal multiplier (e.g. 2.0 = 2.0x ROAS). Required when
         `bidStrategy` is `LOWEST_COST_WITH_MIN_ROAS`. Sent to Meta as
         `bid_constraints.roas_average_floor` × 10000.
+                value_rule_set_id: Meta only (facebook, instagram; other platforms return 400). Value rule set
+        to attach to the new ad set, from `/v1/ads/value-rule-sets`. Attachment is
+        driven by this id, so `valueRulesApplied` is optional alongside it.
+
+        Rejected with 400 in `adSetId` attach mode: that shape inherits the existing
+        ad set's attachment, so the field would be silently ignored. Use
+        `PUT /v1/ads/ad-sets/{adSetId}` there instead.
+
+        Ignored (stripped before the ad-set create) when `buyingType` is `RESERVED`:
+        value rules only apply to auction ad sets on `LOWEST_COST_WITHOUT_CAP` or
+        `COST_CAP`, and a Reach & Frequency reservation has no auction bid strategy.
+
+        Read back with `GET /v1/ads/ad-sets/{adSetId}?fields=value_rule_set_id`; the
+        attachment is not mirrored onto Zernio's ad documents.
+                value_rules_applied: Meta only (facebook, instagram; other platforms return 400). Optional when
+        attaching, and requires `valueRuleSetId`. `false` is REJECTED here with 400:
+        a newly created ad set has nothing to detach, so detaching lives on
+        `PUT /v1/ads/ad-sets/{adSetId}`.
                 platform_specific_data: Platform-specific options. The platform is derived from `accountId`;
         sending options for a different platform returns a 400. LinkedIn
         (campaign bidding and delivery controls) is the only platform with
@@ -3212,6 +3398,8 @@ def register_generated_tools(mcp, _get_client):
                 bid_strategy=bid_strategy,
                 bid_amount=bid_amount,
                 roas_average_floor=roas_average_floor,
+                value_rule_set_id=value_rule_set_id,
+                value_rules_applied=value_rules_applied,
                 platform_specific_data=platform_specific_data,
                 dsa_beneficiary=dsa_beneficiary,
                 dsa_payor=dsa_payor,
@@ -5067,6 +5255,23 @@ def register_generated_tools(mcp, _get_client):
             return f"Error: {e}"
 
     # API_KEYS
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Verify credential",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def api_keys_verify_credential() -> str:
+        """Verify credential"""
+        client = _get_client()
+        try:
+            response = client.api_keys.verify_credential()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -7370,6 +7575,7 @@ def register_generated_tools(mcp, _get_client):
     )
     def contacts_list_contacts(
         profile_id: str | None = None,
+        account_id: str | None = None,
         search: str | None = None,
         tag: str | None = None,
         tags: str | None = None,
@@ -7381,7 +7587,8 @@ def register_generated_tools(mcp, _get_client):
         """List contacts
 
         Args:
-            profile_id: Filter by profile. Omit to list across all profiles
+            profile_id: Filter by profile. Omit to list across all profiles. Matches the profile recorded on the contact itself, which is set when the contact is created and is independent of the profile its account currently belongs to. Filter by accountId to list a contact through its channel instead.
+            account_id: Filter by the SocialAccount that owns the contact channel. Contacts are resolved through their channels, so the profileId contact filter is not applied while accountId is set. A profileId sent alongside is still access-checked and still scopes the returned filters.tags list.
             search
             tag
             tags: Comma-separated tags, matches contacts carrying any of them
@@ -7393,6 +7600,7 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.contacts.list_contacts(
                 profile_id=profile_id,
+                account_id=account_id,
                 search=search,
                 tag=tag,
                 tags=tags,
@@ -9975,7 +10183,7 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             account_id: The social account ID to send from (required)
-            participant_id: Recipient identifier. For X this is the numeric user ID; for WhatsApp, the recipient phone number in international format (digits, country code included). Provide either this or participantUsername.
+            participant_id: Recipient identifier. For X this is the numeric user ID; for WhatsApp and SMS, the recipient phone number in international format (digits, country code included); for Slack, the workspace member id (e.g. U01ABCDEF). Provide either this or participantUsername.
             participant_username: Recipient handle/username — an X or Bluesky handle (with or without @) or a Reddit username (with or without u/). Resolved via lookup. Provide either this or participantId.
             message: Text content of the message. At least one of message, attachment, or (for WhatsApp) templateName is required. Required when category is set (a Direct Send utility message is a text message).
             skip_dm_check: X/Twitter only. Skip the receives_your_dm eligibility check before sending. Use if you have already verified the recipient accepts DMs.
@@ -10245,6 +10453,16 @@ def register_generated_tools(mcp, _get_client):
         it to `{ "name": "send_location" }`). WhatsApp renders a localized
         "Send location" button; the user's reply arrives as a regular
         location message in the conversation.
+
+        For `request_contact_info`, `action` may be omitted (we default it
+        to `{ "name": "request_contact_info" }`). WhatsApp renders a
+        localized share button that cannot be relabelled, so put the reason
+        for asking in `body.text`: this is a consent prompt, and a bare
+        request converts badly. The reply arrives as an inbound `contacts`
+        message with `metadata.contactsOrigin` set to `contact_request`,
+        and we fold the shared number back into the contact automatically.
+        A `contacts` message with origin `other` is a card the user picked
+        from their address book and is NOT proof of their own number.
 
         For `catalog_message`, `action` may also be omitted (we default it
         to `{ "name": "catalog_message" }`).
@@ -11291,10 +11509,10 @@ def register_generated_tools(mcp, _get_client):
             source: Which collection to read. `zernio` (default) returns posts authored through Zernio. `external` returns posts synced from the platform (existing/historical posts that were published outside Zernio). Combine with `accountId` and paginate via `page`/`limit` to walk the full synced history (we keep up to the last ~12 months per account).
             status
             platform
-            profile_id
+            profile_id: Filter posts to a specific profile (24-char hex ObjectId). Omit it, or send `all` or an empty value, to list posts across every profile.
             created_by: Filter posts to those created by a specific team user (24-char hex ObjectId).
-            date_from
-            date_to
+            date_from: Zero-padded YYYY-MM-DD, or a full ISO 8601 datetime. An empty value means no date filter; any other malformed value returns 400.
+            date_to: Zero-padded YYYY-MM-DD, or a full ISO 8601 datetime. An empty value means no date filter; any other malformed value returns 400.
             include_hidden
             search: Search posts by text content.
             sort_by: Sort order for results.
@@ -12548,6 +12766,34 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.sequences.list_sequence_enrollments(
                 sequence_id=sequence_id, status=status, limit=limit, skip=skip
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    # SLACK
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List Slack workspace members",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def slack_list_slack_members(
+        account_id: str, query: str | None = None, limit: int = 50
+    ) -> str:
+        """List Slack workspace members
+
+        Args:
+            account_id: (required)
+            query: Case-insensitive filter over display name and handle.
+            limit"""
+        client = _get_client()
+        try:
+            response = client.slack.list_slack_members(
+                account_id=account_id, query=query, limit=limit
             )
             return _format_response(response)
         except Exception as e:

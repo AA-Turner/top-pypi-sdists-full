@@ -29,6 +29,7 @@ use std::borrow::Cow;
 #[cfg(test)]
 use insta::assert_snapshot;
 use rowan::{GreenNodeData, GreenTokenData, NodeOrToken};
+use squawk_line_index::{LineEnding, find_newline};
 
 #[cfg(test)]
 use crate::SourceFile;
@@ -57,6 +58,14 @@ pub enum LitKind {
     String(SyntaxToken),
     True(SyntaxToken),
     UnicodeEscString(SyntaxToken),
+}
+
+impl ast::SourceFile {
+    pub fn line_ending(&self) -> LineEnding {
+        find_newline(&self.syntax().text().to_string())
+            .map(|(_, line_ending)| line_ending)
+            .unwrap_or_default()
+    }
 }
 
 impl ast::Literal {
@@ -130,8 +139,8 @@ impl ast::RelationFromItem {
         self.relation_name_ref()?.path_ref()
     }
 
-    pub fn name_ref(&self) -> Option<ast::NameRef> {
-        self.path_ref()?.segment()?.name_ref()
+    pub fn name_ref(&self) -> Option<ast::PathSegmentRef> {
+        self.path_ref()?.segment()
     }
 }
 
@@ -402,11 +411,11 @@ impl ast::RenameValue {
 
 impl ast::ForeignKeyConstraint {
     #[inline]
-    pub fn from_columns(&self) -> Option<ast::ColumnRefList> {
+    pub fn from_columns(&self) -> Option<ast::ForeignKeyColumnList> {
         support::children(&self.syntax).nth(0)
     }
     #[inline]
-    pub fn to_columns(&self) -> Option<ast::ColumnRefList> {
+    pub fn to_columns(&self) -> Option<ast::ForeignKeyColumnList> {
         support::children(&self.syntax).nth(1)
     }
 }
@@ -490,7 +499,19 @@ impl ast::ColumnName {
     }
 }
 
-impl ast::Name {
+impl ast::PathSegment {
+    #[inline]
+    pub fn text(&self) -> String {
+        normalize_name_node(self.syntax())
+    }
+
+    #[inline]
+    pub fn is_quoted(&self) -> bool {
+        is_quoted(self.syntax())
+    }
+}
+
+impl ast::PathSegmentRef {
     #[inline]
     pub fn text(&self) -> String {
         normalize_name_node(self.syntax())
@@ -611,18 +632,33 @@ fn is_falsey_vacuum_option_value(value: &ast::VacuumOptionValue) -> bool {
         .is_some_and(|token| is_falsey_token(&token))
 }
 
+impl ast::ReindexTarget {
+    pub fn concurrently_token(&self) -> Option<SyntaxToken> {
+        match self {
+            ast::ReindexTarget::ReindexTargetDatabase(it) => it.concurrently_token(),
+            ast::ReindexTarget::ReindexTargetIndex(it) => it.concurrently_token(),
+            ast::ReindexTarget::ReindexTargetSchema(it) => it.concurrently_token(),
+            ast::ReindexTarget::ReindexTargetSystem(it) => it.concurrently_token(),
+            ast::ReindexTarget::ReindexTargetTable(it) => it.concurrently_token(),
+        }
+    }
+}
+
 impl ast::Reindex {
     pub fn is_concurrently(&self) -> bool {
-        self.concurrently_token().is_some()
+        self.reindex_target()
+            .is_some_and(|target| target.concurrently_token().is_some())
             || self.reindex_option_list().is_some_and(|options| {
-                options.reindex_options().any(|option| {
-                    option.concurrently_token().is_some()
-                        && !option.literal().is_some_and(|literal| {
+                options.reindex_options().any(|option| match option {
+                    ast::ReindexOption::ReindexOptionConcurrently(option) => {
+                        !option.literal().is_some_and(|literal| {
                             literal
                                 .syntax()
                                 .first_token()
                                 .is_some_and(|token| is_falsey_token(&token))
                         })
+                    }
+                    _ => false,
                 })
             })
     }

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import math
 import os
@@ -9,21 +8,22 @@ import threading
 import time
 import typing as t
 import webbrowser
-import requests
+from dataclasses import dataclass
 from pathlib import Path
 from queue import Empty
 
+import requests
 from authlib.common.security import generate_token
 from authlib.integrations.requests_client import OAuth2Session
 from query_cache_common.auth import Scope
 from rich.console import Console
 from rich.theme import Theme
 
+from dbt_state import events
 from dbt_state.auth.sso_server import LOCAL_OAUTH_PORT, SsoHttpServer
 from dbt_state.auth.utils import parse_jwt
-from dbt_state.config import CLIENT_ID_DEFAULT, DBT_RUN_CACHE_PATH, get_env, DbtPlatformToken
+from dbt_state.config import CLIENT_ID_DEFAULT, DBT_RUN_CACHE_PATH, DbtPlatformToken, get_env
 from dbt_state.errors import AuthenticationError, RecoverableAuthenticationError
-from dbt_state import events
 
 ORGS_SCOPE = "runcache:scope:orgs"
 """The scope to request from the auth service"""
@@ -356,11 +356,11 @@ class SsoAuth:
                 # Try to get callback from queue with a short timeout to handle race conditions
                 try:
                     callback_url = server.queue.get(timeout=1.0)
-                except Empty:
+                except Empty as e:
                     raise AuthenticationError(
                         f"Authentication timed out after {server.timeout} seconds. "
                         "Please try again and complete the login in your browser."
-                    )
+                    ) from e
 
                 self._session.fetch_token(
                     self._token_url,
@@ -443,7 +443,7 @@ class SsoAuth:
                 if token_count == 1:
                     # reraise directly if there was only a single token to check, so the user doesnt need to sift through dbt.log
                     raise RecoverableAuthenticationError(
-                        f"Failed to obtain dbt State authentication token: {str(e)}"
+                        f"Failed to obtain dbt State authentication token: {e!s}"
                     ) from e
 
         raise RecoverableAuthenticationError(

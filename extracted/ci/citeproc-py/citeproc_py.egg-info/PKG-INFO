@@ -1,12 +1,11 @@
 Metadata-Version: 2.4
 Name: citeproc-py
-Version: 0.10.3
+Version: 0.10.4
 Summary: Citations and bibliography formatter
-Home-page: https://github.com/brechtm/citeproc-py
-Author: Brecht Machiels
-Author-email: brecht@mos6581.org
-License: BSD-2-Clause-Views
-Keywords: csl citation html rst bibtex xml
+Author-email: Brecht Machiels <brecht@mos6581.org>
+License-Expression: BSD-2-Clause-Views
+Project-URL: homepage, https://github.com/citeproc-py/citeproc-py
+Keywords: csl,citation,html,rst,bibtex,xml
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Console
 Classifier: Environment :: Other Environment
@@ -17,7 +16,6 @@ Classifier: Intended Audience :: End Users/Desktop
 Classifier: Intended Audience :: Legal Industry
 Classifier: Intended Audience :: Other Audience
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.9
@@ -39,20 +37,7 @@ Provides-Extra: full
 Requires-Dist: citeproc-py-styles; extra == "full"
 Provides-Extra: tests
 Requires-Dist: citeproc-py-styles; extra == "tests"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # citeproc-py
 
@@ -160,6 +145,26 @@ If you want git to fully ignore the submodule, you can type
 git update-index --assume-unchanged citeproc/data/schema
 ```
 
+# v0.10.4 (Wed Aug 05 2026)
+
+#### 🐛 Bug Fix
+
+- setup.py: Prune imports [#191](https://github.com/citeproc-py/citeproc-py/pull/191) ([@hseg](https://github.com/hseg))
+- Remove unneeded nonuniversal wheel declaration [#191](https://github.com/citeproc-py/citeproc-py/pull/191) ([@hseg](https://github.com/hseg))
+- Fix project URL [#191](https://github.com/citeproc-py/citeproc-py/pull/191) ([@hseg](https://github.com/hseg))
+- Specify license file [#191](https://github.com/citeproc-py/citeproc-py/pull/191) ([@hseg](https://github.com/hseg))
+- Add missing build dep: lxml [#191](https://github.com/citeproc-py/citeproc-py/pull/191) ([@hseg](https://github.com/hseg))
+- Use entry points for running scripts [#191](https://github.com/citeproc-py/citeproc-py/pull/191) ([@hseg](https://github.com/hseg))
+- Use setuptools' builtin multifile longdesc support [#191](https://github.com/citeproc-py/citeproc-py/pull/191) ([@hseg](https://github.com/hseg))
+- Rely on setuptools' automatic package discovery [#191](https://github.com/citeproc-py/citeproc-py/pull/191) ([@hseg](https://github.com/hseg))
+- Migrate versioneer to pyproject.toml [#191](https://github.com/citeproc-py/citeproc-py/pull/191) ([@hseg](https://github.com/hseg))
+- Migrate simple metadata to pyproject.toml [#191](https://github.com/citeproc-py/citeproc-py/pull/191) ([@hseg](https://github.com/hseg))
+
+#### Authors: 1
+
+- [@hseg](https://github.com/hseg)
+
+---
 
 # v0.10.3 (Fri Jul 24 2026)
 

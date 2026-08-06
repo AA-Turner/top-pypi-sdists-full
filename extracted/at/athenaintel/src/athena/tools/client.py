@@ -375,10 +375,11 @@ class ToolsClient:
         *,
         file: core.File,
         parent_folder_id: typing.Optional[str] = None,
+        workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SaveAssetRequestOut:
         """
-        Save a file as an asset in the user's workspace.
+        Save a file as an asset in the target workspace.
 
         Parameters
         ----------
@@ -387,6 +388,9 @@ class ToolsClient:
 
         parent_folder_id : typing.Optional[str]
             Identifier of the folder into which the asset should be saved
+
+        workspace_id : typing.Optional[str]
+            Identifier of the workspace to save the asset into. Defaults to the caller's current workspace. The caller must be a member of the specified workspace.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -406,7 +410,7 @@ class ToolsClient:
         client.tools.save_asset()
         """
         _response = self._raw_client.save_asset(
-            file=file, parent_folder_id=parent_folder_id, request_options=request_options
+            file=file, parent_folder_id=parent_folder_id, workspace_id=workspace_id, request_options=request_options
         )
         return _response.data
 
@@ -865,10 +869,11 @@ class AsyncToolsClient:
         *,
         file: core.File,
         parent_folder_id: typing.Optional[str] = None,
+        workspace_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SaveAssetRequestOut:
         """
-        Save a file as an asset in the user's workspace.
+        Save a file as an asset in the target workspace.
 
         Parameters
         ----------
@@ -877,6 +882,9 @@ class AsyncToolsClient:
 
         parent_folder_id : typing.Optional[str]
             Identifier of the folder into which the asset should be saved
+
+        workspace_id : typing.Optional[str]
+            Identifier of the workspace to save the asset into. Defaults to the caller's current workspace. The caller must be a member of the specified workspace.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -904,7 +912,7 @@ class AsyncToolsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.save_asset(
-            file=file, parent_folder_id=parent_folder_id, request_options=request_options
+            file=file, parent_folder_id=parent_folder_id, workspace_id=workspace_id, request_options=request_options
         )
         return _response.data
 

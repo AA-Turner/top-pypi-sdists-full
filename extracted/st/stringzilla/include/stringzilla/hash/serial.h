@@ -8,10 +8,23 @@
 #define STRINGZILLA_HASH_SERIAL_H_
 
 #include "stringzilla/types.h"
-#include "stringzilla/compare.h" // `sz_equal`
+#include "stringzilla/compare.h"       // `sz_equal`
+#include "stringzilla/cipher/tables.h" // `sz_aes_sbox_`
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+/*  Optimize this tier for size. It emulates the AES round in scalar code and runs only where no AES
+ *  instruction exists, so what the unrolled form buys is footprint rather than throughput - 78 KB of
+ *  `.text` under GCC, 15 KB under Clang, against 7 KB and 6 KB once the compilers stop widening it.
+ *  The scope is exact: the annotation reaches functions alone, leaving the state types below and the
+ *  tables untouched, and neither compiler moves a byte of the vector backends that include them. */
+#if defined(__clang__)
+#pragma clang attribute push(__attribute__((minsize)), apply_to = function)
+#elif defined(__GNUC__)
+#pragma GCC push_options
+#pragma GCC optimize("Os")
 #endif
 
 /**
@@ -61,24 +74,7 @@ SZ_API_COMPTIME sz_u64_t sz_bytesum_serial(sz_cptr_t text, sz_size_t length) {
  *  @see Based on Jean-Philippe Aumasson's reference implementation: https://github.com/veorq/aesenc-noNI
  */
 SZ_HELPER_AUTO sz_u128_vec_t sz_emulate_aesenc_si128_serial_(sz_u128_vec_t state_vec, sz_u128_vec_t round_key_vec) {
-    static sz_u8_t const sbox[256] = {
-        // 0     1    2      3     4    5     6     7      8    9     A      B     C     D     E     F
-        0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76, //
-        0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0, //
-        0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15, //
-        0x04, 0xc7, 0x23, 0xc3, 0x18, 0x96, 0x05, 0x9a, 0x07, 0x12, 0x80, 0xe2, 0xeb, 0x27, 0xb2, 0x75, //
-        0x09, 0x83, 0x2c, 0x1a, 0x1b, 0x6e, 0x5a, 0xa0, 0x52, 0x3b, 0xd6, 0xb3, 0x29, 0xe3, 0x2f, 0x84, //
-        0x53, 0xd1, 0x00, 0xed, 0x20, 0xfc, 0xb1, 0x5b, 0x6a, 0xcb, 0xbe, 0x39, 0x4a, 0x4c, 0x58, 0xcf, //
-        0xd0, 0xef, 0xaa, 0xfb, 0x43, 0x4d, 0x33, 0x85, 0x45, 0xf9, 0x02, 0x7f, 0x50, 0x3c, 0x9f, 0xa8, //
-        0x51, 0xa3, 0x40, 0x8f, 0x92, 0x9d, 0x38, 0xf5, 0xbc, 0xb6, 0xda, 0x21, 0x10, 0xff, 0xf3, 0xd2, //
-        0xcd, 0x0c, 0x13, 0xec, 0x5f, 0x97, 0x44, 0x17, 0xc4, 0xa7, 0x7e, 0x3d, 0x64, 0x5d, 0x19, 0x73, //
-        0x60, 0x81, 0x4f, 0xdc, 0x22, 0x2a, 0x90, 0x88, 0x46, 0xee, 0xb8, 0x14, 0xde, 0x5e, 0x0b, 0xdb, //
-        0xe0, 0x32, 0x3a, 0x0a, 0x49, 0x06, 0x24, 0x5c, 0xc2, 0xd3, 0xac, 0x62, 0x91, 0x95, 0xe4, 0x79, //
-        0xe7, 0xc8, 0x37, 0x6d, 0x8d, 0xd5, 0x4e, 0xa9, 0x6c, 0x56, 0xf4, 0xea, 0x65, 0x7a, 0xae, 0x08, //
-        0xba, 0x78, 0x25, 0x2e, 0x1c, 0xa6, 0xb4, 0xc6, 0xe8, 0xdd, 0x74, 0x1f, 0x4b, 0xbd, 0x8b, 0x8a, //
-        0x70, 0x3e, 0xb5, 0x66, 0x48, 0x03, 0xf6, 0x0e, 0x61, 0x35, 0x57, 0xb9, 0x86, 0xc1, 0x1d, 0x9e, //
-        0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf, //
-        0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16};
+    sz_u8_t const *sbox = sz_aes_sbox_();
 
     // Combine `ShiftRows` and `SubBytes`
     sz_u8_t state_2d[4][4];
@@ -139,10 +135,10 @@ SZ_HELPER_AUTO sz_u128_vec_t sz_emulate_aesenc_si128_serial_(sz_u128_vec_t state
 #undef sz_gf2_double_
 
     // Export `XOR`-ing with the round key
-    sz_u128_vec_t result = *(sz_u128_vec_t *)state_2d;
-    result.u64s[0] ^= round_key_vec.u64s[0];
-    result.u64s[1] ^= round_key_vec.u64s[1];
-    return result;
+    sz_u128_vec_t result_vec = *(sz_u128_vec_t *)state_2d;
+    result_vec.u64s[0] ^= round_key_vec.u64s[0];
+    result_vec.u64s[1] ^= round_key_vec.u64s[1];
+    return result_vec;
 }
 
 /**
@@ -154,25 +150,25 @@ SZ_HELPER_AUTO sz_u128_vec_t sz_emulate_aesenc_si128_serial_(sz_u128_vec_t state
  */
 SZ_HELPER_AUTO sz_u128_vec_t sz_emulate_shuffle_epi8_serial_(sz_u128_vec_t state_vec,
                                                              sz_u8_t const order[sz_at_least_(16)]) {
-    sz_u128_vec_t result;
+    sz_u128_vec_t result_vec;
     // Unroll the loop for 16 bytes
-    result.u8s[0] = state_vec.u8s[order[0]];
-    result.u8s[1] = state_vec.u8s[order[1]];
-    result.u8s[2] = state_vec.u8s[order[2]];
-    result.u8s[3] = state_vec.u8s[order[3]];
-    result.u8s[4] = state_vec.u8s[order[4]];
-    result.u8s[5] = state_vec.u8s[order[5]];
-    result.u8s[6] = state_vec.u8s[order[6]];
-    result.u8s[7] = state_vec.u8s[order[7]];
-    result.u8s[8] = state_vec.u8s[order[8]];
-    result.u8s[9] = state_vec.u8s[order[9]];
-    result.u8s[10] = state_vec.u8s[order[10]];
-    result.u8s[11] = state_vec.u8s[order[11]];
-    result.u8s[12] = state_vec.u8s[order[12]];
-    result.u8s[13] = state_vec.u8s[order[13]];
-    result.u8s[14] = state_vec.u8s[order[14]];
-    result.u8s[15] = state_vec.u8s[order[15]];
-    return result;
+    result_vec.u8s[0] = state_vec.u8s[order[0]];
+    result_vec.u8s[1] = state_vec.u8s[order[1]];
+    result_vec.u8s[2] = state_vec.u8s[order[2]];
+    result_vec.u8s[3] = state_vec.u8s[order[3]];
+    result_vec.u8s[4] = state_vec.u8s[order[4]];
+    result_vec.u8s[5] = state_vec.u8s[order[5]];
+    result_vec.u8s[6] = state_vec.u8s[order[6]];
+    result_vec.u8s[7] = state_vec.u8s[order[7]];
+    result_vec.u8s[8] = state_vec.u8s[order[8]];
+    result_vec.u8s[9] = state_vec.u8s[order[9]];
+    result_vec.u8s[10] = state_vec.u8s[order[10]];
+    result_vec.u8s[11] = state_vec.u8s[order[11]];
+    result_vec.u8s[12] = state_vec.u8s[order[12]];
+    result_vec.u8s[13] = state_vec.u8s[order[13]];
+    result_vec.u8s[14] = state_vec.u8s[order[14]];
+    result_vec.u8s[15] = state_vec.u8s[order[15]];
+    return result_vec;
 }
 
 /**
@@ -293,13 +289,14 @@ SZ_HELPER_AUTO void sz_hash_state_short_init_serial_(sz_hash_state_aligned_for_s
 /**
  *  @brief Absorbs one 128-bit block into the minimal hash state.
  *  @param state Pointer to the minimal hash state.
- *  @param block 128-bit data block to absorb.
+ *  @param block_vec 128-bit data block to absorb.
  */
-SZ_HELPER_AUTO void sz_hash_state_short_update_serial_(sz_hash_state_aligned_for_short_t *state, sz_u128_vec_t block) {
+SZ_HELPER_AUTO void sz_hash_state_short_update_serial_(sz_hash_state_aligned_for_short_t *state,
+                                                       sz_u128_vec_t block_vec) {
     sz_u8_t const *shuffle = sz_hash_u8x16x4_shuffle_();
-    state->aes = sz_emulate_aesenc_si128_serial_(state->aes, block);
+    state->aes = sz_emulate_aesenc_si128_serial_(state->aes, block_vec);
     state->sum = sz_emulate_shuffle_epi8_serial_(state->sum, shuffle);
-    state->sum.u64s[0] += block.u64s[0], state->sum.u64s[1] += block.u64s[1];
+    state->sum.u64s[0] += block_vec.u64s[0], state->sum.u64s[1] += block_vec.u64s[1];
 }
 
 /**
@@ -311,16 +308,16 @@ SZ_HELPER_AUTO void sz_hash_state_short_update_serial_(sz_hash_state_aligned_for
 SZ_HELPER_AUTO sz_u64_t sz_hash_state_short_finalize_serial_(sz_hash_state_aligned_for_short_t const *state,
                                                              sz_size_t length) {
     // Mix the length into the key
-    sz_u128_vec_t key_with_length = state->key;
-    key_with_length.u64s[0] += length;
+    sz_u128_vec_t key_with_length_vec = state->key;
+    key_with_length_vec.u64s[0] += length;
     // Combine the "sum" and the "AES" blocks
-    sz_u128_vec_t mixed = sz_emulate_aesenc_si128_serial_(state->sum, state->aes);
+    sz_u128_vec_t mixed_vec = sz_emulate_aesenc_si128_serial_(state->sum, state->aes);
     // Make sure the "key" mixes enough with the state,
     // as with less than 2 rounds - SMHasher fails
-    sz_u128_vec_t mixed_in_register = sz_emulate_aesenc_si128_serial_(
-        sz_emulate_aesenc_si128_serial_(mixed, key_with_length), mixed);
+    sz_u128_vec_t mixed_in_register_vec = sz_emulate_aesenc_si128_serial_(
+        sz_emulate_aesenc_si128_serial_(mixed_vec, key_with_length_vec), mixed_vec);
     // Extract the low 64 bits
-    return mixed_in_register.u64s[0];
+    return mixed_in_register_vec.u64s[0];
 }
 
 /**
@@ -446,44 +443,44 @@ SZ_HELPER_AUTO sz_u64_t sz_hash_state_finalize_serial_(sz_hash_state_aligned_t s
     sz_u8_t const *shuffle = sz_hash_u8x16x4_shuffle_();
 
     // Mix the length into the key
-    sz_u128_vec_t key_with_length;
-    key_with_length.u64s[0] = state.key.u64s[0] + state.ins_length;
-    key_with_length.u64s[1] = state.key.u64s[1];
+    sz_u128_vec_t key_with_length_vec;
+    key_with_length_vec.u64s[0] = state.key.u64s[0] + state.ins_length;
+    key_with_length_vec.u64s[1] = state.key.u64s[1];
 
     // Fold the deferred final block (still buffered in `ins` - a full 64 bytes or a zero-padded tail) into each
     // lane. Folding the last block here, rather than in `update`, lets both one-shot `sz_hash` and the streaming
     // digest defer it and share this single finalization.
-    sz_u128_vec_t aes0 = sz_emulate_aesenc_si128_serial_(state.aes.u128s[0], state.ins.u128s[0]);
-    sz_u128_vec_t aes1 = sz_emulate_aesenc_si128_serial_(state.aes.u128s[1], state.ins.u128s[1]);
-    sz_u128_vec_t aes2 = sz_emulate_aesenc_si128_serial_(state.aes.u128s[2], state.ins.u128s[2]);
-    sz_u128_vec_t aes3 = sz_emulate_aesenc_si128_serial_(state.aes.u128s[3], state.ins.u128s[3]);
-    sz_u128_vec_t sum0 = sz_emulate_shuffle_epi8_serial_(state.sum.u128s[0], shuffle);
-    sz_u128_vec_t sum1 = sz_emulate_shuffle_epi8_serial_(state.sum.u128s[1], shuffle);
-    sz_u128_vec_t sum2 = sz_emulate_shuffle_epi8_serial_(state.sum.u128s[2], shuffle);
-    sz_u128_vec_t sum3 = sz_emulate_shuffle_epi8_serial_(state.sum.u128s[3], shuffle);
-    sum0.u64s[0] += state.ins.u128s[0].u64s[0], sum0.u64s[1] += state.ins.u128s[0].u64s[1];
-    sum1.u64s[0] += state.ins.u128s[1].u64s[0], sum1.u64s[1] += state.ins.u128s[1].u64s[1];
-    sum2.u64s[0] += state.ins.u128s[2].u64s[0], sum2.u64s[1] += state.ins.u128s[2].u64s[1];
-    sum3.u64s[0] += state.ins.u128s[3].u64s[0], sum3.u64s[1] += state.ins.u128s[3].u64s[1];
+    sz_u128_vec_t aes0_vec = sz_emulate_aesenc_si128_serial_(state.aes.u128s[0], state.ins.u128s[0]);
+    sz_u128_vec_t aes1_vec = sz_emulate_aesenc_si128_serial_(state.aes.u128s[1], state.ins.u128s[1]);
+    sz_u128_vec_t aes2_vec = sz_emulate_aesenc_si128_serial_(state.aes.u128s[2], state.ins.u128s[2]);
+    sz_u128_vec_t aes3_vec = sz_emulate_aesenc_si128_serial_(state.aes.u128s[3], state.ins.u128s[3]);
+    sz_u128_vec_t sum0_vec = sz_emulate_shuffle_epi8_serial_(state.sum.u128s[0], shuffle);
+    sz_u128_vec_t sum1_vec = sz_emulate_shuffle_epi8_serial_(state.sum.u128s[1], shuffle);
+    sz_u128_vec_t sum2_vec = sz_emulate_shuffle_epi8_serial_(state.sum.u128s[2], shuffle);
+    sz_u128_vec_t sum3_vec = sz_emulate_shuffle_epi8_serial_(state.sum.u128s[3], shuffle);
+    sum0_vec.u64s[0] += state.ins.u128s[0].u64s[0], sum0_vec.u64s[1] += state.ins.u128s[0].u64s[1];
+    sum1_vec.u64s[0] += state.ins.u128s[1].u64s[0], sum1_vec.u64s[1] += state.ins.u128s[1].u64s[1];
+    sum2_vec.u64s[0] += state.ins.u128s[2].u64s[0], sum2_vec.u64s[1] += state.ins.u128s[2].u64s[1];
+    sum3_vec.u64s[0] += state.ins.u128s[3].u64s[0], sum3_vec.u64s[1] += state.ins.u128s[3].u64s[1];
 
     // Combine the "sum" and the "AES" blocks
-    sz_u128_vec_t mixed0 = sz_emulate_aesenc_si128_serial_(sum0, aes0);
-    sz_u128_vec_t mixed1 = sz_emulate_aesenc_si128_serial_(sum1, aes1);
-    sz_u128_vec_t mixed2 = sz_emulate_aesenc_si128_serial_(sum2, aes2);
-    sz_u128_vec_t mixed3 = sz_emulate_aesenc_si128_serial_(sum3, aes3);
+    sz_u128_vec_t mixed0_vec = sz_emulate_aesenc_si128_serial_(sum0_vec, aes0_vec);
+    sz_u128_vec_t mixed1_vec = sz_emulate_aesenc_si128_serial_(sum1_vec, aes1_vec);
+    sz_u128_vec_t mixed2_vec = sz_emulate_aesenc_si128_serial_(sum2_vec, aes2_vec);
+    sz_u128_vec_t mixed3_vec = sz_emulate_aesenc_si128_serial_(sum3_vec, aes3_vec);
 
     // Combine the mixed registers
-    sz_u128_vec_t mixed01 = sz_emulate_aesenc_si128_serial_(mixed0, mixed1);
-    sz_u128_vec_t mixed23 = sz_emulate_aesenc_si128_serial_(mixed2, mixed3);
-    sz_u128_vec_t mixed = sz_emulate_aesenc_si128_serial_(mixed01, mixed23);
+    sz_u128_vec_t mixed01_vec = sz_emulate_aesenc_si128_serial_(mixed0_vec, mixed1_vec);
+    sz_u128_vec_t mixed23_vec = sz_emulate_aesenc_si128_serial_(mixed2_vec, mixed3_vec);
+    sz_u128_vec_t mixed_vec = sz_emulate_aesenc_si128_serial_(mixed01_vec, mixed23_vec);
 
     // Make sure the "key" mixes enough with the state,
     // as with less than 2 rounds - SMHasher fails
-    sz_u128_vec_t mixed_in_register = sz_emulate_aesenc_si128_serial_(
-        sz_emulate_aesenc_si128_serial_(mixed, key_with_length), mixed);
+    sz_u128_vec_t mixed_in_register_vec = sz_emulate_aesenc_si128_serial_(
+        sz_emulate_aesenc_si128_serial_(mixed_vec, key_with_length_vec), mixed_vec);
 
     // Extract the low 64 bits
-    return mixed_in_register.u64s[0];
+    return mixed_in_register_vec.u64s[0];
 }
 
 SZ_API_COMPTIME SZ_NO_STACK_PROTECTOR sz_u64_t sz_hash_serial(sz_cptr_t text, sz_size_t length, sz_u64_t seed) {
@@ -661,8 +658,8 @@ SZ_API_COMPTIME sz_u64_t sz_hash_state_digest_serial(sz_hash_state_t const *pack
  *  @brief Splits a short (<= 64 byte) input into up to four de-interleaved 128-bit @b text-lanes, once.
  *  @param text Input string.
  *  @param length Number of bytes, must be <= 64.
- *  @param text_lanes Output: each `u128s[i]` holds up to 16 contiguous input bytes, low-justified
- *                    and zero-padded. Shared by every backend's multi-seed replay routine.
+ *  @param text_lanes_vec Output: each `u128s[i]` holds up to 16 contiguous input bytes, low-justified
+ *                        and zero-padded. Shared by every backend's multi-seed replay routine.
  *  @return The number of populated text-lanes (1..4).
  *
  *  The branchy, length-dependent work of loading and de-interleaving the input depends only on
@@ -677,11 +674,11 @@ SZ_API_COMPTIME sz_u64_t sz_hash_state_digest_serial(sz_hash_state_t const *pack
  *  @sa sz_hash_multiseed, sz_hash_multiseed_replay_serial_
  */
 SZ_HELPER_AUTO sz_size_t sz_hash_multiseed_prepare_serial_(sz_cptr_t text, sz_size_t length,
-                                                           sz_u512_vec_t *text_lanes) {
+                                                           sz_u512_vec_t *text_lanes_vec) {
     sz_assert_(length <= 64 && "The text-lane form only covers the minimal (<= 64 byte) path");
 
     // Zero the whole 64-byte register first, so trailing bytes of the last partial lane are defined.
-    for (int word_index = 0; word_index < 8; ++word_index) text_lanes->u64s[word_index] = 0;
+    for (int word_index = 0; word_index < 8; ++word_index) text_lanes_vec->u64s[word_index] = 0;
 
     // One text-lane per (up to) 16 bytes; empty inputs still absorb a single zero lane, matching `sz_hash`.
     sz_size_t const text_lanes_count = length <= 16 ? 1 : sz_size_divide_round_up(length, 16);
@@ -689,25 +686,25 @@ SZ_HELPER_AUTO sz_size_t sz_hash_multiseed_prepare_serial_(sz_cptr_t text, sz_si
         sz_size_t const lane_offset = lane_index * 16;
         sz_size_t const lane_length = length - lane_offset < 16 ? length - lane_offset : 16;
         for (sz_size_t byte_index = 0; byte_index < lane_length; ++byte_index)
-            text_lanes->u8s[lane_offset + byte_index] = text[lane_offset + byte_index];
+            text_lanes_vec->u8s[lane_offset + byte_index] = text[lane_offset + byte_index];
     }
     return text_lanes_count;
 }
 
 /**
  *  @brief Replays prepared text-lanes through the serial minimal AES state for a single seed.
- *  @param text_lanes Text-lanes from `sz_hash_multiseed_prepare_serial_`.
+ *  @param text_lanes_vec Text-lanes from `sz_hash_multiseed_prepare_serial_`.
  *  @param text_lanes_count Number of populated text-lanes.
  *  @param length Original byte length, folded into the digest.
  *  @param seed 64-bit seed for this output.
  *  @return 64-bit hash, identical to `sz_hash_serial(text, length, seed)`.
  */
-SZ_HELPER_AUTO sz_u64_t sz_hash_multiseed_replay_serial_(sz_u512_vec_t const *text_lanes, sz_size_t text_lanes_count,
-                                                         sz_size_t length, sz_u64_t seed) {
+SZ_HELPER_AUTO sz_u64_t sz_hash_multiseed_replay_serial_(sz_u512_vec_t const *text_lanes_vec,
+                                                         sz_size_t text_lanes_count, sz_size_t length, sz_u64_t seed) {
     sz_hash_state_aligned_for_short_t state;
     sz_hash_state_short_init_serial_(&state, seed);
     for (sz_size_t lane_index = 0; lane_index < text_lanes_count; ++lane_index)
-        sz_hash_state_short_update_serial_(&state, text_lanes->u128s[lane_index]);
+        sz_hash_state_short_update_serial_(&state, text_lanes_vec->u128s[lane_index]);
     return sz_hash_state_short_finalize_serial_(&state, length);
 }
 
@@ -722,10 +719,10 @@ SZ_API_COMPTIME void sz_hash_multiseed_serial(sz_cptr_t text, sz_size_t length, 
     }
     // Short strings share one normalization pass; long strings have no de-interleaving to amortize.
     if (length <= 64) {
-        sz_u512_vec_t text_lanes;
-        sz_size_t const text_lanes_count = sz_hash_multiseed_prepare_serial_(text, length, &text_lanes);
+        sz_u512_vec_t text_lanes_vec;
+        sz_size_t const text_lanes_count = sz_hash_multiseed_prepare_serial_(text, length, &text_lanes_vec);
         for (sz_size_t seed_index = 0; seed_index < seeds_count; ++seed_index)
-            hashes[seed_index] = sz_hash_multiseed_replay_serial_(&text_lanes, text_lanes_count, length,
+            hashes[seed_index] = sz_hash_multiseed_replay_serial_(&text_lanes_vec, text_lanes_count, length,
                                                                   seeds[seed_index]);
     }
     else {
@@ -775,7 +772,7 @@ SZ_HELPER_INLINE sz_u32_t sz_sha256_sigma1_lower_(sz_u32_t x) {
  *  @param block Pointer to 64-byte message block.
  */
 SZ_HELPER_AUTO void sz_sha256_process_block_serial_(sz_u32_t hash[sz_at_least_(8)],
-                                                    sz_u8_t const block[sz_at_least_(64)]) {
+                                                    sz_u8_t const block[sz_at_least_(SZ_SHA256_BLOCK_LENGTH)]) {
     sz_u32_t const *round_constants = sz_sha256_round_constants_();
     sz_u32_t message_schedule[16];
     sz_u32_t a, b, c, d, e, f, g, h, temp1, temp2;
@@ -821,20 +818,22 @@ SZ_HELPER_AUTO void sz_sha256_process_block_serial_(sz_u32_t hash[sz_at_least_(8
 }
 
 SZ_API_COMPTIME void sz_sha256_state_init_serial(sz_sha256_state_t *state_ptr) {
-    // Vectorize the load/store of 8x u32s as 4x u64s
+    // Copy at the width the state is declared with. Widening the store to `sz_u64_t` lets a strict-aliasing
+    // compiler assume these writes are not the ones `update` and `digest` read back through `sz_u32_t`, and
+    // GCC says so outright: "dereferencing type-punned pointer will break strict-aliasing rules". Both
+    // compilers still fold the eight assignments into two 16-byte stores.
     sz_u32_t const *initial_hash = sz_sha256_initial_hash_();
-    sz_u64_t const *source = (sz_u64_t const *)initial_hash;
-    sz_u64_t *target = (sz_u64_t *)state_ptr->hash;
-    target[0] = source[0], target[1] = source[1], target[2] = source[2], target[3] = source[3];
+    for (sz_size_t word_index = 0; word_index != 8; ++word_index)
+        state_ptr->hash[word_index] = initial_hash[word_index];
     state_ptr->block_length = 0, state_ptr->total_length = 0;
 }
 
 SZ_API_COMPTIME void sz_sha256_state_update_serial(sz_sha256_state_t *state_ptr, sz_cptr_t data, sz_size_t length) {
     sz_u8_t const *input = (sz_u8_t const *)data;
-    sz_size_t const current_block_index = state_ptr->block_length / 64;
-    sz_size_t const final_block_index = (state_ptr->block_length + length) / 64;
+    sz_size_t const current_block_index = state_ptr->block_length / SZ_SHA256_BLOCK_LENGTH;
+    sz_size_t const final_block_index = (state_ptr->block_length + length) / SZ_SHA256_BLOCK_LENGTH;
     int const stays_in_the_block = current_block_index == final_block_index;
-    int const fills_the_block = (state_ptr->block_length + length) % 64 == 0;
+    int const fills_the_block = (state_ptr->block_length + length) % SZ_SHA256_BLOCK_LENGTH == 0;
 
     state_ptr->total_length += length;
 
@@ -845,8 +844,8 @@ SZ_API_COMPTIME void sz_sha256_state_update_serial(sz_sha256_state_t *state_ptr,
     }
 
     // Calculate head, body, and tail lengths
-    sz_size_t const head_length = (64 - state_ptr->block_length) % 64;
-    sz_size_t const tail_length = (state_ptr->block_length + length) % 64;
+    sz_size_t const head_length = (SZ_SHA256_BLOCK_LENGTH - state_ptr->block_length) % SZ_SHA256_BLOCK_LENGTH;
+    sz_size_t const tail_length = (state_ptr->block_length + length) % SZ_SHA256_BLOCK_LENGTH;
     sz_size_t const body_length = length - head_length - tail_length;
 
     // Copy hash to aligned local buffer
@@ -865,7 +864,8 @@ SZ_API_COMPTIME void sz_sha256_state_update_serial(sz_sha256_state_t *state_ptr,
     }
 
     // Process body (complete aligned blocks)
-    for (sz_size_t processed = 0; processed < body_length; processed += 64, input += 64)
+    for (sz_size_t processed = 0; processed < body_length;
+         processed += SZ_SHA256_BLOCK_LENGTH, input += SZ_SHA256_BLOCK_LENGTH)
         sz_sha256_process_block_serial_(hash, input);
 
     // Process tail (remaining bytes into block buffer)
@@ -881,7 +881,7 @@ SZ_API_COMPTIME void sz_sha256_state_update_serial(sz_sha256_state_t *state_ptr,
 }
 
 SZ_API_COMPTIME void sz_sha256_state_digest_serial(sz_sha256_state_t const *state_ptr,
-                                                   sz_u8_t digest[sz_at_least_(32)]) {
+                                                   sz_u8_t digest[sz_at_least_(SZ_SHA256_DIGEST_LENGTH)]) {
     // Create a copy of the state for padding
     sz_sha256_state_t state = *state_ptr;
 
@@ -890,38 +890,25 @@ SZ_API_COMPTIME void sz_sha256_state_digest_serial(sz_sha256_state_t const *stat
 
     // If there's not enough room for the 64-bit length, pad this block and process it
     if (state.block_length > 56) {
-        sz_size_t remaining = 64 - state.block_length;
-#if SZ_USE_MISALIGNED_LOADS
-        // Use word-sized writes for better performance when misaligned stores are supported
+        // `sz_u64_store` already owns the misaligned-store decision and routes through a union, so the
+        // word-sized path stays without punning a `sz_u64_t` onto the `sz_u8_t` block.
+        sz_size_t remaining = SZ_SHA256_BLOCK_LENGTH - state.block_length;
         sz_size_t word_bytes = (remaining / 8) * 8;
         for (sz_size_t byte_index = 0; byte_index < word_bytes; byte_index += 8)
-            *(sz_u64_t *)&state.block[state.block_length + byte_index] = 0;
+            sz_u64_store((sz_ptr_t)&state.block[state.block_length + byte_index], 0);
         for (sz_size_t byte_index = word_bytes; byte_index < remaining; ++byte_index)
             state.block[state.block_length + byte_index] = 0;
-#else
-        // Use byte-by-byte writes to avoid alignment issues on platforms like ARMv7
-        for (sz_size_t byte_index = 0; byte_index < remaining; ++byte_index)
-            state.block[state.block_length + byte_index] = 0;
-#endif
         sz_sha256_process_block_serial_(state.hash, state.block);
         state.block_length = 0;
     }
 
     // Pad with zeros until we have 56 bytes
     sz_size_t remaining = 56 - state.block_length;
-
-#if SZ_USE_MISALIGNED_LOADS
-    // Use word-sized writes for better performance when misaligned stores are supported
     sz_size_t word_bytes = (remaining / 8) * 8;
     for (sz_size_t byte_index = 0; byte_index < word_bytes; byte_index += 8)
-        *(sz_u64_t *)&state.block[state.block_length + byte_index] = 0;
+        sz_u64_store((sz_ptr_t)&state.block[state.block_length + byte_index], 0);
     for (sz_size_t byte_index = word_bytes; byte_index < remaining; ++byte_index)
         state.block[state.block_length + byte_index] = 0;
-#else
-    // Use byte-by-byte writes to avoid alignment issues on platforms like ARMv7
-    for (sz_size_t byte_index = 0; byte_index < remaining; ++byte_index)
-        state.block[state.block_length + byte_index] = 0;
-#endif
 
     state.block_length = 56;
 
@@ -948,6 +935,19 @@ SZ_API_COMPTIME void sz_sha256_state_digest_serial(sz_sha256_state_t const *stat
     }
 }
 
+SZ_API_COMPTIME void sz_sha256_multistate_digest_serial(sz_sha256_state_t const *states, sz_size_t states_count,
+                                                        sz_u8_t *digests) {
+    for (sz_size_t lane_index = 0; lane_index != states_count; ++lane_index)
+        sz_sha256_state_digest_serial(&states[lane_index], &digests[lane_index * SZ_SHA256_DIGEST_LENGTH]);
+}
+
+SZ_API_COMPTIME void sz_sha256_multistate_update_serial(sz_sha256_state_t *states, sz_sequence_t const *texts) {
+    sz_size_t const lanes_count = texts->count;
+    for (sz_size_t lane_index = 0; lane_index != lanes_count; ++lane_index)
+        sz_sha256_state_update_serial(&states[lane_index], texts->get_start(texts->handle, lane_index),
+                                      texts->get_length(texts->handle, lane_index));
+}
+
 #pragma endregion // Serial SHA256 Implementation
 
 SZ_API_COMPTIME void sz_fill_random_serial(sz_ptr_t text, sz_size_t length, sz_u64_t nonce) {
@@ -966,6 +966,12 @@ SZ_API_COMPTIME void sz_fill_random_serial(sz_ptr_t text, sz_size_t length, sz_u
             *text++ = generated_vec.u8s[byte_index];
     }
 }
+
+#if defined(__clang__)
+#pragma clang attribute pop
+#elif defined(__GNUC__)
+#pragma GCC pop_options
+#endif
 
 #ifdef __cplusplus
 }

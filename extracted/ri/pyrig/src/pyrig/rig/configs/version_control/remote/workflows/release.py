@@ -35,7 +35,6 @@ class ReleaseWorkflowConfigFile(WorkflowConfigFile):
         runs_on: str = WorkflowConfigFile.UBUNTU_LATEST,
         if_condition: str | None = None,
         steps: list[dict[str, Any]] | None = None,
-        job: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Build a job gated by default on a successful, push-triggered run.
 
@@ -49,7 +48,6 @@ class ReleaseWorkflowConfigFile(WorkflowConfigFile):
                 whether the job runs. Defaults to requiring the triggering
                 run to have succeeded and been push-triggered.
             steps: Ordered list of step configurations.
-            job: Additional job-level keys to merge into the configuration.
 
         Returns:
             Dict mapping the derived job ID to its configuration.
@@ -65,7 +63,6 @@ class ReleaseWorkflowConfigFile(WorkflowConfigFile):
             runs_on=runs_on,
             if_condition=if_condition,
             steps=steps,
-            job=job,
         )
 
     def jobs(self) -> dict[str, Any]:
@@ -128,19 +125,12 @@ class ReleaseWorkflowConfigFile(WorkflowConfigFile):
             self.step_create_release(),
         ]
 
-    def step_create_release(
-        self,
-        *,
-        step: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    def step_create_release(self) -> dict[str, Any]:
         """Build a step that creates a GitHub release.
 
         Uses `ncipollo/release-action` to create a release named and
         tagged with the extracted version, using GitHub's auto-generated
         release notes as its body.
-
-        Args:
-            step: Additional keys to merge into the step configuration.
 
         Returns:
             Step using `ncipollo/release-action@main`.
@@ -154,7 +144,6 @@ class ReleaseWorkflowConfigFile(WorkflowConfigFile):
                 "name": version,
                 "tag": version,
             },
-            step=step,
         )
 
     def insert_version_from_extract_version_step(self) -> str:
@@ -167,18 +156,11 @@ class ReleaseWorkflowConfigFile(WorkflowConfigFile):
             f"steps.{self.id_from_method(self.step_extract_version)}.outputs.version",
         )
 
-    def step_create_tag(
-        self,
-        *,
-        step: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    def step_create_tag(self) -> dict[str, Any]:
         """Build a step that creates a version tag.
 
         The tag name (e.g. `1.2.3`) is resolved from the project version at
         runtime, when the step executes.
-
-        Args:
-            step: Additional keys to merge into the step configuration.
 
         Returns:
             Step that runs `git tag` to create the version tag.
@@ -186,18 +168,10 @@ class ReleaseWorkflowConfigFile(WorkflowConfigFile):
         return self.step(
             self.step_create_tag,
             run=str(VersionController.I.tag_args(tag=self.shell_insert_version())),
-            step=step,
         )
 
-    def step_extract_version(
-        self,
-        *,
-        step: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    def step_extract_version(self) -> dict[str, Any]:
         """Build a step that writes the current version to `GITHUB_OUTPUT`.
-
-        Args:
-            step: Additional keys to merge into the step configuration.
 
         Returns:
             Step that appends `version=<x.y.z>` to the `$GITHUB_OUTPUT` file.
@@ -205,18 +179,10 @@ class ReleaseWorkflowConfigFile(WorkflowConfigFile):
         return self.step(
             self.step_extract_version,
             run=f'echo "version={self.shell_insert_version()}" >> $GITHUB_OUTPUT',
-            step=step,
         )
 
-    def step_push_tag(
-        self,
-        *,
-        step: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    def step_push_tag(self) -> dict[str, Any]:
         """Build a step that pushes the version tag to the remote repository.
-
-        Args:
-            step: Additional keys to merge into the step configuration.
 
         Returns:
             Step that runs `git push origin <tag>`.
@@ -228,7 +194,6 @@ class ReleaseWorkflowConfigFile(WorkflowConfigFile):
                     tag=self.shell_insert_version(),
                 ),
             ),
-            step=step,
         )
 
     def steps_configure_repository(self) -> list[dict[str, Any]]:
@@ -244,18 +209,11 @@ class ReleaseWorkflowConfigFile(WorkflowConfigFile):
             self.step_enable_vulnerability_reporting(),
         ]
 
-    def step_apply_repository_settings(
-        self,
-        *,
-        step: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    def step_apply_repository_settings(self) -> dict[str, Any]:
         """Build a step that patches general repository settings via the GitHub API.
 
         Runs the generated repository-settings script, invoking its
         `settings` function.
-
-        Args:
-            step: Additional keys to merge into the step configuration.
 
         Returns:
             Step that runs `settings` from the settings script.
@@ -266,21 +224,13 @@ class ReleaseWorkflowConfigFile(WorkflowConfigFile):
                 ConfigureRepositoryConfigFile.I.apply_repository_settings_function(),
             ),
             env=self.configure_repository_env(),
-            step=step,
         )
 
-    def step_apply_rulesets(
-        self,
-        *,
-        step: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    def step_apply_rulesets(self) -> dict[str, Any]:
         """Build a step that upserts all rulesets from the settings file.
 
         Runs the generated repository-settings script, invoking its
         `rulesets` function.
-
-        Args:
-            step: Additional keys to merge into the step configuration.
 
         Returns:
             Step that runs `rulesets` from the settings script.
@@ -291,21 +241,13 @@ class ReleaseWorkflowConfigFile(WorkflowConfigFile):
                 ConfigureRepositoryConfigFile.I.apply_rulesets_function(),
             ),
             env=self.configure_repository_env(),
-            step=step,
         )
 
-    def step_enable_vulnerability_reporting(
-        self,
-        *,
-        step: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    def step_enable_vulnerability_reporting(self) -> dict[str, Any]:
         """Build a step that enables private vulnerability reporting.
 
         Runs the generated repository-settings script, invoking its
         `vulnerability_reporting` function.
-
-        Args:
-            step: Additional keys to merge into the step configuration.
 
         Returns:
             Step that runs `vulnerability_reporting` from the
@@ -317,7 +259,6 @@ class ReleaseWorkflowConfigFile(WorkflowConfigFile):
                 ConfigureRepositoryConfigFile.I.enable_vulnerability_reporting_function(),
             ),
             env=self.configure_repository_env(),
-            step=step,
         )
 
     def configure_repository_env(self) -> dict[str, str]:

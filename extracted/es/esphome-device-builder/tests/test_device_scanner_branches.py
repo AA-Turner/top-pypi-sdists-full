@@ -37,7 +37,7 @@ def _make_scanner(
     events: list[tuple[ScanChange, Device, Device | None]] = []
     scanner = DeviceScanner(
         config_dir=config_dir,
-        get_metadata=_stub_metadata,
+        make_metadata_resolver=lambda: _stub_metadata,
         on_change=lambda kind, device, previous: events.append((kind, device, previous)),
     )
     return scanner, events
@@ -120,6 +120,24 @@ async def test_reload_returns_false_when_loader_fails(tmp_path: Path) -> None:
     assert ok is False
     # The scanner did not fire an UPDATED event for the failed reload.
     assert events == []
+    assert scanner.poisoned_configurations() == ["kitchen.yaml"]
+
+    # The failure poisoned the cache key: the next scan re-reads the
+    # unchanged file instead of trusting the stale row forever.
+    retried: list[str] = []
+
+    def _retry(path: Path, *_a: Any, **_kw: Any) -> Device:
+        retried.append(path.name)
+        return Device(name=path.stem, friendly_name=path.stem, configuration=path.name)
+
+    with patch(
+        "esphome_device_builder.controllers._device_scanner.load_device_from_storage",
+        side_effect=_retry,
+    ):
+        await scanner.scan()
+
+    assert retried == ["kitchen.yaml"]
+    assert scanner.poisoned_configurations() == []
 
 
 async def test_reload_swallows_oserror_on_post_load_stat(tmp_path: Path) -> None:
@@ -259,11 +277,12 @@ async def test_reload_passes_previous_device(tmp_path: Path) -> None:
     cfg = tmp_path / "configs"
     cfg.mkdir()
     _write_yaml(cfg, "kitchen")
+    builds = iter(["first", "second"])
 
     with patch(
         "esphome_device_builder.controllers._device_scanner.load_device_from_storage",
         side_effect=lambda path, *_a, **_kw: Device(
-            name=path.stem, friendly_name=path.stem, configuration=path.name
+            name=path.stem, friendly_name=next(builds), configuration=path.name
         ),
     ):
         scanner, events = _make_scanner(cfg)
@@ -275,6 +294,26 @@ async def test_reload_passes_previous_device(tmp_path: Path) -> None:
     assert [kind for kind, _dev, _prev in events] == [ScanChange.RELOADED]
     # Identity, not equality — an equal rebuilt Device must not pass.
     assert events[0][2] is first_device
+
+
+async def test_reload_suppresses_event_for_identical_rebuild(tmp_path: Path) -> None:
+    """A reload whose rebuilt Device equals the indexed one fires no change event."""
+    cfg = tmp_path / "configs"
+    cfg.mkdir()
+    _write_yaml(cfg, "kitchen")
+
+    with patch(
+        "esphome_device_builder.controllers._device_scanner.load_device_from_storage",
+        side_effect=lambda path, *_a, **_kw: Device(
+            name=path.stem, friendly_name=path.stem, configuration=path.name
+        ),
+    ):
+        scanner, events = _make_scanner(cfg)
+        await scanner.scan()
+        events.clear()
+        assert await scanner.reload("kitchen.yaml") is True
+
+    assert events == []
 
 
 async def test_scan_removed_passes_none_previous(tmp_path: Path) -> None:
@@ -298,3 +337,166 @@ async def test_scan_removed_passes_none_previous(tmp_path: Path) -> None:
     assert [(kind, dev.name, prev) for kind, dev, prev in events] == [
         (ScanChange.REMOVED, "kitchen", None)
     ]
+
+
+# ---------------------------------------------------------------------------
+# index-before-callback ordering
+# ---------------------------------------------------------------------------
+
+
+async def test_reload_rebuckets_index_before_firing_callback(tmp_path: Path) -> None:
+    """A rename reload re-keys the name index before ``on_change`` observes it."""
+    cfg = tmp_path / "configs"
+    cfg.mkdir()
+    _write_yaml(cfg, "kitchen")
+    names = iter(["old-kitchen", "kitchen"])
+    observed: list[tuple[list[Device], list[Device]]] = []
+    holder: list[DeviceScanner] = []
+
+    def _on_change(kind: ScanChange, _device: Device, _previous: Device | None) -> None:
+        if kind is ScanChange.RELOADED:
+            observed.append(
+                (holder[0].get_by_name("old-kitchen"), holder[0].get_by_name("kitchen"))
+            )
+
+    with patch(
+        "esphome_device_builder.controllers._device_scanner.load_device_from_storage",
+        side_effect=lambda path, *_a, **_kw: Device(
+            name=next(names), friendly_name=path.stem, configuration=path.name
+        ),
+    ):
+        scanner = DeviceScanner(
+            config_dir=cfg,
+            make_metadata_resolver=lambda: _stub_metadata,
+            on_change=_on_change,
+        )
+        holder.append(scanner)
+        await scanner.scan()
+        assert await scanner.reload("kitchen.yaml") is True
+
+    old_bucket, new_bucket = observed[0]
+    assert old_bucket == []
+    assert [d.name for d in new_bucket] == ["kitchen"]
+
+
+async def test_scan_rebuckets_index_before_firing_callback(tmp_path: Path) -> None:
+    """An UPDATED rename scan re-keys the name index before ``on_change`` observes it."""
+    cfg = tmp_path / "configs"
+    cfg.mkdir()
+    yaml_path = _write_yaml(cfg, "kitchen")
+    names = iter(["old-kitchen", "kitchen"])
+    observed: list[tuple[list[Device], list[Device]]] = []
+    holder: list[DeviceScanner] = []
+
+    def _on_change(kind: ScanChange, _device: Device, _previous: Device | None) -> None:
+        if kind is ScanChange.UPDATED:
+            observed.append(
+                (holder[0].get_by_name("old-kitchen"), holder[0].get_by_name("kitchen"))
+            )
+
+    with patch(
+        "esphome_device_builder.controllers._device_scanner.load_device_from_storage",
+        side_effect=lambda path, *_a, **_kw: Device(
+            name=next(names), friendly_name=path.stem, configuration=path.name
+        ),
+    ):
+        scanner = DeviceScanner(
+            config_dir=cfg,
+            make_metadata_resolver=lambda: _stub_metadata,
+            on_change=_on_change,
+        )
+        holder.append(scanner)
+        await scanner.scan()
+        yaml_path.write_text("esphome:\n  name: kitchen\n# touched\n", encoding="utf-8")
+        await scanner.scan()
+
+    old_bucket, new_bucket = observed[0]
+    assert old_bucket == []
+    assert [d.name for d in new_bucket] == ["kitchen"]
+
+
+# ---------------------------------------------------------------------------
+# shallow scan threading
+# ---------------------------------------------------------------------------
+
+
+def _shallow_capturing_loader(seen: list[bool]) -> Any:
+    """Loader stub recording the ``shallow`` kwarg it was called with."""
+
+    def _capture(path: Path, *_a: Any, **kw: Any) -> Device:
+        seen.append(kw.get("shallow", False))
+        return Device(name=path.stem, friendly_name=path.stem, configuration=path.name)
+
+    return _capture
+
+
+async def test_scan_shallow_threads_to_loader(tmp_path: Path) -> None:
+    """``scan(shallow=True)`` passes the flag through to ``load_device_from_storage``."""
+    cfg = tmp_path / "configs"
+    cfg.mkdir()
+    _write_yaml(cfg, "kitchen")
+    seen: list[bool] = []
+
+    with patch(
+        "esphome_device_builder.controllers._device_scanner.load_device_from_storage",
+        side_effect=_shallow_capturing_loader(seen),
+    ):
+        scanner, _ = _make_scanner(cfg)
+        await scanner.scan(shallow=True)
+
+    assert seen == [True]
+
+
+async def test_scan_default_is_deep(tmp_path: Path) -> None:
+    """A bare ``scan()`` loads deep."""
+    cfg = tmp_path / "configs"
+    cfg.mkdir()
+    _write_yaml(cfg, "kitchen")
+    seen: list[bool] = []
+
+    with patch(
+        "esphome_device_builder.controllers._device_scanner.load_device_from_storage",
+        side_effect=_shallow_capturing_loader(seen),
+    ):
+        scanner, _ = _make_scanner(cfg)
+        await scanner.scan()
+
+    assert seen == [False]
+
+
+async def test_reload_after_shallow_scan_is_deep(tmp_path: Path) -> None:
+    """``reload`` always loads deep, even for a device seeded by a shallow scan."""
+    cfg = tmp_path / "configs"
+    cfg.mkdir()
+    _write_yaml(cfg, "kitchen")
+    seen: list[bool] = []
+
+    with patch(
+        "esphome_device_builder.controllers._device_scanner.load_device_from_storage",
+        side_effect=_shallow_capturing_loader(seen),
+    ):
+        scanner, _ = _make_scanner(cfg)
+        await scanner.scan(shallow=True)
+        assert await scanner.reload("kitchen.yaml") is True
+
+    assert seen == [True, False]
+
+
+async def test_plain_scan_does_not_redeepen_shallow_rows(tmp_path: Path) -> None:
+    """Sticky-shallow: a later plain ``scan()`` skips an unchanged shallow row."""
+    cfg = tmp_path / "configs"
+    cfg.mkdir()
+    _write_yaml(cfg, "kitchen")
+    seen: list[bool] = []
+
+    with patch(
+        "esphome_device_builder.controllers._device_scanner.load_device_from_storage",
+        side_effect=_shallow_capturing_loader(seen),
+    ):
+        scanner, _ = _make_scanner(cfg)
+        await scanner.scan(shallow=True)
+        await scanner.scan()
+
+    # The unchanged cache key skipped the file entirely; only reload /
+    # request deepens the row.
+    assert seen == [True]

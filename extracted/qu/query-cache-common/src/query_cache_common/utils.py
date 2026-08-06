@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import datetime
-import humanize
 import time
 import typing as t
 
+import humanize
 
 if t.TYPE_CHECKING:
     from sqlglot.expressions import (
         Create as CreateStatement,
+    )
+    from sqlglot.expressions import (
         Expression as SqlglotExpression,
     )
 

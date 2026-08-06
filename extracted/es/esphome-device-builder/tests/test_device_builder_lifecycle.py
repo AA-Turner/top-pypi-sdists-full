@@ -24,6 +24,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from esphome_device_builder.api.ws import close_active_websockets
+from esphome_device_builder.controllers.components import ComponentCatalog
 from esphome_device_builder.device_builder import DeviceBuilder
 
 from .conftest import MakeSettingsFactory
@@ -209,6 +210,7 @@ async def test_advertise_task_starts_discovery_after_register(
 ) -> None:
     """The chained startup task registers the advertise before the peer browse."""
     db = DeviceBuilder(make_settings(with_core_path=True))
+    db.loop = asyncio.get_running_loop()
     order: list[str] = []
 
     advertiser = MagicMock()
@@ -226,7 +228,7 @@ async def test_advertise_task_starts_discovery_after_register(
     )
 
     db.notify_serving()
-    await db._advertise_and_start_peer_discovery(MagicMock())
+    await db._post_serving_startup(MagicMock())
     assert order == ["register", "discovery"]
 
 
@@ -238,6 +240,7 @@ async def test_forgotten_serving_gate_warns_and_advertises_anyway(
     """A never-opened serving gate self-reports and still runs the chain."""
     monkeypatch.setattr("esphome_device_builder.device_builder._SERVING_GATE_TIMEOUT_SECONDS", 0.01)
     db = DeviceBuilder(make_settings(with_core_path=True))
+    db.loop = asyncio.get_running_loop()
     db.remote_build_offloader = MagicMock()
     calls: list[object] = []
     monkeypatch.setattr(
@@ -246,10 +249,26 @@ async def test_forgotten_serving_gate_warns_and_advertises_anyway(
     )
 
     with caplog.at_level(logging.WARNING, logger="esphome_device_builder.device_builder"):
-        await db._advertise_and_start_peer_discovery(None)
+        await db._post_serving_startup(None)
 
     assert calls == [db.remote_build_offloader]
     assert any("Serving gate never opened" in rec.getMessage() for rec in caplog.records)
+
+
+async def test_featured_prewarm_failure_is_logged(
+    make_settings: MakeSettingsFactory,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A raising pre-warm surfaces in the log instead of vanishing with the task."""
+    db = DeviceBuilder(make_settings(with_core_path=True))
+    db.components = MagicMock()
+    db.components.ensure_featured_registry = AsyncMock(side_effect=RuntimeError("index exploded"))
+
+    with caplog.at_level(logging.ERROR, logger="esphome_device_builder.device_builder"):
+        await db._prewarm_featured_registry()
+
+    assert any("pre-warm failed" in rec.getMessage() for rec in caplog.records)
 
 
 async def test_advertise_failure_still_starts_discovery(
@@ -259,6 +278,7 @@ async def test_advertise_failure_still_starts_discovery(
 ) -> None:
     """A raising register logs and the peer browse still starts."""
     db = DeviceBuilder(make_settings(with_core_path=True))
+    db.loop = asyncio.get_running_loop()
 
     advertiser = MagicMock()
     advertiser.register = AsyncMock(side_effect=RuntimeError("ifaddr exploded"))
@@ -272,7 +292,7 @@ async def test_advertise_failure_still_starts_discovery(
 
     db.notify_serving()
     with caplog.at_level(logging.ERROR, logger="esphome_device_builder.device_builder"):
-        await db._advertise_and_start_peer_discovery(MagicMock())
+        await db._post_serving_startup(MagicMock())
 
     assert calls == [db.remote_build_offloader]
     assert any("advertise failed" in rec.getMessage() for rec in caplog.records)
@@ -289,6 +309,8 @@ async def test_start_schedules_advertise_and_discovery_task(
         "esphome_device_builder.device_builder.start_peer_discovery",
         calls.append,
     )
+    prewarm = AsyncMock()
+    monkeypatch.setattr(ComponentCatalog, "ensure_featured_registry", prewarm)
     db = DeviceBuilder(make_settings(with_core_path=True))
     try:
         await db.start()
@@ -296,12 +318,15 @@ async def test_start_schedules_advertise_and_discovery_task(
         assert task is not None
         assert not task.done()
         assert calls == []
+        prewarm.assert_not_called()
 
         db.notify_serving()
         await asyncio.wait_for(task, timeout=5)
         # No advertiser (zeroconf is None under the hermetic fixture),
         # so the chain goes straight to the peer browse.
         assert calls == [db.remote_build_offloader]
+        # The chain scheduled the featured pre-warm as a sibling task.
+        assert prewarm.call_count == 1
     finally:
         await db.stop()
 

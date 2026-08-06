@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepteam
-Version: 1.0.7
+Version: 1.0.8
 Summary: The LLM Red Teaming Framework
 License: Apache-2.0
 License-File: LICENSE.md
@@ -14,12 +14,12 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Provides-Extra: claude
+Provides-Extra: claude-code
 Provides-Extra: codex
 Provides-Extra: cursor
 Provides-Extra: harnesses
 Requires-Dist: aiohttp (>=3.11.18)
-Requires-Dist: claude-agent-sdk ; (python_version >= "3.10") and (extra == "claude" or extra == "harnesses")
+Requires-Dist: claude-agent-sdk ; (python_version >= "3.10") and (extra == "claude-code" or extra == "harnesses")
 Requires-Dist: cursor-sdk ; (python_version >= "3.10") and (extra == "cursor" or extra == "harnesses")
 Requires-Dist: deepeval (>=3.6.2)
 Requires-Dist: grpcio (>=1.67.1)
@@ -82,7 +82,7 @@ DeepTeam simulates attacks — jailbreaking, prompt injection, multi-turn exploi
 DeepTeam runs **locally on your machine** and is built on [DeepEval](https://github.com/confident-ai/deepeval), the open-source LLM evaluation framework.
 
 > [!IMPORTANT]
-> Need a place for your red teaming results to live? Sign up to the [Confident AI](https://app.confident-ai.com?utm_source=GitHub) platform to manage risk assessments, monitor vulnerabilities in production, and share reports with your team.
+> Need a place for your red teaming results to live? Sign up to the [Confident AI](https://app.confident-ai.com?utm_source=deepteam&utm_medium=github&utm_content=results_callout) platform to manage risk assessments, monitor vulnerabilities in production, and share reports with your team.
 
 <p align="center">
     <img src="https://github.com/confident-ai/deepteam/blob/main/assets/confident-demo.gif" alt="Confident AI + DeepTeam" width="100%">
@@ -324,7 +324,7 @@ print(output_result.breached)  # True
 
 # DeepTeam with Confident AI
 
-[Confident AI](https://app.confident-ai.com?utm_source=GitHub) is the all-in-one platform that integrates natively with DeepTeam and [DeepEval](https://github.com/confident-ai/deepeval).
+[Confident AI](https://app.confident-ai.com?utm_source=deepteam&utm_medium=github&utm_content=platform_section) is the all-in-one platform that integrates natively with DeepTeam and [DeepEval](https://github.com/confident-ai/deepeval).
 
 - **Manage risk assessments** — view, compare, and track red teaming results across iterations
 - **Monitor in production** — detect and alert on vulnerabilities hitting your live LLM system

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pycdlib
-Version: 1.16.0
+Version: 1.20.0
 Summary: Pure python ISO manipulation library
 Home-page: http://github.com/clalancette/pycdlib
 Author: Chris Lalancette

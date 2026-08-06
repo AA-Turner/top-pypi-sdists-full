@@ -72,20 +72,25 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 U = TypeVar("U")
 
-# Channel options for grpc.aio — excludes the sync-only SingleThreadedUnaryStream hint
-_ASYNC_CHANNEL_OPTIONS: Dict[str, str | int] = {
+_ASYNC_DEFAULT_CHANNEL_OPTIONS: Dict[str, str | int] = {
     "grpc.max_send_message_length": 1024 * 1024 * 100,  # 100MB
     "grpc.max_receive_message_length": 1024 * 1024 * 100,  # 100MB
+    "grpc.keepalive_time_ms": 60_000,
+    "grpc.keepalive_timeout_ms": 5_000,
+    "grpc.keepalive_permit_without_calls": 1,
+    "grpc.http2.max_pings_without_data": 0,
     "grpc.service_config": json.dumps(
         {
             "methodConfig": [
                 {
                     "name": [{}],
-                    "maxAttempts": 5,
-                    "initialBackoff": "0.1s",
-                    "maxBackoff": "1s",
-                    "backoffMultiplier": 2,
-                    "retryableStatusCodes": ["UNAVAILABLE"],
+                    "retryPolicy": {
+                        "maxAttempts": 5,
+                        "initialBackoff": "0.1s",
+                        "maxBackoff": "1s",
+                        "backoffMultiplier": 2,
+                        "retryableStatusCodes": ["UNAVAILABLE"],
+                    },
                 }
             ]
         }
@@ -125,7 +130,7 @@ class AsyncStubProvider:
     ):
         super().__init__()
         additional_headers_nonempty: List[tuple[str, str]] = [] if additional_headers is None else additional_headers
-        channel_options_merged: Dict[str, str | int] = _ASYNC_CHANNEL_OPTIONS.copy()
+        channel_options_merged: Dict[str, str | int] = _ASYNC_DEFAULT_CHANNEL_OPTIONS.copy()
         if channel_options:
             channel_options_merged.update(dict(channel_options))
         channel_options_list = list(channel_options_merged.items())
@@ -306,7 +311,7 @@ class AsyncStubProvider:
         channel_options: List[tuple[str, str | int]] | None = None,
     ) -> "AsyncStubProvider":
         additional_headers_nonempty: List[tuple[str, str]] = additional_headers or []
-        channel_options_merged: Dict[str, str | int] = _ASYNC_CHANNEL_OPTIONS.copy()
+        channel_options_merged: Dict[str, str | int] = _ASYNC_DEFAULT_CHANNEL_OPTIONS.copy()
         if channel_options:
             channel_options_merged.update(dict(channel_options))
         channel_options_list = list(channel_options_merged.items())
@@ -872,6 +877,7 @@ class AsyncChalkGRPCClient:
         *,
         input_sql: str | None = None,
         input_schema_hint: Optional[InputSchemaHint] = None,
+        trace: bool = False,
     ) -> BulkOnlineQueryResult:
         """Compute feature values for multiple rows using online resolvers.
 
@@ -921,6 +927,8 @@ class AsyncChalkGRPCClient:
         input_sql
             A SQL query whose results are used as inputs. Mutually exclusive
             with ``input``.
+        trace
+            If True, enable distributed tracing for this query.
         """
         if input is None and input_sql is None:
             raise TypeError("One of `input` or `input_sql` is required")
@@ -953,6 +961,7 @@ class AsyncChalkGRPCClient:
             request_timeout=request_timeout,
             headers=headers,
             query_context=_validate_context_dict(query_context),
+            trace=trace,
         )
         return OnlineQueryConverter.online_query_bulk_response_decode(
             response, trace_id=await get_trace_id_from_async_response(call)
@@ -982,6 +991,7 @@ class AsyncChalkGRPCClient:
         headers: Mapping[str, str | bytes] | Sequence[tuple[str, str | bytes]] | None = None,
         query_context: Mapping[str, Union[str, int, float, bool, None]] | None = None,
         input_schema_hint: Optional[InputSchemaHint] = None,
+        trace: bool = False,
     ) -> Tuple[online_query_pb2.OnlineQueryBulkResponse, Any]:
         request = self._make_query_bulk_request(
             input=input,
@@ -1004,7 +1014,7 @@ class AsyncChalkGRPCClient:
             planner_options=planner_options or {},
             query_context=query_context,
         )
-        trace_context = current_trace_context()
+        trace_context = current_or_new_trace_context() if trace else current_trace_context()
         if trace_context is not None:
             headers = _inject_trace_context_metadata(headers, trace_context)
         metadata = _canonicalize_headers(headers)

@@ -70,6 +70,7 @@ from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 
 import msgspec
 
+from .api.binding import ModelRef, wire_ref
 from .stall import SilenceWindow
 
 logger = logging.getLogger(__name__)
@@ -159,13 +160,53 @@ class CompileCellSpec(msgspec.Struct, frozen=True, kw_only=True):
     text_lens: Tuple[int, ...] = ()
 
 
-class MintRequest(msgspec.Struct, frozen=True, kw_only=True):
-    """Everything the child needs, and nothing live.
+class MintSlot(msgspec.Struct, frozen=True, kw_only=True):
+    """One setup slot, as the parent resolved it. Present and complete, or absent.
 
-    ``snapshots`` are LOCAL paths the parent already materialized, so the
-    child never touches the network: a mint is compute, and a mint process
-    that could download is a mint process that can stall on a lemon host.
+    pgw#974. This used to be THREE parallel slot-keyed dicts on
+    ``MintRequest`` — ``snapshots`` (bytes), ``slot_bindings`` (identity,
+    pgw#969) and ``component_paths`` (composition, pgw#816) — written by three
+    separate statements, each independently allowed to be empty. Two of the
+    three combinations that describes are incoherent, and one of them cost two
+    L40S pods: ``{"pipeline": "/tmp/x"}`` with no binding decoded, type-checked
+    and looked complete, and the child died 0.0 s into ``warmup_forward`` at
+    ``ctx.slots["pipeline"]``. ``ref`` and ``path`` therefore carry no
+    defaults: a slot with bytes and no identity cannot be constructed and
+    cannot be decoded.
+
+    A slot the parent did not resolve is ABSENT from the map — never a present
+    entry with a hole in it. ``mint_child.assert_slots_resolvable`` still
+    refuses one that the endpoint declares and does not mark optional.
+
+    * ``ref`` — WHICH checkpoint. ``ctx.slots`` is built from bindings, and a
+      child re-runs discovery, so a hub-catalog slot (``Slot(selected_by=...)``
+      with no ``default_checkpoint=``, which is sdxl's shape) rediscovers
+      nothing at all. A slot WITH a code default is the quieter half of the
+      same defect: the child resolves the DECLARED checkpoint while the parent
+      serves the hub's pick, and traces graphs for a model this pod never runs.
+    * ``path`` — WHERE its bytes already are, materialized by the parent, so
+      the child never touches the network: a mint is compute, and a mint
+      process that could download is one that can stall on a lemon host.
+    * ``component_paths`` — pgw#617 per-component overrides, comp -> that
+      component's own local tree. Empty for most slots and part of the
+      composition when not: th#1330 B2 EXCLUDES an overridden component's
+      files from the base fetch, so ``path`` alone then names a narrowed tree
+      (``<digest>__x<fp>``) that no loader can open.
     """
+
+    ref: ModelRef
+    path: str
+    component_paths: Dict[str, str] = {}
+
+    def __post_init__(self) -> None:
+        if not self.path:
+            raise ValueError(
+                f"a resolved slot must name the tree its bytes are in; got an "
+                f"empty path for {wire_ref(self.ref)!r}")
+
+
+class MintRequest(msgspec.Struct, frozen=True, kw_only=True):
+    """Everything the child needs, and nothing live."""
 
     function: str
     modules: Tuple[str, ...]
@@ -175,15 +216,9 @@ class MintRequest(msgspec.Struct, frozen=True, kw_only=True):
     capture: str         # TORCHINDUCTOR_CACHE_DIR / TRITON_CACHE_DIR root
     report: str          # typed terminal report the child writes
     cfg: CompileCellSpec
-    snapshots: Dict[str, str] = {}
-    #: pgw#816: slot -> component -> the OVERRIDE component's own local tree
-    #: (pgw#617 hierarchical bindings). A directory path alone does not
-    #: describe the composition: th#1330 B2 EXCLUDES an overridden
-    #: component's files from the base fetch, so the base tree the parent
-    #: hands over is narrowed (`<digest>__x<fp>`) and is not loadable on its
-    #: own. The parent resolved these; the child must load the same ones or
-    #: it is not compiling the pipeline the parent serves.
-    component_paths: Dict[str, Dict[str, str]] = {}
+    #: The parent's resolution, whole — slot -> identity + bytes + composition.
+    #: See ``MintSlot``: the three views this replaced could disagree.
+    slots: Dict[str, MintSlot] = {}
     device: int = -1     # CUDA ordinal; -1 = leave the child's default
     vram_cap_bytes: int = 0   # 0 = uncapped (see mint_budget.co_residency)
     #: pgw#848: where the child rewrites its live phase table, so a mint the
@@ -217,7 +252,7 @@ class MintRequest(msgspec.Struct, frozen=True, kw_only=True):
     #: declared-parameter values per function (th#1087). Both STEER the warm
     #: forwards, so both must be the parent's values — a child warming at
     #: different config traces different graphs and the parent's proof misses.
-    lane: str = ""
+    execution_lane: str = ""
     configs: Dict[str, Dict[str, Any]] = {}
     #: pgw#805: ``"dynamo"`` (inductor FX capture, the original recipe) or
     #: ``"aot"`` (torch.export + AOTInductor). The parent decides; the child
@@ -361,38 +396,62 @@ def _decode_report(path: Path) -> Optional[MintReport]:
         return None
 
 
-def _tree_cpu_seconds(pid: int) -> float:
-    """The child's process-tree CPU seconds.
+def _tree_cpu_seconds(pid: int) -> Optional[float]:
+    """The child's process-tree CPU seconds — INCLUDING descendants that have
+    already exited.
 
-    Inductor forks its own compile workers, so the tree — not the child
-    alone — is what burns the CPU a mint is made of. Best-effort: a raced
-    exit contributes nothing rather than raising.
+    Inductor forks its own compile workers and a ``g++`` under each of those,
+    so the tree — not the child alone — is what burns the CPU a mint is made
+    of. The subtle half is the word *already*: on Linux a process's CPU leaves
+    its own ``utime/stime`` and lands in its parent's ``cutime/cstime`` the
+    instant the parent reaps it (recursively — a reaped subtree rolls all the
+    way up). Summing only the live members' ``user + system`` therefore makes
+    this quantity a SAWTOOTH: an entry compile child that FINISHES subtracts
+    its entire lifetime CPU from the total.
+
+    That is not a cosmetic wobble. ``_observe`` ratchets against a high-water
+    mark, so a finishing entry digs a hole one whole entry deep, and the mint
+    is killed for the crime of completing something (pgw#964; it killed
+    pgw#868 attempt eighteen twice, byte-identically, on two independent pods).
+    Adding the reaped-children counters makes the total monotonic for as long
+    as ``pid`` lives, which is exactly as long as it is consulted.
+
+    Returns ``None`` when the tree could not be sampled at all. A failure is
+    NOT zero: reporting zero would manufacture the same cliff from a transient
+    ``/proc`` race.
     """
     try:
         import psutil
     except Exception:  # pragma: no cover - psutil is a hard dep in practice
-        return 0.0
-    total = 0.0
+        return None
     try:
         proc = psutil.Process(pid)
         members = [proc] + proc.children(recursive=True)
     except Exception:
-        return 0.0
+        return None
+    total = 0.0
     for member in members:
         try:
             times = member.cpu_times()
         except Exception:
             continue
+        # A member's own time, plus the time of every descendant IT has
+        # already waited for. No double count: a process's CPU is in exactly
+        # one of the two places, never both.
         total += float(times.user) + float(times.system)
+        total += float(getattr(times, "children_user", 0.0) or 0.0)
+        total += float(getattr(times, "children_system", 0.0) or 0.0)
     return total
 
 
-def _capture_mib(capture: Path) -> float:
+def _capture_mib(capture: Path) -> Optional[float]:
     """MiB the child has written into its capture dir.
 
-    A compile whose CPU is briefly parked in a C++ toolchain still grows this,
-    and vice versa, so the two together are a much harder liveness signal than
-    either alone.
+    The inductor/triton cache root, not a stdio buffer. It grows in BURSTS —
+    generated sources land, then a single-threaded ``g++`` chews on them for
+    minutes writing nothing. So its growth proves work and its silence proves
+    nothing, which is why ``_observe`` treats it as an independent positive
+    signal that can never, on its own, vote to kill.
     """
     total = 0
     try:
@@ -403,12 +462,17 @@ def _capture_mib(capture: Path) -> float:
             except OSError:
                 continue
     except OSError:
-        return 0.0
+        return None
     return total / (1 << 20)
 
 
-def _evidence(pid: int, capture: Path) -> float:
-    return _tree_cpu_seconds(pid) + _capture_mib(capture)
+#: The measured signals, sampled together. Deliberately a PAIR and never a
+#: sum: they have different failure modes and different units, and adding them
+#: lets a fall in one cancel a rise in the other. That is precisely how a
+#: healthy mint died — a reaped entry's CPU drop swallowed the capture bytes
+#: its successor was writing.
+def _evidence(pid: int, capture: Path) -> Tuple[Optional[float], Optional[float]]:
+    return _tree_cpu_seconds(pid), _capture_mib(capture)
 
 
 def child_argv(request_path: Path, *, python: str = "") -> Sequence[str]:
@@ -514,25 +578,42 @@ async def _observe(
     interval_s: float,
 ) -> str:
     """Watch the child's MEASURED progress. Returns the stall reason, or ''
-    when cancelled because the child exited."""
-    last = _evidence(pid, capture)
+    when cancelled because the child exited.
+
+    Each signal keeps its OWN high-water mark and an advance in EITHER is
+    progress (pgw#964). Two properties fall out, and both are load-bearing:
+
+    * a signal that cannot be sampled this poll contributes nothing rather
+      than a cliff, and
+    * a signal that is merely quiet — capture bytes during a long ``g++`` —
+      cannot cancel one that is moving. Only the absence of BOTH advances is
+      silence, which is the only thing this window is entitled to judge.
+    """
+    cpu, mib = _evidence(pid, capture)
     window.touch()
     while True:
         await asyncio.sleep(interval_s)
-        now = _evidence(pid, capture)
-        if now - last >= _EVIDENCE_EPS:
-            last = now
+        now_cpu, now_mib = _evidence(pid, capture)
+        advanced = False
+        if now_cpu is not None and (cpu is None or now_cpu - cpu >= _EVIDENCE_EPS):
+            cpu, advanced = now_cpu, True
+        if now_mib is not None and (mib is None or now_mib - mib >= _EVIDENCE_EPS):
+            mib, advanced = now_mib, True
+        if advanced:
             window.touch()
             if on_evidence is not None:
                 try:
-                    on_evidence(now)
+                    on_evidence((cpu or 0.0) + (mib or 0.0))
                 except Exception:
                     logger.exception("mint evidence callback failed")
         elif window.stalled():
             return (
                 f"the mint process made no measured progress for "
                 f"{window.silent_for():.0f}s (window {window.window_s:.0f}s): "
-                f"no process-tree CPU and no capture bytes")
+                f"process-tree CPU {'unreadable' if now_cpu is None else f'{now_cpu:.1f}s'} "
+                f"and capture "
+                f"{'unreadable' if now_mib is None else f'{now_mib:.1f}MiB'} "
+                f"both flat")
 
 
 def _terminate_group(pid: int, *, grace_s: float = 10.0) -> None:

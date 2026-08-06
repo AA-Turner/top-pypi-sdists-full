@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hopsworks
-Version: 5.0.3
+Version: 5.0.4
 Summary: Hopsworks Python SDK to interact with Hopsworks Platform, Feature Store, Model Registry and Model Serving
 Author-email: Hopsworks AB <robin@hopsworks.ai>
 License: Apache-2.0

@@ -5,7 +5,6 @@ import json
 import typing as t
 from dataclasses import dataclass, fields
 
-
 BSDM = t.TypeVar("BSDM", bound="BaseSerDeModel")
 BSDE = t.TypeVar("BSDE", bound="BaseSerDeEnum")
 
@@ -69,7 +68,7 @@ def _deserialize_field_value(
     args = t.get_args(field_type)
 
     if args and type(None) in args:
-        field_type = [arg for arg in args if arg is not type(None)][0]
+        field_type = next(arg for arg in args if arg is not type(None))
 
     if hasattr(field_type, "from_dict"):
         return field_type.from_dict(value)  # ty: ignore[call-non-callable]

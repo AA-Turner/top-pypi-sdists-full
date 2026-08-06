@@ -29,10 +29,29 @@ class _CoercingPayloadBase(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _coerce_string_payload(cls, data: Any) -> Any:
-        if isinstance(data, str):
+        # Bounded to two layers: models sometimes JSON-encode the payload, then
+        # JSON-encode that string again (arrives quote-wrapped).
+        for _ in range(2):
+            if not isinstance(data, str):
+                break
             parsed = parse_structured_string(data)
             if isinstance(parsed, dict):
                 data = parsed
+                break
+            try:
+                peeled = json.loads(data)
+            except Exception:
+                break
+            if isinstance(peeled, str) and peeled != data:
+                data = peeled
+                continue
+            break
+        if isinstance(data, dict):
+            inner = data.get("payload")
+            if isinstance(inner, str) and "payload" not in cls.model_fields:
+                parsed = parse_structured_string(inner)
+                if isinstance(parsed, dict):
+                    data = {**data, "payload": parsed}
         if isinstance(data, dict):
             data = cls._unwrap_redundant_payload(data)
             data = cls._nest_flat_body_params(data)
@@ -56,7 +75,12 @@ class _CoercingPayloadBase(BaseModel):
         if not isinstance(inner, dict):
             return data
         siblings = {k: v for k, v in data.items() if k != "payload"}
-        if any(not str(k).lower().startswith("toolcall") for k in siblings):
+        # A stray outer "headers" dict rides along with the wrapped payload just like
+        # bare toolcall* keys do; anything else means a genuinely different envelope.
+        if any(
+            k != "headers" and not str(k).lower().startswith("toolcall")
+            for k in siblings
+        ):
             return data
         payload_shape = {"body_params", "query_params", "path_params", "headers", "workspace_path"}
         if not (payload_shape & set(inner) or set(cls.model_fields) & set(inner)):

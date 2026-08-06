@@ -88,7 +88,30 @@ mod serialize;
 mod tree;
 
 /// The current version of the lockfile format.
-pub const VERSION: u32 = 1;
+const VERSION: u32 = 1;
+
+/// An error returned when parsing a lockfile.
+#[derive(Debug, thiserror::Error)]
+pub enum LockParseError {
+    /// The lockfile uses an unsupported schema version.
+    #[error("unsupported lockfile schema version (v{version}, but only v{supported} is supported)")]
+    UnsupportedVersion { supported: u32, version: u32 },
+
+    /// The lockfile cannot be parsed and uses an unsupported schema version.
+    #[error(
+        "failed to parse lockfile using an unsupported schema version (v{version}, but only v{supported} is supported)"
+    )]
+    UnparsableVersion {
+        supported: u32,
+        version: u32,
+        #[source]
+        source: toml::de::Error,
+    },
+
+    /// The lockfile is not valid TOML or cannot be deserialized.
+    #[error(transparent)]
+    Toml(#[from] toml::de::Error),
+}
 
 /// The current revision of the lockfile format.
 const REVISION: u32 = 3;
@@ -1323,7 +1346,7 @@ impl Lock {
     }
 
     /// Returns the lockfile version.
-    pub fn version(&self) -> u32 {
+    fn version(&self) -> u32 {
         self.version
     }
 
@@ -1960,12 +1983,36 @@ impl Lock {
     /// Parses a lockfile, using the canonical fast path when possible.
     ///
     /// Lockfiles not written in uv's canonical layout fall back to the general
-    /// TOML parser, preserving its compatibility and error reporting.
-    pub fn from_toml(input: &str) -> Result<Self, toml::de::Error> {
-        match Self::from_canonical_toml(input) {
-            Ok(lock) => Ok(lock),
-            Err(_) => toml::from_str(input),
+    /// TOML parser, preserving its compatibility and error reporting. Lockfiles
+    /// that use an unsupported schema version are rejected.
+    pub fn from_toml(input: &str) -> Result<Self, LockParseError> {
+        let lock = match Self::from_canonical_toml(input) {
+            Ok(lock) => lock,
+            Err(_) => match toml::from_str(input) {
+                Ok(lock) => lock,
+                Err(source) => {
+                    if let Ok(lock) = toml::from_str::<LockVersion>(input)
+                        && lock.version() != VERSION
+                    {
+                        return Err(LockParseError::UnparsableVersion {
+                            supported: VERSION,
+                            version: lock.version(),
+                            source,
+                        });
+                    }
+                    return Err(LockParseError::Toml(source));
+                }
+            },
+        };
+
+        if lock.version() != VERSION {
+            return Err(LockParseError::UnsupportedVersion {
+                supported: VERSION,
+                version: lock.version(),
+            });
         }
+
+        Ok(lock)
     }
 
     /// Returns the TOML representation of this lockfile.
@@ -3735,13 +3782,13 @@ impl TryFrom<LockWire> for Lock {
 /// unparsable.
 #[derive(Clone, Debug, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub struct LockVersion {
+struct LockVersion {
     version: u32,
 }
 
 impl LockVersion {
     /// Returns the lockfile version.
-    pub fn version(&self) -> u32 {
+    fn version(&self) -> u32 {
         self.version
     }
 }
@@ -5446,8 +5493,7 @@ enum GitSourceKind {
 }
 
 /// Inspired by: <https://discuss.python.org/t/lock-files-again-but-this-time-w-sdists/46593>
-#[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct SourceDistMetadata {
     /// A hash of the source distribution.
     hash: Option<Hash>,
@@ -5456,7 +5502,6 @@ struct SourceDistMetadata {
     /// This is only present for source distributions that come from registries.
     size: Option<u64>,
     /// The upload time of the source distribution.
-    #[serde(alias = "upload_time")]
     upload_time: Option<Timestamp>,
 }
 
@@ -5464,23 +5509,60 @@ struct SourceDistMetadata {
 /// locked against was found. The location does not need to exist in the
 /// future, so this should be treated as only a hint to where to look
 /// and/or recording where the source dist file originally came from.
-#[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
-#[serde(from = "SourceDistWire")]
+#[derive(Clone, Debug, PartialEq, Eq)]
 enum SourceDist {
     Url {
         url: UrlString,
-        #[serde(flatten)]
         metadata: SourceDistMetadata,
     },
     Path {
         path: Box<Path>,
-        #[serde(flatten)]
         metadata: SourceDistMetadata,
     },
     Metadata {
-        #[serde(flatten)]
         metadata: SourceDistMetadata,
     },
+}
+
+impl<'de> serde::Deserialize<'de> for SourceDist {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        #[serde(rename_all = "kebab-case")]
+        struct Fields {
+            url: Option<UrlString>,
+            path: Option<PortablePathBuf>,
+            hash: Option<Hash>,
+            size: Option<u64>,
+            #[serde(alias = "upload_time")]
+            upload_time: Option<Timestamp>,
+        }
+
+        let Fields {
+            url,
+            path,
+            hash,
+            size,
+            upload_time,
+        } = serde::Deserialize::deserialize(deserializer)?;
+
+        let metadata = SourceDistMetadata {
+            hash,
+            size,
+            upload_time,
+        };
+
+        Ok(match (url, path) {
+            (Some(url), _) => Self::Url { url, metadata },
+            (None, Some(path)) => Self::Path {
+                path: path.into(),
+                metadata,
+            },
+            (None, None) => Self::Metadata { metadata },
+        })
+    }
 }
 
 impl SourceDist {
@@ -5738,38 +5820,6 @@ impl SourceDist {
                 upload_time: None,
             },
         })
-    }
-}
-
-#[derive(Clone, Debug, serde::Deserialize)]
-#[serde(untagged, rename_all = "kebab-case")]
-enum SourceDistWire {
-    Url {
-        url: UrlString,
-        #[serde(flatten)]
-        metadata: SourceDistMetadata,
-    },
-    Path {
-        path: PortablePathBuf,
-        #[serde(flatten)]
-        metadata: SourceDistMetadata,
-    },
-    Metadata {
-        #[serde(flatten)]
-        metadata: SourceDistMetadata,
-    },
-}
-
-impl From<SourceDistWire> for SourceDist {
-    fn from(wire: SourceDistWire) -> Self {
-        match wire {
-            SourceDistWire::Url { url, metadata } => Self::Url { url, metadata },
-            SourceDistWire::Path { path, metadata } => Self::Path {
-                path: path.into(),
-                metadata,
-            },
-            SourceDistWire::Metadata { metadata } => Self::Metadata { metadata },
-        }
     }
 }
 
@@ -6196,8 +6246,9 @@ impl Wheel {
 #[derive(Clone, Debug, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 struct WheelWire {
-    #[serde(flatten)]
-    url: WheelWireSource,
+    url: Option<UrlString>,
+    path: Option<Box<Path>>,
+    filename: Option<WheelFilename>,
     /// A hash of the built distribution.
     ///
     /// This is only present for wheels that come from registries and direct
@@ -6248,7 +6299,17 @@ impl TryFrom<WheelWire> for Wheel {
     type Error = String;
 
     fn try_from(wire: WheelWire) -> Result<Self, String> {
-        let filename = match &wire.url {
+        let source = if let Some(url) = wire.url {
+            WheelWireSource::Url { url }
+        } else if let Some(path) = wire.path {
+            WheelWireSource::Path { path }
+        } else if let Some(filename) = wire.filename {
+            WheelWireSource::Filename { filename }
+        } else {
+            return Err("wheel has no URL, path, or filename".to_string());
+        };
+
+        let filename = match &source {
             WheelWireSource::Url { url } => {
                 let filename = url.filename().map_err(|err| err.to_string())?;
                 filename.parse::<WheelFilename>().map_err(|err| {
@@ -6270,7 +6331,7 @@ impl TryFrom<WheelWire> for Wheel {
         };
 
         Ok(Self {
-            url: wire.url,
+            url: source,
             hash: wire.hash,
             size: wire.size,
             upload_time: wire.upload_time,
@@ -8312,6 +8373,21 @@ source = { editable = "path/to/a" }
 "#;
         let result = toml::from_str::<Lock>(data);
         insta::assert_debug_snapshot!(result);
+    }
+
+    #[test]
+    fn wheel_sources_deserialize() {
+        for source in [
+            r#"url = "https://example.com/dependency-1.0.0-py3-none-any.whl""#,
+            r#"path = "dependency-1.0.0-py3-none-any.whl""#,
+            r#"filename = "dependency-1.0.0-py3-none-any.whl""#,
+        ] {
+            let wheel: Wheel = toml::from_str(source).expect("valid wheel source");
+            assert_eq!(
+                wheel.filename.to_string(),
+                "dependency-1.0.0-py3-none-any.whl"
+            );
+        }
     }
 
     #[test]

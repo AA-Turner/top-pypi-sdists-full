@@ -1,6 +1,6 @@
 [project]
 name = "python-bsblan"
-version = "6.1.7"
+version = "6.1.8"
 description = "Asynchronous Python client for BSBLAN API"
 authors = [
     {name = "Willem-Jan van Rootselaar", email = "liudgervr@gmail.com"}
@@ -196,7 +196,7 @@ dev = [
     # hatch is required to support type hinting and proper packaging of the py.typed file.
     "hatch>=1.14.1",
     "isort==8.0.1",
-    "ty==0.0.56",
+    "ty==0.0.59",
     "prek>=0.3.3",
     "pre-commit-hooks==6.0.0",
     "pylint==4.0.5",

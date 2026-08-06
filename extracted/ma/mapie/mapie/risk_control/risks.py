@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 import warnings
-from typing import Callable, List, Literal, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, List, Literal, Tuple, Union, cast
 
 import numpy as np
 from numpy.typing import NDArray
 
+if TYPE_CHECKING:
+    import torch
+
 
 class _BaseRisk:
     """
-    Base class factoring out the logic shared between :class:`BinaryRisk` and
-    :class:`ContinuousRisk`.
+    Base class factoring out the logic shared between `BinaryRisk` and
+    `ContinuousRisk`.
 
-    Subclasses must implement :meth:`_compute_values_and_effective_mask`, which
+    Subclasses must implement `_compute_values_and_effective_mask`, which
     returns, for each sample, (i) the per-sample risk value and (ii) whether the
     sample is effective (i.e. counts toward the risk average).
 
@@ -136,20 +139,20 @@ class _BaseRisk:
         """
         values, effective_mask = self._compute_values_and_effective_mask(y_true, y_pred)
         self._warn_if_nan_values(values)
-        risk_sequence = values[effective_mask]
+        risk_sequence: NDArray = values[effective_mask]
         if self.higher_is_better:
             risk_sequence = 1 - risk_sequence
-        return risk_sequence
+        return cast(NDArray, risk_sequence)
 
 
 class BinaryRisk(_BaseRisk):
     """
     Define a risk (or a performance metric) to be used with the
     BinaryClassificationController. Predefined instances are implemented,
-    see :data:`mapie.risk_control.precision`, :data:`mapie.risk_control.recall`,
-    :data:`mapie.risk_control.accuracy`,
-    :data:`mapie.risk_control.false_positive_rate`, and
-    :data:`mapie.risk_control.predicted_positive_fraction`.
+    see `mapie.risk_control.precision`, `mapie.risk_control.recall`,
+    `mapie.risk_control.accuracy`,
+    `mapie.risk_control.false_positive_rate`, and
+    `mapie.risk_control.predicted_positive_fraction`.
 
     Here, a binary classification risk (or performance) is defined by an occurrence and
     a condition. Let's take the example of precision. Precision is the sum of true
@@ -249,7 +252,7 @@ class BinaryRisk(_BaseRisk):
 
 class BinaryClassificationRisk(BinaryRisk):
     """
-    Deprecated alias for :class:`BinaryRisk`.
+    Deprecated alias for `BinaryRisk`.
 
     Use ``BinaryRisk`` instead.
     """
@@ -380,12 +383,12 @@ class ContinuousRisk(_BaseRisk):
     A continuous risk is defined by a single per-sample function mapping the
     ground-truth and predicted values to a non-negative per-sample risk value.
     The aggregated risk is the mean of these per-sample values across all
-    samples. Unlike :class:`BinaryRisk`, there is no separate "condition": every
+    samples. Unlike `BinaryRisk`, there is no separate "condition": every
     sample counts (``risk_occurrence`` is not needed), so the effective sample
     size is always equal to ``n_samples``.
 
-    Typical instances are :data:`mapie.risk_control.mae` (mean absolute error)
-    and :data:`mapie.risk_control.mse` (mean squared error).
+    Typical instances are `mapie.risk_control.mae` (mean absolute error)
+    and `mapie.risk_control.mse` (mean squared error).
 
     Note: for theoretical risk control guarantees (Hoeffding-Bentkus), the
     per-sample risk values must be bounded. The caller is responsible for
@@ -448,3 +451,148 @@ continuous_risk_choice_map = {
     "mae": mae,
     "mse": mse,
 }
+
+
+class RiskLoss:
+    """
+    Define a PyTorch-compatible loss for automatically adaptive CRC (AA-CRC).
+
+    Parameters
+    ----------
+    loss_function : Callable
+        PyTorch function taking ``y_true``, raw ``y_pred`` and the prediction
+        parameter. It must return one value in ``[0, 1]`` per prediction
+        parameter. Use string names when selecting losses defined by MAPIE;
+        this class is the extension point for custom losses.
+
+    higher_is_better : bool
+        Whether ``loss_function`` is a performance metric (``True``) or a loss
+        (``False``). As for :class:`BinaryRisk`, performance values are
+        converted to losses with ``1 - value``.
+
+    monotonicity : {"increasing", "decreasing"}
+        Direction of the controlled loss with respect to the prediction
+        parameter. This describes the values returned by this ``RiskLoss``
+        instance, after converting a performance metric to a loss when
+        ``higher_is_better=True``.
+
+    Attributes
+    ----------
+    higher_is_better : bool
+        See params.
+
+    monotonicity : {"increasing", "decreasing"}
+        See params.
+
+    objective_sign : float
+        Sign used to orient the AA-CRC minimization objective: ``1`` for an
+        increasing loss and ``-1`` for a decreasing loss.
+
+    Examples
+    --------
+    >>> import torch
+    >>> metric = RiskLoss(
+    ...     lambda y_true, y_pred, param: param,
+    ...     higher_is_better=True,
+    ...     monotonicity="decreasing",
+    ... )
+    >>> param = torch.tensor([0.2], requires_grad=True)
+    >>> loss = metric(None, None, param)
+    >>> bool(torch.allclose(loss, torch.tensor([0.8])))
+    True
+    >>> loss.sum().backward()
+    >>> param.grad is not None
+    True
+    """
+
+    def __init__(
+        self,
+        loss_function: Callable[[Any, Any, Any], Any],
+        higher_is_better: bool,
+        monotonicity: Literal["increasing", "decreasing"],
+    ) -> None:
+        if monotonicity not in ("increasing", "decreasing"):
+            raise ValueError(
+                "`monotonicity` must be either 'increasing' or 'decreasing'."
+            )
+        self._loss_function = loss_function
+        self.higher_is_better = higher_is_better
+        self.monotonicity = monotonicity
+
+    @property
+    def objective_sign(self) -> float:
+        """Return the sign that orients the AA-CRC minimization objective."""
+        return 1.0 if self.monotonicity == "increasing" else -1.0
+
+    def __call__(self, y_true: Any, y_pred: Any, predict_param: Any) -> Any:
+        values = self._loss_function(y_true, y_pred, predict_param)
+        loss = 1 - values if self.higher_is_better else values
+        if not bool(loss.isfinite().all()):
+            raise ValueError("The risk must return only finite values.")
+        if bool(((loss < 0) | (loss > 1)).any()):
+            raise ValueError("The risk values must lie in [0, 1].")
+        return loss
+
+
+RiskLossNames = Literal["recall", "miscoverage"]
+RiskLossLike = Union[RiskLoss, RiskLossNames]
+
+
+def _recall(
+    y_true: "torch.Tensor",
+    y_pred: "torch.Tensor",
+    predict_param: "torch.Tensor",
+) -> "torch.Tensor":
+    """Compute differentiable recall for AA-CRC."""
+    import torch
+
+    y_pred_set = torch.sigmoid(1000 * (y_pred - predict_param))
+    y_true_ = y_true.reshape(len(y_true), -1)
+    y_pred_set_ = y_pred_set.reshape(len(y_pred_set), -1)
+    denominator = y_true_.sum(dim=1).clamp_min(torch.finfo(y_true.dtype).eps)
+    return (y_pred_set_ * y_true_).sum(dim=1) / denominator
+
+
+recall_loss = RiskLoss(
+    _recall,
+    higher_is_better=True,
+    monotonicity="increasing",
+)
+
+
+def _miscoverage(
+    y_true: "torch.Tensor",
+    y_pred: "torch.Tensor",
+    predict_param: "torch.Tensor",
+) -> "torch.Tensor":
+    """Compute differentiable symmetric-interval miscoverage for AA-CRC."""
+    import torch
+
+    losses = torch.sigmoid(1000 * (torch.abs(y_true - y_pred) - predict_param))
+    return losses.reshape(len(losses), -1).mean(dim=1)
+
+
+miscoverage_loss = RiskLoss(
+    _miscoverage,
+    higher_is_better=False,
+    monotonicity="decreasing",
+)
+
+_RISK_LOSS_CHOICE_MAP = {
+    "recall": recall_loss,
+    "miscoverage": miscoverage_loss,
+}
+
+
+def _resolve_risk(risk: RiskLossLike) -> RiskLoss:
+    if isinstance(risk, str):
+        try:
+            return _RISK_LOSS_CHOICE_MAP[risk]
+        except KeyError as error:
+            raise ValueError(
+                "When `risk` is provided as a string, it must be one of: "
+                f"{list(_RISK_LOSS_CHOICE_MAP)}."
+            ) from error
+    if isinstance(risk, RiskLoss):
+        return risk
+    raise TypeError("`risk` must be a string or a RiskLoss instance.")

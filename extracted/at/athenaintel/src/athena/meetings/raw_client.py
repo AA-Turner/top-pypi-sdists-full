@@ -163,6 +163,7 @@ class RawMeetingsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the meeting asset to retrieve
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -238,6 +239,7 @@ class RawMeetingsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the meeting asset to download
 
         artifact : typing.Optional[DownloadMeetingsRequestArtifact]
             Which artifact to download: 'zip' (full export), 'recording', 'transcript', 'formatted_transcript', or 'chat'
@@ -451,6 +453,7 @@ class AsyncRawMeetingsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the meeting asset to retrieve
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -526,6 +529,7 @@ class AsyncRawMeetingsClient:
         Parameters
         ----------
         asset_id : str
+            Unique identifier of the meeting asset to download
 
         artifact : typing.Optional[DownloadMeetingsRequestArtifact]
             Which artifact to download: 'zip' (full export), 'recording', 'transcript', 'formatted_transcript', or 'chat'

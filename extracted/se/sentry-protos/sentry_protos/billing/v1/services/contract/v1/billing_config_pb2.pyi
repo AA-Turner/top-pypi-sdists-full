@@ -28,6 +28,7 @@ class _BillingTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._En
     BILLING_TYPE_INVOICED: _BillingType.ValueType  # 1
     BILLING_TYPE_CREDIT_CARD: _BillingType.ValueType  # 2
     BILLING_TYPE_PARTNER: _BillingType.ValueType  # 3
+    BILLING_TYPE_PAYG_INVOICED: _BillingType.ValueType  # 4
 
 class BillingType(_BillingType, metaclass=_BillingTypeEnumTypeWrapper):
     """Indicates how the account is billed."""
@@ -36,6 +37,7 @@ BILLING_TYPE_UNSPECIFIED: BillingType.ValueType  # 0
 BILLING_TYPE_INVOICED: BillingType.ValueType  # 1
 BILLING_TYPE_CREDIT_CARD: BillingType.ValueType  # 2
 BILLING_TYPE_PARTNER: BillingType.ValueType  # 3
+BILLING_TYPE_PAYG_INVOICED: BillingType.ValueType  # 4
 global___BillingType = BillingType
 
 class _BillingChannel:
@@ -159,6 +161,33 @@ class SponsorshipConfig(google.protobuf.message.Message):
 global___SponsorshipConfig = SponsorshipConfig
 
 @typing.final
+class ChargeConfig(google.protobuf.message.Message):
+    """Configuration for what a contract will be charged for."""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    BILLING_TYPE_FIELD_NUMBER: builtins.int
+    CHARGES_SUBSCRIPTION_FIELD_NUMBER: builtins.int
+    CHARGES_PAYG_FIELD_NUMBER: builtins.int
+    billing_type: global___BillingType.ValueType
+    charges_subscription: builtins.bool
+    """Whether this billing mode charges subscription fees. When true, subscription
+    fees are charged only when they are due for renewal.
+    """
+    charges_payg: builtins.bool
+    """Whether we should charge for PAYG spend."""
+    def __init__(
+        self,
+        *,
+        billing_type: global___BillingType.ValueType = ...,
+        charges_subscription: builtins.bool = ...,
+        charges_payg: builtins.bool = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["billing_type", b"billing_type", "charges_payg", b"charges_payg", "charges_subscription", b"charges_subscription"]) -> None: ...
+
+global___ChargeConfig = ChargeConfig
+
+@typing.final
 class Address(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -195,21 +224,18 @@ global___Address = Address
 class BillingConfig(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    MONTH_INTERVAL_FIELD_NUMBER: builtins.int
+    SUPPORTS_PAYG_FIELD_NUMBER: builtins.int
+    IS_MANAGED_FIELD_NUMBER: builtins.int
+    HAS_SOFT_CAP_FIELD_NUMBER: builtins.int
+    SPONSORSHIP_CONFIG_FIELD_NUMBER: builtins.int
+    CHARGE_CONFIG_FIELD_NUMBER: builtins.int
     BILLING_TYPE_FIELD_NUMBER: builtins.int
     CHANNEL_FIELD_NUMBER: builtins.int
     EXTERNAL_BILLING_PROVIDER_FIELD_NUMBER: builtins.int
     ADDRESS_FIELD_NUMBER: builtins.int
     CONTRACT_START_DATE_FIELD_NUMBER: builtins.int
     CONTRACT_END_DATE_FIELD_NUMBER: builtins.int
-    MONTH_INTERVAL_FIELD_NUMBER: builtins.int
-    SUPPORTS_PAYG_FIELD_NUMBER: builtins.int
-    IS_MANAGED_FIELD_NUMBER: builtins.int
-    HAS_SOFT_CAP_FIELD_NUMBER: builtins.int
-    SPONSORSHIP_CONFIG_FIELD_NUMBER: builtins.int
-    billing_type: global___BillingType.ValueType
-    channel: global___BillingChannel.ValueType
-    """Remaining fields are deprecated"""
-    external_billing_provider: global___ExternalBillingProvider.ValueType
     month_interval: builtins.int
     """The number-of-months interval the contract was signed under
     (1 = monthly, 12 = annual). Frozen for the life of the contract.
@@ -227,6 +253,18 @@ class BillingConfig(google.protobuf.message.Message):
     """Whether the org has a soft cap: usage past reserved volume is allowed
     (and billed) instead of hard-stopping ingestion.
     """
+    billing_type: global___BillingType.ValueType
+    """Remaining fields are deprecated
+    Use charge_config
+    """
+    channel: global___BillingChannel.ValueType
+    external_billing_provider: global___ExternalBillingProvider.ValueType
+    @property
+    def sponsorship_config(self) -> global___SponsorshipConfig:
+        """Sponsorship configuration. Absent means the contract is not sponsored."""
+
+    @property
+    def charge_config(self) -> global___ChargeConfig: ...
     @property
     def address(self) -> global___Address: ...
     @property
@@ -235,27 +273,24 @@ class BillingConfig(google.protobuf.message.Message):
 
     @property
     def contract_end_date(self) -> global___Date: ...
-    @property
-    def sponsorship_config(self) -> global___SponsorshipConfig:
-        """Sponsorship configuration. Absent means the contract is not sponsored."""
-
     def __init__(
         self,
         *,
+        month_interval: builtins.int = ...,
+        supports_payg: builtins.bool = ...,
+        is_managed: builtins.bool = ...,
+        has_soft_cap: builtins.bool = ...,
+        sponsorship_config: global___SponsorshipConfig | None = ...,
+        charge_config: global___ChargeConfig | None = ...,
         billing_type: global___BillingType.ValueType = ...,
         channel: global___BillingChannel.ValueType = ...,
         external_billing_provider: global___ExternalBillingProvider.ValueType = ...,
         address: global___Address | None = ...,
         contract_start_date: global___Date | None = ...,
         contract_end_date: global___Date | None = ...,
-        month_interval: builtins.int = ...,
-        supports_payg: builtins.bool = ...,
-        is_managed: builtins.bool = ...,
-        has_soft_cap: builtins.bool = ...,
-        sponsorship_config: global___SponsorshipConfig | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_sponsorship_config", b"_sponsorship_config", "address", b"address", "contract_end_date", b"contract_end_date", "contract_start_date", b"contract_start_date", "sponsorship_config", b"sponsorship_config"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_sponsorship_config", b"_sponsorship_config", "address", b"address", "billing_type", b"billing_type", "channel", b"channel", "contract_end_date", b"contract_end_date", "contract_start_date", b"contract_start_date", "external_billing_provider", b"external_billing_provider", "has_soft_cap", b"has_soft_cap", "is_managed", b"is_managed", "month_interval", b"month_interval", "sponsorship_config", b"sponsorship_config", "supports_payg", b"supports_payg"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_sponsorship_config", b"_sponsorship_config", "address", b"address", "charge_config", b"charge_config", "contract_end_date", b"contract_end_date", "contract_start_date", b"contract_start_date", "sponsorship_config", b"sponsorship_config"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_sponsorship_config", b"_sponsorship_config", "address", b"address", "billing_type", b"billing_type", "channel", b"channel", "charge_config", b"charge_config", "contract_end_date", b"contract_end_date", "contract_start_date", b"contract_start_date", "external_billing_provider", b"external_billing_provider", "has_soft_cap", b"has_soft_cap", "is_managed", b"is_managed", "month_interval", b"month_interval", "sponsorship_config", b"sponsorship_config", "supports_payg", b"supports_payg"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["_sponsorship_config", b"_sponsorship_config"]) -> typing.Literal["sponsorship_config"] | None: ...
 
 global___BillingConfig = BillingConfig

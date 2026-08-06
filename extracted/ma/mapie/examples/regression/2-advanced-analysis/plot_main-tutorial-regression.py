@@ -24,7 +24,7 @@ For conservative prediction interval estimates, you can alternatively
 use the CV-minmax strategies.**
 """
 
-# sphinx_gallery_thumbnail_number = 2
+# mkdocs_gallery_thumbnail_number = 2
 
 import os
 import warnings
@@ -763,6 +763,6 @@ pd.DataFrame(
 # 4. More Jupyter notebooks for regression
 # ----------------------------------------
 #
-# If you would like to run a series of notebooks hosted on the MAPIE Github
-# repository that can be run on Google Colab, please visit this documentation
-# link: https://mapie.readthedocs.io/en/stable/notebooks_regression.html.
+# If you would like to run a series of notebooks hosted on the MAPIE GitHub
+# repository that can be run on Google Colab, please visit:
+# https://github.com/scikit-learn-contrib/MAPIE/tree/master/notebooks/regression.

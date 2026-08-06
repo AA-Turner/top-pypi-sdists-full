@@ -11,6 +11,7 @@ import grpc
 
 if TYPE_CHECKING:
     import pyarrow as pa
+    from chalkcompute import RemoteCallClient  # pyright: ignore[reportMissingImports]
 
     from chalk.client.client_grpc import ChalkGRPCClient
 
@@ -128,13 +129,11 @@ def _decode_output(chunks: Sequence[bytes]) -> "pa.RecordBatch":
     return batches[0]
 
 
-def _transport_call(
+def _new_remote_call_client(
     target: str,
     use_tls: bool,
-    handler: str,
-    feather_bytes: bytes,
     metadata: Sequence[Tuple[str, str]],
-) -> List[bytes]:
+) -> "RemoteCallClient":
     try:
         from chalkcompute import RemoteCallClient, RemoteCallClientUnavailable  # pyright: ignore[reportMissingImports]
     except ImportError as e:
@@ -143,16 +142,23 @@ def _transport_call(
         ) from e
 
     try:
-        remote_client = RemoteCallClient(target, metadata=list(metadata), use_tls=use_tls)
+        return RemoteCallClient(target, metadata=list(metadata), use_tls=use_tls)
     except RemoteCallClientUnavailable as e:
         raise ImportError("Reinstall `chalkcompute`: its native extension is missing.") from e
 
+
+def _transport_call(
+    target: str,
+    use_tls: bool,
+    handler: str,
+    feather_bytes: bytes,
+    metadata: Sequence[Tuple[str, str]],
+) -> List[bytes]:
+    remote_client = _new_remote_call_client(target, use_tls, metadata)
     try:
         return list(remote_client.call_ipc(handler, feather_bytes))
     finally:
-        close = getattr(remote_client, "close", None)
-        if callable(close):
-            close()
+        remote_client.close()
 
 
 def call_model_scaling_group(
@@ -178,3 +184,38 @@ def call_model_scaling_group(
     feather_bytes = _encode_inputs(inputs)
     chunks = _transport_call(target, use_tls, handler, feather_bytes, metadata)
     return _decode_output(chunks)
+
+
+def new_queue_client(client: "ChalkGRPCClient") -> "RemoteCallClient":
+    """Client for the function-queue server fronted by the environment's grpc-engine ingress.
+
+    The caller owns the returned client and must ``close()`` it — wrap in
+    ``contextlib.closing`` when its lifetime is scoped.
+
+    The Bearer token is captured at construction, so callers holding one across a
+    long poll loop should rebuild rather than outlive the token.
+    """
+    try:
+        target, use_tls = client._get_engine_grpc_target()  # pyright: ignore[reportPrivateUsage]
+    except ValueError as e:
+        raise ModelRemoteError(str(e)) from e
+    metadata = client._get_queue_call_metadata()  # pyright: ignore[reportPrivateUsage]
+    return _new_remote_call_client(target, use_tls, metadata)
+
+
+def enqueue_model_call(
+    queue_client: "RemoteCallClient",
+    model_name: str,
+    inputs: "Mapping[str, Sequence[Any]] | pa.RecordBatch | pa.Table",
+) -> Tuple[str, bytes]:
+    """Enqueue one call, returning ``(call_id, request_bytes)``.
+
+    The queue name is the bare model name, matching the scaling group's
+    ``CHALK_FNQ_FUNCTION_NAME``. One queue per model, shared across versions: the
+    deployed revision draining it serves the call.
+
+    The encoded request is returned so callers can resubmit it after a transient failure.
+    """
+    feather_bytes = _encode_inputs(inputs)
+    call_id = queue_client.enqueue(model_name, feather_bytes)
+    return call_id, feather_bytes

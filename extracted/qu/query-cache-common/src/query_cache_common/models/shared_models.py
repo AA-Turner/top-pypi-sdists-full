@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import typing as t
 
-from query_cache_common.decorators import proto_dataclass, proto_enum
-from query_cache_common.models.base import BaseSerDeModel, BaseSerDeEnum
 from query_cache_protobuf.query_cache import shared_pb2
+
+from query_cache_common.decorators import proto_dataclass, proto_enum
+from query_cache_common.models.base import BaseSerDeEnum, BaseSerDeModel
 
 
 @proto_enum(shared_pb2.ModelExecutionType)

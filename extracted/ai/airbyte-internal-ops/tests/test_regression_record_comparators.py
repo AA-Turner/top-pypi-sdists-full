@@ -1473,3 +1473,56 @@ def test_in_memory_pk_lists_are_capped_but_counts_stay_exact() -> None:
     payload = summary.to_dict()
     users = payload["checks"]["pk_presence"]["streams"]["users"]
     assert users["missing_pk_count"] == total
+
+
+# ---------------------------------------------------------------------------
+# DeepDiff private-variable handling
+#
+# DeepDiff drops every key beginning with `__` unless `ignore_private_variables`
+# is False. A connector's own `__`-prefixed field is data it emitted, not a
+# Python private, so on the default a record differing only in such a field
+# compares equal and the difference is never counted.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_a_dunder_field_value_diff_is_counted_on_a_pk_matched_stream() -> None:
+    """Records matched by PK, differing only in a `__`-prefixed field.
+
+    The fast path uses plain equality so this pair does reach DeepDiff; on the
+    default it would come back empty and the stream would pass.
+    """
+    control = _records("users", {"id": 1, "__v": 1})
+    target = _records("users", {"id": 1, "__v": 2})
+
+    result = compare_all_records(control, target, USERS_PKS, directional=True)
+
+    assert not result.passed
+    assert result.stream_results["users"].record_diff.records_with_value_diff
+
+
+@pytest.mark.unit
+def test_a_dunder_field_value_diff_is_counted_on_a_stream_without_a_pk() -> None:
+    """The no-PK path compares whole record lists order-independently."""
+    control = _records("events", {"name": "a", "__typename": "Old"})
+    target = _records("events", {"name": "a", "__typename": "New"})
+
+    result = compare_all_records(control, target, {"events": None}, directional=True)
+
+    assert not result.passed
+    assert result.stream_results["events"].record_diff.records_with_value_diff
+
+
+@pytest.mark.unit
+def test_an_added_dunder_field_is_counted() -> None:
+    """Not only a changed value: a `__`-prefixed field appearing is a diff too."""
+    control = _records("users", {"id": 1})
+    target = _records("users", {"id": 1, "__typename": "User"})
+
+    result = compare_all_records(control, target, USERS_PKS, directional=True)
+
+    assert not result.passed
+    # The pair is PK-matched, so an added field lands in the value-diff tally
+    # rather than in the one-sided lists. Asserted so the failure has to come
+    # from the added `__typename` and not from the records failing to match up.
+    assert result.stream_results["users"].record_diff.records_with_value_diff

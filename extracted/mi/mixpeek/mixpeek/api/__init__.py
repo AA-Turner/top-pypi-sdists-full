@@ -41,6 +41,7 @@ from mixpeek.api.data_subject_access_requests_api import DataSubjectAccessReques
 from mixpeek.api.discovery_api import DiscoveryApi
 from mixpeek.api.document_lineage_api import DocumentLineageApi
 from mixpeek.api.documents_api import DocumentsApi
+from mixpeek.api.events_api import EventsApi
 from mixpeek.api.extractor_publishing_api import ExtractorPublishingApi
 from mixpeek.api.extractors_api import ExtractorsApi
 from mixpeek.api.feature_extractors_api import FeatureExtractorsApi

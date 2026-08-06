@@ -4,7 +4,7 @@ from distutils.command.sdist import sdist as _sdist
 import subprocess
 import time
 
-VERSION='1.16.0'
+VERSION='1.20.0'
 RELEASE='1'
 
 class sdist(_sdist):

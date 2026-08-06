@@ -18,7 +18,7 @@ from utils import collect_test_files
 
 import chardet
 from chardet.enums import EncodingEra
-from chardet.equivalences import (
+from chardet.evaluation import (
     is_correct,
     is_equivalent_detection,
 )

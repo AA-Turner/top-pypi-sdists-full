@@ -17,6 +17,9 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
+from pydantic import Field, StrictStr
+from typing import Optional
+from typing_extensions import Annotated
 from mixpeek.models.infrastructure_summary_response import InfrastructureSummaryResponse
 
 from mixpeek.api_client import ApiClient, RequestSerialized
@@ -40,6 +43,7 @@ class OrganizationInfrastructureApi:
     @validate_call
     def get_infrastructure_organizations_summary(
         self,
+        billing_month: Annotated[Optional[StrictStr], Field(description="Billing month to inspect (YYYY-MM). Defaults to the current month. Past months return the same category + line-item granularity as the current month.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -55,8 +59,10 @@ class OrganizationInfrastructureApi:
     ) -> InfrastructureSummaryResponse:
         """Get Infrastructure
 
-        Get infrastructure summary for an enterprise single-tenant deployment.  Returns compute profiles for each extractor, cloud cost breakdown with transparent margin, and current billing period summary. Enterprise-only endpoint.
+        Get infrastructure summary for an enterprise single-tenant deployment.  Returns compute profiles for each extractor, cloud cost breakdown with transparent margin, and the billing period summary for the requested (default: current) month. Enterprise-only endpoint.
 
+        :param billing_month: Billing month to inspect (YYYY-MM). Defaults to the current month. Past months return the same category + line-item granularity as the current month.
+        :type billing_month: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -80,6 +86,7 @@ class OrganizationInfrastructureApi:
         """ # noqa: E501
 
         _param = self._get_infrastructure_organizations_summary_serialize(
+            billing_month=billing_month,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -109,6 +116,7 @@ class OrganizationInfrastructureApi:
     @validate_call
     def get_infrastructure_organizations_summary_with_http_info(
         self,
+        billing_month: Annotated[Optional[StrictStr], Field(description="Billing month to inspect (YYYY-MM). Defaults to the current month. Past months return the same category + line-item granularity as the current month.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -124,8 +132,10 @@ class OrganizationInfrastructureApi:
     ) -> ApiResponse[InfrastructureSummaryResponse]:
         """Get Infrastructure
 
-        Get infrastructure summary for an enterprise single-tenant deployment.  Returns compute profiles for each extractor, cloud cost breakdown with transparent margin, and current billing period summary. Enterprise-only endpoint.
+        Get infrastructure summary for an enterprise single-tenant deployment.  Returns compute profiles for each extractor, cloud cost breakdown with transparent margin, and the billing period summary for the requested (default: current) month. Enterprise-only endpoint.
 
+        :param billing_month: Billing month to inspect (YYYY-MM). Defaults to the current month. Past months return the same category + line-item granularity as the current month.
+        :type billing_month: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -149,6 +159,7 @@ class OrganizationInfrastructureApi:
         """ # noqa: E501
 
         _param = self._get_infrastructure_organizations_summary_serialize(
+            billing_month=billing_month,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -178,6 +189,7 @@ class OrganizationInfrastructureApi:
     @validate_call
     def get_infrastructure_organizations_summary_without_preload_content(
         self,
+        billing_month: Annotated[Optional[StrictStr], Field(description="Billing month to inspect (YYYY-MM). Defaults to the current month. Past months return the same category + line-item granularity as the current month.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -193,8 +205,10 @@ class OrganizationInfrastructureApi:
     ) -> RESTResponseType:
         """Get Infrastructure
 
-        Get infrastructure summary for an enterprise single-tenant deployment.  Returns compute profiles for each extractor, cloud cost breakdown with transparent margin, and current billing period summary. Enterprise-only endpoint.
+        Get infrastructure summary for an enterprise single-tenant deployment.  Returns compute profiles for each extractor, cloud cost breakdown with transparent margin, and the billing period summary for the requested (default: current) month. Enterprise-only endpoint.
 
+        :param billing_month: Billing month to inspect (YYYY-MM). Defaults to the current month. Past months return the same category + line-item granularity as the current month.
+        :type billing_month: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -218,6 +232,7 @@ class OrganizationInfrastructureApi:
         """ # noqa: E501
 
         _param = self._get_infrastructure_organizations_summary_serialize(
+            billing_month=billing_month,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -242,6 +257,7 @@ class OrganizationInfrastructureApi:
 
     def _get_infrastructure_organizations_summary_serialize(
         self,
+        billing_month,
         _request_auth,
         _content_type,
         _headers,
@@ -264,6 +280,10 @@ class OrganizationInfrastructureApi:
 
         # process the path parameters
         # process the query parameters
+        if billing_month is not None:
+            
+            _query_params.append(('billing_month', billing_month))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter

@@ -174,6 +174,111 @@ def test_pipeline_write_read_image():
     assert difference == 0.0
 
 
+def test_pipeline_information_only_image(monkeypatch):
+    import itkwasm.pipeline as pipeline_module
+
+    direction = np.eye(2, dtype=np.float64).tobytes()
+
+    class InformationOnlyRunInstance:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def delayed_start(self):
+            return 0
+
+        def get_output_json(self, output_index):
+            return {
+                "imageType": {
+                    "dimension": 2,
+                    "componentType": "uint8",
+                    "pixelType": "Scalar",
+                    "components": 1,
+                },
+                "size": [8, 8],
+                "bufferedRegion": {"index": [0, 0], "size": [0, 0]},
+            }
+
+        def get_output_array_address(self, memory, output_index, output_sub_index):
+            return output_sub_index
+
+        def get_output_array_size(self, memory, output_index, output_sub_index):
+            return 0 if output_sub_index == 0 else len(direction)
+
+        def wasmtime_lift(self, ptr, size):
+            return bytes() if size == 0 else direction
+
+        def delayed_exit(self, return_code):
+            pass
+
+    monkeypatch.setattr(pipeline_module, "RunInstance", InformationOnlyRunInstance)
+    pipeline = object.__new__(Pipeline)
+    pipeline.engine = None
+    pipeline.linker = None
+    pipeline.module = None
+
+    outputs = pipeline.run([], [PipelineOutput(InterfaceTypes.Image)])
+    image = outputs[0].data
+
+    assert image.size == [8, 8]
+    assert image.bufferedRegion.size == [0, 0]
+    assert image.data.shape == (0, 0)
+
+
+def test_pipeline_image_without_buffered_region(monkeypatch):
+    """Producers that leave the buffered region empty still reshape from size.
+
+    itkwasm-image-io returns images with an empty buffered region, so reading
+    from it would otherwise reshape to an empty tuple and raise.
+    """
+    import itkwasm.pipeline as pipeline_module
+
+    direction = np.eye(2, dtype=np.float64).tobytes()
+    pixels = np.arange(64, dtype=np.uint8).tobytes()
+
+    class NoBufferedRegionRunInstance:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def delayed_start(self):
+            return 0
+
+        def get_output_json(self, output_index):
+            return {
+                "imageType": {
+                    "dimension": 2,
+                    "componentType": "uint8",
+                    "pixelType": "Scalar",
+                    "components": 1,
+                },
+                "size": [8, 8],
+                "bufferedRegion": {"index": [], "size": []},
+            }
+
+        def get_output_array_address(self, memory, output_index, output_sub_index):
+            return output_sub_index
+
+        def get_output_array_size(self, memory, output_index, output_sub_index):
+            return len(pixels) if output_sub_index == 0 else len(direction)
+
+        def wasmtime_lift(self, ptr, size):
+            return pixels if size == len(pixels) else direction
+
+        def delayed_exit(self, return_code):
+            pass
+
+    monkeypatch.setattr(pipeline_module, "RunInstance", NoBufferedRegionRunInstance)
+    pipeline = object.__new__(Pipeline)
+    pipeline.engine = None
+    pipeline.linker = None
+    pipeline.module = None
+
+    outputs = pipeline.run([], [PipelineOutput(InterfaceTypes.Image)])
+    image = outputs[0].data
+
+    assert image.size == [8, 8]
+    assert image.data.shape == (8, 8)
+
+
 def test_pipeline_dask_array_input():
     pipeline = Pipeline(test_input_dir / "median-filter-test.wasi.wasm")
 
@@ -302,6 +407,7 @@ def test_pipeline_write_read_polydata():
     assert out_mesh.GetNumberOfPoints() == 2903
     assert out_mesh.GetNumberOfCells() == 3263
 
+
 def test_pipeline_write_read_transform():
     pipeline = Pipeline(test_input_dir / "transform-read-write-test.wasi.wasm")
 
@@ -334,8 +440,22 @@ def test_pipeline_write_read_transform():
     assert transform.numberOfParameters == 12
     assert transform.numberOfFixedParameters == 3
     np.testing.assert_allclose(transform.fixedParameters, np.array([0.0, 0.0, 0.0]))
-    np.testing.assert_allclose(transform.parameters, np.array([
-      0.65631490118447, 0.5806583745824385, -0.4817536741017158,
-      -0.7407986817430222, 0.37486398378429736, -0.5573995934598175,
-      -0.14306664045479867, 0.7227121458012518, 0.676179776908723,
-      -65.99999999999997, 69.00000000000004, 32.000000000000036]))
+    np.testing.assert_allclose(
+        transform.parameters,
+        np.array(
+            [
+                0.65631490118447,
+                0.5806583745824385,
+                -0.4817536741017158,
+                -0.7407986817430222,
+                0.37486398378429736,
+                -0.5573995934598175,
+                -0.14306664045479867,
+                0.7227121458012518,
+                0.676179776908723,
+                -65.99999999999997,
+                69.00000000000004,
+                32.000000000000036,
+            ]
+        ),
+    )

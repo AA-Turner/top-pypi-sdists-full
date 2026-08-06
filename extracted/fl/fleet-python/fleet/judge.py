@@ -19,28 +19,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-JUDGE_TOKEN_HEADER = "X-Fleet-Judge-Token"
-JUDGE_COST_TEAM_HEADER = "X-Fleet-Cost-Team-ID"
-
 
 # ---------------------------------------------------------------------------
 # Data classes (used by both sync and async)
 # ---------------------------------------------------------------------------
-
-
-def _build_judge_headers() -> Optional[Dict[str, str]]:
-    """Build verifier-runtime context headers for the judge request."""
-    headers: Dict[str, str] = {}
-
-    token = os.environ.get("FLEET_JUDGE_TOKEN")
-    if token:
-        headers[JUDGE_TOKEN_HEADER] = token
-
-    cost_team_id = os.environ.get("FLEET_COST_TEAM_ID", "").strip()
-    if cost_team_id:
-        headers[JUDGE_COST_TEAM_HEADER] = cost_team_id
-
-    return headers or None
 
 
 def _guess_media_type(filename: str) -> str:
@@ -233,8 +215,7 @@ class Image:
             d = {
                 "source": "base64",
                 "data": self.data,
-                "media_type": self.media_type
-                or _guess_media_type(self.filename or "image.png"),
+                "media_type": self.media_type or _guess_media_type(self.filename or "image.png"),
             }
         elif self.source == "collect":
             d = {"source": "collect", "selector": self.filename}
@@ -326,8 +307,7 @@ class File:
                 "source": "base64",
                 "data": self.data,
                 "filename": self.filename,
-                "media_type": self.media_type
-                or _guess_file_media_type(self.filename or "file"),
+                "media_type": self.media_type or _guess_file_media_type(self.filename or "file"),
             }
         elif self.source == "collect":
             d = {"source": "collect", "selector": self.filename}
@@ -417,9 +397,7 @@ def _collect_image_from_env(env: Any, filename: str) -> Optional[str]:
         current = env.db("current")
         where = f"path = '{filename}' OR path LIKE '%/{filename}'"
         rows = _extract_query_rows(
-            current.query(
-                f"SELECT path, hex(content) AS content_hex FROM files WHERE {where}"
-            )
+            current.query(f"SELECT path, hex(content) AS content_hex FROM files WHERE {where}")
         )
         candidates = {}
         for row in rows:
@@ -456,20 +434,14 @@ def _collect_image_from_env(env: Any, filename: str) -> Optional[str]:
                 nb = json.loads(nb_bytes.decode("utf-8"))
                 for cell in reversed(nb.get("cells", [])):
                     for output in cell.get("outputs", []):
-                        if output.get("output_type") in (
-                            "display_data",
-                            "execute_result",
-                        ):
+                        if output.get("output_type") in ("display_data", "execute_result"):
                             img_data = output.get("data", {}).get("image/png")
                             if img_data:
                                 if isinstance(img_data, list):
                                     img_data = "".join(img_data)
                                 img_data = img_data.strip()
                                 if img_data:
-                                    logger.debug(
-                                        "Loaded image from notebook: %s",
-                                        nb_row.get("path"),
-                                    )
+                                    logger.debug("Loaded image from notebook: %s", nb_row.get("path"))
                                     return img_data
             except Exception:
                 pass
@@ -505,9 +477,7 @@ async def _collect_image_from_env_async(env: Any, filename: str) -> Optional[str
         current = env.db("current")
         where = f"path = '{filename}' OR path LIKE '%/{filename}'"
         rows = _extract_query_rows(
-            await current.query(
-                f"SELECT path, hex(content) AS content_hex FROM files WHERE {where}"
-            )
+            await current.query(f"SELECT path, hex(content) AS content_hex FROM files WHERE {where}")
         )
         candidates = {}
         for row in rows:
@@ -544,20 +514,14 @@ async def _collect_image_from_env_async(env: Any, filename: str) -> Optional[str
                 nb = json.loads(nb_bytes.decode("utf-8"))
                 for cell in reversed(nb.get("cells", [])):
                     for output in cell.get("outputs", []):
-                        if output.get("output_type") in (
-                            "display_data",
-                            "execute_result",
-                        ):
+                        if output.get("output_type") in ("display_data", "execute_result"):
                             img_data = output.get("data", {}).get("image/png")
                             if img_data:
                                 if isinstance(img_data, list):
                                     img_data = "".join(img_data)
                                 img_data = img_data.strip()
                                 if img_data:
-                                    logger.debug(
-                                        "Loaded image from notebook (async): %s",
-                                        nb_row.get("path"),
-                                    )
+                                    logger.debug("Loaded image from notebook (async): %s", nb_row.get("path"))
                                     return img_data
             except Exception:
                 pass
@@ -593,9 +557,7 @@ def _collect_file_from_env(env: Any, filename: str) -> Optional[str]:
         current = env.db("current")
         where = f"path = '{filename}' OR path LIKE '%/{filename}'"
         rows = _extract_query_rows(
-            current.query(
-                f"SELECT path, hex(content) AS content_hex FROM files WHERE {where}"
-            )
+            current.query(f"SELECT path, hex(content) AS content_hex FROM files WHERE {where}")
         )
         candidates = {}
         for row in rows:
@@ -643,9 +605,7 @@ async def _collect_file_from_env_async(env: Any, filename: str) -> Optional[str]
         current = env.db("current")
         where = f"path = '{filename}' OR path LIKE '%/{filename}'"
         rows = _extract_query_rows(
-            await current.query(
-                f"SELECT path, hex(content) AS content_hex FROM files WHERE {where}"
-            )
+            await current.query(f"SELECT path, hex(content) AS content_hex FROM files WHERE {where}")
         )
         candidates = {}
         for row in rows:
@@ -751,9 +711,7 @@ def _print_judge_call_start(
 
     if isinstance(rubric, Rubric):
         criteria_names = [c.name for c in rubric.criteria]
-        print(
-            f"[C] Rubric: {len(rubric.criteria)} criteria ({', '.join(criteria_names)}), max={rubric.max_score}"
-        )
+        print(f"[C] Rubric: {len(rubric.criteria)} criteria ({', '.join(criteria_names)}), max={rubric.max_score}")
 
     if images:
         for label, img in images.items():
@@ -797,6 +755,7 @@ def _build_grade_request(
     agentic: bool = False,
     collect: Optional[Dict[str, List[str]]] = None,
     task_id: Optional[str] = None,
+    max_turns: Optional[int] = None,
 ) -> dict:
     """Build the JSON request body for POST /v1/judge/grade."""
     body: Dict[str, Any] = {
@@ -836,19 +795,23 @@ def _build_grade_request(
         body["provider"] = provider
     if task_id is not None:
         body["task_id"] = task_id
+    if max_turns is not None:
+        body["max_turns"] = max_turns
     if collect is not None:
         body["collect"] = collect
 
     # Serialize images as labeled array
     if images:
         body["images"] = [
-            img.serialize(label=label, agentic=agentic) for label, img in images.items()
+            img.serialize(label=label, agentic=agentic)
+            for label, img in images.items()
         ]
 
     # Serialize files as labeled array
     if files:
         body["files"] = [
-            f.serialize(label=label, agentic=agentic) for label, f in files.items()
+            f.serialize(label=label, agentic=agentic)
+            for label, f in files.items()
         ]
 
     return body
@@ -861,6 +824,54 @@ def _parse_grade_response(data: dict) -> JudgeResult:
     _print_accumulators(data)
     score = float(data.get("normalized_score", 0.0))
     return JudgeResult(score, details=data)
+
+
+def _print_criteria_markers(criteria: list) -> None:
+    """Emit ``>>> CRITERIA >>>`` stdout markers for structured criteria display.
+
+    The orchestrator (theseus PR #1967) scans verifier stdout for these
+    markers and wraps the execution result so the client (client PR #1737)
+    can render an expandable rubric breakdown.
+
+    Converts from the orchestrator judge-response format::
+
+        {"name": str, "score": int, "max_score": int, "reasoning": str}
+
+    to the client-expected marker format::
+
+        {"criteria": str, "score": float, "score_out_of": float, "description"?: str}
+
+    Each criterion's score is normalised to a 0.0–1.0 float using its own
+    ``max_score``.
+    """
+    marker_criteria = []
+    for c in criteria:
+        name = c.get("name", "")
+        cscore = c.get("score", 0)
+        cmax = c.get("max_score", 0)
+
+        # Normalise per-criterion score to 0.0–1.0
+        if cmax and float(cmax) > 0:
+            norm_score = float(cscore) / float(cmax)
+        else:
+            norm_score = float(cscore)
+
+        entry: dict = {
+            "criteria": name,
+            "score": round(norm_score, 4),
+            "score_out_of": 1.0,
+        }
+
+        reasoning = c.get("reasoning", "")
+        if reasoning:
+            entry["description"] = reasoning
+
+        marker_criteria.append(entry)
+
+    if marker_criteria:
+        print(">>> CRITERIA >>>")
+        print(json.dumps(marker_criteria))
+        print("<<< CRITERIA <<<")
 
 
 def _print_judge_result(data: dict) -> None:
@@ -888,6 +899,12 @@ def _print_judge_result(data: dict) -> None:
             if len(reasoning) > 200:
                 reasoning = reasoning[:200] + "..."
             print(f"[C]   {name}: {cscore}/{cmax} — {reasoning}")
+
+        # Emit structured criteria via stdout markers so the orchestrator
+        # (_extract_criteria_from_stdout) and client can render a rubric
+        # breakdown.  Schema per element:
+        #   {"criteria": str, "score": float, "score_out_of": float, "description"?: str}
+        _print_criteria_markers(criteria)
     else:
         print(f"[C] Score: {normalized:.2f}")
 
@@ -955,6 +972,7 @@ class SyncJudge:
         agentic: bool = False,
         collect: Optional[Dict[str, List[str]]] = None,
         task_id: Optional[str] = None,
+        max_turns: Optional[int] = None,
     ) -> JudgeResult:
         """Grade a submission using LLM-as-judge via the orchestrator API.
 
@@ -976,6 +994,9 @@ class SyncJudge:
             agentic: If True, the orchestrator collects artifacts from the instance.
             collect: File patterns for orchestrator to collect (agentic mode).
             task_id: Optional task ID for tracking.
+            max_turns: Agentic tool-turn budget (1-50). None keeps the
+                orchestrator default; ignored when agentic is False and by
+                orchestrators that predate the field.
         """
         body = _build_grade_request(
             self._instance_id,
@@ -993,13 +1014,15 @@ class SyncJudge:
             agentic=agentic,
             collect=collect,
             task_id=task_id,
+            max_turns=max_turns,
         )
 
         _print_judge_call_start(rubric, images, agentic, model, files=files)
+        extra_headers = None
+        token = os.environ.get("FLEET_JUDGE_TOKEN")
+        if token:
+            extra_headers = {"X-Fleet-Judge-Token": token}
         response = self._client.request(
-            "POST",
-            "/v1/judge/grade",
-            json=body,
-            extra_headers=_build_judge_headers(),
+            "POST", "/v1/judge/grade", json=body, extra_headers=extra_headers
         )
         return _parse_grade_response(response.json())

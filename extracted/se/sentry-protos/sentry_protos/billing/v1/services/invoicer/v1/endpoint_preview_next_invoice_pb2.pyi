@@ -8,6 +8,7 @@ import collections.abc
 import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
+import sentry_protos.billing.v1.common.v1.pending_change_pb2
 import sentry_protos.billing.v1.services.contract.v1.invoice_pb2
 import typing
 
@@ -25,13 +26,25 @@ class PreviewNextInvoiceRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     CONTRACT_ID_FIELD_NUMBER: builtins.int
+    CHANGE_FIELD_NUMBER: builtins.int
     contract_id: builtins.int
+    @property
+    def change(self) -> sentry_protos.billing.v1.common.v1.pending_change_pb2.PendingChange:
+        """Overlay this pending change on the contract before pricing the next
+        invoice, as if it were the staged pending change. Used to preview a
+        deferred change (e.g. a downgrade) before it is committed. Unset means
+        price against whatever change is currently staged for the contract.
+        """
+
     def __init__(
         self,
         *,
         contract_id: builtins.int = ...,
+        change: sentry_protos.billing.v1.common.v1.pending_change_pb2.PendingChange | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["contract_id", b"contract_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_change", b"_change", "change", b"change"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_change", b"_change", "change", b"change", "contract_id", b"contract_id"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_change", b"_change"]) -> typing.Literal["change"] | None: ...
 
 global___PreviewNextInvoiceRequest = PreviewNextInvoiceRequest
 

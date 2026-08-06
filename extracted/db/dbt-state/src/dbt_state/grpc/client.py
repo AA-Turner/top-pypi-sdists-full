@@ -2,16 +2,33 @@
 
 from __future__ import annotations
 
-import sys
 import logging
+import sys
 import traceback
 import typing as t
 from types import TracebackType
 
 import grpc
-from dbt_state.auth import GrpcAuthPlugin, sso_auth
+from query_cache_common.constants import REQUEST_ID_HEADER
+from query_cache_common.models.services import (
+    client_validation_service_models,
+    clone_service_models,
+    execution_service_models,
+    explain_service_models,
+    sql_service_models,
+)
+from query_cache_protobuf.query_cache.services import (
+    client_telemetry_service_pb2_grpc,
+    client_validation_service_pb2_grpc,
+    clone_service_pb2_grpc,
+    execution_service_pb2_grpc,
+    explain_service_pb2_grpc,
+    sql_service_pb2_grpc,
+)
+
 from dbt_state import events
-from dbt_state.config import get_env
+from dbt_state.auth import GrpcAuthPlugin, sso_auth
+from dbt_state.config import RunCacheConfig, get_env
 from dbt_state.errors import (
     AuthenticationError,
     CertificateError,
@@ -26,25 +43,7 @@ from dbt_state.grpc.interceptors import (
     SystemInfoInterceptor,
 )
 from dbt_state.utils import str_to_bool
-from dbt_state.config import RunCacheConfig
-from query_cache_protobuf.query_cache.services import (
-    clone_service_pb2_grpc,
-    execution_service_pb2_grpc,
-    sql_service_pb2_grpc,
-    client_telemetry_service_pb2_grpc,
-    client_validation_service_pb2_grpc,
-    explain_service_pb2_grpc,
-)
 from dbt_state.version import __version__
-from query_cache_common.constants import REQUEST_ID_HEADER
-from query_cache_common.models.services import (
-    client_validation_service_models,
-    explain_service_models,
-    sql_service_models,
-    clone_service_models,
-    execution_service_models,
-)
-
 
 if t.TYPE_CHECKING:
     from dbt_state._typing import SpeculativeSubmitResponse, SQLSubmitResponse
@@ -462,7 +461,7 @@ def _get_root_certificates() -> t.Optional[bytes]:
             with open(cert_path, "rb") as cert_file:
                 return cert_file.read()
         except Exception as e:
-            raise CertificateError(f"Failed to read CA bundle from {cert_path}: {e}")
+            raise CertificateError(f"Failed to read CA bundle from {cert_path}: {e}") from e
 
     return _get_system_certificates()
 

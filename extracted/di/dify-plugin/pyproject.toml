@@ -1,88 +1,95 @@
 [project]
-name = 'dify-plugin'
-version = "0.10.0"
-description = 'Dify Plugin SDK'
-authors = [{ name = 'langgenius', email = 'hello@dify.ai' }]
+name = "dify-plugin"
+version = "0.10.1"
+description = "Dify Plugin SDK"
 dependencies = [
-    'Flask>=3.1.3',
-    'Werkzeug>=3.1.8',
-    'dpkt>=1.9.8',
-    'gevent>=26.4.0',
-    'httpx>=0.28.1',
-    'pydantic_settings>=2.14.2',
-    'pydantic>=2.13.4',
-    'pyyaml>=6.0.3',
-    'requests>=2.33.1',
-    'socksio>=1.0.0',
-    'tiktoken>=0.12.0',
-    'yarl>=1.23.0',
-    'packaging>=26.2',
+    "Flask>=3.1.3",
+    "Werkzeug>=3.1.8",
+    "gevent>=26.4.0",
+    "h11>=0.16.0",
+    "httpx>=0.28.1",
+    "pydantic_settings>=2.14.2",
+    "pydantic>=2.13.4",
+    "pyyaml>=6.0.3",
+    "requests>=2.33.1",
+    "socksio>=1.0.0",
+    "tiktoken>=0.12.0",
+    "yarl>=1.23.0",
+    "packaging>=26.2",
 ]
-requires-python = '>=3.12'
-readme = 'README.md'
-license = 'Apache-2.0'
-license-files = ['LICENSE']
-keywords = ['dify', 'plugin', 'sdk']
+requires-python = ">=3.12"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+keywords = [
+    "dify",
+    "plugin",
+    "sdk",
+]
+
+[[project.authors]]
+name = "langgenius"
+email = "hello@dify.ai"
 
 [project.urls]
-source = 'https://github.com/langgenius/dify-plugin-sdks'
-homepage = 'https://github.com/langgenius/dify-plugin-sdks'
-issues = 'https://github.com/langgenius/dify-plugin-sdks/issues'
+source = "https://github.com/langgenius/dify-plugin-sdks"
+homepage = "https://github.com/langgenius/dify-plugin-sdks"
+issues = "https://github.com/langgenius/dify-plugin-sdks/issues"
 
 [build-system]
-requires = ['uv_build>=0.11,<0.12']
-build-backend = 'uv_build'
+requires = ["uv_build~=0.12.1"]
+build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    'prek',
-    'pytest',
-    'pytest-cov',
-    'pytest-mock',
-    'pytest-xprocess',
-    'ruff',
-    'ty',
+    "prek",
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "pytest-xprocess",
+    "ruff",
+    "ty",
 ]
 
 [tool.uv]
-default-groups = ['dev']
+default-groups = ["dev"]
 
 [tool.pytest]
-minversion = '9.0'
-testpaths = ['tests']
+minversion = "9.0"
+testpaths = ["tests"]
 
 [tool.ruff]
 preview = true
-required-version = '>=0.15.22'
+required-version = ">=0.15.22"
 
 [tool.ruff.lint]
-select = ['ALL']
+select = ["ALL"]
 ignore = [
-    'too-many-statements', # Too broad for orchestration-heavy SDK functions.
-    'commented-out-code',  # False positives are common.
-    'too-many-branches',
-    'too-many-locals',
-    'raise-vanilla-class',
-    'blind-except',
-    'raise-within-try',
-    'too-many-arguments', # Explicit is better than implicit.
-    'too-many-positional-arguments', # Complex is better than complicated.
-    'complex-structure',
-    'FBT',     # Too strict.
-    'TC',      # Runtime use of typing constructs is common now.
-    'relative-imports',  # Too absolute.
-    'no-self-use', # Violates the usual practice.
-    'missing-trailing-comma',  # Conflicts with `ruff format`.
-    'CPY',     # Covered by the standalone LICENSE file.
-    'D',       # Too verbose.
+    "too-many-statements",
+    "commented-out-code",
+    "too-many-branches",
+    "too-many-locals",
+    "raise-vanilla-class",
+    "blind-except",
+    "raise-within-try",
+    "too-many-arguments",
+    "too-many-positional-arguments",
+    "complex-structure",
+    "FBT",
+    "TC",
+    "relative-imports",
+    "no-self-use",
+    "missing-trailing-comma",
+    "CPY",
+    "D",
 ]
 
 [tool.ruff.lint.pydoclint]
 ignore-one-line-docstrings = true
 
 [tool.ruff.lint.per-file-ignores]
-'tests/**/*.py' = [
-    'assert',    # Assert statements used for pytest.
-    'private-member-access',  # Tests may inspect private implementation details.
-    'magic-value-comparison', # Magic value used in test cases.
+"tests/**/*.py" = [
+    "assert",
+    "private-member-access",
+    "magic-value-comparison",
 ]

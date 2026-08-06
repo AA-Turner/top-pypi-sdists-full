@@ -11,13 +11,17 @@ on PATH. This tool covers two cases:
 Updates go through ``uv self update`` when uv is installed via Astral's
 official installer (which we use), otherwise we re-run the official
 installer to refresh in place. Both paths are idempotent.
+
+Configuration carries the GitLab PyPI index credential, so ``uv tool install``
+and ``pip install`` reach private Python packages without further setup.
 """
 
 import subprocess
 from typing import Any
 
+from . import registry_credential
 from .common import binary, github, platform
-from .common.base import BinaryTool, InstallReport
+from .common.base import BinaryTool, InstallReport, ToolState
 
 UV_REPO = "astral-sh/uv"
 UV_INSTALL_URL_UNIX = "https://astral.sh/uv/install.sh"
@@ -89,7 +93,10 @@ def _ps_install_windows() -> InstallReport:
 class UvCliTool(BinaryTool):
     name = "uv"
     binary_name = "uv"
-    cli_help = "Install/update uv (Astral Python toolchain)"
+    cli_help = "Install/update uv (Astral Python toolchain) and authenticate the GitLab PyPI index"
+    # Optional, never pre-configure: uv is REQUIRED, so a developer without a
+    # registry PAT must still get uv installed rather than skipped.
+    env_optional = (registry_credential.TOKEN_VAR,)
 
     def fetch_latest_version(self) -> str:
         try:
@@ -120,8 +127,17 @@ class UvCliTool(BinaryTool):
             return _ps_install_windows()
         return _curl_install_unix()
 
+    def get_state(self) -> ToolState:
+        return registry_credential.augment_state(self.name, super().get_state())
+
+    def do_configure(self) -> InstallReport:
+        return registry_credential.configure_report(self.name)
+
+    def do_uninstall(self, *, dry_run: bool = False) -> InstallReport:
+        return registry_credential.uninstall_report(self.name, dry_run=dry_run)
+
     def extract_identity(self, state: dict[str, Any]) -> list[tuple[str, str | None]]:
-        return []
+        return registry_credential.identity_lines(state)
 
 
 tool = UvCliTool()

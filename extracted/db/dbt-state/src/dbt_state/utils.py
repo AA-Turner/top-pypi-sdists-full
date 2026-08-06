@@ -5,8 +5,8 @@ import re
 import sys
 import typing as t
 
-from dbt.contracts.graph.manifest import ManifestNode
 from dbt.config.runtime import RuntimeConfig
+from dbt.contracts.graph.manifest import ManifestNode
 from dbt.version import get_installed_version
 from query_cache_common.utils import str_to_bool
 

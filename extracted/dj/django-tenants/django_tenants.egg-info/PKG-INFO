@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-tenants
-Version: 3.13.0
+Version: 3.14.0
 Summary: Tenant support for Django using PostgreSQL schemas.
 Author-email: Thomas Turner <tom@twt.me.uk>
 License-Expression: MIT
@@ -8,9 +8,9 @@ Project-URL: Homepage, https://github.com/django-tenants/django-tenants
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
@@ -21,7 +21,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: django<6.1,>=2.1
+Requires-Dist: django<6.2,>=5.2
 Provides-Extra: dev
 Requires-Dist: coverage; extra == "dev"
 Requires-Dist: gunicorn==26.0.0; extra == "dev"
@@ -115,7 +115,7 @@ http://customer.example.com. Any request incoming at
 and make the tenant available at the request. If no tenant is found, a
 404 error is raised. This also means you should have a tenant for your
 main domain, typically using the ``public`` schema. For more information
-please read the `setup`_ section.
+please read the `installation`_ section.
 
 What can this app do?
 ---------------------
@@ -319,9 +319,9 @@ If this project helped you reduce development time, you can give me cake :)
 .. _PostgreSQL schemas: http://www.postgresql.org/docs/9.1/static/ddl-schemas.html
 .. _PostgreSQL’s official documentation on schemas: http://www.postgresql.org/docs/9.1/static/ddl-schemas.html
 .. _Multi-Tenant Data Architecture: https://web.archive.org/web/20160311212239/https://msdn.microsoft.com/en-us/library/aa479086.aspx
-.. _setup: https://django-tenants.readthedocs.org/en/latest/install.html
-.. _examples: https://django-tenants.readthedocs.org/en/latest/examples.html
-.. _django-tenants.readthedocs.org: https://django-tenants.readthedocs.org/en/latest/
+.. _installation: https://django-tenants.readthedocs.io/en/latest/install.html
+.. _examples: https://django-tenants.readthedocs.io/en/latest/examples.html
+.. _django-tenants.readthedocs.org: https://django-tenants.readthedocs.io/en/latest/
 .. _django-tenant-schemas: http://github.com/bernardopires/django-tenant-schemas
 .. _django-schemata: https://github.com/tuttle/django-schemata
 .. _docker-compose: https://docs.docker.com/engine/reference/run/

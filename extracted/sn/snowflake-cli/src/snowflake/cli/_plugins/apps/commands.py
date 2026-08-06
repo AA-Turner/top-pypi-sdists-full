@@ -32,10 +32,19 @@ from typing import TYPE_CHECKING, Callable, Literal, NamedTuple, Optional
 
 import typer
 from click import ClickException
+from snowflake.cli._plugins.apps.events import (
+    EventStream,
+    format_log_lines,
+    parse_event_stream,
+    parse_lifecycle_records,
+    parse_metric_category,
+    parse_metric_records,
+    resolve_time_window,
+)
 from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
 from snowflake.cli._plugins.apps.manager import (
     DEFAULT_PERSONAL_SCHEMA,
-    DEFAULT_PERSONAL_WORKSPACE_NAME,
+    DEFAULT_WORKSPACE_NAME,
     DEFINITION_FILENAME,
     SnowflakeAppManager,
     _get_entity,
@@ -56,8 +65,10 @@ from snowflake.cli.api.config import (
 )
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
+    CollectionResult,
     CommandResult,
     EmptyResult,
     MessageResult,
@@ -215,7 +226,7 @@ def _resolve_code_storage(
     if destination_is_personal:
         return _CodeStorage(
             type="workspace",
-            name=DEFAULT_PERSONAL_WORKSPACE_NAME,
+            name=DEFAULT_WORKSPACE_NAME,
             database_override=None,
             schema_override=None,
             encryption_type="SNOWFLAKE_SSE",
@@ -397,16 +408,29 @@ def snowflake_app_setup(
 
             resolved_values = {k: v[0] for k, v in resolved.items()}
 
+            # ── Decide the code-storage backend ──────────────────────────────
+            # The workspace flow is the default for both personal and regular
+            # databases. Personal databases (``USER$<user>``) do not support
+            # stages, so they always use a workspace. For a regular database the
+            # role's ``CREATE WORKSPACE`` privilege is probed up front and the
+            # backend falls back to a stage only when the role provably cannot
+            # create one — persisting the decision in ``snowflake.yml`` so every
+            # later ``snow app deploy`` follows the same path without having to
+            # rediscover it. An inconclusive probe keeps the workspace default;
+            # deploy still falls back to a stage at runtime if the workspace
+            # turns out to be unusable.
+            destination_db = resolved_values["database"]
+            destination_schema = resolved_values["schema"]
+            if is_personal_database(destination_db):
+                use_workspace = True
+            else:
+                with metrics.span("snowflake_app.setup.check_workspace_privileges"):
+                    use_workspace = manager.role_can_create_workspace(
+                        destination_db, destination_schema
+                    )
+            code_storage = "workspace" if use_workspace else "stage"
+
             if not dry_run:
-                # Use a workspace whenever the destination is a personal database:
-                # either it was resolved from the built-in personal-DB default tier,
-                # or it arrived via an account parameter / the current session but is
-                # still a ``USER$<user>`` personal database. Personal databases do not
-                # support stages, so emitting ``code_stage`` for one would produce a
-                # ``snowflake.yml`` that always fails at deploy time.
-                use_workspace = resolved["database"][
-                    1
-                ] == SOURCE_DEFAULT or is_personal_database(resolved_values["database"])
                 with metrics.span("snowflake_app.setup.write_manifest"):
                     project_file.write_text(
                         _generate_snowflake_yml(
@@ -419,7 +443,13 @@ def snowflake_app_setup(
 
             is_json = get_cli_context().output_format.is_json
             if is_json:
-                return ObjectResult({"success": not dry_run, **resolved_values})
+                return ObjectResult(
+                    {
+                        "success": not dry_run,
+                        "code_storage": code_storage,
+                        **resolved_values,
+                    }
+                )
 
             if dry_run:
                 cli_console.step("Dry run — resolved configuration:")
@@ -435,6 +465,7 @@ def snowflake_app_setup(
                 if value is None and source == SOURCE_MISSING:
                     continue
                 cli_console.step(f"  {key}: {value}  ({source})")
+            cli_console.step(f"  code storage: {code_storage}")
             return EmptyResult()
 
     try:
@@ -467,6 +498,12 @@ def snowflake_app_validate(entity_id: Optional[str]) -> CommandResult:
 
     # ── Validate database and schema ──────────────────────────────────
     fqn = entity.fqn
+    if fqn.database:
+        # Only touch the connection when there is a destination to validate;
+        # bundle-only validation stays offline. Resolution happens in place on
+        # the shared entity.fqn (also expands USER$ → USER$<user>); downstream
+        # re-reads of entity.fqn (e.g. perform_bundle) see the resolved value.
+        fqn.using_context()
     database = fqn.database
     schema = fqn.schema
 
@@ -582,7 +619,11 @@ def snowflake_app_open(
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
+    # Resolve db/schema from the active connection in place on the shared
+    # entity.fqn (also expands USER$ → USER$<user>); downstream re-reads of
+    # entity.fqn intentionally see the resolved value.
     fqn = entity.fqn
+    fqn.using_context()
     ctx = get_cli_context()
     metrics = ctx.metrics
 
@@ -603,15 +644,8 @@ def snowflake_app_open(
                 f".{identifier_for_url(schema)}"
                 f".{identifier_for_url(fqn.name)}"
             )
-            service_fqn = app_fqn(database=db, schema=schema, name=fqn.name)
-            manager = SnowflakeAppManager()
-            segment = (
-                "app-service"
-                if manager.is_application_service(service_fqn)
-                else "service"
-            )
             url = make_snowsight_url(
-                ctx.connection, f"#/apps/{segment}/{app_id}/details"
+                ctx.connection, f"#/apps/app-service/{app_id}/details"
             )
     else:
         service_fqn = app_fqn(database=db, schema=schema, name=fqn.name)
@@ -645,29 +679,81 @@ def snowflake_app_open(
 def snowflake_app_events(
     entity_id: Optional[str],
     last: Optional[int],
+    *,
+    event_type: Optional[str] = None,
+    since: Optional[str] = None,
+    until: Optional[str] = None,
+    metric: Optional[str] = None,
+    raw: bool = False,
 ) -> CommandResult:
-    """Fetch recent log events from a deployed Snowflake App Runtime."""
+    """Fetch logs, metrics, or lifecycle events from a deployed Snowflake App Runtime.
+
+    The bare command (``--type log`` with no window) tails the live container's
+    logs, unchanged. Supplying a ``--since`` / ``--until`` window switches logs
+    to the historical event table. ``--type metric`` and ``--type lifecycle``
+    are always sourced from the event table and default to the last hour when no
+    window is given.
+    """
+    stream = parse_event_stream(event_type)
+    category = parse_metric_category(metric)
+    if category is not None and stream is not EventStream.METRIC:
+        raise CliError("--metric can only be used with --type metric.")
+    if raw and stream is not EventStream.METRIC:
+        raise CliError("--raw can only be used with --type metric.")
+
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
+    # Resolve db/schema from the active connection in place on the shared
+    # entity.fqn (also expands USER$ → USER$<user>); downstream re-reads of
+    # entity.fqn intentionally see the resolved value.
     fqn = entity.fqn
+    fqn.using_context()
     # Rebuild to a 3-part name; entity FQN may carry extra fields (e.g. prefix)
     service_fqn = app_fqn(database=fqn.database, schema=fqn.schema, name=fqn.name)
 
-    effective_last = last if last is not None else DEFAULT_SNOWFLAKE_APP_EVENTS_LAST
-
     manager = SnowflakeAppManager()
     metrics = get_cli_context().metrics
+
+    # Logs with no window keep the legacy live-container tail.
+    if stream is EventStream.LOG and not since and not until:
+        effective_last = last if last is not None else DEFAULT_SNOWFLAKE_APP_EVENTS_LAST
+        try:
+            with metrics.span("snowflake_app.events.fetch_logs"):
+                logs = manager.get_service_logs(service_fqn, last=effective_last)
+        except ProgrammingError:
+            raise ClickException(
+                f"Could not retrieve logs for '{service_fqn.identifier}'. "
+                "Verify that the app is deployed and the service is running. "
+                "If the service exists, this can also happen when the active role cannot read application service logs."
+            )
+        return MessageResult(logs)
+
+    # Everything else (windowed logs, metrics, lifecycle) reads the event table.
+    start_time, end_time = resolve_time_window(since, until)
     try:
-        with metrics.span("snowflake_app.events.fetch_logs"):
-            logs = manager.get_service_logs(service_fqn, last=effective_last)
+        with metrics.span(f"snowflake_app.events.fetch_{stream.value}"):
+            payload = manager.get_event_table_data(
+                service_fqn,
+                stream.event_table_type,
+                start_time,
+                end_time,
+            )
     except ProgrammingError:
-        raise ClickException(
-            f"Could not retrieve logs for '{service_fqn.identifier}'. "
-            "Verify that the app is deployed and the service is running. "
-            "If the service exists, this can also happen when the active role cannot read application service logs."
+        raise CliError(
+            f"Could not retrieve {stream.value} data for '{service_fqn.identifier}'. "
+            "Verify that the app is deployed and that the active role can read "
+            "the application service's event table. Recently emitted telemetry "
+            "may not appear immediately due to ingestion lag."
         )
-    return MessageResult(logs)
+
+    if stream is EventStream.METRIC:
+        return CollectionResult(
+            parse_metric_records(payload, category=category, raw_values=raw)
+        )
+    if stream is EventStream.LIFECYCLE:
+        return CollectionResult(parse_lifecycle_records(payload))
+    return MessageResult(format_log_lines(payload))
 
 
 def _make_build_log_streamer(
@@ -737,7 +823,11 @@ def snowflake_app_deploy(
     entity = _get_entity(resolved_entity_id)
 
     # ── Extract entity configuration ──────────────────────────────────
+    # Resolve db/schema from the active connection in place on the shared
+    # entity.fqn (also expands USER$ → USER$<user>); downstream re-reads of
+    # entity.fqn (e.g. perform_bundle) intentionally see the resolved value.
     fqn = entity.fqn
+    fqn.using_context()
     app_name = fqn.name
 
     ctx = get_cli_context()
@@ -766,6 +856,10 @@ def snowflake_app_deploy(
     # ``service_eai`` is optional; when omitted, continue using ``build_eai``
     # for the deployed application service to preserve existing projects.
     service_eai = defaults.get("service_eai") or build_eai
+
+    compute_resource: Optional[str] = None
+    if FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled():
+        compute_resource = defaults.get("compute_resource")
 
     # ── Resolve code storage backend ──────────────────────────────────
     # ``code_stage`` and ``code_workspace`` are mutually exclusive (enforced
@@ -818,96 +912,141 @@ def snowflake_app_deploy(
     if run_upload:
         with metrics.span("snowflake_app.bundle"):
             project_paths = perform_bundle(resolved_entity_id, entity)
+
+        def _upload_via_workspace(workspace_fqn: FQN) -> None:
+            """Prepare, upload, and commit the workspace code-storage backend.
+
+            On a permission failure the behaviour depends on the destination: a
+            personal database cannot fall back to a stage, so an actionable
+            :class:`CliError` is raised; a regular database re-raises the raw
+            ``ProgrammingError`` so the caller can fall back to the stage flow.
+            """
+            with metrics.span("snowflake_app.upload.prepare_workspace"):
+                action = "create workspace"
+                required_privilege = "CREATE WORKSPACE on the schema"
+                try:
+                    cli_console.step(f"Creating workspace {workspace_fqn}")
+                    manager.create_workspace(workspace_fqn)
+                    action = "clear workspace files"
+                    required_privilege = "WRITE on the workspace"
+                    cli_console.step(
+                        f"Clearing existing workspace files in {workspace_source_uri}/"
+                    )
+                    manager.clear_workspace_subdirectory(workspace_fqn, app_name)
+                except ProgrammingError as e:
+                    # Regular databases can fall back to a stage, so let the raw
+                    # error propagate for the caller to handle. Personal
+                    # databases have no such fallback (stages are unsupported),
+                    # so surface an actionable privilege error instead.
+                    if not is_personal_database(database):
+                        raise
+                    role = manager.current_role()
+                    role_clause = f"role '{role}'" if role else "your role"
+                    raise CliError(
+                        f"Failed to {action} '{workspace_fqn.identifier}': {e}. "
+                        f"Verify that {role_clause} has the required "
+                        f"privileges (USAGE on the database and schema, "
+                        f"and {required_privilege})."
+                    ) from e
+            with metrics.span("snowflake_app.upload.push_workspace_files"):
+                cli_console.step(f"Uploading bundled files to {workspace_source_uri}")
+                files_uploaded = 0
+                for result in manager.upload_to_workspace(
+                    local_root=project_paths.bundle_root,
+                    workspace_fqn=workspace_fqn,
+                    target_subdirectory=app_name,
+                    overwrite=True,
+                ):
+                    files_uploaded += 1
+                    cli_console.step(
+                        f"  Uploaded {result['source']} -> {result['target']}"
+                    )
+                metrics.set_counter(FILES_UPLOADED_COUNTER, files_uploaded)
+            with metrics.span("snowflake_app.upload.commit_workspace"):
+                cli_console.step(
+                    f"Committing workspace live version for {workspace_fqn}"
+                )
+                manager.commit_workspace_live_version(workspace_fqn)
+                cli_console.step(f"Creating a fresh live version for {workspace_fqn}")
+                manager.ensure_workspace_live_version(workspace_fqn)
+
+        def _upload_via_stage(stage_fqn: FQN, encryption: str) -> None:
+            """Prepare and upload the stage code-storage backend."""
+            with metrics.span("snowflake_app.upload.prepare_stage"):
+                # Start the upload from an empty stage so files left over from a
+                # prior deploy never leak into the build. Clearing with REMOVE
+                # can leave stale chunks behind, so drop and recreate instead —
+                # but drop only when the stage already exists. A first deploy has
+                # nothing to drop, and issuing DROP STAGE there would demand
+                # OWNERSHIP the deploying role need not hold, so skipping it lets
+                # a role with only CREATE STAGE deploy.
+                try:
+                    if manager.stage_exists(stage_fqn):
+                        cli_console.step(f"Recreating stage @{stage_fqn}")
+                        manager.drop_stage_if_exists(stage_fqn)
+                    else:
+                        cli_console.step(f"Creating stage @{stage_fqn}")
+                    manager.create_stage(stage_fqn, encryption)
+                except ProgrammingError as e:
+                    role = manager.current_role()
+                    role_clause = f"role '{role}'" if role else "your role"
+                    raise CliError(
+                        f"Failed to recreate stage '{stage_fqn.identifier}': {e}. "
+                        f"Verify that {role_clause} has the required "
+                        f"privileges (USAGE on the database and schema, "
+                        f"OWNERSHIP on the stage, and CREATE STAGE on the schema)."
+                    ) from e
+
+            with metrics.span("snowflake_app.upload.push_stage_files"):
+                cli_console.step(f"Uploading bundled files to @{stage_fqn}")
+                files_uploaded = 0
+                for result in manager.upload_to_stage(
+                    local_root=project_paths.bundle_root,
+                    stage_fqn=stage_fqn,
+                    overwrite=True,
+                ):
+                    files_uploaded += 1
+                    cli_console.step(
+                        f"  Uploaded {result['source']} -> {result['target']}"
+                    )
+                metrics.set_counter(FILES_UPLOADED_COUNTER, files_uploaded)
+
         try:
             with metrics.span("snowflake_app.upload"):
-                if use_workspace:
-                    with metrics.span("snowflake_app.upload.prepare_workspace"):
-                        action = "create workspace"
-                        required_privilege = "CREATE WORKSPACE on the schema"
-                        try:
-                            cli_console.step(f"Creating workspace {storage_fqn}")
-                            manager.create_workspace(storage_fqn)
-                            action = "clear workspace files"
-                            required_privilege = "WRITE on the workspace"
-                            cli_console.step(
-                                f"Clearing existing workspace files in {workspace_source_uri}/"
-                            )
-                            manager.clear_workspace_subdirectory(storage_fqn, app_name)
-                        except ProgrammingError as e:
-                            role = manager.current_role()
-                            role_clause = f"role '{role}'" if role else "your role"
-                            raise CliError(
-                                f"Failed to {action} '{storage_fqn.identifier}': {e}. "
-                                f"Verify that {role_clause} has the required "
-                                f"privileges (USAGE on the database and schema, "
-                                f"and {required_privilege})."
-                            ) from e
-                    with metrics.span("snowflake_app.upload.push_workspace_files"):
-                        cli_console.step(
-                            f"Uploading bundled files to {workspace_source_uri}"
-                        )
-                        files_uploaded = 0
-                        for result in manager.upload_to_workspace(
-                            local_root=project_paths.bundle_root,
-                            workspace_fqn=storage_fqn,
-                            target_subdirectory=app_name,
-                            overwrite=True,
-                        ):
-                            files_uploaded += 1
-                            cli_console.step(
-                                f"  Uploaded {result['source']} -> {result['target']}"
-                            )
-                        metrics.set_counter(FILES_UPLOADED_COUNTER, files_uploaded)
-                    with metrics.span("snowflake_app.upload.commit_workspace"):
-                        cli_console.step(
-                            f"Committing workspace live version for {storage_fqn}"
-                        )
-                        manager.commit_workspace_live_version(storage_fqn)
-                        cli_console.step(
-                            f"Creating a fresh live version for {storage_fqn}"
-                        )
-                        manager.ensure_workspace_live_version(storage_fqn)
+                if not use_workspace:
+                    _upload_via_stage(storage_fqn, encryption_type)
+                    stage_created = True
+                elif is_personal_database(database):
+                    # Personal databases must use a workspace; there is no stage
+                    # to fall back to, so workspace failures surface as an
+                    # actionable privilege error from the helper.
+                    _upload_via_workspace(storage_fqn)
                 else:
-                    with metrics.span("snowflake_app.upload.prepare_stage"):
-                        # Start the upload from an empty stage so files left
-                        # over from a prior deploy never leak into the build.
-                        # Clearing with REMOVE can leave stale chunks behind, so
-                        # drop and recreate instead — but drop only when the
-                        # stage already exists. A first deploy has nothing to
-                        # drop, and issuing DROP STAGE there would demand
-                        # OWNERSHIP the deploying role need not hold, so skipping
-                        # it lets a role with only CREATE STAGE deploy.
-                        try:
-                            if manager.stage_exists(storage_fqn):
-                                cli_console.step(f"Recreating stage @{storage_fqn}")
-                                manager.drop_stage_if_exists(storage_fqn)
-                            else:
-                                cli_console.step(f"Creating stage @{storage_fqn}")
-                            manager.create_stage(storage_fqn, encryption_type)
-                            stage_created = True
-                        except ProgrammingError as e:
-                            role = manager.current_role()
-                            role_clause = f"role '{role}'" if role else "your role"
-                            raise CliError(
-                                f"Failed to recreate stage '{storage_fqn.identifier}': {e}. "
-                                f"Verify that {role_clause} has the required "
-                                f"privileges (USAGE on the database and schema, "
-                                f"OWNERSHIP on the stage, and CREATE STAGE on the schema)."
-                            ) from e
-
-                    with metrics.span("snowflake_app.upload.push_stage_files"):
-                        cli_console.step(f"Uploading bundled files to @{storage_fqn}")
-                        files_uploaded = 0
-                        for result in manager.upload_to_stage(
-                            local_root=project_paths.bundle_root,
-                            stage_fqn=storage_fqn,
-                            overwrite=True,
-                        ):
-                            files_uploaded += 1
-                            cli_console.step(
-                                f"  Uploaded {result['source']} -> {result['target']}"
-                            )
-                        metrics.set_counter(FILES_UPLOADED_COUNTER, files_uploaded)
+                    try:
+                        _upload_via_workspace(storage_fqn)
+                    except ProgrammingError as e:
+                        # The workspace backend is unusable for this
+                        # role/destination. Fall back to the stage flow so a
+                        # role that cannot create/use a workspace can still
+                        # deploy: upload to a ``<app>_CODE`` stage, let the build
+                        # consume it, and drop it afterwards. ``snow app setup``
+                        # performs the same privilege check up front and persists
+                        # the choice, so this runtime fallback only triggers when
+                        # that decision could not be made (or has since changed).
+                        cli_console.warning(
+                            f"Could not use a workspace for code storage in "
+                            f"'{sanitize_for_terminal(storage_fqn.identifier)}': {e}. "
+                            "Falling back to a stage."
+                        )
+                        use_workspace = False
+                        encryption_type = "SNOWFLAKE_SSE"
+                        storage_fqn = app_fqn(
+                            database=database,
+                            schema=schema,
+                            name=f"{app_name}_CODE",
+                        )
+                        _upload_via_stage(storage_fqn, encryption_type)
+                        stage_created = True
         finally:
             project_paths.clean_up_output()
 
@@ -1047,6 +1186,7 @@ def snowflake_app_deploy(
                         query_warehouse=query_warehouse,
                         external_access_integrations=eai_list,
                         comment=app_comment,
+                        compute_resource=compute_resource,
                     )
                 except ProgrammingError as e:
                     # "Already exists" is the expected re-deploy path: the
@@ -1157,7 +1297,11 @@ def snowflake_app_teardown(
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
+    # Resolve db/schema from the active connection in place on the shared
+    # entity.fqn (also expands USER$ → USER$<user>); downstream re-reads of
+    # entity.fqn intentionally see the resolved value.
     fqn = entity.fqn
+    fqn.using_context()
     manager = SnowflakeAppManager()
     metrics = get_cli_context().metrics
     with metrics.span("snowflake_app.teardown.resolve_defaults"):
@@ -1175,7 +1319,6 @@ def snowflake_app_teardown(
 
     app_name = fqn.name
     service_fqn = app_fqn(database=db, schema=schema, name=app_name)
-    is_application_service = manager.is_application_service(service_fqn)
 
     # Mirror the deploy-time backend selection so a personal-database app is
     # torn down via its workspace rather than a (never-created) stage.
@@ -1188,39 +1331,26 @@ def snowflake_app_teardown(
     storage_schema = storage.schema_override or schema
 
     storage_fqn = app_fqn(database=storage_db, schema=storage_schema, name=storage_name)
-    build_job_fqn = app_fqn(database=db, schema=schema, name=f"{app_name}_BUILD_JOB")
-
-    object_kind = "application service" if is_application_service else "service"
 
     def _app_service_still_exists() -> bool:
         try:
-            if manager.describe_app_service(service_fqn):
-                return True
+            return bool(manager.describe_app_service(service_fqn))
         except ProgrammingError:
-            pass
-        return manager.get_service_status(service_fqn) != "IDLE"
+            return False
 
     def _verify_service_drop() -> None:
         try:
-            still_exists = (
-                _app_service_still_exists()
-                if is_application_service
-                else manager.get_service_status(service_fqn) != "IDLE"
-            )
+            still_exists = _app_service_still_exists()
         except Exception as err:
             raise CliError(
-                f"Could not verify {object_kind} {service_fqn.identifier} was dropped: {err}"
+                f"Could not verify application service {service_fqn.identifier} "
+                f"was dropped: {err}"
             ) from err
 
         if still_exists:
-            if is_application_service:
-                raise CliError(
-                    f"Failed to drop application service {service_fqn.identifier}. "
-                    f"Check: DESCRIBE APPLICATION SERVICE {service_fqn.identifier}"
-                )
             raise CliError(
-                f"Failed to drop service {service_fqn.identifier}. "
-                f"Check: SHOW SERVICES IN SCHEMA {service_fqn.prefix}"
+                f"Failed to drop application service {service_fqn.identifier}. "
+                f"Check: DESCRIBE APPLICATION SERVICE {service_fqn.identifier}"
             )
 
     if not force:
@@ -1229,18 +1359,15 @@ def snowflake_app_teardown(
         # command duration (which is otherwise unaccounted for by any span).
         with metrics.span("snowflake_app.teardown.confirm"):
             should_continue = typer.confirm(
-                f"Are you sure you want to drop {object_kind} {service_fqn.identifier}"
-                f" and its associated objects?"
+                f"Are you sure you want to drop application service "
+                f"{service_fqn.identifier} and its associated objects?"
             )
         if not should_continue:
             return MessageResult("Teardown cancelled.")
 
-    cli_console.step(f"Dropping {object_kind} {service_fqn.identifier}")
+    cli_console.step(f"Dropping application service {service_fqn.identifier}")
     with metrics.span("snowflake_app.teardown.drop_service"):
-        if is_application_service:
-            manager.drop_app_service_if_exists(service_fqn)
-        else:
-            manager.drop_service_if_exists(service_fqn)
+        manager.drop_app_service_if_exists(service_fqn)
         _verify_service_drop()
 
     if use_workspace:
@@ -1257,11 +1384,6 @@ def snowflake_app_teardown(
         with metrics.span("snowflake_app.teardown.drop_stage"):
             manager.drop_stage_if_exists(storage_fqn)
 
-    if not is_application_service:
-        cli_console.step(f"Dropping build job service {build_job_fqn.identifier}")
-        with metrics.span("snowflake_app.teardown.drop_build_job"):
-            manager.drop_service_if_exists(build_job_fqn)
-
     return MessageResult(
-        f"Successfully dropped {object_kind} {service_fqn.identifier}."
+        f"Successfully dropped application service {service_fqn.identifier}."
     )

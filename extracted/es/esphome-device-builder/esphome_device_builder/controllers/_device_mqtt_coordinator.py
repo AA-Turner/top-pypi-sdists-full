@@ -1,15 +1,23 @@
 """
 Coordinator for per-broker MQTT discovery monitors.
 
-Reads each MQTT-using device's YAML, resolves ``!secret`` references via
-``secrets.yaml``, groups by broker host/port/username, and runs one
-:class:`DeviceMqttMonitor` per unique broker login. Re-runs lifecycle on
-each poll so monitors track YAML edits.
+Consumes each MQTT-using device's scan-time ``mqtt:`` extraction, resolves
+``!secret`` references via ``secrets.yaml``, groups by broker
+host/port/username, and runs one :class:`DeviceMqttMonitor` per unique
+broker login. Re-runs lifecycle on each poll so monitors track edits.
+
+The scanner owns all YAML parsing: a broker that can't be resolved from
+raw text or a fresh extract seed becomes a queued scanner reload
+(``request_reload``), never an in-coordinator parse — the scan-change
+nudge reconciles again once the resolved extract lands.
 """
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
+import os
 import ssl
 from collections.abc import Callable
 from pathlib import Path
@@ -20,15 +28,18 @@ from esphome.core import EsphomeError
 
 from ..constants import SECRETS_FILENAME
 from ..helpers.async_ import run_in_executor
+from ..helpers.atomic_io import read_text_with_stat
 from ..helpers.device_yaml import (
     _UNRESOLVED_SUBSTITUTION_RE,
-    _extract_resolved_substitutions,
+    SecretRef,
     _resolve_substitutions,
-    load_device_yaml,
+    extract_mqtt_block,
+    safe_stat_key,
 )
 from ..helpers.subscriber_presence import SubscriberPresence
-from ..helpers.yaml import FastestSafeLoader, load_yaml_fast_then_esphome
+from ..helpers.yaml import load_yaml_fast_then_esphome
 from ..models import Device
+from ..models.devices import DeviceMqttExtract, MqttFreshnessStamp
 from ._device_mqtt_monitor import (
     BrokerKey,
     DeviceMqttMonitor,
@@ -50,6 +61,12 @@ _BROKER_FIELDS = ("broker", "port", "username", "password", "certificate_authori
 _CLIENT_CERT_FIELDS = ("client_certificate", "client_certificate_key")
 
 _PEM_CERT_MARKER = "-----BEGIN CERTIFICATE-----"
+
+_UNREADABLE_DEBUG = "Could not read %s for MQTT broker config"
+
+# How long ``stop()`` waits for an in-flight reconcile before stopping
+# the registered monitors without the lock.
+_STOP_LOCK_TIMEOUT_SECONDS = 5.0
 
 
 class _ClientCertUnsupported:
@@ -77,19 +94,22 @@ class DeviceMqttCoordinator:
         on_state_change: StateCallback,
         on_ip_change: IPCallback,
         presence: SubscriberPresence | None = None,
+        *,
+        request_reload: Callable[[str], None],
     ) -> None:
         self._config_dir = config_dir
         self._get_devices = get_devices
+        self._request_reload = request_reload
         self._on_state_change = on_state_change
         self._on_ip_change = on_ip_change
         self._presence = presence
         self._monitors: dict[BrokerKey, DeviceMqttMonitor] = {}
-        # Positive-only slow-path cache keyed on ``(yaml_mtime,
-        # secrets_mtime)``. Package / ``!include`` edits on a
-        # previously-cached device won't invalidate — user needs a
-        # device-YAML touch or dashboard restart for those.
+        # Positive-only seed-resolution cache keyed on the YAML's
+        # ``(mtime_ns, size)`` plus the secrets file's. Package /
+        # ``!include`` edits on a previously-cached device won't
+        # invalidate — user needs a device-YAML touch or restart.
         self._broker_cache: dict[
-            str, tuple[tuple[float, float], MqttBrokerConfig | _ClientCertUnsupported]
+            str, tuple[MqttFreshnessStamp, MqttBrokerConfig | _ClientCertUnsupported]
         ] = {}
         # Per-device dedupe for the broker-unresolvable WARNING —
         # WARNING once, DEBUG on repeats.
@@ -100,6 +120,15 @@ class DeviceMqttCoordinator:
         # Per-login dedupe for the same-username/different-password
         # WARNING — WARNING once, DEBUG on repeats.
         self._conflict_logged: set[BrokerKey] = set()
+        # Two concurrent reconciles (cold-start refine vs poll) would
+        # both see a broker absent and leak one running monitor on the
+        # dict overwrite.
+        self._reconcile_lock = asyncio.Lock()
+        self._stopped = False
+
+    def resume(self) -> None:
+        """Clear the stop latch so a restarted owner can reconcile again."""
+        self._stopped = False
 
     @property
     def active_brokers(self) -> int:
@@ -116,15 +145,27 @@ class DeviceMqttCoordinator:
                 )
             return
 
-        brokers = await run_in_executor(self._collect_brokers)
-        wanted_keys = {b.key for b in brokers}
-        existing_keys = set(self._monitors.keys())
+        async with self._reconcile_lock:
+            await self._reconcile_locked()
 
-        for key in existing_keys - wanted_keys:
-            _LOGGER.info(
-                "Stopping MQTT monitor for %s:%s user %r", key.host, key.port, key.username
+    async def _reconcile_locked(self) -> None:
+        brokers, needs_reload = await run_in_executor(self._collect_brokers)
+        if self._stopped:
+            # A reconcile that outlived ``stop()`` (wedged in the
+            # executor past the lock timeout, or queued on the lock)
+            # must not restart monitors on a closing loop.
+            return
+        for configuration in needs_reload:
+            self._request_reload(configuration)
+        if needs_reload:
+            _LOGGER.debug(
+                "Deferring monitor teardown; %d device(s) awaiting reload", len(needs_reload)
             )
-            await self._monitors.pop(key).stop()
+        # A pass with unresolved devices can't know their broker keys,
+        # so it is additive-only — teardown waits for the pass after
+        # their reloads land.
+        if not needs_reload and not await self._stop_unwanted_monitors({b.key for b in brokers}):
+            return
 
         new_monitors: list[DeviceMqttMonitor] = []
         for broker in brokers:
@@ -145,13 +186,47 @@ class DeviceMqttCoordinator:
         # connection change via the callback above.
         self._assign_publishers()
         for monitor in new_monitors:
+            if self._stopped:
+                return
             await monitor.start()
+
+    async def _stop_unwanted_monitors(self, wanted: set[BrokerKey]) -> bool:
+        """Stop monitors for logins no longer referenced; False when ``stop()`` intervened."""
+        for key in set(self._monitors) - wanted:
+            _LOGGER.info(
+                "Stopping MQTT monitor for %s:%s user %r", key.host, key.port, key.username
+            )
+            # Deregister only after a completed teardown so a cancel
+            # mid-stop can't orphan a started monitor outside the
+            # registry ``stop()`` walks; ``monitor.stop()`` is
+            # idempotent. ``pop`` because a timed-out ``stop()`` may
+            # have walked the registry mid-await.
+            await self._monitors[key].stop()
+            self._monitors.pop(key, None)
+            if self._stopped:
+                return False
+        return True
 
     async def stop(self) -> None:
         """Stop every active monitor and clear state."""
-        for monitor in list(self._monitors.values()):
-            await monitor.stop()
-        self._monitors.clear()
+        self._stopped = True
+        # Bounded: a reconcile stuck in a package fetch inside
+        # ``_collect_brokers`` must not stall shutdown; on timeout,
+        # stop what's registered without the lock.
+        acquired = False
+        with contextlib.suppress(TimeoutError):
+            async with asyncio.timeout(_STOP_LOCK_TIMEOUT_SECONDS):
+                await self._reconcile_lock.acquire()
+                acquired = True
+        if not acquired:
+            _LOGGER.warning("Stopping MQTT monitors without the reconcile lock; a pass is wedged")
+        try:
+            for monitor in list(self._monitors.values()):
+                await monitor.stop()
+            self._monitors.clear()
+        finally:
+            if acquired:
+                self._reconcile_lock.release()
 
     # ------------------------------------------------------------------
     # Internals
@@ -187,77 +262,116 @@ class DeviceMqttCoordinator:
         for key, monitor in self._monitors.items():
             monitor.set_publisher(value=elected[key[:2]] is monitor)
 
-    def _collect_brokers(self) -> list[MqttBrokerConfig]:
+    def _collect_brokers(self) -> tuple[list[MqttBrokerConfig], list[str]]:
+        """Resolve broker configs; second element lists devices needing a scanner reload."""
+        mqtt_devices = [d for d in self._get_devices() if d.uses_mqtt]
+        if not mqtt_devices:
+            # Equivalent to an empty loop pass: clear the warn gates and
+            # cache so a re-added device warns fresh, and skip the
+            # secrets read + parse the common no-mqtt fleet never needs.
+            self._unresolved_logged.clear()
+            self._client_cert_logged.clear()
+            self._conflict_logged.clear()
+            self._broker_cache.clear()
+            return [], []
         secrets_map = _load_secrets(self._config_dir)
-        secrets_mtime = _safe_mtime(self._config_dir / SECRETS_FILENAME)
+        secrets_key = safe_stat_key(self._config_dir / SECRETS_FILENAME)
         seen: dict[BrokerKey, MqttBrokerConfig] = {}
         seen_devices: set[str] = set()
         client_cert_devices: set[str] = set()
         conflicts: set[BrokerKey] = set()
-        for device in self._get_devices():
-            if not device.uses_mqtt:
-                continue
+        needs_reload: list[str] = []
+        for device in mqtt_devices:
             seen_devices.add(device.configuration)
             yaml_path = self._config_dir / device.configuration
             try:
-                yaml_content = yaml_path.read_text(encoding="utf-8")
-                yaml_mtime = yaml_path.stat().st_mtime
+                yaml_stat = yaml_path.stat()
             except OSError:
                 # Skip silently — the WARNING is reserved for
                 # present-but-unresolvable YAMLs, not deleted ones.
-                _LOGGER.debug("Could not read %s for MQTT broker config", device.configuration)
+                _LOGGER.debug(_UNREADABLE_DEBUG, device.configuration)
                 continue
-            broker = self._resolve_broker(
-                yaml_path, yaml_content, yaml_mtime, secrets_mtime, secrets_map
-            )
-            if isinstance(broker, _ClientCertUnsupported):
-                client_cert_devices.add(device.configuration)
-                self._log_client_cert_unsupported(device.configuration)
-                continue
+            if (extract := device.mqtt_extract) is not None and _extract_fresh(extract, yaml_stat):
+                broker = _broker_from_mqtt_dict(
+                    extract.main_block, secrets_map, extract.main_substitutions
+                )
+            else:
+                # Scan raced an edit (or the device predates the scanner
+                # carrying extractions) — fall back to reading the file;
+                # the handle stat keys the extract-seed comparison.
+                try:
+                    yaml_stat, yaml_content = read_text_with_stat(yaml_path)
+                except OSError:
+                    _LOGGER.debug(_UNREADABLE_DEBUG, device.configuration)
+                    continue
+                broker = parse_mqtt_block(yaml_content, secrets_map)
             if broker is None:
-                self._log_broker_unresolved(device.configuration)
-                continue
-            self._unresolved_logged.discard(device.configuration)
-            self._client_cert_logged.discard(device.configuration)
-            existing = seen.get(broker.key)
-            if existing is None:
-                seen[broker.key] = broker
-                continue
-            # Same host/port/username but a different password: the login
-            # is ambiguous, so the first device's password wins.
-            if existing.password != broker.password:
-                conflicts.add(broker.key)
-                self._log_credential_conflict(broker)
+                cache_key = MqttFreshnessStamp(
+                    yaml_stat.st_mtime_ns, yaml_stat.st_size, *secrets_key
+                )
+                if _extract_needs_reload(extract, cache_key):
+                    # Skip silently — no warn-gate consumption.
+                    needs_reload.append(device.configuration)
+                    continue
+                broker = self._resolve_from_seed(yaml_path.name, extract, cache_key)
+            self._track_outcome(device.configuration, broker, seen, client_cert_devices, conflicts)
         # Drop tracking for devices no longer declaring ``mqtt:`` and
         # logins that no longer conflict, so a recurrence re-warns.
         self._unresolved_logged &= seen_devices
         self._client_cert_logged &= client_cert_devices
         self._conflict_logged &= conflicts
         self._broker_cache = {k: v for k, v in self._broker_cache.items() if k in seen_devices}
-        return list(seen.values())
+        return list(seen.values()), needs_reload
 
-    def _resolve_broker(
+    def _track_outcome(
         self,
-        yaml_path: Path,
-        yaml_content: str,
-        yaml_mtime: float,
-        secrets_mtime: float,
-        secrets_map: dict[str, Any],
+        configuration: str,
+        broker: MqttBrokerConfig | _ClientCertUnsupported | None,
+        seen: dict[BrokerKey, MqttBrokerConfig],
+        client_cert_devices: set[str],
+        conflicts: set[BrokerKey],
+    ) -> None:
+        """Record one device's resolution outcome into the reconcile accumulators."""
+        if isinstance(broker, _ClientCertUnsupported):
+            client_cert_devices.add(configuration)
+            self._log_client_cert_unsupported(configuration)
+            return
+        if broker is None:
+            self._log_broker_unresolved(configuration)
+            return
+        self._unresolved_logged.discard(configuration)
+        self._client_cert_logged.discard(configuration)
+        existing = seen.get(broker.key)
+        if existing is None:
+            seen[broker.key] = broker
+            return
+        # Same host/port/username but a different password: the login
+        # is ambiguous, so the first device's password wins.
+        if existing.password != broker.password:
+            conflicts.add(broker.key)
+            self._log_credential_conflict(broker)
+
+    def _resolve_from_seed(
+        self,
+        configuration: str,
+        extract: DeviceMqttExtract | None,
+        cache_key: MqttFreshnessStamp,
     ) -> MqttBrokerConfig | _ClientCertUnsupported | None:
-        """Return *yaml_path*'s broker, ``CLIENT_CERT_UNSUPPORTED``, or None if unresolvable."""
-        broker = parse_mqtt_block(yaml_content, secrets_map)
-        if broker is not None:
-            return broker
-        cache_key = (yaml_mtime, secrets_mtime)
-        cached = self._broker_cache.get(yaml_path.name)
+        """Resolve a package-sourced broker from the cache or the scan-time seed."""
+        cached = self._broker_cache.get(configuration)
         if cached is not None and cached[0] == cache_key:
             return cached[1]
-        resolved = load_device_yaml(yaml_path)
-        broker = _extract_broker_from_config(resolved)
+        # Only a positive outcome is cached so a broken package edit
+        # keeps re-resolving.
+        broker = None
+        if extract is not None and extract.resolved_block is not None:
+            broker = _broker_from_mqtt_dict(
+                extract.resolved_block, {}, extract.resolved_substitutions
+            )
         if broker is not None:
-            self._broker_cache[yaml_path.name] = (cache_key, broker)
+            self._broker_cache[configuration] = (cache_key, broker)
         else:
-            self._broker_cache.pop(yaml_path.name, None)
+            self._broker_cache.pop(configuration, None)
         return broker
 
     def _log_broker_unresolved(self, configuration: str) -> None:
@@ -308,38 +422,6 @@ class DeviceMqttCoordinator:
 # ---------------------------------------------------------------------------
 
 
-class _SecretRef:
-    """Marker for an unresolved ``!secret <name>`` reference."""
-
-    __slots__ = ("name",)
-
-    def __init__(self, name: str) -> None:
-        self.name = name
-
-
-class _TolerantYamlLoader(FastestSafeLoader):
-    """SafeLoader that captures ``!secret`` and ignores other custom tags.
-
-    Subclasses ``FastestSafeLoader`` (libyaml-backed CSafeLoader
-    when available) so the per-device MQTT-block parse pays the
-    fast path. The custom-constructor mechanism is identical
-    between the C and pure-Python loaders, so the ``!secret`` /
-    unknown-tag handlers wired below work either way.
-    """
-
-
-def _construct_secret(loader: yaml.Loader, node: yaml.ScalarNode) -> _SecretRef:
-    return _SecretRef(loader.construct_scalar(node))
-
-
-def _ignore_unknown_tag(_loader: yaml.Loader, _tag_suffix: str, _node: yaml.Node) -> None:
-    return None
-
-
-_TolerantYamlLoader.add_constructor("!secret", _construct_secret)
-_TolerantYamlLoader.add_multi_constructor("!", _ignore_unknown_tag)
-
-
 def parse_mqtt_block(
     yaml_content: str,
     secrets_map: dict[str, Any] | None = None,
@@ -352,23 +434,31 @@ def parse_mqtt_block(
     to parse. ``!secret xyz`` references and ``${var}`` / ``$var``
     substitutions from the file's own ``substitutions:`` block are
     resolved; a broker still carrying an unresolved token returns
-    ``None`` so the caller falls through to the package-aware slow path.
+    ``None`` so the caller defers to the seed or a scanner reload.
     ``CLIENT_CERT_UNSUPPORTED`` flags a block using client-certificate
     auth, which discovery cannot do.
     """
-    secrets_map = secrets_map or {}
-    try:
-        # _TolerantYamlLoader subclasses FastestSafeLoader (libyaml's
-        # CSafeLoader when available, the pure-Python SafeLoader
-        # otherwise — both are safe). The custom !secret constructor
-        # only emits a marker dataclass, never instantiates arbitrary
-        # types.
-        data = yaml.load(yaml_content, Loader=_TolerantYamlLoader)  # noqa: S506
-    except yaml.YAMLError:
-        return None
-    if not isinstance(data, dict):
-        return None
-    mqtt = data.get("mqtt")
+    mqtt, subs = extract_mqtt_block(yaml_content)
+    return _broker_from_mqtt_dict(mqtt, secrets_map or {}, subs)
+
+
+def _extract_fresh(extract: DeviceMqttExtract, yaml_stat: os.stat_result) -> bool:
+    """Whether the scan-time extraction still matches the file on disk."""
+    stamp = extract.stamp
+    return stamp.yaml_mtime_ns == yaml_stat.st_mtime_ns and stamp.yaml_size == yaml_stat.st_size
+
+
+def _extract_needs_reload(extract: DeviceMqttExtract | None, cache_key: MqttFreshnessStamp) -> bool:
+    """Return True for an absent, stale, or shallow-load extract."""
+    if extract is None or extract.from_shallow_load:
+        return True
+    return extract.stamp != cache_key
+
+
+def _broker_from_mqtt_dict(
+    mqtt: Any, secrets_map: dict[str, Any], subs: dict[str, str]
+) -> MqttBrokerConfig | _ClientCertUnsupported | None:
+    """Shared per-item core: verdict for one ``mqtt:`` mapping."""
     if not isinstance(mqtt, dict):
         return None
     # Presence alone signals intent — the value may be an ignored
@@ -376,26 +466,7 @@ def parse_mqtt_block(
     # changes the verdict.
     if any(f in mqtt for f in _CLIENT_CERT_FIELDS):
         return CLIENT_CERT_UNSUPPORTED
-    return _broker_from_block(mqtt, secrets_map, _extract_resolved_substitutions(data))
-
-
-def _extract_broker_from_config(
-    config: dict | None,
-) -> MqttBrokerConfig | _ClientCertUnsupported | None:
-    """Extract broker parameters from a fully-resolved ESPHome config.
-
-    ``load_device_yaml`` merges ``packages:`` / ``!include`` but skips the
-    substitution pass, so resolve ``${var}`` against the merged
-    ``substitutions:`` block here too.
-    """
-    if not isinstance(config, dict):
-        return None
-    mqtt = config.get("mqtt")
-    if not isinstance(mqtt, dict):
-        return None
-    if any(f in mqtt for f in _CLIENT_CERT_FIELDS):
-        return CLIENT_CERT_UNSUPPORTED
-    return _broker_from_block(mqtt, {}, _extract_resolved_substitutions(config))
+    return _broker_from_block(mqtt, secrets_map, subs)
 
 
 def _broker_from_block(
@@ -470,14 +541,6 @@ def _load_secrets(config_dir: Path) -> dict[str, Any]:
     return data
 
 
-def _safe_mtime(path: Path) -> float:
-    """Return *path*'s mtime, or ``0.0`` when the file is missing."""
-    try:
-        return path.stat().st_mtime
-    except OSError:
-        return 0.0
-
-
 def _ca_pem_is_loadable(certificate_authority: str) -> bool:
     """
     Validate the CA at parse time so a corrupt PEM fails loudly.
@@ -489,7 +552,9 @@ def _ca_pem_is_loadable(certificate_authority: str) -> bool:
     """
     try:
         ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT).load_verify_locations(cadata=certificate_authority)
-    except ssl.SSLError as err:
+    except (ssl.SSLError, TypeError, ValueError) as err:
+        # ``load_verify_locations`` raises TypeError for non-ASCII cadata
+        # and ValueError for empty data, not SSLError.
         # The gated unresolved warning is generic; keep the concrete
         # parse failure recoverable from the logs.
         _LOGGER.debug("certificate_authority failed to parse: %s", err)
@@ -501,7 +566,7 @@ def _resolve(value: Any, secrets_map: dict[str, Any]) -> str | None:
     """Return the resolved scalar value, or None when unresolvable."""
     if value is None:
         return None
-    if isinstance(value, _SecretRef):
+    if isinstance(value, SecretRef):
         secret = secrets_map.get(value.name)
         if secret is None:
             _LOGGER.warning("Secret %r referenced by mqtt: block is not defined", value.name)

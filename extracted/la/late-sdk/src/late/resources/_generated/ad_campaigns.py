@@ -368,6 +368,8 @@ class AdCampaignsResource:
         bid_strategy: Any | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
+        value_rule_set_id: str | None = None,
+        value_rules_applied: bool | None = None,
         platform_specific_data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Update an ad set"""
@@ -379,6 +381,8 @@ class AdCampaignsResource:
             bid_strategy=bid_strategy,
             bid_amount=bid_amount,
             roas_average_floor=roas_average_floor,
+            value_rule_set_id=value_rule_set_id,
+            value_rules_applied=value_rules_applied,
             platform_specific_data=platform_specific_data,
         )
         return self._client._put(f"/v1/ads/ad-sets/{ad_set_id}", data=payload)
@@ -512,6 +516,7 @@ class AdCampaignsResource:
         spark_auth_code: str | None = None,
         dsa_beneficiary: str | None = None,
         dsa_payor: str | None = None,
+        optimization_goal: str | None = None,
     ) -> dict[str, Any]:
         """Boost post as ad"""
         payload = self._build_payload(
@@ -538,6 +543,7 @@ class AdCampaignsResource:
             spark_auth_code=spark_auth_code,
             dsa_beneficiary=dsa_beneficiary,
             dsa_payor=dsa_payor,
+            optimization_goal=optimization_goal,
         )
         return self._client._post("/v1/ads/boost", data=payload)
 
@@ -617,6 +623,8 @@ class AdCampaignsResource:
         bid_strategy: Any | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
+        value_rule_set_id: str | None = None,
+        value_rules_applied: bool | None = None,
         platform_specific_data: Any | None = None,
         dsa_beneficiary: str | None = None,
         dsa_payor: str | None = None,
@@ -699,6 +707,8 @@ class AdCampaignsResource:
             bid_strategy=bid_strategy,
             bid_amount=bid_amount,
             roas_average_floor=roas_average_floor,
+            value_rule_set_id=value_rule_set_id,
+            value_rules_applied=value_rules_applied,
             platform_specific_data=platform_specific_data,
             dsa_beneficiary=dsa_beneficiary,
             dsa_payor=dsa_payor,
@@ -1003,6 +1013,8 @@ class AdCampaignsResource:
         bid_strategy: Any | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
+        value_rule_set_id: str | None = None,
+        value_rules_applied: bool | None = None,
         platform_specific_data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Update an ad set (async)"""
@@ -1014,6 +1026,8 @@ class AdCampaignsResource:
             bid_strategy=bid_strategy,
             bid_amount=bid_amount,
             roas_average_floor=roas_average_floor,
+            value_rule_set_id=value_rule_set_id,
+            value_rules_applied=value_rules_applied,
             platform_specific_data=platform_specific_data,
         )
         return await self._client._aput(f"/v1/ads/ad-sets/{ad_set_id}", data=payload)
@@ -1149,6 +1163,7 @@ class AdCampaignsResource:
         spark_auth_code: str | None = None,
         dsa_beneficiary: str | None = None,
         dsa_payor: str | None = None,
+        optimization_goal: str | None = None,
     ) -> dict[str, Any]:
         """Boost post as ad (async)"""
         payload = self._build_payload(
@@ -1175,6 +1190,7 @@ class AdCampaignsResource:
             spark_auth_code=spark_auth_code,
             dsa_beneficiary=dsa_beneficiary,
             dsa_payor=dsa_payor,
+            optimization_goal=optimization_goal,
         )
         return await self._client._apost("/v1/ads/boost", data=payload)
 
@@ -1254,6 +1270,8 @@ class AdCampaignsResource:
         bid_strategy: Any | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
+        value_rule_set_id: str | None = None,
+        value_rules_applied: bool | None = None,
         platform_specific_data: Any | None = None,
         dsa_beneficiary: str | None = None,
         dsa_payor: str | None = None,
@@ -1336,6 +1354,8 @@ class AdCampaignsResource:
             bid_strategy=bid_strategy,
             bid_amount=bid_amount,
             roas_average_floor=roas_average_floor,
+            value_rule_set_id=value_rule_set_id,
+            value_rules_applied=value_rules_applied,
             platform_specific_data=platform_specific_data,
             dsa_beneficiary=dsa_beneficiary,
             dsa_payor=dsa_payor,

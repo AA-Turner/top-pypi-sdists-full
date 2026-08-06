@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openresponses-types
-Version: 2.3.0.post1
+Version: 2.4.0
 Summary: Python SDK for OpenResponses specification
 Project-URL: Homepage, https://github.com/mozilla-ai/openresponses-python
 Project-URL: Documentation, https://github.com/mozilla-ai/openresponses-python#readme

@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-import typing as t
 import traceback
+import typing as t
+from concurrent.futures import wait
 from datetime import datetime, timezone
+
+from query_cache_common.utils import extract_fqn_parts
 from sqlglot import exp
+from typing_extensions import override
 
 from dbt_state import events
 from dbt_state.adapters.base import BaseAdapterExtension
 from dbt_state.adapters.common import EventualCache, ViewDefinition, ViewFetchResult
-from query_cache_common.utils import extract_fqn_parts
-from concurrent.futures import wait
 
 if t.TYPE_CHECKING:
     from dbt.adapters.base.relation import BaseRelation
@@ -43,8 +45,8 @@ class BigQueryAdapterExtension(BaseAdapterExtension):
 
             pool_size = max(self._max_worker_threads or 10, 10)
             adapter = HTTPAdapter(pool_connections=pool_size, pool_maxsize=pool_size)
-            self._client._http.mount("https://", adapter)
-            self._client._http.mount("http://", adapter)
+            self._client._http.mount("https://", adapter)  # noqa: SLF001
+            self._client._http.mount("http://", adapter)  # noqa: SLF001
         except Exception:
             events.fire_debug_event(
                 "Unable to configure BigQuery HTTP connection pool size. "
@@ -52,7 +54,7 @@ class BigQueryAdapterExtension(BaseAdapterExtension):
             )
 
     def relation_exists(self, relation: BaseRelation) -> bool:
-        if self.adapter._schema_is_cached(relation.database, relation.schema or ""):
+        if self.adapter._schema_is_cached(relation.database, relation.schema or ""):  # noqa: SLF001
             # If the adapter already cached the schema information, use that to avoid extra API calls
             return super().relation_exists(relation)
 
@@ -124,8 +126,10 @@ class BigQueryAdapterExtension(BaseAdapterExtension):
         with self._table_cache as cache:
             cache.remove(table_ids)
 
+    @override
     def _batch_table_names(
-        self, tables: t.Collection[exp.Table]
+        self,
+        tables: t.Collection[exp.Table],
     ) -> t.Collection[t.Collection[exp.Table]]:
         # The API call for get_table is synchronous and only applies to a single table, so we fetch concurrently
         # in batches of 1
@@ -152,7 +156,7 @@ class BigQueryAdapterExtension(BaseAdapterExtension):
         return ViewFetchResult(definitions=definitions)
 
     def _get_table(self, table: exp.Table) -> Table | None:
-        from google.api_core.exceptions import NotFound, Forbidden
+        from google.api_core.exceptions import Forbidden, NotFound
 
         if self._is_system_metadata_table(table):
             return None

@@ -37,6 +37,7 @@ class APIErrorType(str, Enum):
     NOT_FOUND = 'NOT_FOUND'
     SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE'
     SERVICE_OVERLOADED = 'SERVICE_OVERLOADED'
+    UNSUPPORTED_CONTENT_FORMAT = 'UNSUPPORTED_CONTENT_FORMAT'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

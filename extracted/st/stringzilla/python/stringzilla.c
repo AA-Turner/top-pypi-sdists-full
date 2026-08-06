@@ -124,6 +124,11 @@ static PyTypeObject Utf8CodepointsType;
 static PyTypeObject Utf8UncasedMatchesType;
 static PyTypeObject HasherType;
 static PyTypeObject Sha256Type;
+static PyTypeObject Sha256sType;
+static PyTypeObject Aes256CtrKeyType;
+static PyTypeObject Aes256GcmKeyType;
+static PyTypeObject Aes256GcmEncryptorType;
+static PyTypeObject Aes256GcmDecryptorType;
 
 static struct PyModuleDef stringzilla_module;
 
@@ -1183,6 +1188,98 @@ get_string_at_offset_t str_at_offset_getter(Strs *strs) {
     }
 }
 
+static Py_ssize_t Strs_len(Strs *self);
+
+/**
+ *  @brief Points @p sequence at the strings in @p texts, borrowing them in place.
+ *
+ *  A `Strs` is read through its own layout-aware accessors, so a tape-backed corpus never leaves its
+ *  buffer. Any other sequence is snapshotted into a tuple and unpacked into @p scratch, which must hold
+ *  @p scratch_capacity views. The snapshot is what pins the chunks: holding the caller's list would keep
+ *  the container alive while leaving each chunk free to be dropped from under the exported pointers.
+ *
+ *  @return A new reference that pins the strings and must outlive the kernel call, or `NULL` on failure.
+ */
+static PyObject *Sha256_bind_texts_(PyObject *texts, sz_sequence_t *sequence, sz_string_view_t *scratch,
+                                    sz_size_t scratch_capacity) {
+
+    if (PyObject_TypeCheck(texts, &StrsType)) {
+        sz_size_t const count = (sz_size_t)Strs_len((Strs *)texts);
+        if (count > scratch_capacity) {
+            PyErr_Format(PyExc_ValueError, "Expected exactly one chunk per lane, got %zu for %zu lanes", count,
+                         scratch_capacity);
+            return NULL;
+        }
+        sequence->handle = texts;
+        sequence->count = count;
+        sequence->get_start = Strs_get_start_;
+        sequence->get_length = Strs_get_length_;
+        Py_INCREF(texts);
+        return texts;
+    }
+
+    PyObject *snapshot = PySequence_Tuple(texts);
+    if (!snapshot) {
+        wrap_current_exception("Argument must be a sequence of string-like chunks");
+        return NULL;
+    }
+
+    sz_size_t const count = (sz_size_t)PyTuple_GET_SIZE(snapshot);
+    if (count > scratch_capacity) {
+        Py_DECREF(snapshot);
+        PyErr_Format(PyExc_ValueError, "Expected exactly one chunk per lane, got %zu for %zu lanes", count,
+                     scratch_capacity);
+        return NULL;
+    }
+    for (sz_size_t index = 0; index != count; ++index)
+        if (!sz_py_export_string_like(PyTuple_GET_ITEM(snapshot, (Py_ssize_t)index), &scratch[index].start,
+                                      &scratch[index].length)) {
+            Py_DECREF(snapshot);
+            wrap_current_exception("Every chunk must be string-like");
+            return NULL;
+        }
+
+    sz_sequence_from_string_views(scratch, count, sequence);
+    return snapshot;
+}
+
+/**
+ *  @brief Binds a writable buffer of at least @p digests_count digests, or reports why it can't.
+ *  @return Whether @p out_view was filled and must later be released.
+ */
+static sz_bool_t Sha256_bind_digests_(PyObject *out, sz_size_t digests_count, Py_buffer *out_view) {
+    // PyBUF_CONTIG = writable + C-contiguous; rejects strided and read-only targets up front.
+    if (PyObject_GetBuffer(out, out_view, PyBUF_CONTIG) != 0) return sz_false_k;
+    if (out_view->itemsize != 1) {
+        PyErr_SetString(PyExc_TypeError, "out must be a contiguous buffer of bytes (e.g. numpy.uint8)");
+        PyBuffer_Release(out_view);
+        return sz_false_k;
+    }
+    if ((sz_size_t)out_view->len < digests_count * SZ_SHA256_DIGEST_LENGTH) {
+        PyErr_Format(PyExc_ValueError, "out buffer holds %zd bytes, need %zu for %zu digests",
+                     (Py_ssize_t)out_view->len, digests_count * SZ_SHA256_DIGEST_LENGTH, digests_count);
+        PyBuffer_Release(out_view);
+        return sz_false_k;
+    }
+    return sz_true_k;
+}
+
+/** @brief Packs @p digests_count digests into a list of `bytes`, in lane order. */
+static PyObject *Sha256_digests_to_list_(sz_u8_t const *digests, sz_size_t digests_count) {
+    PyObject *result = PyList_New((Py_ssize_t)digests_count);
+    if (!result) return NULL;
+    for (sz_size_t index = 0; index != digests_count; ++index) {
+        PyObject *digest = PyBytes_FromStringAndSize((char const *)&digests[index * SZ_SHA256_DIGEST_LENGTH],
+                                                     SZ_SHA256_DIGEST_LENGTH);
+        if (!digest) {
+            Py_DECREF(result);
+            return NULL;
+        }
+        PyList_SET_ITEM(result, (Py_ssize_t)index, digest);
+    }
+    return result;
+}
+
 #pragma endregion
 
 #pragma region Memory Mapping File
@@ -1975,67 +2072,152 @@ static PyObject *Str_like_sha256(PyObject *self, PyObject *const *args, Py_ssize
     return PyBytes_FromStringAndSize((char const *)digest, 32);
 }
 
-static char const doc_hmac_sha256[] =                                               //
-    "Compute HMAC-SHA256 authentication code.\n"                                    //
-    "\n"                                                                            //
-    "Args:\n"                                                                       //
-    "  key (str or bytes): The secret key.\n"                                       //
-    "  message (str or bytes): The message to authenticate.\n"                      //
-    "Returns:\n"                                                                    //
-    "  bytes: The 32-byte (256-bit) HMAC-SHA256 digest.\n"                          //
-    "Raises:\n"                                                                     //
-    "  TypeError: If arguments are not string-like or incorrect number provided.\n" //
-    "\n"                                                                            //
-    "Example:\n"                                                                    //
-    "  >>> len(sz.hmac_sha256(b'key', b'message'))\n"                               //
-    "  32";
+/**
+ *  @brief Primes @p inner and @p outer with the HMAC key pads, per FIPS 198-1.
+ *
+ *  The message enters only the inner hash, as the suffix of the ipad block, so authenticating many
+ *  messages under one key is just as lane-parallel as digesting them: prime once, broadcast into every
+ *  lane, and pay for the key again only in the outer wrap.
+ */
+static void Hmac_prime_(sz_sha256_state_t *inner, sz_sha256_state_t *outer, sz_cptr_t key, sz_size_t key_length) {
+
+    // Keys longer than one block are replaced by their digest; shorter ones are zero-padded.
+    sz_u8_t key_pad[SZ_SHA256_BLOCK_LENGTH];
+    sz_fill((sz_ptr_t)key_pad, sizeof(key_pad), 0);
+    if (key_length > SZ_SHA256_BLOCK_LENGTH) {
+        sz_sha256_state_t key_state;
+        sz_sha256_state_init(&key_state);
+        sz_sha256_state_update(&key_state, key, key_length);
+        sz_sha256_state_digest(&key_state, key_pad);
+    }
+    else { sz_copy((sz_ptr_t)key_pad, key, key_length); }
+
+    sz_u8_t block[SZ_SHA256_BLOCK_LENGTH];
+    sz_sha256_state_init(inner);
+    for (sz_size_t byte_index = 0; byte_index != SZ_SHA256_BLOCK_LENGTH; ++byte_index)
+        block[byte_index] = key_pad[byte_index] ^ 0x36;
+    sz_sha256_state_update(inner, (sz_cptr_t)block, SZ_SHA256_BLOCK_LENGTH);
+
+    sz_sha256_state_init(outer);
+    for (sz_size_t byte_index = 0; byte_index != SZ_SHA256_BLOCK_LENGTH; ++byte_index)
+        block[byte_index] = key_pad[byte_index] ^ 0x5c;
+    sz_sha256_state_update(outer, (sz_cptr_t)block, SZ_SHA256_BLOCK_LENGTH);
+
+    // The pads are derived from the secret, so don't leave them on the stack for the next frame.
+    sz_fill((sz_ptr_t)key_pad, sizeof(key_pad), 0), sz_fill((sz_ptr_t)block, sizeof(block), 0);
+}
+
+/**
+ *  @brief Wraps @p inner's digest with the primed @p outer state, completing one tag.
+ *  @note Consumes neither state, so a caller can take an interim tag and keep streaming.
+ */
+static void Hmac_digest_one_(sz_sha256_state_t const *inner, sz_sha256_state_t const *outer, sz_u8_t *digest) {
+    sz_u8_t inner_digest[SZ_SHA256_DIGEST_LENGTH];
+    sz_sha256_state_digest(inner, inner_digest);
+    sz_sha256_state_t wrapping = *outer;
+    sz_sha256_state_update(&wrapping, (sz_cptr_t)inner_digest, SZ_SHA256_DIGEST_LENGTH);
+    sz_sha256_state_digest(&wrapping, digest);
+}
+
+/**
+ *  @brief Authenticates @p texts under one key, writing one tag per message into @p digests.
+ *
+ *  Runs the message pass and the outer wrap through the same lane-parallel kernels, reusing @p states
+ *  for both so the wrap costs no extra allocation.
+ *
+ *  @param states Scratch of at least `texts->count` states.
+ *  @param views Scratch of at least `texts->count` views, reused for the inner digests.
+ *  @note Runs with the GIL released, so it must touch no Python object.
+ */
+static void Hmac_digest_many_(sz_sequence_t const *texts, sz_sha256_state_t const *inner,
+                              sz_sha256_state_t const *outer, sz_sha256_state_t *states, sz_string_view_t *views,
+                              sz_u8_t *digests) {
+
+    sz_size_t const count = texts->count;
+    for (sz_size_t index = 0; index != count; ++index) states[index] = *inner;
+    sz_sha256_multistate_update(states, texts);
+    sz_sha256_multistate_digest(states, count, digests);
+
+    for (sz_size_t index = 0; index != count; ++index)
+        states[index] = *outer, views[index].start = (sz_cptr_t)&digests[index * SZ_SHA256_DIGEST_LENGTH],
+        views[index].length = SZ_SHA256_DIGEST_LENGTH;
+
+    sz_sequence_t inner_digests;
+    sz_sequence_from_string_views(views, count, &inner_digests);
+    sz_sha256_multistate_update(states, &inner_digests);
+
+    // Safe to overwrite in place: every inner digest has already been absorbed into its lane.
+    sz_sha256_multistate_digest(states, count, digests);
+}
+
+static char const doc_hmac_sha256[] =                                                                //
+    "hmac_sha256(key, message, out=None) -> bytes | list[bytes] | buffer\n"                          //
+    "\n"                                                                                             //
+    "Compute the HMAC-SHA256 authentication code of one message, or of many under one key.\n"        //
+    "\n"                                                                                             //
+    "Authenticating one message is a serial dependency chain no instruction set can speed up, but\n" //
+    "independent messages compress in parallel lanes: sixteen at a time on AVX-512, eight on\n"      //
+    "AVX2. Pass a Strs of messages - a batch of tokens or requests sharing a secret - and both\n"    //
+    "the message pass and the outer wrap run lane-parallel.\n"                                       //
+    "\n"                                                                                             //
+    "Args:\n"                                                                                        //
+    "  key (str | bytes): The secret key.\n"                                                         //
+    "  message (str | bytes | Strs | sequence): One message, or many to authenticate together.\n"    //
+    "  out (buffer, optional): Writable, C-contiguous buffer of bytes holding at least 32 per\n"     //
+    "       message - a `(len(message), 32)` numpy.uint8 matrix receives one tag per row with\n"     //
+    "       zero allocation. Defaults to None.\n"                                                    //
+    "Returns:\n"                                                                                     //
+    "  bytes: The 32-byte tag, for a single string-like message.\n"                                  //
+    "  list[bytes]: One tag per message, in order, for a collection.\n"                              //
+    "  buffer: `out` itself, when an output buffer is given.\n"                                      //
+    "Example:\n"                                                                                     //
+    "  >>> len(sz.hmac_sha256(b'key', b'message'))\n"                                                //
+    "  32\n"                                                                                         //
+    "  >>> sz.hmac_sha256(b'key', sz.Strs(['a', 'b'])) == [\n"                                       //
+    "  ...     sz.hmac_sha256(b'key', b'a'), sz.hmac_sha256(b'key', b'b')]\n"                        //
+    "  True";
 
 static PyObject *hmac_sha256(PyObject *self, PyObject *const *args, Py_ssize_t positional_args_count,
                              PyObject *args_names_tuple) {
     sz_unused_(self);
-
-    // Parse arguments
-    PyObject *key_obj = NULL;
-    PyObject *message_obj = NULL;
-
-    // Get count of keyword arguments
-    Py_ssize_t const args_names_count = args_names_tuple ? PyTuple_Size(args_names_tuple) : 0;
-    Py_ssize_t const total_args = positional_args_count + args_names_count;
-
-    // Validate total argument count
-    if (total_args != 2) {
-        PyErr_SetString(PyExc_TypeError, "hmac_sha256() expects exactly 2 arguments");
+    PyObject *key_obj = NULL, *message_obj = NULL, *out_obj = NULL;
+    if (positional_args_count > 3) {
+        PyErr_SetString(PyExc_TypeError, "hmac_sha256() takes at most three positional arguments");
         return NULL;
     }
-
-    // Handle positional arguments
     if (positional_args_count >= 1) key_obj = args[0];
     if (positional_args_count >= 2) message_obj = args[1];
+    if (positional_args_count == 3) out_obj = args[2];
 
-    // Handle keyword arguments
-    if (args_names_count > 0) {
-        for (Py_ssize_t i = 0; i < args_names_count; ++i) {
-            PyObject *const key = PyTuple_GetItem(args_names_tuple, i);
-            PyObject *const value = args[positional_args_count + i];
-
-            if (PyUnicode_CompareWithASCIIString(key, "key") == 0) {
-                if (key_obj) {
-                    PyErr_SetString(PyExc_TypeError, "key specified twice");
-                    return NULL;
-                }
-                key_obj = value;
-            }
-            else if (PyUnicode_CompareWithASCIIString(key, "message") == 0) {
-                if (message_obj) {
-                    PyErr_SetString(PyExc_TypeError, "message specified twice");
-                    return NULL;
-                }
-                message_obj = value;
-            }
-            else {
-                PyErr_Format(PyExc_TypeError, "unexpected keyword argument: %S", key);
+    Py_ssize_t const args_names_count = args_names_tuple ? PyTuple_GET_SIZE(args_names_tuple) : 0;
+    for (Py_ssize_t i = 0; i < args_names_count; ++i) {
+        PyObject *const name = PyTuple_GET_ITEM(args_names_tuple, i);
+        PyObject *const value = args[positional_args_count + i];
+        // Letting a duplicate silently win would pick a key the caller did not intend, so reject it.
+        if (PyUnicode_CompareWithASCIIString(name, "key") == 0) {
+            if (key_obj) {
+                PyErr_SetString(PyExc_TypeError, "key specified twice");
                 return NULL;
             }
+            key_obj = value;
+        }
+        else if (PyUnicode_CompareWithASCIIString(name, "message") == 0) {
+            if (message_obj) {
+                PyErr_SetString(PyExc_TypeError, "message specified twice");
+                return NULL;
+            }
+            message_obj = value;
+        }
+        else if (PyUnicode_CompareWithASCIIString(name, "out") == 0) {
+            if (out_obj) {
+                PyErr_SetString(PyExc_TypeError, "out specified twice");
+                return NULL;
+            }
+            out_obj = value;
+        }
+        else {
+            PyErr_Format(PyExc_TypeError, "unexpected keyword argument: %S", name);
+            return NULL;
         }
     }
 
@@ -2045,53 +2227,99 @@ static PyObject *hmac_sha256(PyObject *self, PyObject *const *args, Py_ssize_t p
         return NULL;
     }
 
-    sz_string_view_t key, message;
+    sz_string_view_t key;
     if (!sz_py_export_string_like(key_obj, &key.start, &key.length)) {
         wrap_current_exception("Key must be string-like");
         return NULL;
     }
-    if (!sz_py_export_string_like(message_obj, &message.start, &message.length)) {
-        wrap_current_exception("Message must be string-like");
+    sz_bool_t const have_out = (out_obj && out_obj != Py_None) ? sz_true_k : sz_false_k;
+
+    // A string-like message is one message; anything else is a collection of them.
+    sz_string_view_t message;
+    if (sz_py_export_string_like(message_obj, &message.start, &message.length)) {
+        Py_buffer out_view;
+        if (have_out && !Sha256_bind_digests_(out_obj, 1, &out_view)) return NULL;
+
+        sz_sha256_state_t inner_state, outer_state;
+        sz_u8_t digest[SZ_SHA256_DIGEST_LENGTH];
+        Hmac_prime_(&inner_state, &outer_state, key.start, key.length);
+        sz_sha256_state_update(&inner_state, message.start, message.length);
+        Hmac_digest_one_(&inner_state, &outer_state, have_out ? (sz_u8_t *)out_view.buf : digest);
+
+        if (!have_out) return PyBytes_FromStringAndSize((char const *)digest, SZ_SHA256_DIGEST_LENGTH);
+        PyBuffer_Release(&out_view);
+        Py_INCREF(out_obj);
+        return out_obj;
+    }
+    PyErr_Clear();
+
+    Py_ssize_t const messages_count = PyObject_Size(message_obj);
+    if (messages_count < 0) {
+        PyErr_SetString(PyExc_TypeError, "Message must be string-like or a sequence of string-like messages");
         return NULL;
     }
 
-    // Prepare key: hash if > 64 bytes, zero-pad to 64 bytes
-    sz_u8_t key_pad[64];
-    if (key.length > 64) {
-        sz_sha256_state_t key_state;
-        sz_sha256_state_init(&key_state);
-        sz_sha256_state_update(&key_state, key.start, key.length);
-        sz_u8_t key_hash[32];
-        sz_sha256_state_digest(&key_state, key_hash);
-        for (int i = 0; i < 32; ++i) key_pad[i] = key_hash[i];
-        for (int i = 32; i < 64; ++i) key_pad[i] = 0;
-    }
-    else {
-        for (sz_size_t i = 0; i < key.length; ++i) key_pad[i] = ((sz_u8_t const *)key.start)[i];
-        for (sz_size_t i = key.length; i < 64; ++i) key_pad[i] = 0;
+    sz_string_view_t *views = NULL;
+    sz_sha256_state_t *states = NULL;
+    if (messages_count) {
+        views = (sz_string_view_t *)malloc((size_t)messages_count * sizeof(sz_string_view_t));
+        states = (sz_sha256_state_t *)malloc((size_t)messages_count * sizeof(sz_sha256_state_t));
+        if (!views || !states) {
+            free(views), free(states);
+            return PyErr_NoMemory();
+        }
     }
 
-    // Compute inner hash: SHA256((key ^ 0x36) || message)
-    sz_sha256_state_t inner_state;
-    sz_sha256_state_init(&inner_state);
-    sz_u8_t inner_pad[64];
-    for (int i = 0; i < 64; ++i) inner_pad[i] = key_pad[i] ^ 0x36;
-    sz_sha256_state_update(&inner_state, (sz_cptr_t)inner_pad, 64);
-    sz_sha256_state_update(&inner_state, message.start, message.length);
-    sz_u8_t inner_hash[32];
-    sz_sha256_state_digest(&inner_state, inner_hash);
+    sz_sequence_t texts;
+    PyObject *pin = Sha256_bind_texts_(message_obj, &texts, views, (sz_size_t)messages_count);
+    if (!pin) {
+        free(views), free(states);
+        return NULL;
+    }
 
-    // Compute outer hash: SHA256((key ^ 0x5c) || inner_hash)
-    sz_sha256_state_t outer_state;
-    sz_sha256_state_init(&outer_state);
-    sz_u8_t outer_pad[64];
-    for (int i = 0; i < 64; ++i) outer_pad[i] = key_pad[i] ^ 0x5c;
-    sz_sha256_state_update(&outer_state, (sz_cptr_t)outer_pad, 64);
-    sz_sha256_state_update(&outer_state, (sz_cptr_t)inner_hash, 32);
-    sz_u8_t digest[32];
-    sz_sha256_state_digest(&outer_state, digest);
+    Py_buffer out_view;
+    if (have_out && !Sha256_bind_digests_(out_obj, texts.count, &out_view)) {
+        Py_DECREF(pin);
+        free(views), free(states);
+        return NULL;
+    }
 
-    return PyBytes_FromStringAndSize((char const *)digest, 32);
+    sz_u8_t *digests = NULL;
+    if (have_out) { digests = (sz_u8_t *)out_view.buf; }
+    else if (texts.count) {
+        digests = (sz_u8_t *)malloc((size_t)texts.count * SZ_SHA256_DIGEST_LENGTH);
+        if (!digests) {
+            Py_DECREF(pin);
+            free(views), free(states);
+            return PyErr_NoMemory();
+        }
+    }
+
+    if (texts.count) {
+        // The `Strs` fast path leaves `views` unfilled, so materialize the spans the wrap will reuse.
+        for (sz_size_t index = 0; index != texts.count; ++index)
+            views[index].start = texts.get_start(texts.handle, index),
+            views[index].length = texts.get_length(texts.handle, index);
+        sz_sequence_from_string_views(views, texts.count, &texts);
+
+        sz_sha256_state_t inner_state, outer_state;
+        Hmac_prime_(&inner_state, &outer_state, key.start, key.length);
+        Py_BEGIN_ALLOW_THREADS;
+        Hmac_digest_many_(&texts, &inner_state, &outer_state, states, views, digests);
+        Py_END_ALLOW_THREADS;
+    }
+
+    sz_size_t const digests_count = texts.count;
+    Py_DECREF(pin);
+    free(views), free(states);
+    if (have_out) {
+        PyBuffer_Release(&out_view);
+        Py_INCREF(out_obj);
+        return out_obj;
+    }
+    PyObject *result = Sha256_digests_to_list_(digests, digests_count);
+    free(digests);
+    return result;
 }
 
 static char const doc_like_equal[] =                                                                  //
@@ -7391,8 +7619,7 @@ typedef struct {
 static void Sha256_dealloc(Sha256 *self) { Py_TYPE(self)->tp_free((PyObject *)self); }
 
 static PyObject *Sha256_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
-    (void)args;
-    (void)kwds;
+    sz_unused_(args), sz_unused_(kwds);
     Sha256 *self = (Sha256 *)type->tp_alloc(type, 0);
     if (!self) return NULL;
     sz_sha256_state_init(&self->state);
@@ -7551,6 +7778,1257 @@ static PyTypeObject Sha256Type = {
     .tp_init = (initproc)Sha256_init,
     .tp_dealloc = (destructor)Sha256_dealloc,
     .tp_methods = Sha256_methods,
+};
+
+#pragma endregion
+
+#pragma region Sha256s
+
+typedef struct {
+    PyObject ob_base;
+    sz_sha256_state_t *states;
+    sz_string_view_t *chunks; //< Reused across `update` calls, so streaming never allocates
+    sz_size_t lanes_count;
+} Sha256s;
+
+static void Sha256s_dealloc(Sha256s *self) {
+    if (self->states) free(self->states);
+    if (self->chunks) free(self->chunks);
+    Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
+static PyObject *Sha256s_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+    sz_unused_(args), sz_unused_(kwds);
+    Sha256s *self = (Sha256s *)type->tp_alloc(type, 0);
+    if (!self) return NULL;
+    self->states = NULL, self->chunks = NULL, self->lanes_count = 0;
+    return (PyObject *)self;
+}
+
+static int Sha256s_init(Sha256s *self, PyObject *args, PyObject *kwargs) {
+    Py_ssize_t const positional_args_count = PyTuple_Size(args);
+    if (positional_args_count != 1 || (kwargs && PyDict_Size(kwargs) != 0)) {
+        PyErr_SetString(PyExc_TypeError, "Sha256s() takes exactly one positional argument: the lane count");
+        return -1;
+    }
+    Py_ssize_t const lanes_count = PyNumber_AsSsize_t(PyTuple_GET_ITEM(args, 0), PyExc_OverflowError);
+    if (lanes_count == -1 && PyErr_Occurred()) return -1;
+    if (lanes_count < 0) {
+        PyErr_SetString(PyExc_ValueError, "The lane count must not be negative");
+        return -1;
+    }
+
+    if (self->states) free(self->states);
+    if (self->chunks) free(self->chunks);
+    self->states = NULL, self->chunks = NULL, self->lanes_count = (sz_size_t)lanes_count;
+    if (lanes_count) {
+        self->states = (sz_sha256_state_t *)malloc((size_t)lanes_count * sizeof(sz_sha256_state_t));
+        self->chunks = (sz_string_view_t *)malloc((size_t)lanes_count * sizeof(sz_string_view_t));
+        if (!self->states || !self->chunks) {
+            PyErr_NoMemory();
+            return -1;
+        }
+        for (Py_ssize_t lane_index = 0; lane_index != lanes_count; ++lane_index)
+            sz_sha256_state_init(&self->states[lane_index]);
+    }
+    return 0;
+}
+
+static PyObject *Sha256s_update(PyObject *self_obj, PyObject *arg) {
+    Sha256s *self = (Sha256s *)self_obj;
+    sz_sequence_t texts;
+    PyObject *pin = Sha256_bind_texts_(arg, &texts, self->chunks, self->lanes_count);
+    if (!pin) return NULL;
+    if (texts.count != self->lanes_count) {
+        Py_DECREF(pin);
+        PyErr_Format(PyExc_ValueError, "Expected exactly one chunk per lane, got %zu for %zu lanes", texts.count,
+                     self->lanes_count);
+        return NULL;
+    }
+
+    // Every string is already a raw pointer pinned by `pin`, and the kernel touches no Python object.
+    if (texts.count) {
+        Py_BEGIN_ALLOW_THREADS;
+        sz_sha256_multistate_update(self->states, &texts);
+        Py_END_ALLOW_THREADS;
+    }
+
+    Py_DECREF(pin);
+    Py_INCREF(self_obj);
+    return self_obj;
+}
+
+static PyObject *Sha256s_digest(PyObject *self_obj, PyObject *const *args, Py_ssize_t positional_args_count,
+                                PyObject *args_names_tuple) {
+    Sha256s *self = (Sha256s *)self_obj;
+    PyObject *out_obj = NULL;
+    if (positional_args_count > 1) {
+        PyErr_SetString(PyExc_TypeError, "digest() takes at most one positional argument: the output buffer");
+        return NULL;
+    }
+    if (positional_args_count == 1) out_obj = args[0];
+
+    Py_ssize_t const args_names_count = args_names_tuple ? PyTuple_GET_SIZE(args_names_tuple) : 0;
+    for (Py_ssize_t i = 0; i < args_names_count; ++i) {
+        PyObject *const key = PyTuple_GET_ITEM(args_names_tuple, i);
+        PyObject *const value = args[positional_args_count + i];
+        if (PyUnicode_CompareWithASCIIString(key, "out") == 0 && !out_obj) { out_obj = value; }
+        else {
+            PyErr_Format(PyExc_TypeError, "digest() got an unexpected keyword argument '%U'", key);
+            return NULL;
+        }
+    }
+
+    // Caller buffer path: the C layout is already one contiguous run of digests, so a `(lanes, 32)`
+    // row-major matrix of bytes receives them with no copy and no scratch.
+    if (out_obj && out_obj != Py_None) {
+        Py_buffer out_view;
+        if (!Sha256_bind_digests_(out_obj, self->lanes_count, &out_view)) return NULL;
+        if (self->lanes_count) {
+            Py_BEGIN_ALLOW_THREADS;
+            sz_sha256_multistate_digest(self->states, self->lanes_count, (sz_u8_t *)out_view.buf);
+            Py_END_ALLOW_THREADS;
+        }
+        PyBuffer_Release(&out_view);
+        Py_INCREF(out_obj);
+        return out_obj;
+    }
+
+    if (!self->lanes_count) return PyList_New(0);
+    sz_u8_t *digests = (sz_u8_t *)malloc((size_t)self->lanes_count * SZ_SHA256_DIGEST_LENGTH);
+    if (!digests) return PyErr_NoMemory();
+    Py_BEGIN_ALLOW_THREADS;
+    sz_sha256_multistate_digest(self->states, self->lanes_count, digests);
+    Py_END_ALLOW_THREADS;
+    PyObject *result = Sha256_digests_to_list_(digests, self->lanes_count);
+    free(digests);
+    return result;
+}
+
+static PyObject *Sha256s_hexdigest(PyObject *self_obj, PyObject *noargs) {
+    sz_unused_(noargs);
+    Sha256s *self = (Sha256s *)self_obj;
+    if (!self->lanes_count) return PyList_New(0);
+
+    sz_u8_t *digests = (sz_u8_t *)malloc((size_t)self->lanes_count * SZ_SHA256_DIGEST_LENGTH);
+    if (!digests) return PyErr_NoMemory();
+    Py_BEGIN_ALLOW_THREADS;
+    sz_sha256_multistate_digest(self->states, self->lanes_count, digests);
+    Py_END_ALLOW_THREADS;
+
+    PyObject *result = PyList_New((Py_ssize_t)self->lanes_count);
+    if (!result) {
+        free(digests);
+        return NULL;
+    }
+    for (sz_size_t lane_index = 0; lane_index != self->lanes_count; ++lane_index) {
+        char text[SZ_SHA256_DIGEST_LENGTH * 2 + 1];
+        sz_u8_t const *digest = &digests[lane_index * SZ_SHA256_DIGEST_LENGTH];
+        for (int byte_index = 0; byte_index < SZ_SHA256_DIGEST_LENGTH; ++byte_index)
+            snprintf(text + byte_index * 2, 3, "%02x", digest[byte_index]);
+        PyObject *hex = PyUnicode_FromString(text);
+        if (!hex) {
+            free(digests);
+            Py_DECREF(result);
+            return NULL;
+        }
+        PyList_SET_ITEM(result, (Py_ssize_t)lane_index, hex);
+    }
+    free(digests);
+    return result;
+}
+
+static PyObject *Sha256s_reset(PyObject *self_obj, PyObject *noargs) {
+    sz_unused_(noargs);
+    Sha256s *self = (Sha256s *)self_obj;
+    for (sz_size_t lane_index = 0; lane_index != self->lanes_count; ++lane_index)
+        sz_sha256_state_init(&self->states[lane_index]);
+    Py_INCREF(self_obj);
+    return self_obj;
+}
+
+static PyObject *Sha256s_copy(PyObject *self_obj, PyObject *noargs) {
+    sz_unused_(noargs);
+    Sha256s *self = (Sha256s *)self_obj;
+    Sha256s *copy = (Sha256s *)Sha256s_new(&Sha256sType, NULL, NULL);
+    if (!copy) return NULL;
+    copy->lanes_count = self->lanes_count;
+    if (self->lanes_count) {
+        sz_size_t const states_bytes = self->lanes_count * sizeof(sz_sha256_state_t);
+        copy->states = (sz_sha256_state_t *)malloc((size_t)states_bytes);
+        copy->chunks = (sz_string_view_t *)malloc((size_t)self->lanes_count * sizeof(sz_string_view_t));
+        if (!copy->states || !copy->chunks) {
+            Py_DECREF(copy);
+            return PyErr_NoMemory();
+        }
+        sz_copy((sz_ptr_t)copy->states, (sz_cptr_t)self->states, states_bytes);
+    }
+    return (PyObject *)copy;
+}
+
+static Py_ssize_t Sha256s_length(PyObject *self_obj) { return (Py_ssize_t)((Sha256s *)self_obj)->lanes_count; }
+
+static PyObject *Sha256s_lane(PyObject *self_obj, Py_ssize_t lane_index) {
+    Sha256s *self = (Sha256s *)self_obj;
+    if (lane_index < 0 || (sz_size_t)lane_index >= self->lanes_count) {
+        PyErr_SetString(PyExc_IndexError, "Lane index out of range");
+        return NULL;
+    }
+    Sha256 *lane = (Sha256 *)Sha256_new(&Sha256Type, NULL, NULL);
+    if (!lane) return NULL;
+    lane->state = self->states[lane_index];
+    return (PyObject *)lane;
+}
+
+/**
+ *  @brief Installs @p lane_obj into a lane, so a finished lane can be retired without disturbing its
+ *         neighbours - the pattern that lets a fixed pool of lanes stream a longer list of files.
+ */
+static int Sha256s_set_lane(PyObject *self_obj, Py_ssize_t lane_index, PyObject *lane_obj) {
+    Sha256s *self = (Sha256s *)self_obj;
+    if (lane_index < 0 || (sz_size_t)lane_index >= self->lanes_count) {
+        PyErr_SetString(PyExc_IndexError, "Lane index out of range");
+        return -1;
+    }
+    if (!lane_obj) {
+        PyErr_SetString(PyExc_TypeError, "Lanes cannot be deleted, only replaced");
+        return -1;
+    }
+    if (!PyObject_TypeCheck(lane_obj, &Sha256Type)) {
+        PyErr_Format(PyExc_TypeError, "Expected a Sha256, got %s", Py_TYPE(lane_obj)->tp_name);
+        return -1;
+    }
+
+    self->states[lane_index] = ((Sha256 const *)lane_obj)->state;
+    return 0;
+}
+
+static char const doc_Sha256s[] =                                                            //
+    "Sha256s(lanes)\n"                                                                       //
+    "\n"                                                                                     //
+    "Incremental SHA-256 over many independent messages at once, one message per lane.\n"    //
+    "\n"                                                                                     //
+    "Hashing a single message is a serial dependency chain no instruction set can speed\n"   //
+    "up, but independent messages compress in parallel lanes: sixteen at a time on\n"        //
+    "AVX-512, eight on AVX2. Feed at least a few kilobytes per lane per call, as shorter\n"  //
+    "chunks never reach the lane-parallel path.\n"                                           //
+    "\n"                                                                                     //
+    "Lanes are workers rather than messages: assigning `lanes[i] = sz.Sha256()` retires a\n" //
+    "finished lane and starts the next message in it, leaving every other lane streaming.\n" //
+    "\n"                                                                                     //
+    "Args:\n"                                                                                //
+    "  lanes (int): How many independent messages to advance together.\n"                    //
+    "Example:\n"                                                                             //
+    "  >>> lanes = sz.Sha256s(2)\n"                                                          //
+    "  >>> _ = lanes.update([b'Hello, ', b'Goodbye, '])\n"                                   //
+    "  >>> _ = lanes.update([b'world!', b'world!'])\n"                                       //
+    "  >>> lanes.digest()[0] == sz.Sha256().update(b'Hello, world!').digest()\n"             //
+    "  True";
+
+static char const doc_Sha256s_update[] =                                                         //
+    "update(chunks) -> Sha256s\n"                                                                //
+    "\n"                                                                                         //
+    "Append the next chunk of every lane's message.\n"                                           //
+    "\n"                                                                                         //
+    "Args:\n"                                                                                    //
+    "  chunks (Strs | sequence): Exactly one string-like chunk per lane; may be empty. A Strs\n" //
+    "       is read in place, whatever its layout, so a tape never leaves its buffer.\n"         //
+    "Returns:\n"                                                                                 //
+    "  Sha256s: The same object, to allow chaining.";
+
+static char const doc_Sha256s_digest[] =                                                          //
+    "digest(out=None) -> list[bytes] | buffer\n"                                                  //
+    "\n"                                                                                          //
+    "Return each lane's 32-byte digest, leaving every lane able to accept more data.\n"           //
+    "\n"                                                                                          //
+    "Args:\n"                                                                                     //
+    "  out (buffer, optional): Writable, C-contiguous buffer of bytes holding at least\n"         //
+    "       `len(lanes) * 32` of them - a `(len(lanes), 32)` numpy.uint8 matrix receives one\n"   //
+    "       digest per row with zero allocation. Defaults to None.\n"                             //
+    "Returns:\n"                                                                                  //
+    "  list[bytes]: One digest per lane in lane order, or `out` itself when a buffer is given.\n" //
+    "Example:\n"                                                                                  //
+    "  >>> lanes = sz.Sha256s(2)\n"                                                               //
+    "  >>> digests = bytearray(len(lanes) * sz.Sha256.digest_length)\n"                           //
+    "  >>> _ = lanes.update([b'abc', b'abc']).digest(out=digests)\n"                              //
+    "  >>> bytes(digests[:sz.Sha256.digest_length]) == sz.Sha256().update(b'abc').digest()\n"      //
+    "  True";
+
+static char const doc_Sha256s_hexdigest[] =                                              //
+    "hexdigest() -> list[str]\n"                                                         //
+    "\n"                                                                                 //
+    "Return each lane's digest as a 64-character lowercase hex string, in lane order.\n" //
+    "\n"                                                                                 //
+    "Returns:\n"                                                                         //
+    "  list[str]: One 64-digit hex string per lane.";
+
+static char const doc_Sha256s_reset[] =                                 //
+    "reset() -> Sha256s\n"                                              //
+    "\n"                                                                //
+    "Return every lane to the initial state, reusing the allocation.\n" //
+    "\n"                                                                //
+    "Returns:\n"                                                        //
+    "  Sha256s: The same object, to allow chaining.";
+
+static char const doc_Sha256s_copy[] =                                         //
+    "copy() -> Sha256s\n"                                                      //
+    "\n"                                                                       //
+    "Return an independent batch whose lanes hold identical internal state.\n" //
+    "\n"                                                                       //
+    "Returns:\n"                                                               //
+    "  Sha256s: A new object that can be advanced separately from the original.";
+
+static PyMethodDef Sha256s_methods[] = {
+    {"update", (PyCFunction)Sha256s_update, METH_O, doc_Sha256s_update},               //
+    {"digest", (PyCFunction)Sha256s_digest, SZ_METHOD_FLAGS, doc_Sha256s_digest},      //
+    {"hexdigest", (PyCFunction)Sha256s_hexdigest, METH_NOARGS, doc_Sha256s_hexdigest}, //
+    {"reset", (PyCFunction)Sha256s_reset, METH_NOARGS, doc_Sha256s_reset},             //
+    {"copy", (PyCFunction)Sha256s_copy, METH_NOARGS, doc_Sha256s_copy},                //
+    {NULL, NULL, 0, NULL},
+};
+
+static PySequenceMethods Sha256s_as_sequence = {
+    .sq_length = Sha256s_length,
+    .sq_item = Sha256s_lane,
+    .sq_ass_item = Sha256s_set_lane,
+};
+
+static PyTypeObject Sha256sType = {
+    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "stringzilla.Sha256s",
+    .tp_doc = doc_Sha256s,
+    .tp_basicsize = sizeof(Sha256s),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_new = Sha256s_new,
+    .tp_init = (initproc)Sha256s_init,
+    .tp_dealloc = (destructor)Sha256s_dealloc,
+    .tp_methods = Sha256s_methods,
+    .tp_as_sequence = &Sha256s_as_sequence,
+};
+
+#pragma endregion
+
+#pragma region Aes256
+
+/**
+ *  @brief The class a refused Galois/counter mode tag raises, derived from `ValueError`.
+ *
+ *  A forged tag is a value-domain failure, so a caller who only guards against malformed input still
+ *  catches a forgery, while a caller who must tell a forgery from a malformed argument names this class.
+ */
+static PyObject *AuthenticationErrorType = NULL;
+
+/** @brief An expanded counter-mode schedule, wiped when the object is collected. */
+typedef struct {
+    PyObject ob_base;
+    sz_aes256_key_t key;
+} Aes256CtrKey;
+
+/** @brief An expanded schedule plus the Galois hash powers, wiped when the object is collected. */
+typedef struct {
+    PyObject ob_base;
+    sz_aes256_gcm_key_t key;
+} Aes256GcmKey;
+
+/** @brief A chunked authenticated seal, holding its own copy of the key. */
+typedef struct {
+    PyObject ob_base;
+    sz_aes256_gcm_encryptor_t encryptor;
+} Aes256GcmEncryptor;
+
+/** @brief A chunked authenticated open, holding its own copy of the key. */
+typedef struct {
+    PyObject ob_base;
+    sz_aes256_gcm_decryptor_t decryptor;
+} Aes256GcmDecryptor;
+
+/**
+ *  @brief  Overwrites @p length bytes at @p start with zeros, in a way a compiler may not elide.
+ *
+ *  The C core exposes no wipe entry point, and a plain `memset` over storage that is dead immediately
+ *  afterwards is precisely the store an optimizer is licensed to drop. Writing through a `volatile`
+ *  pointer makes every byte an observable side effect, so no schedule survives in memory a freed object
+ *  once held. This translation unit sits outside the header-only tier, so it may spell the loop out rather
+ *  than route through a kernel bound by that tier's no-libc-symbols rule.
+ */
+static void sz_py_wipe_bytes(void *start, sz_size_t length) {
+    volatile sz_u8_t *cursor = (volatile sz_u8_t *)start;
+    while (length--) *cursor++ = 0;
+}
+
+/**
+ *  @brief  Exports a string-like object and confirms it spans exactly @p expected bytes.
+ *          On failure sets a Python exception naming @p role and returns 0.
+ */
+static int sz_py_export_exact_bytes(PyObject *object, sz_size_t expected, char const *role, sz_cptr_t *start) {
+    sz_size_t length;
+    if (!sz_py_export_string_like(object, start, &length)) {
+        wrap_current_exception("The argument must be string-like");
+        return 0;
+    }
+    if (length != expected) {
+        PyErr_Format(PyExc_ValueError, "%s must be exactly %zd bytes, received %zd", role, (Py_ssize_t)expected,
+                     (Py_ssize_t)length);
+        return 0;
+    }
+    return 1;
+}
+
+/**
+ *  @brief  Reads the single `secret` argument every key constructor takes, positionally or by name.
+ *          On failure sets a Python exception naming @p type_name and returns NULL.
+ */
+static PyObject *sz_py_export_secret_argument(PyObject *args, PyObject *kwargs, char const *type_name) {
+    Py_ssize_t const positional_args_count = PyTuple_Size(args);
+    if (positional_args_count > 1) {
+        PyErr_Format(PyExc_TypeError, "%s() takes at most 1 positional argument", type_name);
+        return NULL;
+    }
+    PyObject *secret_obj = positional_args_count == 1 ? PyTuple_GET_ITEM(args, 0) : NULL;
+    if (kwargs) {
+        Py_ssize_t position = 0;
+        PyObject *name, *value;
+        while (PyDict_Next(kwargs, &position, &name, &value)) {
+            if (PyUnicode_CompareWithASCIIString(name, "secret") != 0) {
+                PyErr_Format(PyExc_TypeError, "unexpected keyword argument: %S", name);
+                return NULL;
+            }
+            if (secret_obj) {
+                PyErr_SetString(PyExc_TypeError, "secret specified twice");
+                return NULL;
+            }
+            secret_obj = value;
+        }
+    }
+    if (!secret_obj) PyErr_Format(PyExc_TypeError, "%s() missing the required `secret` argument", type_name);
+    return secret_obj;
+}
+
+static void Aes256CtrKey_dealloc(Aes256CtrKey *self) {
+    sz_py_wipe_bytes(&self->key, sizeof(self->key));
+    Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
+static PyObject *Aes256CtrKey_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+    sz_unused_(args);
+    sz_unused_(kwds);
+    Aes256CtrKey *self = (Aes256CtrKey *)type->tp_alloc(type, 0);
+    if (!self) return NULL;
+    sz_u8_t const placeholder_secret[SZ_AES256_KEY_LENGTH] = {0};
+    sz_aes256_key_init(&self->key, placeholder_secret);
+    return (PyObject *)self;
+}
+
+static int Aes256CtrKey_init(Aes256CtrKey *self, PyObject *args, PyObject *kwargs) {
+    PyObject *secret_obj = sz_py_export_secret_argument(args, kwargs, "Aes256CtrKey");
+    if (!secret_obj) return -1;
+    sz_cptr_t secret;
+    if (!sz_py_export_exact_bytes(secret_obj, SZ_AES256_KEY_LENGTH, "secret", &secret)) return -1;
+    sz_aes256_key_init(&self->key, (sz_u8_t const *)secret);
+    return 0;
+}
+
+static PyObject *Aes256CtrKey_xor(PyObject *self_obj, PyObject *const *args, Py_ssize_t positional_args_count,
+                                  PyObject *args_names_tuple) {
+    Aes256CtrKey *self = (Aes256CtrKey *)self_obj;
+
+    // Parse arguments
+    PyObject *text_obj = NULL;
+    PyObject *nonce_obj = NULL;
+    PyObject *offset_obj = NULL;
+
+    // Get count of keyword arguments
+    Py_ssize_t const args_names_count = args_names_tuple ? PyTuple_Size(args_names_tuple) : 0;
+    Py_ssize_t const total_args = positional_args_count + args_names_count;
+
+    // Validate total argument count
+    if (total_args < 2 || total_args > 3) {
+        PyErr_SetString(PyExc_TypeError, "xor() expects `text`, `nonce`, and an optional `offset`");
+        return NULL;
+    }
+
+    // Handle positional arguments
+    if (positional_args_count >= 1) text_obj = args[0];
+    if (positional_args_count >= 2) nonce_obj = args[1];
+    if (positional_args_count >= 3) offset_obj = args[2];
+
+    // Handle keyword arguments
+    for (Py_ssize_t index = 0; index < args_names_count; ++index) {
+        PyObject *const name = PyTuple_GetItem(args_names_tuple, index);
+        PyObject *const value = args[positional_args_count + index];
+
+        if (PyUnicode_CompareWithASCIIString(name, "text") == 0) {
+            if (text_obj) {
+                PyErr_SetString(PyExc_TypeError, "text specified twice");
+                return NULL;
+            }
+            text_obj = value;
+        }
+        else if (PyUnicode_CompareWithASCIIString(name, "nonce") == 0) {
+            if (nonce_obj) {
+                PyErr_SetString(PyExc_TypeError, "nonce specified twice");
+                return NULL;
+            }
+            nonce_obj = value;
+        }
+        else if (PyUnicode_CompareWithASCIIString(name, "offset") == 0) {
+            if (offset_obj) {
+                PyErr_SetString(PyExc_TypeError, "offset specified twice");
+                return NULL;
+            }
+            offset_obj = value;
+        }
+        else {
+            PyErr_Format(PyExc_TypeError, "unexpected keyword argument: %S", name);
+            return NULL;
+        }
+    }
+
+    // Validate all required arguments are provided
+    if (!text_obj || !nonce_obj) {
+        PyErr_SetString(PyExc_TypeError, "xor() missing required arguments");
+        return NULL;
+    }
+
+    sz_string_view_t text;
+    if (!sz_py_export_string_like(text_obj, &text.start, &text.length)) {
+        wrap_current_exception("The text argument must be string-like");
+        return NULL;
+    }
+    sz_cptr_t nonce;
+    if (!sz_py_export_exact_bytes(nonce_obj, SZ_AES256_NONCE_LENGTH, "nonce", &nonce)) return NULL;
+
+    sz_u64_t byte_offset = 0;
+    if (offset_obj) {
+        if (!PyLong_Check(offset_obj)) {
+            PyErr_SetString(PyExc_TypeError, "offset must be an integer");
+            return NULL;
+        }
+        byte_offset = (sz_u64_t)PyLong_AsUnsignedLongLong(offset_obj);
+        if (PyErr_Occurred()) return NULL;
+    }
+
+    PyObject *output_obj = PyBytes_FromStringAndSize(NULL, (Py_ssize_t)text.length);
+    if (!output_obj) return NULL;
+    sz_aes256_ctr_xor(&self->key, (sz_u8_t const *)nonce, byte_offset, text.start, text.length,
+                      (sz_ptr_t)PyBytes_AS_STRING(output_obj));
+    return output_obj;
+}
+
+static void Aes256GcmKey_dealloc(Aes256GcmKey *self) {
+    sz_py_wipe_bytes(&self->key, sizeof(self->key));
+    Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
+static PyObject *Aes256GcmKey_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+    sz_unused_(args);
+    sz_unused_(kwds);
+    Aes256GcmKey *self = (Aes256GcmKey *)type->tp_alloc(type, 0);
+    if (!self) return NULL;
+    sz_u8_t const placeholder_secret[SZ_AES256_KEY_LENGTH] = {0};
+    sz_aes256_gcm_key_init(&self->key, placeholder_secret);
+    return (PyObject *)self;
+}
+
+static int Aes256GcmKey_init(Aes256GcmKey *self, PyObject *args, PyObject *kwargs) {
+    PyObject *secret_obj = sz_py_export_secret_argument(args, kwargs, "Aes256GcmKey");
+    if (!secret_obj) return -1;
+    sz_cptr_t secret;
+    if (!sz_py_export_exact_bytes(secret_obj, SZ_AES256_KEY_LENGTH, "secret", &secret)) return -1;
+    sz_aes256_gcm_key_init(&self->key, (sz_u8_t const *)secret);
+    return 0;
+}
+
+static PyObject *Aes256GcmKey_encrypt(PyObject *self_obj, PyObject *const *args, Py_ssize_t positional_args_count,
+                                      PyObject *args_names_tuple) {
+    Aes256GcmKey *self = (Aes256GcmKey *)self_obj;
+
+    // Parse arguments
+    PyObject *text_obj = NULL;
+    PyObject *nonce_obj = NULL;
+    PyObject *associated_obj = NULL;
+
+    // Get count of keyword arguments
+    Py_ssize_t const args_names_count = args_names_tuple ? PyTuple_Size(args_names_tuple) : 0;
+    Py_ssize_t const total_args = positional_args_count + args_names_count;
+
+    // Validate total argument count
+    if (total_args < 2 || total_args > 3) {
+        PyErr_SetString(PyExc_TypeError, "encrypt() expects `text`, `nonce`, and optional `associated` data");
+        return NULL;
+    }
+
+    // Handle positional arguments
+    if (positional_args_count >= 1) text_obj = args[0];
+    if (positional_args_count >= 2) nonce_obj = args[1];
+    if (positional_args_count >= 3) associated_obj = args[2];
+
+    // Handle keyword arguments
+    for (Py_ssize_t index = 0; index < args_names_count; ++index) {
+        PyObject *const name = PyTuple_GetItem(args_names_tuple, index);
+        PyObject *const value = args[positional_args_count + index];
+
+        if (PyUnicode_CompareWithASCIIString(name, "text") == 0) {
+            if (text_obj) {
+                PyErr_SetString(PyExc_TypeError, "text specified twice");
+                return NULL;
+            }
+            text_obj = value;
+        }
+        else if (PyUnicode_CompareWithASCIIString(name, "nonce") == 0) {
+            if (nonce_obj) {
+                PyErr_SetString(PyExc_TypeError, "nonce specified twice");
+                return NULL;
+            }
+            nonce_obj = value;
+        }
+        else if (PyUnicode_CompareWithASCIIString(name, "associated") == 0) {
+            if (associated_obj) {
+                PyErr_SetString(PyExc_TypeError, "associated specified twice");
+                return NULL;
+            }
+            associated_obj = value;
+        }
+        else {
+            PyErr_Format(PyExc_TypeError, "unexpected keyword argument: %S", name);
+            return NULL;
+        }
+    }
+
+    // Validate all required arguments are provided
+    if (!text_obj || !nonce_obj) {
+        PyErr_SetString(PyExc_TypeError, "encrypt() missing required arguments");
+        return NULL;
+    }
+
+    sz_string_view_t text;
+    if (!sz_py_export_string_like(text_obj, &text.start, &text.length)) {
+        wrap_current_exception("The text argument must be string-like");
+        return NULL;
+    }
+    sz_cptr_t nonce;
+    if (!sz_py_export_exact_bytes(nonce_obj, SZ_AES256_NONCE_LENGTH, "nonce", &nonce)) return NULL;
+
+    sz_string_view_t associated;
+    associated.start = SZ_NULL, associated.length = 0;
+    if (associated_obj && associated_obj != Py_None &&
+        !sz_py_export_string_like(associated_obj, &associated.start, &associated.length)) {
+        wrap_current_exception("The associated argument must be string-like");
+        return NULL;
+    }
+
+    PyObject *output_obj = PyBytes_FromStringAndSize(NULL, (Py_ssize_t)text.length);
+    if (!output_obj) return NULL;
+    sz_u8_t tag[SZ_AES256_TAG_LENGTH];
+    sz_aes256_gcm_encrypt(&self->key, (sz_u8_t const *)nonce, associated.start, associated.length, text.start,
+                          text.length, (sz_ptr_t)PyBytes_AS_STRING(output_obj), tag);
+
+    PyObject *tag_obj = PyBytes_FromStringAndSize((char const *)tag, SZ_AES256_TAG_LENGTH);
+    if (!tag_obj) {
+        Py_DECREF(output_obj);
+        return NULL;
+    }
+    PyObject *pair_obj = PyTuple_New(2);
+    if (!pair_obj) {
+        Py_DECREF(tag_obj);
+        Py_DECREF(output_obj);
+        return NULL;
+    }
+    PyTuple_SET_ITEM(pair_obj, 0, output_obj);
+    PyTuple_SET_ITEM(pair_obj, 1, tag_obj);
+    return pair_obj;
+}
+
+static PyObject *Aes256GcmKey_decrypt(PyObject *self_obj, PyObject *const *args, Py_ssize_t positional_args_count,
+                                      PyObject *args_names_tuple) {
+    Aes256GcmKey *self = (Aes256GcmKey *)self_obj;
+
+    // Parse arguments
+    PyObject *text_obj = NULL;
+    PyObject *nonce_obj = NULL;
+    PyObject *tag_obj = NULL;
+    PyObject *associated_obj = NULL;
+
+    // Get count of keyword arguments
+    Py_ssize_t const args_names_count = args_names_tuple ? PyTuple_Size(args_names_tuple) : 0;
+    Py_ssize_t const total_args = positional_args_count + args_names_count;
+
+    // Validate total argument count
+    if (total_args < 3 || total_args > 4) {
+        PyErr_SetString(PyExc_TypeError, "decrypt() expects `text`, `nonce`, `tag`, and optional `associated` data");
+        return NULL;
+    }
+
+    // Handle positional arguments
+    if (positional_args_count >= 1) text_obj = args[0];
+    if (positional_args_count >= 2) nonce_obj = args[1];
+    if (positional_args_count >= 3) tag_obj = args[2];
+    if (positional_args_count >= 4) associated_obj = args[3];
+
+    // Handle keyword arguments
+    for (Py_ssize_t index = 0; index < args_names_count; ++index) {
+        PyObject *const name = PyTuple_GetItem(args_names_tuple, index);
+        PyObject *const value = args[positional_args_count + index];
+
+        if (PyUnicode_CompareWithASCIIString(name, "text") == 0) {
+            if (text_obj) {
+                PyErr_SetString(PyExc_TypeError, "text specified twice");
+                return NULL;
+            }
+            text_obj = value;
+        }
+        else if (PyUnicode_CompareWithASCIIString(name, "nonce") == 0) {
+            if (nonce_obj) {
+                PyErr_SetString(PyExc_TypeError, "nonce specified twice");
+                return NULL;
+            }
+            nonce_obj = value;
+        }
+        else if (PyUnicode_CompareWithASCIIString(name, "tag") == 0) {
+            if (tag_obj) {
+                PyErr_SetString(PyExc_TypeError, "tag specified twice");
+                return NULL;
+            }
+            tag_obj = value;
+        }
+        else if (PyUnicode_CompareWithASCIIString(name, "associated") == 0) {
+            if (associated_obj) {
+                PyErr_SetString(PyExc_TypeError, "associated specified twice");
+                return NULL;
+            }
+            associated_obj = value;
+        }
+        else {
+            PyErr_Format(PyExc_TypeError, "unexpected keyword argument: %S", name);
+            return NULL;
+        }
+    }
+
+    // Validate all required arguments are provided
+    if (!text_obj || !nonce_obj || !tag_obj) {
+        PyErr_SetString(PyExc_TypeError, "decrypt() missing required arguments");
+        return NULL;
+    }
+
+    sz_string_view_t text;
+    if (!sz_py_export_string_like(text_obj, &text.start, &text.length)) {
+        wrap_current_exception("The text argument must be string-like");
+        return NULL;
+    }
+    sz_cptr_t nonce, tag;
+    if (!sz_py_export_exact_bytes(nonce_obj, SZ_AES256_NONCE_LENGTH, "nonce", &nonce)) return NULL;
+    if (!sz_py_export_exact_bytes(tag_obj, SZ_AES256_TAG_LENGTH, "tag", &tag)) return NULL;
+
+    sz_string_view_t associated;
+    associated.start = SZ_NULL, associated.length = 0;
+    if (associated_obj && associated_obj != Py_None &&
+        !sz_py_export_string_like(associated_obj, &associated.start, &associated.length)) {
+        wrap_current_exception("The associated argument must be string-like");
+        return NULL;
+    }
+
+    PyObject *output_obj = PyBytes_FromStringAndSize(NULL, (Py_ssize_t)text.length);
+    if (!output_obj) return NULL;
+    sz_status_t const status = sz_aes256_gcm_decrypt(&self->key, (sz_u8_t const *)nonce, associated.start,
+                                                     associated.length, text.start, text.length,
+                                                     (sz_ptr_t)PyBytes_AS_STRING(output_obj), (sz_u8_t const *)tag);
+    if (status != sz_success_k) {
+        Py_DECREF(output_obj);
+        PyErr_SetString(AuthenticationErrorType, "The tag does not authenticate this ciphertext");
+        return NULL;
+    }
+    return output_obj;
+}
+
+/**
+ *  @brief  Reads the `key` and `nonce` arguments both chunked types take, positionally or by name.
+ *          On failure sets a Python exception naming @p type_name and returns 0.
+ */
+static int sz_py_export_key_and_nonce_arguments(PyObject *args, PyObject *kwargs, char const *type_name,
+                                                Aes256GcmKey const **key, sz_cptr_t *nonce) {
+    Py_ssize_t const positional_args_count = PyTuple_Size(args);
+    if (positional_args_count > 2) {
+        PyErr_Format(PyExc_TypeError, "%s() takes at most 2 positional arguments", type_name);
+        return 0;
+    }
+    PyObject *key_obj = positional_args_count >= 1 ? PyTuple_GET_ITEM(args, 0) : NULL;
+    PyObject *nonce_obj = positional_args_count >= 2 ? PyTuple_GET_ITEM(args, 1) : NULL;
+
+    if (kwargs) {
+        Py_ssize_t position = 0;
+        PyObject *name, *value;
+        while (PyDict_Next(kwargs, &position, &name, &value)) {
+            if (PyUnicode_CompareWithASCIIString(name, "key") == 0) {
+                if (key_obj) {
+                    PyErr_SetString(PyExc_TypeError, "key specified twice");
+                    return 0;
+                }
+                key_obj = value;
+            }
+            else if (PyUnicode_CompareWithASCIIString(name, "nonce") == 0) {
+                if (nonce_obj) {
+                    PyErr_SetString(PyExc_TypeError, "nonce specified twice");
+                    return 0;
+                }
+                nonce_obj = value;
+            }
+            else {
+                PyErr_Format(PyExc_TypeError, "unexpected keyword argument: %S", name);
+                return 0;
+            }
+        }
+    }
+
+    if (!key_obj || !nonce_obj) {
+        PyErr_Format(PyExc_TypeError, "%s() missing the required `key` and `nonce` arguments", type_name);
+        return 0;
+    }
+    if (!PyObject_TypeCheck(key_obj, &Aes256GcmKeyType)) {
+        PyErr_SetString(PyExc_TypeError, "key must be an Aes256GcmKey object");
+        return 0;
+    }
+    if (!sz_py_export_exact_bytes(nonce_obj, SZ_AES256_NONCE_LENGTH, "nonce", nonce)) return 0;
+    *key = (Aes256GcmKey const *)key_obj;
+    return 1;
+}
+
+static void Aes256GcmEncryptor_dealloc(Aes256GcmEncryptor *self) {
+    sz_py_wipe_bytes(&self->encryptor, sizeof(self->encryptor));
+    Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
+static PyObject *Aes256GcmEncryptor_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+    sz_unused_(args);
+    sz_unused_(kwds);
+    Aes256GcmEncryptor *self = (Aes256GcmEncryptor *)type->tp_alloc(type, 0);
+    if (!self) return NULL;
+    sz_u8_t const placeholder_secret[SZ_AES256_KEY_LENGTH] = {0};
+    sz_u8_t const placeholder_nonce[SZ_AES256_NONCE_LENGTH] = {0};
+    sz_aes256_gcm_key_t placeholder_key;
+    sz_aes256_gcm_key_init(&placeholder_key, placeholder_secret);
+    sz_aes256_gcm_encryptor_init(&self->encryptor, &placeholder_key, placeholder_nonce);
+    sz_py_wipe_bytes(&placeholder_key, sizeof(placeholder_key));
+    return (PyObject *)self;
+}
+
+static int Aes256GcmEncryptor_init(Aes256GcmEncryptor *self, PyObject *args, PyObject *kwargs) {
+    Aes256GcmKey const *key;
+    sz_cptr_t nonce;
+    if (!sz_py_export_key_and_nonce_arguments(args, kwargs, "Aes256GcmEncryptor", &key, &nonce)) return -1;
+    sz_aes256_gcm_encryptor_init(&self->encryptor, &key->key, (sz_u8_t const *)nonce);
+    return 0;
+}
+
+static PyObject *Aes256GcmEncryptor_associate(PyObject *self_obj, PyObject *arg) {
+    Aes256GcmEncryptor *self = (Aes256GcmEncryptor *)self_obj;
+    sz_string_view_t text;
+    if (!sz_py_export_string_like(arg, &text.start, &text.length)) {
+        wrap_current_exception("Argument must be string-like");
+        return NULL;
+    }
+    sz_aes256_gcm_encryptor_associate(&self->encryptor, text.start, text.length);
+    Py_INCREF(self_obj);
+    return self_obj;
+}
+
+static PyObject *Aes256GcmEncryptor_encrypt(PyObject *self_obj, PyObject *arg) {
+    Aes256GcmEncryptor *self = (Aes256GcmEncryptor *)self_obj;
+    sz_string_view_t text;
+    if (!sz_py_export_string_like(arg, &text.start, &text.length)) {
+        wrap_current_exception("Argument must be string-like");
+        return NULL;
+    }
+    PyObject *output_obj = PyBytes_FromStringAndSize(NULL, (Py_ssize_t)text.length);
+    if (!output_obj) return NULL;
+    sz_aes256_gcm_encryptor_update(&self->encryptor, text.start, text.length, (sz_ptr_t)PyBytes_AS_STRING(output_obj));
+    return output_obj;
+}
+
+static PyObject *Aes256GcmEncryptor_digest(PyObject *self_obj, PyObject *noargs) {
+    sz_unused_(noargs);
+    Aes256GcmEncryptor *self = (Aes256GcmEncryptor *)self_obj;
+    sz_u8_t tag[SZ_AES256_TAG_LENGTH];
+    sz_aes256_gcm_encryptor_digest(&self->encryptor, tag);
+    return PyBytes_FromStringAndSize((char const *)tag, SZ_AES256_TAG_LENGTH);
+}
+
+static void Aes256GcmDecryptor_dealloc(Aes256GcmDecryptor *self) {
+    sz_py_wipe_bytes(&self->decryptor, sizeof(self->decryptor));
+    Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
+static PyObject *Aes256GcmDecryptor_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+    sz_unused_(args);
+    sz_unused_(kwds);
+    Aes256GcmDecryptor *self = (Aes256GcmDecryptor *)type->tp_alloc(type, 0);
+    if (!self) return NULL;
+    sz_u8_t const placeholder_secret[SZ_AES256_KEY_LENGTH] = {0};
+    sz_u8_t const placeholder_nonce[SZ_AES256_NONCE_LENGTH] = {0};
+    sz_aes256_gcm_key_t placeholder_key;
+    sz_aes256_gcm_key_init(&placeholder_key, placeholder_secret);
+    sz_aes256_gcm_decryptor_init(&self->decryptor, &placeholder_key, placeholder_nonce);
+    sz_py_wipe_bytes(&placeholder_key, sizeof(placeholder_key));
+    return (PyObject *)self;
+}
+
+static int Aes256GcmDecryptor_init(Aes256GcmDecryptor *self, PyObject *args, PyObject *kwargs) {
+    Aes256GcmKey const *key;
+    sz_cptr_t nonce;
+    if (!sz_py_export_key_and_nonce_arguments(args, kwargs, "Aes256GcmDecryptor", &key, &nonce)) return -1;
+    sz_aes256_gcm_decryptor_init(&self->decryptor, &key->key, (sz_u8_t const *)nonce);
+    return 0;
+}
+
+static PyObject *Aes256GcmDecryptor_associate(PyObject *self_obj, PyObject *arg) {
+    Aes256GcmDecryptor *self = (Aes256GcmDecryptor *)self_obj;
+    sz_string_view_t text;
+    if (!sz_py_export_string_like(arg, &text.start, &text.length)) {
+        wrap_current_exception("Argument must be string-like");
+        return NULL;
+    }
+    sz_aes256_gcm_decryptor_associate(&self->decryptor, text.start, text.length);
+    Py_INCREF(self_obj);
+    return self_obj;
+}
+
+static PyObject *Aes256GcmDecryptor_decrypt_unverified(PyObject *self_obj, PyObject *arg) {
+    Aes256GcmDecryptor *self = (Aes256GcmDecryptor *)self_obj;
+    sz_string_view_t text;
+    if (!sz_py_export_string_like(arg, &text.start, &text.length)) {
+        wrap_current_exception("Argument must be string-like");
+        return NULL;
+    }
+    PyObject *output_obj = PyBytes_FromStringAndSize(NULL, (Py_ssize_t)text.length);
+    if (!output_obj) return NULL;
+    sz_aes256_gcm_decryptor_update_unverified(&self->decryptor, text.start, text.length,
+                                              (sz_ptr_t)PyBytes_AS_STRING(output_obj));
+    return output_obj;
+}
+
+static PyObject *Aes256GcmDecryptor_verify(PyObject *self_obj, PyObject *arg) {
+    Aes256GcmDecryptor *self = (Aes256GcmDecryptor *)self_obj;
+    sz_cptr_t tag;
+    if (!sz_py_export_exact_bytes(arg, SZ_AES256_TAG_LENGTH, "tag", &tag)) return NULL;
+    if (sz_aes256_gcm_decryptor_verify(&self->decryptor, (sz_u8_t const *)tag) != sz_success_k) {
+        PyErr_SetString(AuthenticationErrorType, "The tag does not authenticate this ciphertext");
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
+
+static char const doc_AuthenticationError[] =                                                  //
+    "Raised when a Galois/counter mode tag does not authenticate the bytes it accompanies.\n"  //
+    "\n"                                                                                       //
+    "Derives from `ValueError`, so code guarding only against malformed input still stops a\n" //
+    "forgery, and the plaintext is never returned alongside it.\n"                             //
+    "\n"                                                                                       //
+    "Example:\n"                                                                               //
+    "  >>> issubclass(sz.AuthenticationError, ValueError)\n"                                   //
+    "  True";
+
+static char const doc_Aes256CtrKey[] =                                                             //
+    "Aes256CtrKey(secret)\n"                                                                       //
+    "\n"                                                                                           //
+    "AES-256 in counter mode, abbreviated CTR: unauthenticated, seekable, and its own inverse.\n"  //
+    "The 32-byte secret is expanded once into a round-key schedule the object holds and wipes\n"   //
+    "when it is collected.\n"                                                                      //
+    "\n"                                                                                           //
+    "Args:\n"                                                                                      //
+    "  secret (str | bytes): Exactly 32 secret bytes.\n"                                           //
+    "Raises:\n"                                                                                    //
+    "  ValueError: If the secret is not exactly 32 bytes long.\n"                                  //
+    "Note:\n"                                                                                      //
+    "  A nonce must never repeat under one secret; reuse exposes the exclusive-or of two texts.\n" //
+    "\n"                                                                                           //
+    "Example:\n"                                                                                   //
+    "  >>> key = sz.Aes256CtrKey(bytes(32))\n"                                                     //
+    "  >>> key.xor(key.xor(b'hello', bytes(12)), bytes(12))\n"                                     //
+    "  b'hello'";
+
+static char const doc_Aes256CtrKey_xor[] =                                                       //
+    "xor(text, nonce, offset=0) -> bytes\n"                                                      //
+    "\n"                                                                                         //
+    "Exclusive-or `text` against the keystream, encrypting or decrypting with the same call.\n"  //
+    "\n"                                                                                         //
+    "Args:\n"                                                                                    //
+    "  text (str | bytes): The bytes to transform.\n"                                            //
+    "  nonce (str | bytes): Exactly 12 nonce bytes, never repeated under one secret.\n"          //
+    "  offset (int, optional): Absolute byte position of `text` in the stream. Defaults to 0.\n" //
+    "Returns:\n"                                                                                 //
+    "  bytes: As many bytes as `text` holds.\n"                                                  //
+    "Raises:\n"                                                                                  //
+    "  ValueError: If the nonce is not exactly 12 bytes long.\n"                                 //
+    "\n"                                                                                         //
+    "Example:\n"                                                                                 //
+    "  >>> key, nonce = sz.Aes256CtrKey(bytes(32)), bytes(12)\n"                                 //
+    "  >>> whole = key.xor(bytes(64), nonce)\n"                                                  //
+    "  >>> key.xor(bytes(16), nonce, offset=32) == whole[32:48]\n"                               //
+    "  True";
+
+static char const doc_Aes256GcmKey[] =                                                              //
+    "Aes256GcmKey(secret)\n"                                                                        //
+    "\n"                                                                                            //
+    "AES-256 in Galois/counter mode, abbreviated GCM: authenticated, and therefore not seekable.\n" //
+    "The 32-byte secret is expanded once into a schedule and the Galois hash powers, also called\n" //
+    "GHASH, and is wiped on collection.\n"                                                          //
+    "\n"                                                                                            //
+    "Args:\n"                                                                                       //
+    "  secret (str | bytes): Exactly 32 secret bytes.\n"                                            //
+    "Raises:\n"                                                                                     //
+    "  ValueError: If the secret is not exactly 32 bytes long.\n"                                   //
+    "Note:\n"                                                                                       //
+    "  Reusing a nonce here exposes the hash subkey, after which every message can be forged.\n"    //
+    "\n"                                                                                            //
+    "Example:\n"                                                                                    //
+    "  >>> key = sz.Aes256GcmKey(bytes(32))\n"                                                      //
+    "  >>> ciphertext, tag = key.encrypt(b'hello', bytes(12))\n"                                    //
+    "  >>> key.decrypt(ciphertext, bytes(12), tag)\n"                                               //
+    "  b'hello'";
+
+static char const doc_Aes256GcmKey_encrypt[] =                                                  //
+    "encrypt(text, nonce, associated=None) -> (bytes, bytes)\n"                                 //
+    "\n"                                                                                        //
+    "Encrypt `text` and authenticate both it and `associated`, returning ciphertext and tag.\n" //
+    "\n"                                                                                        //
+    "Args:\n"                                                                                   //
+    "  text (str | bytes): The plaintext.\n"                                                    //
+    "  nonce (str | bytes): Exactly 12 nonce bytes, never repeated under one secret.\n"         //
+    "  associated (str | bytes, optional): Bytes authenticated but not encrypted.\n"            //
+    "Returns:\n"                                                                                //
+    "  tuple: The ciphertext, as long as `text`, and the 16-byte tag.\n"                        //
+    "Raises:\n"                                                                                 //
+    "  ValueError: If the nonce is not exactly 12 bytes long.\n"                                //
+    "\n"                                                                                        //
+    "Example:\n"                                                                                //
+    "  >>> ciphertext, tag = sz.Aes256GcmKey(bytes(32)).encrypt(b'hi', bytes(12), b'header')\n" //
+    "  >>> len(ciphertext), len(tag)\n"                                                         //
+    "  (2, 16)";
+
+static char const doc_Aes256GcmKey_decrypt[] =                                               //
+    "decrypt(text, nonce, tag, associated=None) -> bytes\n"                                  //
+    "\n"                                                                                     //
+    "Check `tag` against the ciphertext and associated data, then return the plaintext.\n"   //
+    "\n"                                                                                     //
+    "Args:\n"                                                                                //
+    "  text (str | bytes): The ciphertext.\n"                                                //
+    "  nonce (str | bytes): The 12 nonce bytes used to encrypt.\n"                           //
+    "  tag (str | bytes): The 16-byte tag to check.\n"                                       //
+    "  associated (str | bytes, optional): The same bytes passed to `encrypt`.\n"            //
+    "Returns:\n"                                                                             //
+    "  bytes: The plaintext, as long as `text`.\n"                                           //
+    "Raises:\n"                                                                              //
+    "  AuthenticationError: If the tag does not match, in which case nothing is returned.\n" //
+    "\n"                                                                                     //
+    "Example:\n"                                                                             //
+    "  >>> key, nonce = sz.Aes256GcmKey(bytes(32)), bytes(12)\n"                             //
+    "  >>> ciphertext, tag = key.encrypt(b'hello', nonce)\n"                                 //
+    "  >>> key.decrypt(ciphertext, nonce, tag)\n"                                            //
+    "  b'hello'";
+
+static char const doc_Aes256GcmEncryptor[] =                                                       //
+    "Aes256GcmEncryptor(key, nonce)\n"                                                             //
+    "\n"                                                                                           //
+    "The same Galois/counter mode construction as `Aes256GcmKey`, sealing a message in chunks.\n"  //
+    "Chunk boundaries are invisible to the result. Opening a message uses `Aes256GcmDecryptor`,\n" //
+    "a separate type because the tag absorbs ciphertext in both directions, which is the output\n" //
+    "when sealing and the input when opening. Copies the key, so it cannot outlive it.\n"          //
+    "\n"                                                                                           //
+    "Args:\n"                                                                                      //
+    "  key (Aes256GcmKey): The expanded key, copied into the encryptor.\n"                         //
+    "  nonce (str | bytes): Exactly 12 nonce bytes, never repeated under one secret.\n"            //
+    "\n"                                                                                           //
+    "Example:\n"                                                                                   //
+    "  >>> key, nonce = sz.Aes256GcmKey(bytes(32)), bytes(12)\n"                                   //
+    "  >>> sealed = sz.Aes256GcmEncryptor(key, nonce)\n"                                           //
+    "  >>> sealed.encrypt(b'hel') + sealed.encrypt(b'lo') == key.encrypt(b'hello', nonce)[0]\n"    //
+    "  True";
+
+static char const doc_Aes256GcmEncryptor_associate[] =                                       //
+    "associate(data) -> Aes256GcmEncryptor\n"                                                //
+    "\n"                                                                                     //
+    "Absorb bytes that are authenticated but not encrypted, and return self for chaining.\n" //
+    "All associated data must be absorbed before the first message chunk.\n"                 //
+    "\n"                                                                                     //
+    "Args:\n"                                                                                //
+    "  data (str | bytes): Associated bytes, such as a routing header.\n"                    //
+    "Returns:\n"                                                                             //
+    "  Aes256GcmEncryptor: The same object, enabling `sealed.associate(a).associate(b)`.\n"  //
+    "Example:\n"                                                                             //
+    "  >>> key, nonce = sz.Aes256GcmKey(bytes(32)), bytes(12)\n"                             //
+    "  >>> sealed = sz.Aes256GcmEncryptor(key, nonce).associate(b'head')\n"                  //
+    "  >>> sealed.encrypt(b'body') == key.encrypt(b'body', nonce, b'head')[0]\n"             //
+    "  True";
+
+static char const doc_Aes256GcmEncryptor_encrypt[] =                                //
+    "encrypt(data) -> bytes\n"                                                      //
+    "\n"                                                                            //
+    "Encrypt one chunk and absorb its ciphertext into the running tag.\n"           //
+    "\n"                                                                            //
+    "Args:\n"                                                                       //
+    "  data (str | bytes): The plaintext chunk.\n"                                  //
+    "Returns:\n"                                                                    //
+    "  bytes: The ciphertext chunk, as long as `data`.\n"                           //
+    "Example:\n"                                                                    //
+    "  >>> sealed = sz.Aes256GcmEncryptor(sz.Aes256GcmKey(bytes(32)), bytes(12))\n" //
+    "  >>> len(sealed.encrypt(b'chunk'))\n"                                         //
+    "  5";
+
+static char const doc_Aes256GcmEncryptor_digest[] =                                          //
+    "digest() -> bytes\n"                                                                    //
+    "\n"                                                                                     //
+    "Return the 16-byte tag over everything absorbed so far, leaving the seal appendable.\n" //
+    "\n"                                                                                     //
+    "Returns:\n"                                                                             //
+    "  bytes: The 16-byte authentication tag.\n"                                             //
+    "Example:\n"                                                                             //
+    "  >>> key, nonce = sz.Aes256GcmKey(bytes(32)), bytes(12)\n"                             //
+    "  >>> sealed = sz.Aes256GcmEncryptor(key, nonce)\n"                                     //
+    "  >>> _ = sealed.encrypt(b'hello')\n"                                                   //
+    "  >>> sealed.digest() == key.encrypt(b'hello', nonce)[1]\n"                             //
+    "  True";
+
+static char const doc_Aes256GcmDecryptor[] =                                                     //
+    "Aes256GcmDecryptor(key, nonce)\n"                                                           //
+    "\n"                                                                                         //
+    "The same Galois/counter mode construction as `Aes256GcmKey`, opening a message in chunks\n" //
+    "and checking its tag at the end. Chunk boundaries are invisible to the result. Sealing a\n" //
+    "message uses `Aes256GcmEncryptor`. Copies the key, so it cannot outlive it.\n"              //
+    "\n"                                                                                         //
+    "Args:\n"                                                                                    //
+    "  key (Aes256GcmKey): The expanded key, copied into the decryptor.\n"                       //
+    "  nonce (str | bytes): The 12 nonce bytes the message was sealed under.\n"                  //
+    "\n"                                                                                         //
+    "Example:\n"                                                                                 //
+    "  >>> key, nonce = sz.Aes256GcmKey(bytes(32)), bytes(12)\n"                                 //
+    "  >>> ciphertext, tag = key.encrypt(b'hello', nonce)\n"                                     //
+    "  >>> sz.Aes256GcmDecryptor(key, nonce).decrypt_unverified(ciphertext)\n"                   //
+    "  b'hello'";
+
+static char const doc_Aes256GcmDecryptor_associate[] =                                       //
+    "associate(data) -> Aes256GcmDecryptor\n"                                                //
+    "\n"                                                                                     //
+    "Absorb bytes that are authenticated but not encrypted, and return self for chaining.\n" //
+    "All associated data must be absorbed before the first message chunk.\n"                 //
+    "\n"                                                                                     //
+    "Args:\n"                                                                                //
+    "  data (str | bytes): The same associated bytes the sender authenticated.\n"            //
+    "Returns:\n"                                                                             //
+    "  Aes256GcmDecryptor: The same object, enabling `opened.associate(a).associate(b)`.\n"  //
+    "Example:\n"                                                                             //
+    "  >>> key, nonce = sz.Aes256GcmKey(bytes(32)), bytes(12)\n"                             //
+    "  >>> ciphertext, tag = key.encrypt(b'body', nonce, b'head')\n"                         //
+    "  >>> opened = sz.Aes256GcmDecryptor(key, nonce).associate(b'head')\n"                  //
+    "  >>> opened.decrypt_unverified(ciphertext)\n"                                          //
+    "  b'body'";
+
+static char const doc_Aes256GcmDecryptor_decrypt_unverified[] =                                    //
+    "decrypt_unverified(data) -> bytes\n"                                                          //
+    "\n"                                                                                           //
+    "Decrypt one chunk and absorb its ciphertext into the running tag. The bytes returned are\n"   //
+    "not yet authenticated: nothing has checked that this ciphertext is genuine, so buffer them\n" //
+    "until `verify()` succeeds rather than acting on them.\n"                                      //
+    "\n"                                                                                           //
+    "Args:\n"                                                                                      //
+    "  data (str | bytes): The ciphertext chunk.\n"                                                //
+    "Returns:\n"                                                                                   //
+    "  bytes: The unverified plaintext chunk, as long as `data`.\n"                                //
+    "Example:\n"                                                                                   //
+    "  >>> key, nonce = sz.Aes256GcmKey(bytes(32)), bytes(12)\n"                                   //
+    "  >>> ciphertext, tag = key.encrypt(b'hello', nonce)\n"                                       //
+    "  >>> opened = sz.Aes256GcmDecryptor(key, nonce)\n"                                           //
+    "  >>> opened.decrypt_unverified(ciphertext)\n"                                                //
+    "  b'hello'";
+
+static char const doc_Aes256GcmDecryptor_verify[] =                                              //
+    "verify(tag) -> None\n"                                                                      //
+    "\n"                                                                                         //
+    "Check `tag` against everything absorbed so far, in time independent of where it differs.\n" //
+    "\n"                                                                                         //
+    "Args:\n"                                                                                    //
+    "  tag (str | bytes): The 16-byte tag to check.\n"                                           //
+    "Raises:\n"                                                                                  //
+    "  AuthenticationError: If the tag does not match.\n"                                        //
+    "  ValueError: If the tag is not exactly 16 bytes long.\n"                                   //
+    "Example:\n"                                                                                 //
+    "  >>> key, nonce = sz.Aes256GcmKey(bytes(32)), bytes(12)\n"                                 //
+    "  >>> ciphertext, tag = key.encrypt(b'hello', nonce)\n"                                     //
+    "  >>> opened = sz.Aes256GcmDecryptor(key, nonce)\n"                                         //
+    "  >>> _ = opened.decrypt_unverified(ciphertext)\n"                                          //
+    "  >>> opened.verify(tag) is None\n"                                                         //
+    "  True";
+
+static PyMethodDef Aes256CtrKey_methods[] = {
+    {"xor", (PyCFunction)Aes256CtrKey_xor, SZ_METHOD_FLAGS, doc_Aes256CtrKey_xor}, //
+    {NULL, NULL, 0, NULL},
+};
+
+static PyTypeObject Aes256CtrKeyType = {
+    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "stringzilla.Aes256CtrKey",
+    .tp_doc = doc_Aes256CtrKey,
+    .tp_basicsize = sizeof(Aes256CtrKey),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_new = Aes256CtrKey_new,
+    .tp_init = (initproc)Aes256CtrKey_init,
+    .tp_dealloc = (destructor)Aes256CtrKey_dealloc,
+    .tp_methods = Aes256CtrKey_methods,
+};
+
+static PyMethodDef Aes256GcmKey_methods[] = {
+    {"encrypt", (PyCFunction)Aes256GcmKey_encrypt, SZ_METHOD_FLAGS, doc_Aes256GcmKey_encrypt}, //
+    {"decrypt", (PyCFunction)Aes256GcmKey_decrypt, SZ_METHOD_FLAGS, doc_Aes256GcmKey_decrypt}, //
+    {NULL, NULL, 0, NULL},
+};
+
+static PyTypeObject Aes256GcmKeyType = {
+    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "stringzilla.Aes256GcmKey",
+    .tp_doc = doc_Aes256GcmKey,
+    .tp_basicsize = sizeof(Aes256GcmKey),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_new = Aes256GcmKey_new,
+    .tp_init = (initproc)Aes256GcmKey_init,
+    .tp_dealloc = (destructor)Aes256GcmKey_dealloc,
+    .tp_methods = Aes256GcmKey_methods,
+};
+
+static PyMethodDef Aes256GcmEncryptor_methods[] = {
+    {"associate", (PyCFunction)Aes256GcmEncryptor_associate, METH_O, doc_Aes256GcmEncryptor_associate}, //
+    {"encrypt", (PyCFunction)Aes256GcmEncryptor_encrypt, METH_O, doc_Aes256GcmEncryptor_encrypt},       //
+    {"digest", (PyCFunction)Aes256GcmEncryptor_digest, METH_NOARGS, doc_Aes256GcmEncryptor_digest},     //
+    {NULL, NULL, 0, NULL},
+};
+
+static PyTypeObject Aes256GcmEncryptorType = {
+    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "stringzilla.Aes256GcmEncryptor",
+    .tp_doc = doc_Aes256GcmEncryptor,
+    .tp_basicsize = sizeof(Aes256GcmEncryptor),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_new = Aes256GcmEncryptor_new,
+    .tp_init = (initproc)Aes256GcmEncryptor_init,
+    .tp_dealloc = (destructor)Aes256GcmEncryptor_dealloc,
+    .tp_methods = Aes256GcmEncryptor_methods,
+};
+
+static PyMethodDef Aes256GcmDecryptor_methods[] = {
+    {"associate", (PyCFunction)Aes256GcmDecryptor_associate, METH_O, doc_Aes256GcmDecryptor_associate}, //
+    {"decrypt_unverified", (PyCFunction)Aes256GcmDecryptor_decrypt_unverified, METH_O,
+     doc_Aes256GcmDecryptor_decrypt_unverified},                                               //
+    {"verify", (PyCFunction)Aes256GcmDecryptor_verify, METH_O, doc_Aes256GcmDecryptor_verify}, //
+    {NULL, NULL, 0, NULL},
+};
+
+static PyTypeObject Aes256GcmDecryptorType = {
+    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "stringzilla.Aes256GcmDecryptor",
+    .tp_doc = doc_Aes256GcmDecryptor,
+    .tp_basicsize = sizeof(Aes256GcmDecryptor),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_new = Aes256GcmDecryptor_new,
+    .tp_init = (initproc)Aes256GcmDecryptor_init,
+    .tp_dealloc = (destructor)Aes256GcmDecryptor_dealloc,
+    .tp_methods = Aes256GcmDecryptor_methods,
 };
 
 #pragma endregion
@@ -8844,145 +10322,23 @@ static int Strs_init_from_tuple(Strs *self, PyObject *sequence_obj, int view) {
     return 0;
 }
 
-// The inefficient `Strs_init` path initializing from a Pythonic list of strings.
+/**
+ *  @brief The inefficient `Strs_init` path initializing from a Pythonic list of strings.
+ *
+ *  A list is walked through a tuple snapshot rather than directly. Two things follow from that, and the
+ *  list path needs both: a tuple cannot be resized, so no concurrent `del`/`append` can leave the walk
+ *  indexing past the end, and a tuple holds a strong reference to every item, so the spans that `view`
+ *  mode exports keep pointing at live strings even after the caller empties the list it passed in.
+ *  Holding the list itself pins the container while its contents are free to go.
+ *
+ *  The snapshot copies one pointer per element, never the string data, so `view` mode stays zero-copy.
+ */
 static int Strs_init_from_list(Strs *self, PyObject *sequence_obj, int view) {
-    Py_ssize_t count = PyList_GET_SIZE(sequence_obj);
-
-    // Handle empty list
-    if (count == 0) {
-        self->layout = STRS_FRAGMENTED;
-        self->data.fragmented.count = 0;
-        self->data.fragmented.spans = NULL;
-        sz_memory_allocator_init_default(&self->data.fragmented.allocator);
-        self->data.fragmented.parent = NULL;
-        return 0;
-    }
-
-    // Zero-copy mode for Python sequences - use reordered layout for memory-scattered strings
-    if (view) {
-        // Initialize allocator for memory management
-        sz_memory_allocator_t allocator;
-        sz_memory_allocator_init_default(&allocator);
-
-        sz_string_view_t *parts = (sz_string_view_t *)allocator.allocate(count * sizeof(sz_string_view_t),
-                                                                         allocator.handle);
-        if (!parts) {
-            PyErr_NoMemory();
-            return -1;
-        }
-
-        // Build views directly to the string data
-        for (Py_ssize_t i = 0; i < count; i++) {
-            PyObject *item = PyList_GET_ITEM(sequence_obj, i);
-
-            // Export string data directly (no copying, just span)
-            sz_cptr_t item_start;
-            sz_size_t item_length;
-            if (!sz_py_export_string_like(item, &item_start, &item_length)) {
-                allocator.free(parts, count * sizeof(sz_string_view_t), allocator.handle);
-                PyErr_Format(PyExc_TypeError, "Item %zd is not a string-like object", i);
-                return -1;
-            }
-
-            parts[i].start = item_start;
-            parts[i].length = item_length;
-        }
-
-        // Setup reordered layout with parent list to keep strings alive
-        self->layout = STRS_FRAGMENTED;
-        self->data.fragmented.count = count;
-        self->data.fragmented.spans = parts;
-        self->data.fragmented.allocator = allocator;
-        self->data.fragmented.parent = sequence_obj; // Keep list alive
-        Py_INCREF(sequence_obj);
-        return 0;
-    }
-    // Allocate a new tape to fit all of the items
-    else {
-
-        // First pass: calculate total size needed
-        sz_size_t total_bytes = 0;
-        int use_64bit = 0;
-
-        for (Py_ssize_t i = 0; i < count; i++) {
-            PyObject *item = PyList_GET_ITEM(sequence_obj, i);
-            sz_cptr_t item_start;
-            sz_size_t item_length;
-            if (!sz_py_export_string_like(item, &item_start, &item_length)) {
-                PyErr_Format(PyExc_TypeError, "Item %zd is not a string-like object", i);
-                return -1;
-            }
-
-            // Check if we need 64-bit offsets
-            if (total_bytes + item_length > UINT32_MAX) { use_64bit = 1; }
-            total_bytes += item_length;
-        }
-
-        // Initialize allocator for memory management
-        sz_memory_allocator_t allocator;
-        sz_memory_allocator_init_default(&allocator);
-
-        // Allocate buffers based on calculated sizes
-        sz_ptr_t data_buffer = total_bytes ? (sz_ptr_t)allocator.allocate(total_bytes, allocator.handle)
-                                           : (sz_ptr_t)NULL;
-
-        // Apache Arrow format: N+1 offsets for N strings
-        void *offsets;
-        if (use_64bit) { offsets = allocator.allocate((count + 1) * sizeof(sz_u64_t), allocator.handle); }
-        else { offsets = allocator.allocate((count + 1) * sizeof(sz_u32_t), allocator.handle); }
-
-        int const failed_to_allocate_data = total_bytes && !data_buffer;
-        if (failed_to_allocate_data || !offsets) {
-            if (data_buffer) allocator.free(data_buffer, total_bytes, allocator.handle);
-            if (offsets) {
-                sz_size_t offsets_size = use_64bit ? (count + 1) * sizeof(sz_u64_t) : (count + 1) * sizeof(sz_u32_t);
-                allocator.free(offsets, offsets_size, allocator.handle);
-            }
-            PyErr_NoMemory();
-            return -1;
-        }
-
-        // Second pass: copy data and build offsets (Apache Arrow format)
-        sz_size_t current_offset = 0;
-        // Set first offset to 0
-        if (use_64bit) { ((sz_u64_t *)offsets)[0] = 0; }
-        else { ((sz_u32_t *)offsets)[0] = 0; }
-
-        for (Py_ssize_t i = 0; i < count; i++) {
-            PyObject *item = PyList_GET_ITEM(sequence_obj, i);
-            sz_cptr_t item_start;
-            sz_size_t item_length;
-
-            // We already validated this in first pass, so this should not fail
-            sz_py_export_string_like(item, &item_start, &item_length);
-
-            // Copy the string data
-            memcpy(data_buffer + current_offset, item_start, item_length);
-            current_offset += item_length;
-
-            // Store offset (Apache Arrow format: offset after this string)
-            if (use_64bit) { ((sz_u64_t *)offsets)[i + 1] = current_offset; }
-            else { ((sz_u32_t *)offsets)[i + 1] = current_offset; }
-        }
-
-        // Setup the consecutive layout (32-bit or 64-bit)
-        if (use_64bit) {
-            self->layout = STRS_U64_TAPE;
-            self->data.u64_tape.count = count;
-            self->data.u64_tape.data = data_buffer;
-            self->data.u64_tape.offsets = (sz_u64_t *)offsets;
-            self->data.u64_tape.allocator = allocator;
-        }
-        else {
-            self->layout = STRS_U32_TAPE;
-            self->data.u32_tape.count = count;
-            self->data.u32_tape.data = data_buffer;
-            self->data.u32_tape.offsets = (sz_u32_t *)offsets;
-            self->data.u32_tape.allocator = allocator;
-        }
-
-        return 0;
-    }
+    PyObject *snapshot = PySequence_Tuple(sequence_obj);
+    if (!snapshot) return -1;
+    int const result = Strs_init_from_tuple(self, snapshot, view);
+    Py_DECREF(snapshot); // `view` mode took its own reference; every other layout owns copied bytes
+    return result;
 }
 
 // The inefficient `Strs_init` path initializing from a Pythonic iterable of strings.
@@ -9457,15 +10813,19 @@ static int parse_and_intersect_capabilities(PyObject *caps_obj, sz_capability_t 
         PyErr_SetString(PyExc_TypeError, "capabilities must be a tuple or list of strings");
         return -1;
     }
-    PyObject *seq = PySequence_Fast(caps_obj, "capabilities must be a tuple or list of strings");
-    if (!seq) return -1;
+    // A tuple snapshot rather than `PySequence_Fast`, which hands back the caller's list itself and leaves
+    // the walk indexing into storage another thread can resize.
+    PyObject *seq = PySequence_Tuple(caps_obj);
+    if (!seq) {
+        PyErr_SetString(PyExc_TypeError, "capabilities must be a tuple or list of strings");
+        return -1;
+    }
 
     sz_capability_t requested_caps = 0;
-    Py_ssize_t n = PySequence_Fast_GET_SIZE(seq);
-    PyObject **items = PySequence_Fast_ITEMS(seq);
+    Py_ssize_t n = PyTuple_GET_SIZE(seq);
 
     for (Py_ssize_t i = 0; i < n; i++) {
-        PyObject *item = items[i];
+        PyObject *item = PyTuple_GET_ITEM(seq, i);
         if (!PyUnicode_Check(item)) {
             PyErr_SetString(PyExc_TypeError, "capabilities must be strings");
             Py_DECREF(seq);
@@ -9656,27 +11016,47 @@ static PyModuleDef stringzilla_module = {
     stringzilla_cleanup,
 };
 
+/**
+ *  @brief Every type the module readies, and the name it is exported under.
+ *
+ *  A `NULL` name means the type is readied but not exported: the UTF-8 iterators are returned by methods
+ *  and never constructed by name, so they need `tp_dict` filled but no module attribute.
+ */
+static struct {
+    char const *name;
+    PyTypeObject *type;
+} const stringzilla_types[] = {
+    {"Str", &StrType},
+    {"File", &FileType},
+    {"Strs", &StrsType},
+    {"FindSplits", &FindSplitsType},
+    {"Utf8SplitNewlines", &Utf8SplitNewlinesType},
+    {"Utf8Newlines", &Utf8NewlinesType},
+    {"Utf8SplitWhitespaces", &Utf8SplitWhitespacesType},
+    {"Utf8Whitespaces", &Utf8WhitespacesType},
+    {"Utf8SplitDelimiters", &Utf8SplitDelimitersType},
+    {"Utf8Delimiters", &Utf8DelimitersType},
+    {"Utf8Wordbreaks", &Utf8WordbreaksType},
+    {NULL, &Utf8CodepointsType},
+    {NULL, &Utf8GraphemesType},
+    {NULL, &Utf8SentencesType},
+    {NULL, &Utf8LinebreaksType},
+    {NULL, &Utf8UncasedMatchesType},
+    {"Hasher", &HasherType},
+    {"Sha256", &Sha256Type},
+    {"Sha256s", &Sha256sType},
+    {"Aes256CtrKey", &Aes256CtrKeyType},
+    {"Aes256GcmKey", &Aes256GcmKeyType},
+    {"Aes256GcmEncryptor", &Aes256GcmEncryptorType},
+    {"Aes256GcmDecryptor", &Aes256GcmDecryptorType},
+};
+
 PyMODINIT_FUNC PyInit_stringzilla(void) {
     PyObject *m;
+    sz_size_t const types_count = sizeof(stringzilla_types) / sizeof(stringzilla_types[0]);
 
-    if (PyType_Ready(&StrType) < 0) return NULL;
-    if (PyType_Ready(&FileType) < 0) return NULL;
-    if (PyType_Ready(&StrsType) < 0) return NULL;
-    if (PyType_Ready(&FindSplitsType) < 0) return NULL;
-    if (PyType_Ready(&Utf8SplitNewlinesType) < 0) return NULL;
-    if (PyType_Ready(&Utf8NewlinesType) < 0) return NULL;
-    if (PyType_Ready(&Utf8SplitWhitespacesType) < 0) return NULL;
-    if (PyType_Ready(&Utf8WhitespacesType) < 0) return NULL;
-    if (PyType_Ready(&Utf8SplitDelimitersType) < 0) return NULL;
-    if (PyType_Ready(&Utf8DelimitersType) < 0) return NULL;
-    if (PyType_Ready(&Utf8WordbreaksType) < 0) return NULL;
-    if (PyType_Ready(&Utf8CodepointsType) < 0) return NULL;
-    if (PyType_Ready(&Utf8GraphemesType) < 0) return NULL;
-    if (PyType_Ready(&Utf8SentencesType) < 0) return NULL;
-    if (PyType_Ready(&Utf8LinebreaksType) < 0) return NULL;
-    if (PyType_Ready(&Utf8UncasedMatchesType) < 0) return NULL;
-    if (PyType_Ready(&HasherType) < 0) return NULL;
-    if (PyType_Ready(&Sha256Type) < 0) return NULL;
+    for (sz_size_t type_index = 0; type_index != types_count; ++type_index)
+        if (PyType_Ready(stringzilla_types[type_index].type) < 0) return NULL;
 
     m = PyModule_Create(&stringzilla_module);
     if (m == NULL) return NULL;
@@ -9693,6 +11073,17 @@ PyMODINIT_FUNC PyInit_stringzilla(void) {
         PyModule_AddStringConstant(m, "__version__", version_str);
     }
 
+    // Publish the digest width on both hasher types, so callers can size an output matrix without
+    // hardcoding it. A class attribute rather than a property, as it describes the algorithm.
+    {
+        PyObject *digest_length = PyLong_FromSize_t(SZ_SHA256_DIGEST_LENGTH);
+        if (!digest_length) goto failed;
+        int const published = PyDict_SetItemString(Sha256Type.tp_dict, "digest_length", digest_length) |
+                              PyDict_SetItemString(Sha256sType.tp_dict, "digest_length", digest_length);
+        Py_DECREF(digest_length);
+        if (published < 0) goto failed;
+    }
+
     // Define SIMD capabilities as a tuple
     {
         sz_capability_t caps = sz_capabilities();
@@ -9703,25 +11094,20 @@ PyMODINIT_FUNC PyInit_stringzilla(void) {
 
         // Create a Python tuple with the capabilities
         PyObject *caps_tuple = PyTuple_New(cap_count);
-        if (!caps_tuple) {
-            Py_XDECREF(m);
-            return NULL;
-        }
+        if (!caps_tuple) goto failed;
 
         for (sz_size_t i = 0; i < cap_count; i++) {
             PyObject *cap_str = PyUnicode_FromString(cap_strings[i]);
             if (!cap_str) {
                 Py_DECREF(caps_tuple);
-                Py_XDECREF(m);
-                return NULL;
+                goto failed;
             }
             PyTuple_SET_ITEM(caps_tuple, i, cap_str);
         }
 
         if (PyModule_AddObject(m, "__capabilities__", caps_tuple) < 0) {
             Py_DECREF(caps_tuple);
-            Py_XDECREF(m);
-            return NULL;
+            goto failed;
         }
 
         // Also keep the old comma-separated string version for backward compatibility
@@ -9729,159 +11115,30 @@ PyMODINIT_FUNC PyInit_stringzilla(void) {
         PyModule_AddStringConstant(m, "__capabilities_str__", caps_str);
     }
 
-    Py_INCREF(&StrType);
-    if (PyModule_AddObject(m, "Str", (PyObject *)&StrType) < 0) {
-        Py_XDECREF(&StrType);
-        Py_XDECREF(m);
-        return NULL;
+    for (sz_size_t type_index = 0; type_index != types_count; ++type_index) {
+        char const *const name = stringzilla_types[type_index].name;
+        if (!name) continue;
+        PyTypeObject *const type = stringzilla_types[type_index].type;
+        Py_INCREF(type);
+        // Only a successful `PyModule_AddObject` steals the reference, so undo just this one and let the
+        // dying module release the types it already owns.
+        if (PyModule_AddObject(m, name, (PyObject *)type) < 0) {
+            Py_DECREF(type);
+            goto failed;
+        }
     }
 
-    Py_INCREF(&FileType);
-    if (PyModule_AddObject(m, "File", (PyObject *)&FileType) < 0) {
-        Py_XDECREF(&FileType);
-        Py_XDECREF(&StrType);
-        Py_XDECREF(m);
-        return NULL;
-    }
-
-    Py_INCREF(&StrsType);
-    if (PyModule_AddObject(m, "Strs", (PyObject *)&StrsType) < 0) {
-        Py_XDECREF(&StrsType);
-        Py_XDECREF(&FileType);
-        Py_XDECREF(&StrType);
-        Py_XDECREF(m);
-        return NULL;
-    }
-
-    Py_INCREF(&FindSplitsType);
-    if (PyModule_AddObject(m, "FindSplits", (PyObject *)&FindSplitsType) < 0) {
-        Py_XDECREF(&FindSplitsType);
-        Py_XDECREF(&StrsType);
-        Py_XDECREF(&FileType);
-        Py_XDECREF(&StrType);
-        Py_XDECREF(m);
-        return NULL;
-    }
-
-    Py_INCREF(&Utf8SplitNewlinesType);
-    if (PyModule_AddObject(m, "Utf8SplitNewlines", (PyObject *)&Utf8SplitNewlinesType) < 0) {
-        Py_XDECREF(&Utf8SplitNewlinesType);
-        Py_XDECREF(&FindSplitsType);
-        Py_XDECREF(&StrsType);
-        Py_XDECREF(&FileType);
-        Py_XDECREF(&StrType);
-        Py_XDECREF(m);
-        return NULL;
-    }
-
-    Py_INCREF(&Utf8NewlinesType);
-    if (PyModule_AddObject(m, "Utf8Newlines", (PyObject *)&Utf8NewlinesType) < 0) {
-        Py_XDECREF(&Utf8NewlinesType);
-        Py_XDECREF(&Utf8SplitNewlinesType);
-        Py_XDECREF(&FindSplitsType);
-        Py_XDECREF(&StrsType);
-        Py_XDECREF(&FileType);
-        Py_XDECREF(&StrType);
-        Py_XDECREF(m);
-        return NULL;
-    }
-
-    Py_INCREF(&Utf8SplitWhitespacesType);
-    if (PyModule_AddObject(m, "Utf8SplitWhitespaces", (PyObject *)&Utf8SplitWhitespacesType) < 0) {
-        Py_XDECREF(&Utf8SplitWhitespacesType);
-        Py_XDECREF(&Utf8NewlinesType);
-        Py_XDECREF(&Utf8SplitNewlinesType);
-        Py_XDECREF(&FindSplitsType);
-        Py_XDECREF(&StrsType);
-        Py_XDECREF(&FileType);
-        Py_XDECREF(&StrType);
-        Py_XDECREF(m);
-        return NULL;
-    }
-
-    Py_INCREF(&Utf8WhitespacesType);
-    if (PyModule_AddObject(m, "Utf8Whitespaces", (PyObject *)&Utf8WhitespacesType) < 0) {
-        Py_XDECREF(&Utf8WhitespacesType);
-        Py_XDECREF(&Utf8SplitWhitespacesType);
-        Py_XDECREF(&Utf8NewlinesType);
-        Py_XDECREF(&Utf8SplitNewlinesType);
-        Py_XDECREF(&FindSplitsType);
-        Py_XDECREF(&StrsType);
-        Py_XDECREF(&FileType);
-        Py_XDECREF(&StrType);
-        Py_XDECREF(m);
-        return NULL;
-    }
-
-    Py_INCREF(&Utf8SplitDelimitersType);
-    if (PyModule_AddObject(m, "Utf8SplitDelimiters", (PyObject *)&Utf8SplitDelimitersType) < 0) {
-        Py_XDECREF(&Utf8SplitDelimitersType);
-        Py_XDECREF(&Utf8WhitespacesType);
-        Py_XDECREF(&Utf8SplitWhitespacesType);
-        Py_XDECREF(&Utf8NewlinesType);
-        Py_XDECREF(&Utf8SplitNewlinesType);
-        Py_XDECREF(&FindSplitsType);
-        Py_XDECREF(&StrsType);
-        Py_XDECREF(&FileType);
-        Py_XDECREF(&StrType);
-        Py_XDECREF(m);
-        return NULL;
-    }
-
-    Py_INCREF(&Utf8DelimitersType);
-    if (PyModule_AddObject(m, "Utf8Delimiters", (PyObject *)&Utf8DelimitersType) < 0) {
-        Py_XDECREF(&Utf8DelimitersType);
-        Py_XDECREF(&Utf8SplitDelimitersType);
-        Py_XDECREF(&Utf8WhitespacesType);
-        Py_XDECREF(&Utf8SplitWhitespacesType);
-        Py_XDECREF(&Utf8NewlinesType);
-        Py_XDECREF(&Utf8SplitNewlinesType);
-        Py_XDECREF(&FindSplitsType);
-        Py_XDECREF(&StrsType);
-        Py_XDECREF(&FileType);
-        Py_XDECREF(&StrType);
-        Py_XDECREF(m);
-        return NULL;
-    }
-
-    Py_INCREF(&Utf8WordbreaksType);
-    if (PyModule_AddObject(m, "Utf8Wordbreaks", (PyObject *)&Utf8WordbreaksType) < 0) {
-        Py_XDECREF(&Utf8WordbreaksType);
-        Py_XDECREF(&Utf8DelimitersType);
-        Py_XDECREF(&Utf8SplitDelimitersType);
-        Py_XDECREF(&Utf8WhitespacesType);
-        Py_XDECREF(&Utf8SplitWhitespacesType);
-        Py_XDECREF(&Utf8NewlinesType);
-        Py_XDECREF(&Utf8SplitNewlinesType);
-        Py_XDECREF(&FindSplitsType);
-        Py_XDECREF(&StrsType);
-        Py_XDECREF(&FileType);
-        Py_XDECREF(&StrType);
-        Py_XDECREF(m);
-        return NULL;
-    }
-
-    Py_INCREF(&HasherType);
-    if (PyModule_AddObject(m, "Hasher", (PyObject *)&HasherType) < 0) {
-        Py_XDECREF(&HasherType);
-        Py_XDECREF(&FindSplitsType);
-        Py_XDECREF(&StrsType);
-        Py_XDECREF(&FileType);
-        Py_XDECREF(&StrType);
-        Py_XDECREF(m);
-        return NULL;
-    }
-
-    Py_INCREF(&Sha256Type);
-    if (PyModule_AddObject(m, "Sha256", (PyObject *)&Sha256Type) < 0) {
-        Py_XDECREF(&Sha256Type);
-        Py_XDECREF(&HasherType);
-        Py_XDECREF(&FindSplitsType);
-        Py_XDECREF(&StrsType);
-        Py_XDECREF(&FileType);
-        Py_XDECREF(&StrType);
-        Py_XDECREF(m);
-        return NULL;
+    // A refused tag needs a class of its own, created here because a static exception object cannot
+    // be built before the interpreter exists.
+    AuthenticationErrorType = PyErr_NewExceptionWithDoc("stringzilla.AuthenticationError", doc_AuthenticationError,
+                                                        PyExc_ValueError, NULL);
+    if (!AuthenticationErrorType) goto failed;
+    Py_INCREF(AuthenticationErrorType);
+    if (PyModule_AddObject(m, "AuthenticationError", AuthenticationErrorType) < 0) {
+        Py_DECREF(AuthenticationErrorType); // The reference the module refused to take
+        Py_DECREF(AuthenticationErrorType); // The reference this translation unit holds
+        AuthenticationErrorType = NULL;
+        goto failed;
     }
 
     // Export C API functions as a single capsule structure for StringZillas
@@ -9892,14 +11149,11 @@ PyMODINIT_FUNC PyInit_stringzilla(void) {
         .sz_py_export_strings_as_u64tape = sz_py_export_strings_as_u64tape,
         .sz_py_replace_strings_allocator = sz_py_replace_strings_allocator,
     };
-    if (PyModule_AddObject(m, "_sz_py_api", PyCapsule_New(&sz_py_api, "_sz_py_api", NULL)) < 0) {
-        Py_XDECREF(&FindSplitsType);
-        Py_XDECREF(&StrsType);
-        Py_XDECREF(&FileType);
-        Py_XDECREF(&StrType);
-        Py_XDECREF(m);
-        return NULL;
-    }
+    if (PyModule_AddObject(m, "_sz_py_api", PyCapsule_New(&sz_py_api, "_sz_py_api", NULL)) < 0) goto failed;
 
     return m;
+
+failed:
+    Py_DECREF(m);
+    return NULL;
 }

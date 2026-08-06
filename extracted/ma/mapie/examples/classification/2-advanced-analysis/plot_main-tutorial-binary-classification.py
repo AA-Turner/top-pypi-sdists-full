@@ -21,11 +21,11 @@ PLEASE NOTE: we don't recommend using set prediction in binary classification se
 even though we offer this tutorial for those who might be interested.
 Instead, we recommend the use of calibration (see more details in the
 Calibration section of the documentation or by using the
-`CalibratedClassifierCV` proposed by sklearn
+`CalibratedClassifierCV` provided by scikit-learn
 or `TopLabelCalibrator` proposed in MAPIE).
 """
 
-# sphinx_gallery_thumbnail_number = 3
+# mkdocs_gallery_thumbnail_number = 3
 
 from typing import List
 
@@ -120,7 +120,7 @@ plt.show()
 ##############################################################################
 # We fit our training data with a Gaussian Naive Base estimator.
 # We first apply a probability calibration with
-# `CalibratedClassifierCV` proposed by sklearn
+# `CalibratedClassifierCV` provided by scikit-learn
 # so that scores can be interpreted as probabilities
 # (see documentation for more information).
 # Then we apply `SplitConformalClassifier` on the

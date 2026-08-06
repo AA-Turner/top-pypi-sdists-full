@@ -41,6 +41,7 @@ class RawCollabAgentsClient:
         Parameters
         ----------
         asset_id : str
+            Asset id of the collab agent to message
 
         message : str
             The message text to submit to the agent. Delivered verbatim as the user turn of the agent session.
@@ -185,6 +186,7 @@ class AsyncRawCollabAgentsClient:
         Parameters
         ----------
         asset_id : str
+            Asset id of the collab agent to message
 
         message : str
             The message text to submit to the agent. Delivered verbatim as the user turn of the agent session.

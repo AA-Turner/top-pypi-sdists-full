@@ -84,12 +84,18 @@ def has_local_changes(repo_dir: Path) -> bool:
 
 
 def get_remote_url(repo_dir: Path, remote: str = "origin") -> str | None:
-    """Get the URL of a git remote, or None if not found."""
+    """Get the URL of a git remote, or None if not found.
+
+    ``None`` also covers git being absent from PATH: callers run in contexts
+    where the binary is not guaranteed (a bare CI runner image installing the
+    toolchain), and a missing remote is indistinguishable from a missing git
+    from their point of view.
+    """
     try:
         result = run_git(repo_dir, "remote", "get-url", remote, timeout=10)
         if result.returncode == 0:
             return result.stdout.strip()
-    except subprocess.TimeoutExpired:
+    except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
         pass
     return None
 

@@ -353,3 +353,66 @@ class RecordExecutionsResponse(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["records_stored", b"records_stored"]) -> None: ...
 
 global___RecordExecutionsResponse = RecordExecutionsResponse
+
+@typing.final
+class ResolveDeferredRelationsRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    PROFILE_NAME_FIELD_NUMBER: builtins.int
+    TARGET_NAME_FIELD_NUMBER: builtins.int
+    PROJECT_NAME_FIELD_NUMBER: builtins.int
+    PROJECT_ID_FIELD_NUMBER: builtins.int
+    NODE_UNIQUE_IDS_FIELD_NUMBER: builtins.int
+    profile_name: builtins.str
+    target_name: builtins.str
+    """defer-to target"""
+    project_name: builtins.str
+    project_id: builtins.str
+    @property
+    def node_unique_ids(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
+    def __init__(
+        self,
+        *,
+        profile_name: builtins.str = ...,
+        target_name: builtins.str = ...,
+        project_name: builtins.str = ...,
+        project_id: builtins.str | None = ...,
+        node_unique_ids: collections.abc.Iterable[builtins.str] | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["_project_id", b"_project_id", "project_id", b"project_id"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_project_id", b"_project_id", "node_unique_ids", b"node_unique_ids", "profile_name", b"profile_name", "project_id", b"project_id", "project_name", b"project_name", "target_name", b"target_name"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_project_id", b"_project_id"]) -> typing.Literal["project_id"] | None: ...
+
+global___ResolveDeferredRelationsRequest = ResolveDeferredRelationsRequest
+
+@typing.final
+class ResolveDeferredRelationsResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    @typing.final
+    class FqnByUniqueIdEntry(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: builtins.int
+        VALUE_FIELD_NUMBER: builtins.int
+        key: builtins.str
+        value: builtins.str
+        def __init__(
+            self,
+            *,
+            key: builtins.str = ...,
+            value: builtins.str = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing.Literal["key", b"key", "value", b"value"]) -> None: ...
+
+    FQN_BY_UNIQUE_ID_FIELD_NUMBER: builtins.int
+    @property
+    def fqn_by_unique_id(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]: ...
+    def __init__(
+        self,
+        *,
+        fqn_by_unique_id: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["fqn_by_unique_id", b"fqn_by_unique_id"]) -> None: ...
+
+global___ResolveDeferredRelationsResponse = ResolveDeferredRelationsResponse

@@ -14,7 +14,7 @@ from chardet._utils import (
     _validate_max_bytes,
 )
 from chardet.enums import EncodingEra, LanguageFilter
-from chardet.equivalences import (
+from chardet.output_names import (
     PREFERRED_SUPERSET,
     apply_compat_names,
     apply_preferred_superset,
@@ -70,9 +70,12 @@ class UniversalDetector:
         :param encoding_era: Restrict candidate encodings to the given era.
         :param max_bytes: Maximum number of bytes to buffer from
             :meth:`feed` calls before stopping accumulation.
-        :param prefer_superset: If ``True``, remap ISO subset encodings to
-            their Windows/CP superset equivalents (e.g., ISO-8859-1 ->
-            Windows-1252).
+        :param prefer_superset: If ``True``, remap subset encodings in the
+            result to their decode-safe Windows/CP superset equivalents
+            (e.g., ISO-8859-1 -> Windows-1252).  If ``False`` (default),
+            skip the renaming --- not a promise of the smallest matching
+            encoding.  The default will change to ``True`` in chardet 8.0.
+            See :func:`chardet.detect` for details.
         :param compat_names: If ``True`` (default), return encoding names
             compatible with chardet 5.x/6.x.  If ``False``, return raw Python
             codec names.

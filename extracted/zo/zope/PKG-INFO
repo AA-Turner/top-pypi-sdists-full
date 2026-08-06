@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Zope
-Version: 6.1
+Version: 6.2
 Summary: Zope application server / web framework
 Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
 Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
@@ -157,6 +157,19 @@ The change log for Zope 4 is at
 https://github.com/zopefoundation/Zope/blob/4.x/CHANGES.rst.
 The change log for Zope 5 is at
 https://github.com/zopefoundation/Zope/blob/5.x/CHANGES.rst.
+
+
+6.2 (2026-08-05)
+----------------
+
+- Disable XML-RPC request support by default.
+  The protocol is rarely used and disabling it reduces the potential for
+  abuse. Set ``enable-xmlrpc`` to ``on`` in the Zope configuration if you
+  really need XML-RPC support.
+
+- Update to newest compatible versions of dependencies.
+
+- Switch to Trusted Publishing for publishing packages to PyPI.
 
 
 6.1 (2026-04-22)

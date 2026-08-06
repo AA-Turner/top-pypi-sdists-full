@@ -25,14 +25,14 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nGansys/api/platform/instancemanagement/v1/product_instance_manager.proto\x12(ansys.api.platform.instancemanagement.v1\x1a\x1bgoogle/protobuf/empty.proto\"\x90\x02\n\x08Instance\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x17\n\x0f\x64\x65\x66inition_name\x18\x02 \x01(\t\x12\r\n\x05ready\x18\x03 \x01(\x08\x12\x16\n\x0estatus_message\x18\x04 \x01(\t\x12R\n\x08services\x18\x05 \x03(\x0b\x32@.ansys.api.platform.instancemanagement.v1.Instance.ServicesEntry\x1a\x62\n\rServicesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12@\n\x05value\x18\x02 \x01(\x0b\x32\x31.ansys.api.platform.instancemanagement.v1.Service:\x02\x38\x01\"j\n\nDefinition\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0cproduct_name\x18\x02 \x01(\t\x12\x17\n\x0fproduct_version\x18\x03 \x01(\t\x12\x1f\n\x17\x61vailable_service_names\x18\x04 \x03(\t\"\x97\x01\n\x07Service\x12\x0b\n\x03uri\x18\x01 \x01(\t\x12O\n\x07headers\x18\x02 \x03(\x0b\x32>.ansys.api.platform.instancemanagement.v1.Service.HeadersEntry\x1a.\n\x0cHeadersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"]\n\x15\x43reateInstanceRequest\x12\x44\n\x08instance\x18\x01 \x01(\x0b\x32\x32.ansys.api.platform.instancemanagement.v1.Instance\"%\n\x15\x44\x65leteInstanceRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"\"\n\x12GetInstanceRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"=\n\x14ListInstancesRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t\"w\n\x15ListInstancesResponse\x12\x45\n\tinstances\x18\x01 \x03(\x0b\x32\x32.ansys.api.platform.instancemanagement.v1.Instance\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"n\n\x16ListDefinitionsRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\x14\n\x0cproduct_name\x18\x03 \x01(\t\x12\x17\n\x0fproduct_version\x18\x04 \x01(\t\"}\n\x17ListDefinitionsResponse\x12I\n\x0b\x64\x65\x66initions\x18\x01 \x03(\x0b\x32\x34.ansys.api.platform.instancemanagement.v1.Definition\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"$\n\x14GetDefinitionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t2\xc0\x06\n\x16ProductInstanceManager\x12\x85\x01\n\x0e\x43reateInstance\x12?.ansys.api.platform.instancemanagement.v1.CreateInstanceRequest\x1a\x32.ansys.api.platform.instancemanagement.v1.Instance\x12i\n\x0e\x44\x65leteInstance\x12?.ansys.api.platform.instancemanagement.v1.DeleteInstanceRequest\x1a\x16.google.protobuf.Empty\x12\x90\x01\n\rListInstances\x12>.ansys.api.platform.instancemanagement.v1.ListInstancesRequest\x1a?.ansys.api.platform.instancemanagement.v1.ListInstancesResponse\x12\x7f\n\x0bGetInstance\x12<.ansys.api.platform.instancemanagement.v1.GetInstanceRequest\x1a\x32.ansys.api.platform.instancemanagement.v1.Instance\x12\x96\x01\n\x0fListDefinitions\x12@.ansys.api.platform.instancemanagement.v1.ListDefinitionsRequest\x1a\x41.ansys.api.platform.instancemanagement.v1.ListDefinitionsResponse\x12\x85\x01\n\rGetDefinition\x12>.ansys.api.platform.instancemanagement.v1.GetDefinitionRequest\x1a\x34.ansys.api.platform.instancemanagement.v1.DefinitionB+\xaa\x02(Ansys.Api.Platform.InstanceManagement.V1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nGansys/api/platform/instancemanagement/v1/product_instance_manager.proto\x12(ansys.api.platform.instancemanagement.v1\x1a\x1bgoogle/protobuf/empty.proto\"\x90\x02\n\x08Instance\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x17\n\x0f\x64\x65\x66inition_name\x18\x02 \x01(\t\x12\r\n\x05ready\x18\x03 \x01(\x08\x12\x16\n\x0estatus_message\x18\x04 \x01(\t\x12R\n\x08services\x18\x05 \x03(\x0b\x32@.ansys.api.platform.instancemanagement.v1.Instance.ServicesEntry\x1a\x62\n\rServicesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12@\n\x05value\x18\x02 \x01(\x0b\x32\x31.ansys.api.platform.instancemanagement.v1.Service:\x02\x38\x01\"j\n\nDefinition\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0cproduct_name\x18\x02 \x01(\t\x12\x17\n\x0fproduct_version\x18\x03 \x01(\t\x12\x1f\n\x17\x61vailable_service_names\x18\x04 \x03(\t\"g\n\x0eMtlsClientInfo\x12\x1b\n\x13\x63\x61_certificate_path\x18\x01 \x01(\t\x12\x1f\n\x17\x63lient_certificate_path\x18\x02 \x01(\t\x12\x17\n\x0f\x63lient_key_path\x18\x03 \x01(\t\"\xe7\x01\n\x13ServiceSecurityInfo\x12*\n\x08insecure\x18\x01 \x01(\x0b\x32\x16.google.protobuf.EmptyH\x00\x12H\n\x04mtls\x18\x02 \x01(\x0b\x32\x38.ansys.api.platform.instancemanagement.v1.MtlsClientInfoH\x00\x12&\n\x04wnua\x18\x03 \x01(\x0b\x32\x16.google.protobuf.EmptyH\x00\x12%\n\x03uds\x18\x04 \x01(\x0b\x32\x16.google.protobuf.EmptyH\x00\x42\x0b\n\ttransport\"\xe8\x01\n\x07Service\x12\x0b\n\x03uri\x18\x01 \x01(\t\x12O\n\x07headers\x18\x02 \x03(\x0b\x32>.ansys.api.platform.instancemanagement.v1.Service.HeadersEntry\x12O\n\x08security\x18\x03 \x01(\x0b\x32=.ansys.api.platform.instancemanagement.v1.ServiceSecurityInfo\x1a.\n\x0cHeadersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xa7\x01\n\x14MtlsCertificatePaths\x12\x17\n\x0fserver_key_path\x18\x01 \x01(\t\x12\x1f\n\x17server_certificate_path\x18\x02 \x01(\t\x12\x1b\n\x13\x63\x61_certificate_path\x18\x03 \x01(\t\x12\x17\n\x0f\x63lient_key_path\x18\x04 \x01(\t\x12\x1f\n\x17\x63lient_certificate_path\x18\x05 \x01(\t\"\xa3\x01\n\x0cMtlsSettings\x12 \n\x16\x63\x65rtificates_directory\x18\x01 \x01(\tH\x00\x12[\n\x11\x63\x65rtificate_paths\x18\x02 \x01(\x0b\x32>.ansys.api.platform.instancemanagement.v1.MtlsCertificatePathsH\x00\x42\x14\n\x12\x63\x65rtificate_source\"W\n\x0bUdsSettings\x12\x13\n\x0bsocket_path\x18\x01 \x01(\t\x12\x18\n\x10socket_directory\x18\x02 \x01(\t\x12\x19\n\x11socket_identifier\x18\x03 \x01(\t\"\x89\x02\n\x18InstanceSecuritySettings\x12*\n\x08insecure\x18\x01 \x01(\x0b\x32\x16.google.protobuf.EmptyH\x00\x12\x46\n\x04mtls\x18\x02 \x01(\x0b\x32\x36.ansys.api.platform.instancemanagement.v1.MtlsSettingsH\x00\x12&\n\x04wnua\x18\x03 \x01(\x0b\x32\x16.google.protobuf.EmptyH\x00\x12\x44\n\x03uds\x18\x04 \x01(\x0b\x32\x35.ansys.api.platform.instancemanagement.v1.UdsSettingsH\x00\x42\x0b\n\ttransport\"\xbc\x01\n\x15\x43reateInstanceRequest\x12\x44\n\x08instance\x18\x01 \x01(\x0b\x32\x32.ansys.api.platform.instancemanagement.v1.Instance\x12]\n\x11security_settings\x18\x02 \x01(\x0b\x32\x42.ansys.api.platform.instancemanagement.v1.InstanceSecuritySettings\"%\n\x15\x44\x65leteInstanceRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"\"\n\x12GetInstanceRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"=\n\x14ListInstancesRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t\"w\n\x15ListInstancesResponse\x12\x45\n\tinstances\x18\x01 \x03(\x0b\x32\x32.ansys.api.platform.instancemanagement.v1.Instance\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"n\n\x16ListDefinitionsRequest\x12\x11\n\tpage_size\x18\x01 \x01(\x05\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\x14\n\x0cproduct_name\x18\x03 \x01(\t\x12\x17\n\x0fproduct_version\x18\x04 \x01(\t\"}\n\x17ListDefinitionsResponse\x12I\n\x0b\x64\x65\x66initions\x18\x01 \x03(\x0b\x32\x34.ansys.api.platform.instancemanagement.v1.Definition\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"$\n\x14GetDefinitionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t2\xc0\x06\n\x16ProductInstanceManager\x12\x85\x01\n\x0e\x43reateInstance\x12?.ansys.api.platform.instancemanagement.v1.CreateInstanceRequest\x1a\x32.ansys.api.platform.instancemanagement.v1.Instance\x12i\n\x0e\x44\x65leteInstance\x12?.ansys.api.platform.instancemanagement.v1.DeleteInstanceRequest\x1a\x16.google.protobuf.Empty\x12\x90\x01\n\rListInstances\x12>.ansys.api.platform.instancemanagement.v1.ListInstancesRequest\x1a?.ansys.api.platform.instancemanagement.v1.ListInstancesResponse\x12\x7f\n\x0bGetInstance\x12<.ansys.api.platform.instancemanagement.v1.GetInstanceRequest\x1a\x32.ansys.api.platform.instancemanagement.v1.Instance\x12\x96\x01\n\x0fListDefinitions\x12@.ansys.api.platform.instancemanagement.v1.ListDefinitionsRequest\x1a\x41.ansys.api.platform.instancemanagement.v1.ListDefinitionsResponse\x12\x85\x01\n\rGetDefinition\x12>.ansys.api.platform.instancemanagement.v1.GetDefinitionRequest\x1a\x34.ansys.api.platform.instancemanagement.v1.DefinitionBUZ(ansys/api/platform/instancemanagement/v1\xaa\x02(Ansys.Api.Platform.InstanceManagement.V1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
-  _globals['DESCRIPTOR']._serialized_options = b'\252\002(Ansys.Api.Platform.InstanceManagement.V1'
+  _globals['DESCRIPTOR']._serialized_options = b'Z(ansys/api/platform/instancemanagement/v1\252\002(Ansys.Api.Platform.InstanceManagement.V1'
   _globals['_INSTANCE_SERVICESENTRY']._loaded_options = None
   _globals['_INSTANCE_SERVICESENTRY']._serialized_options = b'8\001'
   _globals['_SERVICE_HEADERSENTRY']._loaded_options = None
@@ -43,26 +43,38 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_INSTANCE_SERVICESENTRY']._serialized_end=419
   _globals['_DEFINITION']._serialized_start=421
   _globals['_DEFINITION']._serialized_end=527
-  _globals['_SERVICE']._serialized_start=530
-  _globals['_SERVICE']._serialized_end=681
-  _globals['_SERVICE_HEADERSENTRY']._serialized_start=635
-  _globals['_SERVICE_HEADERSENTRY']._serialized_end=681
-  _globals['_CREATEINSTANCEREQUEST']._serialized_start=683
-  _globals['_CREATEINSTANCEREQUEST']._serialized_end=776
-  _globals['_DELETEINSTANCEREQUEST']._serialized_start=778
-  _globals['_DELETEINSTANCEREQUEST']._serialized_end=815
-  _globals['_GETINSTANCEREQUEST']._serialized_start=817
-  _globals['_GETINSTANCEREQUEST']._serialized_end=851
-  _globals['_LISTINSTANCESREQUEST']._serialized_start=853
-  _globals['_LISTINSTANCESREQUEST']._serialized_end=914
-  _globals['_LISTINSTANCESRESPONSE']._serialized_start=916
-  _globals['_LISTINSTANCESRESPONSE']._serialized_end=1035
-  _globals['_LISTDEFINITIONSREQUEST']._serialized_start=1037
-  _globals['_LISTDEFINITIONSREQUEST']._serialized_end=1147
-  _globals['_LISTDEFINITIONSRESPONSE']._serialized_start=1149
-  _globals['_LISTDEFINITIONSRESPONSE']._serialized_end=1274
-  _globals['_GETDEFINITIONREQUEST']._serialized_start=1276
-  _globals['_GETDEFINITIONREQUEST']._serialized_end=1312
-  _globals['_PRODUCTINSTANCEMANAGER']._serialized_start=1315
-  _globals['_PRODUCTINSTANCEMANAGER']._serialized_end=2147
+  _globals['_MTLSCLIENTINFO']._serialized_start=529
+  _globals['_MTLSCLIENTINFO']._serialized_end=632
+  _globals['_SERVICESECURITYINFO']._serialized_start=635
+  _globals['_SERVICESECURITYINFO']._serialized_end=866
+  _globals['_SERVICE']._serialized_start=869
+  _globals['_SERVICE']._serialized_end=1101
+  _globals['_SERVICE_HEADERSENTRY']._serialized_start=1055
+  _globals['_SERVICE_HEADERSENTRY']._serialized_end=1101
+  _globals['_MTLSCERTIFICATEPATHS']._serialized_start=1104
+  _globals['_MTLSCERTIFICATEPATHS']._serialized_end=1271
+  _globals['_MTLSSETTINGS']._serialized_start=1274
+  _globals['_MTLSSETTINGS']._serialized_end=1437
+  _globals['_UDSSETTINGS']._serialized_start=1439
+  _globals['_UDSSETTINGS']._serialized_end=1526
+  _globals['_INSTANCESECURITYSETTINGS']._serialized_start=1529
+  _globals['_INSTANCESECURITYSETTINGS']._serialized_end=1794
+  _globals['_CREATEINSTANCEREQUEST']._serialized_start=1797
+  _globals['_CREATEINSTANCEREQUEST']._serialized_end=1985
+  _globals['_DELETEINSTANCEREQUEST']._serialized_start=1987
+  _globals['_DELETEINSTANCEREQUEST']._serialized_end=2024
+  _globals['_GETINSTANCEREQUEST']._serialized_start=2026
+  _globals['_GETINSTANCEREQUEST']._serialized_end=2060
+  _globals['_LISTINSTANCESREQUEST']._serialized_start=2062
+  _globals['_LISTINSTANCESREQUEST']._serialized_end=2123
+  _globals['_LISTINSTANCESRESPONSE']._serialized_start=2125
+  _globals['_LISTINSTANCESRESPONSE']._serialized_end=2244
+  _globals['_LISTDEFINITIONSREQUEST']._serialized_start=2246
+  _globals['_LISTDEFINITIONSREQUEST']._serialized_end=2356
+  _globals['_LISTDEFINITIONSRESPONSE']._serialized_start=2358
+  _globals['_LISTDEFINITIONSRESPONSE']._serialized_end=2483
+  _globals['_GETDEFINITIONREQUEST']._serialized_start=2485
+  _globals['_GETDEFINITIONREQUEST']._serialized_end=2521
+  _globals['_PRODUCTINSTANCEMANAGER']._serialized_start=2524
+  _globals['_PRODUCTINSTANCEMANAGER']._serialized_end=3356
 # @@protoc_insertion_point(module_scope)

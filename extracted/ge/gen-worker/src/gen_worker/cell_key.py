@@ -65,6 +65,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from typing import Any, Dict, Mapping, Tuple
+from . import env_seal
 
 # ck2 -> ck3 (pgw#691): sku left. ck3 -> ck4 (pgw#696): env_seal joined.
 # ck4 -> ck5 (Paul's exact-identity ruling): the key became the RECIPE
@@ -144,12 +145,12 @@ def from_axes(axes: Mapping[str, str]) -> CellKey:
     return CellKey(axes=tuple(sorted(clean.items())))
 
 
-def _canonical_lane(weight_lane: str, lora_bucket: int = 0) -> str:
+def _canonical_execution_lane(weight_lane: str, lora_bucket: int = 0) -> str:
     from . import compile_cache as cc  # cycle: compile_cache imports cell_key
 
-    base, observed = cc.lane_bucket(str(weight_lane or ""))
+    base, observed = cc.execution_lane_bucket(str(weight_lane or ""))
     bucket = observed or int(lora_bucket or 0)
-    token = cc.lane_token(base)
+    token = cc.execution_lane_token(base)
     if bucket:
         return f"{token}-lora{bucket}" if token else f"lora{bucket}"
     return token
@@ -196,14 +197,13 @@ def compute(
     function's module. Raises :class:`CellKeyError` when a required axis is
     unavailable — callers on non-CUDA runtimes simply have no key."""
     from . import compile_cache as cc  # cycle: compile_cache imports cell_key
-    from . import env_seal
 
     rt = cc.runtime_key()
     return from_axes({
         "format": str(cc.ARTIFACT_FORMAT),
         "kind": "inductor",
         "family": str(family or ""),
-        "lane": _canonical_lane(weight_lane, lora_bucket),
+        "lane": _canonical_execution_lane(weight_lane, lora_bucket),
         "mode": "regional" if regional else "",
         "sm": rt["sm"],
         "contract": str(contract or ""),
@@ -219,8 +219,10 @@ def from_artifact_metadata(meta: Mapping[str, Any]) -> CellKey:
 
     Derived from the metadata, never from the stamped ``cell_key`` field, so
     a stamp can never disagree with the axes it summarizes. Raises
-    :class:`CellKeyError` for artifacts that don't record every required axis
-    (pre-gw#581 cells have no key and stay on the legacy verify path).
+    :class:`CellKeyError` for artifacts that don't record every required axis.
+    That is the ONLY verdict — pgw#950 deleted the second, axis-by-axis verify
+    path keyless cells used to fall back to, on both the fleet and the local
+    store. A cell with no computable key is refused and re-minted.
 
     EXPORTED (``aot-inductor``) cells are refused here BY NAME (pgw#735): they
     ride the same ck5 key space — the axis names are what :func:`from_axes`
@@ -237,7 +239,6 @@ def from_artifact_metadata(meta: Mapping[str, Any]) -> CellKey:
             f"axes (stamped={str(meta.get('cell_key') or '') or 'MISSING'})")
     if kind != "torch-inductor-cache":
         raise CellKeyError(f"artifact kind {kind!r} has no cell-key identity")
-    from . import env_seal
 
     mode = str(meta.get("compile_mode") or "whole")
     contract_facts = meta.get("shape_contract")
@@ -264,7 +265,7 @@ def from_artifact_metadata(meta: Mapping[str, Any]) -> CellKey:
         "format": str(meta.get("format") or ""),
         "kind": "inductor",
         "family": str(meta.get("family") or ""),
-        "lane": _canonical_lane(
+        "lane": _canonical_execution_lane(
             str(meta.get("weight_lane") or ""),
             int(meta.get("lora_bucket") or 0),
         ),

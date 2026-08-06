@@ -3,9 +3,11 @@
 - Linux: official `get.docker.com` convenience script.
 - macOS / Windows: report manual install (Docker Desktop is the only supported path
   and ships with its own installer/updater that we don't try to automate).
+
+Configuration posts the GitLab container-registry login, so a ``docker pull``
+from the private registry needs nothing further.
 """
 
-import json
 import os
 import shutil
 import subprocess
@@ -16,9 +18,11 @@ from typing import Any
 import httpx
 import typer
 
-from ..common.docker import daemon_running
+from ..common.docker import daemon_running, registry_logins
+from . import registry_credential
 from .common import binary, platform
 from .common.base import BaseTool, InstallReport, ToolState
+from .common.privileged import run_privileged
 
 
 def compose_available() -> bool:
@@ -28,23 +32,6 @@ def compose_available() -> bool:
         ["docker", "compose", "version"], capture_output=True, text=True, encoding="utf-8", check=False, timeout=5
     )
     return r.returncode == 0
-
-
-def registry_logins() -> dict[str, str]:
-    """Read ~/.docker/config.json and report registries with stored auth or credHelper."""
-    config = Path.home() / ".docker" / "config.json"
-    if not config.exists():
-        return {}
-    try:
-        data = json.loads(config.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    out: dict[str, str] = {}
-    for reg in data.get("auths") or {}:
-        out[reg] = "auth"
-    for reg, helper in (data.get("credHelpers") or {}).items():
-        out[reg] = f"credHelper:{helper}"
-    return out
 
 
 def _install_linux() -> InstallReport:
@@ -57,16 +44,14 @@ def _install_linux() -> InstallReport:
             script.chmod(0o755)
         except Exception as exc:  # noqa: BLE001
             return InstallReport(error=f"could not fetch get.docker.com: {exc}")
-        proc = subprocess.run(
-            ["sudo", "sh", str(script)], capture_output=True, text=True, encoding="utf-8", check=False
-        )
-        if proc.returncode != 0:
-            return InstallReport(error=proc.stderr.strip() or proc.stdout.strip())
+        result = run_privileged(["sh", str(script)], what="Installing Docker Engine")
+        if not result.ok:
+            return InstallReport(error=result.error or "get.docker.com script failed")
 
     # Add user to docker group (best-effort)
     user = os.environ.get("USER") or os.environ.get("USERNAME") or ""
     if user:
-        subprocess.run(["sudo", "usermod", "-aG", "docker", user], check=False)
+        run_privileged(["usermod", "-aG", "docker", user], what="Adding you to the docker group", timeout=60)
 
     return InstallReport(
         method="get.docker.com",
@@ -117,6 +102,7 @@ def _install_windows() -> InstallReport:
 class DockerTool(BaseTool):
     name = "docker"
     cli_help = "Install/update Docker Engine/Desktop and configure registries"
+    env_optional = (registry_credential.TOKEN_VAR,)
 
     def get_state(self) -> ToolState:
         bin_status = binary.status("docker", version_arg="--version")
@@ -125,7 +111,7 @@ class DockerTool(BaseTool):
         ecr_helper = bool(shutil.which("docker-credential-ecr-login"))
         registries = registry_logins()
 
-        return ToolState(
+        state = ToolState(
             needs_install=not bin_status.installed,
             extra={
                 "binary": bin_status.to_dict(),
@@ -135,6 +121,13 @@ class DockerTool(BaseTool):
                 "registries": registries,
             },
         )
+        return registry_credential.augment_state(self.name, state)
+
+    def do_configure(self) -> InstallReport:
+        return registry_credential.configure_report(self.name)
+
+    def do_uninstall(self, *, dry_run: bool = False) -> InstallReport:
+        return registry_credential.uninstall_report(self.name, dry_run=dry_run)
 
     def do_install(self) -> InstallReport:
         try:
@@ -187,6 +180,7 @@ class DockerTool(BaseTool):
         registries = state.get("registries", {})
         if registries:
             lines.append((f"registries: {', '.join(registries)}", None))
+        lines.extend(registry_credential.identity_lines(state))
         return lines
 
 

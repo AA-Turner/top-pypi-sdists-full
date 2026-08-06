@@ -44,7 +44,7 @@ class User(Model):
 
     class Meta:
         # reverse indexes elements
-        indexes = [CustomIndex(fields=("is_superuser",)), Index(fields=("username", "is_active"))]
+        indexes = (CustomIndex(fields=("is_superuser",)), Index(fields=("username", "is_active")))
 
 
 class Email(Model):
@@ -72,11 +72,11 @@ class Category(Model):
 
     class Meta:
         if Dialect.is_postgres():
-            indexes = [HashIndex(fields=("slug",))]
+            indexes: list[Index] = [HashIndex(fields=("slug",))]
         elif Dialect.is_mysql():
-            indexes = [FullTextIndex(fields=("slug",))]  # type:ignore
+            indexes = [FullTextIndex(fields=("slug",))]
         else:
-            indexes = [Index(fields=("slug",))]  # type:ignore
+            indexes = [Index(fields=("slug",))]
 
 
 class Product(Model):
@@ -115,7 +115,7 @@ class Config(Model):
     name = fields.CharField(max_length=100, db_index=True)
     label = fields.CharField(max_length=200)
     key = fields.CharField(max_length=20)
-    value: dict = fields.JSONField()
+    value = fields.JSONField[dict]()
     status: Status = fields.IntEnumField(Status)
     user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
         "models.User", description="User"

@@ -25,7 +25,7 @@ the `prefit=True` option of
 `SplitConformalClassifier`.
 """
 
-# sphinx_gallery_thumbnail_number = 5
+# mkdocs_gallery_thumbnail_number = 5
 
 from typing import Any, Dict, List, Optional, Union
 
@@ -391,7 +391,7 @@ for strategy, y_ps_ in y_ps.items():
 
 
 ##############################################################################
-# Next, we visualize their coverages and prediction set sizes as function of
+# Next, we visualize their coverages and prediction set sizes as a function of
 # the `confidence_level` parameter.
 
 plot_coverage_width(

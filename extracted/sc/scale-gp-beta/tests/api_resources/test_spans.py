@@ -245,6 +245,12 @@ class TestSpans:
             application_variant_ids=["string"],
             assessment_types=["string"],
             excluded_span_ids=["string"],
+            excluded_spans=[
+                {
+                    "span_id": "span_id",
+                    "trace_id": "trace_id",
+                }
+            ],
             excluded_trace_ids=["string"],
             extra_metadata={"foo": "bar"},
             group_id="group_id",
@@ -255,6 +261,12 @@ class TestSpans:
             parents_only=True,
             search_texts=["string"],
             span_ids=["string"],
+            spans=[
+                {
+                    "span_id": "span_id",
+                    "trace_id": "trace_id",
+                }
+            ],
             statuses=["SUCCESS"],
             trace_ids=["string"],
             types=["TEXT_INPUT"],
@@ -557,6 +569,12 @@ class TestAsyncSpans:
             application_variant_ids=["string"],
             assessment_types=["string"],
             excluded_span_ids=["string"],
+            excluded_spans=[
+                {
+                    "span_id": "span_id",
+                    "trace_id": "trace_id",
+                }
+            ],
             excluded_trace_ids=["string"],
             extra_metadata={"foo": "bar"},
             group_id="group_id",
@@ -567,6 +585,12 @@ class TestAsyncSpans:
             parents_only=True,
             search_texts=["string"],
             span_ids=["string"],
+            spans=[
+                {
+                    "span_id": "span_id",
+                    "trace_id": "trace_id",
+                }
+            ],
             statuses=["SUCCESS"],
             trace_ids=["string"],
             types=["TEXT_INPUT"],

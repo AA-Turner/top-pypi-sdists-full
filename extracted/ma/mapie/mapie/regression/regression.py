@@ -12,12 +12,16 @@ from sklearn.pipeline import Pipeline
 from sklearn.utils import check_random_state
 from sklearn.utils.validation import _check_y, indexable
 
-from mapie.conformity_scores import BaseRegressionScore, ResidualNormalisedScore
+from mapie.conformity_scores import (
+    BaseRegressionScore,
+    ResidualNormalisedScore,
+    StdConformityScore,
+)
 from mapie.conformity_scores.utils import (
     check_and_select_conformity_score,
     check_regression_conformity_score,
 )
-from mapie.estimator.regressor import EnsembleRegressor
+from mapie.estimator.regressor import EnsembleRegressor, EnsembleStdRegressor
 from mapie.subsample import Subsample
 from mapie.utils import (
     _cast_point_predictions_to_ndarray,
@@ -81,7 +85,7 @@ class SplitConformalRegressor:
         A custom score function inheriting from BaseRegressionScore may also
         be provided.
 
-        See [theoretical description (conformity scores)](../theory/conformity-scores.md).
+        See [theory (conformity scores)](../content/conformal-prediction/conformity-scores.md).
 
     prefit : bool, default=True
         If True, the base regressor must be fitted, and the `fit`
@@ -324,7 +328,7 @@ class SplitConformalRegressor:
             "conformalize",
             self._is_conformalized,
         )
-        return self._mapie_regressor.conformity_scores_
+        return cast(NDArray, self._mapie_regressor.conformity_scores_)
 
 
 class CrossConformalRegressor:
@@ -358,7 +362,7 @@ class CrossConformalRegressor:
         A custom score function inheriting from BaseRegressionScore may also
         be provided.
 
-        See [theoretical description (conformity scores)](../theory/conformity-scores.md).
+        See [theory (conformity scores)](../content/conformal-prediction/conformity-scores.md).
 
     method : str, default="plus"
         The method used to compute prediction intervals. Options are:
@@ -694,7 +698,7 @@ class CrossConformalRegressor:
             "fit_conformalize",
             self.is_fitted_and_conformalized,
         )
-        return self._mapie_regressor.conformity_scores_
+        return cast(NDArray, self._mapie_regressor.conformity_scores_)
 
 
 class JackknifeAfterBootstrapRegressor:
@@ -729,7 +733,7 @@ class JackknifeAfterBootstrapRegressor:
         A custom score function inheriting from BaseRegressionScore may also
         be provided.
 
-        See [theoretical description (conformity scores)](../theory/conformity-scores.md).
+        See [theory (conformity scores)](../content/conformal-prediction/conformity-scores.md).
 
     method : str, default="plus"
 
@@ -1061,7 +1065,7 @@ class JackknifeAfterBootstrapRegressor:
             "fit_conformalize",
             self.is_fitted_and_conformalized,
         )
-        return self._mapie_regressor.conformity_scores_
+        return cast(NDArray, self._mapie_regressor.conformity_scores_)
 
 
 class _MapieRegressor(RegressorMixin, BaseEstimator):
@@ -1493,7 +1497,9 @@ class _MapieRegressor(RegressorMixin, BaseEstimator):
             )
 
         X, y = indexable(X, y)
-        y = _check_y(y)
+        y = np.asarray(y)
+        multi_output = getattr(self.conformity_score, "multi_output", False)
+        y = _check_y(y, multi_output=multi_output)
 
         # Handle sample_weight from fit_params
         sample_weight = self._fit_params.pop("sample_weight", None)
@@ -1581,7 +1587,12 @@ class _MapieRegressor(RegressorMixin, BaseEstimator):
             groups,
         ) = self._check_fit_parameters(X, y, groups)
 
-        self.estimator_ = EnsembleRegressor(
+        my_regressor = (
+            EnsembleStdRegressor
+            if isinstance(self.conformity_score_function_, StdConformityScore)
+            else EnsembleRegressor
+        )
+        self.estimator_ = my_regressor(
             estimator,
             self.method,
             cv,
@@ -1616,11 +1627,21 @@ class _MapieRegressor(RegressorMixin, BaseEstimator):
         self.estimator_.fit_multi_estimators(X, y, groups=groups, **self._fit_params)
 
         # Predict on calibration data
-        y_pred = self.estimator_.predict_calib(X, y=y, groups=groups, **predict_params)
+        conformity_score_params = {}
+        if isinstance(self.conformity_score_function_, StdConformityScore):
+            estimator = cast(EnsembleStdRegressor, self.estimator_)
+            y_pred, y_std = estimator.predict_calib_with_std(
+                X, y=y, groups=groups, **predict_params
+            )
+            conformity_score_params["y_std"] = y_std
+        else:
+            y_pred = self.estimator_.predict_calib(
+                X, y=y, groups=groups, **predict_params
+            )
 
         # Compute the conformity scores (manage jk-ab case)
         self.conformity_scores_ = self.conformity_score_function_.get_conformity_scores(
-            y, y_pred, X=X
+            y, y_pred, X=X, **conformity_score_params
         )
 
         return self
@@ -1727,6 +1748,7 @@ class _MapieRegressor(RegressorMixin, BaseEstimator):
                 method=self.method,
                 optimize_beta=optimize_beta,
                 allow_infinite_bounds=allow_infinite_bounds,
+                **predict_params,
             )
             y_pred, y_pred_low, y_pred_up = outputs
 

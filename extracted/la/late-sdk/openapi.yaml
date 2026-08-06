@@ -3376,6 +3376,25 @@ components:
                 product_retailer_id:
                   type: string
                   description: Retailer ID (SKU) of the product being asked about.
+            contacts:
+              type: array
+              description: |
+                WhatsApp only. Contact cards the user shared, forwarded verbatim
+                from Meta. Read `contactsOrigin` before treating any number here
+                as the sender's own.
+              items:
+                type: object
+                additionalProperties: true
+            contactsOrigin:
+              type: string
+              enum: [contact_request, other]
+              description: |
+                WhatsApp only. How the contact card was shared.
+                `contact_request` means the user tapped a `request_contact_info`
+                button, so the number is their own and consented. `other` means
+                they picked a card from their address book: it may be anyone's,
+                and must NOT be stored as the sender's identity. Omitted when
+                Meta sends no origin.
             storyReply:
               type: object
               description: |
@@ -4170,7 +4189,7 @@ components:
         thumbnail:
           type: string
           format: uri
-          description: Optional custom thumbnail/cover image URL for videos. Supported for Facebook video posts, Facebook Reels, and regular video uploads. Max 10MB, JPG/PNG recommended.
+          description: 'Optional custom thumbnail/cover image URL for videos. Supported for Facebook video posts, Facebook Reels, regular video uploads, and LinkedIn video posts. Max 10MB, JPG/PNG recommended.'
         instagramThumbnail:
           type: string
           format: uri
@@ -6378,6 +6397,10 @@ components:
           type: string
         post:
           $ref: '#/components/schemas/Post'
+        warnings:
+          type: array
+          items:
+            type: string
     PostDeleteResponse:
       type: object
       properties:
@@ -6585,7 +6608,7 @@ components:
         impressions: { type: integer }
         reach:
           type: integer
-          description: "Unique people reached in the requested date range. Meta (facebook/instagram): Meta's own de-duplicated reach for the exact range, fetched live and cached up to ~1 hour (may lag recent delivery; on a transient Meta error the value temporarily falls back to a sum of per-day reach, which overcounts people reached on multiple days or by multiple child ads). Because it is de-duplicated, Meta reach is NOT additive: neither daily values nor child nodes sum to the range total. TikTok: sum of per-day reach, so multi-day ranges overcount vs TikTok Ads Manager. Google, LinkedIn, X, Pinterest and OpenAI report 0 (reach not synced). Only derive frequency (impressions / reach) for Meta."
+          description: "Unique people reached in the requested date range. Meta (facebook/instagram) and TikTok: the platform's own de-duplicated reach for the exact range, fetched live and cached up to ~1 hour (may lag recent delivery; on a transient platform error the value temporarily falls back to a sum of per-day reach, which overcounts people reached on multiple days or by multiple child ads). Because it is de-duplicated, reach is NOT additive on these platforms: neither daily values nor child nodes sum to the range total. Google, LinkedIn, X, Pinterest and OpenAI report 0 (reach not synced). Frequency (impressions / reach) is only meaningful for Meta and TikTok."
         clicks: { type: integer }
         ctr: { type: number, description: Click-through rate (%) }
         cpc: { type: number, description: Cost per click }
@@ -6641,9 +6664,9 @@ components:
         called with `timeIncrement=1`. Rate metrics (ctr/cpc/cpm/costPerConversion/
         roas/videoAvgTimeWatchedActions) are recomputed per day from that day's
         sums, so summing the additive fields across a node's `daily[]` reproduces
-        its aggregated `metrics` total. `reach` is the exception: on Meta the
-        aggregated total is de-duplicated across the range, so daily reach does
-        not sum to it. Do NOT sum or plain-average
+        its aggregated `metrics` total. `reach` is the exception: on Meta and
+        TikTok the aggregated total is de-duplicated across the range, so daily
+        reach does not sum to it. Do NOT sum or plain-average
         `videoAvgTimeWatchedActions` across days: the range value is the
         play-weighted average of the daily values.
       allOf:
@@ -6681,6 +6704,101 @@ components:
             agency apps without full BC asset read scope) — distinct from `0`,
             which would imply the BC genuinely has no advertisers.
           example: 23
+    ValueRuleCriterion:
+      type: object
+      additionalProperties: false
+      required: [criteriaType, operator, criteriaValues, criteriaValueTypes]
+      description: |
+        One matching condition inside a value rule. `criteriaValues` and `criteriaValueTypes`
+        are POSITIONALLY paired: same length, same order.
+      properties:
+        id:
+          type: string
+          description: |
+            Platform criterion id. Echo it on `PUT` to KEEP this criterion, omit it to CREATE a
+            new one. A criterion left out of the array entirely is DELETED.
+        criteriaType:
+          type: string
+          enum: [AGE, GENDER, OS_TYPE, DEVICE_PLATFORM, LOCATION, PLACEMENT, OMNI_CHANNEL, AUDIENCE_LABEL]
+          description: |
+            The dimension being matched. `OMNI_CHANNEL` (conversion location: APP, INSTANT_FORM,
+            PHONE_CALL, WEBSITE) is accepted even though Meta's own enum table omits it.
+        operator:
+          type: string
+          enum: [CONTAINS]
+          description: "Required on every criterion. `CONTAINS` is currently the only value Meta supports."
+        criteriaValues:
+          type: array
+          minItems: 1
+          items: { type: string }
+          description: |
+            The values to match. `AGE` takes ranges such as `18-24`, `18+` or a custom `18-26`;
+            a range whose upper bound is 65 is NOT allowed (use `18+` instead of `18-65`).
+            `LOCATION` takes Targeting-Search keys: a two-letter country code for
+            `LOCATION_COUNTRY`, a numeric key for region / city / comScore market.
+            `AUDIENCE_LABEL` takes labels such as `HIGH_VALUE`, which are applied to a Custom
+            Audience in Ads Manager: there is no API to provision them, so they are passed
+            through unvalidated.
+        criteriaValueTypes:
+          type: array
+          minItems: 1
+          items: { type: string }
+          description: |
+            One entry per `criteriaValues` entry, in the same order. The literal `"NONE"` for
+            every criteriaType except `LOCATION`, which uses `LOCATION_COUNTRY`,
+            `LOCATION_REGION`, `LOCATION_CITY` or `LOCATION_COMSCORE_MARKET` and MAY mix them
+            within one criterion. `LOCATION_DMA` was replaced by `LOCATION_COMSCORE_MARKET` on
+            2026-06-22 and is rejected by this API.
+    ValueRule:
+      type: object
+      additionalProperties: false
+      required: [name, adjustSign, adjustValue, criteria]
+      description: |
+        One bid-adjustment rule. Rules are evaluated in ARRAY ORDER and only the first matching
+        rule adjusts the bid for an overlapping audience, so the order is semantic.
+      properties:
+        id:
+          type: string
+          description: |
+            Platform rule id. Echo it on `PUT` to KEEP this rule, omit it to CREATE a new one.
+            A rule left out of the array entirely is DELETED.
+        name: { type: string, minLength: 1, maxLength: 255 }
+        adjustSign:
+          type: string
+          enum: [INCREASE, DECREASE]
+          description: "Direction of the adjustment. There is no signed value field."
+        adjustValue:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          description: |
+            Unsigned percentage magnitude. `INCREASE` accepts 1-1000, `DECREASE` accepts 1-90.
+            0 is out of range on both.
+        status:
+          type: string
+          description: |
+            Meta returns `ACTIVE` here but documents no enum for the field. Treat it as a
+            passthrough: echo whatever the `GET` returned, and do not synthesize values.
+        criteria:
+          type: array
+          minItems: 1
+          maxItems: 4
+          items: { $ref: '#/components/schemas/ValueRuleCriterion' }
+          description: "All criteria on a rule must match for the rule to fire."
+    ValueRuleSet:
+      type: object
+      additionalProperties: false
+      required: [id, name, rules]
+      description: |
+        A named set of bid-adjustment rules on an ad account. Attach it to an ad set with
+        `valueRuleSetId`. Limits: 6 sets per ad account, 10 rules per set, 4 criteria per rule.
+      properties:
+        id: { type: string, description: "Platform value rule set id." }
+        name: { type: string }
+        rules:
+          type: array
+          items: { $ref: '#/components/schemas/ValueRule' }
+          description: "Evaluated in order; the first matching rule wins."
     BidStrategy:
       type: string
       enum: [LOWEST_COST_WITHOUT_CAP, LOWEST_COST_WITH_BID_CAP, COST_CAP, LOWEST_COST_WITH_MIN_ROAS]
@@ -12515,6 +12633,7 @@ paths:
         - name: profileId
           in: query
           schema: { type: string }
+          description: 'Filter posts to a specific profile (24-char hex ObjectId). Omit it, or send `all` or an empty value, to list posts across every profile.'
         - name: createdBy
           in: query
           schema: { type: string }
@@ -12522,9 +12641,11 @@ paths:
         - name: dateFrom
           in: query
           schema: { type: string, format: date }
+          description: 'Zero-padded YYYY-MM-DD, or a full ISO 8601 datetime. An empty value means no date filter; any other malformed value returns 400.'
         - name: dateTo
           in: query
           schema: { type: string, format: date }
+          description: 'Zero-padded YYYY-MM-DD, or a full ISO 8601 datetime. An empty value means no date filter; any other malformed value returns 400.'
         - name: includeHidden
           in: query
           schema: { type: boolean, default: false }
@@ -13276,6 +13397,9 @@ paths:
         To promote a draft to scheduled, send `isDraft: false` together with `scheduledFor` (or `publishNow: true`,
         or `queuedFromProfile`). If `isDraft` is omitted the post keeps its current draft status, so sending only
         `scheduledFor` to a draft returns 200 but the post remains a draft.
+
+        Non-draft updates run the same per-platform validation as post creation (media requirements, platform-specific
+        field rules, etc.) against the resulting platforms, returning 400 on failure.
       parameters:
         - name: postId
           in: path
@@ -14783,6 +14907,34 @@ paths:
                   error: { type: string }
               example:
                 error: "TikTok creator has reached the daily posting limit. Please try again later."
+  /v1/auth/verify:
+    get:
+      operationId: verifyCredential
+      tags: [API Keys]
+      summary: Verify credential
+      description: 'Checks whether the bearer credential on this request is valid, without reading any data. Accepts an API key or an OAuth access token. Intended for clients that must validate a credential before use (for example an MCP server verifying an incoming token) so they do not have to call a data endpoint to do it.'
+      responses:
+        '200':
+          description: Credential is valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid: { type: boolean }
+                  userId: { type: string }
+                  authType:
+                    type: string
+                    enum: [api_key, oauth, session]
+                  scope:
+                    type: [string, 'null']
+                    description: 'Granted OAuth scopes, space-separated. Null for API keys.'
+              example:
+                valid: true
+                userId: "6507a1b2c3d4e5f6a7b8c9d0"
+                authType: "oauth"
+                scope: "posts:read posts:write accounts:read"
+        '401': { $ref: '#/components/responses/Unauthorized' }
   /v1/api-keys:
     get:
       operationId: listApiKeys
@@ -15145,7 +15297,8 @@ paths:
         '400': { description: Invalid params }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: BYOK required for AppSumo Twitter }
-        '500': { description: Failed to connect account }
+        '500': { description: 'Internal error while connecting the account' }
+        '502': { description: 'The platform rejected the token exchange (type: platform_error; an upstream 4xx status is forwarded instead of 502)' }
 
   /v1/connect/{platform}/ads:
     get:
@@ -15345,12 +15498,14 @@ paths:
                   identityId: { type: string, description: "The TikTok-assigned identity_id, cached on the account." }
                   displayName: { type: string }
         '400':
-          description: "Missing fields, invalid lengths, account is in linked mode, or no advertiser found on the account"
+          description: "Missing fields, invalid JSON body, invalid accountId format, invalid lengths, or no advertiser found on the account"
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404':
           description: TikTok Ads account not found
         '500':
-          description: Failed to create the TikTok identity (TikTok API error)
+          description: Unexpected server error while caching the identity
+        '502':
+          description: 'TikTok rejected the image upload or the identity creation (type: platform_error; an upstream 4xx status is forwarded instead of 502)'
 
   /v1/connect/facebook/select-page:
     get:
@@ -20824,6 +20979,53 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Account not found }
 
+  /v1/accounts/{accountId}/slack-members:
+    get:
+      operationId: listSlackMembers
+      tags: [Slack]
+      summary: List Slack workspace members
+      description: 'Members of the connected Slack workspace that can receive a direct message, for populating a recipient picker. Bots, deactivated members and Slackbot are excluded. Start a DM by passing a member id as `participantId` to POST /v1/inbox/conversations.'
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: query
+          in: query
+          required: false
+          description: 'Case-insensitive filter over display name and handle.'
+          schema: { type: string, maxLength: 100 }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 2000, default: 50 }
+      responses:
+        '200':
+          description: Workspace members
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  members:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, description: 'Slack member id (pass as participantId to start a DM).' }
+                        name: { type: string, description: Display name }
+                        username: { type: [string, "null"], description: Slack handle }
+                        picture: { type: [string, "null"], description: Avatar URL }
+              example:
+                members:
+                  - id: "U01ABCDEF"
+                    name: "Maria García"
+                    username: "maria"
+                    picture: "https://avatars.slack-edge.com/maria.png"
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Slack account not found }
+
   /v1/discord/dms:
     post:
       operationId: sendDiscordDirectMessage
@@ -22358,6 +22560,7 @@ paths:
                 message: "Test webhook sent successfully"
         '400': { description: Webhook ID required }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Webhook not found }
         '500':
           description: Test webhook failed to deliver
           content:
@@ -22775,7 +22978,9 @@ paths:
       description: |
         Initiate a new direct message conversation with a specified user. If a conversation already exists with the recipient, the message is added to the existing thread.
 
-        Supported platforms: X/Twitter, Bluesky, Reddit, and WhatsApp. Other platforms return PLATFORM_NOT_SUPPORTED.
+        Supported platforms: X/Twitter, Bluesky, Reddit, WhatsApp, SMS, and Slack. Other platforms return PLATFORM_NOT_SUPPORTED.
+
+        Slack: pass a workspace member id as participantId (list them with GET /v1/accounts/{accountId}/slack-members). Zernio opens the DM channel with that member and sends the message; the thread then behaves like any other Slack conversation in the inbox. The member must belong to the connected workspace.
 
         WhatsApp: this is the endpoint for sending an approved template message to a phone number. Provide templateName, templateLanguage, and templateParams (variable values for the text header, body and dynamic URL buttons, in that order), with the recipient phone in participantId. A template is required because WhatsApp does not permit freeform messages to open a conversation; a missing template returns TEMPLATE_REQUIRED. Templates with media headers (image, video, document) are handled automatically: Zernio reads the approved template definition and fills the header at send time with the template's approved sample asset. To send a DIFFERENT asset per message (e.g. a distinct invoice PDF for each recipient), pass the headerMedia field with a public link (or a Meta media id); it overrides the sample for that send. Calling this for a number you already have a thread with simply sends the template into that thread, which also makes it the way to re-engage a contact after the 24-hour customer-service window has closed. Once the recipient replies (opening the 24h window), send freeform messages with the send-message endpoint (POST /v1/inbox/conversations/{conversationId}/messages). Template fields are accepted on the JSON body only, not on multipart requests. Alternatively, WhatsApp Business Accounts eligible for Meta Direct Send can open a conversation with a business-initiated utility text message and no template: pass category: 'utility' together with message (and no templateName). See the category field below.
 
@@ -22799,7 +23004,7 @@ paths:
                   description: The social account ID to send from
                 participantId:
                   type: string
-                  description: Recipient identifier. For X this is the numeric user ID; for WhatsApp, the recipient phone number in international format (digits, country code included). Provide either this or participantUsername.
+                  description: 'Recipient identifier. For X this is the numeric user ID; for WhatsApp and SMS, the recipient phone number in international format (digits, country code included); for Slack, the workspace member id (e.g. U01ABCDEF). Provide either this or participantUsername.'
                 participantUsername:
                   type: string
                   description: Recipient handle/username — an X or Bluesky handle (with or without @) or a Reddit username (with or without u/). Resolved via lookup. Provide either this or participantId.
@@ -23647,6 +23852,16 @@ paths:
                     "Send location" button; the user's reply arrives as a regular
                     location message in the conversation.
 
+                    For `request_contact_info`, `action` may be omitted (we default it
+                    to `{ "name": "request_contact_info" }`). WhatsApp renders a
+                    localized share button that cannot be relabelled, so put the reason
+                    for asking in `body.text`: this is a consent prompt, and a bare
+                    request converts badly. The reply arrives as an inbound `contacts`
+                    message with `metadata.contactsOrigin` set to `contact_request`,
+                    and we fold the shared number back into the contact automatically.
+                    A `contacts` message with origin `other` is a card the user picked
+                    from their address book and is NOT proof of their own number.
+
                     For `catalog_message`, `action` may also be omitted (we default it
                     to `{ "name": "catalog_message" }`).
 
@@ -23658,7 +23873,7 @@ paths:
                   properties:
                     type:
                       type: string
-                      enum: [list, cta_url, flow, location_request_message, voice_call, product, product_list, catalog_message, carousel]
+                      enum: [list, cta_url, flow, location_request_message, request_contact_info, voice_call, product, product_list, catalog_message, carousel]
                       description: Which interactive layout to render.
                     header:
                       type: object
@@ -23762,6 +23977,11 @@ paths:
                           required: [name]
                           properties:
                             name: { type: string, enum: [send_location] }
+                        - type: object
+                          description: 'Contact-info request action. `type` on the parent must be `request_contact_info`. May be omitted entirely; it is defaulted.'
+                          required: [name]
+                          properties:
+                            name: { type: string, enum: [request_contact_info] }
                         - type: object
                           description: |
                             Single-product action. `type` on the parent must be
@@ -32966,7 +33186,8 @@ paths:
       description: List and search contacts for a profile. Supports filtering by tags, platform, subscription status, and full-text search.
       tags: [Contacts]
       parameters:
-        - { name: profileId, in: query, schema: { type: string }, description: Filter by profile. Omit to list across all profiles }
+        - { name: profileId, in: query, schema: { type: string }, description: 'Filter by profile. Omit to list across all profiles. Matches the profile recorded on the contact itself, which is set when the contact is created and is independent of the profile its account currently belongs to. Filter by accountId to list a contact through its channel instead.' }
+        - { name: accountId, in: query, schema: { type: string }, description: 'Filter by the SocialAccount that owns the contact channel. Contacts are resolved through their channels, so the profileId contact filter is not applied while accountId is set. A profileId sent alongside is still access-checked and still scopes the returned filters.tags list.' }
         - { name: search, in: query, schema: { type: string } }
         - { name: tag, in: query, schema: { type: string } }
         - { name: tags, in: query, schema: { type: string }, description: 'Comma-separated tags, matches contacts carrying any of them' }
@@ -33076,7 +33297,7 @@ paths:
                   warning: { type: string }
         '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '409': { description: Duplicate contact }
+        '409': { description: 'Duplicate channel. The platformIdentifier is already bound to a channel on this accountId.' }
 
   /v1/contacts/{contactId}:
     get:
@@ -35821,9 +36042,25 @@ paths:
       summary: Update an ad set
       description: |
         Ad-set-level writes. Use this for ABO budget updates, ad-set-scoped
-        pause/resume, bid-strategy edits, and Meta-only post-launch delivery
-        settings via `platformSpecificData`. At least one updatable field
-        is required.
+        pause/resume, bid-strategy edits, Meta value-rule-set attach/detach, and
+        Meta-only post-launch delivery settings via `platformSpecificData`. At
+        least one updatable field is required.
+
+        Value rule sets (Meta only, see `/v1/ads/value-rule-sets`):
+        - ATTACH or REPLACE: send `valueRuleSetId`. Attachment is driven by the id's
+          presence, so `valueRulesApplied: true` is optional. Sending a different id
+          replaces the previous association; there is no separate replace call.
+        - DETACH: send `valueRulesApplied: false` and OMIT `valueRuleSetId`.
+        - Sending `valueRulesApplied: false` TOGETHER with `valueRuleSetId` returns 400
+          `mutually_exclusive_fields`. This is deliberate: Meta attaches the rule set
+          whenever `value_rule_set_id` is present, even with `value_rules_applied` false,
+          so echoing stored state while asking to detach would silently keep the bid
+          adjustments live.
+        - Eligibility: only ad sets on `LOWEST_COST_WITHOUT_CAP` or `COST_CAP`. Meta
+          rejects the rest server-side.
+        - Read back with `GET /v1/ads/ad-sets/{adSetId}?fields=value_rule_set_id`. Meta
+          does not document `value_rules_applied` as a readable ad-set field, so the
+          boolean cannot be read back.
 
         Bid strategy compatibility (per Meta's spec):
         - `LOWEST_COST_WITHOUT_CAP`: no `bidAmount`, no `roasAverageFloor`.
@@ -35881,6 +36118,21 @@ paths:
                     Minimum ROAS as a decimal multiplier (2.0 = 2.0x). Required when bidStrategy is
                     LOWEST_COST_WITH_MIN_ROAS. Sent to Meta as `bid_constraints.roas_average_floor` × 10000.
                     Not supported on OpenAI (422).
+                valueRuleSetId:
+                  type: string
+                  pattern: '^\d+$'
+                  description: |
+                    Meta only (other platforms return 501). Value rule set to attach to this ad
+                    set, from `/v1/ads/value-rule-sets`. Sending a different id replaces the
+                    current association. To DETACH, send `valueRulesApplied: false` and omit
+                    this field.
+                valueRulesApplied:
+                  type: boolean
+                  description: |
+                    Meta only (other platforms return 501). `false` DETACHES the ad set's value
+                    rule set and must be sent WITHOUT `valueRuleSetId`; the combination returns
+                    400. `true` is optional when attaching, since attachment is driven by
+                    `valueRuleSetId`, and requires it to be present.
                 platformSpecificData:
                   type: object
                   description: |
@@ -36009,7 +36261,7 @@ paths:
         - { name: fromDate, in: query, schema: { type: string, format: date }, description: "Start of the METRICS date range (YYYY-MM-DD). Affects only the spend/impression numbers overlaid on each node, NOT which campaigns are returned. Defaults to 90 days ago." }
         - { name: toDate, in: query, schema: { type: string, format: date }, description: "End of metrics date range (YYYY-MM-DD). Defaults to today. Max 730-day range." }
         - { name: sort, in: query, schema: { type: string, enum: [newest, oldest, spend_desc, spend_asc], default: newest }, description: "Campaign-level sort order. `newest` (default) / `oldest` order by the campaign's newest-ad createdAt. `spend_desc` / `spend_asc` order by aggregated spend in the requested date range; campaigns with no spend land at the end." }
-        - { name: timeIncrement, in: query, schema: { type: integer, enum: [1] }, description: "Set to `1` to also return a daily breakdown. Mirrors Meta Insights' `time_increment=1`: each node gains a `daily[]` array of per-day metrics (same fields as the aggregated `metrics`) alongside the range total, so you get per-entity daily trends in ONE call instead of calling the tree once per day. Only `1` (daily) is supported. The daily series covers the same date range and uses the same source data as `metrics`, except Meta `reach`: the range total is Meta's de-duplicated value, so daily reach does not sum to it. See `dailyLevel` to control which levels carry it." }
+        - { name: timeIncrement, in: query, schema: { type: integer, enum: [1] }, description: "Set to `1` to also return a daily breakdown. Mirrors Meta Insights' `time_increment=1`: each node gains a `daily[]` array of per-day metrics (same fields as the aggregated `metrics`) alongside the range total, so you get per-entity daily trends in ONE call instead of calling the tree once per day. Only `1` (daily) is supported. The daily series covers the same date range and uses the same source data as `metrics`, except `reach` on Meta and TikTok: the range total is the platform's de-duplicated value, so daily reach does not sum to it. See `dailyLevel` to control which levels carry it." }
         - { name: dailyLevel, in: query, schema: { type: string, enum: [campaign, adset, ad], default: campaign }, description: "Which tree levels get the `daily[]` series when `timeIncrement=1`. `campaign` (default) attaches it on campaign nodes only — the common per-campaign-trend case, and the smallest payload. `adset` adds it on ad sets too; `ad` adds it on every ad in `ads[]` as well (heaviest — a long range × up to 100 ads per ad set). Scope with `campaignId` to keep `ad`-level responses small. Ignored when `timeIncrement` is unset." }
       responses:
         '200':
@@ -37570,6 +37822,247 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '501': { description: Only supported on Meta (facebook/instagram) }
 
+  /v1/ads/value-rule-sets:
+    get:
+      operationId: listValueRuleSets
+      tags: ["Ad Accounts"]
+      x-platforms: ["meta"]
+      summary: List value rule sets
+      description: |-
+        Lists the ad account's value rule sets (Meta's `/act_X/value_rule_set`). A value rule
+        set adjusts the auction bid up or down for audience segments you value differently;
+        attach one to an ad set with `valueRuleSetId` on `POST /v1/ads/create` or
+        `PUT /v1/ads/ad-sets/{adSetId}`.
+
+        Rows are returned in the same camelCase shape the `PUT` body takes, ids included, so a
+        set round-trips 1:1: **the update is a full replace, not a patch**, so you GET, mutate
+        and send the whole thing back.
+
+        Limits: 6 rule sets per ad account, 10 rules per set, 4 criteria per rule.
+
+        **Rule order is semantic.** Rules are evaluated in array order and only the FIRST
+        matching rule adjusts the bid for an overlapping audience. The order you send is the
+        order that is stored and returned.
+
+        Eligibility: value rule sets apply only to ad sets on the `LOWEST_COST_WITHOUT_CAP`
+        (auto-bid) or `COST_CAP` bid strategies. Meta rejects the rest server-side.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
+        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "Meta ad account id (act_<n>)." }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 }, description: Rows per page }
+        - { name: after, in: query, schema: { type: string }, description: "Cursor from paging.after of the previous page. Meta does not document paging on this edge; `after` comes back null when it omits cursors." }
+      responses:
+        '200':
+          description: Value rule sets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adAccountId: { type: string }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/ValueRuleSet' }
+                  paging:
+                    type: object
+                    properties:
+                      after: { type: [string, "null"], description: "Cursor for the next page; null when exhausted or when Meta omits paging." }
+        '400': { description: "Invalid input, or Meta rejected the query. Meta answers a bad rule-set id with GraphMethodException code 100 / subcode 33, which is indistinguishable between not-found, no-permission, and account-not-enabled." }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+
+    post:
+      operationId: createValueRuleSet
+      tags: ["Ad Accounts"]
+      x-platforms: ["meta"]
+      summary: Create a value rule set
+      description: |-
+        Creates a value rule set on the ad account (Meta's `POST /act_X/value_rule_set`).
+        Attach the returned id to an ad set with `valueRuleSetId` on `POST /v1/ads/create` or
+        `PUT /v1/ads/ad-sets/{adSetId}`.
+
+        **Rule order is semantic**: rules are evaluated in array order and only the first
+        matching rule adjusts the bid for an overlapping audience.
+
+        `adjustValue` is an unsigned magnitude in percent; the direction lives in `adjustSign`.
+        `INCREASE` accepts 1-1000, `DECREASE` accepts 1-90. There is no signed field and 0 is
+        out of range.
+
+        `criteriaValueTypes` is positionally paired with `criteriaValues` (same length, same
+        order). Every type is the literal `"NONE"` except on `LOCATION`, which uses
+        `LOCATION_COUNTRY` / `LOCATION_REGION` / `LOCATION_CITY` / `LOCATION_COMSCORE_MARKET`
+        and may mix them within one criterion. Location values are Targeting-Search keys: a
+        two-letter country code for `LOCATION_COUNTRY`, a numeric key for the rest.
+
+        `LOCATION_DMA` was replaced by `LOCATION_COMSCORE_MARKET` on 2026-06-22 and rules using
+        DMAs are no longer active, so this API rejects it.
+
+        `AUDIENCE_LABEL` values (e.g. `HIGH_VALUE`) are applied to a Custom Audience in Ads
+        Manager. There is no API to provision them, so label strings are passed through
+        unvalidated and a typo produces a rule that never fires.
+
+        Ads Manager turns a rule set read-only (this API stays editable) when a rule uses more
+        than 2 criteria, a custom age range, or the placements `FB_MARKETPLACE`, `FB_SEARCH`,
+        `FB_VIDEO` or `IG_EXPLORE`.
+
+        Limits: 6 rule sets per ad account, 10 rules per set, 4 criteria per rule. The
+        per-account cap is enforced by Meta, not here.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, adAccountId, name, rules]
+              properties:
+                accountId: { type: string, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
+                adAccountId: { type: string, description: "Meta ad account id (act_<n>)." }
+                name: { type: string, minLength: 1, maxLength: 255 }
+                rules:
+                  type: array
+                  minItems: 1
+                  maxItems: 10
+                  description: "Evaluated in order; the first matching rule wins."
+                  items: { $ref: '#/components/schemas/ValueRule' }
+      responses:
+        '201':
+          description: Value rule set created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adAccountId: { type: string }
+                  valueRuleSetId: { type: [string, "null"], description: "The new rule set id. Meta does not document the create response body, so this is null on the (unobserved) case where it omits the id." }
+        '400': { description: "Invalid input, or Meta rejected the create (per-account rule-set cap, ineligible criteria, or an account that is not enabled for value rules)" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+
+  /v1/ads/value-rule-sets/{valueRuleSetId}:
+    get:
+      operationId: getValueRuleSet
+      tags: ["Ad Accounts"]
+      x-platforms: ["meta"]
+      summary: Read a value rule set
+      description: |-
+        Reads one value rule set including every nested rule id and criterion id. This is step
+        one of any edit: `PUT` is a full replace, so you need the ids before you can keep the
+        objects you are not changing.
+
+        Meta's own read returns `GENDER` values lowercase (`"male"`) while writes require
+        `"MALE"`. Values are passed through untouched, so never case-compare a stored rule
+        against a fetched one.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: valueRuleSetId, in: path, required: true, schema: { type: string }, description: "Platform value rule set id." }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
+      responses:
+        '200':
+          description: Value rule set
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valueRuleSet: { $ref: '#/components/schemas/ValueRuleSet' }
+        '400': { description: "Invalid input, or Meta rejected the read. A bad id comes back as GraphMethodException code 100 / subcode 33, which cannot be told apart from a permission problem." }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+
+    put:
+      operationId: updateValueRuleSet
+      tags: ["Ad Accounts"]
+      x-platforms: ["meta"]
+      summary: Replace a value rule set
+      description: |-
+        **THIS IS A FULL REPLACE, NOT A PATCH.** Meta's update is declarative: the body you
+        send becomes the rule set.
+
+        - `GET /v1/ads/value-rule-sets/{valueRuleSetId}` FIRST.
+        - Keep a rule or criterion by echoing its `id`.
+        - Create one by including the object WITHOUT an `id`.
+        - Delete one by OMITTING it from the array. There is no warning and no undo.
+
+        `name` and `rules` are both required for exactly this reason: a partial body would
+        silently destroy every rule left out.
+
+        **Rule order is semantic**: the array order you send is the evaluation order, and only
+        the first matching rule adjusts the bid for an overlapping audience.
+
+        Existing rule sets created elsewhere may contain `LOCATION_DMA` criteria. Those went
+        inert on 2026-06-22 and are rejected here; migrate them to `LOCATION_COMSCORE_MARKET`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: valueRuleSetId, in: path, required: true, schema: { type: string }, description: "Platform value rule set id." }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, name, rules]
+              properties:
+                accountId: { type: string, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
+                name: { type: string, minLength: 1, maxLength: 255, description: "Required: the update replaces the whole set." }
+                rules:
+                  type: array
+                  minItems: 1
+                  maxItems: 10
+                  description: "The COMPLETE rule list. Omitting a rule deletes it on Meta."
+                  items: { $ref: '#/components/schemas/ValueRule' }
+      responses:
+        '200':
+          description: Value rule set replaced
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valueRuleSetId: { type: string }
+                  name: { type: string }
+                  rules:
+                    type: array
+                    items: { $ref: '#/components/schemas/ValueRule' }
+                  message: { type: string }
+        '400': { description: "Invalid input, or Meta rejected the update" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+
+    delete:
+      operationId: deleteValueRuleSet
+      tags: ["Ad Accounts"]
+      x-platforms: ["meta"]
+      summary: Delete a value rule set
+      description: |-
+        Deletes the rule set (Meta's `POST /{value-rule-set-id}/delete_rule_set`, a custom
+        action edge rather than an HTTP DELETE on its side). Ad sets pointing at it are not
+        modified here; detach them first with `valueRulesApplied: false` on
+        `PUT /v1/ads/ad-sets/{adSetId}`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: valueRuleSetId, in: path, required: true, schema: { type: string }, description: "Platform value rule set id." }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
+      responses:
+        '200':
+          description: Value rule set deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valueRuleSetId: { type: string }
+                  message: { type: string }
+        '400': { description: "Invalid input, or Meta rejected the delete. A bad id comes back as GraphMethodException code 100 / subcode 33, which reads like a permission error rather than a 404." }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { description: Only supported on Meta (facebook/instagram) }
+
   /v1/ads/accounts/finance:
     get:
       operationId: getAdAccountFinance
@@ -38032,6 +38525,17 @@ paths:
                     (for example, an agency paying for a client's ads). Same rules as
                     `dsaBeneficiary`: required for EU targeting unless the ad account has
                     a default payor.
+                optimizationGoal:
+                  type: string
+                  description: |
+                    Meta only. Explicit ad-set `optimization_goal` override. When omitted,
+                    defaults to the value derived from `goal`. The value must be compatible
+                    with the objective Meta derives from `goal`, not with the objective used
+                    by `POST /v1/ads/create` for the same `goal` name: boost maps `goal:
+                    "engagement"` to objective `OUTCOME_AWARENESS`, which accepts
+                    `REACH`, `IMPRESSIONS`, `AD_RECALL_LIFT`, or THRUPLAY-class values, and
+                    rejects `POST_ENGAGEMENT` (that value is only valid under
+                    `OUTCOME_ENGAGEMENT`, which create uses for the same goal name).
       responses:
         '201':
           description: Ad created
@@ -38718,6 +39222,31 @@ paths:
                     Minimum ROAS as a decimal multiplier (e.g. 2.0 = 2.0x ROAS). Required when
                     `bidStrategy` is `LOWEST_COST_WITH_MIN_ROAS`. Sent to Meta as
                     `bid_constraints.roas_average_floor` × 10000.
+                valueRuleSetId:
+                  type: string
+                  pattern: '^\d+$'
+                  description: |
+                    Meta only (facebook, instagram; other platforms return 400). Value rule set
+                    to attach to the new ad set, from `/v1/ads/value-rule-sets`. Attachment is
+                    driven by this id, so `valueRulesApplied` is optional alongside it.
+
+                    Rejected with 400 in `adSetId` attach mode: that shape inherits the existing
+                    ad set's attachment, so the field would be silently ignored. Use
+                    `PUT /v1/ads/ad-sets/{adSetId}` there instead.
+
+                    Ignored (stripped before the ad-set create) when `buyingType` is `RESERVED`:
+                    value rules only apply to auction ad sets on `LOWEST_COST_WITHOUT_CAP` or
+                    `COST_CAP`, and a Reach & Frequency reservation has no auction bid strategy.
+
+                    Read back with `GET /v1/ads/ad-sets/{adSetId}?fields=value_rule_set_id`; the
+                    attachment is not mirrored onto Zernio's ad documents.
+                valueRulesApplied:
+                  type: boolean
+                  description: |
+                    Meta only (facebook, instagram; other platforms return 400). Optional when
+                    attaching, and requires `valueRuleSetId`. `false` is REJECTED here with 400:
+                    a newly created ad set has nothing to detach, so detaching lives on
+                    `PUT /v1/ads/ad-sets/{adSetId}`.
                 platformSpecificData:
                   description: |
                     Platform-specific options. The platform is derived from `accountId`;
@@ -39154,6 +39683,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: Ads add-on required. }
+        '422': { description: "Meta rejected the lead form with error code 3. The Facebook Page normally needs a Page admin to accept the Lead Ads Terms of Service." }
 
   /v1/ads/lead-forms/{formId}:
     get:

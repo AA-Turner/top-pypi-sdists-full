@@ -25,6 +25,7 @@ import concurrent.futures
 
 # Ensure progress output is visible when piped through tee.
 import functools
+import hashlib
 import itertools
 import math
 import os
@@ -767,6 +768,24 @@ def main() -> None:
             idf_table[idx] = 1
     idf_path.write_bytes(idf_table)
     print(f"IDF weights:  {idf_path} ({len(idf_table):,} bytes)")
+
+    # Serialize per-model row maxima for upper-bound prescreening in
+    # statistical scoring.  Format: CRM1 magic, SHA-256 of the models.bin
+    # just written (so a stale rowmax.bin is detected at load time), then
+    # one 256-byte table per model (entry b1 = max weight in that model's
+    # row for lead byte b1), concatenated in the same sorted-name order as
+    # models.bin.
+    print("=== Computing row-max tables ===")
+    rowmax_path = output_path.parent / "rowmax.bin"
+    rowmax_blob = bytearray(b"CRM1")
+    rowmax_blob.extend(hashlib.sha256(output_path.read_bytes()).digest())
+    for name in sorted(models.keys()):
+        rm = [0] * 256
+        for (b1, _b2), weight in models[name].items():
+            rm[b1] = max(rm[b1], weight)
+        rowmax_blob.extend(rm)
+    rowmax_path.write_bytes(rowmax_blob)
+    print(f"Row maxima:   {rowmax_path} ({len(rowmax_blob):,} bytes)")
 
     print("=== Computing confusion groups ===")
     confusion_maps = compute_distinguishing_maps(threshold=0.80)

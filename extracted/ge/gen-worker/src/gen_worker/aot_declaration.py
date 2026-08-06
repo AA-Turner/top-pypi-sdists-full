@@ -47,6 +47,8 @@ from .api.export_contract import (
     GraphClass,
     Input,
 )
+import inspect
+from .aot_inputs import lifted_lora_values, module_dtype_device
 
 logger = logging.getLogger(__name__)
 
@@ -196,12 +198,27 @@ def effective_shape_strategy(decl: Compile) -> str:
     return str(decl.shape_strategy or "")
 
 
+def target_classes(decl: Compile, target: str) -> Tuple[GraphClass, ...]:
+    """The graph classes declared for one target (pgw#967).
+
+    An unscoped row serves every target — the pre-scoping rule — so a
+    single-target family reads exactly as it always did.
+    """
+    return tuple(cls for cls in decl.classes if cls.serves(target))
+
+
 def mint_plans(decl: Compile, target: str) -> Tuple[MintPlan, ...]:
     """Every artifact the declaration says to mint for one target."""
     if not decl.classes:
         raise MintRefused(
             f"family {decl.family!r} declares no graph classes — there is "
             f"no coordinate to mint")
+    classes = target_classes(decl, target)
+    if not classes:
+        raise MintRefused(
+            f"family {decl.family!r} declares target {target!r} but no graph "
+            f"class scoped to it — every target states its own coordinates "
+            f"(pgw#967), and a target with none has nothing to mint")
     strategy = effective_shape_strategy(decl)
     if not strategy:
         raise MintRefused(
@@ -210,12 +227,12 @@ def mint_plans(decl: Compile, target: str) -> Tuple[MintPlan, ...]:
             f"({STATIC_ROWS!r} for conv-bearing families, "
             f"{DYNAMIC_COLLAPSE!r} for DiTs); declare it")
     groups: Dict[Tuple[Tuple[str, Any], ...], List[GraphClass]] = {}
-    for cls in decl.classes:
+    for cls in classes:
         groups.setdefault(cls.fork, []).append(cls)
 
     plans: List[MintPlan] = []
     if strategy == STATIC_ROWS:
-        for cls in decl.classes:
+        for cls in classes:
             plans.append(MintPlan(
                 family=decl.family, target=target, fork=cls.fork,
                 rows=(cls,), seed=cls, dynamic=()))
@@ -564,8 +581,6 @@ def declared_inputs(
     """
     import torch
 
-    from .aot_inputs import lifted_lora_values, module_dtype_device
-
     rows = target_inputs(decl, spec.target)
     if not rows:
         raise MintRefused(
@@ -659,7 +674,6 @@ def call_signature(module: Any, target: str, family: str) -> Tuple[List[Any], Se
     Two implementations of "what does this forward take" would diverge, and
     the whole value of the pre-spawn check is that it predicts the mint.
     """
-    import inspect
 
     attr = target_attr(target)
     fn = getattr(module, attr, None)
@@ -694,7 +708,6 @@ def _positionalize(
     keyword-only declared name (cannot meet the positional serve marshal),
     and a required in-between parameter with no default and no declaration.
     """
-    import inspect
 
     attr = target_attr(target)
     positional, keyword_only = call_signature(module, target, family)

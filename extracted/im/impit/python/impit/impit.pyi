@@ -1,13 +1,14 @@
 from __future__ import annotations
 from http.cookiejar import CookieJar
 from .cookies import Cookies
+from .headers import Headers
 
-from typing import Literal, Any
+from . import Browser
+
+from typing import Any
 from collections.abc import Iterator, AsyncIterator
 from contextlib import AbstractAsyncContextManager, AbstractContextManager
 
-
-Browser = Literal['chrome', 'firefox', 'chrome125', 'chrome100', 'chrome101', 'chrome104', 'chrome107', 'chrome110', 'chrome116', 'chrome131', 'chrome136', 'chrome142', 'firefox128', 'firefox133', 'firefox135', 'firefox144', 'ios18']
 
 USE_CLIENT_DEFAULT: str
 """Sentinel that, when passed as a per-request ``timeout``, causes the client-level default timeout to be used.
@@ -171,13 +172,20 @@ class Response:
         print(response.http_version) # 'HTTP/2'
     """
 
-    headers: dict[str, str]
-    """Response headers as a Python dictionary.
+    headers: Headers
+    """Response headers as an httpx-style :class:`Headers` object.
+
+    Provides case-insensitive ``str`` access, plus a ``.raw`` property exposing the exact header
+    value bytes received on the wire (useful for UTF-8 header values or signature/HMAC checks).
+
+    This is a read view: each access rebuilds the object from the response, so in-place mutations
+    (``response.headers['x'] = ...``) do not persist on the response.
 
     .. code-block:: python
 
         response = await client.get("https://crawlee.dev")
-        print(response.headers) # {'content-type': 'text/html; charset=utf-8', ... }
+        print(response.headers['content-type']) # 'text/html; charset=utf-8'
+        print(response.headers.raw) # [(b'content-type', b'text/html; charset=utf-8'), ... ]
     """
 
     text: str
@@ -339,6 +347,17 @@ class Response:
             response = await client.get("https://api.example.com/data")
             data = response.json()
             print(data)  # Parsed JSON data as a Python object (dict, list, etc.)
+        """
+
+    def raise_for_status(self) -> None:
+        """Raise an :class:`HTTPStatusError` exception if the response status code indicates an error (4xx or 5xx).
+
+        Does nothing for successful status codes.
+
+        .. code-block:: python
+
+            response = await client.get("https://api.example.com/data")
+            response.raise_for_status()  # Raises if status is 4xx or 5xx
         """
 
     def close(self) -> None:

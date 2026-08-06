@@ -313,6 +313,8 @@ def test_post_zendesk_internal_comment_success(
     assert result.ticket_id == 42
     assert result.comment_id == 999
     assert result.public is False
+    assert "internal-only" in result.message
+    assert "not visible to the customer" in result.message
 
 
 @pytest.mark.unit

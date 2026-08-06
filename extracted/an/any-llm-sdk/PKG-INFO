@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: any-llm-sdk
-Version: 1.23.0
+Version: 1.24.0
 License: Apache-2.0
 Project-URL: Documentation, https://docs.mozilla.ai/any-llm/
 Project-URL: Issues, https://github.com/mozilla-ai/any-llm/issues
@@ -9,8 +9,8 @@ Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pydantic<3,>2
-Requires-Dist: openai>=1.99.3
-Requires-Dist: openresponses-types>=2.3.0.post1
+Requires-Dist: openai>=2.18.0
+Requires-Dist: openresponses-types<3,>=2.4.0
 Requires-Dist: anthropic>=0.83.0
 Requires-Dist: rich
 Requires-Dist: httpx
@@ -185,6 +185,8 @@ pip install 'any-llm-sdk[all]'              # All supported providers
 ```
 
 See our [list of supported providers](https://docs.mozilla.ai/any-llm/providers/) to choose which ones you need.
+
+Using an OpenAI-compatible gateway or local server that isn't listed? You don't need a dedicated provider entry: see [Custom OpenAI-compatible Endpoints](https://docs.mozilla.ai/any-llm/quickstart#custom-openai-compatible-endpoints).
 
 ### Setting Up API Keys
 

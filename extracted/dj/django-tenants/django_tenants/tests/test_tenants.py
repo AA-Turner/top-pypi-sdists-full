@@ -6,7 +6,6 @@ from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.db import connection, transaction
 from django.test.utils import override_settings
-from django.utils.version import get_main_version, get_version_tuple
 
 from django_tenants.clone import CloneSchema
 from django_tenants.signals import schema_migrated, schema_migrate_message, schema_pre_migration
@@ -190,20 +189,23 @@ class TenantDataAndSettingsTest(BaseTestCase):
         DummyModel(name="Schemas are").save()
         DummyModel(name="awesome!").save()
 
-        # switch temporarily to tenant2's path
-        with self.assertNumQueries(3):
+        # switch temporarily to tenant2's path.
+        # TENANT_LIMIT_SET_CALLS is off, so each of the 3 inserts is preceded by its
+        # own `SET search_path` -- 6 statements, not 3. The SET was always issued;
+        # it is now run on the caller's cursor on every driver, so it is counted.
+        with self.assertNumQueries(6):
             with tenant_context(tenant2):
                 # add some data, 3 DummyModels for tenant2
                 DummyModel(name="Man,").save()
                 DummyModel(name="testing").save()
                 DummyModel(name="is great!").save()
 
-        # we should be back to tenant1's path, test what we have
-        with self.assertNumQueries(1):
+        # we should be back to tenant1's path, test what we have (SET + COUNT)
+        with self.assertNumQueries(2):
             self.assertEqual(2, DummyModel.objects.count())
 
-        # switch back to tenant2's path
-        with self.assertNumQueries(1):
+        # switch back to tenant2's path (SET + COUNT)
+        with self.assertNumQueries(2):
             with tenant_context(tenant2):
                 self.assertEqual(3, DummyModel.objects.count())
 
@@ -229,8 +231,10 @@ class TenantDataAndSettingsTest(BaseTestCase):
         with self.assertNumQueries(0):
             connection.set_tenant(tenant1)
 
-        # switch temporarily to tenant2's path
-        with self.assertNumQueries(3):
+        # switch temporarily to tenant2's path.
+        # TENANT_LIMIT_SET_CALLS is on, so the SET runs once for the first cursor
+        # after set_tenant cleared the cache, then the 3 inserts: 4 statements.
+        with self.assertNumQueries(4):
             with tenant_context(tenant2):
                 DummyModel(name="Man,").save()
                 DummyModel(name="testing").save()
@@ -240,14 +244,16 @@ class TenantDataAndSettingsTest(BaseTestCase):
         with self.assertNumQueries(0):
             connection.set_tenant(tenant1)
 
-        with self.assertNumQueries(1):
+        # set_tenant cleared the cache, so this re-issues the SET (SET + COUNT)
+        with self.assertNumQueries(2):
             self.assertEqual(0, DummyModel.objects.count())
 
         # 0 queries as search path not set here
         with self.assertNumQueries(0):
             connection.set_tenant(tenant2)
 
-        with self.assertNumQueries(1):
+        # as above: SET + COUNT
+        with self.assertNumQueries(2):
             self.assertEqual(3, DummyModel.objects.count())
 
         self.created = [domain2, domain1, tenant2, tenant1]
@@ -384,15 +390,10 @@ class TestSyncTenantsWithAuth(BaseSyncTest):
                    'django.contrib.sessions', )  # 1 table
     TENANT_APPS = ('django.contrib.sessions', )  # 1 table
 
-    if get_version_tuple(get_main_version()) < (5, 2):
-        def _pre_setup(self):
-            self.sync_shared()
-            super()._pre_setup()
-    else:
-        @classmethod
-        def _pre_setup(cls):
-            cls.sync_shared()
-            super()._pre_setup()
+    @classmethod
+    def _pre_setup(cls):
+        cls.sync_shared()
+        super()._pre_setup()
 
     def test_tenant_apps_and_shared_apps_can_have_the_same_apps(self):
         """

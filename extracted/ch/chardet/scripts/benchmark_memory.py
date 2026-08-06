@@ -14,6 +14,7 @@ import platform
 import sys
 import tracemalloc
 from pathlib import Path
+from statistics import mean
 
 try:
     import resource
@@ -25,6 +26,7 @@ except ImportError:
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from utils import format_bytes as _format_bytes
+from utils import percentiles
 
 # Start tracemalloc as early as possible to capture baseline accurately.
 tracemalloc.start()
@@ -83,11 +85,40 @@ def main() -> None:
             best = r.best()
             return best.encoding if best else None
 
-    # Run detection over all files (slow under tracemalloc, but needed for peak)
-    for _enc, _lang, _fp, data in all_data:
-        detect(data)
+    # Capture the import phase's high-water mark before any reset erases it:
+    # transient allocations during import must stay in the run-wide peak.
+    _, import_phase_peak = tracemalloc.get_traced_memory()
 
-    _, traced_peak = tracemalloc.get_traced_memory()
+    # Warm up lazy initialization (model loading etc.) with a sample that
+    # reaches statistical scoring, so the per-detection peaks below measure
+    # steady-state calls instead of bundling the one-time load into the
+    # first file's sample.  The warmup's own peak is reported separately.
+    tracemalloc.reset_peak()
+    warm_before, _ = tracemalloc.get_traced_memory()
+    detect(
+        b"\xc2\xf1\xe5 \xf1\xf7\xe0\xf1\xf2\xeb\xe8\xe2\xfb\xe5 \xf1\xe5\xec"
+        b"\xfc\xe8 \xef\xee\xf5\xee\xe6\xe8 \xe4\xf0\xf3\xe3 \xed\xe0 \xe4"
+        b"\xf0\xf3\xe3\xe0"
+    )
+    _, warm_peak = tracemalloc.get_traced_memory()
+    first_detect_peak = warm_peak - warm_before
+
+    # Run detection over all files (slow under tracemalloc, but needed for peak).
+    # Peak is reset per file so each detection's own high-water mark can be
+    # recorded, which is what the memory-percentile table is built from. The
+    # run-wide peak starts from the import and warmup phases' high-water
+    # marks (per-file resets would otherwise erase them) and is then the max
+    # of the per-file absolute peaks.
+    traced_peak = max(import_phase_peak, warm_peak)
+    file_peaks: list[int] = []
+    for _enc, _lang, _fp, data in all_data:
+        tracemalloc.reset_peak()
+        current_before, _ = tracemalloc.get_traced_memory()
+        detect(data)
+        _, peak_after = tracemalloc.get_traced_memory()
+        file_peaks.append(peak_after - current_before)
+        traced_peak = max(traced_peak, peak_after)
+
     tracemalloc.stop()
 
     rss_after = (
@@ -107,8 +138,10 @@ def main() -> None:
                 {
                     "traced_import": traced_import,
                     "traced_peak": traced_peak_delta,
+                    "first_detect_peak": first_detect_peak,
                     "rss_before": rss_before,
                     "rss_after": rss_after,
+                    "file_peaks": file_peaks,
                 }
             )
         )
@@ -119,10 +152,19 @@ def main() -> None:
         print(f"  Files:        {len(all_data)}")
         print()
         print("Memory:")
-        print(f"  Traced import: {_format_bytes(traced_import)}")
-        print(f"  Traced peak:   {_format_bytes(traced_peak_delta)}")
-        print(f"  RSS before:    {_format_bytes(rss_before)}")
-        print(f"  RSS after:     {_format_bytes(rss_after)}")
+        print(f"  Traced import:   {_format_bytes(traced_import)}")
+        print(f"  Traced peak:     {_format_bytes(traced_peak_delta)}")
+        print(f"  1st detect peak: {_format_bytes(first_detect_peak)}")
+        print(f"  RSS before:      {_format_bytes(rss_before)}")
+        print(f"  RSS after:       {_format_bytes(rss_after)}")
+        if file_peaks:
+            pct = percentiles(file_peaks, (50, 90, 95, 99))
+            print()
+            print("Peak memory per detection (steady-state, after warmup):")
+            print(f"  mean:   {_format_bytes(int(mean(file_peaks)))}")
+            for label, p in (("median", 50), ("p90", 90), ("p95", 95), ("p99", 99)):
+                print(f"  {label + ':':<8}{_format_bytes(int(pct[p]))}")
+            print(f"  max:    {_format_bytes(max(file_peaks))}")
 
 
 if __name__ == "__main__":

@@ -14652,6 +14652,8 @@ class Client(OpenApiClient):
             query['Question'] = request.question
         if not DaraCore.is_null(request.topk):
             query['Topk'] = request.topk
+        if not DaraCore.is_null(request.user):
+            query['User'] = request.user
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -14684,6 +14686,8 @@ class Client(OpenApiClient):
             query['Question'] = request.question
         if not DaraCore.is_null(request.topk):
             query['Topk'] = request.topk
+        if not DaraCore.is_null(request.user):
+            query['User'] = request.user
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )

@@ -13,7 +13,11 @@ from __future__ import annotations
 
 import time
 import uuid
-from contextlib import AbstractContextManager, contextmanager
+from contextlib import (
+    AbstractAsyncContextManager,
+    AbstractContextManager,
+    contextmanager,
+)
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
@@ -39,6 +43,7 @@ GATEWAY_PROTOCOL_VERSION = 1
 MIN_CLIENT_PROTOCOL_VERSION = 1
 
 if TYPE_CHECKING:
+    import asyncio
     from praisonai.gateway.pairing import PairedChannel
     from ..agent import Agent
     from ..bots.presentation import MessagePresentation
@@ -2391,6 +2396,192 @@ class OutboundMessengerProtocol(Protocol):
 
 
 # ---------------------------------------------------------------------------
+# Agent-callable cross-conversation request/reply (Issue #3689)
+#
+# ``send_message`` is fire-and-deliver: it returns a delivery receipt, not the
+# target's answer. This adds the missing *ask another conversation and await
+# the reply* capability — an agent can route a question to a symbolic target
+# and get the next correlated inbound reply back into its own turn, bounded by
+# a timeout. It reuses ``send_message``'s target resolution and the outbound
+# send-policy guard; the only new surface is a one-shot reply correlation.
+#
+# Core owns only the *shape*: the typed outcome (:class:`ConversationReply`),
+# the protocol seam (:class:`ConversationRequestProtocol`), the context-var
+# registration slot (in ``session.context``), and the built-in
+# ``ask_conversation`` tool. The correlation-aware reply source is bound by the
+# running gateway/bot exactly as ``register_outbound_messenger`` binds the
+# outbound side — no heavy import lives in core. Every path ends in a recorded
+# outcome (reply | timeout | undelivered | no_route) — never a silent hang.
+# ---------------------------------------------------------------------------
+
+ConversationReplyStatus = Literal["reply", "timeout", "undelivered", "no_route"]
+"""Closed set of outcomes for an :func:`ask_conversation` request.
+
+* ``reply`` — the target replied within the timeout; ``text`` carries it.
+* ``timeout`` — the prompt was delivered but no reply arrived in time.
+* ``undelivered`` — the prompt could not be delivered to the target.
+* ``no_route`` — the target could not be resolved to a reachable channel.
+"""
+
+
+@dataclass
+class ConversationReply:
+    """Outcome of an agent-initiated cross-conversation request (Issue #3689).
+
+    Every request resolves to exactly one of the :data:`ConversationReplyStatus`
+    outcomes, so the agent always gets a typed answer back into its turn rather
+    than a silent hang.
+
+    Attributes:
+        status: The outcome (``reply`` / ``timeout`` / ``undelivered`` /
+            ``no_route``).
+        target: The resolved target the prompt was routed to.
+        text: The reply text, populated only when ``status == "reply"``.
+        detail: Optional extra information (error text, message id, etc.).
+    """
+
+    status: ConversationReplyStatus
+    target: str = ""
+    text: str = ""
+    detail: Optional[str] = None
+
+    def as_dict(self) -> Dict[str, Any]:
+        """Convert to a serializable dictionary for the tool return value."""
+        data: Dict[str, Any] = {"status": self.status}
+        if self.target:
+            data["from"] = self.target
+        if self.status == "reply":
+            data["text"] = self.text
+        if self.detail:
+            data["detail"] = self.detail
+        return data
+
+
+@runtime_checkable
+class ConversationRequestProtocol(Protocol):
+    """Protocol for agent-facing cross-conversation request/reply.
+
+    A concrete implementation is provided by the running gateway/bot (in the
+    praisonai wrapper) and registered into the per-turn context so the built-in
+    ``ask_conversation`` tool can resolve it. It sends the prompt via the same
+    delivery stack ``send_message`` uses, then correlates the *next inbound
+    reply* from that target (via the existing ``correlation_id``) with a bounded
+    timeout, returning a typed :class:`ConversationReply`.
+
+    Example usage (implementation in praisonai_bot.gateway)::
+
+        requester = BotConversationRequester(router, origin=origin)
+        token = register_conversation_requester(requester)
+        try:
+            ...  # agent runs; ask_conversation tool resolves the requester
+        finally:
+            clear_conversation_requester(token)
+    """
+
+    async def ask(
+        self,
+        target: str,
+        text: str,
+        *,
+        timeout_s: float = 120.0,
+    ) -> "ConversationReply":
+        """Send ``text`` to ``target`` and await the next correlated reply.
+
+        Args:
+            target: Symbolic target token ("origin", "<platform>",
+                "<platform>:<chat_id>[:<thread_id>]", or a friendly alias).
+            text: The prompt to send.
+            timeout_s: Maximum seconds to wait for a reply before returning a
+                ``timeout`` outcome.
+
+        Returns:
+            A :class:`ConversationReply` describing the outcome.
+        """
+        ...
+
+
+# ---------------------------------------------------------------------------
+# Agent-callable live status/health (Issue #3688)
+#
+# The gateway already computes rich live state (per-turn run status, active
+# sessions, delivery/DLQ backlog, degraded owners) but only humans/CLI/HTTP can
+# read it. This read-only protocol lets the running gateway bind a live source
+# into the per-turn context so the built-in ``gateway_status`` tool can report
+# it — mirroring how ``OutboundMessengerProtocol`` backs ``send_message``. Core
+# ships only the protocol + snapshot shape; the concrete binding (reading
+# ``health()`` / ``metrics_snapshot()`` / the session registry) lives in the
+# praisonai-bot wrapper. It is strictly read-only, redaction-aware and
+# visibility-scoped (no secrets, no cross-tenant leakage).
+# ---------------------------------------------------------------------------
+
+@dataclass
+class GatewayStatus:
+    """Read-only snapshot of the gateway's live self-state (Issue #3688).
+
+    A neutral, serializable shape the agent can reason about and report. All
+    fields default to empty so a partial/minimal binding is valid and the tool
+    never dead-ends. The concrete binding populates only the visibility-scoped
+    facts it can safely expose.
+
+    Attributes:
+        run: Current turn/run status (e.g. "idle", "busy", "queued").
+        queued: Number of turns queued behind the current one.
+        active_sessions: Count of active sessions (visibility-scoped).
+        sessions_by_channel: Active-session counts keyed by channel/platform.
+        delivery: Delivery-health facts (e.g. outbox_depth, dlq, dead_targets).
+        degraded: Degraded owners as ``{"owner": ..., "reason": ...}`` entries
+            (channels/capabilities/routes flagged configured-unavailable).
+        detail: Optional free-form extra context for the model.
+    """
+
+    run: str = "idle"
+    queued: int = 0
+    active_sessions: int = 0
+    sessions_by_channel: Dict[str, int] = field(default_factory=dict)
+    delivery: Dict[str, Any] = field(default_factory=dict)
+    degraded: List[Dict[str, Any]] = field(default_factory=list)
+    detail: str = ""
+
+    def as_dict(self) -> Dict[str, Any]:
+        """Convert to a serializable dictionary."""
+        return {
+            "run": self.run,
+            "queued": self.queued,
+            "active_sessions": self.active_sessions,
+            "sessions_by_channel": dict(self.sessions_by_channel),
+            "delivery": dict(self.delivery),
+            "degraded": list(self.degraded),
+            "detail": self.detail,
+        }
+
+
+@runtime_checkable
+class GatewayStatusProtocol(Protocol):
+    """Protocol for agent-facing, read-only live status/health reporting.
+
+    A concrete implementation is provided by the running gateway/bot (in the
+    praisonai wrapper) and registered into the per-turn context so the built-in
+    ``gateway_status`` tool can resolve it. It reads the same live objects the
+    HTTP endpoints already serve (``health()`` / ``metrics_snapshot()`` / the
+    session registry) and returns a redaction-aware, visibility-scoped
+    :class:`GatewayStatus`.
+
+    Example usage (implementation in praisonai_bot.gateway)::
+
+        status = BotGatewayStatus(gateway)
+        token = register_gateway_status(status)
+        try:
+            ...  # agent runs; gateway_status tool resolves the source
+        finally:
+            clear_gateway_status(token)
+    """
+
+    def snapshot(self) -> "GatewayStatus":
+        """Return a read-only snapshot of the gateway's live self-state."""
+        ...
+
+
+# ---------------------------------------------------------------------------
 # Outbound send-policy guard (Issue #2226)
 #
 # ``send_message`` lets the model choose where to deliver. Because the target
@@ -4681,6 +4872,179 @@ class LivenessPolicy:
         if now > self.reap_deadline(last_activity):
             return LivenessDecision.REAP
         return LivenessDecision.KEEP
+
+
+# ---------------------------------------------------------------------------
+# Cluster-wide per-turn serialisation contract (Issue #3643)
+# ---------------------------------------------------------------------------
+#
+# Turn serialisation — "only one turn runs against a given resolved session at
+# a time" — is enforced in-process by an ``asyncio.Lock`` (``LockMap``). That
+# guarantee evaporates the moment a gateway is scaled to ``replicas > 1`` (the
+# sanctioned HA topology behind ``redis_pubsub.py`` + the Helm chart): two
+# messages for one session land on two replicas and run concurrent turns with
+# no serialisation between them, corrupting the shared transcript, tripping
+# provider strict-alternation, duplicating replies and double-billing.
+#
+# This is the pure, dependency-free contract for a *distributed* turn lock,
+# mirroring how every other gateway robustness knob (drain, admission,
+# rate-limit, liveness, dead-letter) is a swappable pure protocol in core. The
+# heavy Redis/network implementation is an optional-dep runtime concern that
+# lives in the wrapper/bot package; core keeps only the protocol, the lease
+# token, and a zero-cost in-process default so single-replica behaviour is
+# unchanged and no new dependency is introduced.
+
+
+@dataclass(frozen=True)
+class TurnLeaseToken:
+    """An opaque handle to a held turn lease (Issue #3643).
+
+    Returned by :meth:`TurnLockProtocol.acquire` and passed back to
+    :meth:`TurnLockProtocol.release`. The ``owner`` token identifies the
+    replica/process that holds the lease so a distributed backend can make
+    ``release`` **identity-checked and idempotent** — a replica can only
+    release the lease it actually owns, and a stale/expired lease that has
+    since been reclaimed by another owner is never clobbered.
+
+    Attributes:
+        key: The resolved session id the lease serialises on.
+        owner: The holder's opaque owner token (e.g. a per-replica id).
+        expires_at: Absolute wall-clock expiry (same clock the backend uses).
+            A dead holder's lease is reclaimable once ``now`` passes this, so a
+            crashed replica cannot wedge a healthy session forever.
+    """
+
+    key: str
+    owner: str
+    expires_at: float
+
+
+@runtime_checkable
+class TurnLockProtocol(Protocol):
+    """Contract for serialising a session's turns — cluster-wide or in-process.
+
+    The gateway holds this lock for the *whole* agent turn keyed on the
+    resolved session id, so only one turn ever runs against one session's
+    transcript at a time. With the default in-process backend
+    (:class:`LocalTurnLock`) this reproduces today's ``asyncio.Lock`` behaviour
+    exactly and adds no dependency. With a distributed backend (a
+    ``RedisTurnLock`` in the wrapper/bot package, reusing the scheduler's proven
+    ``owner``+TTL lease pattern) the same ``async with`` seam serialises turns
+    across every replica.
+
+    Contract:
+        * :meth:`acquire` blocks until the lease for ``key`` is held, then
+          returns a :class:`TurnLeaseToken`. ``ttl`` bounds how long the lease
+          survives without renewal so a crashed holder self-heals.
+        * :meth:`release` is identity-checked against the token's ``owner`` and
+          idempotent: releasing an already-expired/reclaimed lease is a no-op,
+          never an error and never another owner's lease.
+        * :meth:`hold` is the ergonomic async context manager wrapping
+          acquire/release, used at the ``async with self._turn_lock.hold(...)``
+          call site.
+
+    A backend outage must fail *open* (degrade to a loud warning rather than
+    wedging a healthy session), mirroring the fail-safe defaults elsewhere.
+    """
+
+    async def acquire(self, key: str, *, owner: str, ttl: float) -> TurnLeaseToken:
+        """Block until the lease for ``key`` is held; return its token."""
+        ...
+
+    async def release(self, token: TurnLeaseToken) -> None:
+        """Release ``token``'s lease (identity-checked, idempotent)."""
+        ...
+
+    def hold(
+        self, key: str, *, owner: str, ttl: float
+    ) -> "AbstractAsyncContextManager[TurnLeaseToken]":
+        """Return an async context manager holding the lease for the block."""
+        ...
+
+
+class LocalTurnLock:
+    """Default in-process turn lock — today's ``asyncio.Lock`` behaviour.
+
+    Zero-cost, dependency-free implementation of :class:`TurnLockProtocol` for
+    single-replica / no-backend deployments. It serialises turns within one
+    process (per event loop) exactly as the existing ``LockMap`` does, so
+    upgrading is byte-for-byte backward compatible. It provides **no** cross-
+    process guarantee — selecting a distributed backend (e.g. ``redis``) is what
+    extends serialisation across replicas.
+
+    The ``owner``/``ttl`` arguments are accepted for protocol symmetry but are
+    inert here: an in-process ``asyncio.Lock`` is released deterministically
+    when the holding task exits, so there is no crashed-holder lease to expire.
+    """
+
+    def __init__(self) -> None:
+        self._locks: Dict[str, "asyncio.Lock"] = {}
+        # Current lease holder per key, so release() is identity-checked: only
+        # the exact token handed out by the latest acquire() may release, so a
+        # stale token can never clobber a waiter that took the lock after it.
+        self._holders: Dict[str, TurnLeaseToken] = {}
+
+    def _lock_for(self, key: str) -> "asyncio.Lock":
+        lock = self._locks.get(key)
+        if lock is None:
+            import asyncio
+
+            lock = asyncio.Lock()
+            self._locks[key] = lock
+        return lock
+
+    async def acquire(self, key: str, *, owner: str, ttl: float) -> TurnLeaseToken:
+        lock = self._lock_for(key)
+        await lock.acquire()
+        token = TurnLeaseToken(key=key, owner=owner, expires_at=0.0)
+        self._holders[key] = token
+        return token
+
+    async def release(self, token: TurnLeaseToken) -> None:
+        # Identity-checked & idempotent: a stale/duplicate token whose lease has
+        # since been reclaimed by a waiter is a harmless no-op, never another
+        # holder's lease. ``is`` (not ``==``) so equal-valued tokens from two
+        # acquires are not conflated (``TurnLeaseToken`` is frozen/value-equal).
+        if self._holders.get(token.key) is not token:
+            return
+        del self._holders[token.key]
+        lock = self._locks.get(token.key)
+        if lock is not None and lock.locked():
+            lock.release()
+
+    def hold(
+        self, key: str, *, owner: str, ttl: float
+    ) -> "AbstractAsyncContextManager[TurnLeaseToken]":
+        return _TurnLeaseHold(self, key, owner=owner, ttl=ttl)
+
+
+class _TurnLeaseHold:
+    """Async context manager wrapping acquire/release for any turn lock.
+
+    Reusable by any :class:`TurnLockProtocol` implementation so the concrete
+    lock only needs ``acquire``/``release``; ``hold`` composes them safely
+    (releasing on every exit path, including exceptions).
+    """
+
+    def __init__(
+        self, lock: "TurnLockProtocol", key: str, *, owner: str, ttl: float
+    ) -> None:
+        self._lock = lock
+        self._key = key
+        self._owner = owner
+        self._ttl = ttl
+        self._token: Optional[TurnLeaseToken] = None
+
+    async def __aenter__(self) -> TurnLeaseToken:
+        self._token = await self._lock.acquire(
+            self._key, owner=self._owner, ttl=self._ttl
+        )
+        return self._token
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        if self._token is not None:
+            await self._lock.release(self._token)
+            self._token = None
 
 
 # ---------------------------------------------------------------------------

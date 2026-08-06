@@ -3,8 +3,8 @@ from __future__ import annotations
 import typing as t
 from datetime import timedelta
 
-from query_cache_protobuf.query_cache.struct_pb2 import ListValue, Struct, Value, NULL_VALUE
 from google.protobuf.duration_pb2 import Duration
+from query_cache_protobuf.query_cache.struct_pb2 import NULL_VALUE, ListValue, Struct, Value
 
 if t.TYPE_CHECKING:
     from google.protobuf.internal.containers import MessageMap

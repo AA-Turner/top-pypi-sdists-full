@@ -60,7 +60,23 @@ class RerankConfig(TypedDict, total=False):
     """
 
     model: str
-    """Reranking model to use (uses system default if not specified)"""
+    """Reranking model to use (uses system default if not specified).
+
+    Supported values depend on the selected provider: Launch cross-encoder names
+    (e.g. 'cross-encoder/ms-marco-MiniLM-L-12-v2'), Vertex semantic-ranker names
+    (e.g. 'semantic-ranker-default-004') when provider='vertex', or any model id the
+    inference proxy serves when provider='proxy'.
+    """
+
+    provider: Literal["launch", "vertex", "proxy"]
+    """Reranking provider to use.
+
+    When omitted, the deployment default is used ('launch', or 'proxy' on ray-serve
+    deployments configured for the OpenAI-compatible inference proxy). Set
+    explicitly (e.g. 'vertex') to route to a specific provider on a deployment that
+    has more than one configured. Requesting a provider that is not configured on
+    the deployment returns a 400.
+    """
 
     top_n: int
     """Number of results to keep after reranking (defaults to top_k)"""

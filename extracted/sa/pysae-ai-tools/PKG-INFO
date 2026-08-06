@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pysae-ai-tools
-Version: 0.1.1695
+Version: 0.1.1706
 Summary: Shared Python tools for Pysae Claude Code skills
 Project-URL: repository, https://gitlab.com/pysae/tools/ai-tools
 Requires-Python: >=3.11
@@ -74,7 +74,11 @@ pysae-ai-tools tools require <tool>…    # check binaire prêt/pas prêt (utili
 
 `--install-only` est son miroir : uniquement l'**installation/mise à jour du binaire**, sans aucune configuration (pas d'auth, d'enregistrement MCP, de contextes, ni de résolution de variables d'env). Utile au **build d'image** (les binaires sont figés dans l'image, la config se fait au runtime) ou quand aucun credential n'est disponible. Les deux flags sont mutuellement exclusifs.
 
-`--non-interactive` (sur `tools install` et `tools configure`) force l'absence totale de prompt — pas de checklist, pas de question de variable d'env — **même sur un TTY** ; la sélection sauvée (ou les défauts) est utilisée et les secrets sont auto-résolus quand c'est possible. C'est déjà le comportement implicite hors TTY (CI, pipe) ; le flag le rend explicite et déterministe. Sur `tools configure`, il faut le combiner à `--all` ou `--required-only` (sinon il n'y a rien à sélectionner sans checklist). Exemple build d'image :
+**Sur un terminal, l'installation est interactive par défaut** : elle affiche la checklist de sélection et demande les variables d'environnement qu'elle n'a pas su résoudre (avec, quand elle existe, l'instruction pour obtenir la valeur). Les réponses sont mises en cache, donc chaque question n'est posée qu'une fois. Il n'y a pas de flag pour activer les questions — les poser est le comportement normal.
+
+Certaines variables se résolvent par une **authentification navigateur** (OAuth Slack, `glab auth login`). Dans ce cas l'install l'annonce toujours avant, et **affiche l'URL en clair** : un onglet qui s'ouvre derrière une autre fenêtre est indiscernable d'un onglet qui ne s'est pas ouvert, et un onglet fermé par erreur laisserait le flow bloqué sans recours. Quand l'authentification est déléguée à une CLI tierce qui génère sa propre URL (`glab`), l'install nomme la commande qui prend la main et rappelle comment la relancer à la main.
+
+`--non-interactive` (sur `tools install` et `tools configure`) est l'inverse et coupe **toute** sollicitation, **même sur un TTY** : ni checklist, ni question de variable d'env, ni resolver qui ouvrirait un navigateur (OAuth Slack, `glab auth login`). La sélection sauvée (ou les défauts) est utilisée et les secrets sont auto-résolus quand c'est possible. C'est déjà le comportement implicite hors TTY (CI, pipe) ; le flag le rend explicite et déterministe. Sur `tools configure`, il faut le combiner à `--all` ou `--required-only` (sinon il n'y a rien à sélectionner sans checklist). Exemple build d'image :
 
 ```sh
 pysae-ai-tools tools configure --all --non-interactive   # fige la sélection, aucun prompt
@@ -89,10 +93,12 @@ pysae-ai-tools tools install --install-only              # pose les binaires, co
 
 | Toolchain | Rôle | Secrets |
 |-----------|------|---------|
-| ★ `uv` | Toolchain Python Astral (interpréteurs + CLIs Python) | — |
+| ★ `uv` | Toolchain Python Astral (interpréteurs + CLIs Python) ; authentifie l'index PyPI GitLab | `GITLAB_REGISTRY_TOKEN` (voir [Registries privées GitLab](#registries-privées-gitlab)) |
 | ★ `python` | Python 3.14 (géré par uv) | — |
 | ★ `fnm` | Fast Node Manager (versions Node) | — |
-| ★ `node` | Node.js (LTS) | — |
+| ★ `node` | Node.js (LTS) ; configure la registry npm privée ; reprend les paquets npm globaux à chaque bump de LTS | `GITLAB_REGISTRY_TOKEN` (voir [Registries privées GitLab](#registries-privées-gitlab)) |
+
+Sous `fnm`, les **paquets npm globaux appartiennent à chaque installation de Node** : épingler une nouvelle version par défaut sort donc tous les CLI globaux du `PATH` (statusline, linters, et les outils gérés ici comme `codex` / `codex-flow`). `fnm` n'offre pas d'équivalent de `nvm --reinstall-packages-from` ([demandé depuis 2019](https://github.com/Schniz/fnm/issues/703)), alors `tools install node` relève les paquets avant le bump et les réinstalle après. Ce qui ne se réinstalle pas est **nommé** dans la sortie, avec la commande pour le rattraper — jamais perdu en silence.
 
 **Binaires CLI** :
 
@@ -112,7 +118,7 @@ pysae-ai-tools tools install --install-only              # pose les binaires, co
 | `mongo-tools` | mongodump / mongorestore / mongoexport | — |
 | `atlas` | MongoDB Atlas CLI — clusters, users, network (profils dev/prod/org) | 🔐 clés MongoDB Atlas |
 | `jq` | Processeur JSON en ligne de commande | — |
-| `docker` | Conteneurs (désélectionné par défaut) | — |
+| `docker` | Conteneurs (désélectionné par défaut) ; pose le login du container registry | `GITLAB_REGISTRY_TOKEN` (voir [Registries privées GitLab](#registries-privées-gitlab)) |
 | `postman` | Postman / Newman CLI (désélectionné par défaut) | — |
 | `bruno` | Bruno — client API open-source, alternative à Postman (désélectionné par défaut) | — |
 
@@ -146,6 +152,40 @@ pysae-ai-tools tools install --install-only              # pose les binaires, co
 | `activity-tracker` | Suivi d'activité par session (git, glab, fichiers, skills, agents) — hooks `PostToolUse` + `Stop` fournis par le plugin ; désélectionné par défaut | — |
 
 Le manifest plugin Codex ne supporte pas encore les hooks. Les hooks d'usage, de tracking et de nettoyage MCP restent donc fournis par le plugin Claude ; côté Codex, seul le secret-scan est installé globalement dans `config.toml`. Les skills et les serveurs MCP sont, eux, entièrement encapsulés dans le plugin Codex.
+
+## Registries privées GitLab
+
+Les paquets internes sont distribués par les registries GitLab — paquets Python, paquets npm, images de conteneurs — toutes privées : leur lecture exige un credential. `tools install` en pose **un seul** dans les trois écosystèmes.
+
+**Le credential est ton propre PAT**, avec les scopes `read_api` (paquets Python et npm), `read_registry` (container registry) et `self_rotate` (renouvellement). Au premier `tools install` sans credential enregistré, la CLI affiche le lien de création avec le nom et les scopes déjà pré-remplis, attend la saisie, puis pose la valeur partout. Elle est mise en cache localement : la saisie n'a lieu qu'une fois. En CI ou pour dépanner, `GITLAB_REGISTRY_TOKEN` dans l'environnement est utilisée directement, sans prompt.
+
+Le token de `glab` ne peut pas servir ici : c'est un token OAuth d'environ 34 minutes de durée de vie, et l'index PyPI le refuse de toute façon puisqu'il s'authentifie en HTTP Basic, où GitLab n'accepte que PAT, deploy token ou job token. GitLab ne permet pas non plus de créer ce PAT par API : son endpoint self-serve n'accorde qu'une liste blanche de scopes (`self_rotate`, `k8s_proxy`) dont `read_api` et `read_registry` sont exclus — d'où la saisie.
+
+Ce que la CLI écrit, par écosystème :
+
+| Écosystème | Fichier écrit | Clés posées |
+|-----------|---------------|-------------|
+| Python (uv, pip) | le store d'uv (`uv auth dir`) | credential pour la racine de l'hôte GitLab — uv l'associe par préfixe d'URL, donc tous les index en dessous en bénéficient |
+| Node (npm, pnpm, Yarn 1, bun) | `~/.npmrc` | `@<owner>:registry` et `//<hôte>/api/v4/packages/npm/:_authToken` |
+| Node (Yarn 2+) | `~/.yarnrc.yml` | `npmScopes.<owner>.npmRegistryServer` et `npmRegistries` — Yarn 2+ ignore `.npmrc`, d'où le second fichier |
+| Docker | `~/.docker/config.json` | login sur `registry.<hôte>`, posé via `docker login --password-stdin` |
+
+La configuration Node est posée au niveau **utilisateur**, jamais du projet : un dépôt qui ne déclare aucune registry installe les paquets privés sans variable d'environnement ni fichier ajouté. Le token est rattaché au seul hôte GitLab et jamais posé en réglage global, donc aucune requête vers un registre public ne peut l'emporter. Les écritures sont chirurgicales : seules les clés de la registry GitLab sont créées ou mises à jour, le reste de chaque fichier est laissé intact.
+
+**Réparer un credential invalide ou absent** — expiré, révoqué, ou simplement pas encore posé :
+
+```bash
+pysae-ai-tools tools install uv node docker --configure-only
+```
+
+Sur un terminal, la CLI **demande** le PAT quand elle n'en trouve aucun, en affichant le lien de création (nom et scopes pré-remplis) ; la réponse est mise en cache, donc les fois suivantes s'en passent. Autre voie si tu préfères fournir le token toi-même sans le laisser dans l'historique du shell :
+
+```bash
+read -rs -p "PAT: " GITLAB_REGISTRY_TOKEN && export GITLAB_REGISTRY_TOKEN && echo
+pysae-ai-tools tools install uv node docker --configure-only
+```
+
+Cette commande ne réinstalle aucun binaire : elle se contente de (re)poser le credential. `tools status uv node docker --json` indique pour chaque écosystème s'il est configuré, si le credential est exploitable et dans combien de jours il expire. Sous le seuil de renouvellement, la CLI fait tourner le PAT et repose la nouvelle valeur dans **tous** les écosystèmes déjà configurés — la rotation invalidant l'ancien token, en laisser une copie périmée quelque part casserait cet écosystème dès le lendemain. `pysae-ai-tools uninstall` retire le credential de partout où la CLI l'avait posé.
 
 ## Mise à jour
 

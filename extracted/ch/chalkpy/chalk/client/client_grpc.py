@@ -379,11 +379,15 @@ def _parse_uri_for_engine(query_server_uri: str) -> ParsedUri:
     return ParsedUri(uri_without_scheme=uri_without_scheme, use_tls=use_tls)
 
 
-default_channel_options: Dict[str, str | int] = {
+_DEFAULT_CHANNEL_OPTIONS: Dict[str, str | int] = {
     "grpc.max_send_message_length": 1024 * 1024 * 100,  # 100MB
     "grpc.max_receive_message_length": 1024 * 1024 * 100,  # 100MB
     # https://grpc.io/docs/guides/performance/#python
     grpc.experimental.ChannelOptions.SingleThreadedUnaryStream: 1,
+    "grpc.keepalive_time_ms": 60_000,
+    "grpc.keepalive_timeout_ms": 5_000,
+    "grpc.keepalive_permit_without_calls": 1,
+    "grpc.http2.max_pings_without_data": 0,
     "grpc.service_config": json.dumps(
         {
             "methodConfig": [
@@ -620,7 +624,7 @@ class StubProvider:
         super().__init__()
         additional_headers_nonempty: List[tuple[str, str]] = [] if additional_headers is None else additional_headers
         token_refresher: TokenRefresher | None = None
-        channel_options_merged: Dict[str, str | int] = default_channel_options.copy()
+        channel_options_merged: Dict[str, str | int] = _DEFAULT_CHANNEL_OPTIONS.copy()
         if channel_options:
             channel_options_merged.update(dict(channel_options))
         if skip_api_server:
@@ -722,8 +726,11 @@ class StubProvider:
         ]
 
         self._engine_channel: Optional[grpc.Channel] = None
+        # Retained so direct/queue calls can dial the engine ingress without re-parsing.
+        self._engine_grpc_target: Optional[tuple[str, bool]] = None
         if query_server is not None:
             parsed_uri = _parse_uri_for_engine(query_server_uri=query_server)
+            self._engine_grpc_target = (parsed_uri.uri_without_scheme, parsed_uri.use_tls)
             self._engine_channel = grpc.intercept_channel(
                 (
                     grpc.secure_channel(
@@ -749,8 +756,18 @@ class StubProvider:
         if self._token_refresher is not None:
             metadata.append(("authorization", f"Bearer {self._token_refresher.get_token().access_token}"))
         if self.environment_id:
-            metadata.append(("x-chalk-env-id", self.environment_id))
+            metadata.append((CHALK_ENV_ID_HEADER_LOWERCASE, self.environment_id))
         return metadata
+
+    def get_queue_call_metadata(self) -> List[tuple[str, str]]:
+        """Direct-call metadata plus the header that routes to the function-queue server."""
+        return [*self.get_remote_call_metadata(), (CHALK_DEPLOYMENT_TYPE_HEADER_LOWERCASE, "function-queue")]
+
+    def get_engine_grpc_target(self) -> tuple[str, bool]:
+        """``(target, use_tls)`` of the environment's grpc-engine ingress."""
+        if self._engine_grpc_target is None:
+            raise ValueError("No query server is configured for this environment")
+        return self._engine_grpc_target
 
 
 class StubRefresher:
@@ -893,6 +910,12 @@ class StubRefresher:
 
     def get_remote_call_metadata(self) -> List[tuple[str, str]]:
         return self._stub.get_remote_call_metadata()
+
+    def get_queue_call_metadata(self) -> List[tuple[str, str]]:
+        return self._stub.get_queue_call_metadata()
+
+    def get_engine_grpc_target(self) -> tuple[str, bool]:
+        return self._stub.get_engine_grpc_target()
 
 
 def _model_artifact_spec_from_proto(artifact: Any) -> ModelArtifactSpec:
@@ -1342,6 +1365,7 @@ class ChalkGRPCClient:
         *,
         input_sql: str | None = None,
         input_schema_hint: Optional[InputSchemaHint] = None,
+        trace: bool = False,
     ) -> BulkOnlineQueryResult:
         if input is None and input_sql is None:
             raise TypeError("One of `input` or `input_sql` is required")
@@ -1376,6 +1400,7 @@ class ChalkGRPCClient:
             headers=headers,
             query_context=_validate_context_dict(query_context),
             branch=branch,
+            trace=trace,
         )
         return OnlineQueryConverter.online_query_bulk_response_decode(
             response, trace_id=get_trace_id_from_response(call)
@@ -1406,6 +1431,7 @@ class ChalkGRPCClient:
         query_context: Mapping[str, Union[str, int, float, bool, None]] | None = None,
         branch: Optional[str] = None,
         input_schema_hint: Optional[InputSchemaHint] = None,
+        trace: bool = False,
     ) -> Tuple[online_query_pb2.OnlineQueryBulkResponse, grpc.Call]:
         """Returns the raw GRPC response and metadata"""
 
@@ -1430,7 +1456,7 @@ class ChalkGRPCClient:
             planner_options=planner_options or {},
             query_context=query_context,
         )
-        trace_context = current_trace_context()
+        trace_context = current_or_new_trace_context() if trace else current_trace_context()
         if trace_context is not None:
             headers = _inject_trace_context_metadata(headers, trace_context)
         headers = _merge_headers(headers, {CHALK_BRANCH_ID_HEADER: branch} if branch is not None else {})
@@ -4873,15 +4899,10 @@ class ChalkGRPCClient:
         """gRPC metadata (Bearer token + env id) for a direct scaling-group call."""
         return self._stub_refresher.get_remote_call_metadata()
 
-    def call_model_scaling_group(
-        self,
-        model_name: str,
-        inputs: "Mapping[str, Sequence[Any]] | RecordBatch | Table",
-        *,
-        version: Optional[int] = None,
-        handler: str = "handler",
-    ) -> "RecordBatch":
-        """Invoke a model deployed to a scaling group by calling its ingress directly."""
-        from chalk.client._model_remote import call_model_scaling_group
+    def _get_queue_call_metadata(self) -> List[tuple[str, str]]:
+        """gRPC metadata for an enqueue/poll against the function-queue server."""
+        return self._stub_refresher.get_queue_call_metadata()
 
-        return call_model_scaling_group(self, model_name, inputs, version=version, handler=handler)
+    def _get_engine_grpc_target(self) -> tuple[str, bool]:
+        """``(target, use_tls)`` of the grpc-engine ingress that fronts the function queue."""
+        return self._stub_refresher.get_engine_grpc_target()

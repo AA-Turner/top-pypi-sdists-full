@@ -376,7 +376,7 @@ TEST(ElementOperationsTest, FloatCompareIdentical) {
 }
 
 struct X {
-  constexpr static int constant_value = 0;
+  static constexpr int constant_value = 0;
   std::shared_ptr<const int> value =
       std::shared_ptr<const int>(std::shared_ptr<void>{}, &constant_value);
 };
@@ -496,13 +496,32 @@ TYPED_TEST(AllocateAndConstructTest, ValueInitialization) {
 #if !defined(THREAD_SANITIZER)
 TEST(AllocateAndConsructSharedDeathTest, OutOfMemory) {
   const auto allocate = [] {
-    AllocateAndConstructShared<int>(0xFFFFFFFFFFFFFFF,
-                                    tensorstore::default_init);
+    return tensorstore::AllocateAndConstructShared<int>(
+        0xFFFFFFFFFFFFFFF, tensorstore::default_init);
   };
 #if ABSL_HAVE_EXCEPTIONS
   EXPECT_THROW(allocate(), std::bad_alloc);
 #else
   EXPECT_DEATH(allocate(), "");
+#endif
+}
+
+TEST(AllocateAndConstructOverflowTest, IntegerOverflow) {
+  ptrdiff_t n = 576460752303423489;
+#if ABSL_HAVE_EXCEPTIONS
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] void* ptr = tensorstore::AllocateAndConstruct(
+            n, tensorstore::default_init, tensorstore::dtype_v<std::string>);
+      },
+      std::bad_alloc);
+#else
+  EXPECT_DEATH(
+      {
+        [[maybe_unused]] void* ptr = tensorstore::AllocateAndConstruct(
+            n, tensorstore::default_init, tensorstore::dtype_v<std::string>);
+      },
+      "");
 #endif
 }
 #endif  // defined(THREAD_SANITIZER)
@@ -530,6 +549,7 @@ TEST(DataTypeTest, Name) {
             DataType(dtype_v<float8_e4m3b11fnuz_t>).name());
   EXPECT_EQ("float8_e5m2", DataType(dtype_v<float8_e5m2_t>).name());
   EXPECT_EQ("float8_e5m2fnuz", DataType(dtype_v<float8_e5m2fnuz_t>).name());
+  EXPECT_EQ("float8_e8m0fnu", DataType(dtype_v<float8_e8m0fnu_t>).name());
   EXPECT_EQ("float4_e2m1fn", DataType(dtype_v<float4_e2m1fn_t>).name());
 
   EXPECT_EQ("bfloat16", DataType(dtype_v<bfloat16_t>).name());
@@ -568,6 +588,7 @@ TEST(DataTypeTest, GetDataType) {
   EXPECT_EQ(dtype_v<float8_e4m3b11fnuz_t>, GetDataType("float8_e4m3b11fnuz"));
   EXPECT_EQ(dtype_v<float8_e5m2_t>, GetDataType("float8_e5m2"));
   EXPECT_EQ(dtype_v<float8_e5m2fnuz_t>, GetDataType("float8_e5m2fnuz"));
+  EXPECT_EQ(dtype_v<float8_e8m0fnu_t>, GetDataType("float8_e8m0fnu"));
   EXPECT_EQ(dtype_v<float4_e2m1fn_t>, GetDataType("float4_e2m1fn"));
 
   EXPECT_EQ(dtype_v<bfloat16_t>, GetDataType("bfloat16"));

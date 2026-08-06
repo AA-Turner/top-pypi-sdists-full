@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.8.6
+Version: 2.8.7
 Summary: The programming language for agentic software.
 Author-email: Agno Team <hello@agno.com>
 License:                                  Apache License
@@ -261,6 +261,7 @@ Requires-Dist: greenlet; extra == "dev"
 Requires-Dist: agno[slack]; extra == "dev"
 Requires-Dist: agno[agui]; extra == "dev"
 Requires-Dist: agno[a2a]; extra == "dev"
+Requires-Dist: agno[scheduler]; extra == "dev"
 Provides-Extra: os
 Requires-Dist: fastapi; extra == "os"
 Requires-Dist: python-multipart>=0.0.18; extra == "os"
@@ -516,6 +517,7 @@ Requires-Dist: openpyxl; extra == "excel"
 Requires-Dist: xlrd; extra == "excel"
 Provides-Extra: markdown
 Requires-Dist: unstructured<0.18.31; extra == "markdown"
+Requires-Dist: nltk!=3.10.1; extra == "markdown"
 Requires-Dist: markdown; extra == "markdown"
 Requires-Dist: aiofiles; extra == "markdown"
 Provides-Extra: pdf

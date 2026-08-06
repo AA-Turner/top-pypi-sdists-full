@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-api-core
-Version: 2.33.0
+Version: 2.34.0
 Summary: Google API client core library
 Author-email: Google LLC <googleapis-packages@google.com>
 License: Apache 2.0
@@ -22,21 +22,18 @@ Classifier: Topic :: Internet
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: googleapis-common-protos<2.0.0,>=1.63.2
-Requires-Dist: protobuf<8.0.0,>=5.29.6
-Requires-Dist: proto-plus<2.0.0,>=1.24.0
-Requires-Dist: proto-plus<2.0.0,>=1.25.0; python_version >= "3.13"
+Requires-Dist: googleapis-common-protos<2.0.0,>=1.69.2
+Requires-Dist: protobuf<8.0.0,>=6.33.5
+Requires-Dist: proto-plus<2.0.0,>=1.26.1
 Requires-Dist: google-auth<3.0.0,>=2.14.1
 Requires-Dist: requests<3.0.0,>=2.33.0
 Provides-Extra: async-rest
 Requires-Dist: google-auth[aiohttp]<3.0.0,>=2.14.1; extra == "async-rest"
 Requires-Dist: aiohttp>=3.13.4; extra == "async-rest"
 Provides-Extra: grpc
-Requires-Dist: grpcio<2.0.0,>=1.41.0; extra == "grpc"
-Requires-Dist: grpcio<2.0.0,>=1.49.1; python_version >= "3.11" and extra == "grpc"
+Requires-Dist: grpcio<2.0.0,>=1.59.0; extra == "grpc"
 Requires-Dist: grpcio<2.0.0,>=1.75.1; python_version >= "3.14" and extra == "grpc"
-Requires-Dist: grpcio-status<2.0.0,>=1.41.0; extra == "grpc"
-Requires-Dist: grpcio-status<2.0.0,>=1.49.1; python_version >= "3.11" and extra == "grpc"
+Requires-Dist: grpcio-status<2.0.0,>=1.59.0; extra == "grpc"
 Requires-Dist: grpcio-status<2.0.0,>=1.75.1; python_version >= "3.14" and extra == "grpc"
 Dynamic: license-file
 

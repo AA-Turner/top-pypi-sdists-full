@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: streamlit
-Version: 1.61.0
+Version: 1.61.1
 Summary: A faster way to build and share data apps
 Author-email: Snowflake Inc <hello@streamlit.io>
 License-Expression: Apache-2.0
@@ -42,7 +42,7 @@ Requires-Dist: requests<3,>=2.27
 Requires-Dist: tenacity<10,>=8.1.0
 Requires-Dist: toml<2,>=0.10.1
 Requires-Dist: typing-extensions<5,>=4.10.0
-Requires-Dist: starlette<2,>=0.46.0
+Requires-Dist: starlette<1.4.0,>=0.46.0
 Requires-Dist: uvicorn<1,>=0.30.0
 Requires-Dist: httptools<1,>=0.6.3
 Requires-Dist: anyio<5,>=4.0.0

@@ -531,9 +531,9 @@ class IOptionStrategyMatchObjectiveFunction(metaclass=abc.ABCMeta):
 
     def compute_score(self, input: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection, match: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyMatch, unmatched: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> float:
         """
-        Evaluates the objective function for the provided match solution. Solution with the highest score will be selected
-        as the solution. NOTE: This part of the match has not been implemented as of 2020-11-06 as it's only evaluating the
-        first solution match (MatchOnce).
+        Evaluates the objective function for the provided match solution. The solution with the highest score will be
+        selected as the solution. By convention, solutions that can't be improved upon score zero, the maximum, which
+        allows the matcher to skip evaluating additional candidate solutions.
         """
         ...
 
@@ -574,6 +574,11 @@ class OptionStrategyMatcherOptions(System.Object):
     @property
     def definitions(self) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]:
         """The definitions to be used for matching."""
+        ...
+
+    @property
+    def covered_shorts_first_definitions(self) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]:
+        """The definitions to be used for matching, deprioritizing those leaving a short option leg uncovered"""
         ...
 
     @property
@@ -1256,7 +1261,10 @@ class OptionStrategyMatcher(System.Object):
         """
         Using the definitions provided in options, attempts to match all positions.
         The resulting OptionStrategyMatch presents a single, valid solution for matching as many positions
-        as possible.
+        as possible. A fixed set of candidate solutions is evaluated and the one scoring highest against the configured
+        OptionStrategyMatcherOptions.objective_function is selected, so short positions are grouped into
+        covered strategies instead of being charged naked option margin whenever the positions allow it.
+        On equal scores, the solution produced by the configured definition enumeration order is preserved.
         """
         ...
 
@@ -1511,6 +1519,26 @@ class DescendingByLegCountOptionStrategyDefinitionEnumerator(System.Object, Quan
 
     def enumerate(self, definitions: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]:
         """Enumerates definitions in descending order of OptionStrategyDefinition.leg_count"""
+        ...
+
+
+class UncoveredShortQuantityOptionStrategyMatchObjectiveFunction(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionStrategyMatchObjectiveFunction):
+    """
+    Provides an implementation of IOptionStrategyMatchObjectiveFunction that minimizes the total
+    quantity of short option contracts left uncovered, either within their matched strategy (such as the second
+    short leg of a ladder) or unmatched entirely. Uncovered shorts are charged naked option margin, typically an
+    order of magnitude larger than the margin of covered, risk-defined strategies, which makes this quantity a
+    cheap and deterministic proxy for the total margin required to hold the positions.
+    """
+
+    def compute_score(self, input: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection, match: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyMatch, unmatched: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> float:
+        """
+        Computes the score as the negated total quantity of uncovered short option contracts, so the solution
+        covering the most short contracts wins and a solution without uncovered shorts scores zero, the maximum.
+        A short leg is covered when its strategy holds, quantity for quantity, the underlying lots with the
+        offsetting sign or long options of the same right which outlive it and whose strike is on the debit side
+        of the short strike or within MaximumCreditCoverWidthFactor of it on the credit side
+        """
         ...
 
 

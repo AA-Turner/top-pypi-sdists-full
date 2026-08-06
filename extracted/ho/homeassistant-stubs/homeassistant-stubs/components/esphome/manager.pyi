@@ -1,15 +1,15 @@
 from .bluetooth import async_connect_scanner as async_connect_scanner
-from .const import CONF_ALLOW_SERVICE_CALLS as CONF_ALLOW_SERVICE_CALLS, CONF_BLUETOOTH_MAC_ADDRESS as CONF_BLUETOOTH_MAC_ADDRESS, CONF_DEVICE_NAME as CONF_DEVICE_NAME, CONF_NOISE_PSK as CONF_NOISE_PSK, CONF_SUBSCRIBE_LOGS as CONF_SUBSCRIBE_LOGS, DEFAULT_ALLOW_SERVICE_CALLS as DEFAULT_ALLOW_SERVICE_CALLS, DEFAULT_URL as DEFAULT_URL, DOMAIN as DOMAIN, PROJECT_URLS as PROJECT_URLS, STABLE_BLE_VERSION as STABLE_BLE_VERSION, STABLE_BLE_VERSION_STR as STABLE_BLE_VERSION_STR
+from .const import CLIENT_INFO as CLIENT_INFO, CONF_ALLOW_SERVICE_CALLS as CONF_ALLOW_SERVICE_CALLS, CONF_BLUETOOTH_MAC_ADDRESS as CONF_BLUETOOTH_MAC_ADDRESS, CONF_DEVICE_NAME as CONF_DEVICE_NAME, CONF_NOISE_PSK as CONF_NOISE_PSK, CONF_SUBSCRIBE_LOGS as CONF_SUBSCRIBE_LOGS, DEFAULT_ALLOW_SERVICE_CALLS as DEFAULT_ALLOW_SERVICE_CALLS, DEFAULT_URL as DEFAULT_URL, DOMAIN as DOMAIN, PROJECT_URLS as PROJECT_URLS, STABLE_BLE_VERSION as STABLE_BLE_VERSION, STABLE_BLE_VERSION_STR as STABLE_BLE_VERSION_STR
 from .dashboard import async_get_dashboard as async_get_dashboard
 from .domain_data import DomainData as DomainData
 from .encryption_key_storage import async_get_encryption_key_storage as async_get_encryption_key_storage
 from .entry_data import ESPHomeConfigEntry as ESPHomeConfigEntry, RuntimeEntryData as RuntimeEntryData
 from .enum_mapper import EsphomeEnumMapper as EsphomeEnumMapper
 from _typeshed import Incomplete
-from aioesphomeapi import APIClient as APIClient, APIVersion as APIVersion, DeviceInfo as EsphomeDeviceInfo, ExecuteServiceResponse as ExecuteServiceResponse, HomeassistantServiceCall as HomeassistantServiceCall, LogLevel, ReconnectLogic, SupportsResponseType, UserService as UserService, ZWaveProxyRequest as ZWaveProxyRequest
+from aioesphomeapi import APIClient, APIVersion as APIVersion, DeviceInfo as EsphomeDeviceInfo, ExecuteServiceResponse as ExecuteServiceResponse, HomeassistantServiceCall as HomeassistantServiceCall, LogLevel, ReconnectLogic, SupportsResponseType, UserService as UserService, ZWaveProxyRequest as ZWaveProxyRequest
 from aioesphomeapi.api_pb2 import SubscribeLogsResponse as SubscribeLogsResponse
 from homeassistant.components import bluetooth as bluetooth, tag as tag, zeroconf as zeroconf
-from homeassistant.const import ATTR_DEVICE_ID as ATTR_DEVICE_ID, CONF_MODE as CONF_MODE, EVENT_HOMEASSISTANT_CLOSE as EVENT_HOMEASSISTANT_CLOSE, EVENT_LOGGING_CHANGED as EVENT_LOGGING_CHANGED, Platform as Platform
+from homeassistant.const import ATTR_DEVICE_ID as ATTR_DEVICE_ID, CONF_HOST as CONF_HOST, CONF_MODE as CONF_MODE, CONF_PASSWORD as CONF_PASSWORD, CONF_PORT as CONF_PORT, EVENT_HOMEASSISTANT_CLOSE as EVENT_HOMEASSISTANT_CLOSE, EVENT_LOGGING_CHANGED as EVENT_LOGGING_CHANGED, Platform as Platform
 from homeassistant.core import CALLBACK_TYPE as CALLBACK_TYPE, Event as Event, EventStateChangedData as EventStateChangedData, HomeAssistant as HomeAssistant, ServiceCall as ServiceCall, ServiceResponse as ServiceResponse, State as State, SupportsResponse as SupportsResponse, callback as callback
 from homeassistant.exceptions import HomeAssistantError as HomeAssistantError, ServiceNotFound as ServiceNotFound, ServiceValidationError as ServiceValidationError, TemplateError as TemplateError
 from homeassistant.helpers import template as template
@@ -23,8 +23,13 @@ from typing import Any, Final, NamedTuple
 
 DEVICE_CONFLICT_ISSUE_FORMAT: str
 UNPACK_UINT32_BE: Incomplete
+
+@callback
+def async_create_api_client(hass: HomeAssistant, entry: ESPHomeConfigEntry, zeroconf_instance: zeroconf.HaZeroconf, *, noise_psk: str | None) -> APIClient: ...
+
 _LOGGER: Incomplete
 STARTUP_SCANNER_WAIT: Final[float]
+_DASHBOARD_KEY_SYNC_OK: Final[Incomplete]
 LOG_LEVEL_TO_LOGGER: Incomplete
 LOGGER_TO_LOG_LEVEL: Incomplete
 
@@ -46,6 +51,7 @@ class ESPHomeManager:
     zeroconf_instance: Incomplete
     entry_data: Incomplete
     _cancel_subscribe_logs: CALLBACK_TYPE | None
+    _dashboard_key_sync_warned: bool
     _log_level: Incomplete
     def __init__(self, hass: HomeAssistant, entry: ESPHomeConfigEntry, host: str, password: str | None, cli: APIClient, zeroconf_instance: zeroconf.HaZeroconf, domain_data: DomainData) -> None: ...
     async def on_stop(self, event: Event) -> None: ...
@@ -75,6 +81,12 @@ class ESPHomeManager:
     async def on_disconnect(self, expected_disconnect: bool) -> None: ...
     async def on_connect_error(self, err: Exception) -> None: ...
     async def _start_reauth_and_disconnect(self) -> None: ...
+    async def _async_provision_key_over_noise(self, new_key: bytes) -> bool: ...
+    @callback
+    def _async_schedule_dashboard_key_sync(self, device_info: EsphomeDeviceInfo, key: str) -> None: ...
+    async def _async_sync_encryption_key_to_dashboard(self, device_info: EsphomeDeviceInfo, key: str) -> None: ...
+    @callback
+    def _async_warn_dashboard_key_sync_failed(self, device_info: EsphomeDeviceInfo, cause: Exception | str) -> None: ...
     async def _handle_dynamic_encryption_key(self, device_info: EsphomeDeviceInfo) -> None: ...
     @callback
     def _async_handle_logging_changed(self, _event: Event) -> None: ...

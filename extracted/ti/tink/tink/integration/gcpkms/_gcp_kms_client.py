@@ -23,6 +23,7 @@ from google.oauth2 import service_account
 
 import tink
 from tink import aead
+from tink.integration.gcpkms import _gcp_kms_util
 
 GCP_KEYURI_PREFIX = 'gcp-kms://'
 _KMS_KEY_REGEX = re.compile(
@@ -30,13 +31,6 @@ _KMS_KEY_REGEX = re.compile(
     'locations/([a-zA-Z0-9_-]{1,63})/'
     'keyRings/([a-zA-Z0-9_-]{1,63})/'
     'cryptoKeys/([a-zA-Z0-9_-]{1,63})$'
-)
-_KMS_KEY_VERSION_REGEX = re.compile(
-    'projects/([^/]+)/'
-    'locations/([a-zA-Z0-9_-]{1,63})/'
-    'keyRings/([a-zA-Z0-9_-]{1,63})/'
-    'cryptoKeys/([a-zA-Z0-9_-]{1,63})/'
-    'cryptoKeyVersions/([a-zA-Z0-9_-]{1,63})$'
 )
 
 
@@ -49,7 +43,8 @@ class _GcpKmsAead(aead.Aead):
     if not key_name:
       raise tink.TinkError('key_name cannot be null.')
     if not (
-        _KMS_KEY_REGEX.match(key_name) or _KMS_KEY_VERSION_REGEX.match(key_name)
+        _KMS_KEY_REGEX.match(key_name)
+        or _gcp_kms_util.KMS_KEY_VERSION_REGEX.match(key_name)
     ):
       raise tink.TinkError(
           'Invalid key_name format: {}.\nKMS keys should follow the format: '
@@ -60,16 +55,18 @@ class _GcpKmsAead(aead.Aead):
       raise tink.TinkError('client cannot be null.')
     self.client = client
     self.name = key_name
-    self.key_version_specified = bool(_KMS_KEY_VERSION_REGEX.match(key_name))
+    self.key_version_specified = bool(
+        _gcp_kms_util.KMS_KEY_VERSION_REGEX.match(key_name)
+    )
 
   def encrypt(self, plaintext: bytes, associated_data: bytes) -> bytes:
     try:
       response = self.client.encrypt(
-          request=kms_v1.types.service.EncryptRequest(
-              name=self.name,
-              plaintext=plaintext,
-              additional_authenticated_data=associated_data,
-          )
+          request={
+              'name': self.name,
+              'plaintext': plaintext,
+              'additional_authenticated_data': associated_data,
+          }
       )
       return response.ciphertext
     except core_exceptions.GoogleAPIError as e:
@@ -83,11 +80,11 @@ class _GcpKmsAead(aead.Aead):
       )
     try:
       response = self.client.decrypt(
-         request=kms_v1.types.service.DecryptRequest(
-             name=self.name,
-             ciphertext=ciphertext,
-             additional_authenticated_data=associated_data
-         )
+          request={
+              'name': self.name,
+              'ciphertext': ciphertext,
+              'additional_authenticated_data': associated_data,
+          }
       )
       return response.plaintext
     except core_exceptions.GoogleAPIError as e:
@@ -205,3 +202,47 @@ class GcpKmsClient(tink.KmsClient):
           set, the default credentials are used.
     """
     tink.register_kms_client(GcpKmsClient(key_uri, credentials_path))
+
+
+class _KmsClient(tink.KmsClient):
+  """KMS client returned by new_client."""
+
+  def __init__(
+      self,
+      kms_v1_client: kms_v1.KeyManagementServiceClient,
+      key_uri: Optional[str],
+  ) -> None:
+    if not key_uri:
+      self._key_uri = None
+    elif key_uri.startswith(GCP_KEYURI_PREFIX):
+      self._key_uri = key_uri
+    else:
+      raise tink.TinkError('Invalid key_uri.')
+    if not kms_v1_client:
+      raise tink.TinkError('Invalid kms_v1_client.')
+    self._client = kms_v1_client
+
+  def does_support(self, key_uri: str) -> bool:
+    if not self._key_uri:
+      return key_uri.startswith(GCP_KEYURI_PREFIX)
+    return key_uri == self._key_uri
+
+  def get_aead(self, key_uri: str) -> aead.Aead:
+    if self._key_uri and self._key_uri != key_uri:
+      raise tink.TinkError(
+          'This client is bound to %s and cannot use key %s'
+          % (self._key_uri, key_uri)
+      )
+    if not key_uri.startswith(GCP_KEYURI_PREFIX):
+      raise tink.TinkError('Invalid key_uri.')
+    key_id = key_uri[len(GCP_KEYURI_PREFIX) :]
+    return _GcpKmsAead(self._client, key_id)
+
+
+def new_client(
+    *,
+    kms_v1_client: kms_v1.KeyManagementServiceClient,
+    key_uri: Optional[str] = None,
+) -> tink.KmsClient:
+  """Creates a new Tink KmsClient from a KeyManagementServiceClient."""
+  return _KmsClient(kms_v1_client, key_uri)

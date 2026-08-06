@@ -672,6 +672,9 @@ class ContributorEvaluationQuestionTaskConfiguration(TypedDict, total=False):
 
     question_id: Required[str]
 
+    prefill_from: str
+    """Dataset column to prefill contributor question task result"""
+
     queue_id: str
     """The contributor annotation queue to include this task in. Defaults to `default`"""
 

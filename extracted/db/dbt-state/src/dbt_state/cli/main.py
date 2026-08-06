@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-import click
 import typing as t
 import uuid
 from pathlib import Path
 
+import click
+
+from dbt_state.cli.explainer import Explainer
 from dbt_state.config import RunCacheConfig
 from dbt_state.decision_logger import (
     DecisionLogger,
 )
-from dbt_state.cli.explainer import Explainer
 from dbt_state.grpc.client import QueryCacheGrpcClient
 
 

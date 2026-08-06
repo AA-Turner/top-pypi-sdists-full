@@ -1,6 +1,6 @@
 [project]
 name = "pyzotero"
-version = "1.13.3"
+version = "1.13.4"
 description = "Python wrapper for the Zotero API"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -10,11 +10,12 @@ dependencies = [
     "httpx>=0.28.1",
     "whenever>=0.8.8",
 ]
-authors = [{ name = "Stephan Hügel" }, { email = "urschrei@gmail.com" }]
-maintainers = [{ name = "Stephan Hügel" }, { email = "urschrei@gmail.com" }]
 license = "BlueOak-1.0.0"
 license-files = ["LICENSE.md"]
-keywords = ["Zotero", "DH"]
+keywords = [
+    "Zotero",
+    "DH",
+]
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3.10",
@@ -29,6 +30,19 @@ classifiers = [
     "Operating System :: OS Independent",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+
+[[project.authors]]
+name = "Stephan Hügel"
+
+[[project.authors]]
+email = "urschrei@gmail.com"
+
+[[project.maintainers]]
+name = "Stephan Hügel"
+
+[[project.maintainers]]
+email = "urschrei@gmail.com"
+
 [project.urls]
 Repository = "https://github.com/urschrei/pyzotero"
 Tracker = "https://github.com/urschrei/pyzotero/issues"
@@ -54,7 +68,7 @@ dev = [
 ]
 doc = [
     "sphinx",
-    "sphinx-rtd-theme"
+    "sphinx-rtd-theme",
 ]
 
 [build-system]
@@ -62,19 +76,21 @@ requires = ["uv_build>=0.8.14,<0.12.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-source-include = ["tests/**", "doc/**"]
+source-include = [
+    "tests/**",
+    "doc/**",
+]
 
 [tool.pytest.ini_options]
 minversion = "8.3.0"
 addopts = [
-    "--import-mode=importlib", "--cov=pyzotero", "--cov-report=xml",
+    "--import-mode=importlib",
+    "--cov=pyzotero",
+    "--cov-report=xml",
 ]
-testpaths = [
-    "tests",
-]
+testpaths = ["tests"]
 asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "function"
-
 
 [tool.ruff]
 exclude = [
@@ -107,23 +123,51 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-select = ["F", "E", "W", "N", "D4", "UP", "PL", "TRY", "PERF", "FURB", "RUF", "S", "DTZ"]
-ignore = ["ANN001", "ANN003", "ANN202", "ANN201", "DOC201", "E501", "PLR0904", "PLR0913", "PLR0917", "SLF001", "FIX002", "D400", "D415"]
+select = [
+    "F",
+    "E",
+    "W",
+    "N",
+    "D4",
+    "UP",
+    "PL",
+    "TRY",
+    "PERF",
+    "FURB",
+    "RUF",
+    "S",
+    "DTZ",
+]
+ignore = [
+    "ANN001",
+    "ANN003",
+    "ANN202",
+    "ANN201",
+    "DOC201",
+    "E501",
+    "PLR0904",
+    "PLR0913",
+    "PLR0917",
+    "SLF001",
+    "FIX002",
+    "D400",
+    "D415",
+]
 fixable = ["ALL"]
 unfixable = []
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101"]  # Allow assert in tests
+"tests/*" = ["S101"]
 
 [tool.ruff.format]
-# Like Black, use double quotes for strings.
 quote-style = "double"
-
-# Like Black, indent with spaces, rather than tabs.
 indent-style = "space"
 
 [tool.ty.src]
-exclude = ["tests/", "doc/"]
+exclude = [
+    "tests/",
+    "doc/",
+]
 
 [tool.ty.rules]
 all = "warn"

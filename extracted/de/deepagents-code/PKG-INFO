@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepagents-code
-Version: 0.1.52
+Version: 0.1.53
 Summary: Terminal coding agent built on the Deep Agents SDK - works with any model, with persistent memory, customizable skills, subagents, and approval controls.
 Project-URL: Homepage, https://docs.langchain.com/oss/python/deepagents/overview
 Project-URL: Documentation, https://reference.langchain.com/python/deepagents/
@@ -29,11 +29,11 @@ Requires-Python: <4.0,>=3.11
 Requires-Dist: aiosqlite<1.0.0,>=0.22.1
 Requires-Dist: anyio<5.0.0,>=4.14.2
 Requires-Dist: deepagents-acp<1.0.0,>=0.0.9
-Requires-Dist: deepagents==0.7.1
+Requires-Dist: deepagents==0.7.4
 Requires-Dist: filelock<3.30,>=3.29.7
 Requires-Dist: genai-prices<0.2.0,>=0.1.1
 Requires-Dist: httpx<1.0.0,>=0.28.1
-Requires-Dist: langchain-anthropic<2.0.0,>=1.5.3
+Requires-Dist: langchain-anthropic<2.0.0,>=1.5.4
 Requires-Dist: langchain-google-genai<5.0.0,>=4.3.2
 Requires-Dist: langchain-mcp-adapters<1.0.0,>=0.3.0
 Requires-Dist: langchain-openai<2.0.0,>=1.4.1
@@ -65,7 +65,7 @@ Provides-Extra: agentcore
 Requires-Dist: langchain-agentcore-codeinterpreter<1.0.0,>=0.0.5; extra == 'agentcore'
 Provides-Extra: all-providers
 Requires-Dist: aiohttp<3.15.0,>=3.14.3; extra == 'all-providers'
-Requires-Dist: langchain-anthropic<2.0.0,>=1.5.3; extra == 'all-providers'
+Requires-Dist: langchain-anthropic<2.0.0,>=1.5.4; extra == 'all-providers'
 Requires-Dist: langchain-aws<2.0.0,>=1.6.3; extra == 'all-providers'
 Requires-Dist: langchain-baseten<1.0.0,>=0.2.3; extra == 'all-providers'
 Requires-Dist: langchain-cohere<1.0.0,>=0.6.0; extra == 'all-providers'
@@ -93,7 +93,7 @@ Requires-Dist: langchain-modal>=0.0.5; extra == 'all-sandboxes'
 Requires-Dist: langchain-runloop>=0.0.6; extra == 'all-sandboxes'
 Requires-Dist: langchain-vercel-sandbox>=0.0.1; extra == 'all-sandboxes'
 Provides-Extra: anthropic
-Requires-Dist: langchain-anthropic<2.0.0,>=1.5.3; extra == 'anthropic'
+Requires-Dist: langchain-anthropic<2.0.0,>=1.5.4; extra == 'anthropic'
 Provides-Extra: baseten
 Requires-Dist: langchain-baseten<1.0.0,>=0.2.3; extra == 'baseten'
 Provides-Extra: bedrock

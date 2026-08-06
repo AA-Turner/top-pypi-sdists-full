@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djangorestframework
-Version: 3.17.1
+Version: 3.17.2
 Summary: Web APIs for Django, made easy.
 Author-email: Tom Christie <tom@tomchristie.com>
 License-Expression: BSD-3-Clause

@@ -3049,6 +3049,8 @@ def _build_package_manager_protection(store: Any) -> dict[str, object]:
         "path_status": path_status,
         "path_contains_shim_dir": bool(status.get("path_contains_shim_dir")),
         "restart_shell_required": bool(status.get("restart_shell_required")),
+        "process_path_status": str(status.get("process_path_status") or "missing"),
+        "process_restart_required": bool(status.get("process_restart_required")),
         "shell_profile_configured": bool(status.get("shell_profile_configured")),
         "shell_profile_path": status.get("shell_profile_path"),
         "shim_dir": str(shim_dir),
@@ -4322,7 +4324,10 @@ def _posture_status(
 
 def _posture_detail(status: str) -> str:
     details = {
-        "not_connected": "Connect Guard Cloud to fetch signed supply-chain bundles.",
+        "not_connected": (
+            "Local package protection is active. Guard Cloud is optional and adds live package intelligence, "
+            "synced policy, and cross-device evidence."
+        ),
         "workspace_required": "Finish Guard Cloud pairing to fetch workspace-specific supply-chain bundles.",
         "sync_required": "Run `hol-guard supply-chain sync` to fetch the latest signed bundle.",
         "expired": "The cached signed bundle expired. Run `hol-guard supply-chain sync` before the next install.",
@@ -4340,7 +4345,9 @@ def _posture_health_status(
 ) -> str:
     if status == "expired":
         return "stale"
-    if status in {"not_connected", "workspace_required", "sync_required", "degraded"}:
+    if status == "not_connected":
+        return "local"
+    if status in {"workspace_required", "sync_required", "degraded"}:
         return "degraded"
     next_refresh_timestamp = _parse_timestamp(next_refresh_at)
     if (

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plato-sdk-v2
-Version: 2.123.3
+Version: 2.123.5
 Summary: Python SDK for the Plato API
 Author-email: Plato <support@plato.so>
 License-Expression: MIT
@@ -259,3 +259,5 @@ plato.close()
 
 - [Generating Simulator SDKs](docs/GENERATING_SIM_SDKS.md) - How to create API clients for simulators
 - [Building Simulators](BUILDING_SIMS.md) - Internal docs for snapshotting simulators
+
+Part of the [useplato/plato-client](https://github.com/useplato/plato-client) monorepo.

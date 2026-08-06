@@ -518,6 +518,10 @@ __all__ = (
     "HarnessVersionSummaryTypeDef",
     "HostingEnvironmentTypeDef",
     "HttpApiSchemaConfigurationTypeDef",
+    "HttpConnectorSourceTypeDef",
+    "HttpConnectorTargetConfigurationOutputTypeDef",
+    "HttpConnectorTargetConfigurationTypeDef",
+    "HttpTargetConfigurationOutputTypeDef",
     "HttpTargetConfigurationTypeDef",
     "IamCredentialProviderTypeDef",
     "IamPrincipalTypeDef",
@@ -2052,6 +2056,10 @@ class HarnessVersionSummaryTypeDef(TypedDict):
     createdAt: datetime
     updatedAt: datetime
     failureReason: NotRequired[str]
+
+
+class HttpConnectorSourceTypeDef(TypedDict):
+    connectorId: str
 
 
 IamPrincipalTypeDef = TypedDict(
@@ -3984,6 +3992,16 @@ class ListHarnessVersionsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class HttpConnectorTargetConfigurationOutputTypeDef(TypedDict):
+    source: HttpConnectorSourceTypeDef
+    parameters: NotRequired[dict[str, str]]
+
+
+class HttpConnectorTargetConfigurationTypeDef(TypedDict):
+    source: HttpConnectorSourceTypeDef
+    parameters: NotRequired[Mapping[str, str]]
+
+
 class MatchPrincipalEntryTypeDef(TypedDict):
     iamPrincipal: NotRequired[IamPrincipalTypeDef]
 
@@ -5487,9 +5505,16 @@ OnBehalfOfTokenExchangeConfigTypeUnionTypeDef = Union[
 ]
 
 
+class HttpTargetConfigurationOutputTypeDef(TypedDict):
+    agentcoreRuntime: NotRequired[RuntimeTargetConfigurationTypeDef]
+    passthrough: NotRequired[PassthroughTargetConfigurationTypeDef]
+    connector: NotRequired[HttpConnectorTargetConfigurationOutputTypeDef]
+
+
 class HttpTargetConfigurationTypeDef(TypedDict):
     agentcoreRuntime: NotRequired[RuntimeTargetConfigurationTypeDef]
     passthrough: NotRequired[PassthroughTargetConfigurationTypeDef]
+    connector: NotRequired[HttpConnectorTargetConfigurationTypeDef]
 
 
 class HarnessAgentCoreRuntimeEnvironmentRequestTypeDef(TypedDict):
@@ -6062,7 +6087,7 @@ RegistryRecordCredentialProviderConfigurationUnionTypeDef = Union[
 
 class TargetConfigurationOutputTypeDef(TypedDict):
     mcp: NotRequired[McpTargetConfigurationOutputTypeDef]
-    http: NotRequired[HttpTargetConfigurationTypeDef]
+    http: NotRequired[HttpTargetConfigurationOutputTypeDef]
     inference: NotRequired[InferenceTargetConfigurationOutputTypeDef]
 
 

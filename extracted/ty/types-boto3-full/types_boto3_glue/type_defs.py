@@ -69,6 +69,8 @@ from .literals import (
     ExecutionClassType,
     ExecutionStatusType,
     ExistConditionType,
+    ExportSettingType,
+    ExportStatusType,
     FieldDataTypeType,
     FieldFilterOperatorType,
     FieldNameType,
@@ -597,6 +599,7 @@ __all__ = (
     "EventBatchingConditionTypeDef",
     "ExecutionAttemptTypeDef",
     "ExecutionPropertyTypeDef",
+    "ExportEncryptionConfigurationTypeDef",
     "ExportLabelsTaskRunPropertiesTypeDef",
     "ExtractedParameterTypeDef",
     "FederatedCatalogTypeDef",
@@ -677,6 +680,7 @@ __all__ = (
     "GetDashboardUrlResponseTypeDef",
     "GetDataCatalogEncryptionSettingsRequestTypeDef",
     "GetDataCatalogEncryptionSettingsResponseTypeDef",
+    "GetDataCatalogExportConfigurationOutputTypeDef",
     "GetDataQualityModelRequestTypeDef",
     "GetDataQualityModelResponseTypeDef",
     "GetDataQualityModelResultRequestTypeDef",
@@ -1089,6 +1093,8 @@ __all__ = (
     "PutAttachmentRequestTypeDef",
     "PutAttachmentResponseTypeDef",
     "PutDataCatalogEncryptionSettingsRequestTypeDef",
+    "PutDataCatalogExportConfigurationInputTypeDef",
+    "PutDataCatalogExportConfigurationOutputTypeDef",
     "PutDataQualityProfileAnnotationRequestTypeDef",
     "PutFormTypeRequestTypeDef",
     "PutFormTypeResponseTypeDef",
@@ -3124,6 +3130,11 @@ class EntityTypeDef(TypedDict):
 class ErrorDetailsTypeDef(TypedDict):
     ErrorCode: NotRequired[str]
     ErrorMessage: NotRequired[str]
+
+
+class ExportEncryptionConfigurationTypeDef(TypedDict):
+    SseAlgorithm: NotRequired[str]
+    KmsKeyArn: NotRequired[str]
 
 
 class ExportLabelsTaskRunPropertiesTypeDef(TypedDict):
@@ -6702,6 +6713,28 @@ class ListEntitiesResponseTypeDef(TypedDict):
 class SchemaVersionErrorItemTypeDef(TypedDict):
     VersionNumber: NotRequired[int]
     ErrorDetails: NotRequired[ErrorDetailsTypeDef]
+
+
+class GetDataCatalogExportConfigurationOutputTypeDef(TypedDict):
+    ExportSetting: ExportSettingType
+    Status: ExportStatusType
+    EncryptionConfiguration: ExportEncryptionConfigurationTypeDef
+    S3TableBucketArn: str
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PutDataCatalogExportConfigurationInputTypeDef(TypedDict):
+    ExportSetting: ExportSettingType
+    EncryptionConfiguration: NotRequired[ExportEncryptionConfigurationTypeDef]
+    ClientToken: NotRequired[str]
+
+
+class PutDataCatalogExportConfigurationOutputTypeDef(TypedDict):
+    ExportSetting: ExportSettingType
+    EncryptionConfiguration: ExportEncryptionConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ExtractedParameterTypeDef(TypedDict):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastmcp
-Version: 3.4.5
+Version: 3.4.6
 Summary: The fast, Pythonic way to build MCP servers and clients.
 Project-URL: Homepage, https://gofastmcp.com
 Project-URL: Repository, https://github.com/PrefectHQ/fastmcp
@@ -18,21 +18,21 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: fastmcp-slim[client,server]==3.4.5
+Requires-Dist: fastmcp-slim[client,server]==3.4.6
 Provides-Extra: anthropic
-Requires-Dist: fastmcp-slim[anthropic]==3.4.5; extra == 'anthropic'
+Requires-Dist: fastmcp-slim[anthropic]==3.4.6; extra == 'anthropic'
 Provides-Extra: apps
-Requires-Dist: fastmcp-slim[apps]==3.4.5; extra == 'apps'
+Requires-Dist: fastmcp-slim[apps]==3.4.6; extra == 'apps'
 Provides-Extra: azure
-Requires-Dist: fastmcp-slim[azure]==3.4.5; extra == 'azure'
+Requires-Dist: fastmcp-slim[azure]==3.4.6; extra == 'azure'
 Provides-Extra: code-mode
-Requires-Dist: fastmcp-slim[code-mode]==3.4.5; extra == 'code-mode'
+Requires-Dist: fastmcp-slim[code-mode]==3.4.6; extra == 'code-mode'
 Provides-Extra: gemini
-Requires-Dist: fastmcp-slim[gemini]==3.4.5; extra == 'gemini'
+Requires-Dist: fastmcp-slim[gemini]==3.4.6; extra == 'gemini'
 Provides-Extra: openai
-Requires-Dist: fastmcp-slim[openai]==3.4.5; extra == 'openai'
+Requires-Dist: fastmcp-slim[openai]==3.4.6; extra == 'openai'
 Provides-Extra: tasks
-Requires-Dist: fastmcp-slim[tasks]==3.4.5; extra == 'tasks'
+Requires-Dist: fastmcp-slim[tasks]==3.4.6; extra == 'tasks'
 Description-Content-Type: text/markdown
 
 <div align="center">

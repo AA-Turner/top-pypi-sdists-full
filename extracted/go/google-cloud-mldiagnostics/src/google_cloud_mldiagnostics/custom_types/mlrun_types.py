@@ -44,6 +44,15 @@ class ServingEngine(enum.Enum):
   VLLM = "VLLM"
 
 
+class Orchestrator(str, enum.Enum):
+  """Enumeration of supported workload orchestrators."""
+
+  GKE = "GKE"
+  SLURM = "SLURM"
+  GCE = "GCE"
+  UNKNOWN = "UNKNOWN"
+
+
 class ConfigDict(dict):
   """A dictionary that supports both dict-style and attribute-style access."""
 
@@ -108,6 +117,7 @@ class MLRun:
   display_name: str = ""
   on_demand_xprof: bool = False
   log_system_metrics: bool = False
+  metric_only_run: bool = False
   environment: str = ""
   framework: Framework = Framework.JAX
   serving_engine: ServingEngine = ServingEngine.NONE

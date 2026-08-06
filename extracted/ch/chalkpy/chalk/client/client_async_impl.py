@@ -10,9 +10,6 @@ from functools import partial
 from typing import Any, Mapping, Optional, TypeVar, Union
 from uuid import UUID
 
-import requests
-import requests.adapters
-
 from chalk.client import AsyncChalkClient
 from chalk.client.client_impl import ChalkAPIClientImpl, OnlineQueryResponseImpl
 from chalk.client.dataset import Dataset, DatasetImpl
@@ -62,11 +59,6 @@ class AsyncChalkClientImpl(AsyncChalkClient):
     ):
         self._executor = executor or ASYNC_CHALK_CLIENT_EXECUTOR
         if client is None:
-            session = requests.Session()
-            if pool_maxsize is not None:
-                adapter = requests.adapters.HTTPAdapter(pool_maxsize=pool_maxsize)
-                session.mount("http://", adapter)
-                session.mount("https://", adapter)
             client = ChalkAPIClientImpl(
                 client_id=client_id,
                 client_secret=client_secret,
@@ -75,10 +67,10 @@ class AsyncChalkClientImpl(AsyncChalkClient):
                 query_server=query_server,
                 branch=branch,
                 preview_deployment_id=preview_deployment_id,
-                session=session,
                 additional_headers=additional_headers,
                 default_request_timeout=default_request_timeout,
                 default_job_timeout=default_job_timeout,
+                pool_maxsize=pool_maxsize,
             )
         self._client = client
 

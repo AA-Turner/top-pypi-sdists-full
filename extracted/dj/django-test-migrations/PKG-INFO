@@ -1,18 +1,14 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: django-test-migrations
-Version: 1.5.0
+Version: 1.6.0
 Summary: Test django schema and data migrations, including ordering
-License: MIT
-Keywords: django,django-tests,django-migrations,django-orm,migrations,orm,sql,tests,test,pytest,pytest-plugin
+License-Expression: MIT
+License-File: LICENSE
+Keywords: django,django-migrations,django-orm,django-tests,migrations,orm,pytest,pytest-plugin,sql,test,tests
 Author: sobolevn
 Author-email: mail@sobolevn.me
 Requires-Python: >=3.10,<4.0
-Classifier: Development Status :: 4 - Beta
-Classifier: Intended Audience :: Developers
-Classifier: Operating System :: OS Independent
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: Topic :: Internet :: WWW/HTTP
-Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 3.2
 Classifier: Framework :: Django :: 4.1
@@ -20,13 +16,21 @@ Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
-Requires-Dist: typing_extensions (>=4.0)
+Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Dist: typing-extensions (>=4.16)
+Project-URL: Repository, https://github.com/wemake-services/django-test-migrations
 Description-Content-Type: text/markdown
 
 # django-test-migrations
 
 [![wemake.services](https://img.shields.io/badge/%20-wemake.services-green.svg?label=%20&logo=data%3Aimage%2Fpng%3Bbase64%2CiVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAABGdBTUEAALGPC%2FxhBQAAAAFzUkdCAK7OHOkAAAAbUExURQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP%2F%2F%2F5TvxDIAAAAIdFJOUwAjRA8xXANAL%2Bv0SAAAADNJREFUGNNjYCAIOJjRBdBFWMkVQeGzcHAwksJnAPPZGOGAASzPzAEHEGVsLExQwE7YswCb7AFZSF3bbAAAAABJRU5ErkJggg%3D%3D)](https://wemake-services.github.io)
-[![Build status](https://github.com/wemake-services/django-test-migrations/workflows/test/badge.svg?branch=master&event=push)](https://github.com/wemake-services/django-test-migrations/actions?query=workflow%3Atest)
+[![test](https://github.com/wemake-services/django-test-migrations/actions/workflows/test.yml/badge.svg?branch=master&event=push)](https://github.com/wemake-services/django-test-migrations/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/wemake-services/django-test-migrations/branch/master/graph/badge.svg)](https://codecov.io/gh/wemake-services/django-test-migrations)
 [![Python Version](https://img.shields.io/pypi/pyversions/django-test-migrations.svg)](https://pypi.org/project/django-test-migrations/)
 ![PyPI - Django Version](https://img.shields.io/pypi/djversions/django-test-migrations)
@@ -226,6 +230,7 @@ That's how it can be used:
 ```python
 import pytest
 
+
 @pytest.mark.django_db
 def test_pytest_plugin_initial(migrator):
     """Ensures that the initial migration works."""
@@ -249,6 +254,7 @@ Here's how it can be used:
 
 ```python
 from django_test_migrations.contrib.unittest_case import MigratorTestCase
+
 
 class TestDirectMigration(MigratorTestCase):
     """This class is used to test direct migrations."""
@@ -326,7 +332,6 @@ Add our check into your `INSTALLED_APPS`:
 ```python
 INSTALLED_APPS = [
     # ...
-
     # Our custom check:
     'django_test_migrations.contrib.django_checks.AutoNames',
 ]
@@ -371,7 +376,6 @@ Add our check to `INSTALLED_APPS`:
 ```python
 INSTALLED_APPS = [
     # ...
-
     # Our custom check:
     'django_test_migrations.contrib.django_checks.DatabaseConfiguration',
 ]

@@ -1,9 +1,18 @@
-"""Table contents for the standard sequence tables:
+"""Table contents for the standard sequence tables.
+
+The standard sequence tables are:
 AdminExecuteSequence, AdminUISequence, AdvtExecuteSequence,
 InstallExecuteSequence, and InstallUISequence.
 """
 
-AdminExecuteSequence = [
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Final
+
+if TYPE_CHECKING:
+    type _SequenceType = list[tuple[str, str | None, int]]
+
+AdminExecuteSequence: Final[_SequenceType] = [
     ("InstallInitialize", None, 1500),
     ("InstallFinalize", None, 6600),
     ("InstallFiles", None, 4000),
@@ -14,7 +23,7 @@ AdminExecuteSequence = [
     ("InstallValidate", None, 1400),
 ]
 
-AdminUISequence = [
+AdminUISequence: Final[_SequenceType] = [
     ("FileCost", None, 900),
     ("CostInitialize", None, 800),
     ("CostFinalize", None, 1000),
@@ -24,7 +33,7 @@ AdminUISequence = [
     ("UserExit", None, -2),
 ]
 
-AdvtExecuteSequence = [
+AdvtExecuteSequence: Final[_SequenceType] = [
     ("InstallInitialize", None, 1500),
     ("InstallFinalize", None, 6600),
     ("CostInitialize", None, 800),
@@ -41,7 +50,7 @@ AdvtExecuteSequence = [
     ("RegisterProgIdInfo", None, 4800),
 ]
 
-InstallExecuteSequence = [
+InstallExecuteSequence: Final[_SequenceType] = [
     ("InstallInitialize", None, 1500),
     ("InstallFinalize", None, 6600),
     ("InstallFiles", None, 4000),
@@ -110,7 +119,7 @@ InstallExecuteSequence = [
     ("WriteRegistryValues", None, 5000),
 ]
 
-InstallUISequence = [
+InstallUISequence: Final[_SequenceType] = [
     ("FileCost", None, 900),
     ("CostInitialize", None, 800),
     ("CostFinalize", None, 1000),
@@ -128,7 +137,7 @@ InstallUISequence = [
     ("ValidateProductID", None, 700),
 ]
 
-tables = [
+tables: Final[list[str]] = [
     "AdminExecuteSequence",
     "AdminUISequence",
     "AdvtExecuteSequence",

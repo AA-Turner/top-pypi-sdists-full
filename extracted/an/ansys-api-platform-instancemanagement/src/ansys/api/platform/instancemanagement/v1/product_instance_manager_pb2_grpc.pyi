@@ -22,7 +22,7 @@ class _ServicerContext(grpc.ServicerContext, grpc.aio.ServicerContext):  # type:
 
 class ProductInstanceManagerStub:
     """Manages the creation and deletion of product instances.
-    Note: product instance is the name given to a stateful process starting one or several services.
+    Note: A product instance is the name given to a stateful process starting one or several services.
     """
 
     def __init__(self, channel: typing.Union[grpc.Channel, grpc.aio.Channel]) -> None: ...
@@ -30,28 +30,28 @@ class ProductInstanceManagerStub:
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.CreateInstanceRequest,
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.Instance,
     ]
-    """Creates a new instance of a product."""
+    """Create a new instance of a product."""
 
     DeleteInstance: grpc.UnaryUnaryMultiCallable[
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.DeleteInstanceRequest,
         google.protobuf.empty_pb2.Empty,
     ]
-    """Removes a running instance of a product."""
+    """Remove a running instance of a product."""
 
     ListInstances: grpc.UnaryUnaryMultiCallable[
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.ListInstancesRequest,
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.ListInstancesResponse,
     ]
-    """Lists all running product instances."""
+    """List all running product instances."""
 
     GetInstance: grpc.UnaryUnaryMultiCallable[
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.GetInstanceRequest,
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.Instance,
     ]
-    """Gets an instance of a product.
-    The caller must check that the instance is ready
-    from the return before using it.
-    Returns an error if the instance failed
+    """Get a running instance of a product.
+    The caller must check what is returned to ensure that
+    the instance is ready before using it.
+    An error is returned if the instance failed
     to start, crashed, or does not exist.
     """
 
@@ -59,45 +59,45 @@ class ProductInstanceManagerStub:
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.ListDefinitionsRequest,
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.ListDefinitionsResponse,
     ]
-    """Lists all available products that can be started using this product instance manager."""
+    """List all available products that can be started using this product instance manager."""
 
     GetDefinition: grpc.UnaryUnaryMultiCallable[
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.GetDefinitionRequest,
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.Definition,
     ]
-    """Gets a product definition."""
+    """Get a product definition."""
 
 class ProductInstanceManagerAsyncStub:
     """Manages the creation and deletion of product instances.
-    Note: product instance is the name given to a stateful process starting one or several services.
+    Note: A product instance is the name given to a stateful process starting one or several services.
     """
 
     CreateInstance: grpc.aio.UnaryUnaryMultiCallable[
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.CreateInstanceRequest,
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.Instance,
     ]
-    """Creates a new instance of a product."""
+    """Create a new instance of a product."""
 
     DeleteInstance: grpc.aio.UnaryUnaryMultiCallable[
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.DeleteInstanceRequest,
         google.protobuf.empty_pb2.Empty,
     ]
-    """Removes a running instance of a product."""
+    """Remove a running instance of a product."""
 
     ListInstances: grpc.aio.UnaryUnaryMultiCallable[
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.ListInstancesRequest,
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.ListInstancesResponse,
     ]
-    """Lists all running product instances."""
+    """List all running product instances."""
 
     GetInstance: grpc.aio.UnaryUnaryMultiCallable[
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.GetInstanceRequest,
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.Instance,
     ]
-    """Gets an instance of a product.
-    The caller must check that the instance is ready
-    from the return before using it.
-    Returns an error if the instance failed
+    """Get a running instance of a product.
+    The caller must check what is returned to ensure that
+    the instance is ready before using it.
+    An error is returned if the instance failed
     to start, crashed, or does not exist.
     """
 
@@ -105,17 +105,17 @@ class ProductInstanceManagerAsyncStub:
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.ListDefinitionsRequest,
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.ListDefinitionsResponse,
     ]
-    """Lists all available products that can be started using this product instance manager."""
+    """List all available products that can be started using this product instance manager."""
 
     GetDefinition: grpc.aio.UnaryUnaryMultiCallable[
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.GetDefinitionRequest,
         ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.Definition,
     ]
-    """Gets a product definition."""
+    """Get a product definition."""
 
 class ProductInstanceManagerServicer(metaclass=abc.ABCMeta):
     """Manages the creation and deletion of product instances.
-    Note: product instance is the name given to a stateful process starting one or several services.
+    Note: A product instance is the name given to a stateful process starting one or several services.
     """
 
     @abc.abstractmethod
@@ -124,7 +124,7 @@ class ProductInstanceManagerServicer(metaclass=abc.ABCMeta):
         request: ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.CreateInstanceRequest,
         context: _ServicerContext,
     ) -> typing.Union[ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.Instance, collections.abc.Awaitable[ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.Instance]]:
-        """Creates a new instance of a product."""
+        """Create a new instance of a product."""
 
     @abc.abstractmethod
     def DeleteInstance(
@@ -132,7 +132,7 @@ class ProductInstanceManagerServicer(metaclass=abc.ABCMeta):
         request: ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.DeleteInstanceRequest,
         context: _ServicerContext,
     ) -> typing.Union[google.protobuf.empty_pb2.Empty, collections.abc.Awaitable[google.protobuf.empty_pb2.Empty]]:
-        """Removes a running instance of a product."""
+        """Remove a running instance of a product."""
 
     @abc.abstractmethod
     def ListInstances(
@@ -140,7 +140,7 @@ class ProductInstanceManagerServicer(metaclass=abc.ABCMeta):
         request: ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.ListInstancesRequest,
         context: _ServicerContext,
     ) -> typing.Union[ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.ListInstancesResponse, collections.abc.Awaitable[ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.ListInstancesResponse]]:
-        """Lists all running product instances."""
+        """List all running product instances."""
 
     @abc.abstractmethod
     def GetInstance(
@@ -148,10 +148,10 @@ class ProductInstanceManagerServicer(metaclass=abc.ABCMeta):
         request: ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.GetInstanceRequest,
         context: _ServicerContext,
     ) -> typing.Union[ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.Instance, collections.abc.Awaitable[ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.Instance]]:
-        """Gets an instance of a product.
-        The caller must check that the instance is ready
-        from the return before using it.
-        Returns an error if the instance failed
+        """Get a running instance of a product.
+        The caller must check what is returned to ensure that
+        the instance is ready before using it.
+        An error is returned if the instance failed
         to start, crashed, or does not exist.
         """
 
@@ -161,7 +161,7 @@ class ProductInstanceManagerServicer(metaclass=abc.ABCMeta):
         request: ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.ListDefinitionsRequest,
         context: _ServicerContext,
     ) -> typing.Union[ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.ListDefinitionsResponse, collections.abc.Awaitable[ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.ListDefinitionsResponse]]:
-        """Lists all available products that can be started using this product instance manager."""
+        """List all available products that can be started using this product instance manager."""
 
     @abc.abstractmethod
     def GetDefinition(
@@ -169,6 +169,6 @@ class ProductInstanceManagerServicer(metaclass=abc.ABCMeta):
         request: ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.GetDefinitionRequest,
         context: _ServicerContext,
     ) -> typing.Union[ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.Definition, collections.abc.Awaitable[ansys.api.platform.instancemanagement.v1.product_instance_manager_pb2.Definition]]:
-        """Gets a product definition."""
+        """Get a product definition."""
 
 def add_ProductInstanceManagerServicer_to_server(servicer: ProductInstanceManagerServicer, server: typing.Union[grpc.Server, grpc.aio.Server]) -> None: ...

@@ -6,6 +6,7 @@ use crate::file::InFile;
 
 mod add_explicit_alias;
 mod add_schema;
+mod convert_comment;
 mod quote_identifier;
 mod remove_else_clause;
 mod remove_redundant_alias;
@@ -16,6 +17,7 @@ mod rewrite_cast_to_double_colon;
 mod rewrite_create_table_as_as_select_into;
 mod rewrite_double_colon_to_cast;
 mod rewrite_from;
+mod rewrite_integer_radix;
 mod rewrite_leading_from;
 mod rewrite_not_equals_operator;
 mod rewrite_select_as_table;
@@ -31,6 +33,7 @@ mod test_utils;
 
 use add_explicit_alias::add_explicit_alias;
 use add_schema::add_schema;
+use convert_comment::convert_comment;
 use quote_identifier::quote_identifier;
 use remove_else_clause::remove_else_clause;
 use remove_redundant_alias::remove_redundant_alias;
@@ -41,6 +44,7 @@ use rewrite_cast_to_double_colon::rewrite_cast_to_double_colon;
 use rewrite_create_table_as_as_select_into::rewrite_create_table_as_as_select_into;
 use rewrite_double_colon_to_cast::rewrite_double_colon_to_cast;
 use rewrite_from::rewrite_from;
+use rewrite_integer_radix::rewrite_integer_radix;
 use rewrite_leading_from::rewrite_leading_from;
 use rewrite_not_equals_operator::rewrite_not_equals_operator;
 use rewrite_select_as_table::rewrite_select_as_table;
@@ -66,12 +70,14 @@ pub struct CodeAction {
 
 pub fn code_actions(db: &dyn Db, position: InFile<TextSize>) -> Option<Vec<CodeAction>> {
     let mut actions = vec![];
+    convert_comment(db, position, &mut actions);
     rewrite_as_regular_string(db, position, &mut actions);
     rewrite_as_dollar_quoted_string(db, position, &mut actions);
     remove_else_clause(db, position, &mut actions);
     rewrite_table_as_select(db, position, &mut actions);
     rewrite_select_as_table(db, position, &mut actions);
     rewrite_from(db, position, &mut actions);
+    rewrite_integer_radix(db, position, &mut actions);
     rewrite_leading_from(db, position, &mut actions);
     rewrite_values_as_select(db, position, &mut actions);
     rewrite_select_as_values(db, position, &mut actions);

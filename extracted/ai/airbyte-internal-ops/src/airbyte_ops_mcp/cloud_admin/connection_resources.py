@@ -30,9 +30,6 @@ from airbyte_ops_mcp.tier_cache import TierFilter, get_org_tier
 logger = logging.getLogger(__name__)
 
 _RESOURCE_REQUIREMENTS_SLACK_CHANNEL = "C06D5RCLBV4"
-_RESET_REQUIRED_MESSAGE = (
-    "The connection must be reset for new resource requirements to take effect."
-)
 # This is above the current 3 CPU / 8 GiB standard tier while limiting shared-worker impact.
 MAX_CPU_CORES = 4.0
 MAX_MEMORY_BYTES = 16 * 1024**3
@@ -363,12 +360,11 @@ def set_connection_resource_requirements(
     """Set or clear connection-level worker resource requirements.
 
     CPU, memory, and ephemeral-storage use bounded absolute rungs. Clearing sends
-    an empty `resourceRequirements` object. The platform stores
-    the object but its empty values merge as defaults; a connection reset is
-    required for new resources to take effect. Partial updates preserve
-    previously configured values that are not supplied. Selecting `DEFAULT`
-    clears that dimension so platform defaults apply. The production profile
-    called `Boosted` corresponds to selecting 4 CPU and 4Gi memory.
+    an empty `resourceRequirements` object. Changes apply to the next sync
+    attempt; an in-flight attempt keeps its current pod sizing. Partial updates
+    preserve previously configured values that are not supplied. Selecting
+    `DEFAULT` clears that dimension so platform defaults apply. The production
+    profile called `Boosted` corresponds to selecting 4 CPU and 4Gi memory.
     """
     config_root = config_api_root or constants.CLOUD_CONFIG_API_ROOT
     if not issue_url.startswith("https://github.com/"):
@@ -399,7 +395,6 @@ def set_connection_resource_requirements(
             success=False,
             message=auth_error,
             connection_id=connection_id,
-            reset_required=False,
         )
     rows = query_connection_workspace_details([connection_id])
     if not rows:
@@ -407,7 +402,6 @@ def set_connection_resource_requirements(
             success=False,
             message="Connection was not found in the production database.",
             connection_id=connection_id,
-            reset_required=False,
         )
     context = rows[0]
     if str(context["workspace_id"]) != workspace_id:
@@ -415,7 +409,6 @@ def set_connection_resource_requirements(
             success=False,
             message="Connection does not belong to the specified workspace.",
             connection_id=connection_id,
-            reset_required=False,
         )
     organization_id = str(context["organization_id"])
     tier_result = get_org_tier(organization_id, allow_degraded=True)
@@ -433,7 +426,6 @@ def set_connection_resource_requirements(
             connection_id=connection_id,
             customer_tier=tier_result.customer_tier,
             tier_warning=tier_warning,
-            reset_required=False,
         )
 
     previous = get_connection_resource_requirements(
@@ -529,10 +521,12 @@ def set_connection_resource_requirements(
         override_reason=override_reason,
         ai_agent_session_url=ai_agent_session_url,
     )
-    warnings = [_RESET_REQUIRED_MESSAGE]
     return ConnectionResourceRequirementsOperationResult(
         success=True,
-        message=f"Connection resource requirements updated. {_RESET_REQUIRED_MESSAGE}",
+        message=(
+            "Connection resource requirements updated. New values apply to the "
+            "next sync attempt; an in-flight attempt keeps its current pod sizing."
+        ),
         connection_id=connection_id,
         previous_cpu_request=previous.cpu_request,
         previous_cpu_limit=previous.cpu_limit,
@@ -550,5 +544,4 @@ def set_connection_resource_requirements(
         is_overridden_after=updated.was_overridden,
         customer_tier=tier_result.customer_tier,
         tier_warning=tier_warning,
-        warnings=warnings,
     )

@@ -1259,6 +1259,7 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
         self.charset_num = 33
         if self.isMariaDB():
             self.charset_num = 8
+            self.execute("SET NAMES utf8 COLLATE utf8_general_ci")
         # if self.isMySQL80AndMore():
         #     self.charset_num = 255
 
@@ -1641,7 +1642,13 @@ class TestMariadbBinlogStreamReader2(base.PyMySQLReplicationTestCase):
         # 'mariadb gtid list event' of second binlog file
         event = self.stream.fetchone()
         self.assertEqual(event.event_type, 163)
-        self.assertEqual(event.gtid_list[0].gtid, "0-1-15")
+        server_id = self.execute("SELECT @@server_id").fetchone()[0]
+        gtid = event.gtid_list[0]
+        self.assertEqual(gtid.domain_id, 0)
+        self.assertEqual(gtid.server_id, server_id)
+        self.assertGreater(gtid.gtid_seq_no, 0)
+        self.assertLessEqual(gtid.gtid_seq_no, 15)
+        self.assertEqual(gtid.gtid, f"0-{server_id}-{gtid.gtid_seq_no}")
 
     def test_format_description_event(self):
         if not self.isMariaDB():
@@ -1660,7 +1667,7 @@ class TestMariadbBinlogStreamReader2(base.PyMySQLReplicationTestCase):
         self.assertIsInstance(event, FormatDescriptionEvent)
         self.assertIsInstance(event.binlog_version, tuple)
         self.assertIsInstance(event.mysql_version_str, str)
-        self.assertTrue(event.mysql_version_str.startswith("10."))
+        self.assertTrue(event.mysql_version_str.startswith(self.getMySQLVersion()))
         self.assertIsInstance(event.common_header_len, int)
         self.assertIsInstance(event.post_header_len, tuple)
         self.assertIsInstance(event.mysql_version, tuple)

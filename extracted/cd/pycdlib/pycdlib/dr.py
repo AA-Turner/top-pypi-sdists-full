@@ -160,7 +160,8 @@ class DirectoryRecord:
     """A class that represents an ISO9660 directory record."""
     __slots__ = ('initialized', 'new_extent_loc', 'ptr', 'extents_to_here',
                  'offset_to_here', 'data_continuation', 'vd', 'children',
-                 'rr_children', 'inode', '_printable_name', 'date',
+                 'rr_children', '_subdir_children', 'inode',
+                 '_printable_name', 'date',
                  'index_in_parent', 'dr_len', 'xattr_len', 'file_flags',
                  'file_unit_size', 'interleave_gap_size', 'len_fi', 'isdir',
                  'orig_extent_loc', 'data_length', 'data_extent_offset',
@@ -194,6 +195,13 @@ class DirectoryRecord:
         self.data_extent_offset = 0
         self.children = []  # type: List[DirectoryRecord]
         self.rr_children = []  # type: List[DirectoryRecord]
+        # Real subdirectory children (excluding self's `.`/`..` entries).
+        # Kept in sync with `children` at every add/remove site so the
+        # overflow/underflow handlers in _add_child / remove_child can walk
+        # just the subdirs whose dotdot entries need updating, instead of
+        # walking all children to filter by is_dir().  Without this, a flat
+        # directory's overflow handler is O(N) per overflow ~= O(N^2) total.
+        self._subdir_children = []  # type: List[DirectoryRecord]
         self.index_in_parent = -1
         self.is_root = False
         self.isdir = False
@@ -822,6 +830,12 @@ class DirectoryRecord:
                     index += 1
         self.children.insert(index, child)
 
+        # Track real subdirectory children separately for the overflow loop
+        # below.  Exclude dot/dotdot since the overflow handler walks this
+        # list specifically to update each subdir's *own* dotdot entry.
+        if child.is_dir() and not child.is_dot() and not child.is_dotdot():
+            self._subdir_children.append(child)
+
         if child.rock_ridge is not None and not child.is_dot() and not child.is_dotdot():
             lo = 0
             hi = len(self.rr_children)
@@ -861,9 +875,7 @@ class DirectoryRecord:
             if self.parent is None:
                 self.children[1].data_length = self.data_length
 
-            for c in self.children:
-                if not c.is_dir():
-                    continue
+            for c in self._subdir_children:
                 if len(c.children) > 1:
                     c.children[1].data_length = self.data_length
 
@@ -952,6 +964,12 @@ class DirectoryRecord:
                     self.children[0].rock_ridge.remove_from_file_links()
 
         del self.children[index]
+        # Keep _subdir_children in sync.  The condition here is identical
+        # to the one in _add_child, so if the child was added under it,
+        # it's in the list now.  list.remove is O(N) on the subdir list,
+        # but that list is typically tiny (handful of subdirs per parent).
+        if child.is_dir() and not child.is_dot() and not child.is_dotdot():
+            self._subdir_children.remove(child)
 
         # We now have to check if we need to remove a logical block.
         # We have to iterate over the entire list again, because where we
@@ -974,9 +992,7 @@ class DirectoryRecord:
             if self.parent is None:
                 self.children[1].data_length = self.data_length
 
-            for c in self.children:
-                if not c.is_dir():
-                    continue
+            for c in self._subdir_children:
                 if len(c.children) > 1:
                     c.children[1].data_length = self.data_length
             underflow = True

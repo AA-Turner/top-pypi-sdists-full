@@ -41,6 +41,7 @@ class CollabAgentsClient:
         Parameters
         ----------
         asset_id : str
+            Asset id of the collab agent to message
 
         message : str
             The message text to submit to the agent. Delivered verbatim as the user turn of the agent session.
@@ -67,7 +68,7 @@ class CollabAgentsClient:
             api_key="YOUR_API_KEY",
         )
         client.collab_agents.send_message(
-            asset_id="asset_id",
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
             client_thread_key="crm-sync-42",
             message="Summarize yesterday's pipeline changes.",
             wait=True,
@@ -109,6 +110,7 @@ class AsyncCollabAgentsClient:
         Parameters
         ----------
         asset_id : str
+            Asset id of the collab agent to message
 
         message : str
             The message text to submit to the agent. Delivered verbatim as the user turn of the agent session.
@@ -140,7 +142,7 @@ class AsyncCollabAgentsClient:
 
         async def main() -> None:
             await client.collab_agents.send_message(
-                asset_id="asset_id",
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
                 client_thread_key="crm-sync-42",
                 message="Summarize yesterday's pipeline changes.",
                 wait=True,

@@ -2,19 +2,19 @@ from __future__ import annotations
 
 import abc
 import logging
-from queue import Queue, Full, Empty
 import threading
 import time
 import typing as t
+from queue import Empty, Full, Queue
 from threading import Event, Thread
 
 import grpc
-from query_cache_protobuf.query_cache.services import client_telemetry_service_pb2
 from query_cache_common.models.services import client_telemetry_service_models
+from query_cache_protobuf.query_cache.services import client_telemetry_service_pb2
 
 if t.TYPE_CHECKING:
-    from dbt_state.grpc.client import QueryCacheGrpcClient
     from dbt_state._typing import ClientEvent
+    from dbt_state.grpc.client import QueryCacheGrpcClient
 
 logger = logging.getLogger(__name__)
 

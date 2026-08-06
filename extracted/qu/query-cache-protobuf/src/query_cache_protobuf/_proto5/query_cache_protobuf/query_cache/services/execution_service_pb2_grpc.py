@@ -44,6 +44,11 @@ class ExecutionStub(object):
                 request_serializer=query__cache__protobuf_dot_query__cache_dot_services_dot_execution__service__pb2.RecordExecutionsRequest.SerializeToString,
                 response_deserializer=query__cache__protobuf_dot_query__cache_dot_services_dot_execution__service__pb2.RecordExecutionsResponse.FromString,
                 _registered_method=True)
+        self.ResolveDeferredRelations = channel.unary_unary(
+                '/com.fivetran.query_cache.Execution/ResolveDeferredRelations',
+                request_serializer=query__cache__protobuf_dot_query__cache_dot_services_dot_execution__service__pb2.ResolveDeferredRelationsRequest.SerializeToString,
+                response_deserializer=query__cache__protobuf_dot_query__cache_dot_services_dot_execution__service__pb2.ResolveDeferredRelationsResponse.FromString,
+                _registered_method=True)
 
 
 class ExecutionServicer(object):
@@ -61,6 +66,12 @@ class ExecutionServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ResolveDeferredRelations(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_ExecutionServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -73,6 +84,11 @@ def add_ExecutionServicer_to_server(servicer, server):
                     servicer.RecordExecutions,
                     request_deserializer=query__cache__protobuf_dot_query__cache_dot_services_dot_execution__service__pb2.RecordExecutionsRequest.FromString,
                     response_serializer=query__cache__protobuf_dot_query__cache_dot_services_dot_execution__service__pb2.RecordExecutionsResponse.SerializeToString,
+            ),
+            'ResolveDeferredRelations': grpc.unary_unary_rpc_method_handler(
+                    servicer.ResolveDeferredRelations,
+                    request_deserializer=query__cache__protobuf_dot_query__cache_dot_services_dot_execution__service__pb2.ResolveDeferredRelationsRequest.FromString,
+                    response_serializer=query__cache__protobuf_dot_query__cache_dot_services_dot_execution__service__pb2.ResolveDeferredRelationsResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -129,6 +145,33 @@ class Execution(object):
             '/com.fivetran.query_cache.Execution/RecordExecutions',
             query__cache__protobuf_dot_query__cache_dot_services_dot_execution__service__pb2.RecordExecutionsRequest.SerializeToString,
             query__cache__protobuf_dot_query__cache_dot_services_dot_execution__service__pb2.RecordExecutionsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ResolveDeferredRelations(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/com.fivetran.query_cache.Execution/ResolveDeferredRelations',
+            query__cache__protobuf_dot_query__cache_dot_services_dot_execution__service__pb2.ResolveDeferredRelationsRequest.SerializeToString,
+            query__cache__protobuf_dot_query__cache_dot_services_dot_execution__service__pb2.ResolveDeferredRelationsResponse.FromString,
             options,
             channel_credentials,
             insecure,

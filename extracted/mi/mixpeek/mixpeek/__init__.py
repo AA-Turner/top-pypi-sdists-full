@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.262"
+__version__ = "1.3.276"
 
 # Define package exports
 __all__ = [
@@ -60,6 +60,7 @@ __all__ = [
     "DiscoveryApi",
     "DocumentLineageApi",
     "DocumentsApi",
+    "EventsApi",
     "ExtractorPublishingApi",
     "ExtractorsApi",
     "FeatureExtractorsApi",
@@ -309,6 +310,7 @@ __all__ = [
     "CancelMigrationResponse",
     "CancelSubscriptionRequest",
     "CancelSubscriptionResponse",
+    "ChangeEventResponse",
     "ChunkStrategy",
     "ClarificationOption",
     "CloneCollectionRequest",
@@ -710,6 +712,7 @@ __all__ = [
     "ListDocumentsRequest",
     "ListDocumentsResponse",
     "ListDomainsResponse",
+    "ListEventsResponse",
     "ListExecutionsRequest",
     "ListExecutionsResponse",
     "ListFoldersResponse",
@@ -1382,6 +1385,7 @@ from mixpeek.api.data_subject_access_requests_api import DataSubjectAccessReques
 from mixpeek.api.discovery_api import DiscoveryApi as DiscoveryApi
 from mixpeek.api.document_lineage_api import DocumentLineageApi as DocumentLineageApi
 from mixpeek.api.documents_api import DocumentsApi as DocumentsApi
+from mixpeek.api.events_api import EventsApi as EventsApi
 from mixpeek.api.extractor_publishing_api import ExtractorPublishingApi as ExtractorPublishingApi
 from mixpeek.api.extractors_api import ExtractorsApi as ExtractorsApi
 from mixpeek.api.feature_extractors_api import FeatureExtractorsApi as FeatureExtractorsApi
@@ -1635,6 +1639,7 @@ from mixpeek.models.cancel_migration_request import CancelMigrationRequest as Ca
 from mixpeek.models.cancel_migration_response import CancelMigrationResponse as CancelMigrationResponse
 from mixpeek.models.cancel_subscription_request import CancelSubscriptionRequest as CancelSubscriptionRequest
 from mixpeek.models.cancel_subscription_response import CancelSubscriptionResponse as CancelSubscriptionResponse
+from mixpeek.models.change_event_response import ChangeEventResponse as ChangeEventResponse
 from mixpeek.models.chunk_strategy import ChunkStrategy as ChunkStrategy
 from mixpeek.models.clarification_option import ClarificationOption as ClarificationOption
 from mixpeek.models.clone_collection_request import CloneCollectionRequest as CloneCollectionRequest
@@ -2036,6 +2041,7 @@ from mixpeek.models.list_dlq_request import ListDLQRequest as ListDLQRequest
 from mixpeek.models.list_documents_request import ListDocumentsRequest as ListDocumentsRequest
 from mixpeek.models.list_documents_response import ListDocumentsResponse as ListDocumentsResponse
 from mixpeek.models.list_domains_response import ListDomainsResponse as ListDomainsResponse
+from mixpeek.models.list_events_response import ListEventsResponse as ListEventsResponse
 from mixpeek.models.list_executions_request import ListExecutionsRequest as ListExecutionsRequest
 from mixpeek.models.list_executions_response import ListExecutionsResponse as ListExecutionsResponse
 from mixpeek.models.list_folders_response import ListFoldersResponse as ListFoldersResponse

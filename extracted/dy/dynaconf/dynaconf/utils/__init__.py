@@ -181,6 +181,15 @@ def recursive_get(
     return recursive_get(result, tail)
 
 
+def _strip_merge_tokens(data: dict) -> None:
+    """Remove dynaconf_merge tokens from a dict tree without merging."""
+    for key in list(data.keys()):
+        if isinstance(data[key], dict):
+            data[key].pop("dynaconf_merge", None)
+            data[key].pop("dynaconf_merge_unique", None)
+            _strip_merge_tokens(data[key])
+
+
 def handle_metavalues(
     old: DataDict | dict[str, int] | dict[str, str | int],
     new: Any,
@@ -257,15 +266,8 @@ def handle_metavalues(
                 new[key] = object_merge(
                     old.get(key), new[key], list_merge=list_merge
                 )
-            else:
-                # No merge token on this level, but a nested level may still
-                # carry one - it must be handled (and removed) as well. ref #1210
-                nested_old = old.get(key)
-                handle_metavalues(
-                    nested_old if isinstance(nested_old, dict) else {},
-                    new[key],
-                    list_merge=list_merge,
-                )
+            elif key not in old:
+                _strip_merge_tokens(new[key])
 
 
 class FakeCore:
@@ -615,7 +617,7 @@ def find_the_correct_casing(
 ) -> str | None:
     """Given a key, find the proper casing in data.
 
-    Return 'None' for non-str key types.
+    Non-str keys in data are skipped.
 
     Arguments:
         key {str} -- A key to be searched in data
@@ -628,7 +630,7 @@ def find_the_correct_casing(
         return key
     for k in data_keys:
         if not isinstance(k, str):
-            return None
+            continue
         if k.lower() == key.lower():
             return k
         if k.replace(" ", "_").lower() == key.lower():

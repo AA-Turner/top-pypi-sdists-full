@@ -45,7 +45,10 @@ class TestInvoiceInfo(unittest.TestCase):
                 billing_month = '',
                 total_credits = 56,
                 created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
-                paid_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f')
+                paid_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
+                platform_fee_cents = 56,
+                cloud_fee_cents = 56,
+                platform_fee_billed_externally = True
             )
         else:
             return InvoiceInfo(

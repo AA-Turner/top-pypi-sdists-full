@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
@@ -13,10 +14,14 @@ from esphome.const import CONF_PACKAGES
 from esphome.core import EsphomeError
 from esphome.storage_json import StorageJSON
 
+from ...constants import SECRETS_FILENAME
 from ...models import Device, DeviceRuntimeState
 from ...models.boards import normalize_platform
+from ..atomic_io import read_text_with_stat
 from ..mac_addresses import derive_interface_macs
-from ..storage_path import resolve_compiled_config_path, resolve_storage_path
+from ..storage_path import resolve_storage_path
+from ..validated_config_cache import find_validated_cache, parse_validated_cache
+from ._mqtt_block import build_mqtt_extract
 from ._parsing import (
     _CONF_ALLOW_PARTITION_ACCESS,
     _extract_resolved_substitutions,
@@ -36,6 +41,7 @@ from ._parsing import (
     mdns_disabled_enabled,
     name_add_mac_suffix_enabled,
     parse_esphome_meta,
+    safe_stat_key,
     yaml_has_api_encryption,
     yaml_has_top_level_block,
 )
@@ -61,6 +67,7 @@ def load_device_from_storage(
     queued_update: bool = False,
     api_encryption_active: str | None = None,
     previous: Device | None = None,
+    shallow: bool = False,
 ) -> Device:
     """
     Build a Device model from a YAML config file and its StorageJSON.
@@ -106,20 +113,22 @@ def load_device_from_storage(
     *previous* is the prior in-memory Device for this path, when one
     exists. Its ``runtime_state`` carries forward whole so a reload
     doesn't wipe what mDNS / ping has already discovered.
+
+    *shallow* skips the resolved-config parse and the validated-config
+    read; resolved-only fields degrade to their raw-text / StorageJSON
+    fallbacks.
     """
     filename = path.name
     storage = StorageJSON.load(resolve_storage_path(filename))
 
-    try:
-        yaml_content = path.read_text(encoding="utf-8")
-    except OSError:
-        yaml_content = ""
+    yaml_stat, yaml_content, secrets_key = _snapshot_source_files(path)
+    yaml_mtime = yaml_stat.st_mtime if yaml_stat is not None else None
     # Full resolved config (``!include`` / packages / ``!secret``
     # expanded) drives the api-encryption flag — a bare regex on raw
     # YAML would miss configs that pull the api block in via include
     # or split it across packages. ``None`` on parse failure is fine;
     # ``api_encrypted`` falls back to False.
-    resolved_config = load_device_yaml(path)
+    resolved_config = None if shallow else load_device_yaml(path)
     # Feed the merged ``substitutions:`` from the resolved config back
     # into the meta readers so ``esphome.friendly_name: $room`` resolves
     # against substitutions contributed by ``packages:`` / ``!include``
@@ -167,7 +176,6 @@ def load_device_from_storage(
     storage_area = getattr(storage, "area", None) if storage else None
     area = _pick_meta(yaml_meta.area, cfg_meta.area, storage_area) or ""
 
-    yaml_mtime = path.stat().st_mtime if path.exists() else None
     bin_mtime: float | None = None
     if storage and storage.firmware_bin_path and storage.firmware_bin_path.exists():
         bin_mtime = storage.firmware_bin_path.stat().st_mtime
@@ -196,6 +204,15 @@ def load_device_from_storage(
 
     update_available = bool(
         runtime.deployed_version and runtime.deployed_version != const.__version__
+    )
+
+    uses_mqtt = has_top_level_block(resolved_config, yaml_content, "mqtt")
+    mqtt_extract = (
+        build_mqtt_extract(
+            yaml_content, resolved_config, yaml_stat, secrets_key, extra_subs, shallow=shallow
+        )
+        if uses_mqtt and yaml_stat is not None
+        else None
     )
 
     # ``Device.target_platform`` is the lowercase platform *key*
@@ -334,7 +351,8 @@ def load_device_from_storage(
         # wins, raw-text fills in mid-edit, and we don't have a
         # ``loaded_integrations`` entry that maps cleanly to "uses
         # mqtt for dashboard discovery" the way ``"api"`` does.
-        uses_mqtt=has_top_level_block(resolved_config, yaml_content, "mqtt"),
+        uses_mqtt=uses_mqtt,
+        mqtt_extract=mqtt_extract,
         uses_deep_sleep=has_top_level_block(resolved_config, yaml_content, "deep_sleep"),
         name_add_mac_suffix=name_add_mac_suffix_enabled(resolved_config, yaml_content),
         mdns_disabled=mdns_disabled_enabled(resolved_config, yaml_content),
@@ -355,11 +373,30 @@ def load_device_from_storage(
         # (same gap the ``api_enabled`` union closes via
         # ``loaded_integrations``; this flag has no StorageJSON field).
         ota_partition_access=target_platform == "esp32"
+        and not shallow
         and (
             extract_ota_partition_access(resolved_config)
             or compiled_config_has_ota_partition_access(filename)
         ),
     )
+
+
+def _snapshot_source_files(path: Path) -> tuple[os.stat_result | None, str, tuple[int, int]]:
+    """
+    Read the YAML off one handle and stamp the secrets mtime before the esphome parse.
+
+    An open failure degrades to a bare ``stat`` with empty content.
+    """
+    yaml_stat: os.stat_result | None
+    try:
+        yaml_stat, yaml_content = read_text_with_stat(path)
+    except OSError:
+        yaml_content = ""
+        try:
+            yaml_stat = path.stat()
+        except OSError:
+            yaml_stat = None
+    return yaml_stat, yaml_content, safe_stat_key(path.parent / SECRETS_FILENAME)
 
 
 def compute_has_pending_changes(
@@ -492,29 +529,21 @@ def compiled_config_has_ota_partition_access(configuration: str) -> bool:
     """
     Report whether the last compile's validated-config cache enables partition access.
 
-    ``<data_dir>/storage/<basename>.validated.yaml`` is written by every
-    esphome compile with substitutions, packages (including remote ones
-    the in-process loader can't fetch), and secrets fully resolved. The
-    raw-text scan short-circuits the full parse for the common no-flag
-    case — the cache is the whole resolved config, materially larger than
-    the source YAML, and this runs per device reload. ``clear_secrets=False``
-    mirrors ``esphome.compiled_config``: the read must not wipe the
-    process-wide secrets registry mid-scan.
+    The cache is written by every esphome compile with substitutions,
+    packages (including remote ones the in-process loader can't fetch),
+    and secrets fully resolved. The raw-text scan short-circuits the full
+    parse for the common no-flag case — the cache is the whole resolved
+    config, materially larger than the source YAML, and this runs per
+    device reload.
     """
-    path = resolve_compiled_config_path(configuration)
+    path = find_validated_cache(configuration)
+    if path is None:
+        return False
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
         return False
     if _CONF_ALLOW_PARTITION_ACCESS not in text:
         return False
-    try:
-        config = yaml_util.load_yaml(path, clear_secrets=False)
-    except EsphomeError as err:
-        # Reached only after the raw-text scan matched, so a cache esphome
-        # itself wrote won't parse — log it or the vanished dialog option is
-        # undiagnosable. Class only: yaml error marks can quote lines from
-        # the secrets-bearing cache.
-        _LOGGER.debug("Validated-config cache %s did not parse (%s)", path, type(err).__name__)
-        return False
-    return isinstance(config, dict) and extract_ota_partition_access(config)
+    config = parse_validated_cache(path, text)
+    return config is not None and extract_ota_partition_access(config)

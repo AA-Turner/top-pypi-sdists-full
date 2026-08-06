@@ -14966,6 +14966,8 @@ function harnessDisplayName(harness) {
       return "Kimi";
     case "grok":
       return "Grok";
+    case "omp":
+      return "Oh My Pi";
     default:
       return capitalizeHarness(normalized);
   }
@@ -16912,16 +16914,28 @@ function normalizeQueueSummary(raw, pendingCount) {
     next_selectable_request_id: isStringOrNull(raw["next_selectable_request_id"]) ? raw["next_selectable_request_id"] : null
   };
 }
+function normalizeProcessPathStatus(value) {
+  if (value === "active") {
+    return "active";
+  }
+  if (value === "profile_staged") {
+    return "profile_staged";
+  }
+  return "missing";
+}
 function normalizePackageManagerProtection(raw) {
   if (!isRecord$1(raw)) {
     return void 0;
   }
   const pathStatus = raw["path_status"] === "in_path" ? "in_path" : raw["path_status"] === "restart_required" ? "restart_required" : "missing_from_path";
+  const processPathStatus = normalizeProcessPathStatus(raw["process_path_status"]);
   const shimDir = typeof raw["shim_dir"] === "string" ? raw["shim_dir"] : "";
   return {
     path_status: pathStatus,
     path_contains_shim_dir: raw["path_contains_shim_dir"] === true,
     restart_shell_required: raw["restart_shell_required"] === true,
+    process_path_status: processPathStatus,
+    process_restart_required: raw["process_restart_required"] === true,
     shell_profile_configured: raw["shell_profile_configured"] === true,
     shell_profile_path: isStringOrNull(raw["shell_profile_path"]) ? raw["shell_profile_path"] : null,
     shim_dir: shimDir,
@@ -18153,9 +18167,27 @@ async function repairApprovalCenter() {
   }
   return response.json();
 }
+class GuardProtectionRepairError extends Error {
+  status;
+  code;
+  repairScope;
+  constructor(status, payload) {
+    const message = payload === null ? null : stringValue$1(payload.message);
+    super(message ?? `Protection repair failed with ${status}`);
+    this.name = "GuardProtectionRepairError";
+    this.status = status;
+    this.code = payload === null ? null : stringValue$1(payload.error);
+    this.repairScope = payload?.repair_scope === "local_integrity" ? "local_integrity" : null;
+  }
+}
 async function repairProtectionCheck(checkId) {
   if (isGuardDemoMode()) {
-    return { repaired: true, check_ids: [checkId], message: "Protection restored." };
+    return {
+      repaired: true,
+      repair_scope: "local_integrity",
+      check_ids: [checkId],
+      message: "Protection restored."
+    };
   }
   const response = await fetchWithGuardAuth("/v1/protection/repair", {
     method: "POST",
@@ -18164,14 +18196,14 @@ async function repairProtectionCheck(checkId) {
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
-    const message = isRecord$1(payload) ? stringValue$1(payload.message) : null;
-    throw new Error(message ?? `Protection repair failed with ${response.status}`);
+    throw new GuardProtectionRepairError(response.status, isRecord$1(payload) ? payload : null);
   }
-  if (!isRecord$1(payload) || payload.repaired !== true || !Array.isArray(payload.check_ids)) {
+  if (!isRecord$1(payload) || payload.repaired !== true || payload.repair_scope !== "local_integrity" || !Array.isArray(payload.check_ids)) {
     throw new Error("Guard returned an invalid protection repair result.");
   }
   return {
     repaired: true,
+    repair_scope: "local_integrity",
     check_ids: payload.check_ids.filter((value) => typeof value === "string"),
     message: stringValue$1(payload.message) ?? "Protection restored."
   };
@@ -18567,6 +18599,12 @@ function normalizePackageFirewallStatus(value) {
   const detectedManagers = readPackageShimStringArray(shimStatus, "detected_managers", "detectedManagers");
   const pathStatusValue = readPackageShimField(shimStatus, "path_status", "pathStatus");
   const rawPathStatus = pathStatusValue === "in_path" ? "in_path" : pathStatusValue === "restart_required" ? "restart_required" : "missing_from_path";
+  const processPathStatusValue = readPackageShimField(
+    shimStatus,
+    "process_path_status",
+    "processPathStatus"
+  );
+  const processPathStatus = normalizeProcessPathStatus(processPathStatusValue);
   const packageShims = normalizePackageShimEntries(record2.package_shims, supportedManagers, rawPathStatus);
   const protectedManagers = packageShims.filter((shim) => shim.activation_state === "protected").map((shim) => shim.manager);
   const protectedSet = new Set(protectedManagers);
@@ -18577,6 +18615,8 @@ function normalizePackageFirewallStatus(value) {
     path_status: rawPathStatus,
     path_contains_shim_dir: readPackageShimField(shimStatus, "path_contains_shim_dir", "pathContainsShimDir") === true,
     restart_shell_required: readPackageShimField(shimStatus, "restart_shell_required", "restartShellRequired") === true,
+    process_path_status: processPathStatus,
+    process_restart_required: readPackageShimField(shimStatus, "process_restart_required", "processRestartRequired") === true,
     shell_profile_configured: readPackageShimField(shimStatus, "shell_profile_configured", "shellProfileConfigured") === true,
     shell_profile_path: isStringOrNull(shellProfilePath) ? shellProfilePath : null,
     shim_dir: stringValue$1(readPackageShimField(shimStatus, "shim_dir", "shimDir")) ?? "",
@@ -21944,7 +21984,7 @@ function EvidenceDataProvenanceStrip({
   onViewActions
 }) {
   const beyondSample = analytics.total > sampleCount;
-  const cloudNote = runtime?.cloud_state === "local_only" ? "Guard Cloud not connected." : runtime?.cloud_state === "paired_active" && runtime?.cloud_sync_health?.label !== "Synced" ? runtime?.cloud_sync_health?.label : null;
+  const cloudNote = runtime?.cloud_state === "local_only" ? "Cloud sync optional and off." : runtime?.cloud_state === "paired_active" && runtime?.cloud_sync_health?.label !== "Synced" ? runtime?.cloud_sync_health?.label : null;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-2 border-t border-slate-100 px-5 py-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { children: [
       formatEvidenceCount(analytics.total),
@@ -28183,16 +28223,16 @@ async function waitForCloudConnection(initialStatus, {
 function cloudRecoveryContent(connected, kind = "authorization") {
   if (kind === "validation") {
     return {
-      title: "Guard Cloud could not check this package request",
-      detail: "This is not a sign-in error. Retry the install, or approve it once if you trust the package."
+      title: "Optional Cloud check unavailable",
+      detail: "Local Guard is still active. Retry the install, or approve it once if you trust the package."
     };
   }
   return connected ? {
     title: "Guard Cloud connected",
     detail: "Run the install command again for a current package safety check."
   } : {
-    title: "Check this package with Guard Cloud",
-    detail: "Guard could not load current safety data for this package. This does not mean the package is unsafe."
+    title: "Optional: add a Guard Cloud check",
+    detail: "Local Guard is working and still needs your decision. Approve this install once, or connect Guard Cloud for live package reputation."
   };
 }
 function ReviewCloudRecovery({ item }) {

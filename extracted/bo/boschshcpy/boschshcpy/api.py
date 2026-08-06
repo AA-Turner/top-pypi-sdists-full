@@ -150,6 +150,7 @@ class SHCAPI:
                 return {}
 
     def _put_api_or_fail(self, api_url: str, body: Any, timeout: int = 30) -> Any:
+        logger.debug("PUT %s body=%s", api_url, body)
         try:
             result = self._session_request(
                 "PUT", api_url, data=json.dumps(body), timeout=timeout
@@ -158,12 +159,16 @@ class SHCAPI:
             raise SHCConnectionError(f"API call failed: {e}.") from e
         if not result.ok:
             self._process_nok_result(result)
+        logger.debug(
+            "PUT %s -> status=%s body=%s", api_url, result.status_code, result.content
+        )
         if len(result.content) > 0:
             return json.loads(result.content)
         else:
             return {}
 
     def _post_api_or_fail(self, api_url: str, body: Any, timeout: int = 30) -> Any:
+        logger.debug("POST %s body=%s", api_url, body)
         try:
             result = self._session_request(
                 "POST", api_url, data=json.dumps(body), timeout=timeout
@@ -172,6 +177,9 @@ class SHCAPI:
             raise SHCConnectionError(f"API call failed: {e}.") from e
         if not result.ok:
             self._process_nok_result(result)
+        logger.debug(
+            "POST %s -> status=%s body=%s", api_url, result.status_code, result.content
+        )
         if len(result.content) > 0:
             return json.loads(result.content)
         else:
@@ -222,6 +230,26 @@ class SHCAPI:
         return self._get_api_result_or_fail(
             api_url, expected_element_type="userDefinedState"
         )
+
+    def post_userdefinedstate(self, state_data: Any) -> Any:
+        """Create a new UserDefinedState (APK ground-truth, undocumented POST).
+
+        Body's "id" should be blank -- the SHC assigns it server-side and
+        echoes the created state, including the new id, in the response.
+        Confirmed live (create+delete round-trip) against a real SHC.
+        """
+        api_url = f"{self._api_root}/userdefinedstates"
+        return self._post_api_or_fail(api_url, state_data)
+
+    def delete_userdefinedstate(self, userdefinedstate_id: str) -> None:
+        """Delete a UserDefinedState permanently (APK ground-truth, undocumented DELETE)."""
+        api_url = f"{self._api_root}/userdefinedstates/{urllib.parse.quote(userdefinedstate_id, safe='')}"
+        try:
+            result = self._session_request("DELETE", api_url, timeout=30)
+        except requests.exceptions.RequestException as e:
+            raise SHCConnectionError(f"API call failed: {e}.") from e
+        if not result.ok:
+            self._process_nok_result(result)
 
     def get_messages(self) -> Any:
         api_url = f"{self._api_root}/messages"
@@ -290,6 +318,16 @@ class SHCAPI:
         return self._get_api_result_or_fail(
             api_url, expected_element_type="automationRule"
         )
+
+    def post_automation_rule(self, rule_data: Any) -> Any:
+        """Create a new automation rule (APK ground-truth, undocumented POST).
+
+        Body's "id" should be blank -- the SHC assigns it server-side and
+        echoes the created rule, including the new id, in the response.
+        Confirmed live (create+delete round-trip) against a real SHC.
+        """
+        api_url = f"{self._api_root}/automation/rules"
+        return self._post_api_or_fail(api_url, rule_data)
 
     def get_automation_rule(self, rule_id: str) -> Any:
         api_url = (
